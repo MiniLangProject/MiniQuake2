@@ -9,6 +9,8 @@ import miniquake2.server.types as sgmtypes
 const MAX_PENDING_MULTICAST_EVENTS = 256
 const MAX_PENDING_MULTICAST_BYTES = 88576
 const MAX_MULTICAST_FRAGMENT_BYTES = 1392
+const MAX_PENDING_UNICAST_EVENTS = 256
+const MAX_PENDING_UNICAST_BYTES = 88576
 
 function numeric(value)
   return typeof(value) == "int" or typeof(value) == "float"
@@ -101,6 +103,79 @@ function validateAll(events)
   end for
   if len(events) > MAX_PENDING_MULTICAST_EVENTS or total > MAX_PENDING_MULTICAST_BYTES then
     return error(3945, "pending server multicast queue is full")
+  end if
+  return true
+end function
+
+function unicastEntityNumber(runtime, entity)
+  if typeof(entity) != "struct" or typeof(entity.state) != "struct" or
+      typeof(entity.state.number) != "int" or entity.state.number < 1 or
+      entity.state.number > runtime.maxClients then
+    return error(3948, "unicast target is not a client edict")
+  end if
+  return entity.state.number
+end function
+
+function queuedUnicastBytes(events)
+  total = 0
+  for each event in events
+    if typeof(event) != "struct" or typeof(event.payload) != "bytes" then
+      return error(3949, "pending unicast queue is malformed")
+    end if
+    total = total + len(event.payload)
+  end for
+  return total
+end function
+
+function copyPayload(payload)
+  ownedPayload = bytes(len(payload))
+  payloadIndex = 0
+  while payloadIndex < len(payload)
+    ownedPayload[payloadIndex] = payload[payloadIndex]
+    payloadIndex = payloadIndex + 1
+  end while
+  return ownedPayload
+end function
+
+function enqueueUnicast(runtime, entity, reliable, payload)
+  entityNumber = unicastEntityNumber(runtime, entity)
+  if typeof(reliable) != "bool" then return error(3950, "unicast reliability must be boolean") end if
+  if typeof(payload) != "bytes" or len(payload) <= 0 or len(payload) > MAX_MULTICAST_FRAGMENT_BYTES then
+    return error(3951, "unicast payload outside one Protocol-34 packet")
+  end if
+  if len(runtime.pendingUnicasts) >= MAX_PENDING_UNICAST_EVENTS or
+      queuedUnicastBytes(runtime.pendingUnicasts) + len(payload) > MAX_PENDING_UNICAST_BYTES then
+    return error(3952, "pending server unicast queue is full")
+  end if
+  event = sgmtypes.PendingUnicastEvent(runtime.nextUnicastSerial, entityNumber,
+    reliable, copyPayload(payload))
+  runtime.pendingUnicasts = runtime.pendingUnicasts + [event]
+  runtime.nextUnicastSerial = runtime.nextUnicastSerial + 1
+  return event
+end function
+
+function validateUnicastEvent(event)
+  if typeof(event) != "struct" or typeof(event.serial) != "int" or event.serial < 0 or
+      typeof(event.entity) != "int" or event.entity < 1 or typeof(event.reliable) != "bool" or
+      typeof(event.payload) != "bytes" or len(event.payload) <= 0 or
+      len(event.payload) > MAX_MULTICAST_FRAGMENT_BYTES then
+    return error(3953, "pending unicast event is malformed")
+  end if
+  return true
+end function
+
+function validateUnicastAll(events)
+  if typeof(events) != "array" then return error(3954, "pending unicast list must be an array") end if
+  previousSerial = -1
+  total = 0
+  for each event in events
+    validateUnicastEvent(event)
+    if event.serial <= previousSerial then return error(3955, "pending unicast ordering is malformed") end if
+    total = total + len(event.payload)
+    previousSerial = event.serial
+  end for
+  if len(events) > MAX_PENDING_UNICAST_EVENTS or total > MAX_PENDING_UNICAST_BYTES then
+    return error(3952, "pending server unicast queue is full")
   end if
   return true
 end function

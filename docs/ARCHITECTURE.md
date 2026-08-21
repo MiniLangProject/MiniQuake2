@@ -105,11 +105,13 @@ demo replay. Server-provided `stufftext` is data: only the three fixed signon
 forms are allowlisted by the headless session; arbitrary text stays queued for
 the UI/command-policy layer.
 
-Game-module multicast writes cross the API-v3 boundary as owned, bounded typed
+Game-module message writes cross the API-v3 boundary as owned, bounded typed
 events. The server resolves `MULTICAST_ALL`, PVS/PHS and their reliable variants
-per spawned client, preflights every recipient Netchan before mutation, and
-drains the bridge queue only after complete delivery. Payloads remain ordinary
-Protocol-34 service-command fragments; no private wire framing is introduced.
+per spawned client; `unicast`, `cprintf` and `centerprintf` resolve exactly one
+client edict. Both dispatchers preflight every recipient Netchan before mutation
+and drain their bridge queues only after complete delivery. Payloads remain
+ordinary Protocol-34 service-command fragments; no private wire framing is
+introduced.
 
 ## A06: Data ownership and save format
 

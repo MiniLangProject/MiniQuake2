@@ -61,6 +61,10 @@ scripted props are intentionally non-combat states. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
 now kills a 100-health peer through seven genuine UDP Blaster commands and
 respawns it through the normal attack latch.
+Game-API `unicast`, `cprintf` and `centerprintf` now use a separate bounded
+per-client queue: reliable text is ACK-retained, unreliable service commands
+remain sequenced, and transactional client handoff exposes prints only to the
+target slot.
 An active-session persistence gate writes and restores both Game and Level
 images without resetting the live UDP/Netchan sequence, then proves the next
 snapshot and failure-atomic rollback after a deliberately corrupted private

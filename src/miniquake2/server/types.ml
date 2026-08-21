@@ -31,6 +31,13 @@ struct PendingMulticastEvent
   payload
 end struct
 
+struct PendingUnicastEvent
+  serial
+  entity
+  reliable
+  payload
+end struct
+
 struct ServerRuntime
   state
   mapName
@@ -46,6 +53,8 @@ struct ServerRuntime
   multicastBuffer
   pendingMulticasts
   nextMulticastSerial
+  pendingUnicasts
+  nextUnicastSerial
   pendingSounds
   nextSoundSerial
   logs

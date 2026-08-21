@@ -43,7 +43,9 @@ cross-map restore performs a full re-signon with failure-atomic source-map
 rollback. Scripted boss-prop phases and the Jorg/Makron chain survive the
 versioned private save format. Coupled turret rigs carry their bounds, team,
 aim, cadence, projectile and driver lifecycle through the integrated world
-runtime. In addition,
+runtime. Targeted Game-API `unicast`, `cprintf` and `centerprintf` messages also
+reach exactly one transactional client UI handoff through bounded reliable or
+sequenced-unreliable queues. In addition,
 two live UDP clients prove core DM and coop lifecycle semantics. G10 includes
 manifest and asset/source exclusion, native Release/Debug gates, diagnostics,
 retail smoke, deterministic packaging, and a 10,000-frame retail session soak

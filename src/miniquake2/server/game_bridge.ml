@@ -59,11 +59,37 @@ function dprintf(value)
 end function
 
 function cprintf(entity, level, value)
-  return appendLog("client:" + level, value)
+  if typeof(level) != "int" or level < qc.PRINT_LOW or level > qc.PRINT_CHAT then
+    return error(3956, "client print level outside Protocol-34 range")
+  end if
+  context = requireActive("cprintf")
+  if entity is void then
+    gameBridgeAppendLog(context, ["console:" + level, value])
+    return true
+  end if
+  buffer = sizebuf.alloc(qc.MAX_MSGLEN)
+  message.writeByte(buffer, qc.SVC_PRINT)
+  message.writeByte(buffer, level)
+  message.writeString(buffer, value)
+  event = sgmessages.enqueueUnicast(context, entity, true, sizebuf.dataSlice(buffer))
+  gameBridgeAppendLog(context, ["client:" + level, value])
+  return event
 end function
 
 function centerprintf(entity, value)
-  return appendLog("center", value)
+  context = requireActive("centerprintf")
+  targetNumber = try(sgmessages.unicastEntityNumber(context, entity))
+  if targetNumber is error then
+    // Quake II 3.19 PF_centerprintf deliberately ignores non-client edicts.
+    gameBridgeAppendLog(context, ["center-drop", value])
+    return false
+  end if
+  buffer = sizebuf.alloc(qc.MAX_MSGLEN)
+  message.writeByte(buffer, qc.SVC_CENTERPRINT)
+  message.writeString(buffer, value)
+  event = sgmessages.enqueueUnicast(context, entity, true, sizebuf.dataSlice(buffer))
+  gameBridgeAppendLog(context, ["center", value])
+  return event
 end function
 
 function sound(entity, channel, soundIndex, volume, attenuation, timeOffset)
@@ -460,7 +486,9 @@ end function
 
 function unicast(entity, reliable)
   context = requireActive("unicast")
-  appendLog("unicast", sizebuf.dataSlice(context.multicastBuffer))
+  payload = sizebuf.dataSlice(context.multicastBuffer)
+  sgmessages.enqueueUnicast(context, entity, reliable, payload)
+  appendLog("unicast", payload)
   sizebuf.clear(context.multicastBuffer)
   return true
 end function
@@ -558,7 +586,7 @@ function createRuntime(maxClients)
     clients[i] = st.ClientSlot(0, "", "", 0, 0, 0, void)
     i = i + 1
   end while
-  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, [], registry, commandSystem, void, void)
+  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, [], 0, [], registry, commandSystem, void, void)
 end function
 
 function makeImports(context)

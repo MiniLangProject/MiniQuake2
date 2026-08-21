@@ -31,6 +31,7 @@ import miniquake2.network.runtime.commands as sscommands
 import miniquake2.network.runtime.pump as sspump
 import miniquake2.network.runtime.sound_dispatch as ssounddispatch
 import miniquake2.network.runtime.multicast_dispatch as ssmulticastdispatch
+import miniquake2.network.runtime.unicast_dispatch as ssunicastdispatch
 import miniquake2.network.runtime.lifecycle as sslifecycle
 import miniquake2.platform.system as sssystem
 import miniquake2.platform.udp as ssudp
@@ -280,6 +281,24 @@ function routeMulticasts(session, events)
   return routed
 end function
 
+function routeUnicasts(session, events)
+  ssgamemessages.validateUnicastAll(events)
+  runtime = session.networkRuntime
+  routed = array(runtime.server.maxClients, void)
+  slot = 0
+  while slot < runtime.server.maxClients
+    routed[slot] = []
+    client = runtime.server.clients[slot]
+    if client.state == ssnc.CS_SPAWNED and client.channel is not void then
+      for each event in events
+        if event.entity == slot + 1 then routed[slot] = routed[slot] + [event] end if
+      end for
+    end if
+    slot = slot + 1
+  end while
+  return routed
+end function
+
 function synchronizeConfigStrings(session)
   runtime = session.networkRuntime
   bridge = session.bridgeRuntime
@@ -370,6 +389,8 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   ssqsz.clear(bridge.multicastBuffer)
   bridge.pendingMulticasts = []
   bridge.nextMulticastSerial = 0
+  bridge.pendingUnicasts = []
+  bridge.nextUnicastSerial = 0
   bridge.pendingSounds = []
   bridge.nextSoundSerial = 0
   bridge.collision = collision
@@ -411,6 +432,8 @@ function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeOldMulticastHolder = ssqsz.dataSlice(serverSessionChangeBridgeHolder.multicastBuffer)
   serverSessionChangeOldPendingMulticastsHolder = serverSessionChangeBridgeHolder.pendingMulticasts
   serverSessionChangeOldNextMulticastSerial = serverSessionChangeBridgeHolder.nextMulticastSerial
+  serverSessionChangeOldPendingUnicastsHolder = serverSessionChangeBridgeHolder.pendingUnicasts
+  serverSessionChangeOldNextUnicastSerial = serverSessionChangeBridgeHolder.nextUnicastSerial
   serverSessionChangeOldPendingSoundsHolder = serverSessionChangeBridgeHolder.pendingSounds
   serverSessionChangeOldNextSoundSerial = serverSessionChangeBridgeHolder.nextSoundSerial
   serverSessionChangeOldLogsHolder = serverSessionChangeBridgeHolder.logs
@@ -435,6 +458,8 @@ function changeMapCore(session, mapName, entityText, collision)
       serverSessionChangeOldMapNameHolder, serverSessionChangeOldEntityTextHolder, ""))
     serverSessionChangeBridgeHolder.pendingMulticasts = serverSessionChangeOldPendingMulticastsHolder
     serverSessionChangeBridgeHolder.nextMulticastSerial = serverSessionChangeOldNextMulticastSerial
+    serverSessionChangeBridgeHolder.pendingUnicasts = serverSessionChangeOldPendingUnicastsHolder
+    serverSessionChangeBridgeHolder.nextUnicastSerial = serverSessionChangeOldNextUnicastSerial
     serverSessionChangeBridgeHolder.pendingSounds = serverSessionChangeOldPendingSoundsHolder
     serverSessionChangeBridgeHolder.nextSoundSerial = serverSessionChangeOldNextSoundSerial
     serverSessionChangeBridgeHolder.logs = serverSessionChangeOldLogsHolder
@@ -547,6 +572,11 @@ function step(session)
   synchronizeConfigStrings(session)
   session.frameNumber = session.frameNumber + 1
   session.networkRuntime.server.realTime = now
+  routedUnicasts = routeUnicasts(session, session.bridgeRuntime.pendingUnicasts)
+  unicastResult = ssunicastdispatch.dispatchRouted(session.networkRuntime, session.socket,
+    session.bridgeRuntime.pendingUnicasts, routedUnicasts, now)
+  session.packetsSent = session.packetsSent + unicastResult.sent
+  if unicastResult.delivered then session.bridgeRuntime.pendingUnicasts = [] end if
   routedMulticasts = routeMulticasts(session, session.bridgeRuntime.pendingMulticasts)
   multicastResult = ssmulticastdispatch.dispatchRouted(session.networkRuntime, session.socket,
     session.bridgeRuntime.pendingMulticasts, routedMulticasts, now)

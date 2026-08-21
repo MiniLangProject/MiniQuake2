@@ -147,6 +147,13 @@ as the expected DLight and attack sound. This proves damage/projectile and
 first-flash transport coverage, not original per-frame attack animation,
 multi-frame muzzle selection or randomized refire parity.
 
+`server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and
+`network_runtime_unicast_loopback_tests` close the targeted half of the same
+Game-API seam. They validate exact `svc_print`/`svc_centerprint` framing, owned
+bounded payloads, two-slot isolation, full-queue failure atomicity, reliable
+ACK retention and sequenced-unreliable delivery. The real UDP gate observes the
+expected print and centerprint only in the integrated target-client handoff.
+
 `runtime_multiplayer_deathmatch_tests` and `runtime_multiplayer_coop_tests` run
 two real local UDP clients against one server. DM proves distinct slots/names,
 mutual two-player snapshots, seven decoded UDP Blaster attack edges through
