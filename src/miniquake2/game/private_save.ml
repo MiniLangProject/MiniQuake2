@@ -7,6 +7,7 @@ import miniquake2.protocol.checked as privatechecked
 import miniquake2.game.base.spawn as privatespawn
 import miniquake2.game.integration.baseq2 as privateintegration
 import miniquake2.game.ai.archetypes as privatesaveaiarchetypes
+import miniquake2.game.ai.insane as privatesaveinsane
 import miniquake2.game.ai.types as privatesaveaitypes
 import miniquake2.game.types as privatesavegametypes
 import miniquake2.game.world.movers as privatemovers
@@ -258,6 +259,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     actor.deadFlag = privatechecked.readLong(buffer, "private monster deadflag"); actor.flags = privatechecked.readLong(buffer, "private monster flags")
     actor.nextThink = privateReadFloat(buffer, "private monster nextthink"); actor.info.attackFinished = privateReadFloat(buffer, "private monster attack time")
     actor.edict.state.frame = privatechecked.readLong(buffer, "private monster frame"); actor.activity = privatemessage.readString(buffer)
+    if actor.className == "misc_insane" then privatesaveinsane.restoreMove(actor, actor.activity) end if
     actor.target = privatemessage.readString(buffer); actor.targetName = privatemessage.readString(buffer)
     actor.deathTarget = privatemessage.readString(buffer); actor.combatTarget = privatemessage.readString(buffer)
     privateMonsterOriginHolder = privateReadVec(buffer, "private monster origin")

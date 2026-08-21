@@ -83,6 +83,9 @@ end function
 function noopSetModel(entity, modelName)
   return true
 end function
+function noopLightStyle(style, pattern)
+  return true
+end function
 
 function defaultCallbacks()
   return gwtypes.WorldCallbacks(
@@ -92,7 +95,7 @@ function defaultCallbacks()
     zeroRandomSigned, zeroRandomIndex,
     noopResolveKeyItem, noopHasKeyItem, noopConsumeKeyItem,
     noopActorMessage, noopActorTransition, noopCombatPointTransition, zeroClockSeconds,
-    noopSetModel
+    noopSetModel, noopLightStyle
   )
 end function
 

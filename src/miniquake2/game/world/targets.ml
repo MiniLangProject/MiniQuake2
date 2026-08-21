@@ -6,6 +6,7 @@ import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.vector as gwvector
 import miniquake2.qcommon.types as targetactorqtypes
+import miniquake2.qcommon.byteio as targetlightrampbyteio
 
 // -------------------------------------------------------------------------
 // target_actor from m_actor.c. AI-private state changes are represented by
@@ -348,6 +349,85 @@ function spawnEarthquake(entity, world)
   return entity
 end function
 
+// -------------------------------------------------------------------------
+// target_lightramp from g_target.c. Configstring mutation is an explicit
+// engine callback so this state machine stays deterministic and headless.
+
+function targetLightRampThink(entity, world)
+  elapsedFrames = (world.time - entity.timestamp) / world.frameTime
+  styleOffset = entity.moveDirection.x + elapsedFrames * entity.moveDirection.z
+  styleByte = 97 + targetlightrampbyteio.truncInt(styleOffset)
+  world.callbacks.lightStyle(entity.targetEntity.style, decode(bytes([styleByte])))
+  gwcore.emit(world, "light-ramp", entity, styleByte)
+
+  if world.time - entity.timestamp < entity.speed then
+    entity.think = targetLightRampThink
+    entity.nextThink = world.time + world.frameTime
+  else if (entity.spawnFlags & 1) != 0 then
+    start = entity.moveDirection.x
+    entity.moveDirection.x = entity.moveDirection.y
+    entity.moveDirection.y = start
+    entity.moveDirection.z = -entity.moveDirection.z
+  end if
+  return true
+end function
+
+function targetLightRampUse(entity, other, activator, world)
+  light = entity.targetEntity
+  if light is void or typeof(light) != "struct" or light.inUse == false then
+    light = void
+    matches = gwcore.matchingTargets(world, entity.target)
+    for each candidate in matches
+      if candidate.className != "light" then
+        gwcore.log(world, "target_lightramp target " + entity.target + " is not a light: " + candidate.className)
+      else
+        light = candidate
+      end if
+    end for
+    if light is void then
+      gwcore.log(world, "target_lightramp target " + entity.target + " not found")
+      gwcore.freeEntity(world, entity)
+      return false
+    end if
+    entity.targetEntity = light
+  end if
+  entity.timestamp = world.time
+  return targetLightRampThink(entity, world)
+end function
+
+function spawnTargetLightRamp(entity, world, deathmatch)
+  ramp = bytes(entity.message)
+  badRamp = len(ramp) != 2
+  if badRamp == false then
+    badRamp = ramp[0] < 97 or ramp[0] > 122 or ramp[1] < 97 or ramp[1] > 122 or ramp[0] == ramp[1]
+  end if
+  if badRamp then
+    gwcore.log(world, "target_lightramp has bad ramp " + entity.message)
+    gwcore.freeEntity(world, entity)
+    return false
+  end if
+  if deathmatch then gwcore.freeEntity(world, entity); return false end if
+  if entity.target == "" then
+    gwcore.log(world, "target_lightramp with no target")
+    gwcore.freeEntity(world, entity)
+    return false
+  end if
+  if entity.speed <= 0.0 or world.frameTime <= 0.0 then
+    gwcore.log(world, "target_lightramp requires positive speed and frame time")
+    gwcore.freeEntity(world, entity)
+    return false
+  end if
+
+  start = ramp[0] - 97
+  finish = ramp[1] - 97
+  slope = (finish - start) / (entity.speed / world.frameTime)
+  entity.moveDirection = targetactorqtypes.Vec3(start, finish, slope)
+  entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
+  entity.use = targetLightRampUse
+  entity.think = targetLightRampThink
+  return entity
+end function
+
 function SP_target_temp_entity(entity, world)
   return spawnTempEntity(entity, world)
 end function
@@ -392,4 +472,7 @@ function SP_target_earthquake(entity, world)
 end function
 function SP_target_actor(entity, world)
   return spawnTargetActor(entity, world)
+end function
+function SP_target_lightramp(entity, world)
+  return spawnTargetLightRamp(entity, world, false)
 end function

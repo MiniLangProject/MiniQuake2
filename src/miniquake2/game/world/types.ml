@@ -87,6 +87,7 @@ struct WorldEntity
   die
   nextThink
   touchDebounceTime
+  timestamp
   moveInfo
   pauseTime
   lip
@@ -120,6 +121,7 @@ struct WorldCallbacks
   combatPointTransition
   clockSeconds
   setModel
+  lightStyle
 end struct
 
 struct WorldState
@@ -210,7 +212,7 @@ function createEntity(number, className)
     gwconstants.DAMAGE_NO, false,
     void, void, void, void, void,
     void, void, void, void, void,
-    0.0, 0.0, zeroMoveInfo(),
+    0.0, 0.0, 0.0, zeroMoveInfo(),
     0.0, 0.0, 0.0,
     "", "", void, void, void
   )

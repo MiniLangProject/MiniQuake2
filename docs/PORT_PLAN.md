@@ -20,16 +20,18 @@ special surfaces, transformed brush models, BSP visibility and interpolated MD2.
 
 All 47 classic retail BSPs now pass the read-only matrix: 36,404 source
 entities, 20,935 live edicts, all 138 stock class names, and no unknown or
-skipped class. Seven previously simplified world classes now have typed state
-machines and product integration, leaving 218 simplified instances across 17
-classes. A real UDP map-change test retains Netchan sequence state while
+skipped class. The rare-world passes plus the dedicated `misc_insane` AI reduce
+the explicitly simplified tail to eight instances across five classes. A real
+UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
 remaining rare entities and monsters, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
 three fresh runs produced the same 656-step/3,204-packet result. The behavior
-matrix additionally proves the persistent boss2 Jorg/Makron/counter/changelevel chain, and
+matrix additionally proves the persistent boss2 Jorg/Makron/counter/changelevel chain. An
+active-session adapter round-trips Game+Level saves failure-atomically while
+preserving a live Netchan and producing the next valid snapshot, and
 two live UDP clients prove core DM and coop lifecycle semantics. G10 includes
 manifest and asset/source exclusion, native Release/Debug gates, diagnostics,
 retail smoke, deterministic packaging, and a 10,000-frame retail session soak

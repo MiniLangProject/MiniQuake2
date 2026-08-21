@@ -89,6 +89,9 @@ end function
 function callbackSetModel(entity, modelName)
   return true
 end function
+function callbackLightStyle(style, pattern)
+  return true
+end function
 
 function makeWorld()
   global callbackEvents
@@ -100,7 +103,7 @@ function makeWorld()
     callbackRandomSigned, callbackRandomIndex,
     callbackResolveKey, callbackHasKey, callbackConsumeKey,
     callbackActorMessage, callbackActorTransition, callbackCombatPointTransition, callbackClockSeconds,
-    callbackSetModel
+    callbackSetModel, callbackLightStyle
   )
   return gwcore.createWorld(callbacks)
 end function

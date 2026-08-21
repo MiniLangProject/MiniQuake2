@@ -34,6 +34,9 @@ const EF_ANIM01 = 0x00000400
 const EF_ANIM23 = 0x00000800
 const EF_ANIM_ALL = 0x00001000
 const EF_ANIM_ALLFAST = 0x00002000
+const EF_ROCKET = 0x00000010
+
+const RF_TRANSLUCENT = 32
 
 const DOOR_START_OPEN = 1
 const DOOR_REVERSE = 2
@@ -66,4 +69,5 @@ const CLOCK_MULTI_USE = 8
 const MOD_CRUSH = "crush"
 const MOD_EXPLOSIVE = "explosive"
 const MOD_BARREL = "barrel"
+const MOD_BOMB = "bomb"
 const SFL_CROSS_TRIGGER_MASK = 0x000000ff

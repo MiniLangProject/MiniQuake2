@@ -121,9 +121,12 @@ intermission/next-map state and the queued `gamemap` command. A separate v3
 private-save gate restores both the staged Jorg death and the dynamically
 materialized Makron while preserving enemy/target references and exactly-once
 transition guards. `point_combat`, `target_actor`, `target_character`,
-`target_string`, `trigger_key`, `func_clock` and `trigger_elevator` are now
-functional typed state machines; 218 instances across 17 classes remain
-explicitly simplified. This closes those slices, not every animation or AI
+`target_string`, `trigger_key`, `func_clock`, `trigger_elevator`,
+`target_lightramp`, `func_killbox`, the Viper/bomb set piece, the remaining
+decorative thinkers, `info_notnull` and `light_mine2` are now functional typed
+state machines. All 60 `misc_insane` instances use a dedicated AI with
+persisted crawl/crucified/pain/death phases. Eight instances across five
+classes remain explicitly simplified. This closes those slices, not every animation or AI
 decision leading to them.
 
 `runtime_multiplayer_deathmatch_tests` and `runtime_multiplayer_coop_tests` run
@@ -134,6 +137,13 @@ normal attack-latch respawn without `DF_FORCE_RESPAWN`. Coop proves shared
 map/spawn epoch, `IT_STAY_COOP` key pickup for both
 players, disconnect with the surviving peer still active, and a fresh reconnect
 and signon without stale visibility.
+
+`runtime_active_session_persistence_tests` writes both managed Game and Level
+images from an active UDP session, mutates live world/player/item/score state,
+restores without resetting the same-map Netchan or server frame, and validates
+the next snapshot. A valid outer image with deliberately corrupted private
+payload proves that a mid-restore failure rolls back atomically. Cross-map
+restore remains an explicit map-change/re-signon responsibility.
 
 The unpaced full retail session soak completed 10,000 `base1` frames through
 server frame 10,014 in 478,205.944 ms (20.91 frames/s), processing
@@ -234,8 +244,8 @@ graphs, reference-member writes and allocation-time float boxing; the repeated
   client and server binaries (raw bidirectional Protocol-34 is passed);
 - paired fixed-camera original `ref_gl` pixel comparison and a documented
   threshold (MiniQuake2 deterministic capture/diff is passed);
-- exhaustive retail campaign playthrough behavior, remaining rare
-  monster/class exactness, and broader private-state save coverage;
+- exhaustive retail campaign playthrough behavior, remaining turret/boss-prop
+  and monster exactness, and cross-map save/re-signon orchestration;
 - broader multi-host coop/deathmatch weapon/projectile gameplay beyond the
   two-client lifecycle/scoring/item matrix;
 - manual input/audio/fullscreen/device-loss acceptance on release hardware.

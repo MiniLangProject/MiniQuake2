@@ -44,11 +44,18 @@ campaign matrix now covers every retail classname and proves the `boss2`
 Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
 The retail behavior matrix now classifies `point_combat`, `trigger_key`,
 `target_actor`, `target_character`, `target_string`, `func_clock` and
-`trigger_elevator` as functional world state machines, reducing the explicitly
-simplified tail to 218 instances across 17 classes. Two real local UDP clients
+`trigger_elevator` as functional world state machines. The following stock pass
+also closes `target_lightramp`, `func_killbox`, the Viper/bomb set piece, the
+remaining decorative thinkers, `info_notnull`, `light_mine2`, and all 60
+`misc_insane` entities; only eight instances across five classes remain
+explicitly simplified. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
 now kills a 100-health peer through seven genuine UDP Blaster commands and
 respawns it through the normal attack latch.
+An active-session persistence gate writes and restores both Game and Level
+images without resetting the live UDP/Netchan sequence, then proves the next
+snapshot and failure-atomic rollback after a deliberately corrupted private
+payload.
 An independent raw Protocol-34 peer validates both client and server wire
 directions, and deterministic OpenGL readback produces stable TGA captures,
 JSON pixel metrics and heatmaps. The unpaced full retail session passes 10,000
@@ -59,8 +66,8 @@ These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
-original `ref_gl` reference captures, the remaining rare-class/monster
-exactness, broader save coverage outside the dynamic boss chain, and manual
+original `ref_gl` reference captures, the remaining turret/boss-prop and
+monster exactness, cross-map save/re-signon orchestration, and manual
 device acceptance.
 
 The canonical local reference remains commit

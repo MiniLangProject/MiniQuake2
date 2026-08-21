@@ -48,16 +48,14 @@ end function
 
 function campaignCoverageSimplified(name)
   return campaignCoverageContains([
-    "func_killbox", "light_mine2", "misc_blackhole",
-    "misc_easterchick", "misc_easterchick2", "misc_eastertank", "misc_insane",
-    "misc_satellite_dish", "misc_viper", "misc_viper_bomb",
-    "monster_boss3_stand", "monster_commander_body", "target_lightramp",
-    "turret_base", "turret_breach", "turret_driver", "info_notnull",
+    "monster_boss3_stand", "monster_commander_body",
+    "turret_base", "turret_breach", "turret_driver",
   ], name)
 end function
 
 function campaignCoverageBehavior(name, isMonster, isBoss, isSimplified)
   if isSimplified then return "generic/simplified" end if
+  if name == "misc_insane" then return "ai:misc-insane" end if
   if isMonster then
     if name == "monster_jorg" then return "boss-ai+makron-successor" end if
     if campaignCoverageContains([
@@ -80,8 +78,8 @@ end function
 function campaignCoverageAdd(entries, name, mapName)
   entry = campaignCoverageFind(entries, name)
   if entry is void then
-    isMonster = campaigncoveragestring.startsWith(name, "monster_") and
-      name != "monster_boss3_stand" and name != "monster_commander_body"
+    isMonster = (campaigncoveragestring.startsWith(name, "monster_") and
+      name != "monster_boss3_stand" and name != "monster_commander_body") or name == "misc_insane"
     isBoss = campaignCoverageBoss(name)
     isObjective = campaignCoverageObjective(name)
     isSimplified = campaignCoverageSimplified(name)
@@ -106,9 +104,11 @@ function main(args)
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "monster_jorg", "boss2")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "trigger_counter", "boss2")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "point_combat", "base1")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "misc_insane", "jail2")
     jorg = campaignCoverageFind(syntheticEntries, "monster_jorg")
     counter = campaignCoverageFind(syntheticEntries, "trigger_counter")
     point = campaignCoverageFind(syntheticEntries, "point_combat")
+    insane = campaignCoverageFind(syntheticEntries, "misc_insane")
     if jorg is void or not jorg.monster or not jorg.boss or jorg.simplified or
         jorg.behavior != "boss-ai+makron-successor" then
       return error(9842, "synthetic boss coverage classification failed")
@@ -118,6 +118,9 @@ function main(args)
     end if
     if point is void or not point.objective or point.simplified or point.behavior != "functional-world" then
       return error(9844, "synthetic point_combat coverage classification failed")
+    end if
+    if insane is void or not insane.monster or insane.simplified or insane.behavior != "ai:misc-insane" then
+      return error(9845, "synthetic misc_insane coverage classification failed")
     end if
     print("baseq2_campaign_behavior_coverage_tests: PASS (asset-free rules)")
     return 0

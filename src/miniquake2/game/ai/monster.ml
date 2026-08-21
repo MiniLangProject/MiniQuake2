@@ -151,7 +151,9 @@ function MonsterThink(actor, context)
     ContinueBossDeath(actor, context)
     return true
   end if
-  if actor.health <= 0 then actor.nextThink = 0.0; return false end if
+  // misc_insane owns real post-mortem moves whose end callback shrinks the
+  // corpse bounds. Other generic actors have no managed death animation.
+  if actor.health <= 0 and actor.className != "misc_insane" then actor.nextThink = 0.0; return false end if
   M_MoveFrame(actor, context)
   actor.info.linkCount = actor.edict.linkCount
   M_SetEffects(actor, context)
@@ -169,7 +171,11 @@ function MonsterUse(actor, other, activator, context)
 end function
 
 function MonsterDeathUse(actor, context)
-  actor.flags = actor.flags & ~(gaiconstants.FL_FLY | gaiconstants.FL_SWIM)
+  if actor.className == "misc_insane" and (actor.spawnFlags & gaiconstants.INSANE_CRUCIFIED) != 0 then
+    actor.flags = (actor.flags & ~gaiconstants.FL_SWIM) | gaiconstants.FL_FLY
+  else
+    actor.flags = actor.flags & ~(gaiconstants.FL_FLY | gaiconstants.FL_SWIM)
+  end if
   actor.info.aiFlags = actor.info.aiFlags & gaiconstants.AI_GOOD_GUY
   if actor.item is not void then
     if typeof(context.dropItem) == "function" then context.dropItem(actor, actor.item) end if

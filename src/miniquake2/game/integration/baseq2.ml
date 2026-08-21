@@ -120,6 +120,15 @@ function aiAreasConnected(first, second)
   return true
 end function
 
+function integratedAISound(actor, soundName, channel, attenuation)
+  global activeIntegrationRuntime
+  ibAISoundRuntimeHolder = activeIntegrationRuntime
+  if ibAISoundRuntimeHolder is void or ibAISoundRuntimeHolder.playerContext is void then return false end if
+  ibAISoundImportsHolder = ibAISoundRuntimeHolder.playerContext.imports
+  return ibAISoundImportsHolder.sound(actor.edict, channel,
+    ibAISoundImportsHolder.soundIndex(soundName), 1.0, attenuation, 0.0)
+end function
+
 function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
@@ -128,6 +137,7 @@ function configureAI(context)
   context.inPHS = aiInPHS
   context.areasConnected = aiAreasConnected
   context.spawnMonster = integratedSpawnMonster
+  context.playSound = integratedAISound
   return context
 end function
 
@@ -571,6 +581,14 @@ function integratedWorldSetModel(entity, modelName)
   return true
 end function
 
+function integratedLightStyle(style, pattern)
+  global activeIntegrationRuntime
+  ibLightRuntimeHolder = activeIntegrationRuntime
+  if ibLightRuntimeHolder is void or ibLightRuntimeHolder.playerContext is void then return false end if
+  if style < 0 or style >= ibqconstants.MAX_LIGHTSTYLES then return false end if
+  return ibLightRuntimeHolder.playerContext.imports.configString(ibqconstants.CS_LIGHTS + style, pattern)
+end function
+
 function integratedWeaponEffect(effect)
   return true
 end function
@@ -642,6 +660,7 @@ function installWorldSpawn(entity, world)
   if name == "trigger_elevator" then return ibmovers.spawnElevator(entity, world) end if
   if name == "func_timer" then return ibmovers.spawnTimer(entity, world) end if
   if name == "func_clock" then return ibmisc.spawnWorldClock(entity, world) end if
+  if name == "func_killbox" then return ibmovers.spawnKillBox(entity, world) end if
   if name == "func_explosive" then return ibmovers.spawnExplosive(entity, world, false) end if
   if name == "func_wall" then return ibmisc.spawnWall(entity, world) end if
   if name == "func_object" then return ibmisc.spawnWall(entity, world) end if
@@ -653,6 +672,15 @@ function installWorldSpawn(entity, world)
   if name == "misc_gib_head" then return ibmisc.spawnGibHead(entity, world) end if
   if name == "misc_teleporter" then return ibmisc.spawnTeleporter(entity, world) end if
   if name == "misc_teleporter_dest" then return ibmisc.spawnTeleporterDestination(entity, world) end if
+  if name == "misc_viper" then return ibmisc.spawnViper(entity, world) end if
+  if name == "misc_viper_bomb" then return ibmisc.spawnViperBomb(entity, world) end if
+  if name == "misc_satellite_dish" then return ibmisc.spawnSatelliteDish(entity, world) end if
+  if name == "misc_blackhole" then return ibmisc.spawnBlackHole(entity, world) end if
+  if name == "misc_eastertank" then return ibmisc.spawnEasterTank(entity, world) end if
+  if name == "misc_easterchick" then return ibmisc.spawnEasterChick(entity, world) end if
+  if name == "misc_easterchick2" then return ibmisc.spawnEasterChick2(entity, world) end if
+  if name == "light_mine2" then return ibmisc.spawnLightMine2(entity, world) end if
+  if name == "info_notnull" then return ibmisc.spawnInfoNotNull(entity, world) end if
   if name == "point_combat" then return ibmisc.spawnPointCombat(entity, world, false) end if
   if name == "target_character" then return ibmisc.spawnTargetCharacter(entity, world) end if
   if name == "target_string" then return ibmisc.spawnTargetString(entity, world) end if
@@ -673,6 +701,7 @@ function installWorldSpawn(entity, world)
   if name == "target_laser" then return ibtargets.spawnLaser(entity, world) end if
   if name == "target_earthquake" then return ibtargets.spawnEarthquake(entity, world) end if
   if name == "target_actor" then return ibtargets.spawnTargetActor(entity, world) end if
+  if name == "target_lightramp" then return ibtargets.spawnTargetLightRamp(entity, world, false) end if
   return entity
 end function
 
@@ -687,6 +716,7 @@ function create(spawnResult)
   world.callbacks.combatPointTransition = integratedCombatPointTransition
   world.callbacks.clockSeconds = integratedClockSeconds
   world.callbacks.setModel = integratedWorldSetModel
+  world.callbacks.lightStyle = integratedLightStyle
   aiContext = ibaitypes.defaultContext()
   monsters = []
   items = []

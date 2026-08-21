@@ -98,3 +98,20 @@ function movedir(angles)
   pitchSine = smath.sin(pitch)
   return qt.Vec3(pitchCosine * yawCosine, pitchCosine * yawSine, -pitchSine)
 end function
+
+function toAngles(direction)
+  vector = requireWorldVector(direction, "world vector toAngles")
+  x = vector.x; y = vector.y; z = vector.z
+  yaw = 0.0
+  pitch = 0.0
+  if x == 0.0 and y == 0.0 then
+    if z > 0.0 then pitch = 90.0 else pitch = 270.0 end if
+  else
+    yaw = smath.radToDeg(smath.atan2(y, x))
+    if yaw < 0.0 then yaw = yaw + 360.0 end if
+    forward = smath.sqrt(x * x + y * y)
+    pitch = smath.radToDeg(smath.atan2(z, forward))
+    if pitch < 0.0 then pitch = pitch + 360.0 end if
+  end if
+  return qt.Vec3(-pitch, yaw, 0.0)
+end function

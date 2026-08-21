@@ -349,6 +349,244 @@ function spawnNull(entity, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+function spawnInfoNotNull(entity, world)
+  entity.absoluteMins = wmvector.copy(entity.origin)
+  entity.absoluteMaxs = wmvector.copy(entity.origin)
+  return entity
+end function
+
+// -------------------------------------------------------------------------
+// Remaining stock g_misc.c set pieces. Model registration is injected through
+// setModel; animation and movement remain world-owned deterministic state.
+
+function blackHoleUse(entity, other, activator, world)
+  return wmcore.freeEntity(world, entity)
+end function
+
+function blackHoleThink(entity, world)
+  entity.frame = entity.frame + 1
+  if entity.frame >= 19 then entity.frame = 0 end if
+  entity.think = blackHoleThink
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+function spawnBlackHole(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_NOT
+  entity.model = "models/objects/black/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-64.0, -64.0, 0.0)
+  entity.maxs = wmqtypes.Vec3(64.0, 64.0, 8.0)
+  entity.renderFx = entity.renderFx | wmconstants.RF_TRANSLUCENT
+  entity.use = blackHoleUse
+  entity.think = blackHoleThink
+  entity.nextThink = world.time + 2.0 * world.frameTime
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function easterTankThink(entity, world)
+  entity.frame = entity.frame + 1
+  if entity.frame >= 293 then entity.frame = 254 end if
+  entity.think = easterTankThink
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+function spawnEasterTank(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.model = "models/monsters/tank/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-32.0, -32.0, -16.0)
+  entity.maxs = wmqtypes.Vec3(32.0, 32.0, 32.0)
+  entity.frame = 254
+  entity.think = easterTankThink
+  entity.nextThink = world.time + 2.0 * world.frameTime
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function easterChickThink(entity, world)
+  entity.frame = entity.frame + 1
+  if entity.frame >= 247 then entity.frame = 208 end if
+  entity.think = easterChickThink
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+function spawnEasterChick(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.model = "models/monsters/bitch/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-32.0, -32.0, 0.0)
+  entity.maxs = wmqtypes.Vec3(32.0, 32.0, 32.0)
+  entity.frame = 208
+  entity.think = easterChickThink
+  entity.nextThink = world.time + 2.0 * world.frameTime
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function easterChick2Think(entity, world)
+  entity.frame = entity.frame + 1
+  if entity.frame >= 287 then entity.frame = 248 end if
+  entity.think = easterChick2Think
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+function spawnEasterChick2(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.model = "models/monsters/bitch/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-32.0, -32.0, 0.0)
+  entity.maxs = wmqtypes.Vec3(32.0, 32.0, 32.0)
+  entity.frame = 248
+  entity.think = easterChick2Think
+  entity.nextThink = world.time + 2.0 * world.frameTime
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function satelliteDishThink(entity, world)
+  entity.frame = entity.frame + 1
+  if entity.frame < 38 then
+    entity.think = satelliteDishThink
+    entity.nextThink = world.time + world.frameTime
+  end if
+  return true
+end function
+
+function satelliteDishUse(entity, other, activator, world)
+  entity.frame = 0
+  entity.think = satelliteDishThink
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+function spawnSatelliteDish(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.model = "models/objects/satellite/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-64.0, -64.0, 0.0)
+  entity.maxs = wmqtypes.Vec3(64.0, 64.0, 128.0)
+  entity.use = satelliteDishUse
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function spawnLightMine2(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.model = "models/objects/minelite/light2/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function viperUse(entity, other, activator, world)
+  entity.serverFlags = entity.serverFlags & ~wmconstants.SVF_NOCLIENT
+  entity.use = wmmovers.trainUse
+  return wmmovers.trainUse(entity, other, activator, world)
+end function
+
+function spawnViper(entity, world)
+  if entity.target == "" then
+    wmcore.log(world, "misc_viper without a target")
+    wmcore.freeEntity(world, entity)
+    return false
+  end if
+  if entity.speed == 0.0 then entity.speed = 300.0 end if
+  entity.moveType = wmconstants.MOVETYPE_PUSH
+  entity.solid = wmconstants.SOLID_NOT
+  entity.model = "models/ships/viper/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-16.0, -16.0, 0.0)
+  entity.maxs = wmqtypes.Vec3(16.0, 16.0, 32.0)
+  entity.think = wmmovers.trainFind
+  entity.nextThink = world.time + world.frameTime
+  entity.use = viperUse
+  entity.serverFlags = entity.serverFlags | wmconstants.SVF_NOCLIENT
+  entity.moveInfo.speed = entity.speed
+  entity.moveInfo.accel = entity.speed
+  entity.moveInfo.decel = entity.speed
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function findWorldViper(world)
+  for each candidate in world.entities
+    if candidate.inUse and candidate.className == "misc_viper" then return candidate end if
+  end for
+  return void
+end function
+
+function viperBombPreThink(entity, world)
+  entity.groundEntity = void
+  difference = entity.timestamp - world.time
+  if difference < -1.0 then difference = -1.0 end if
+  direction = wmvector.scale(entity.moveInfo.direction, 1.0 + difference)
+  direction.z = difference
+  roll = entity.angles.z
+  entity.angles = wmvector.toAngles(direction)
+  entity.angles.z = roll + 10.0
+  entity.think = viperBombPreThink
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+function viperBombTouch(entity, other, world)
+  wmcore.useTargets(world, entity, entity.activator)
+  if entity.inUse == false then return false end if
+  entity.origin.z = entity.absoluteMins.z + 1.0
+  world.callbacks.radiusDamage(entity, entity, entity.damage, entity.damage + 40, wmconstants.MOD_BOMB)
+  world.callbacks.effect("explosion2", entity.origin, 0, 1)
+  return wmcore.freeEntity(world, entity)
+end function
+
+function viperBombUse(entity, other, activator, world)
+  viper = findWorldViper(world)
+  if viper is void then
+    wmcore.log(world, "misc_viper_bomb used without misc_viper")
+    return false
+  end if
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.serverFlags = entity.serverFlags & ~wmconstants.SVF_NOCLIENT
+  entity.effects = entity.effects | wmconstants.EF_ROCKET
+  entity.use = void
+  entity.moveType = wmconstants.MOVETYPE_TOSS
+  entity.think = viperBombPreThink
+  entity.nextThink = world.time + world.frameTime
+  entity.touch = viperBombTouch
+  entity.activator = activator
+  entity.velocity = wmvector.scale(viper.moveInfo.direction, viper.moveInfo.speed)
+  entity.timestamp = world.time
+  entity.moveInfo.direction = wmvector.copy(viper.moveInfo.direction)
+  world.callbacks.linkEntity(entity)
+  return true
+end function
+
+function spawnViperBomb(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_NOT
+  entity.mins = wmqtypes.Vec3(-8.0, -8.0, -8.0)
+  entity.maxs = wmqtypes.Vec3(8.0, 8.0, 8.0)
+  entity.model = "models/objects/bomb/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.mins = wmqtypes.Vec3(-8.0, -8.0, -8.0)
+  entity.maxs = wmqtypes.Vec3(8.0, 8.0, 8.0)
+  if entity.damage == 0 then entity.damage = 1000 end if
+  entity.use = viperBombUse
+  entity.serverFlags = entity.serverFlags | wmconstants.SVF_NOCLIENT
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
 // -------------------------------------------------------------------------
 // target_character / target_string from g_misc.c.
 
@@ -553,4 +791,31 @@ end function
 
 function SP_point_combat(entity, world)
   return spawnPointCombat(entity, world, false)
+end function
+function SP_info_notnull(entity, world)
+  return spawnInfoNotNull(entity, world)
+end function
+function SP_misc_blackhole(entity, world)
+  return spawnBlackHole(entity, world)
+end function
+function SP_misc_eastertank(entity, world)
+  return spawnEasterTank(entity, world)
+end function
+function SP_misc_easterchick(entity, world)
+  return spawnEasterChick(entity, world)
+end function
+function SP_misc_easterchick2(entity, world)
+  return spawnEasterChick2(entity, world)
+end function
+function SP_misc_satellite_dish(entity, world)
+  return spawnSatelliteDish(entity, world)
+end function
+function SP_light_mine2(entity, world)
+  return spawnLightMine2(entity, world)
+end function
+function SP_misc_viper(entity, world)
+  return spawnViper(entity, world)
+end function
+function SP_misc_viper_bomb(entity, world)
+  return spawnViperBomb(entity, world)
 end function

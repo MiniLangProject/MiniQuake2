@@ -836,6 +836,27 @@ function spawnExplosive(entity, world, deathmatch)
   return entity
 end function
 
+// -------------------------------------------------------------------------
+// func_killbox from g_func.c.
+
+function killBoxUse(entity, other, activator, world)
+  world.callbacks.killBox(entity)
+  gwcore.emit(world, "killbox", entity, entity.model)
+  return true
+end function
+
+function spawnKillBox(entity, world)
+  if entity.model == "" then
+    gwcore.log(world, "func_killbox with no model")
+    gwcore.freeEntity(world, entity)
+    return false
+  end if
+  world.callbacks.setModel(entity, entity.model)
+  entity.use = killBoxUse
+  entity.serverFlags = gwconstants.SVF_NOCLIENT
+  return entity
+end function
+
 function SP_func_button(entity, world)
   return spawnButton(entity, world)
 end function
@@ -853,6 +874,9 @@ function SP_func_timer(entity, world)
 end function
 function SP_func_explosive(entity, world, deathmatch)
   return spawnExplosive(entity, world, deathmatch)
+end function
+function SP_func_killbox(entity, world)
+  return spawnKillBox(entity, world)
 end function
 function SP_trigger_elevator(entity, world)
   return spawnElevator(entity, world)

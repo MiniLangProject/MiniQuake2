@@ -4,6 +4,7 @@ package miniquake2.game.ai.archetypes
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
 import miniquake2.game.ai.monster as gaimonster
+import miniquake2.game.ai.insane as gaiinsane
 import miniquake2.game.ai.types as gaitypes
 import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.text as qtext
@@ -39,7 +40,10 @@ function defaultRegistry()
     archetype("monster_jorg", "models/monsters/boss3/rider/tris.md2", [-80.0, -80.0, 0.0], [80.0, 80.0, 140.0], 3000, -2000, 1000, "walk", true, false),
     archetype("monster_makron", "models/monsters/boss3/rider/tris.md2", [-30.0, -30.0, 0.0], [30.0, 30.0, 90.0], 3000, -2000, 500, "walk", true, false)
   ]
-  return gaitypes.ArchetypeRegistry(entries)
+  campaignEntries = [
+    archetype("misc_insane", "models/monsters/insane/tris.md2", commonMins, commonMaxs, 100, -50, 300, "walk", false, false),
+  ]
+  return gaitypes.ArchetypeRegistry(entries, campaignEntries)
 end function
 
 function find(registry, className)
@@ -48,6 +52,11 @@ function find(registry, className)
     gaiArchetypeClassHolder = entry.className
     if typeof(gaiArchetypeClassHolder) != "string" then return error(9684, "monster registry classname is not text") end if
     if qtext.equalInsensitive(gaiArchetypeClassHolder, className) then return entry end if
+  end for
+  for each entry in registry.campaignEntries
+    gaiCampaignArchetypeClassHolder = entry.className
+    if typeof(gaiCampaignArchetypeClassHolder) != "string" then return error(9684, "campaign monster registry classname is not text") end if
+    if qtext.equalInsensitive(gaiCampaignArchetypeClassHolder, className) then return entry end if
   end for
   return void
 end function
@@ -58,6 +67,7 @@ function validate(registry)
     if entry.className == "" or entry.model == "" or entry.health <= 0 or entry.mass <= 0 then return error(9681, "invalid monster archetype") end if
     if entry.movement != "walk" and entry.movement != "fly" and entry.movement != "swim" then return error(9682, "invalid monster movement kind") end if
   end for
+  if len(registry.campaignEntries) != 1 or registry.campaignEntries[0].className != "misc_insane" then return error(9685, "campaign AI registry must contain misc_insane") end if
   return true
 end function
 
@@ -81,7 +91,8 @@ function SpawnMonster(registry, className, number, context)
   actor.edict.solid = gconstants.SOLID_BBOX
   actor.info.scale = definition.scale
   actor.info.currentMove = idleMove()
-  gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee)
+  if actor.className == "misc_insane" then gaiinsane.configure(actor, context)
+  else gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee) end if
   if definition.movement == "fly" then gaimonster.FlyMonsterStart(actor, context)
   else if definition.movement == "swim" then gaimonster.SwimMonsterStart(actor, context)
   else gaimonster.WalkMonsterStart(actor, context)
