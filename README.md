@@ -39,8 +39,8 @@ unknown or skipped classes. Normal map changes retain Netchan sequencing and
 perform a complete reconnect/signon; server restarts establish a fresh sequence
 generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
-the earlier lifecycle trace without a failure. The current attack-sequence
-build completes in 660 steps and 3,229 processed packets. An executable
+the earlier lifecycle trace without a failure. The current complete attack-timeline
+build completes in 661 steps and 3,232 processed packets. An executable
 campaign matrix now covers every retail classname and proves the `boss2`
 Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
 The retail behavior matrix now classifies `point_combat`, `trigger_key`,
@@ -54,11 +54,13 @@ class-state-machine tail: the 39-map behavior matrix now reports zero
 explicitly simplified instances or classes. All 21 combat-capable monster
 classes present in those BSPs, plus the dynamically spawned Makron, now route
 through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
-rail, blaster or rocket emission. Infantry, Gunner, the three Soldier variants,
-Jorg and Boss2 additionally use stock frame-relative weapon-event timing and
-MZ2 sequences; Private-Save v5 resumes a running sequence at its next
-event. Other monster families retain the validated single-emission profile and
-remain explicit frame-parity work. Muzzle events travel through the typed
+rail, blaster or rocket emission. Every combat-capable family now uses a stock
+frame-relative attack, melee or drain timeline with projected MD2 frames. This
+includes the Tank/Supertank sweeps, Medic/Flyer/Floater/Hover bursts, Chick
+refire, all close-combat loops and the Parasite's ordered damage/beam frames in
+addition to the Infantry, Gunner, Soldier and boss schedules. Private-Save v5
+resumes a running sequence at its next event. Pain, death, dodge and non-weapon
+animation tables remain explicit frame-parity work. Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
 non-combat states. The complete stock player-weapon set now uses its original

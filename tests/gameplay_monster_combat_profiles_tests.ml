@@ -101,7 +101,9 @@ monsterCombatAssert(monstercombatprofiles.stockProfile("monster_boss3_stand") is
 
 monsterCombatRun("monster_berserk", "48 0 10", 16, true, false)
 monsterCombatRun("monster_gladiator", "160 0 10", 16, false, false)
-monsterCombatRun("monster_chick", "160 0 10", 24, false, true)
+// The complete stock rocket move includes its 13-frame wind-up and possible
+// bounded refire tail; leave enough product frames for the projectile impact.
+monsterCombatRun("monster_chick", "160 0 10", 64, false, true)
 monsterCombatRun("monster_parasite", "96 0 10", 16, false, false)
 
 print "gameplay_monster_combat_profiles_tests: PASS"

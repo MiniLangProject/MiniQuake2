@@ -1692,7 +1692,18 @@ function integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, origin)
   return imports.multicast(origin, ibgconstants.MULTICAST_PVS)
 end function
 
-function fireMonsterAttack(runtime, actor, attackPlan, muzzleFlash)
+function integratedMonsterDrainBeam(runtime, actor, start, endPosition)
+  if runtime.playerContext is void then return false end if
+  imports = runtime.playerContext.imports
+  imports.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  imports.writeByte(ibwpconstants.TE_PARASITE_ATTACK)
+  imports.writeShort(actor.edict.state.number)
+  imports.writePosition(start)
+  imports.writePosition(endPosition)
+  return imports.multicast(start, ibgconstants.MULTICAST_PVS)
+end function
+
+function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   if actor.enemy is void or attackPlan is void then return false end if
   muzzle = monsterMuzzleAndDirection(runtime, actor)
   start = muzzle[0]
@@ -1703,30 +1714,38 @@ function fireMonsterAttack(runtime, actor, attackPlan, muzzleFlash)
   distance = ibwpvector.length(ibwpvector.subtract(enemyTarget.origin, shooter.origin))
   if distance > attackPlan.maximumRange then return false end if
   kind = attackPlan.attackKind
+  attackDamage = ibattackseq.eventDamage(attackPlan, eventIndex)
+  attackKnockback = ibattackseq.eventKnockback(attackPlan, eventIndex)
+  damageKnockback = attackKnockback
+  // Quake II fire_hit accepts a negative special kick and applies it after a
+  // DAMAGE_NO_KNOCKBACK T_Damage call. The shared combat request deliberately
+  // rejects negative magnitudes, so keep that signed move metadata out of it.
+  if damageKnockback < 0 then damageKnockback = 0 end if
   if kind == "melee" or kind == "drain" then
     ibwpcore.applyDamage(runtime.weaponContext, enemyTarget, shooter, shooter, direction,
-      enemyTarget.origin, attackPlan.damage, attackPlan.knockback, 0, ibgpconstants.MOD_UNKNOWN)
+      enemyTarget.origin, attackDamage, damageKnockback, 0, ibgpconstants.MOD_UNKNOWN)
+    if kind == "drain" then integratedMonsterDrainBeam(runtime, actor, start, enemyTarget.origin) end if
   else if kind == "blaster" then
     ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.speed, ibwpconstants.EF_BLASTER, false)
+      attackDamage, attackPlan.speed, ibwpconstants.EF_BLASTER, false)
   else if kind == "shotgun" then
     ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.knockback, 500.0, 500.0, attackPlan.count, ibgpconstants.MOD_UNKNOWN)
+      attackDamage, attackKnockback, 500.0, 500.0, attackPlan.count, ibgpconstants.MOD_UNKNOWN)
   else if kind == "bullet" then
     ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.knockback, 300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
+      attackDamage, attackKnockback, 300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
   else if kind == "grenade" then
     ibwpprojectiles.fireGrenade(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.speed, 2.5, attackPlan.damage)
+      attackDamage, attackPlan.speed, 2.5, attackDamage)
   else if kind == "rocket" then
     ibwpprojectiles.fireRocket(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.speed, attackPlan.splashRadius, attackPlan.damage)
+      attackDamage, attackPlan.speed, attackPlan.splashRadius, attackDamage)
   else if kind == "bfg" then
     ibwpprojectiles.fireBfg(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.speed, attackPlan.splashRadius)
+      attackDamage, attackPlan.speed, attackPlan.splashRadius)
   else if kind == "rail" then
     ibwphitscan.fireRail(runtime.weaponContext, shooter, start, direction,
-      attackPlan.damage, attackPlan.knockback)
+      attackDamage, attackKnockback)
   else return error(9698, "unsupported monster combat profile " + kind)
   end if
   integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, start)
@@ -1736,6 +1755,29 @@ end function
 function activeMonsterAttackPlan(actor)
   return ibattackseq.planByName(actor.className, actor.activity,
     actor.edict.state.number, actor.attackCount)
+end function
+
+function monsterAttackTimelineOffset(actor, attackPlan, now)
+  targetOffset = attackPlan.durationFrames - 1
+  if actor.info.nextFrame >= 0 and actor.info.nextFrame < len(attackPlan.frameOffsets) then
+    targetOffset = attackPlan.frameOffsets[actor.info.nextFrame]
+  end if
+  remainingFrames = 0
+  remainingTime = actor.info.pauseTime - now
+  while remainingTime > 0.00001
+    remainingFrames = remainingFrames + 1
+    remainingTime = remainingTime - ibattackseq.FRAME_TIME
+  end while
+  timelineOffset = targetOffset - remainingFrames
+  if timelineOffset < 0 then timelineOffset = 0 end if
+  if timelineOffset >= attackPlan.durationFrames then timelineOffset = attackPlan.durationFrames - 1 end if
+  return timelineOffset
+end function
+
+function projectMonsterAttackFrame(runtime, actor, attackPlan)
+  timelineOffset = monsterAttackTimelineOffset(actor, attackPlan, runtime.aiContext.time)
+  actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, timelineOffset)
+  return timelineOffset
 end function
 
 function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
@@ -1754,19 +1796,28 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
     return finishMonsterAttack(runtime, actor, attackPlan, 0)
   end if
   eventIndex = actor.info.nextFrame
-  if eventIndex < 0 or eventIndex >= len(attackPlan.frameOffsets) then
+  projectMonsterAttackFrame(runtime, actor, attackPlan)
+  if eventIndex < 0 then
+    return finishMonsterAttack(runtime, actor, attackPlan, attackPlan.durationFrames - 1)
+  end if
+  if eventIndex >= len(attackPlan.frameOffsets) then
+    if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
+    actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, attackPlan.durationFrames - 1)
     return finishMonsterAttack(runtime, actor, attackPlan, attackPlan.durationFrames - 1)
   end if
   if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
   currentFrameOffset = attackPlan.frameOffsets[eventIndex]
   fired = false
   while eventIndex < len(attackPlan.frameOffsets) and attackPlan.frameOffsets[eventIndex] == currentFrameOffset
-    if fireMonsterAttack(runtime, actor, attackPlan, attackPlan.muzzleFlashes[eventIndex]) then fired = true end if
+    if fireMonsterAttack(runtime, actor, attackPlan, eventIndex, attackPlan.muzzleFlashes[eventIndex]) then fired = true end if
     eventIndex = eventIndex + 1
   end while
   actor.info.nextFrame = eventIndex
   if eventIndex >= len(attackPlan.frameOffsets) then
-    finishMonsterAttack(runtime, actor, attackPlan, currentFrameOffset)
+    tailFrames = attackPlan.durationFrames - 1 - currentFrameOffset
+    if tailFrames <= 0 then finishMonsterAttack(runtime, actor, attackPlan, currentFrameOffset)
+    else actor.info.pauseTime = actor.info.pauseTime + tailFrames * ibattackseq.FRAME_TIME
+    end if
   else
     frameDelta = attackPlan.frameOffsets[eventIndex] - currentFrameOffset
     actor.info.pauseTime = actor.info.pauseTime + frameDelta * ibattackseq.FRAME_TIME
@@ -1797,6 +1848,7 @@ function runMonsterCombat(runtime, actor)
   actor.info.nextFrame = 0
   actor.info.attackState = ibaiconstants.AS_MISSILE
   actor.info.pauseTime = runtime.aiContext.time + attackPlan.frameOffsets[0] * ibattackseq.FRAME_TIME
+  actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, 0)
   return advanceMonsterAttack(runtime, actor, attackPlan)
 end function
 

@@ -114,6 +114,9 @@ now in 660 steps and 3,229 processed packets. The small deterministic reduction
 comes from the new attack timing while retaining the same lifecycle outcome.
 After completing the stock player-weapon protocol/effect path, the rebuilt
 product passed the same matrix again in 661 steps and 3,234 processed packets.
+After completing every stock monster ranged, melee and drain attack timeline,
+the rebuilt Release product passed all 39 maps and 38 changes again with spawn
+count 39, 661 steps and 3,232 processed packets.
 The matching visible `base1` start reached `CA_ACTIVE` at server frame 14,
 registered 80 models and 45 sounds with zero missing assets, submitted 25
 entities and selected 326 visible versus 6,981 culled world surfaces.
@@ -149,17 +152,19 @@ remaining monster class is the intentionally non-combat `misc_insane` prop AI.
 The dynamic Makron supplies the 22nd registry profile. Existing Soldier,
 Gunner, Infantry and player weapon goldens remain green, and the unmasked
 39-map product graph completes with the expanded profiles active. Every ranged
-profile also carries its stock first-shot MZ2 identifier. The new
-`gameplay_monster_attack_sequence_tests` additionally covers Infantry held
-fire, Gunner chain/grenades, all Soldier variants, Jorg/Boss2 multi-muzzle
-cycles and Makron BFG/hyperblaster/rail alternatives. Its product-shaped
-Gunner gate observes eight ordered MZ2 45–52 events from one AI attack. Private
+profile also carries its stock first-shot MZ2 identifier. The
+`gameplay_monster_attack_sequence_tests`,
+`gameplay_monster_ranged_sequences_tests` and
+`gameplay_monster_melee_sequences_tests` cover every combat family, including
+stock MD2 projection, bounded refire, ordered MZ2 sequences and the Parasite
+damage/beam chain. The product-shaped Gunner gate observes eight ordered MZ2
+45–52 events from one AI attack. Private
 Save v5 retains a running sequence's event index and next-frame time. The
 focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
 backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
-as the expected DLight and attack sound. Remaining families still need their
-complete original animation, pain/death events and all randomized refire
-branches; deterministic refire is deliberately bounded to eight cycles.
+as the expected DLight and attack sound. Original pain/death/dodge and
+non-combat animation events remain open; deterministic refire is deliberately
+bounded to eight cycles.
 
 `server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and
 `network_runtime_unicast_loopback_tests` close the targeted half of the same
