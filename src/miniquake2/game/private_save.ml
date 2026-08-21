@@ -8,6 +8,7 @@ import miniquake2.game.base.spawn as privatespawn
 import miniquake2.game.integration.baseq2 as privateintegration
 import miniquake2.game.ai.archetypes as privatesaveaiarchetypes
 import miniquake2.game.ai.insane as privatesaveinsane
+import miniquake2.game.ai.props as privatesaveaiprops
 import miniquake2.game.ai.types as privatesaveaitypes
 import miniquake2.game.types as privatesavegametypes
 import miniquake2.game.world.movers as privatemovers
@@ -15,7 +16,7 @@ import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 3
+const PRIVATE_VERSION = 4
 
 struct PrivateRestore
   runtime
@@ -112,6 +113,7 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privateWriteBool(buffer, actor.edict.inUse)
     privatemessage.writeLong(buffer, actor.health); privatemessage.writeLong(buffer, actor.maxHealth)
     privatemessage.writeLong(buffer, actor.deadFlag); privatemessage.writeLong(buffer, actor.flags)
+    privatemessage.writeLong(buffer, actor.moveType); privatemessage.writeLong(buffer, actor.takeDamage)
     privatemessage.writeFloat(buffer, actor.nextThink); privatemessage.writeFloat(buffer, actor.info.attackFinished)
     privatemessage.writeLong(buffer, actor.edict.state.frame); privatemessage.writeString(buffer, actor.activity)
     privatemessage.writeString(buffer, actor.target); privatemessage.writeString(buffer, actor.targetName)
@@ -257,9 +259,11 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     actor.edict.inUse = privateReadBool(buffer, "private monster inuse")
     actor.health = privatechecked.readLong(buffer, "private monster health"); actor.maxHealth = privatechecked.readLong(buffer, "private monster max health")
     actor.deadFlag = privatechecked.readLong(buffer, "private monster deadflag"); actor.flags = privatechecked.readLong(buffer, "private monster flags")
+    actor.moveType = privatechecked.readLong(buffer, "private monster movetype"); actor.takeDamage = privatechecked.readLong(buffer, "private monster takedamage")
     actor.nextThink = privateReadFloat(buffer, "private monster nextthink"); actor.info.attackFinished = privateReadFloat(buffer, "private monster attack time")
     actor.edict.state.frame = privatechecked.readLong(buffer, "private monster frame"); actor.activity = privatemessage.readString(buffer)
     if actor.className == "misc_insane" then privatesaveinsane.restoreMove(actor, actor.activity) end if
+    if privatesaveaiprops.isProp(actor) then privatesaveaiprops.restorePhase(actor) end if
     actor.target = privatemessage.readString(buffer); actor.targetName = privatemessage.readString(buffer)
     actor.deathTarget = privatemessage.readString(buffer); actor.combatTarget = privatemessage.readString(buffer)
     privateMonsterOriginHolder = privateReadVec(buffer, "private monster origin")

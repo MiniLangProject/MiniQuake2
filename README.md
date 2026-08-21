@@ -39,7 +39,8 @@ unknown or skipped classes. Normal map changes retain Netchan sequencing and
 perform a complete reconnect/signon; server restarts establish a fresh sequence
 generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
-the same 38 transitions and 3,204-packet trace without a failure. An executable
+the earlier lifecycle trace without a failure, and two runs of the final
+class-closure build repeated the same 660-step/3,225-packet trace. An executable
 campaign matrix now covers every retail classname and proves the `boss2`
 Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
 The retail behavior matrix now classifies `point_combat`, `trigger_key`,
@@ -47,8 +48,10 @@ The retail behavior matrix now classifies `point_combat`, `trigger_key`,
 `trigger_elevator` as functional world state machines. The following stock pass
 also closes `target_lightramp`, `func_killbox`, the Viper/bomb set piece, the
 remaining decorative thinkers, `info_notnull`, `light_mine2`, and all 60
-`misc_insane` entities; only eight instances across five classes remain
-explicitly simplified. Two real local UDP clients
+`misc_insane` entities. Scripted boss props and the coupled
+`turret_base`/`turret_breach`/`turret_driver` rigs close the final retail
+class-state-machine tail: the 39-map behavior matrix now reports zero
+explicitly simplified instances or classes. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
 now kills a 100-health peer through seven genuine UDP Blaster commands and
 respawns it through the normal attack latch.
@@ -56,6 +59,10 @@ An active-session persistence gate writes and restores both Game and Level
 images without resetting the live UDP/Netchan sequence, then proves the next
 snapshot and failure-atomic rollback after a deliberately corrupted private
 payload.
+Cross-map checkpoints additionally perform a transactional map change, full
+Protocol-34 re-signon, Game+Level restore and a valid next snapshot; a failed
+target restore returns to the source map with a new legal spawn epoch while
+Netchan sequences only move forward.
 An independent raw Protocol-34 peer validates both client and server wire
 directions, and deterministic OpenGL readback produces stable TGA captures,
 JSON pixel metrics and heatmaps. The unpaced full retail session passes 10,000
@@ -66,9 +73,10 @@ These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
-original `ref_gl` reference captures, the remaining turret/boss-prop and
-monster exactness, cross-map save/re-signon orchestration, and manual
-device acceptance.
+original `ref_gl` reference captures, exhaustive monster/weapon/turret/boss
+animation and combat exactness, and manual device acceptance. Retail class
+coverage is closed, but that is deliberately narrower than a full campaign
+playthrough or frame-for-frame AI parity claim.
 
 The canonical local reference remains commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. Its 4,525 C definitions remain in

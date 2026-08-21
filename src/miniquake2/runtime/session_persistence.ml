@@ -26,6 +26,16 @@ struct SessionRestoreResult
   channelPreserved
 end struct
 
+struct CoreMapSource
+  entityText
+  collision
+end struct
+
+function coreMapSource(entityText, collision)
+  if typeof(entityText) != "string" then return error(8455, "core map resolver returned invalid entity text") end if
+  return CoreMapSource(entityText, collision)
+end function
+
 function validatePaths(gamePath, levelPath)
   if typeof(gamePath) != "string" or gamePath == "" or
       typeof(levelPath) != "string" or levelPath == "" then
@@ -99,11 +109,12 @@ function restoreFailure(server, rollbackGamePath, rollbackLevelPath, failure)
   return error(8448, "session restore rejected atomically: " + failure.message)
 end function
 
-function restoreServerSession(server, checkpoint)
+function restoreServerSessionAtCurrentEpoch(server, checkpoint, requireSavedSpawn)
   if server is void or server.closed then return error(8449, "cannot restore a closed server session") end if
   if typeof(checkpoint) != "struct" then return error(8450, "session checkpoint is missing") end if
   validatePaths(checkpoint.gamePath, checkpoint.levelPath)
-  if checkpoint.mapName != server.mapName or checkpoint.spawnCount != server.networkRuntime.spawnCount then
+  if checkpoint.mapName != server.mapName or
+      (requireSavedSpawn and checkpoint.spawnCount != server.networkRuntime.spawnCount) then
     return error(8451, "cross-map session restore requires a map-change re-signon")
   end if
   savegateValidatedImages = readCheckpointImages(server,
@@ -155,6 +166,10 @@ function restoreServerSession(server, checkpoint)
     server.frameNumber, savegateChannelPreserved)
 end function
 
+function restoreServerSession(server, checkpoint)
+  return restoreServerSessionAtCurrentEpoch(server, checkpoint, true)
+end function
+
 function restorePlaySession(session, checkpoint)
   if session is void or session.closed or not savegateplaysession.signonComplete(session) then
     return error(8453, "play session must be active before restore")
@@ -167,4 +182,162 @@ function restorePlaySession(session, checkpoint)
     return error(8454, "active channel state changed during same-map restore")
   end if
   return savegatePlayResult
+end function
+
+function saveCrossMapRollback(session, checkpoint)
+  savegateCrossRollbackGamePath = checkpoint.gamePath + ".crossmap.rollback"
+  savegateCrossRollbackLevelPath = checkpoint.levelPath + ".crossmap.rollback"
+  savegateCrossRollback = saveServerSession(session.server,
+    savegateCrossRollbackGamePath, savegateCrossRollbackLevelPath)
+  return savegateCrossRollback
+end function
+
+function changeCoreUntilCommitted(session, mapName, entityText, collision, maximumSteps)
+  savegateChangeAttempt = 0
+  while savegateChangeAttempt < maximumSteps
+    savegateChangeResult = savegateplaysession.changeMapCore(session, mapName, entityText, collision)
+    if savegateChangeResult.changed then return savegateChangeResult end if
+    if not savegateChangeResult.deferred then return error(8456, "core map change was rejected: " + savegateChangeResult.reason) end if
+    savegateplaysession.step(session)
+    savegateChangeAttempt = savegateChangeAttempt + 1
+  end while
+  return error(8457, "core map change remained backpressured")
+end function
+
+function changeRetailUntilCommitted(session, baseDirectory, mapName, maximumSteps)
+  savegateRetailChangeAttempt = 0
+  while savegateRetailChangeAttempt < maximumSteps
+    savegateRetailChangeResult = savegateplaysession.changeMapRetail(
+      session, baseDirectory, mapName)
+    if savegateRetailChangeResult.changed then return savegateRetailChangeResult end if
+    if not savegateRetailChangeResult.deferred then
+      return error(8464, "retail target map change was rejected: " + savegateRetailChangeResult.reason)
+    end if
+    savegateplaysession.step(session)
+    savegateRetailChangeAttempt = savegateRetailChangeAttempt + 1
+  end while
+  return error(8464, "retail target map change remained backpressured")
+end function
+
+function rollbackCrossMap(session, rollbackCheckpoint, entityText, collision, maximumSteps)
+  savegateRollbackMapChange = try(changeCoreUntilCommitted(session,
+    rollbackCheckpoint.mapName, entityText, collision, maximumSteps))
+  if savegateRollbackMapChange is error then return savegateRollbackMapChange end if
+  savegateRollbackSignon = try(savegateplaysession.runUntilActive(session, maximumSteps))
+  if savegateRollbackSignon is error then return savegateRollbackSignon end if
+  return restoreServerSessionAtCurrentEpoch(session.server, rollbackCheckpoint, false)
+end function
+
+function crossMapFailure(session, rollbackCheckpoint, rollbackEntityText, rollbackCollision, maximumSteps, failure)
+  savegateCrossRollbackResult = try(rollbackCrossMap(session, rollbackCheckpoint,
+    rollbackEntityText, rollbackCollision, maximumSteps))
+  if savegateCrossRollbackResult is error then
+    return error(8458, "cross-map restore failed and source-map rollback failed: " +
+      failure.message + "; " + savegateCrossRollbackResult.message)
+  end if
+  return error(8459, "cross-map restore failed; source map restored on a new signon epoch: " + failure.message)
+end function
+
+function targetMapFailure(session, rollbackCheckpoint, rollbackEntityText, rollbackCollision, maximumSteps, failure)
+  // Parser/loader failures normally leave changeMap* on the source map. Any
+  // deferred retry steps may still have advanced gameplay, so restore its
+  // pre-call image without introducing an unnecessary map epoch.
+  if session.server.mapName == rollbackCheckpoint.mapName then
+    savegateSameMapRollback = try(restoreServerSessionAtCurrentEpoch(
+      session.server, rollbackCheckpoint, false))
+    if savegateSameMapRollback is error then
+      return error(8465, "target map failed and source state rollback failed: " +
+        failure.message + "; " + savegateSameMapRollback.message)
+    end if
+    return error(8466, "target map failed; source state restored: " + failure.message)
+  end if
+  return crossMapFailure(session, rollbackCheckpoint, rollbackEntityText,
+    rollbackCollision, maximumSteps, failure)
+end function
+
+function finishCrossMapRestore(session, checkpoint, rollbackCheckpoint,
+    rollbackEntityText, rollbackCollision, maximumSteps)
+  savegateTargetSignon = try(savegateplaysession.runUntilActive(session, maximumSteps))
+  if savegateTargetSignon is error then
+    return crossMapFailure(session, rollbackCheckpoint, rollbackEntityText,
+      rollbackCollision, maximumSteps, savegateTargetSignon)
+  end if
+  savegateTargetRestore = try(restoreServerSessionAtCurrentEpoch(
+    session.server, checkpoint, false))
+  if savegateTargetRestore is error then
+    return crossMapFailure(session, rollbackCheckpoint, rollbackEntityText,
+      rollbackCollision, maximumSteps, savegateTargetRestore)
+  end if
+  return SessionRestoreResult(true, true, session.server.mapName,
+    session.server.networkRuntime.spawnCount, checkpoint.gameFrame,
+    session.server.frameNumber, savegateTargetRestore.channelPreserved)
+end function
+
+function validateCrossMapPlay(session, checkpoint, maximumSteps)
+  if session is void or session.closed or not savegateplaysession.signonComplete(session) then
+    return error(8453, "play session must be active before restore")
+  end if
+  if typeof(checkpoint) != "struct" then return error(8450, "session checkpoint is missing") end if
+  if typeof(maximumSteps) != "int" or maximumSteps < 1 then
+    return error(8461, "cross-map restore step limit must be positive")
+  end if
+  validatePaths(checkpoint.gamePath, checkpoint.levelPath)
+  savegateCrossImages = readCheckpointImages(session.server,
+    checkpoint.gamePath, checkpoint.levelPath, checkpoint.mapName)
+  if savegateCrossImages[0].frameNumber != checkpoint.gameFrame then
+    return error(8452, "session checkpoint metadata is stale")
+  end if
+  return true
+end function
+
+function restorePlaySessionCore(session, checkpoint, resolver, maximumSteps)
+  validateCrossMapPlay(session, checkpoint, maximumSteps)
+  if typeof(resolver) != "function" then return error(8462, "core map resolver is missing") end if
+  if checkpoint.mapName == session.server.mapName and
+      checkpoint.spawnCount == session.server.networkRuntime.spawnCount then
+    return restorePlaySession(session, checkpoint)
+  end if
+
+  // Resolve before creating files or touching the source map.
+  savegateResolvedCore = try(resolver(checkpoint.mapName))
+  if savegateResolvedCore is error then return savegateResolvedCore end if
+  if typeof(savegateResolvedCore) != "struct" or typeof(savegateResolvedCore.entityText) != "string" then
+    return error(8455, "core map resolver returned an invalid map source")
+  end if
+  savegateSourceEntityText = session.server.entityText
+  savegateSourceCollision = session.server.collision
+  savegateCrossRollbackCheckpoint = saveCrossMapRollback(session, checkpoint)
+  savegateTargetChange = try(changeCoreUntilCommitted(session, checkpoint.mapName,
+    savegateResolvedCore.entityText, savegateResolvedCore.collision, maximumSteps))
+  if savegateTargetChange is error then
+    return targetMapFailure(session, savegateCrossRollbackCheckpoint,
+      savegateSourceEntityText, savegateSourceCollision, maximumSteps,
+      savegateTargetChange)
+  end if
+  return finishCrossMapRestore(session, checkpoint, savegateCrossRollbackCheckpoint,
+    savegateSourceEntityText, savegateSourceCollision, maximumSteps)
+end function
+
+function restorePlaySessionRetail(session, checkpoint, baseDirectory, maximumSteps)
+  validateCrossMapPlay(session, checkpoint, maximumSteps)
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then
+    return error(8463, "retail restore base directory is missing")
+  end if
+  if checkpoint.mapName == session.server.mapName and
+      checkpoint.spawnCount == session.server.networkRuntime.spawnCount then
+    return restorePlaySession(session, checkpoint)
+  end if
+
+  savegateRetailSourceEntityText = session.server.entityText
+  savegateRetailSourceCollision = session.server.collision
+  savegateRetailRollbackCheckpoint = saveCrossMapRollback(session, checkpoint)
+  savegateRetailTargetChange = try(changeRetailUntilCommitted(
+    session, baseDirectory, checkpoint.mapName, maximumSteps))
+  if savegateRetailTargetChange is error then
+    return targetMapFailure(session, savegateRetailRollbackCheckpoint,
+      savegateRetailSourceEntityText, savegateRetailSourceCollision,
+      maximumSteps, savegateRetailTargetChange)
+  end if
+  return finishCrossMapRestore(session, checkpoint, savegateRetailRollbackCheckpoint,
+    savegateRetailSourceEntityText, savegateRetailSourceCollision, maximumSteps)
 end function

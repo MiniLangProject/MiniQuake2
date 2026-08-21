@@ -47,15 +47,15 @@ function campaignCoverageObjective(name)
 end function
 
 function campaignCoverageSimplified(name)
-  return campaignCoverageContains([
-    "monster_boss3_stand", "monster_commander_body",
-    "turret_base", "turret_breach", "turret_driver",
-  ], name)
+  return false
 end function
 
 function campaignCoverageBehavior(name, isMonster, isBoss, isSimplified)
   if isSimplified then return "generic/simplified" end if
   if name == "misc_insane" then return "ai:misc-insane" end if
+  if name == "monster_boss3_stand" then return "ai-prop:boss3-teleport" end if
+  if name == "monster_commander_body" then return "ai-prop:commander-body" end if
+  if name == "turret_base" or name == "turret_breach" or name == "turret_driver" then return "world:turret-rig" end if
   if isMonster then
     if name == "monster_jorg" then return "boss-ai+makron-successor" end if
     if campaignCoverageContains([
@@ -105,10 +105,20 @@ function main(args)
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "trigger_counter", "boss2")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "point_combat", "base1")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "misc_insane", "jail2")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "monster_boss3_stand", "boss1")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "monster_commander_body", "lab")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_base", "jail5")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_breach", "jail5")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_driver", "jail5")
     jorg = campaignCoverageFind(syntheticEntries, "monster_jorg")
     counter = campaignCoverageFind(syntheticEntries, "trigger_counter")
     point = campaignCoverageFind(syntheticEntries, "point_combat")
     insane = campaignCoverageFind(syntheticEntries, "misc_insane")
+    bossStand = campaignCoverageFind(syntheticEntries, "monster_boss3_stand")
+    commanderBody = campaignCoverageFind(syntheticEntries, "monster_commander_body")
+    turretBase = campaignCoverageFind(syntheticEntries, "turret_base")
+    turretBreach = campaignCoverageFind(syntheticEntries, "turret_breach")
+    turretDriver = campaignCoverageFind(syntheticEntries, "turret_driver")
     if jorg is void or not jorg.monster or not jorg.boss or jorg.simplified or
         jorg.behavior != "boss-ai+makron-successor" then
       return error(9842, "synthetic boss coverage classification failed")
@@ -121,6 +131,15 @@ function main(args)
     end if
     if insane is void or not insane.monster or insane.simplified or insane.behavior != "ai:misc-insane" then
       return error(9845, "synthetic misc_insane coverage classification failed")
+    end if
+    if bossStand is void or bossStand.simplified or bossStand.behavior != "ai-prop:boss3-teleport" or
+        commanderBody is void or commanderBody.simplified or commanderBody.behavior != "ai-prop:commander-body" then
+      return error(9846, "synthetic boss prop coverage classification failed")
+    end if
+    if turretBase is void or turretBase.simplified or turretBase.behavior != "world:turret-rig" or
+        turretBreach is void or turretBreach.simplified or turretBreach.behavior != "world:turret-rig" or
+        turretDriver is void or turretDriver.simplified or turretDriver.behavior != "world:turret-rig" then
+      return error(9847, "synthetic turret coverage classification failed")
     end if
     print("baseq2_campaign_behavior_coverage_tests: PASS (asset-free rules)")
     return 0

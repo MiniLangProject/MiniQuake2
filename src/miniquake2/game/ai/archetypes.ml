@@ -5,6 +5,7 @@ import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
 import miniquake2.game.ai.monster as gaimonster
 import miniquake2.game.ai.insane as gaiinsane
+import miniquake2.game.ai.props as gaiprops
 import miniquake2.game.ai.types as gaitypes
 import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.text as qtext
@@ -42,6 +43,8 @@ function defaultRegistry()
   ]
   campaignEntries = [
     archetype("misc_insane", "models/monsters/insane/tris.md2", commonMins, commonMaxs, 100, -50, 300, "walk", false, false),
+    archetype("monster_boss3_stand", "models/monsters/boss3/rider/tris.md2", [-32.0, -32.0, 0.0], [32.0, 32.0, 90.0], 1, -1, 1, "walk", false, false),
+    archetype("monster_commander_body", "models/monsters/commandr/tris.md2", [-32.0, -32.0, 0.0], [32.0, 32.0, 48.0], 1, -1, 1, "walk", false, false),
   ]
   return gaitypes.ArchetypeRegistry(entries, campaignEntries)
 end function
@@ -67,7 +70,11 @@ function validate(registry)
     if entry.className == "" or entry.model == "" or entry.health <= 0 or entry.mass <= 0 then return error(9681, "invalid monster archetype") end if
     if entry.movement != "walk" and entry.movement != "fly" and entry.movement != "swim" then return error(9682, "invalid monster movement kind") end if
   end for
-  if len(registry.campaignEntries) != 1 or registry.campaignEntries[0].className != "misc_insane" then return error(9685, "campaign AI registry must contain misc_insane") end if
+  if len(registry.campaignEntries) != 3 or registry.campaignEntries[0].className != "misc_insane" or
+      registry.campaignEntries[1].className != "monster_boss3_stand" or
+      registry.campaignEntries[2].className != "monster_commander_body" then
+    return error(9685, "campaign AI registry must contain misc_insane and scripted boss props")
+  end if
   return true
 end function
 
@@ -91,6 +98,7 @@ function SpawnMonster(registry, className, number, context)
   actor.edict.solid = gconstants.SOLID_BBOX
   actor.info.scale = definition.scale
   actor.info.currentMove = idleMove()
+  if gaiprops.isProp(actor) then return gaiprops.configure(actor, context) end if
   if actor.className == "misc_insane" then gaiinsane.configure(actor, context)
   else gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee) end if
   if definition.movement == "fly" then gaimonster.FlyMonsterStart(actor, context)

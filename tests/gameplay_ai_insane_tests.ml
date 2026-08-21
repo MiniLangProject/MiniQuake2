@@ -38,7 +38,7 @@ end function
 insaneRegistry = insanetestarchetypes.defaultRegistry()
 insaneTestAssert(insanetestarchetypes.validate(insaneRegistry), "campaign AI registry validates")
 insaneTestEqual(len(insaneRegistry.entries), 22, "base monster registry remains duplicate-free")
-insaneTestEqual(len(insaneRegistry.campaignEntries), 1, "campaign AI registry count")
+insaneTestEqual(len(insaneRegistry.campaignEntries), 3, "campaign AI registry count")
 insaneDefinition = insanetestarchetypes.find(insaneRegistry, "misc_insane")
 insaneTestEqual(insaneDefinition.model, "models/monsters/insane/tris.md2", "Classic insane model")
 insaneTestEqual(insaneDefinition.health, 100, "Classic insane health")

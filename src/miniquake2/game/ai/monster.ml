@@ -3,6 +3,7 @@ package miniquake2.game.ai.monster
 
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
+import miniquake2.game.ai.props as gaimonsterprops
 import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.constants as qconstants
 
@@ -147,6 +148,7 @@ function ContinueBossDeath(actor, context)
 end function
 
 function MonsterThink(actor, context)
+  if gaimonsterprops.isProp(actor) then return gaimonsterprops.Think(actor, context) end if
   if actor.bossPhase == "jorg-death" then
     ContinueBossDeath(actor, context)
     return true
@@ -162,6 +164,7 @@ function MonsterThink(actor, context)
 end function
 
 function MonsterUse(actor, other, activator, context)
+  if gaimonsterprops.isProp(actor) then return gaimonsterprops.Use(actor, other, activator, context) end if
   if actor.enemy is not void or actor.health <= 0 then return false end if
   if activator is void or (activator.flags & gaiconstants.FL_NOTARGET) != 0 then return false end if
   if activator.isClient != true and (activator.info.aiFlags & gaiconstants.AI_GOOD_GUY) == 0 then return false end if
@@ -189,6 +192,7 @@ function MonsterDeathUse(actor, context)
 end function
 
 function MonsterStart(actor, context)
+  if gaimonsterprops.isProp(actor) then return gaimonsterprops.Start(actor, context) end if
   if context.deathmatch then actor.edict.inUse = false; actor.activity = "inhibited-deathmatch"; return false end if
   if (actor.spawnFlags & gaiconstants.SPAWNFLAG_SIGHT) != 0 and (actor.info.aiFlags & gaiconstants.AI_GOOD_GUY) == 0 then
     actor.spawnFlags = (actor.spawnFlags & ~gaiconstants.SPAWNFLAG_SIGHT) | gaiconstants.SPAWNFLAG_AMBUSH
@@ -216,6 +220,7 @@ function MonsterStart(actor, context)
 end function
 
 function MonsterStartGo(actor, context)
+  if gaimonsterprops.isProp(actor) then return gaimonsterprops.StartGo(actor, context) end if
   if actor.health <= 0 then return false end if
   if actor.target != "" and typeof(context.pickTarget) == "function" then
     destination = context.pickTarget(actor.target)
@@ -272,12 +277,14 @@ function SwimMonsterStart(actor, context)
 end function
 
 function DispatchPain(actor, attacker, damage, context)
+  if gaimonsterprops.isProp(actor) then actor.health = actor.maxHealth; return false end if
   if actor.health <= 0 then return false end if
   if typeof(actor.pain) != "function" then return false end if
   return actor.pain(actor, attacker, damage, context)
 end function
 
 function DispatchDie(actor, attacker, damage, context)
+  if gaimonsterprops.isProp(actor) then actor.health = actor.maxHealth; return false end if
   if actor.deathUseComplete then return false end if
   if typeof(actor.die) != "function" then return false end if
   result = actor.die(actor, attacker, damage, context)

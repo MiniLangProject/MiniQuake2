@@ -105,15 +105,15 @@ server alive while loading and spawning the complete 39-map single-player list.
 Each level reaches `CA_ACTIVE`; the run performs 38 transactional map changes,
 resets level-owned client state, republishes configstrings and baselines, and
 completes the next signon without resetting the Netchan sequence generation.
-Three consecutive executions of the same freshly compiled product binary all
-returned the identical result: 39 maps, 38 changes, spawn count 39, 656 session
-steps and 3,204 processed packets. Wall-clock times were 56.37, 52.96 and 50.21
-seconds. This is repeated map-load/spawn/network-lifecycle evidence only: it
+Two consecutive executions of the final retail-class-closure product binary
+returned the identical result: 39 maps, 38 changes, spawn count 39, 660 session
+steps and 3,225 processed packets. Wall-clock times were 51.9 and 52.6 seconds.
+This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
 
 `baseq2_campaign_behavior_coverage_tests` inventories executable behavior over
 all 39 single-player BSPs: 34,298 raw entities, 9,304 target/transition
-instances across 32 classes, 1,564 monster instances across 21 BSP monster
+instances across 32 classes, 1,624 monster instances across 22 BSP monster
 classes, and all five retail boss/special classes. The focused endgame gate
 executes Jorg death, the `t26` death target, dynamic Makron export with inherited
 target, the second count on `trigger_counter`, `target_changelevel`,
@@ -125,9 +125,12 @@ transition guards. `point_combat`, `target_actor`, `target_character`,
 `target_lightramp`, `func_killbox`, the Viper/bomb set piece, the remaining
 decorative thinkers, `info_notnull` and `light_mine2` are now functional typed
 state machines. All 60 `misc_insane` instances use a dedicated AI with
-persisted crawl/crucified/pain/death phases. Eight instances across five
-classes remain explicitly simplified. This closes those slices, not every animation or AI
-decision leading to them.
+persisted crawl/crucified/pain/death phases. The two scripted boss props have
+their original use/think phases and versioned restore state; the two complete
+base/breach/driver turret rigs have coupled transforms, aiming, visibility,
+rocket cadence, collision damage and driver lifecycle. The measured matrix is
+now `simplified=0/0`. This closes the retail classname state-machine tail, not
+every animation or AI decision leading to it.
 
 `runtime_multiplayer_deathmatch_tests` and `runtime_multiplayer_coop_tests` run
 two real local UDP clients against one server. DM proves distinct slots/names,
@@ -153,6 +156,14 @@ Earlier 45-minute pressure observation held private memory at approximately
 bridge diagnostics are explicitly bounded, and inactive managed projectiles
 are compacted. The same executable completes two asset-free 5,000-frame
 sessions at roughly 3,200 frames/s with handle deltas `+3` then `+0`.
+
+`runtime_cross_map_session_persistence_tests` saves Game+Level state on a live
+source map, changes maps, completes a full Protocol-34 re-signon and restores
+the target checkpoint before validating the next snapshot. Resolver and image
+preflight failures do not mutate the live session. A deliberately corrupted
+private payload after target signon returns to the source map, re-signs on and
+restores the rollback pair; spawn and Netchan sequence generations remain
+monotonic rather than being rewound.
 
 ## Wire interoperability and visual evidence
 
@@ -244,8 +255,9 @@ graphs, reference-member writes and allocation-time float boxing; the repeated
   client and server binaries (raw bidirectional Protocol-34 is passed);
 - paired fixed-camera original `ref_gl` pixel comparison and a documented
   threshold (MiniQuake2 deterministic capture/diff is passed);
-- exhaustive retail campaign playthrough behavior, remaining turret/boss-prop
-  and monster exactness, and cross-map save/re-signon orchestration;
+- exhaustive retail campaign playthrough behavior and frame-for-frame monster,
+  weapon, turret and boss animation/combat exactness (retail class-state-machine
+  coverage and cross-map save/re-signon orchestration are passed);
 - broader multi-host coop/deathmatch weapon/projectile gameplay beyond the
   two-client lifecycle/scoring/item matrix;
 - manual input/audio/fullscreen/device-loss acceptance on release hardware.

@@ -3,7 +3,7 @@
   "project": "MiniQuake2",
   "baseline": "Quake II 3.19 / Protocol 34 / BSP38 / Game API v3 / Renderer API v3",
   "active_blocker_count": 8,
-  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, persistent boss2 Jorg-to-Makron progression, real-command two-client DM/coop, active-session rollback-safe save/restore, all but 8/5 rare retail entities/classes, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, turret/boss-prop and monster exactness, cross-map save orchestration, and manual device acceptance remain",
+  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, persistent boss2 and scripted-prop progression, zero explicitly simplified retail classes, real-command two-client DM/coop, same- and cross-map rollback-safe save/restore, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, exhaustive monster/weapon animation-combat parity, and manual device acceptance remain",
   "release_blocking_gates": [
     {
       "id": "G01",
@@ -174,6 +174,7 @@
         "tests/network_runtime_reliable_fragment_loopback_tests.ml",
         "src/miniquake2/runtime/session_persistence.ml",
         "tests/runtime_active_session_persistence_tests.ml",
+        "tests/runtime_cross_map_session_persistence_tests.ml",
         "tests/network_external_wire_interop_tests.ml",
         "tests/external_classic_320_interop_harness.ps1",
         "docs/RETAIL_VALIDATION.md"
@@ -183,7 +184,7 @@
       "id": "G09",
       "plan_point": 9,
       "title": "complete baseq2 game matrix",
-      "status": "47_map_spawn_persistent_endgame_active_session_save_real_command_multiplayer_and_8_instance_rare_tail_passed",
+      "status": "47_map_spawn_zero_simplified_retail_classes_persistent_boss_props_cross_map_save_and_real_command_multiplayer_passed",
       "evidence": [
         "src/miniquake2/game/base/",
         "src/miniquake2/game/gameplay/",
@@ -200,6 +201,9 @@
         "tests/gameplay_ai_monster_scenarios.ml",
         "tests/gameplay_ai_insane_tests.ml",
         "tests/gameplay_ai_insane_persistence_tests.ml",
+        "src/miniquake2/game/ai/props.ml",
+        "tests/gameplay_ai_boss_props_tests.ml",
+        "tests/gameplay_ai_boss_props_persistence_tests.ml",
         "tests/gameplay_player_scenarios.ml",
         "tests/gameplay_player_view_scenarios.ml",
         "tests/gameplay_powerups_stock_tests.ml",
@@ -226,9 +230,13 @@
         "tests/gameplay_boss_persistence_tests.ml",
         "tests/gameplay_world_rare_entities_tests.ml",
         "tests/gameplay_world_stock_rare_tests.ml",
+        "src/miniquake2/game/world/turret.ml",
+        "src/miniquake2/game/world/turret_types.ml",
+        "tests/gameplay_world_turret_tests.ml",
         "tests/game_api_rare_world_integration_tests.ml",
         "src/miniquake2/runtime/session_persistence.ml",
         "tests/runtime_active_session_persistence_tests.ml",
+        "tests/runtime_cross_map_session_persistence_tests.ml",
         "src/miniquake2/runtime/multiplayer_session.ml",
         "tests/runtime_multiplayer_deathmatch_tests.ml",
         "tests/runtime_multiplayer_coop_tests.ml"

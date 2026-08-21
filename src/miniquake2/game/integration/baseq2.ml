@@ -8,6 +8,8 @@ import miniquake2.game.world.triggers as ibtriggers
 import miniquake2.game.world.targets as ibtargets
 import miniquake2.game.world.movers as ibmovers
 import miniquake2.game.world.misc as ibmisc
+import miniquake2.game.world.turret as ibturret
+import miniquake2.game.world.turret_types as ibturrettypes
 import miniquake2.game.world.constants as ibworldconstants
 import miniquake2.game.integration.pusher as ibpusher
 import miniquake2.game.ai.archetypes as ibarchetypes
@@ -71,6 +73,10 @@ function worldEntity(baseEdict)
   entity.item = source.spawnTemp.item
   entity.moveInfo.distance = source.spawnTemp.distance
   entity.pauseTime = source.spawnTemp.pauseTime
+  if source.className == "turret_breach" then
+    entity.moveInfo.startAngles = ibqtypes.Vec3(source.spawnTemp.minPitch, source.spawnTemp.minYaw, 0.0)
+    entity.moveInfo.endAngles = ibqtypes.Vec3(source.spawnTemp.maxPitch, source.spawnTemp.maxYaw, 0.0)
+  end if
   if source.className == "worldspawn" then entity.modelIndex = 1 end if
   return entity
 end function
@@ -129,6 +135,18 @@ function integratedAISound(actor, soundName, channel, attenuation)
     ibAISoundImportsHolder.soundIndex(soundName), 1.0, attenuation, 0.0)
 end function
 
+function integratedAITempEntity(actor, effectType)
+  global activeIntegrationRuntime
+  ibAITempRuntimeHolder = activeIntegrationRuntime
+  if ibAITempRuntimeHolder is void or ibAITempRuntimeHolder.playerContext is void then return false end if
+  ibAITempImportsHolder = ibAITempRuntimeHolder.playerContext.imports
+  ibAITempOriginHolder = actor.edict.state.origin
+  ibAITempImportsHolder.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  ibAITempImportsHolder.writeByte(effectType)
+  ibAITempImportsHolder.writePosition(ibAITempOriginHolder)
+  return ibAITempImportsHolder.multicast(ibAITempOriginHolder, ibgconstants.MULTICAST_PVS)
+end function
+
 function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
@@ -138,7 +156,30 @@ function configureAI(context)
   context.areasConnected = aiAreasConnected
   context.spawnMonster = integratedSpawnMonster
   context.playSound = integratedAISound
+  context.tempEntity = integratedAITempEntity
   return context
+end function
+
+function integratedPropProxyUse(entity, other, activator, world)
+  ibPropActorHolder = integratedWorldActor(entity.number)
+  if ibPropActorHolder is void then return false end if
+  global activeIntegrationRuntime
+  return ibmonster.MonsterUse(ibPropActorHolder, other, activator, activeIntegrationRuntime.aiContext)
+end function
+
+function installPropTargetProxies(runtime)
+  ibPropProxyCount = 0
+  for each ibPropActorHolder in runtime.monsters
+    if ibPropActorHolder.className == "monster_boss3_stand" or ibPropActorHolder.className == "monster_commander_body" then
+      ibPropProxyHolder = ibwtypes.createEntity(ibPropActorHolder.edict.state.number, "ai_prop_target_proxy")
+      ibPropProxyHolder.targetName = ibPropActorHolder.targetName
+      ibPropProxyHolder.target = ibPropActorHolder.target
+      ibPropProxyHolder.use = integratedPropProxyUse
+      runtime.world.entities = runtime.world.entities + [ibPropProxyHolder]
+      ibPropProxyCount = ibPropProxyCount + 1
+    end if
+  end for
+  return ibPropProxyCount
 end function
 
 function integratedSpawnMonster(className, parent)
@@ -630,6 +671,108 @@ function integratedRandomSigned()
   return 0.0
 end function
 
+function integratedTurretAcquire(driver, world)
+  global activeIntegrationRuntime
+  ibTurretRuntimeHolder = activeIntegrationRuntime
+  if ibTurretRuntimeHolder is void or ibTurretRuntimeHolder.playerContext is void then return void end if
+  for each ibTurretPlayerHolder in ibTurretRuntimeHolder.playerContext.players
+    if ibTurretPlayerHolder.edict.inUse and ibTurretPlayerHolder.persistent.connected and
+        ibTurretPlayerHolder.health > 0 and ibTurretPlayerHolder.respawn.spectator != true then
+      ibTurretProxyHolder = playerWorldProxy(ibTurretPlayerHolder)
+      ibTurretProxyHolder.height = ibTurretPlayerHolder.viewHeight
+      ibTurretProxyHolder.takeDamage = ibworldconstants.DAMAGE_YES
+      return ibTurretProxyHolder
+    end if
+  end for
+  return void
+end function
+
+function integratedTurretVisible(driver, enemy, world)
+  global activeIntegrationRuntime
+  ibTurretRuntimeHolder = activeIntegrationRuntime
+  if ibTurretRuntimeHolder is void or ibTurretRuntimeHolder.playerContext is void then return true end if
+  ibTurretStartHolder = ibqtypes.Vec3(driver.origin.x, driver.origin.y, driver.origin.z + driver.height)
+  ibTurretEndHolder = ibqtypes.Vec3(enemy.origin.x, enemy.origin.y, enemy.origin.z + enemy.height)
+  ibTurretPassEdictHolder = void
+  if ibTurretRuntimeHolder.exportTable is not void and driver.number >= 0 and
+      driver.number < ibTurretRuntimeHolder.exportTable.numEdicts then
+    ibTurretPassEdictHolder = ibTurretRuntimeHolder.exportTable.edicts[driver.number]
+  end if
+  ibTurretTraceHolder = ibTurretRuntimeHolder.playerContext.imports.trace(
+    ibTurretStartHolder, ibqtypes.zeroVec3(), ibqtypes.zeroVec3(), ibTurretEndHolder,
+    ibTurretPassEdictHolder, ibqconstants.MASK_SHOT)
+  if ibTurretTraceHolder.fraction == 1.0 then return true end if
+  return ibTurretTraceHolder.entity is not void and ibTurretTraceHolder.entity.state.number == enemy.number
+end function
+
+function integratedTurretRandomUnit()
+  return 0.5
+end function
+
+function integratedTurretFire(attacker, start, direction, damage, speed, splashRadius, world)
+  global activeIntegrationRuntime
+  ibTurretRuntimeHolder = activeIntegrationRuntime
+  if ibTurretRuntimeHolder is void then return false end if
+  ibTurretShooterHolder = weaponTargetByNumber(ibTurretRuntimeHolder, attacker.number)
+  if ibTurretShooterHolder is void then ibTurretShooterHolder = worldWeaponTarget(attacker) end if
+  ibwpprojectiles.fireRocket(ibTurretRuntimeHolder.weaponContext, ibTurretShooterHolder,
+    start, direction, damage, speed, splashRadius, damage)
+  return true
+end function
+
+function integratedTurretDriverSpawn(driver, world)
+  return true
+end function
+
+function integratedTurretDriverUse(driver, other, activator, world)
+  return true
+end function
+
+function integratedTurretDriverDie(driver, inflictor, attacker, damage, point, world)
+  return true
+end function
+
+function integratedTurretControl()
+  ibTurretCallbacksHolder = ibturrettypes.defaultTurretCallbacks()
+  ibTurretCallbacksHolder.acquireTarget = integratedTurretAcquire
+  ibTurretCallbacksHolder.traceVisible = integratedTurretVisible
+  ibTurretCallbacksHolder.randomUnit = integratedTurretRandomUnit
+  ibTurretCallbacksHolder.fireRocket = integratedTurretFire
+  ibTurretCallbacksHolder.driverSpawn = integratedTurretDriverSpawn
+  ibTurretCallbacksHolder.driverUse = integratedTurretDriverUse
+  ibTurretCallbacksHolder.driverDie = integratedTurretDriverDie
+  return ibturrettypes.createTurretControl(ibTurretCallbacksHolder, 1.0)
+end function
+
+function installTurretRigs(runtime)
+  ibTurretRigCount = 0
+  for each ibTurretBreachHolder in runtime.world.entities
+    if ibTurretBreachHolder.inUse and ibTurretBreachHolder.className == "turret_breach" then
+      ibTurretControlHolder = integratedTurretControl()
+      ibTurretRawMinimumsHolder = ibTurretBreachHolder.moveInfo.startAngles
+      ibTurretRawMaximumsHolder = ibTurretBreachHolder.moveInfo.endAngles
+      ibTurretLimitsHolder = ibturrettypes.createTurretLimits(
+        ibTurretRawMinimumsHolder.x, ibTurretRawMaximumsHolder.x,
+        ibTurretRawMinimumsHolder.y, ibTurretRawMaximumsHolder.y)
+      for each ibTurretBaseHolder in runtime.world.entities
+        if ibTurretBaseHolder.inUse and ibTurretBaseHolder.className == "turret_base" and
+            ibTurretBaseHolder.team == ibTurretBreachHolder.team then
+          ibturret.spawnTurretBase(ibTurretBaseHolder, runtime.world, ibTurretControlHolder)
+        end if
+      end for
+      ibturret.spawnTurretBreach(ibTurretBreachHolder, runtime.world, ibTurretControlHolder, ibTurretLimitsHolder)
+      for each ibTurretDriverHolder in runtime.world.entities
+        if ibTurretDriverHolder.inUse and ibTurretDriverHolder.className == "turret_driver" and
+            ibTurretDriverHolder.target == ibTurretBreachHolder.targetName then
+          ibturret.spawnTurretDriver(ibTurretDriverHolder, runtime.world, ibTurretControlHolder, false)
+        end if
+      end for
+      ibTurretRigCount = ibTurretRigCount + 1
+    end if
+  end for
+  return ibTurretRigCount
+end function
+
 function integratedWeaponCallbacks()
   return ibwptypes.WeaponCallbacks(
     integratedWeaponTrace, integratedWeaponContents, integratedWeaponDamage,
@@ -765,6 +908,8 @@ function create(spawnResult)
   runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void)
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
+  installTurretRigs(runtime)
+  installPropTargetProxies(runtime)
   ibpusher.assembleTeams(runtime.world)
   // SpawnMonster establishes defaults before the parsed fields are copied.
   // Re-running the generic start boundary applies target/trigger-spawn state.
@@ -786,6 +931,7 @@ end function
 // this level. The default Blaster/player model are the only unconditional
 // player assets; duplicate item and monster instances reuse engine indices.
 function precacheSpawned(runtime, playerContext)
+  runtime.playerContext = playerContext
   imports = playerContext.imports
   itemIndexes = []
   blaster = ibitemrules.findByPickupName(playerContext.registry, "Blaster")
@@ -805,12 +951,29 @@ function precacheSpawned(runtime, playerContext)
   end for
 
   monsterModels = []
-  for each actor in runtime.monsters
-    if actor.model != "" then
-      imports.setModel(actor.edict, actor.model)
-      if containsItemIndex(monsterModels, actor.edict.state.modelIndex) != true then monsterModels = monsterModels + [actor.edict.state.modelIndex] end if
+  ibPrecacheMonsterPosition = 0
+  while ibPrecacheMonsterPosition < len(runtime.monsters)
+    ibPrecacheActorHolder = runtime.monsters[ibPrecacheMonsterPosition]
+    if ibPrecacheActorHolder.model != "" then
+      // Keep the managed actor state authoritative even when a GameImport
+      // adapter implements SetModel as an engine-edict side effect.  The
+      // explicit index is also the value published into Protocol 34 frames.
+      ibPrecacheMonsterModelIndex = imports.modelIndex(ibPrecacheActorHolder.model)
+      imports.setModel(ibPrecacheActorHolder.edict, ibPrecacheActorHolder.model)
+      ibPrecacheEdictHolder = ibPrecacheActorHolder.edict
+      ibPrecacheStateHolder = ibPrecacheEdictHolder.state
+      ibPrecacheStateHolder.modelIndex = ibPrecacheMonsterModelIndex
+      ibPrecacheEdictHolder.state = ibPrecacheStateHolder
+      ibPrecacheActorHolder.edict = ibPrecacheEdictHolder
+      runtime.monsters[ibPrecacheMonsterPosition] = ibPrecacheActorHolder
+      if containsItemIndex(monsterModels, ibPrecacheMonsterModelIndex) != true then monsterModels = monsterModels + [ibPrecacheMonsterModelIndex] end if
     end if
-  end for
+    if ibPrecacheActorHolder.className == "monster_commander_body" then
+      imports.soundIndex("tank/thud.wav")
+      imports.soundIndex("tank/pain.wav")
+    end if
+    ibPrecacheMonsterPosition = ibPrecacheMonsterPosition + 1
+  end while
   worldModels = []
   for each entity in runtime.world.entities
     if entity.inUse and entity.model != "" then
@@ -1188,7 +1351,11 @@ end function
 
 function syncGameEdicts(runtime, exportTable)
   for each entity in runtime.world.entities
-    if entity.number >= 0 and entity.number < exportTable.numEdicts then
+    // AI prop target proxies deliberately share the actor's edict number so
+    // G_UseTargets can find them.  They are dispatch-only records and must
+    // never overwrite the authoritative actor EntityState through the shared
+    // export-edict reference.
+    if entity.className != "ai_prop_target_proxy" and entity.number >= 0 and entity.number < exportTable.numEdicts then
       ibSyncTargetHolder = exportTable.edicts[entity.number]
       ibSyncStateHolder = ibSyncTargetHolder.state
       ibSyncOriginHolder = entity.origin
@@ -1213,6 +1380,11 @@ function syncGameEdicts(runtime, exportTable)
   end for
   for each actor in runtime.monsters
     if actor.edict.state.number < exportTable.numEdicts then
+      if actor.edict.state.modelIndex <= 0 and actor.model != "" and runtime.playerContext is not void then
+        ibSyncActorStateHolder = actor.edict.state
+        ibSyncActorStateHolder.modelIndex = runtime.playerContext.imports.modelIndex(actor.model)
+        actor.edict.state = ibSyncActorStateHolder
+      end if
       ibActorEdictHolder = ibgametypes.stabilizeEdict(actor.edict)
       exportTable.edicts[actor.edict.state.number] = ibActorEdictHolder
       ibStoredActorEdictHolder = exportTable.edicts[actor.edict.state.number]

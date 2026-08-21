@@ -32,7 +32,13 @@ fixture = "{ \"classname\" \"worldspawn\" }\n" +
   "{ \"classname\" \"misc_eastertank\" }\n" +
   "{ \"classname\" \"misc_easterchick\" }\n" +
   "{ \"classname\" \"misc_easterchick2\" }\n" +
-  "{ \"classname\" \"light_mine2\" }"
+  "{ \"classname\" \"light_mine2\" }\n" +
+  "{ \"classname\" \"info_notnull\" \"targetname\" \"turret-muzzle\" \"origin\" \"32 0 16\" }\n" +
+  "{ \"classname\" \"turret_base\" \"team\" \"turret-a\" \"model\" \"*4\" }\n" +
+  "{ \"classname\" \"turret_breach\" \"team\" \"turret-a\" \"targetname\" \"turret-gun\" \"target\" \"turret-muzzle\" \"model\" \"*5\" \"minpitch\" \"-20\" \"maxpitch\" \"30\" }\n" +
+  "{ \"classname\" \"turret_driver\" \"target\" \"turret-gun\" \"origin\" \"0 -32 0\" }\n" +
+  "{ \"classname\" \"monster_boss3_stand\" \"targetname\" \"boss-prop\" }\n" +
+  "{ \"classname\" \"trigger_relay\" \"targetname\" \"boss-use\" \"target\" \"boss-prop\" }"
 
 spawned = rareintegrationbase.SpawnEntities("rare", fixture, "")
 requireTrue(spawned.skippedEntityCount == 0, "rare integration fixture must not skip classes")
@@ -56,6 +62,19 @@ easterTank = rareintegration.findWorldByClass(runtime, "misc_eastertank")
 easterChick = rareintegration.findWorldByClass(runtime, "misc_easterchick")
 easterChick2 = rareintegration.findWorldByClass(runtime, "misc_easterchick2")
 mineLight = rareintegration.findWorldByClass(runtime, "light_mine2")
+turretBase = rareintegration.findWorldByClass(runtime, "turret_base")
+turretBreach = rareintegration.findWorldByClass(runtime, "turret_breach")
+turretDriver = rareintegration.findWorldByClass(runtime, "turret_driver")
+bossUse = void
+for each rareBossUseCandidate in runtime.world.entities
+  if rareBossUseCandidate.className == "trigger_relay" and rareBossUseCandidate.targetName == "boss-use" then
+    bossUse = rareBossUseCandidate
+  end if
+end for
+bossProp = void
+for each rareBossCandidate in runtime.monsters
+  if rareBossCandidate.className == "monster_boss3_stand" then bossProp = rareBossCandidate end if
+end for
 
 requireTrue(combat is not void and combat.touch is not void, "point_combat touch wiring")
 requireTrue(combat.solid == rareintegrationconstants.SOLID_TRIGGER, "point_combat trigger shape")
@@ -76,6 +95,15 @@ requireTrue(easterTank is not void and easterTank.frame == 254, "easter tank mod
 requireTrue(easterChick is not void and easterChick.frame == 208, "easter chick model wiring")
 requireTrue(easterChick2 is not void and easterChick2.frame == 248, "easter chick2 model wiring")
 requireTrue(mineLight is not void and mineLight.model == "models/objects/minelite/light2/tris.md2", "mine light model wiring")
+requireTrue(turretBase is not void and turretBase.blocked is not void, "turret base product wiring")
+requireTrue(turretBreach is not void and turretBreach.think is not void, "turret breach product wiring")
+requireTrue(turretDriver is not void and turretDriver.think is not void, "turret driver product wiring")
+requireTrue(turretBase.teamChain == turretBreach and turretBreach.item == turretDriver.item,
+  "turret rig shares team and control")
+requireTrue(bossUse is not void and bossProp is not void and bossProp.edict.inUse,
+  "boss prop target proxy product wiring")
+requireTrue(rareintegrationworld.useEntity(runtime.world, bossUse, void, void) and bossProp.edict.inUse == false,
+  "world target dispatch reaches boss prop use")
 
 raremeaning = rareintegrationworld.advance(runtime.world, runtime.world.frameTime)
 requireTrue(raremeaning, "rare integration scheduler executes elevator initialization")
