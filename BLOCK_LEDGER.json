@@ -1,0 +1,332 @@
+{
+  "schema": "MiniQuake2BlockLedger/1",
+  "project": "MiniQuake2",
+  "baseline": "Quake II 3.19 / Protocol 34 / BSP38 / Game API v3 / Renderer API v3",
+  "active_blocker_count": 8,
+  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, boss2 Jorg-to-Makron progression, two-client DM/coop, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, rare-class exactness, dynamic-boss persistence, and manual device acceptance remain",
+  "release_blocking_gates": [
+    {
+      "id": "G01",
+      "plan_point": 1,
+      "title": "compatibility and reference baseline",
+      "status": "complete",
+      "evidence": [
+        "README.md",
+        "docs/COMPATIBILITY_CONTRACT.md",
+        "docs/ARCHITECTURE.md",
+        "docs/PORT_PLAN.md",
+        "PORT_LEDGER.json"
+      ]
+    },
+    {
+      "id": "G02",
+      "plan_point": 2,
+      "title": "project skeleton and reproducible build",
+      "status": "complete",
+      "evidence": [
+        "build.ps1",
+        "scripts/package.ps1",
+        "scripts/test.ps1",
+        "tools/verify_project.py",
+        "tools/package_release.py",
+        "tools/package_runtime_smoke.py",
+        "SOURCE_MANIFEST.sha256",
+        "LICENSE.md",
+        "NOTICE.md",
+        "src/main.ml"
+      ]
+    },
+    {
+      "id": "G03",
+      "plan_point": 3,
+      "title": "qcommon differential parity",
+      "status": "implemented_tested",
+      "evidence": [
+        "src/miniquake2/qcommon/",
+        "tests/qcommon_core_tests.ml",
+        "tests/qcommon_services_tests.ml",
+        "tests/qcommon_directions_tests.ml"
+      ]
+    },
+    {
+      "id": "G04",
+      "plan_point": 4,
+      "title": "formats, collision, visibility, and malformed input",
+      "status": "implemented_47_map_retail_spawn_smoke_passed",
+      "evidence": [
+        "src/miniquake2/format/",
+        "src/miniquake2/collision/",
+        "tests/format_contract_tests.ml",
+        "tests/collision_model_tests.ml",
+        "tests/collision_bsp_retention_tests.ml",
+        "tests/collision_bsp_product_graph_retention_tests.ml",
+        "src/miniquake2/runtime/application.ml",
+        "docs/RETAIL_VALIDATION.md"
+      ]
+    },
+    {
+      "id": "G05",
+      "plan_point": 5,
+      "title": "Windows platform, input, UDP/loopback, audio, and headless mode",
+      "status": "implemented_manual_device_gate_pending",
+      "evidence": [
+        "src/miniquake2/platform/",
+        "src/miniquake2/audio/",
+        "tests/platform_contract_tests.ml",
+        "tests/audio_mixer_tests.ml",
+        "tests/network_runtime_loopback_tests.ml"
+      ]
+    },
+    {
+      "id": "G06",
+      "plan_point": 6,
+      "title": "Renderer API v3 and OpenGL visual parity",
+      "status": "deterministic_capture_passed_original_pixel_pair_pending",
+      "evidence": [
+        "src/miniquake2/renderer/",
+        "tests/renderer_contract_tests.ml",
+        "tests/renderer_geometry_tests.ml",
+        "tests/renderer_assets_tests.ml",
+        "tests/opengl_adapter_tests.ml",
+        "tests/renderer_classic_lightmap_tests.ml",
+        "tests/renderer_classic_scene_tests.ml",
+        "tests/renderer_classic_special_surface_tests.ml",
+        "tests/renderer_classic_world_submission_tests.ml",
+        "tests/renderer_classic_brush_submission_tests.ml",
+        "tests/renderer_classic_model_adoption_tests.ml",
+        "tests/renderer_classic_visibility_tests.ml",
+        "tests/renderer_md2_submission_tests.ml",
+        "tests/runtime_renderer_product_graph_tests.ml",
+        "src/miniquake2/renderer/capture.ml",
+        "src/miniquake2/runtime/visual_capture.ml",
+        "tests/renderer_capture_tests.ml",
+        "tests/test_visual_compare.py",
+        "tools/retail_visual_capture.ml",
+        "tools/visual_compare.py",
+        "docs/RETAIL_VALIDATION.md"
+      ]
+    },
+    {
+      "id": "G07",
+      "plan_point": 7,
+      "title": "Protocol 34 client and original-server interoperability",
+      "status": "independent_wire_peer_passed_original_process_blocked",
+      "evidence": [
+        "src/miniquake2/protocol/",
+        "src/miniquake2/network/",
+        "src/miniquake2/client/",
+        "tests/protocol_delta_tests.ml",
+        "tests/protocol_netchan_tests.ml",
+        "tests/network_connection_tests.ml",
+        "tests/network_snapshot_tests.ml",
+        "tests/network_runtime_messages_tests.ml",
+        "tests/network_runtime_loopback_tests.ml",
+        "tests/protocol_reliable_fragment_tests.ml",
+        "tests/network_runtime_reliable_fragment_tests.ml",
+        "tests/network_runtime_reliable_fragment_udp_tests.ml",
+        "tests/network_runtime_signon_keepalive_tests.ml",
+        "tests/client_runtime_dispatch_tests.ml",
+        "tests/client_runtime_frame_malformed_tests.ml",
+        "tests/client_runtime_map_lifecycle_tests.ml",
+        "tests/client_runtime_handoff_tests.ml",
+        "tests/client_runtime_usercmd_queue_tests.ml",
+        "tests/client_assets_registry_tests.ml",
+        "tests/runtime_client_assets_handoff_tests.ml",
+        "tests/runtime_client_assets_product_graph_tests.ml",
+        "tests/network_runtime_sound_loopback_tests.ml",
+        "tests/network_runtime_sound_routing_tests.ml",
+        "tests/client_runtime_ui_messages_tests.ml",
+        "tests/client_cinematic_playback_tests.ml",
+        "tests/client_cinematic_malformed_audio_tests.ml",
+        "tests/runtime_client_server_session_tests.ml",
+        "tests/play_session_loopback_tests.ml",
+        "tests/play_session_map_change_loopback_tests.ml",
+        "tests/runtime_campaign_session_reliable_queue_tests.ml",
+        "tests/network_runtime_campaign_unmasked_tests.ml",
+        "tests/network_external_wire_interop_tests.ml",
+        "tests/external_classic_320_interop_harness.ps1",
+        "src/miniquake2/network/runtime/lifecycle.ml",
+        "src/miniquake2/runtime/play_session.ml",
+        "docs/RETAIL_VALIDATION.md"
+      ]
+    },
+    {
+      "id": "G08",
+      "plan_point": 8,
+      "title": "server, Game API v3, and original-client interoperability",
+      "status": "independent_wire_peer_passed_original_process_blocked",
+      "evidence": [
+        "src/miniquake2/server/",
+        "src/miniquake2/runtime/server_session.ml",
+        "src/miniquake2/runtime/client_session.ml",
+        "src/miniquake2/game/null_game.ml",
+        "src/miniquake2/game/persistence.ml",
+        "tests/server_game_bridge_tests.ml",
+        "tests/server_snapshot_tests.ml",
+        "tests/server_sound_event_queue_tests.ml",
+        "tests/network_runtime_sound_routing_tests.ml",
+        "tests/network_runtime_game_adapter_tests.ml",
+        "tests/game_api_baseq2_integration_tests.ml",
+        "tests/runtime_server_session_tests.ml",
+        "tests/runtime_client_server_session_tests.ml",
+        "tests/play_session_map_change_loopback_tests.ml",
+        "tests/network_runtime_map_download_deferral_tests.ml",
+        "tests/network_runtime_reliable_fragment_loopback_tests.ml",
+        "tests/network_external_wire_interop_tests.ml",
+        "tests/external_classic_320_interop_harness.ps1",
+        "docs/RETAIL_VALIDATION.md"
+      ]
+    },
+    {
+      "id": "G09",
+      "plan_point": 9,
+      "title": "complete baseq2 game matrix",
+      "status": "47_map_spawn_endgame_and_two_client_mode_matrix_passed",
+      "evidence": [
+        "src/miniquake2/game/base/",
+        "src/miniquake2/game/gameplay/",
+        "src/miniquake2/game/world/",
+        "src/miniquake2/game/ai/",
+        "src/miniquake2/game/player/",
+        "src/miniquake2/game/weapons/",
+        "src/miniquake2/game/integration/",
+        "src/miniquake2/physics/",
+        "tests/baseq2_entity_spawn_tests.ml",
+        "tests/gameplay_items_weapons_tests.ml",
+        "tests/gameplay_world_core_tests.ml",
+        "tests/gameplay_world_mover_tests.ml",
+        "tests/gameplay_ai_monster_scenarios.ml",
+        "tests/gameplay_player_scenarios.ml",
+        "tests/gameplay_player_view_scenarios.ml",
+        "tests/gameplay_powerups_stock_tests.ml",
+        "tests/gameplay_weapon_ballistics_hitscan_tests.ml",
+        "tests/gameplay_weapon_ballistics_projectile_tests.ml",
+        "tests/game_integration_baseq2_tests.ml",
+        "tests/game_api_playable_base1_tests.ml",
+        "tests/game_api_spawn_precache_tests.ml",
+        "tests/game_api_combat_vertical_slice_tests.ml",
+        "tests/baseq2_retail_class_aggregate_tests.ml",
+        "tests/baseq2_campaign_registry_coverage_tests.ml",
+        "tests/baseq2_campaign_retail_smoke_tests.ml",
+        "tests/gameplay_campaign_world_scenarios_tests.ml",
+        "tests/server_game_bridge_inline_brush_tests.ml",
+        "tests/gameplay_world_retail_entities_tests.ml",
+        "tests/game_api_retail_world_entities_tests.ml",
+        "tests/pmove_core_tests.ml",
+        "tests/game_persistence_tests.ml",
+        "tests/gameplay_private_save_restore_tests.ml",
+        "tests/gameplay_pusher_physics_tests.ml",
+        "tests/gameplay_world_mover_direction_tests.ml",
+        "tests/baseq2_campaign_behavior_coverage_tests.ml",
+        "tests/gameplay_campaign_endgame_tests.ml",
+        "src/miniquake2/runtime/multiplayer_session.ml",
+        "tests/runtime_multiplayer_deathmatch_tests.ml",
+        "tests/runtime_multiplayer_coop_tests.ml"
+      ]
+    },
+    {
+      "id": "G10",
+      "plan_point": 10,
+      "title": "release compatibility, soak, performance, license, and asset closure",
+      "status": "retail_soak_and_aggregate_performance_passed_external_closure_pending",
+      "evidence": [
+        "build.ps1",
+        "scripts/package.ps1",
+        "scripts/campaign_smoke.ps1",
+        "tools/verify_project.py",
+        "tools/package_release.py",
+        "tools/retail_campaign_inventory.py",
+        "tools/test_retail_campaign_inventory.py",
+        "SOURCE_MANIFEST.sha256",
+        "LICENSE.md",
+        "NOTICE.md",
+        "src/miniquake2/runtime/diagnostics.ml",
+        "src/miniquake2/runtime/application.ml",
+        "tests/runtime_client_server_session_tests.ml",
+        "tests/runtime_renderer_product_graph_tests.ml",
+        "tests/runtime_preview_camera_tests.ml",
+        "tests/play_session_loopback_tests.ml",
+        "tests/runtime_campaign_matrix_tests.ml",
+        "tests/runtime_campaign_session_reliable_queue_tests.ml",
+        "src/miniquake2/runtime/soak.ml",
+        "tests/runtime_session_soak_tests.ml",
+        "scripts/session_soak.ps1",
+        "docs/RETAIL_VALIDATION.md"
+      ]
+    }
+  ],
+  "known_risks": [
+    {
+      "id": "R01",
+      "classification": "external proprietary-data dependency",
+      "severity": "release_blocking_when_retail_gates_run",
+      "status": "controlled",
+      "risk": "Retail acceptance requires data that cannot be committed or redistributed.",
+      "mitigation": "Use a legal user-supplied basedir, archive only hashes and aggregate evidence, and fail package staging on game-data extensions.",
+      "owner_gate": "G10"
+    },
+    {
+      "id": "R02",
+      "classification": "native ABI and address-model mismatch",
+      "severity": "high_if_activated",
+      "status": "deferred_by_contract",
+      "risk": "Original x86 game and renderer DLLs depend on 32-bit layouts, callbacks, calling conventions, and pointer lifetimes.",
+      "mitigation": "Use internal typed MiniLang API-v3 records. Treat native DLL compatibility as a separately gated adapter project.",
+      "owner_gate": "G08"
+    },
+    {
+      "id": "R03",
+      "classification": "savegame disk-layout mismatch",
+      "severity": "high",
+      "status": "controlled_minilang_format_implemented",
+      "risk": "The 3.19 game save path contains raw structure-size assumptions that do not map to MiniLang or x64 memory.",
+      "mitigation": "Implement field-by-field versioned serialization and an explicit Win32 3.19 import/export adapter; never dump runtime objects.",
+      "owner_gate": "G09"
+    },
+    {
+      "id": "R04",
+      "classification": "floating-point and timing divergence",
+      "severity": "medium",
+      "status": "controlled_checked_parsers_and_downloads",
+      "risk": "x87-era arithmetic and frame timing can alter pmove, collision edges, AI, demos, or protocol quantization.",
+      "mitigation": "Use deterministic fixtures, documented pre-quantization tolerances, exact post-quantization checks, and fixed-step reference runs.",
+      "owner_gate": "G10"
+    },
+    {
+      "id": "R05",
+      "classification": "untrusted binary input",
+      "severity": "high",
+      "status": "open_risk",
+      "risk": "Original parsers and download paths assume trusted 1990s inputs and may permit bounds, overflow, or path traversal defects.",
+      "mitigation": "Centralize checked binary readers and safe paths; require malformed corpora and failure-atomic state transitions.",
+      "owner_gate": "G04"
+    },
+    {
+      "id": "R06",
+      "classification": "license and notice retention",
+      "severity": "release_blocking",
+      "status": "controlled",
+      "risk": "Translated GPL source and the MD4-specific notice impose source and attribution obligations; game data has separate terms.",
+      "mitigation": "Track provenance per module, retain notices, ship complete corresponding source, review dependencies, and scan packages for assets.",
+      "owner_gate": "G10"
+    },
+    {
+      "id": "R07",
+      "classification": "scope dilution",
+      "severity": "medium",
+      "status": "controlled",
+      "risk": "CTF, extra renderers, native mods, or non-Windows work could obscure incomplete baseq2 compatibility.",
+      "mitigation": "Keep deferred files visible in the ledger and activate them only after G09 through an explicit scope revision.",
+      "owner_gate": "G09"
+    }
+  ],
+  "asset_exclusion": {
+    "policy": "no proprietary Quake II data in source, fixtures, CI artifacts, staging, or releases",
+    "reference_tree_exclusions": [
+      "baseq2/config.cfg",
+      "baseq2/save/save0/game.ssv",
+      "baseq2/save/save0/server.ssv"
+    ],
+    "status": "enforced by source inventory, build hygiene, and manifest gates; retail smoke consumes only user-supplied data"
+  }
+}

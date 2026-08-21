@@ -1,0 +1,301 @@
+/* Native deterministic scenarios for the managed baseq2 AI/monster core. */
+import miniquake2.game.ai.archetypes as gaiarchetypes
+import miniquake2.game.ai.constants as gaiconstants
+import miniquake2.game.ai.core as gaicore
+import miniquake2.game.ai.monster as gaimonster
+import miniquake2.game.ai.types as gaitypes
+import miniquake2.game.base.types as btypes
+import miniquake2.game.constants as gameconstants
+import miniquake2.game.gameplay.types as gptypes
+import std.string as gaistring
+
+walkDistances = []
+frameThinkCount = 0
+moveEndCount = 0
+usedTargetCount = 0
+droppedItemCount = 0
+visibilityEnabled = true
+clearShotEnabled = true
+
+function assertEqual(actual, expected, name)
+  if actual != expected then return error(9700, name + ": values differ") end if
+  return true
+end function
+
+function assertTrue(value, name)
+  if value != true then return error(9701, name + ": expected true") end if
+  return true
+end function
+
+function assertErrorContains(value, fragment, name)
+  if value is not error then return error(9702, name + ": expected error") end if
+  if gaistring.contains(value.message, fragment) != true then return error(9703, name + ": unexpected message " + value.message) end if
+  return true
+end function
+
+function recordWalk(actor, yaw, distance)
+  global walkDistances
+  walkDistances = walkDistances + [distance]
+  return true
+end function
+
+function recordFrameThink(actor, context)
+  global frameThinkCount
+  frameThinkCount = frameThinkCount + 1
+  return true
+end function
+
+function recordMoveEnd(actor, context)
+  global moveEndCount
+  moveEndCount = moveEndCount + 1
+  actor.activity = "move-ended"
+  return true
+end function
+
+function testVisible(actor, other)
+  global visibilityEnabled
+  return visibilityEnabled
+end function
+
+function testClearShot(actor, other)
+  global clearShotEnabled
+  return clearShotEnabled
+end function
+
+function alwaysPHS(first, second)
+  return true
+end function
+
+function areasConnected(first, second)
+  return true
+end function
+
+function useTargets(actor, activator)
+  global usedTargetCount
+  usedTargetCount = usedTargetCount + 1
+  return true
+end function
+
+function dropItem(actor, item)
+  global droppedItemCount
+  droppedItemCount = droppedItemCount + 1
+  return true
+end function
+
+function makeContext()
+  context = gaitypes.defaultContext()
+  context.walkMove = recordWalk
+  context.visible = testVisible
+  context.clearShot = testClearShot
+  context.inPHS = alwaysPHS
+  context.areasConnected = areasConnected
+  context.useTargets = useTargets
+  context.dropItem = dropItem
+  return context
+end function
+
+function testArchetypesAndSpawn()
+  // Compile-time integration guard for all three private component namespaces.
+  assertEqual(btypes.zeroBaseEntity().spawnKind, "unspawned", "base alias")
+  assertEqual(len(gptypes.createInventory(2).counts), 2, "gameplay alias")
+  registry = gaiarchetypes.defaultRegistry()
+  assertTrue(gaiarchetypes.validate(registry), "stock archetype validation")
+  assertEqual(len(registry.entries), 22, "active stock spawn class count")
+  commander = gaiarchetypes.find(registry, "MONSTER_TANK_COMMANDER")
+  assertEqual(commander.health, 1000, "tank commander health")
+  assertEqual(commander.gibHealth, -225, "tank commander gib health")
+  flipperDef = gaiarchetypes.find(registry, "monster_flipper")
+  assertEqual(flipperDef.movement, "swim", "flipper movement")
+  jorgDef = gaiarchetypes.find(registry, "monster_jorg")
+  assertEqual(jorgDef.maxs[2], 140.0, "Jorg bounds")
+
+  context = makeContext()
+  context.time = 5.0
+  flyer = gaiarchetypes.SpawnMonster(registry, "monster_flyer", 12, context)
+  assertEqual(flyer.health, 50, "flyer health")
+  assertEqual(flyer.mass, 50, "flyer mass")
+  assertTrue((flyer.flags & gaiconstants.FL_FLY) != 0, "flyer flag")
+  assertTrue((flyer.edict.serverFlags & gameconstants.SVF_MONSTER) != 0, "monster server flag")
+  assertEqual(flyer.viewHeight, 25.0, "flyer viewheight")
+  assertEqual(flyer.nextThink, 5.1, "monster next think")
+  assertEqual(typeof(flyer.info.attack), "function", "archetype attack callback")
+  assertEqual(typeof(flyer.info.melee), "function", "archetype melee callback")
+
+  deathmatchContext = makeContext()
+  deathmatchContext.deathmatch = true
+  inhibited = gaiarchetypes.SpawnMonster(registry, "monster_berserk", 13, deathmatchContext)
+  assertEqual(inhibited.edict.inUse, false, "deathmatch monster inhibited")
+  assertEqual(inhibited.activity, "inhibited-deathmatch", "deathmatch state")
+  assertErrorContains(try(gaiarchetypes.SpawnMonster(registry, "monster_future", 1, context)), "unknown stock", "unknown archetype")
+  return registry
+end function
+
+function testMoveFrameGolden()
+  actor = gaitypes.createActor(20, "monster_test")
+  gaimonster.installDefaultCallbacks(actor, true, true)
+  actor.info.scale = 2.0
+  frames = [
+    gaitypes.MonsterFrame(gaicore.ai_move, 1.0, void),
+    gaitypes.MonsterFrame(gaicore.ai_move, 2.0, recordFrameThink),
+    gaitypes.MonsterFrame(gaicore.ai_move, 3.0, void)
+  ]
+  actor.info.currentMove = gaitypes.MonsterMove("golden", 10, 12, frames, recordMoveEnd)
+  actor.edict.state.frame = 0
+  context = makeContext()
+  context.time = 1.0
+
+  gaimonster.M_MoveFrame(actor, context)
+  assertEqual(actor.edict.state.frame, 10, "out-of-range starts first frame")
+  assertEqual(walkDistances[0], 2.0, "scaled first movement")
+  assertEqual(actor.nextThink, 1.1, "move frame think time")
+  gaimonster.M_MoveFrame(actor, context)
+  assertEqual(actor.edict.state.frame, 11, "frame advance")
+  assertEqual(walkDistances[1], 4.0, "scaled second movement")
+  assertEqual(frameThinkCount, 1, "frame think callback")
+  actor.info.nextFrame = 12
+  gaimonster.M_MoveFrame(actor, context)
+  assertEqual(actor.edict.state.frame, 12, "explicit next frame")
+  assertEqual(actor.info.nextFrame, 0, "next frame consumed")
+  gaimonster.M_MoveFrame(actor, context)
+  assertEqual(moveEndCount, 1, "move end callback")
+  assertEqual(actor.edict.state.frame, 10, "move loops after end")
+  actor.info.aiFlags = actor.info.aiFlags | gaiconstants.AI_HOLD_FRAME
+  gaimonster.M_MoveFrame(actor, context)
+  assertEqual(actor.edict.state.frame, 10, "held frame does not advance")
+  assertEqual(walkDistances[len(walkDistances) - 1], 0.0, "held frame zero movement")
+  return true
+end function
+
+function testSightMovementAndAttack()
+  global visibilityEnabled, clearShotEnabled
+  context = makeContext()
+  context.time = 10.0
+  context.frameNumber = 100
+  quietMonster = gaitypes.createActor(29, "monster_quiet")
+  gaimonster.installDefaultCallbacks(quietMonster, true, false)
+  assertEqual(gaicore.FindTarget(quietMonster, context), false, "no target available")
+  monster = gaitypes.createActor(30, "monster_gunner")
+  gaimonster.installDefaultCallbacks(monster, true, false)
+  monster.edict.state.origin = [0.0, 0.0, 0.0]
+  monster.edict.state.angles = [0.0, 0.0, 0.0]
+  player = gaitypes.createClientTarget(1)
+  player.edict.state.origin = [100.0, 0.0, 0.0]
+  player.lightLevel = 128
+  context.sightClient = player
+  visibilityEnabled = true
+  assertEqual(gaicore.range(monster, player), gaiconstants.RANGE_NEAR, "near range")
+  assertTrue(gaicore.infront(monster, player), "target in front")
+  assertTrue(gaicore.FindTarget(monster, context), "visible target acquired")
+  assertEqual(monster.enemy.edict.state.number, 1, "enemy assignment")
+  assertEqual(monster.goalEntity.edict.state.number, 1, "hunt goal")
+  assertEqual(monster.info.lastSighting[0], 100.0, "last sighting")
+  assertEqual(monster.activity, "sight", "sight callback dispatch")
+  beforeMoves = len(walkDistances)
+  gaicore.ai_charge(monster, 3.0, context)
+  assertEqual(len(walkDistances), beforeMoves + 1, "charge movement callback")
+  monster.info.attackFinished = 1000.0
+  monster.goalEntity = player
+  gaicore.ai_run(monster, 4.0, context)
+  assertTrue(len(walkDistances) >= beforeMoves + 2, "run movement callback")
+
+  behind = gaitypes.createClientTarget(2)
+  behind.edict.state.origin = [-600.0, 0.0, 0.0]
+  other = gaitypes.createActor(31, "monster_infantry")
+  gaimonster.installDefaultCallbacks(other, true, false)
+  other.edict.state.angles = [0.0, 0.0, 0.0]
+  context.sightClient = behind
+  assertEqual(gaicore.FindTarget(other, context), false, "midrange target behind rejected")
+  behind.edict.state.origin = [600.0, 0.0, 0.0]
+  behind.lightLevel = 5
+  assertEqual(gaicore.FindTarget(other, context), false, "dark target rejected")
+
+  noise = gaitypes.createActor(40, "player_noise")
+  noise.isMonster = false
+  noise.owner = player
+  noise.edict.state.origin = [0.0, 200.0, 0.0]
+  noise.areaNumber = 2
+  listener = gaitypes.createActor(41, "monster_soldier")
+  listener.areaNumber = 1
+  gaimonster.installDefaultCallbacks(listener, true, false)
+  soundContext = makeContext()
+  soundContext.time = 2.0
+  soundContext.frameNumber = 20
+  soundContext.soundEntity = noise
+  soundContext.soundEntityFrame = 20
+  assertTrue(gaicore.FindTarget(listener, soundContext), "sound target acquired")
+  assertTrue((listener.info.aiFlags & gaiconstants.AI_SOUND_TARGET) != 0, "sound target flag")
+  assertEqual(listener.enemy.className, "player_noise", "sound enemy")
+
+  melee = gaitypes.createActor(50, "monster_berserk")
+  gaimonster.installDefaultCallbacks(melee, false, true)
+  closePlayer = gaitypes.createClientTarget(3)
+  closePlayer.edict.state.origin = [40.0, 0.0, 0.0]
+  melee.enemy = closePlayer
+  attackContext = makeContext()
+  attackContext.skill = 1
+  attackContext.randomAttack = 0.0
+  clearShotEnabled = true
+  assertTrue(gaicore.M_CheckAttack(melee, attackContext, gaiconstants.RANGE_MELEE), "melee attack chosen")
+  assertEqual(melee.info.attackState, gaiconstants.AS_MELEE, "melee state")
+  assertTrue(gaicore.DispatchAttackState(melee, attackContext, 0.0), "melee dispatch")
+  assertEqual(melee.meleeCount, 1, "melee callback count")
+
+  missile = gaitypes.createActor(51, "monster_gunner")
+  gaimonster.installDefaultCallbacks(missile, true, false)
+  missile.enemy = player
+  attackContext.time = 5.0
+  attackContext.randomAttack = 0.01
+  attackContext.randomDelay = 0.5
+  assertTrue(gaicore.M_CheckAttack(missile, attackContext, gaiconstants.RANGE_NEAR), "missile attack chosen")
+  assertEqual(missile.info.attackFinished, 6.0, "attack cooldown")
+  assertTrue(gaicore.DispatchAttackState(missile, attackContext, 0.0), "missile dispatch")
+  assertEqual(missile.attackCount, 1, "attack callback count")
+  return true
+end function
+
+function testLifecyclePainDeath(registry)
+  global usedTargetCount, droppedItemCount
+  context = makeContext()
+  context.time = 3.0
+  actor = gaiarchetypes.SpawnMonster(registry, "monster_infantry", 60, context)
+  activator = gaitypes.createClientTarget(4)
+  activator.edict.state.origin = [20.0, 0.0, 0.0]
+  assertTrue(gaimonster.MonsterUse(actor, void, activator, context), "monster use wakes actor")
+  assertEqual(actor.enemy.edict.state.number, 4, "use activator enemy")
+  assertEqual(gaimonster.MonsterUse(actor, void, activator, context), false, "already angry use ignored")
+  assertTrue(gaimonster.DispatchPain(actor, activator, 10, context), "pain callback")
+  assertEqual(actor.painCount, 1, "pain count")
+
+  actor.item = "ammo_shells"
+  actor.deathTarget = "death_relay"
+  actor.target = "old_target"
+  actor.health = -5
+  assertTrue(gaimonster.DispatchDie(actor, activator, 105, context), "die callback")
+  assertEqual(actor.deadFlag, gaiconstants.DEAD_DEAD, "dead flag")
+  assertTrue((actor.edict.serverFlags & gameconstants.SVF_DEADMONSTER) != 0, "dead monster server flag")
+  assertEqual(actor.dieCount, 1, "die count")
+  assertEqual(actor.target, "death_relay", "death target promoted")
+  assertEqual(droppedItemCount, 1, "death item drop callback")
+  assertEqual(usedTargetCount, 1, "death use-target callback")
+
+  triggered = gaitypes.createActor(61, "monster_test")
+  gaimonster.installDefaultCallbacks(triggered, true, false)
+  triggered.info.currentMove = gaiarchetypes.idleMove()
+  triggered.spawnFlags = gaiconstants.SPAWNFLAG_TRIGGER_SPAWN | gaiconstants.SPAWNFLAG_SIGHT
+  assertTrue(gaimonster.WalkMonsterStart(triggered, context), "triggered monster start")
+  assertEqual(triggered.thinkKind, "triggered-wait", "triggered wait state")
+  assertEqual(triggered.edict.solid, gameconstants.SOLID_NOT, "triggered monster hidden")
+  assertTrue((triggered.edict.serverFlags & gameconstants.SVF_NOCLIENT) != 0, "triggered no-client flag")
+  assertTrue((triggered.spawnFlags & gaiconstants.SPAWNFLAG_AMBUSH) != 0, "legacy sight flag fixed to ambush")
+  return true
+end function
+
+function main(args)
+  print "MiniQuake2 gameplay AI/monster scenarios starting: 4"
+  registry = testArchetypesAndSpawn()
+  testMoveFrameGolden()
+  testSightMovementAndAttack()
+  testLifecyclePainDeath(registry)
+  print "MiniQuake2 gameplay AI/monster scenarios passed: 4"
+  return 0
+end function

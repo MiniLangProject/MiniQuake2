@@ -1,0 +1,82 @@
+/* Atomic snapshot/effects/UI handoff and replay guard coverage. */
+import miniquake2.qcommon.constants as qc
+import miniquake2.qcommon.sizebuf as qsz
+import miniquake2.qcommon.message as qmsg
+import miniquake2.qcommon.types as qt
+import miniquake2.protocol.types as pt
+import miniquake2.network.constants as nc
+import miniquake2.network.client as nclient
+import miniquake2.network.runtime.types as nrtypes
+import miniquake2.client.effects.state as cestate
+import miniquake2.client.runtime.dispatcher as crdispatcher
+import miniquake2.client.runtime.handoff as crhandoff
+import miniquake2.client.runtime.types as crtypes
+import miniquake2.client.state as cstate
+
+function handoffAssert(value, name)
+  if not value then return error(8395, name) end if
+  return true
+end function
+
+networkClient = nclient.create(0x4321, 5000)
+networkClient.state = nc.CA_ACTIVE
+runtime = crdispatcher.create(nrtypes.createClient(networkClient), cstate.create(), cestate.createSilent(23))
+
+snapshot = crtypes.Snapshot(7, -1, 0, bytes([3]), pt.zeroPlayerState(), [])
+cstate.acceptSnapshot(runtime.client, snapshot)
+runtime.network.configStrings[qc.CS_NAME] = "Atomic Unit"
+cestate.addDLight(runtime.effects, 7, qt.vec3(1.0, 2.0, 3.0), 120.0,
+  [1.0, 0.5, 0.25], 1000.0, 0.0)
+cestate.addExplosion(runtime.effects, "unit", qt.vec3(4.0, 5.0, 6.0),
+  "models/unit.md2", 8, 200.0, [1.0, 0.5, 0.0], 0, 1.0)
+runtime.effects.soundEvents = runtime.effects.soundEvents + [
+  miniquake2.client.effects.types.SoundEvent(qt.vec3(7.0, 8.0, 9.0), 1, 0, 3, "unit.wav", 1.0, 1.0, 0.0)]
+runtime.prints = [crtypes.PrintHandoff(qc.PRINT_HIGH, "atomic print", 90, false)]
+runtime.centerPrints = [crtypes.CenterPrintHandoff("atomic center", 91)]
+runtime.layouts = [crtypes.LayoutHandoff("xv 0 string atomic", 92)]
+inventory = array(qc.MAX_ITEMS, 0)
+inventory[3] = 17
+runtime.inventories = [crtypes.InventoryHandoff(inventory, 93)]
+
+frame = crhandoff.commit(runtime, 100)
+handoffAssert(frame is not void, "new snapshot was not committed")
+handoffAssert(frame.frameNumber == 7 and frame.snapshot.number == 7, "snapshot identity missing")
+handoffAssert(frame.configStrings[qc.CS_NAME] == "Atomic Unit", "configstrings missing")
+handoffAssert(len(frame.dLights) == 1 and len(frame.explosions) == 1, "effect state missing")
+handoffAssert(len(frame.sounds) == 1 and frame.sounds[0].soundName == "unit.wav", "audio handoff missing")
+handoffAssert(len(frame.prints) == 1 and len(frame.centerPrints) == 1 and
+  len(frame.layouts) == 1 and len(frame.inventories) == 1, "UI handoff missing")
+handoffAssert(frame.inventories[0].values[3] == 17, "inventory data missing")
+handoffAssert(len(runtime.effects.soundEvents) == 0 and len(runtime.prints) == 0,
+  "transient queues were not drained")
+handoffAssert(len(runtime.effects.dLights) == 1 and len(runtime.effects.explosions) == 1,
+  "persistent effects were drained")
+
+// Every handoff owns its data; later simulation mutations cannot tear a frame.
+runtime.network.configStrings[qc.CS_NAME] = "mutated"
+runtime.effects.dLights[0].origin.x = 99.0
+runtime.effects.explosions[0].origin.y = 99.0
+inventory[3] = 99
+handoffAssert(frame.configStrings[qc.CS_NAME] == "Atomic Unit", "configstring copy was aliased")
+handoffAssert(frame.dLights[0].origin.x == 1.0, "dlight copy was aliased")
+handoffAssert(frame.explosions[0].origin.y == 5.0, "explosion copy was aliased")
+handoffAssert(frame.inventories[0].values[3] == 17, "inventory copy was aliased")
+
+handoffAssert(crhandoff.commit(runtime, 101) is void, "same snapshot committed twice")
+handoffAssert(crhandoff.pending(runtime) == 1, "duplicate commit changed queue")
+
+// Dispatcher-level stale packets are rejected before one-shot state changes.
+nop = qsz.alloc(8)
+qmsg.writeByte(nop, qc.SVC_NOP)
+accepted = crdispatcher.dispatch(runtime, qsz.dataSlice(nop), 20, 102)
+handoffAssert(accepted.accepted, "fresh dispatcher packet rejected")
+duplicate = crdispatcher.dispatch(runtime, qsz.dataSlice(nop), 20, 103)
+handoffAssert(not duplicate.accepted and duplicate.reason == "stale-or-duplicate",
+  "duplicate dispatcher packet accepted")
+late = crdispatcher.dispatch(runtime, qsz.dataSlice(nop), 19, 104)
+handoffAssert(not late.accepted and late.reason == "stale-or-duplicate", "late dispatcher packet accepted")
+handoffAssert(crhandoff.pending(runtime) == 1, "replay changed handoff queue")
+handoffAssert(crhandoff.take(runtime).serial == 0 and crhandoff.pending(runtime) == 0,
+  "handoff take order is not deterministic")
+
+print("client_runtime_handoff_tests: PASS")

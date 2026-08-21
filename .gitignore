@@ -1,0 +1,16 @@
+# Generated MiniQuake2 build products and verification reports.
+/build/
+/build_debug/
+
+# Read-only local checkout used to generate the reference ledger. The pinned
+# commit/hash inventory is tracked; the upstream repository itself is not
+# vendored or embedded as a Git submodule.
+/Quake-2-original-source/
+
+# Quake II retail data is supplied by the user and is never part of the port.
+*.pak
+
+# Local Python tooling caches.
+__pycache__/
+*.py[cod]
+.pytest_cache/

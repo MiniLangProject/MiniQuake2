@@ -1,0 +1,61 @@
+/* Quake II 3.19 on-disk format constants from qcommon/qfiles.h. */
+package miniquake2.format.constants
+
+const IDPAKHEADER = 0x4b434150
+const IDALIASHEADER = 0x32504449
+const IDSPRITEHEADER = 0x32534449
+const IDBSPHEADER = 0x50534249
+
+const ALIAS_VERSION = 8
+const SPRITE_VERSION = 2
+const BSP_VERSION = 38
+const HEADER_LUMPS = 19
+const MIPLEVELS = 4
+
+const LUMP_ENTITIES = 0
+const LUMP_PLANES = 1
+const LUMP_VERTEXES = 2
+const LUMP_VISIBILITY = 3
+const LUMP_NODES = 4
+const LUMP_TEXINFO = 5
+const LUMP_FACES = 6
+const LUMP_LIGHTING = 7
+const LUMP_LEAFS = 8
+const LUMP_LEAFFACES = 9
+const LUMP_LEAFBRUSHES = 10
+const LUMP_EDGES = 11
+const LUMP_SURFEDGES = 12
+const LUMP_MODELS = 13
+const LUMP_BRUSHES = 14
+const LUMP_BRUSHSIDES = 15
+const LUMP_POP = 16
+const LUMP_AREAS = 17
+const LUMP_AREAPORTALS = 18
+
+const MAX_FILES_IN_PACK = 4096
+const MAX_TRIANGLES = 4096
+const MAX_VERTS = 2048
+const MAX_FRAMES = 512
+const MAX_MD2SKINS = 32
+const MAX_SKINNAME = 64
+
+const CONTENTS_SOLID = 1
+const CONTENTS_WINDOW = 2
+const CONTENTS_AUX = 4
+const CONTENTS_LAVA = 8
+const CONTENTS_SLIME = 16
+const CONTENTS_WATER = 32
+const CONTENTS_MIST = 64
+const CONTENTS_AREAPORTAL = 0x8000
+const CONTENTS_PLAYERCLIP = 0x10000
+const CONTENTS_MONSTERCLIP = 0x20000
+const CONTENTS_LADDER = 0x20000000
+
+const SURF_LIGHT = 0x1
+const SURF_SLICK = 0x2
+const SURF_SKY = 0x4
+const SURF_WARP = 0x8
+const SURF_TRANS33 = 0x10
+const SURF_TRANS66 = 0x20
+const SURF_FLOWING = 0x40
+const SURF_NODRAW = 0x80

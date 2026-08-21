@@ -1,0 +1,230 @@
+/*
+Copyright (C) 1997-2001 Id Software, Inc.
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+
+Quake II 3.19 constants shared by the MiniLang client and server.
+*/
+package miniquake2.qcommon.constants
+
+const VERSION = 3.19
+const BASEDIRNAME = "baseq2"
+
+const PITCH = 0
+const YAW = 1
+const ROLL = 2
+
+const MAX_STRING_CHARS = 1024
+const MAX_STRING_TOKENS = 80
+const MAX_TOKEN_CHARS = 128
+const MAX_QPATH = 64
+const MAX_OSPATH = 128
+const MAX_INFO_KEY = 64
+const MAX_INFO_VALUE = 64
+const MAX_INFO_STRING = 512
+
+const MAX_CLIENTS = 256
+const MAX_EDICTS = 1024
+const MAX_LIGHTSTYLES = 256
+const MAX_MODELS = 256
+const MAX_SOUNDS = 256
+const MAX_IMAGES = 256
+const MAX_ITEMS = 256
+const MAX_GENERAL = 512
+
+const PROTOCOL_VERSION = 34
+const PORT_MASTER = 27900
+const PORT_CLIENT = 27901
+const PORT_SERVER = 27910
+const PORT_ANY = -1
+const UPDATE_BACKUP = 16
+const UPDATE_MASK = 15
+const MAX_MSGLEN = 1400
+const PACKET_HEADER = 10
+
+// server-to-client protocol opcodes (svc_ops_e)
+const SVC_BAD = 0
+const SVC_MUZZLEFLASH = 1
+const SVC_MUZZLEFLASH2 = 2
+const SVC_TEMP_ENTITY = 3
+const SVC_LAYOUT = 4
+const SVC_INVENTORY = 5
+const SVC_NOP = 6
+const SVC_DISCONNECT = 7
+const SVC_RECONNECT = 8
+const SVC_SOUND = 9
+const SVC_PRINT = 10
+const SVC_STUFFTEXT = 11
+const SVC_SERVERDATA = 12
+const SVC_CONFIGSTRING = 13
+const SVC_SPAWNBASELINE = 14
+const SVC_CENTERPRINT = 15
+const SVC_DOWNLOAD = 16
+const SVC_PLAYERINFO = 17
+const SVC_PACKETENTITIES = 18
+const SVC_DELTAPACKETENTITIES = 19
+const SVC_FRAME = 20
+
+// client-to-server protocol opcodes (clc_ops_e)
+const CLC_BAD = 0
+const CLC_NOP = 1
+const CLC_MOVE = 2
+const CLC_USERINFO = 3
+const CLC_STRINGCMD = 4
+
+// player_state_t delta flags
+const PS_M_TYPE = 1 << 0
+const PS_M_ORIGIN = 1 << 1
+const PS_M_VELOCITY = 1 << 2
+const PS_M_TIME = 1 << 3
+const PS_M_FLAGS = 1 << 4
+const PS_M_GRAVITY = 1 << 5
+const PS_M_DELTA_ANGLES = 1 << 6
+const PS_VIEWOFFSET = 1 << 7
+const PS_VIEWANGLES = 1 << 8
+const PS_KICKANGLES = 1 << 9
+const PS_BLEND = 1 << 10
+const PS_FOV = 1 << 11
+const PS_WEAPONINDEX = 1 << 12
+const PS_WEAPONFRAME = 1 << 13
+const PS_RDFLAGS = 1 << 14
+
+// usercmd_t delta flags
+const CM_ANGLE1 = 1 << 0
+const CM_ANGLE2 = 1 << 1
+const CM_ANGLE3 = 1 << 2
+const CM_FORWARD = 1 << 3
+const CM_SIDE = 1 << 4
+const CM_UP = 1 << 5
+const CM_BUTTONS = 1 << 6
+const CM_IMPULSE = 1 << 7
+
+// sound packet flags
+const SND_VOLUME = 1 << 0
+const SND_ATTENUATION = 1 << 1
+const SND_POS = 1 << 2
+const SND_ENT = 1 << 3
+const SND_OFFSET = 1 << 4
+const DEFAULT_SOUND_PACKET_VOLUME = 1.0
+const DEFAULT_SOUND_PACKET_ATTENUATION = 1.0
+
+// entity_state_t delta flags. The missing bit 13 is intentional in protocol 34.
+const U_ORIGIN1 = 1 << 0
+const U_ORIGIN2 = 1 << 1
+const U_ANGLE2 = 1 << 2
+const U_ANGLE3 = 1 << 3
+const U_FRAME8 = 1 << 4
+const U_EVENT = 1 << 5
+const U_REMOVE = 1 << 6
+const U_MOREBITS1 = 1 << 7
+const U_NUMBER16 = 1 << 8
+const U_ORIGIN3 = 1 << 9
+const U_ANGLE1 = 1 << 10
+const U_MODEL = 1 << 11
+const U_RENDERFX8 = 1 << 12
+const U_EFFECTS8 = 1 << 14
+const U_MOREBITS2 = 1 << 15
+const U_SKIN8 = 1 << 16
+const U_FRAME16 = 1 << 17
+const U_RENDERFX16 = 1 << 18
+const U_EFFECTS16 = 1 << 19
+const U_MODEL2 = 1 << 20
+const U_MODEL3 = 1 << 21
+const U_MODEL4 = 1 << 22
+const U_MOREBITS3 = 1 << 23
+const U_OLDORIGIN = 1 << 24
+const U_SKIN16 = 1 << 25
+const U_SOUND = 1 << 26
+const U_SOLID = 1 << 27
+
+const PRINT_LOW = 0
+const PRINT_MEDIUM = 1
+const PRINT_HIGH = 2
+const PRINT_CHAT = 3
+const ERR_FATAL = 0
+const ERR_DROP = 1
+const ERR_DISCONNECT = 2
+
+const CVAR_ARCHIVE = 1
+const CVAR_USERINFO = 2
+const CVAR_SERVERINFO = 4
+const CVAR_NOSET = 8
+const CVAR_LATCH = 16
+
+const CONTENTS_SOLID = 0x00000001
+const CONTENTS_WINDOW = 0x00000002
+const CONTENTS_AUX = 0x00000004
+const CONTENTS_LAVA = 0x00000008
+const CONTENTS_SLIME = 0x00000010
+const CONTENTS_WATER = 0x00000020
+const CONTENTS_MIST = 0x00000040
+const LAST_VISIBLE_CONTENTS = 0x00000040
+const CONTENTS_AREAPORTAL = 0x00008000
+const CONTENTS_PLAYERCLIP = 0x00010000
+const CONTENTS_MONSTERCLIP = 0x00020000
+const CONTENTS_CURRENT_0 = 0x00040000
+const CONTENTS_CURRENT_90 = 0x00080000
+const CONTENTS_CURRENT_180 = 0x00100000
+const CONTENTS_CURRENT_270 = 0x00200000
+const CONTENTS_CURRENT_UP = 0x00400000
+const CONTENTS_CURRENT_DOWN = 0x00800000
+const CONTENTS_ORIGIN = 0x01000000
+const CONTENTS_MONSTER = 0x02000000
+const CONTENTS_DEADMONSTER = 0x04000000
+const CONTENTS_DETAIL = 0x08000000
+const CONTENTS_TRANSLUCENT = 0x10000000
+const CONTENTS_LADDER = 0x20000000
+
+const SURF_LIGHT = 0x01
+const SURF_SLICK = 0x02
+const SURF_SKY = 0x04
+const SURF_WARP = 0x08
+const SURF_TRANS33 = 0x10
+const SURF_TRANS66 = 0x20
+const SURF_FLOWING = 0x40
+const SURF_NODRAW = 0x80
+
+const MASK_ALL = -1
+const MASK_SOLID = CONTENTS_SOLID | CONTENTS_WINDOW
+const MASK_PLAYERSOLID = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_WINDOW | CONTENTS_MONSTER
+const MASK_DEADSOLID = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_WINDOW
+const MASK_MONSTERSOLID = CONTENTS_SOLID | CONTENTS_MONSTERCLIP | CONTENTS_WINDOW | CONTENTS_MONSTER
+const MASK_WATER = CONTENTS_WATER | CONTENTS_LAVA | CONTENTS_SLIME
+const MASK_OPAQUE = CONTENTS_SOLID | CONTENTS_SLIME | CONTENTS_LAVA
+const MASK_SHOT = CONTENTS_SOLID | CONTENTS_MONSTER | CONTENTS_WINDOW | CONTENTS_DEADMONSTER
+const MASK_CURRENT = CONTENTS_CURRENT_0 | CONTENTS_CURRENT_90 | CONTENTS_CURRENT_180 | CONTENTS_CURRENT_270 | CONTENTS_CURRENT_UP | CONTENTS_CURRENT_DOWN
+
+const PM_NORMAL = 0
+const PM_SPECTATOR = 1
+const PM_DEAD = 2
+const PM_GIB = 3
+const PM_FREEZE = 4
+const PMF_DUCKED = 1
+const PMF_JUMP_HELD = 2
+const PMF_ON_GROUND = 4
+const PMF_TIME_WATERJUMP = 8
+const PMF_TIME_LAND = 16
+const PMF_TIME_TELEPORT = 32
+const PMF_NO_PREDICTION = 64
+const BUTTON_ATTACK = 1
+const BUTTON_USE = 2
+const BUTTON_ANY = 128
+const MAXTOUCH = 32
+
+const CS_NAME = 0
+const CS_CDTRACK = 1
+const CS_SKY = 2
+const CS_SKYAXIS = 3
+const CS_SKYROTATE = 4
+const CS_STATUSBAR = 5
+const CS_AIRACCEL = 29
+const CS_MAXCLIENTS = 30
+const CS_MAPCHECKSUM = 31
+const CS_MODELS = 32
+const CS_SOUNDS = CS_MODELS + MAX_MODELS
+const CS_IMAGES = CS_SOUNDS + MAX_SOUNDS
+const CS_LIGHTS = CS_IMAGES + MAX_IMAGES
+const CS_ITEMS = CS_LIGHTS + MAX_LIGHTSTYLES
+const CS_PLAYERSKINS = CS_ITEMS + MAX_ITEMS
+const CS_GENERAL = CS_PLAYERSKINS + MAX_CLIENTS
+const MAX_CONFIGSTRINGS = CS_GENERAL + MAX_GENERAL

@@ -1,0 +1,220 @@
+/* BaseQ2 g_trigger.c trigger_multiple/once/relay state machines. */
+package miniquake2.game.world.triggers
+
+import miniquake2.game.world.constants as gwconstants
+import miniquake2.game.world.core as gwcore
+import miniquake2.game.world.vector as gwvector
+
+function initTrigger(entity, world)
+  zeroAngles = gwvector.scale(entity.angles, 0.0)
+  if gwvector.equal(entity.angles, zeroAngles) == false then
+    entity.moveDirection = gwvector.movedir(entity.angles)
+  end if
+  entity.solid = gwconstants.SOLID_TRIGGER
+  entity.moveType = gwconstants.MOVETYPE_NONE
+  entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function multiWait(entity, world)
+  entity.nextThink = 0.0
+  return true
+end function
+
+function multiTrigger(entity, world)
+  if entity.nextThink != 0.0 then return false end if
+  gwcore.useTargets(world, entity, entity.activator)
+  if entity.inUse == false then return false end if
+  if entity.wait > 0.0 then
+    entity.think = multiWait
+    entity.nextThink = world.time + entity.wait
+  else
+    // G_FreeEdict is deferred by one server frame because touch iteration may
+    // still hold this entity.
+    entity.touch = void
+    entity.think = gwcore.freeThink
+    entity.nextThink = world.time + world.frameTime
+  end if
+  return true
+end function
+
+function useMulti(entity, other, activator, world)
+  entity.activator = activator
+  return multiTrigger(entity, world)
+end function
+
+function touchMulti(entity, other, world)
+  if other is void or other.inUse == false then return false end if
+  if other.isClient then
+    if (entity.spawnFlags & gwconstants.TRIGGER_NOT_PLAYER) != 0 then return false end if
+  else if (other.serverFlags & gwconstants.SVF_MONSTER) != 0 then
+    if (entity.spawnFlags & gwconstants.TRIGGER_MONSTER) == 0 then return false end if
+  else
+    return false
+  end if
+
+  zeroDirection = gwvector.scale(entity.moveDirection, 0.0)
+  if gwvector.equal(entity.moveDirection, zeroDirection) == false then
+    forward = gwvector.movedir(other.angles)
+    if gwvector.dot(forward, entity.moveDirection) < 0.0 then return false end if
+  end if
+  entity.activator = other
+  return multiTrigger(entity, world)
+end function
+
+function enableTrigger(entity, other, activator, world)
+  entity.solid = gwconstants.SOLID_TRIGGER
+  entity.use = useMulti
+  world.callbacks.linkEntity(entity)
+  return true
+end function
+
+function spawnMultiple(entity, world)
+  if entity.wait == 0.0 then entity.wait = 0.2 end if
+  entity.touch = touchMulti
+  entity.moveType = gwconstants.MOVETYPE_NONE
+  entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
+  if (entity.spawnFlags & gwconstants.TRIGGER_TRIGGERED) != 0 then
+    entity.solid = gwconstants.SOLID_NOT
+    entity.use = enableTrigger
+  else
+    entity.solid = gwconstants.SOLID_TRIGGER
+    entity.use = useMulti
+  end if
+  zeroAngles = gwvector.scale(entity.angles, 0.0)
+  if gwvector.equal(entity.angles, zeroAngles) == false then
+    entity.moveDirection = gwvector.movedir(entity.angles)
+  end if
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function spawnOnce(entity, world)
+  // Compatibility with early maps where TRIGGERED incorrectly used bit 1.
+  if (entity.spawnFlags & 1) != 0 then
+    entity.spawnFlags = (entity.spawnFlags & ~1) | gwconstants.TRIGGER_TRIGGERED
+    gwcore.log(world, "fixed TRIGGERED flag on " + entity.className)
+  end if
+  entity.wait = -1.0
+  return spawnMultiple(entity, world)
+end function
+
+function useRelay(entity, other, activator, world)
+  return gwcore.useTargets(world, entity, activator)
+end function
+
+function spawnRelay(entity, world)
+  entity.use = useRelay
+  return entity
+end function
+
+function spawnAlways(entity, world)
+  if entity.delay < 0.2 then entity.delay = 0.2 end if
+  gwcore.useTargets(world, entity, entity)
+  return entity
+end function
+
+function useCounter(entity, other, activator, world)
+  if entity.count == 0 then return false end if
+  entity.count = entity.count - 1
+  if entity.count > 0 then
+    if entity.message == "" then entity.message = entity.count + " more to go..." end if
+    if activator is not void then world.callbacks.centerPrint(activator, entity.message) end if
+    return true
+  end if
+  if activator is not void then world.callbacks.centerPrint(activator, "Sequence completed!") end if
+  entity.activator = activator
+  return multiTrigger(entity, world)
+end function
+
+function spawnCounter(entity, world)
+  entity.wait = -1.0
+  if entity.count == 0 then entity.count = 2 end if
+  entity.use = useCounter
+  entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
+  return entity
+end function
+
+function hurtTouch(entity, other, world)
+  if other is void or other.inUse == false then return false end if
+  if world.time < entity.touchDebounceTime then return false end if
+  if (entity.spawnFlags & 16) != 0 then entity.touchDebounceTime = world.time + 1.0
+  else entity.touchDebounceTime = world.time + world.frameTime
+  end if
+  world.callbacks.damage(other, entity, entity, entity.damage, "trigger-hurt")
+  return true
+end function
+
+function hurtUse(entity, other, activator, world)
+  if entity.solid == gwconstants.SOLID_NOT then entity.solid = gwconstants.SOLID_TRIGGER else entity.solid = gwconstants.SOLID_NOT end if
+  world.callbacks.linkEntity(entity)
+  if (entity.spawnFlags & 2) == 0 then entity.use = void end if
+  return true
+end function
+
+function spawnHurt(entity, world)
+  initTrigger(entity, world)
+  entity.touch = hurtTouch
+  if entity.damage == 0 then entity.damage = 5 end if
+  if (entity.spawnFlags & 1) != 0 then entity.solid = gwconstants.SOLID_NOT end if
+  if (entity.spawnFlags & 2) != 0 or (entity.spawnFlags & 1) != 0 then entity.use = hurtUse end if
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function pushTouch(entity, other, world)
+  if other is void or other.inUse == false then return false end if
+  other.velocity = gwvector.scale(entity.moveDirection, entity.speed * 10.0)
+  return true
+end function
+
+function spawnPush(entity, world)
+  initTrigger(entity, world)
+  entity.touch = pushTouch
+  entity.moveDirection = gwvector.movedir(entity.angles)
+  if entity.speed == 0.0 then entity.speed = 100.0 end if
+  return entity
+end function
+
+function monsterJumpTouch(entity, other, world)
+  if other is void or (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then return false end if
+  other.velocity.x = entity.moveDirection.x * entity.speed
+  other.velocity.y = entity.moveDirection.y * entity.speed
+  other.velocity.z = entity.height
+  return true
+end function
+
+function spawnMonsterJump(entity, world)
+  initTrigger(entity, world)
+  entity.touch = monsterJumpTouch
+  entity.moveDirection = gwvector.movedir(entity.angles)
+  if entity.speed == 0.0 then entity.speed = 200.0 end if
+  if entity.height == 0.0 then entity.height = 200.0 end if
+  return entity
+end function
+
+function SP_trigger_multiple(entity, world)
+  return spawnMultiple(entity, world)
+end function
+function SP_trigger_once(entity, world)
+  return spawnOnce(entity, world)
+end function
+function SP_trigger_relay(entity, world)
+  return spawnRelay(entity, world)
+end function
+function SP_trigger_always(entity, world)
+  return spawnAlways(entity, world)
+end function
+function SP_trigger_counter(entity, world)
+  return spawnCounter(entity, world)
+end function
+function SP_trigger_hurt(entity, world)
+  return spawnHurt(entity, world)
+end function
+function SP_trigger_push(entity, world)
+  return spawnPush(entity, world)
+end function
+function SP_trigger_monsterjump(entity, world)
+  return spawnMonsterJump(entity, world)
+end function
