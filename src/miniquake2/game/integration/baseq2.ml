@@ -16,6 +16,7 @@ import miniquake2.game.ai.archetypes as ibarchetypes
 import miniquake2.game.ai.monster as ibmonster
 import miniquake2.game.ai.constants as ibaiconstants
 import miniquake2.game.ai.combat_profiles as ibaicombat
+import miniquake2.game.ai.attack_sequences as ibattackseq
 import miniquake2.game.gameplay.registry as ibitems
 import miniquake2.game.gameplay.item_rules as ibitemrules
 import miniquake2.game.gameplay.precache as ibprecache
@@ -1244,18 +1245,17 @@ function monsterMuzzleAndDirection(runtime, actor)
   return [start, direction]
 end function
 
-function integratedMonsterMuzzleFlash(runtime, actor, profile, origin)
-  if profile.muzzleFlash == 0 or runtime.playerContext is void then return false end if
+function integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, origin)
+  if muzzleFlash == 0 or runtime.playerContext is void then return false end if
   imports = runtime.playerContext.imports
   imports.writeByte(ibqconstants.SVC_MUZZLEFLASH2)
   imports.writeShort(actor.edict.state.number)
-  imports.writeByte(profile.muzzleFlash)
+  imports.writeByte(muzzleFlash)
   return imports.multicast(origin, ibgconstants.MULTICAST_PVS)
 end function
 
-function fireMonsterAttack(runtime, actor)
-  if actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
-  profile = ibaicombat.stockProfile(actor.className)
+function fireMonsterAttack(runtime, actor, attackPlan, muzzleFlash)
+  if actor.enemy is void or attackPlan is void then return false end if
   muzzle = monsterMuzzleAndDirection(runtime, actor)
   start = muzzle[0]
   direction = muzzle[1]
@@ -1263,48 +1263,103 @@ function fireMonsterAttack(runtime, actor)
   enemyTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
   if enemyTarget is void then return false end if
   distance = ibwpvector.length(ibwpvector.subtract(enemyTarget.origin, shooter.origin))
-  if distance > profile.maximumRange then return false end if
-  kind = profile.attackKind
+  if distance > attackPlan.maximumRange then return false end if
+  kind = attackPlan.attackKind
   if kind == "melee" or kind == "drain" then
     ibwpcore.applyDamage(runtime.weaponContext, enemyTarget, shooter, shooter, direction,
-      enemyTarget.origin, profile.damage, profile.knockback, 0, ibgpconstants.MOD_UNKNOWN)
+      enemyTarget.origin, attackPlan.damage, attackPlan.knockback, 0, ibgpconstants.MOD_UNKNOWN)
   else if kind == "blaster" then
     ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction,
-      profile.damage, profile.speed, ibwpconstants.EF_BLASTER, false)
+      attackPlan.damage, attackPlan.speed, ibwpconstants.EF_BLASTER, false)
   else if kind == "shotgun" then
     ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction,
-      profile.damage, profile.knockback, 500.0, 500.0, profile.count, ibgpconstants.MOD_UNKNOWN)
+      attackPlan.damage, attackPlan.knockback, 500.0, 500.0, attackPlan.count, ibgpconstants.MOD_UNKNOWN)
   else if kind == "bullet" then
     ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction,
-      profile.damage, profile.knockback, 300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
+      attackPlan.damage, attackPlan.knockback, 300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
+  else if kind == "grenade" then
+    ibwpprojectiles.fireGrenade(runtime.weaponContext, shooter, start, direction,
+      attackPlan.damage, attackPlan.speed, 2.5, attackPlan.damage)
   else if kind == "rocket" then
     ibwpprojectiles.fireRocket(runtime.weaponContext, shooter, start, direction,
-      profile.damage, profile.speed, profile.splashRadius, profile.damage)
+      attackPlan.damage, attackPlan.speed, attackPlan.splashRadius, attackPlan.damage)
+  else if kind == "bfg" then
+    ibwpprojectiles.fireBfg(runtime.weaponContext, shooter, start, direction,
+      attackPlan.damage, attackPlan.speed, attackPlan.splashRadius)
   else if kind == "rail" then
     ibwphitscan.fireRail(runtime.weaponContext, shooter, start, direction,
-      profile.damage, profile.knockback)
+      attackPlan.damage, attackPlan.knockback)
   else return error(9698, "unsupported monster combat profile " + kind)
   end if
-  integratedMonsterMuzzleFlash(runtime, actor, profile, start)
+  integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, start)
   return true
+end function
+
+function activeMonsterAttackPlan(actor)
+  return ibattackseq.planByName(actor.className, actor.activity,
+    actor.edict.state.number, actor.attackCount)
+end function
+
+function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
+  remaining = attackPlan.cooldown - lastFrameOffset * ibattackseq.FRAME_TIME
+  if remaining < runtime.world.frameTime then remaining = runtime.world.frameTime end if
+  actor.activity = "run"
+  actor.info.nextFrame = 0
+  actor.info.pauseTime = 0.0
+  actor.info.attackState = ibaiconstants.AS_STRAIGHT
+  actor.info.attackFinished = runtime.aiContext.time + remaining
+  return true
+end function
+
+function advanceMonsterAttack(runtime, actor, attackPlan)
+  if actor.enemy is void or actor.enemy.health <= 0 then
+    return finishMonsterAttack(runtime, actor, attackPlan, 0)
+  end if
+  eventIndex = actor.info.nextFrame
+  if eventIndex < 0 or eventIndex >= len(attackPlan.frameOffsets) then
+    return finishMonsterAttack(runtime, actor, attackPlan, attackPlan.durationFrames - 1)
+  end if
+  if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
+  currentFrameOffset = attackPlan.frameOffsets[eventIndex]
+  fired = false
+  while eventIndex < len(attackPlan.frameOffsets) and attackPlan.frameOffsets[eventIndex] == currentFrameOffset
+    if fireMonsterAttack(runtime, actor, attackPlan, attackPlan.muzzleFlashes[eventIndex]) then fired = true end if
+    eventIndex = eventIndex + 1
+  end while
+  actor.info.nextFrame = eventIndex
+  if eventIndex >= len(attackPlan.frameOffsets) then
+    finishMonsterAttack(runtime, actor, attackPlan, currentFrameOffset)
+  else
+    frameDelta = attackPlan.frameOffsets[eventIndex] - currentFrameOffset
+    actor.info.pauseTime = actor.info.pauseTime + frameDelta * ibattackseq.FRAME_TIME
+  end if
+  return fired
 end function
 
 function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
+  activePlan = activeMonsterAttackPlan(actor)
+  if activePlan is not void then return advanceMonsterAttack(runtime, actor, activePlan) end if
   if actor.enemy.health <= 0 or runtime.aiContext.time < actor.info.attackFinished then return false end if
   if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
   profile = ibaicombat.stockProfile(actor.className)
   target = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
   if target is void then return false end if
   shooter = monsterWeaponTarget(actor)
-  if ibwpvector.length(ibwpvector.subtract(target.origin, shooter.origin)) > profile.maximumRange then return false end if
+  distance = ibwpvector.length(ibwpvector.subtract(target.origin, shooter.origin))
+  if distance > profile.maximumRange then return false end if
   if profile.attackKind == "melee" and actor.info.melee is not void then actor.info.melee(actor, runtime.aiContext)
   else if actor.info.attack is not void then actor.info.attack(actor, runtime.aiContext)
   else return false
   end if
-  fired = fireMonsterAttack(runtime, actor)
-  actor.info.attackFinished = runtime.aiContext.time + profile.cooldown
-  return fired
+  attackPlan = ibattackseq.selectPlan(actor.className, actor.edict.state.number,
+    actor.attackCount, distance, runtime.aiContext.skill)
+  ibattackseq.validatePlan(attackPlan)
+  actor.activity = attackPlan.name
+  actor.info.nextFrame = 0
+  actor.info.attackState = ibaiconstants.AS_MISSILE
+  actor.info.pauseTime = runtime.aiContext.time + attackPlan.frameOffsets[0] * ibattackseq.FRAME_TIME
+  return advanceMonsterAttack(runtime, actor, attackPlan)
 end function
 
 function advanceWeaponProjectiles(runtime)

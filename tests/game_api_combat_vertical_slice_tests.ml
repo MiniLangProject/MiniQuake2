@@ -87,7 +87,8 @@ function testRetailSoldierHitscanAndLightProjectile()
   player = cvgameapi.playerContext().players[0]
   runtime = cvgameapi.baseRuntime()
   api.clientThink(client, command(0))
-  runFrames(api, 14)
+  // Stock attack animations now honor their wind-up frames before damage.
+  runFrames(api, 32)
   assertTrue(runtime.monsters[0].attackCount >= 1, "soldier attack callback")
   assertTrue(runtime.monsters[1].attackCount >= 1, "light soldier attack callback")
   assertTrue(player.health < 100, "stock attacks damaged player")
@@ -130,7 +131,9 @@ function testGunnerAndRetailInfantryKillPlayer()
   player.persistent.health = 6
   player.gameplay.health = 6
   api.clientThink(client, command(0))
-  runFrames(api, 14)
+  // Infantry holds attack111 only after its ten-frame wind-up; Gunner opens
+  // the chaingun for seven frames before the first bullet.
+  runFrames(api, 40)
   assertTrue(cvgameapi.baseRuntime().monsters[0].attackCount >= 1, "gunner attack callback")
   assertTrue(cvgameapi.baseRuntime().monsters[1].attackCount >= 1, "retail infantry attack callback")
   assertTrue(player.health <= 0, "gunner/infantry health damage")

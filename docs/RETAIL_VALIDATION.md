@@ -108,6 +108,10 @@ completes the next signon without resetting the Netchan sequence generation.
 Two consecutive executions of the current multicast product binary returned
 the identical result: 39 maps, 38 changes, spawn count 39, 661 session steps
 and 3,235 processed packets.
+After introducing persisted stock attack-frame schedules, the freshly rebuilt
+Release executable again passed all 39 maps and 38 changes with spawn count 39,
+now in 660 steps and 3,229 processed packets. The small deterministic reduction
+comes from the new attack timing while retaining the same lifecycle outcome.
 This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
 
@@ -117,7 +121,7 @@ instances across 32 classes, 1,624 monster instances across 22 BSP monster
 classes, and all five retail boss/special classes. The focused endgame gate
 executes Jorg death, the `t26` death target, dynamic Makron export with inherited
 target, the second count on `trigger_counter`, `target_changelevel`,
-intermission/next-map state and the queued `gamemap` command. A separate v3
+intermission/next-map state and the queued `gamemap` command. A separate v5
 private-save gate restores both the staged Jorg death and the dynamically
 materialized Makron while preserving enemy/target references and exactly-once
 transition guards. `point_combat`, `target_actor`, `target_character`,
@@ -140,12 +144,17 @@ remaining monster class is the intentionally non-combat `misc_insane` prop AI.
 The dynamic Makron supplies the 22nd registry profile. Existing Soldier,
 Gunner, Infantry and player weapon goldens remain green, and the unmasked
 39-map product graph completes with the expanded profiles active. Every ranged
-profile also carries its stock first-shot MZ2 identifier. The focused multicast
-gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
+profile also carries its stock first-shot MZ2 identifier. The new
+`gameplay_monster_attack_sequence_tests` additionally covers Infantry held
+fire, Gunner chain/grenades, all Soldier variants, Jorg/Boss2 multi-muzzle
+cycles and Makron BFG/hyperblaster/rail alternatives. Its product-shaped
+Gunner gate observes eight ordered MZ2 45–52 events from one AI attack. Private
+Save v5 retains a running sequence's event index and next-frame time. The
+focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
 backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
-as the expected DLight and attack sound. This proves damage/projectile and
-first-flash transport coverage, not original per-frame attack animation,
-multi-frame muzzle selection or randomized refire parity.
+as the expected DLight and attack sound. Remaining families still need their
+complete original animation, pain/death events and all randomized refire
+branches; deterministic refire is deliberately bounded to eight cycles.
 
 `server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and
 `network_runtime_unicast_loopback_tests` close the targeted half of the same

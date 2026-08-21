@@ -25,17 +25,22 @@ props and coupled turret rigs reduce the explicitly simplified retail tail to
 zero instances across zero classes. A 22-entry stock monster combat registry
 (21 classes present in the BSP matrix plus dynamic Makron) supplies 3.19
 damage/speed/range profiles to real melee, hitscan, rail, blaster and rocket
-paths. Their stock first-shot MZ2 ids pass through a bounded Game-API multicast
-queue, PVS/PHS routing and real UDP client-effect handoff; the unmasked 39-map
-product graph passes with those profiles active. A real
+paths. Infantry, Gunner, Soldier, Jorg, Boss2 and Makron now also use
+data-driven stock frame-relative weapon-event and multi-muzzle schedules;
+Private-Save v5 retains their
+in-flight event index and timing. Their MZ2 events pass through a bounded
+Game-API multicast queue, PVS/PHS routing and real UDP client-effect handoff;
+the remaining monster families still expose their exact frame tables as an
+open parity gate. The unmasked 39-map product graph passes with those profiles
+active. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining monster animation/per-frame muzzle/event sequencing, broader save coverage, paired original-renderer
+remaining monster animation/per-frame event sequencing, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
-two runs of the current multicast build produced the same
-661-step/3,235-packet result. The behavior
+the current attack-sequence build produces a
+660-step/3,229-packet result. The behavior
 matrix additionally proves the persistent boss2 Jorg/Makron/counter/changelevel chain. An
 active-session adapter round-trips Game+Level saves failure-atomically while
 preserving a live Netchan and producing the next valid snapshot, and
