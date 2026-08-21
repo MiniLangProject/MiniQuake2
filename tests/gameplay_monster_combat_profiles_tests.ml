@@ -2,6 +2,7 @@
 import miniquake2.game.ai.combat_profiles as monstercombatprofiles
 import miniquake2.game.null_game as monstercombatgame
 import miniquake2.game.constants as monstercombatgameconstants
+import miniquake2.qcommon.constants as monstercombatqconstants
 import miniquake2.qcommon.types as monstercombatqtypes
 import miniquake2.server.game_bridge as monstercombatbridge
 
@@ -51,12 +52,19 @@ function monsterCombatRun(className, origin, frames, expectMelee, expectProjecti
   end if
   monsterCombatProfile = monstercombatprofiles.stockProfile(className)
   if monsterCombatProfile.muzzleFlash != 0 then
-    monsterCombatAssert(len(monsterCombatServer.pendingMulticasts) > 0,
-      className + " queues a multicast muzzle flash")
-    monsterCombatFlashEvent = monsterCombatServer.pendingMulticasts[0]
+    monsterCombatFlashEvent = void
+    for each monsterCombatPendingEvent in monsterCombatServer.pendingMulticasts
+      if len(monsterCombatPendingEvent.payload) == 4 and
+          monsterCombatPendingEvent.payload[0] == monstercombatqconstants.SVC_MUZZLEFLASH2 and
+          monsterCombatPendingEvent.payload[3] == monsterCombatProfile.muzzleFlash then
+        monsterCombatFlashEvent = monsterCombatPendingEvent
+      end if
+    end for
+    monsterCombatAssert(monsterCombatFlashEvent is not void,
+      className + " queues its multicast muzzle flash")
     monsterCombatAssert(monsterCombatFlashEvent.destination == monstercombatgameconstants.MULTICAST_PVS and
       len(monsterCombatFlashEvent.payload) == 4 and
-      monsterCombatFlashEvent.payload[0] == 2 and
+      monsterCombatFlashEvent.payload[0] == monstercombatqconstants.SVC_MUZZLEFLASH2 and
       monsterCombatFlashEvent.payload[3] == monsterCombatProfile.muzzleFlash,
       className + " multicast muzzle flash framing")
   end if

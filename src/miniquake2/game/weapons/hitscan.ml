@@ -136,7 +136,6 @@ function fireRail(context, shooter, start, aimDirection, damage, kick)
     traceStart = wbvector.copy(trace.endPosition)
   end while
   wbcore.emitEffect(context, "rail-trail", start, trace.endPosition, trace.plane.normal, 0, 1)
-  if water then wbcore.emitEffect(context, "rail-trail-water", start, trace.endPosition, trace.plane.normal, 0, 1) end if
   if shooter.isClient then context.callbacks.playerNoise(shooter, trace.endPosition, 2) end if
   return trace
 end function

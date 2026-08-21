@@ -2,6 +2,7 @@
 import miniquake2.game.ai.attack_sequences as attacksequences
 import miniquake2.game.null_game as attacksequencegame
 import miniquake2.game.constants as attacksequencegameconstants
+import miniquake2.qcommon.constants as attacksequenceqconstants
 import miniquake2.qcommon.types as attacksequenceqtypes
 import miniquake2.server.game_bridge as attacksequencebridge
 
@@ -103,16 +104,25 @@ sequencePlayer.health = 5000; sequencePlayer.maxHealth = 5000
 sequencePlayer.edict.health = 5000; sequencePlayer.edict.maxHealth = 5000
 sequenceApi.clientThink(sequenceClient, attacksequenceqtypes.UserCmd(0, 0, [0, 0, 0], 0, 0, 0, 0, 64))
 sequenceFrame = 0
-while sequenceFrame < 40 and len(sequenceServer.pendingMulticasts) < 8
+sequenceMuzzleEvents = []
+while sequenceFrame < 40 and len(sequenceMuzzleEvents) < 8
   sequenceApi.runFrame()
+  sequenceMuzzleEvents = []
+  for each sequencePendingEvent in sequenceServer.pendingMulticasts
+    if len(sequencePendingEvent.payload) == 4 and
+        sequencePendingEvent.payload[0] == attacksequenceqconstants.SVC_MUZZLEFLASH2 then
+      sequenceMuzzleEvents = sequenceMuzzleEvents + [sequencePendingEvent]
+    end if
+  end for
   sequenceFrame = sequenceFrame + 1
 end while
-sequenceAssert(len(sequenceServer.pendingMulticasts) >= 8, "integrated gunner emitted full chain")
+sequenceAssert(len(sequenceMuzzleEvents) >= 8, "integrated gunner emitted full chain")
 sequenceFlashIndex = 0
 while sequenceFlashIndex < 8
-  sequenceEvent = sequenceServer.pendingMulticasts[sequenceFlashIndex]
+  sequenceEvent = sequenceMuzzleEvents[sequenceFlashIndex]
   sequenceAssert(sequenceEvent.destination == attacksequencegameconstants.MULTICAST_PVS and
-    len(sequenceEvent.payload) == 4 and sequenceEvent.payload[0] == 2 and
+    len(sequenceEvent.payload) == 4 and
+    sequenceEvent.payload[0] == attacksequenceqconstants.SVC_MUZZLEFLASH2 and
     sequenceEvent.payload[3] == 45 + sequenceFlashIndex,
     "integrated gunner svc_muzzleflash2 " + sequenceFlashIndex)
   sequenceFlashIndex = sequenceFlashIndex + 1

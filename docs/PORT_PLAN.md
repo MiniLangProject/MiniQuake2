@@ -32,7 +32,11 @@ in-flight event index and timing. Their MZ2 events pass through a bounded
 Game-API multicast queue, PVS/PHS routing and real UDP client-effect handoff;
 the remaining monster families still expose their exact frame tables as an
 open parity gate. The unmasked 39-map product graph passes with those profiles
-active. A real
+active. The player path now closes all stock weapon families, including cooked
+hand grenades, original special fire-frame loops, mode-specific damage, handed
+muzzle projection, recoil, PlayerNoise and Protocol-34 muzzle/impact feedback.
+Managed projectiles are exported as reusable snapshot edicts with stock
+render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
 remaining monster animation/per-frame event sequencing, broader save coverage, paired original-renderer

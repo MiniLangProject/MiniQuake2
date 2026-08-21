@@ -35,9 +35,11 @@ import miniquake2.game.weapons.types as ibwptypes
 import miniquake2.game.weapons.core as ibwpcore
 import miniquake2.game.weapons.hitscan as ibwphitscan
 import miniquake2.game.weapons.projectiles as ibwpprojectiles
+import miniquake2.game.weapons.hand_grenade as ibwphandgrenade
 import miniquake2.game.weapons.vector as ibwpvector
 import miniquake2.game.weapons.constants as ibwpconstants
 import miniquake2.qcommon.constants as ibqconstants
+import std.math as ibmath
 
 struct IntegratedBaseQ2
   world
@@ -445,6 +447,16 @@ function integratedWeaponDamage(combatant, request)
   if player is not void and player.deadFlag != ibplayerconstants.DEAD_NO then return false end if
   if actor is not void and actor.health <= 0 then return false end if
   result = ibgpcombat.T_Damage(combatant, request)
+  ibDamagePointHolder = weaponVector(request.point)
+  ibDamageDirectionHolder = weaponVector(request.direction)
+  ibDamageWasBullet = (request.flags & ibgpconstants.DAMAGE_BULLET) != 0
+  if result.armorSaved > 0 or result.protectedDamage > 0 then
+    integratedDamageEffect(ibDamagePointHolder, ibDamageDirectionHolder, false, ibDamageWasBullet)
+  end if
+  if result.taken > 0 then
+    integratedDamageEffect(ibDamagePointHolder, ibDamageDirectionHolder,
+      player is not void or actor is not void, ibDamageWasBullet)
+  end if
   attackerNumber = ibwpcore.damageAttackerNumber()
   if player is not void then
     player.health = combatant.health
@@ -633,24 +645,171 @@ function integratedLightStyle(style, pattern)
 end function
 
 function integratedWeaponEffect(effect)
-  return true
+  global activeIntegrationRuntime
+  ibWeaponEffectRuntimeHolder = activeIntegrationRuntime
+  if ibWeaponEffectRuntimeHolder is void or ibWeaponEffectRuntimeHolder.playerContext is void then return false end if
+  ibWeaponEffectImportsHolder = ibWeaponEffectRuntimeHolder.playerContext.imports
+  ibWeaponEffectKind = effect.kind
+  ibWeaponEffectType = -1
+  ibWeaponEffectDestination = ibgconstants.MULTICAST_PVS
+
+  if ibWeaponEffectKind == "impact" then
+    if effect.style != ibwpconstants.TE_GUNSHOT and effect.style != ibwpconstants.TE_SHOTGUN then
+      return error(9692, "invalid integrated impact effect type")
+    end if
+    ibWeaponEffectType = effect.style
+  else if ibWeaponEffectKind == "blaster-impact" then ibWeaponEffectType = ibwpconstants.TE_BLASTER
+  else if ibWeaponEffectKind == "splash" then ibWeaponEffectType = ibwpconstants.TE_SPLASH
+  else if ibWeaponEffectKind == "bubble-trail" then ibWeaponEffectType = ibwpconstants.TE_BUBBLETRAIL; ibWeaponEffectDestination = ibgconstants.MULTICAST_PHS
+  else if ibWeaponEffectKind == "rail-trail" or ibWeaponEffectKind == "rail-trail-water" then ibWeaponEffectType = ibwpconstants.TE_RAILTRAIL; ibWeaponEffectDestination = ibgconstants.MULTICAST_PHS
+  else if ibWeaponEffectKind == "rocket-explosion" then ibWeaponEffectType = ibwpconstants.TE_ROCKET_EXPLOSION
+  else if ibWeaponEffectKind == "grenade-explosion" then ibWeaponEffectType = ibwpconstants.TE_GRENADE_EXPLOSION
+  else if ibWeaponEffectKind == "rocket-explosion-water" then ibWeaponEffectType = ibwpconstants.TE_ROCKET_EXPLOSION_WATER
+  else if ibWeaponEffectKind == "grenade-explosion-water" then ibWeaponEffectType = ibwpconstants.TE_GRENADE_EXPLOSION_WATER
+  else if ibWeaponEffectKind == "bfg-laser" then ibWeaponEffectType = ibwpconstants.TE_BFG_LASER; ibWeaponEffectDestination = ibgconstants.MULTICAST_PHS
+  else if ibWeaponEffectKind == "bfg-target-explosion" then ibWeaponEffectType = ibwpconstants.TE_BFG_EXPLOSION
+  else if ibWeaponEffectKind == "bfg-big-explosion" then ibWeaponEffectType = ibwpconstants.TE_BFG_BIGEXPLOSION
+  else return error(9691, "unsupported integrated weapon effect " + ibWeaponEffectKind)
+  end if
+
+  if ibWeaponEffectType < 0 or ibWeaponEffectType > 255 then return error(9692, "invalid integrated weapon effect type") end if
+  ibWeaponEffectImportsHolder.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  ibWeaponEffectImportsHolder.writeByte(ibWeaponEffectType)
+  if ibWeaponEffectType == ibwpconstants.TE_SPLASH then
+    ibWeaponEffectCount = effect.count
+    if ibWeaponEffectCount < 0 then ibWeaponEffectCount = 0 end if
+    if ibWeaponEffectCount > 255 then ibWeaponEffectCount = 255 end if
+    ibWeaponEffectImportsHolder.writeByte(ibWeaponEffectCount)
+    ibWeaponEffectImportsHolder.writePosition(effect.endPosition)
+    ibWeaponEffectImportsHolder.writeDirection(effect.normal)
+    ibWeaponEffectImportsHolder.writeByte(effect.style)
+  else if ibWeaponEffectType == ibwpconstants.TE_RAILTRAIL or
+      ibWeaponEffectType == ibwpconstants.TE_BUBBLETRAIL or
+      ibWeaponEffectType == ibwpconstants.TE_BFG_LASER then
+    ibWeaponEffectImportsHolder.writePosition(effect.start)
+    ibWeaponEffectImportsHolder.writePosition(effect.endPosition)
+  else if ibWeaponEffectType == ibwpconstants.TE_GUNSHOT or
+      ibWeaponEffectType == ibwpconstants.TE_SHOTGUN or
+      ibWeaponEffectType == ibwpconstants.TE_BLASTER then
+    ibWeaponEffectImportsHolder.writePosition(effect.endPosition)
+    ibWeaponEffectImportsHolder.writeDirection(effect.normal)
+  else
+    ibWeaponEffectImportsHolder.writePosition(effect.endPosition)
+  end if
+  return ibWeaponEffectImportsHolder.multicast(effect.endPosition, ibWeaponEffectDestination)
+end function
+
+function integratedDamageEffect(point, direction, blood, bullet)
+  global activeIntegrationRuntime
+  ibDamageEffectRuntimeHolder = activeIntegrationRuntime
+  if ibDamageEffectRuntimeHolder is void or ibDamageEffectRuntimeHolder.playerContext is void then return false end if
+  ibDamageEffectImportsHolder = ibDamageEffectRuntimeHolder.playerContext.imports
+  ibDamageEffectType = ibwpconstants.TE_SPARKS
+  if blood then ibDamageEffectType = ibwpconstants.TE_BLOOD end if
+  if not blood and bullet then ibDamageEffectType = ibwpconstants.TE_BULLET_SPARKS end if
+  ibDamageEffectImportsHolder.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  ibDamageEffectImportsHolder.writeByte(ibDamageEffectType)
+  ibDamageEffectImportsHolder.writePosition(point)
+  ibDamageEffectImportsHolder.writeDirection(direction)
+  return ibDamageEffectImportsHolder.multicast(point, ibgconstants.MULTICAST_PVS)
 end function
 
 function integratedWeaponSound(entity, soundName)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
   if runtime is void or runtime.playerContext is void then return false end if
+  imports = runtime.playerContext.imports
+  ibWeaponSoundEngineNumber = try(entity.engineNumber)
+  if typeof(ibWeaponSoundEngineNumber) == "int" and ibWeaponSoundEngineNumber >= 0 and
+      runtime.exportTable is not void and ibWeaponSoundEngineNumber < runtime.exportTable.numEdicts then
+    return imports.sound(runtime.exportTable.edicts[ibWeaponSoundEngineNumber], ibgconstants.CHAN_WEAPON,
+      imports.soundIndex(soundName), 1.0, ibgconstants.ATTN_NORM, 0.0)
+  end if
   target = weaponTargetByNumber(runtime, entity.number)
   if target is void then return true end if
-  imports = runtime.playerContext.imports
-  return imports.sound(target.combatant.edict, ibgconstants.CHAN_WEAPON, imports.soundIndex(soundName), 1.0, ibgconstants.ATTN_NORM, 0.0)
+  return imports.sound(target.combatant.edict, ibgconstants.CHAN_WEAPON,
+    imports.soundIndex(soundName), 1.0, ibgconstants.ATTN_NORM, 0.0)
 end function
 
 function integratedWeaponLink(entity)
-  return true
+  global activeIntegrationRuntime
+  ibProjectileRuntimeHolder = activeIntegrationRuntime
+  if ibProjectileRuntimeHolder is void or ibProjectileRuntimeHolder.exportTable is void or
+      ibProjectileRuntimeHolder.playerContext is void then return true end if
+  ibProjectileExportHolder = ibProjectileRuntimeHolder.exportTable
+  ibProjectileEngineNumber = entity.engineNumber
+  if ibProjectileEngineNumber < 0 then
+    ibProjectileCandidate = 1
+    ibProjectileEngineNumber = -1
+    while ibProjectileCandidate < ibProjectileExportHolder.numEdicts and ibProjectileEngineNumber < 0
+      ibProjectileReserved = false
+      for each ibProjectilePlayerHolder in ibProjectileRuntimeHolder.playerContext.players
+        if ibProjectilePlayerHolder.edict.state.number == ibProjectileCandidate then ibProjectileReserved = true end if
+      end for
+      if not ibProjectileReserved and not ibProjectileExportHolder.edicts[ibProjectileCandidate].inUse then
+        ibProjectileEngineNumber = ibProjectileCandidate
+      end if
+      ibProjectileCandidate = ibProjectileCandidate + 1
+    end while
+    if ibProjectileEngineNumber < 0 then
+      ibProjectileEngineNumber = ibProjectileExportHolder.numEdicts
+      if ibProjectileEngineNumber >= ibProjectileExportHolder.maxEdicts then
+        return error(9694, "projectile export edict limit reached")
+      end if
+      ibProjectileExportHolder.numEdicts = ibProjectileExportHolder.numEdicts + 1
+    end if
+    entity.engineNumber = ibProjectileEngineNumber
+  end if
+  ibProjectileEdictHolder = ibgametypes.zeroEdict(ibProjectileEngineNumber)
+  ibProjectileEdictHolder.inUse = entity.inUse
+  ibProjectileEdictHolder.serverFlags = 0
+  if entity.className == "bolt" then ibProjectileEdictHolder.serverFlags = ibgconstants.SVF_DEADMONSTER end if
+  ibProjectileEdictHolder.solid = entity.solid
+  ibProjectileEdictHolder.clipMask = entity.clipMask
+  ibProjectileEdictHolder.state.origin = weaponVector(entity.origin)
+  ibProjectileEdictHolder.state.oldOrigin = weaponVector(entity.oldOrigin)
+  ibProjectileEdictHolder.state.angles = weaponVector(entity.angles)
+  ibProjectileEdictHolder.mins = weaponVector(entity.mins)
+  ibProjectileEdictHolder.maxs = weaponVector(entity.maxs)
+  ibProjectileEdictHolder.state.effects = entity.effects
+  ibProjectileEdictHolder.state.frame = entity.frame
+  ibProjectileImportsHolder = ibProjectileRuntimeHolder.playerContext.imports
+  ibProjectileModelName = ""
+  ibProjectileSoundName = ""
+  if entity.className == "bolt" then
+    ibProjectileModelName = "models/objects/laser/tris.md2"
+    ibProjectileSoundName = "misc/lasfly.wav"
+  else if entity.className == "grenade" then ibProjectileModelName = "models/objects/grenade/tris.md2"
+  else if entity.className == "hgrenade" then
+    ibProjectileModelName = "models/objects/grenade2/tris.md2"
+    ibProjectileSoundName = "weapons/hgrenc1b.wav"
+  else if entity.className == "rocket" then
+    ibProjectileModelName = "models/objects/rocket/tris.md2"
+    ibProjectileSoundName = "weapons/rockfly.wav"
+  else if entity.className == "bfg blast" then
+    ibProjectileModelName = "sprites/s_bfg1.sp2"
+    ibProjectileSoundName = "weapons/bfg__l1a.wav"
+  end if
+  if ibProjectileModelName != "" then ibProjectileEdictHolder.state.modelIndex = ibProjectileImportsHolder.modelIndex(ibProjectileModelName) end if
+  if ibProjectileSoundName != "" then ibProjectileEdictHolder.state.sound = ibProjectileImportsHolder.soundIndex(ibProjectileSoundName) end if
+  ibProjectileExportHolder.edicts[ibProjectileEngineNumber] = ibProjectileEdictHolder
+  ibProjectileStoredEdictHolder = ibProjectileExportHolder.edicts[ibProjectileEngineNumber]
+  ibgametypes.stabilizeEdict(ibProjectileStoredEdictHolder)
+  ibProjectileImportsHolder.linkEntity(ibProjectileStoredEdictHolder)
+  return ibProjectileEngineNumber
 end function
 
 function integratedWeaponFree(entity)
+  global activeIntegrationRuntime
+  ibProjectileFreeRuntimeHolder = activeIntegrationRuntime
+  if ibProjectileFreeRuntimeHolder is void or ibProjectileFreeRuntimeHolder.exportTable is void or
+      ibProjectileFreeRuntimeHolder.playerContext is void or entity.engineNumber < 0 or
+      entity.engineNumber >= ibProjectileFreeRuntimeHolder.exportTable.numEdicts then return true end if
+  ibProjectileFreeEdictHolder = ibProjectileFreeRuntimeHolder.exportTable.edicts[entity.engineNumber]
+  ibProjectileFreeRuntimeHolder.playerContext.imports.unlinkEntity(ibProjectileFreeEdictHolder)
+  ibProjectileFreeEdictHolder.inUse = false
+  ibProjectileFreeEdictHolder.solid = ibgconstants.SOLID_NOT
+  ibProjectileFreeRuntimeHolder.exportTable.edicts[entity.engineNumber] = ibProjectileFreeEdictHolder
   return true
 end function
 
@@ -942,6 +1101,7 @@ function precacheSpawned(runtime, playerContext)
     itemIndexes = itemIndexes + [blaster.index]
   end if
   imports.modelIndex("players/male/tris.md2")
+  imports.soundIndex("weapons/noammo.wav")
 
   for each itemEntity in runtime.items
     item = itemEntity.item
@@ -1172,14 +1332,124 @@ function playerForGameplay(runtime, gameplayPlayer)
   return void
 end function
 
-function playerMuzzle(player)
-  angles = player.edict.client.playerState.viewAngles
-  basis = ibwpvector.angleVectors(angles)
-  direction = basis[0]
-  origin = weaponVector(player.edict.state.origin)
-  origin.z = origin.z + player.viewHeight - 8.0
-  start = ibwpvector.multiplyAdd(origin, 8.0, direction)
-  return [start, direction]
+function setPlayerGameplayGunFrame(gameplayPlayer, frame)
+  gameplayPlayer.gunFrame = frame
+  gameplayPlayer.edict.client.playerState.gunFrame = frame
+  return frame
+end function
+
+function playerMuzzle(player, item, gunFrame, shotIndex)
+  ibPlayerMuzzleAnglesHolder = player.edict.client.playerState.viewAngles
+  ibPlayerMuzzleBasisHolder = ibwpvector.angleVectors(ibPlayerMuzzleAnglesHolder)
+  ibPlayerMuzzleForwardHolder = ibPlayerMuzzleBasisHolder[0]
+  ibPlayerMuzzleRightHolder = ibPlayerMuzzleBasisHolder[1]
+  ibPlayerMuzzleOriginHolder = weaponVector(player.edict.state.origin)
+  ibPlayerMuzzleForwardOffset = 0.0
+  ibPlayerMuzzleLateralOffset = 8.0
+  ibPlayerMuzzleVerticalOffset = player.viewHeight - 8.0
+  if item.className == "weapon_blaster" then ibPlayerMuzzleForwardOffset = 24.0
+  else if item.className == "weapon_hyperblaster" then
+    ibPlayerMuzzleRotation = (gunFrame - 5) * 3.141592653589793 / 3.0
+    ibPlayerMuzzleForwardOffset = 24.0 - 4.0 * ibmath.sin(ibPlayerMuzzleRotation)
+    ibPlayerMuzzleVerticalOffset = ibPlayerMuzzleVerticalOffset + 4.0 * ibmath.cos(ibPlayerMuzzleRotation)
+  else if item.className == "ammo_grenades" or item.className == "weapon_grenadelauncher" or item.className == "weapon_rocketlauncher" or
+      item.className == "weapon_bfg" then ibPlayerMuzzleForwardOffset = 8.0
+  else if item.className == "weapon_railgun" then ibPlayerMuzzleLateralOffset = 7.0
+  else if item.className == "weapon_chaingun" then ibPlayerMuzzleLateralOffset = 7.0
+  end if
+  if player.persistent.hand == 1 then ibPlayerMuzzleLateralOffset = -ibPlayerMuzzleLateralOffset
+  else if player.persistent.hand == 2 then ibPlayerMuzzleLateralOffset = 0.0
+  end if
+  ibPlayerMuzzleStartHolder = ibwpvector.multiplyAdd(ibPlayerMuzzleOriginHolder,
+    ibPlayerMuzzleForwardOffset, ibPlayerMuzzleForwardHolder)
+  ibPlayerMuzzleStartHolder = ibwpvector.multiplyAdd(ibPlayerMuzzleStartHolder,
+    ibPlayerMuzzleLateralOffset, ibPlayerMuzzleRightHolder)
+  ibPlayerMuzzleStartHolder.z = ibPlayerMuzzleStartHolder.z + ibPlayerMuzzleVerticalOffset
+  return [ibPlayerMuzzleStartHolder, ibPlayerMuzzleForwardHolder, ibPlayerMuzzleRightHolder]
+end function
+
+function beginPlayerAttackAnimation(player)
+  player.view.animPriority = ibplayerconstants.ANIM_ATTACK
+  if (player.edict.client.playerState.pmove.flags & ibgconstants.PMF_DUCKED) != 0 then
+    player.edict.state.frame = ibplayerconstants.FRAME_CROUCH_ATTACK_FIRST - 1
+    player.view.animEnd = ibplayerconstants.FRAME_CROUCH_ATTACK_LAST
+  else
+    player.edict.state.frame = ibplayerconstants.FRAME_ATTACK_FIRST - 1
+    player.view.animEnd = ibplayerconstants.FRAME_ATTACK_LAST
+  end if
+  return true
+end function
+
+function applyPlayerWeaponRecoil(runtime, player, item, direction)
+  ibPlayerRecoilOrigin = 0.0
+  ibPlayerRecoilPitch = 0.0
+  if item.className == "weapon_blaster" or item.className == "weapon_hyperblaster" or
+      item.className == "weapon_grenadelauncher" or item.className == "weapon_rocketlauncher" then
+    ibPlayerRecoilOrigin = 2.0; ibPlayerRecoilPitch = -1.0
+  else if item.className == "weapon_shotgun" or item.className == "weapon_supershotgun" then
+    ibPlayerRecoilOrigin = 2.0; ibPlayerRecoilPitch = -2.0
+  else if item.className == "weapon_railgun" then
+    ibPlayerRecoilOrigin = 3.0; ibPlayerRecoilPitch = -3.0
+  else if item.className == "weapon_bfg" then ibPlayerRecoilOrigin = 2.0
+  else if item.className == "weapon_machinegun" then
+    if not runtime.playerContext.deathmatch then
+      ibPlayerRecoilPitch = player.view.machinegunShots * -1.5
+      player.view.machinegunShots = player.view.machinegunShots + 1
+      if player.view.machinegunShots > 9 then player.view.machinegunShots = 9 end if
+    end if
+  end if
+  player.view.kickOrigin = ibwpvector.scale(direction, -ibPlayerRecoilOrigin)
+  player.view.kickAngles = ibqtypes.Vec3(ibPlayerRecoilPitch, 0.0, 0.0)
+  if item.className == "weapon_bfg" then
+    player.view.damagePitch = -40.0
+    player.view.damageRoll = 0.0
+    player.view.damageTime = runtime.playerContext.time + ibplayerconstants.DAMAGE_TIME
+  end if
+  return true
+end function
+
+function emitPlayerWeaponSound(runtime, player, channel, name, attenuation)
+  ibPlayerWeaponSoundImportsHolder = runtime.playerContext.imports
+  return ibPlayerWeaponSoundImportsHolder.sound(player.edict, channel,
+    ibPlayerWeaponSoundImportsHolder.soundIndex(name), 1.0, attenuation, 0.0)
+end function
+
+function playerMuzzleFlashForItem(item, shots)
+  if item.className == "weapon_blaster" then return ibwpconstants.MZ_BLASTER end if
+  if item.className == "weapon_shotgun" then return ibwpconstants.MZ_SHOTGUN end if
+  if item.className == "weapon_supershotgun" then return ibwpconstants.MZ_SSHOTGUN end if
+  if item.className == "weapon_machinegun" then return ibwpconstants.MZ_MACHINEGUN end if
+  if item.className == "weapon_chaingun" then return ibwpconstants.MZ_CHAINGUN1 + shots - 1 end if
+  if item.className == "weapon_grenadelauncher" then return ibwpconstants.MZ_GRENADE end if
+  if item.className == "weapon_rocketlauncher" then return ibwpconstants.MZ_ROCKET end if
+  if item.className == "weapon_hyperblaster" then return ibwpconstants.MZ_HYPERBLASTER end if
+  if item.className == "weapon_railgun" then return ibwpconstants.MZ_RAILGUN end if
+  if item.className == "weapon_bfg" then return ibwpconstants.MZ_BFG end if
+  return error(9693, "unsupported player muzzleflash weapon " + item.className)
+end function
+
+function integratedPlayerMuzzleFlash(runtime, shooter, item, shots, silenced)
+  if runtime.playerContext is void then return false end if
+  encoded = playerMuzzleFlashForItem(item, shots)
+  if silenced then encoded = encoded | ibwpconstants.MZ_SILENCED end if
+  imports = runtime.playerContext.imports
+  imports.writeByte(ibqconstants.SVC_MUZZLEFLASH)
+  imports.writeShort(shooter.number)
+  imports.writeByte(encoded)
+  return imports.multicast(shooter.origin, ibgconstants.MULTICAST_PVS)
+end function
+
+function playerWeaponShotCount(gameplayPlayer, item, effectiveFrame)
+  if item.className != "weapon_chaingun" then return 1 end if
+  shots = 1
+  if effectiveFrame > 9 and effectiveFrame <= 14 then
+    if (gameplayPlayer.buttons & ibgconstants.BUTTON_ATTACK) != 0 then shots = 2 end if
+  else if effectiveFrame > 14 then shots = 3
+  end if
+  if gameplayPlayer.ammoIndex != 0 and gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] < shots then
+    shots = gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex]
+  end if
+  return shots
 end function
 
 function integratedPlayerFire(gameplayPlayer, registry)
@@ -1189,30 +1459,187 @@ function integratedPlayerFire(gameplayPlayer, registry)
   player = playerForGameplay(runtime, gameplayPlayer)
   if player is void or gameplayPlayer.currentWeapon is void then return false end if
   item = gameplayPlayer.currentWeapon
-  if item.className == "weapon_bfg" and gameplayPlayer.gunFrame == 9 then
-    gameplayPlayer.gunFrame = gameplayPlayer.gunFrame + 1
-    gameplayPlayer.edict.client.playerState.gunFrame = gameplayPlayer.gunFrame
+  preFrame = gameplayPlayer.gunFrame
+  attackHeld = (gameplayPlayer.buttons & ibgconstants.BUTTON_ATTACK) != 0
+  shooter = playerWeaponTarget(player, registry)
+  if item.className == "weapon_shotgun" and preFrame == 9 then
+    setPlayerGameplayGunFrame(gameplayPlayer, preFrame + 1)
     return true
   end if
+  if item.className == "weapon_bfg" and gameplayPlayer.gunFrame == 9 then
+    ibBfgWindupSilenced = gameplayPlayer.silencerShots > 0
+    integratedPlayerMuzzleFlash(runtime, shooter, item, 1, ibBfgWindupSilenced)
+    integratedPlayerNoise(shooter, shooter.origin, 1)
+    if ibBfgWindupSilenced then gameplayPlayer.silencerShots = gameplayPlayer.silencerShots - 1 end if
+    setPlayerGameplayGunFrame(gameplayPlayer, gameplayPlayer.gunFrame + 1)
+    return true
+  end if
+  if item.className == "weapon_bfg" and gameplayPlayer.ammoIndex != 0 and
+      gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] < item.quantity then
+    setPlayerGameplayGunFrame(gameplayPlayer, gameplayPlayer.gunFrame + 1)
+    return true
+  end if
+  if item.className == "weapon_hyperblaster" and not attackHeld then
+    setPlayerGameplayGunFrame(gameplayPlayer, preFrame + 1)
+    if gameplayPlayer.gunFrame == 12 then
+      player.view.weaponSound = 0
+      emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO, "weapons/hyprbd1a.wav", ibgconstants.ATTN_NORM)
+    end if
+    return true
+  end if
+  if item.className == "weapon_machinegun" and not attackHeld then
+    player.view.machinegunShots = 0
+    setPlayerGameplayGunFrame(gameplayPlayer, preFrame + 1)
+    return true
+  end if
+  if item.className == "weapon_chaingun" and preFrame == 14 and not attackHeld then
+    setPlayerGameplayGunFrame(gameplayPlayer, 32)
+    player.view.weaponSound = 0
+    emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO, "weapons/chngnd1a.wav", ibgconstants.ATTN_IDLE)
+    return true
+  end if
+  effectiveFrame = preFrame + 1
+  if item.className == "weapon_chaingun" and preFrame == 21 and attackHeld then effectiveFrame = 15 end if
+  shots = playerWeaponShotCount(gameplayPlayer, item, effectiveFrame)
+  if shots <= 0 then return false end if
+  silenced = gameplayPlayer.silencerShots > 0
+  infiniteAmmo = (runtime.playerContext.dmFlags & ibgconstants.DF_INFINITE_AMMO) != 0
+  previousAmmo = 0
+  if gameplayPlayer.ammoIndex != 0 then previousAmmo = gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] end if
   if ibgpweapons.FireCurrentWeapon(gameplayPlayer, registry) != true then return false end if
-  muzzle = playerMuzzle(player)
+  if item.className == "weapon_machinegun" then
+    if preFrame == 5 then setPlayerGameplayGunFrame(gameplayPlayer, 4)
+    else setPlayerGameplayGunFrame(gameplayPlayer, 5)
+    end if
+  else if item.className == "weapon_chaingun" then setPlayerGameplayGunFrame(gameplayPlayer, effectiveFrame)
+  else if item.className == "weapon_hyperblaster" and gameplayPlayer.gunFrame == 12 and
+      gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] > 0 then
+    setPlayerGameplayGunFrame(gameplayPlayer, 6)
+  end if
+  if not infiniteAmmo and item.className == "weapon_chaingun" and shots > 1 and gameplayPlayer.ammoIndex != 0 then
+    gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] = gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] - (shots - 1)
+  end if
+  if infiniteAmmo and gameplayPlayer.ammoIndex != 0 then
+    gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex] = previousAmmo
+  end if
+  muzzle = playerMuzzle(player, item, preFrame, 0)
   start = muzzle[0]
   direction = muzzle[1]
-  shooter = playerWeaponTarget(player, registry)
   multiplier = 1
   if player.powerups.quadFrame > runtime.playerContext.frameNumber then multiplier = 4 end if
-  if gameplayPlayer.silencerShots > 0 then gameplayPlayer.silencerShots = gameplayPlayer.silencerShots - 1 end if
+  if silenced then gameplayPlayer.silencerShots = gameplayPlayer.silencerShots - 1 end if
 
-  if item.className == "weapon_blaster" then ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction, 15 * multiplier, 1000.0, ibwpconstants.EF_BLASTER, false)
+  applyPlayerWeaponRecoil(runtime, player, item, direction)
+  beginPlayerAttackAnimation(player)
+  if item.className == "weapon_blaster" then
+    ibBlasterDamage = 10
+    if runtime.playerContext.deathmatch then ibBlasterDamage = 15 end if
+    ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction, ibBlasterDamage * multiplier, 1000.0, ibwpconstants.EF_BLASTER, false)
   else if item.className == "weapon_shotgun" then ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction, 4 * multiplier, 8, 500.0, 500.0, 12, ibgpconstants.MOD_SHOTGUN)
-  else if item.className == "weapon_supershotgun" then ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction, 6 * multiplier, 12, 1000.0, 500.0, 20, ibgpconstants.MOD_SSHOTGUN)
+  else if item.className == "weapon_supershotgun" then
+    ibSuperAnglesLeftHolder = ibqtypes.Vec3(player.edict.client.playerState.viewAngles.x,
+      player.edict.client.playerState.viewAngles.y - 5.0, player.edict.client.playerState.viewAngles.z)
+    ibSuperDirectionLeftHolder = ibwpvector.angleVectors(ibSuperAnglesLeftHolder)[0]
+    ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, ibSuperDirectionLeftHolder,
+      6 * multiplier, 12 * multiplier, 1000.0, 500.0, 10, ibgpconstants.MOD_SSHOTGUN)
+    ibSuperAnglesRightHolder = ibqtypes.Vec3(player.edict.client.playerState.viewAngles.x,
+      player.edict.client.playerState.viewAngles.y + 5.0, player.edict.client.playerState.viewAngles.z)
+    ibSuperDirectionRightHolder = ibwpvector.angleVectors(ibSuperAnglesRightHolder)[0]
+    ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, ibSuperDirectionRightHolder,
+      6 * multiplier, 12 * multiplier, 1000.0, 500.0, 10, ibgpconstants.MOD_SSHOTGUN)
   else if item.className == "weapon_machinegun" then ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, 8 * multiplier, 2, 300.0, 500.0, ibgpconstants.MOD_MACHINEGUN)
-  else if item.className == "weapon_chaingun" then ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, 6 * multiplier, 2, 300.0, 500.0, ibgpconstants.MOD_CHAINGUN)
+  else if item.className == "weapon_chaingun" then
+    ibChainDamage = 8
+    if runtime.playerContext.deathmatch then ibChainDamage = 6 end if
+    shot = 0
+    while shot < shots
+      ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, ibChainDamage * multiplier, 2 * multiplier, 300.0, 500.0, ibgpconstants.MOD_CHAINGUN)
+      shot = shot + 1
+    end while
   else if item.className == "weapon_grenadelauncher" then ibwpprojectiles.fireGrenade(runtime.weaponContext, shooter, start, direction, 120 * multiplier, 600.0, 2.5, 160.0)
   else if item.className == "weapon_rocketlauncher" then ibwpprojectiles.fireRocket(runtime.weaponContext, shooter, start, direction, 100 * multiplier, 650.0, 120.0, 120 * multiplier)
-  else if item.className == "weapon_hyperblaster" then ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction, 20 * multiplier, 1000.0, ibwpconstants.EF_HYPERBLASTER, true)
-  else if item.className == "weapon_railgun" then ibwphitscan.fireRail(runtime.weaponContext, shooter, start, direction, 100 * multiplier, 200)
-  else if item.className == "weapon_bfg" then ibwpprojectiles.fireBfg(runtime.weaponContext, shooter, start, direction, 200 * multiplier, 400.0, 1000.0)
+  else if item.className == "weapon_hyperblaster" then
+    ibHyperDamage = 20; if runtime.playerContext.deathmatch then ibHyperDamage = 15 end if
+    ibHyperEffect = 0
+    if preFrame == 6 or preFrame == 9 then ibHyperEffect = ibwpconstants.EF_HYPERBLASTER end if
+    player.view.weaponSound = runtime.playerContext.imports.soundIndex("weapons/hyprbl1a.wav")
+    ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction, ibHyperDamage * multiplier, 1000.0, ibHyperEffect, true)
+  else if item.className == "weapon_railgun" then
+    ibRailDamage = 150; ibRailKick = 250
+    if runtime.playerContext.deathmatch then ibRailDamage = 100; ibRailKick = 200 end if
+    ibwphitscan.fireRail(runtime.weaponContext, shooter, start, direction, ibRailDamage * multiplier, ibRailKick * multiplier)
+  else if item.className == "weapon_bfg" then
+    ibBfgDamage = 500; if runtime.playerContext.deathmatch then ibBfgDamage = 200 end if
+    ibwpprojectiles.fireBfg(runtime.weaponContext, shooter, start, direction, ibBfgDamage * multiplier, 400.0, 1000.0)
+  end if
+  if item.className != "weapon_bfg" then integratedPlayerMuzzleFlash(runtime, shooter, item, shots, silenced) end if
+  integratedPlayerNoise(shooter, start, 1)
+  if item.className == "weapon_chaingun" then
+    if preFrame == 5 then emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO, "weapons/chngnu1a.wav", ibgconstants.ATTN_IDLE) end if
+    if gameplayPlayer.gunFrame == 22 then
+      player.view.weaponSound = 0
+      emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO, "weapons/chngnd1a.wav", ibgconstants.ATTN_IDLE)
+    else player.view.weaponSound = runtime.playerContext.imports.soundIndex("weapons/chngnl1a.wav")
+    end if
+  end if
+  return true
+end function
+
+function thinkPlayerHandGrenade(player, playerContext, runtime, item)
+  ibHandGameplayHolder = player.gameplay
+  if ibHandGameplayHolder.newWeapon is not void and
+      ibHandGameplayHolder.weaponState == ibgpconstants.WEAPON_READY then
+    ibgpweapons.ChangeWeapon(ibHandGameplayHolder, playerContext.registry)
+    player.handGrenadeState = void
+    return true
+  end if
+  if ibHandGameplayHolder.weaponState == ibgpconstants.WEAPON_ACTIVATING then
+    ibHandGameplayHolder.weaponState = ibgpconstants.WEAPON_READY
+    setPlayerGameplayGunFrame(ibHandGameplayHolder, 16)
+    player.handGrenadeState = void
+    return true
+  end if
+  ibHandOwnerHolder = playerWeaponTarget(player, playerContext.registry)
+  if player.handGrenadeState is void then
+    ibHandAmmoCount = 0
+    if ibHandGameplayHolder.ammoIndex != 0 then
+      ibHandAmmoCount = ibHandGameplayHolder.inventory.counts[ibHandGameplayHolder.ammoIndex]
+    end if
+    player.handGrenadeState = ibwptypes.createHandGrenadeState(ibHandOwnerHolder, ibHandAmmoCount)
+    player.handGrenadeState.weaponState = ibHandGameplayHolder.weaponState
+    player.handGrenadeState.gunFrame = ibHandGameplayHolder.gunFrame
+  end if
+  ibHandStateHolder = player.handGrenadeState
+  ibHandStateHolder.owner = ibHandOwnerHolder
+  ibHandStateHolder.weaponState = ibHandGameplayHolder.weaponState
+  ibHandStateHolder.gunFrame = ibHandGameplayHolder.gunFrame
+  ibHandStateHolder.buttons = ibHandGameplayHolder.buttons
+  ibHandStateHolder.latchedButtons = ibHandGameplayHolder.latchedButtons
+  if ibHandGameplayHolder.ammoIndex != 0 then
+    ibHandStateHolder.ammo = ibHandGameplayHolder.inventory.counts[ibHandGameplayHolder.ammoIndex]
+  end if
+  ibHandStateHolder.infiniteAmmo = (playerContext.dmFlags & ibgconstants.DF_INFINITE_AMMO) != 0
+  ibHandMuzzleHolder = playerMuzzle(player, item, ibHandStateHolder.gunFrame, 0)
+  ibHandPreviousProjectileHolder = ibHandStateHolder.lastProjectile
+  ibHandDamage = 125
+  if player.powerups.quadFrame > playerContext.frameNumber then ibHandDamage = ibHandDamage * 4 end if
+  ibHandResultHolder = ibwphandgrenade.step(runtime.weaponContext, ibHandStateHolder,
+    ibHandMuzzleHolder[0], ibHandMuzzleHolder[1], ibHandDamage, 165.0)
+  ibHandGameplayHolder.weaponState = ibHandStateHolder.weaponState
+  setPlayerGameplayGunFrame(ibHandGameplayHolder, ibHandStateHolder.gunFrame)
+  ibHandGameplayHolder.latchedButtons = ibHandStateHolder.latchedButtons
+  player.latchedButtons = ibHandStateHolder.latchedButtons
+  if ibHandGameplayHolder.ammoIndex != 0 then
+    ibHandGameplayHolder.inventory.counts[ibHandGameplayHolder.ammoIndex] = ibHandStateHolder.ammo
+  end if
+  player.view.weaponSound = 0
+  if ibHandStateHolder.weaponSound != "" then
+    player.view.weaponSound = playerContext.imports.soundIndex(ibHandStateHolder.weaponSound)
+  end if
+  if ibHandResultHolder is not void and
+      (ibHandPreviousProjectileHolder is void or nativeRawValue(ibHandResultHolder) != nativeRawValue(ibHandPreviousProjectileHolder)) then
+    integratedPlayerNoise(ibHandOwnerHolder, ibHandMuzzleHolder[0], 1)
+    beginPlayerAttackAnimation(player)
   end if
   return true
 end function
@@ -1224,9 +1651,20 @@ function thinkPlayerWeapon(player, playerContext)
   runtime.playerContext = playerContext
   runtime.weaponContext.deathmatch = playerContext.deathmatch
   item = player.gameplay.currentWeapon
+  if item.className == "ammo_grenades" then
+    if item.viewModel != "" then player.edict.client.playerState.gunIndex = playerContext.imports.modelIndex(item.viewModel) end if
+    return thinkPlayerHandGrenade(player, playerContext, runtime, item)
+  end if
   if item.weaponFrames is void then return false end if
   if item.viewModel != "" then player.edict.client.playerState.gunIndex = playerContext.imports.modelIndex(item.viewModel) end if
+  ibPreviousWeaponState = player.gameplay.weaponState
   result = ibgpweapons.Weapon_Generic(player.gameplay, item.weaponFrames, playerContext.registry, integratedPlayerFire, 0)
+  if ibPreviousWeaponState == ibgpconstants.WEAPON_READY and result.state == ibgpconstants.WEAPON_FIRING then
+    beginPlayerAttackAnimation(player)
+  end if
+  if result.noAmmo then
+    emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_VOICE, "weapons/noammo.wav", ibgconstants.ATTN_NORM)
+  end if
   player.latchedButtons = player.gameplay.latchedButtons
   return result
 end function
@@ -1495,6 +1933,26 @@ function syncGameEdicts(runtime, exportTable)
       ibStoredItemEdictHolder.mins = ibItemEdictHolder.mins
       ibStoredItemEdictHolder.maxs = ibItemEdictHolder.maxs
       ibgametypes.stabilizeEdict(ibStoredItemEdictHolder)
+    end if
+  end for
+  for each ibSyncProjectileHolder in runtime.weaponContext.projectiles
+    if ibSyncProjectileHolder.inUse and ibSyncProjectileHolder.engineNumber >= 0 and
+        ibSyncProjectileHolder.engineNumber < exportTable.numEdicts then
+      ibSyncProjectileEdictHolder = exportTable.edicts[ibSyncProjectileHolder.engineNumber]
+      ibSyncProjectileEdictHolder.inUse = true
+      ibSyncProjectileEdictHolder.solid = ibSyncProjectileHolder.solid
+      ibSyncProjectileEdictHolder.clipMask = ibSyncProjectileHolder.clipMask
+      ibSyncProjectileEdictHolder.state.origin = weaponVector(ibSyncProjectileHolder.origin)
+      ibSyncProjectileEdictHolder.state.oldOrigin = weaponVector(ibSyncProjectileHolder.oldOrigin)
+      ibSyncProjectileEdictHolder.state.angles = weaponVector(ibSyncProjectileHolder.angles)
+      ibSyncProjectileEdictHolder.state.effects = ibSyncProjectileHolder.effects
+      ibSyncProjectileEdictHolder.state.frame = ibSyncProjectileHolder.frame
+      ibSyncProjectileEdictHolder.mins = weaponVector(ibSyncProjectileHolder.mins)
+      ibSyncProjectileEdictHolder.maxs = weaponVector(ibSyncProjectileHolder.maxs)
+      exportTable.edicts[ibSyncProjectileHolder.engineNumber] = ibSyncProjectileEdictHolder
+      ibSyncStoredProjectileHolder = exportTable.edicts[ibSyncProjectileHolder.engineNumber]
+      ibgametypes.stabilizeEdict(ibSyncStoredProjectileHolder)
+      if runtime.playerContext is not void then runtime.playerContext.imports.linkEntity(ibSyncStoredProjectileHolder) end if
     end if
   end for
 end function

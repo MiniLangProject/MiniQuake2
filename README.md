@@ -61,10 +61,15 @@ event. Other monster families retain the validated single-emission profile and
 remain explicit frame-parity work. Muzzle events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
-non-combat states. Two real local UDP clients
+non-combat states. The complete stock player-weapon set now uses its original
+fire-frame boundaries, handed muzzle offsets, recoil, damage split, PlayerNoise,
+silencing and Protocol-34 muzzle/impact feedback. Cooked hand grenades are live,
+and bolts, grenades, rockets and BFG shots own reusable networked engine edicts
+with model/effect/loop-sound state. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
-now kills a 100-health peer through seven genuine UDP Blaster commands and
-respawns it through the normal attack latch.
+now sees a moving Blaster bolt in both snapshots, kills a 100-health peer
+through seven genuine UDP Blaster commands, observes muzzle/sound/blood
+handoffs on both clients and respawns through the normal attack latch.
 Game-API `unicast`, `cprintf` and `centerprintf` now use a separate bounded
 per-client queue: reliable text is ACK-retained, unreliable service commands
 remain sequenced, and transactional client handoff exposes prints only to the
@@ -87,8 +92,9 @@ These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
-original `ref_gl` reference captures, the remaining monster/weapon/turret/boss
-model-animation sequencing and remaining per-frame/refire event exactness, and manual device
+original `ref_gl` reference captures, paired original player view-model and
+recoil captures, the remaining monster/turret/boss model-animation sequencing
+and per-frame/refire event exactness, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.

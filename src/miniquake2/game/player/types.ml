@@ -84,6 +84,7 @@ struct PlayerView
   painCycle
   deathCycle
   weaponSound
+  machinegunShots
 end struct
 
 struct ViewSettings
@@ -133,6 +134,7 @@ struct PlayerData
   flags
   obituary
   view
+  handGrenadeState
 end struct
 
 struct PlayerContext
@@ -223,7 +225,7 @@ function zeroPlayerView()
     0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 12.0, 0.0, 2, 0, 0,
     0.0, 0.0, 0, 0.0, 0.0,
-    gplayerconstants.ANIM_BASIC, 0, false, false, 0, 0, 0
+    gplayerconstants.ANIM_BASIC, 0, false, false, 0, 0, 0, 0
   )
 end function
 
@@ -253,7 +255,7 @@ function createPlayer(number, registry)
     0, 100, gplayerconstants.MOVETYPE_WALK, gplayerconstants.DEAD_NO,
     gplayerconstants.DAMAGE_AIM, 22.0, 0, 0, void, 0,
     0, 0, 0, false, 0.0, 0.0, void, 0,
-    false, false, false, 0.0, powerups, 0, 0, "", view
+    false, false, false, 0.0, powerups, 0, 0, "", view, void
   )
 end function
 

@@ -5,6 +5,10 @@ import miniquake2.game.constants as mpdtestgameconstants
 import miniquake2.game.player.constants as mpdtestplayerconstants
 import miniquake2.game.gameplay.constants as mpdtestgameplayconstants
 import miniquake2.game.null_game as mpdtestgameapi
+import miniquake2.game.integration.baseq2 as mpdtestintegration
+import miniquake2.game.weapons.projectiles as mpdtestprojectiles
+import miniquake2.game.weapons.constants as mpdtestweaponconstants
+import miniquake2.game.weapons.core as mpdtestweaponcore
 import miniquake2.runtime.multiplayer_session as mpdtestsession
 
 function mpdAssert(value, name)
@@ -49,6 +53,23 @@ mpdAssert(mpdtestsession.snapshotHasEntity(mpdSession, 0, mpdPlayer0.edict.state
 mpdAssert(mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdPlayer0.edict.state.number) and
   mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdPlayer1.edict.state.number),
   "client one snapshot cannot see both players")
+
+// Keep a slow probe alive for one complete server frame to prove that the
+// managed projectile owns a real engine edict and reaches both snapshots.
+mpdProbeRuntime = mpdtestgameapi.baseRuntime()
+mpdProbeShooter = mpdtestintegration.playerWeaponTarget(mpdPlayer0,
+  mpdtestgameapi.playerContext().registry)
+mpdProbeStart = mpdtestqtypes.Vec3(mpdPlayer0.edict.state.origin.x,
+  mpdPlayer0.edict.state.origin.y, mpdPlayer0.edict.state.origin.z + 16.0)
+mpdProbe = mpdtestprojectiles.fireBlaster(mpdProbeRuntime.weaponContext,
+  mpdProbeShooter, mpdProbeStart, mpdtestqtypes.Vec3(1.0, 0.0, 0.0),
+  15, 100.0, mpdtestweaponconstants.EF_BLASTER, false)
+mpdtestsession.step(mpdSession)
+mpdAssert(mpdProbe.engineNumber >= 0 and
+  mpdtestsession.snapshotHasEntity(mpdSession, 0, mpdProbe.engineNumber) and
+  mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdProbe.engineNumber),
+  "live Blaster projectile was absent from two-client snapshots")
+mpdtestweaponcore.freeProjectile(mpdProbeRuntime.weaponContext, mpdProbe)
 
 // Let initial blaster activation finish, then establish an unobstructed
 // duel.  prepareDuel changes only pose/aim; combat remains on
@@ -100,6 +121,32 @@ for each mpdWeaponEvent in mpdtestgameapi.baseRuntime().weaponContext.events
 end for
 mpdAssert(mpdSawWeaponDamage,
   "weapon event history did not record blaster damage to victim")
+mpdSawMuzzleLight = [false, false]
+mpdSawMuzzleSound = [false, false]
+mpdSawDamageParticles = [false, false]
+mpdClientIndex = 0
+while mpdClientIndex < 2
+  // Integrated dispatch drains transient sounds into bounded, atomic frame
+  // handoffs. Inspect that renderer/audio-ready boundary rather than the
+  // already-drained mutable effect queue.
+  for each mpdWeaponHandoff in mpdSession.clients[mpdClientIndex].integrated.frameHandoffs
+    for each mpdLight in mpdWeaponHandoff.dLights
+      if mpdLight.key == mpdPlayer0.edict.state.number then mpdSawMuzzleLight[mpdClientIndex] = true end if
+    end for
+    for each mpdSound in mpdWeaponHandoff.sounds
+      if mpdSound.entity == mpdPlayer0.edict.state.number and mpdSound.soundName == "weapons/blastf1a.wav" then
+        mpdSawMuzzleSound[mpdClientIndex] = true
+      end if
+    end for
+    if len(mpdWeaponHandoff.particles) > 0 then mpdSawDamageParticles[mpdClientIndex] = true end if
+  end for
+  mpdClientIndex = mpdClientIndex + 1
+end while
+mpdAssert(mpdSawMuzzleLight[0] and mpdSawMuzzleLight[1] and
+  mpdSawMuzzleSound[0] and mpdSawMuzzleSound[1],
+  "player svc_muzzleflash did not reach both-client effect state")
+mpdAssert(mpdSawDamageParticles[0] and mpdSawDamageParticles[1],
+  "blaster damage blood feedback did not reach both clients")
 mpdAssert(mpdPlayer1.obituary == "Bravo was blasted by Alpha.", "deathmatch obituary mismatch")
 mpdAssert(mpdPlayer0.respawn.score == 1 and mpdPlayer1.respawn.score == 0,
   "deathmatch score mismatch")

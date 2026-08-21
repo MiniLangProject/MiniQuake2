@@ -69,6 +69,7 @@ struct Projectile
   think
   nextThink
   frame
+  engineNumber
 end struct
 
 struct WeaponContext
@@ -109,7 +110,7 @@ function createProjectile(number, className)
     number, true, className, qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(), void, void,
     wbconstants.MOVETYPE_NONE, 0, wbconstants.SOLID_NOT, 0, 0, 0, 0, 0.0,
-    0, void, void, void, 0.0, 0
+    0, void, void, void, 0.0, 0, -1
   )
 end function
 

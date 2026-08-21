@@ -34,3 +34,38 @@ const GRENADE_MIN_SPEED = 400.0
 const GRENADE_MAX_SPEED = 800.0
 const FRAME_TIME = 0.1
 
+// Protocol-34 player muzzle and temp-entity identifiers used by the internal
+// GameImport handoff. They intentionally mirror q_shared.h without importing
+// client implementation packages into gameplay.
+const MZ_BLASTER = 0
+const MZ_MACHINEGUN = 1
+const MZ_SHOTGUN = 2
+const MZ_CHAINGUN1 = 3
+const MZ_CHAINGUN2 = 4
+const MZ_CHAINGUN3 = 5
+const MZ_RAILGUN = 6
+const MZ_ROCKET = 7
+const MZ_GRENADE = 8
+const MZ_BFG = 12
+const MZ_SSHOTGUN = 13
+const MZ_HYPERBLASTER = 14
+const MZ_SILENCED = 128
+
+const TE_GUNSHOT = 0
+const TE_BLOOD = 1
+const TE_BLASTER = 2
+const TE_RAILTRAIL = 3
+const TE_SHOTGUN = 4
+const TE_EXPLOSION1 = 5
+const TE_EXPLOSION2 = 6
+const TE_ROCKET_EXPLOSION = 7
+const TE_GRENADE_EXPLOSION = 8
+const TE_SPARKS = 9
+const TE_SPLASH = 10
+const TE_BUBBLETRAIL = 11
+const TE_BULLET_SPARKS = 14
+const TE_ROCKET_EXPLOSION_WATER = 17
+const TE_GRENADE_EXPLOSION_WATER = 18
+const TE_BFG_EXPLOSION = 20
+const TE_BFG_BIGEXPLOSION = 21
+const TE_BFG_LASER = 23

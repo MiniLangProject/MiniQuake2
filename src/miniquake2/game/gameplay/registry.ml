@@ -53,7 +53,7 @@ function defaultRegistry()
   chaingunFrames = frames(4, 31, 61, 64, [38, 43, 51, 61], [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21])
   grenadeLauncherFrames = frames(5, 16, 59, 64, [34, 51, 59], [6])
   rocketLauncherFrames = frames(4, 12, 50, 54, [25, 33, 42, 50], [5])
-  hyperBlasterFrames = frames(5, 20, 49, 53, [], [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+  hyperBlasterFrames = frames(5, 20, 49, 53, [], [6, 7, 8, 9, 10, 11])
   railgunFrames = frames(3, 18, 56, 61, [56], [4])
   bfgFrames = frames(8, 32, 55, 58, [39, 45, 50, 55], [9, 17])
   items = [

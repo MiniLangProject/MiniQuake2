@@ -10,13 +10,13 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | ID | Scenario | Current evidence | Status | Remaining parity gate |
 |---|---|---|---|---|
 | P01 | `base1` load, signon and first frame | `--play <root> base1 1`; client active, models/sounds complete, world PVS submitted | PASS | manual input/device sweep |
-| P02 | Player move, look, use and Blaster | `runtime_multiplayer_deathmatch_tests.ml`, `game_api_combat_vertical_slice_tests.ml` | PASS | exact view/gun animation, recoil and feedback comparison |
+| P02 | Player move, look and all stock weapons | `gameplay_player_weapon_protocol_tests.ml`, `runtime_multiplayer_deathmatch_tests.ml`, ballistics goldens | PASS (mechanics) | paired original view-model/recoil capture |
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
 | P04 | `waste1` brush, water, MD2 and alpha rendering | deterministic G06 TGA replay and zero-pixel self-diff | PASS | paired original `ref_gl` capture and tolerance gate |
 | P05 | Stock monster attack framing | `gameplay_monster_attack_sequence_tests.ml`; Gunner MZ2 45–52 live chain | PASS (partial families) | complete all monster animation, pain, death and attack variants |
 | P06 | Save during an active monster sequence | Private-Save v5 fields in `gameplay_private_save_restore_tests.ml` | PASS | representative retail save positions and original-save policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
-| P08 | Two-player deathmatch | real UDP Blaster kill, obituary, score and attack-latch respawn | PASS | all weapons, map rotation, spectator and long soak |
+| P08 | Two-player deathmatch | real UDP Blaster kill, visible projectile, effects, obituary, score and attack-latch respawn | PASS | all-weapon UDP matrix, map rotation, spectator and long soak |
 | P09 | Two-player cooperative play | shared item, disconnect/reconnect and non-stale signon epoch | PASS | campaign checkpoint matrix and friendly-fire/difficulty variants |
 | P10 | Complete single-player map lifecycle | 39 maps, 38 changes/re-signons, no packet rejection | PASS | automated goal-driven progression rather than direct map changes |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
@@ -45,6 +45,23 @@ remain an explicit model-animation parity gate.
 Private-Save v5 persists attack/melee/pain/death counts and the in-flight
 `nextFrame`, `pauseTime` and `attackState`. A restored burst therefore resumes
 at its next event rather than restarting or silently collapsing to one shot.
+
+## Current player-weapon coverage
+
+The managed player path now follows the stock `p_weapon.c` fire boundaries for
+Blaster, Shotgun, Super Shotgun, Machinegun, Chaingun, grenade/rocket launcher,
+HyperBlaster, Railgun, BFG10K and the special cooked hand grenade. Golden tests
+cover the Shotgun pump frame, BFG wind-up and late ammo recheck, held/released
+Machinegun and HyperBlaster loops, all three Chaingun burst stages, infinite
+ammo, handed muzzle projection, recoil, silencing and hand-grenade cook/release.
+
+Every real shot emits Protocol-34 player muzzle flashes and appropriate impact,
+blood, armor-spark, splash, bubble, rail, explosion and BFG temp entities.
+Managed moving projectiles own reusable engine edicts with the stock model,
+effect and loop-sound fields; a real two-client UDP gate observes a live bolt
+in both snapshots before the normal seven-shot Blaster kill. Remaining evidence
+is visual/differential rather than a known missing player-weapon family: paired
+original view-model/recoil captures and an all-weapon two-client soak.
 
 ## Closure order
 

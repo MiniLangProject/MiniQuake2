@@ -85,6 +85,7 @@ function PutClientInServer(context, player)
   player.edict.maxs = qtypes.Vec3(16.0, 16.0, 32.0)
   player.velocity = [0.0, 0.0, 0.0]
   player.view = gplayertypes.zeroPlayerView()
+  player.handGrenadeState = void
   player.view.airFinished = context.time + 12.0
 
   state = gtypes.zeroPlayerState()

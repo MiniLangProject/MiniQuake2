@@ -112,6 +112,11 @@ After introducing persisted stock attack-frame schedules, the freshly rebuilt
 Release executable again passed all 39 maps and 38 changes with spawn count 39,
 now in 660 steps and 3,229 processed packets. The small deterministic reduction
 comes from the new attack timing while retaining the same lifecycle outcome.
+After completing the stock player-weapon protocol/effect path, the rebuilt
+product passed the same matrix again in 661 steps and 3,234 processed packets.
+The matching visible `base1` start reached `CA_ACTIVE` at server frame 14,
+registered 80 models and 45 sounds with zero missing assets, submitted 25
+entities and selected 326 visible versus 6,981 culled world surfaces.
 This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
 
@@ -171,6 +176,16 @@ normal attack-latch respawn without `DF_FORCE_RESPAWN`. Coop proves shared
 map/spawn epoch, `IT_STAY_COOP` key pickup for both
 players, disconnect with the surviving peer still active, and a fresh reconnect
 and signon without stale visibility.
+
+`gameplay_player_weapon_protocol_tests` now validates all ten stock player
+muzzle mappings, silencer framing, hit/blood/splash/bubble/rail/BFG effects,
+Shotgun pump timing, BFG windup and late ammo checks, Machinegun/Chaingun/
+HyperBlaster cycling, handed muzzle projection, recoil and cooked hand-grenade
+state. The integrated DM gate additionally observes moving Blaster projectile
+edicts in both real client snapshots and the resulting muzzle light/sound and
+blood particles through the normal Protocol-34 dispatcher. This closes the
+stock player weapon state/protocol vertical slice; paired original view-model,
+kick and per-frame visual capture remains an explicit acceptance gate.
 
 `runtime_active_session_persistence_tests` writes both managed Game and Level
 images from an active UDP session, mutates live world/player/item/score state,
