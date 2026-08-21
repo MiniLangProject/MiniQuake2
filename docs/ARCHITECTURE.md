@@ -105,6 +105,12 @@ demo replay. Server-provided `stufftext` is data: only the three fixed signon
 forms are allowlisted by the headless session; arbitrary text stays queued for
 the UI/command-policy layer.
 
+Game-module multicast writes cross the API-v3 boundary as owned, bounded typed
+events. The server resolves `MULTICAST_ALL`, PVS/PHS and their reliable variants
+per spawned client, preflights every recipient Netchan before mutation, and
+drains the bridge queue only after complete delivery. Payloads remain ordinary
+Protocol-34 service-command fragments; no private wire framing is introduced.
+
 ## A06: Data ownership and save format
 
 MiniLang owns all long-lived engine state. Native memory is borrowed only for

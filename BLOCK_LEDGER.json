@@ -3,7 +3,7 @@
   "project": "MiniQuake2",
   "baseline": "Quake II 3.19 / Protocol 34 / BSP38 / Game API v3 / Renderer API v3",
   "active_blocker_count": 8,
-  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, persistent boss2 and scripted-prop progression, zero explicitly simplified retail classes, 22 stock monster damage-emission profiles, real-command two-client DM/coop, same- and cross-map rollback-safe save/restore, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, exhaustive attack-animation/muzzle/event parity, and manual device acceptance remain",
+  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, persistent boss2 and scripted-prop progression, zero explicitly simplified retail classes, 22 stock monster damage-emission profiles with real Protocol-34 first-muzzleflash handoff, real-command two-client DM/coop, same- and cross-map rollback-safe save/restore, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, exhaustive attack-animation/per-frame event parity, and manual device acceptance remain",
   "release_blocking_gates": [
     {
       "id": "G01",
@@ -135,6 +135,9 @@
         "tests/runtime_client_assets_product_graph_tests.ml",
         "tests/network_runtime_sound_loopback_tests.ml",
         "tests/network_runtime_sound_routing_tests.ml",
+        "src/miniquake2/network/runtime/multicast_dispatch.ml",
+        "tests/network_runtime_multicast_loopback_tests.ml",
+        "tests/network_runtime_multicast_routing_tests.ml",
         "tests/client_runtime_ui_messages_tests.ml",
         "tests/client_cinematic_playback_tests.ml",
         "tests/client_cinematic_malformed_audio_tests.ml",
@@ -164,6 +167,8 @@
         "tests/server_game_bridge_tests.ml",
         "tests/server_snapshot_tests.ml",
         "tests/server_sound_event_queue_tests.ml",
+        "src/miniquake2/server/game_messages.ml",
+        "tests/server_multicast_event_queue_tests.ml",
         "tests/network_runtime_sound_routing_tests.ml",
         "tests/network_runtime_game_adapter_tests.ml",
         "tests/game_api_baseq2_integration_tests.ml",

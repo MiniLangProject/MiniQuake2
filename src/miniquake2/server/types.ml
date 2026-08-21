@@ -24,6 +24,13 @@ struct PendingSoundEvent
   position
 end struct
 
+struct PendingMulticastEvent
+  serial
+  destination
+  origin
+  payload
+end struct
+
 struct ServerRuntime
   state
   mapName
@@ -37,6 +44,8 @@ struct ServerRuntime
   soundNames
   imageNames
   multicastBuffer
+  pendingMulticasts
+  nextMulticastSerial
   pendingSounds
   nextSoundSerial
   logs

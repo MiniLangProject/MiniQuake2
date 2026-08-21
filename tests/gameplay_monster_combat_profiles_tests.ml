@@ -28,6 +28,7 @@ end function
 
 function monsterCombatRun(className, origin, frames, expectMelee, expectProjectile)
   monsterCombatSession = monsterCombatInstall(className, origin)
+  monsterCombatServer = monsterCombatSession[0]
   monsterCombatApi = monsterCombatSession[1]
   monsterCombatClient = monsterCombatSession[2]
   monsterCombatRuntime = monstercombatgame.baseRuntime()
@@ -48,6 +49,17 @@ function monsterCombatRun(className, origin, frames, expectMelee, expectProjecti
     monsterCombatAssert(monsterCombatRuntime.weaponContext.nextProjectileNumber > 1,
       className + " emits projectile")
   end if
+  monsterCombatProfile = monstercombatprofiles.stockProfile(className)
+  if monsterCombatProfile.muzzleFlash != 0 then
+    monsterCombatAssert(len(monsterCombatServer.pendingMulticasts) > 0,
+      className + " queues a multicast muzzle flash")
+    monsterCombatFlashEvent = monsterCombatServer.pendingMulticasts[0]
+    monsterCombatAssert(monsterCombatFlashEvent.destination == monstercombatgameconstants.MULTICAST_PVS and
+      len(monsterCombatFlashEvent.payload) == 4 and
+      monsterCombatFlashEvent.payload[0] == 2 and
+      monsterCombatFlashEvent.payload[3] == monsterCombatProfile.muzzleFlash,
+      className + " multicast muzzle flash framing")
+  end if
   monsterCombatApi.clientDisconnect(monsterCombatClient)
   monsterCombatApi.shutdown()
   return true
@@ -67,6 +79,13 @@ for each monsterCombatClassName in monsterCombatExpected
   monsterCombatAssert(monstercombatprofiles.stockProfile(monsterCombatClassName) is not void,
     monsterCombatClassName + " profile exists")
 end for
+monsterCombatAssert(monstercombatprofiles.stockProfile("monster_gladiator").muzzleFlash == 61,
+  "gladiator rail uses stock MZ2 id")
+monsterCombatAssert(monstercombatprofiles.stockProfile("monster_chick").muzzleFlash == 57,
+  "chick rocket uses stock MZ2 id")
+monsterCombatAssert(monstercombatprofiles.stockProfile("monster_jorg").muzzleFlash == 126 and
+  monstercombatprofiles.stockProfile("monster_makron").muzzleFlash == 119,
+  "boss attacks use stock MZ2 ids")
 monsterCombatAssert(monstercombatprofiles.stockProfile("misc_insane") is void,
   "non-combat scripted AI has no attack profile")
 monsterCombatAssert(monstercombatprofiles.stockProfile("monster_boss3_stand") is void,

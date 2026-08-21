@@ -16,6 +16,7 @@ import miniquake2.format.constants as sgbformatconstants
 import miniquake2.format.binary as sgbformatbinary
 import miniquake2.server.types as st
 import miniquake2.server.sound_events as ssoundevents
+import miniquake2.server.game_messages as sgmessages
 import miniquake2.physics.pmove as phmove
 import miniquake2.physics.vector as sgbvector
 
@@ -450,7 +451,9 @@ end function
 
 function multicast(origin, destination)
   context = requireActive("multicast")
-  appendLog("multicast:" + destination, sizebuf.dataSlice(context.multicastBuffer))
+  payload = sizebuf.dataSlice(context.multicastBuffer)
+  sgmessages.enqueue(context, origin, destination, payload)
+  appendLog("multicast:" + destination, payload)
   sizebuf.clear(context.multicastBuffer)
   return true
 end function
@@ -555,7 +558,7 @@ function createRuntime(maxClients)
     clients[i] = st.ClientSlot(0, "", "", 0, 0, 0, void)
     i = i + 1
   end while
-  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], registry, commandSystem, void, void)
+  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, [], registry, commandSystem, void, void)
 end function
 
 function makeImports(context)

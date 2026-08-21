@@ -30,11 +30,13 @@ import miniquake2.network.runtime.game_adapter as ssgameadapter
 import miniquake2.network.runtime.commands as sscommands
 import miniquake2.network.runtime.pump as sspump
 import miniquake2.network.runtime.sound_dispatch as ssounddispatch
+import miniquake2.network.runtime.multicast_dispatch as ssmulticastdispatch
 import miniquake2.network.runtime.lifecycle as sslifecycle
 import miniquake2.platform.system as sssystem
 import miniquake2.platform.udp as ssudp
 import miniquake2.server.game_bridge as ssbridge
 import miniquake2.server.sound_events as ssoundevents
+import miniquake2.server.game_messages as ssgamemessages
 
 struct ServerSession
   bridgeRuntime
@@ -230,6 +232,54 @@ function routeSounds(session, events)
   return routed
 end function
 
+function multicastVisibleToClient(session, event, listener)
+  destination = ssgamemessages.baseDestination(event.destination)
+  if destination == ssgc.MULTICAST_ALL or session.collision is void then return true end if
+  sourceLeafNumber = sscollision.pointLeafNumber(session.collision, event.origin, 0)
+  listenerLeafNumber = sscollision.pointLeafNumber(session.collision, listener.state.origin, 0)
+  if sourceLeafNumber < 0 or sourceLeafNumber >= len(session.collision.map.leafs) or
+      listenerLeafNumber < 0 or listenerLeafNumber >= len(session.collision.map.leafs) then
+    return error(9984, "multicast leaf outside collision map")
+  end if
+  sourceLeaf = session.collision.map.leafs[sourceLeafNumber]
+  listenerLeaf = session.collision.map.leafs[listenerLeafNumber]
+  if sourceLeaf.cluster < 0 or listenerLeaf.cluster < 0 then return false end if
+  if not sscollision.areasConnected(session.collision, sourceLeaf.area, listenerLeaf.area) then return false end if
+  visibility = session.collision.map.visibility
+  if visibility is void or visibility.numClusters == 0 then return true end if
+  if sourceLeaf.cluster >= visibility.numClusters or listenerLeaf.cluster >= visibility.numClusters then
+    return error(9985, "multicast cluster outside visibility table")
+  end if
+  kind = 0
+  if destination == ssgc.MULTICAST_PHS then kind = 1 end if
+  row = ssbsp.decompressVisibility(visibility, sourceLeaf.cluster, kind)
+  byteIndex = listenerLeaf.cluster >> 3
+  if byteIndex < 0 or byteIndex >= len(row) then return error(9986, "multicast visibility row is malformed") end if
+  return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
+end function
+
+function routeMulticasts(session, events)
+  ssgamemessages.validateAll(events)
+  runtime = session.networkRuntime
+  routed = array(runtime.server.maxClients, void)
+  slot = 0
+  while slot < runtime.server.maxClients
+    routed[slot] = []
+    client = runtime.server.clients[slot]
+    if client.state == ssnc.CS_SPAWNED and client.channel is not void then
+      if session.gameExport is void or slot + 1 >= session.gameExport.numEdicts then
+        return error(9987, "spawned multicast recipient has no client edict")
+      end if
+      listener = session.gameExport.edicts[slot + 1]
+      for each event in events
+        if multicastVisibleToClient(session, event, listener) then routed[slot] = routed[slot] + [event] end if
+      end for
+    end if
+    slot = slot + 1
+  end while
+  return routed
+end function
+
 function synchronizeConfigStrings(session)
   runtime = session.networkRuntime
   bridge = session.bridgeRuntime
@@ -318,6 +368,8 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.soundNames = array(ssqc.MAX_SOUNDS, "")
   bridge.imageNames = array(ssqc.MAX_IMAGES, "")
   ssqsz.clear(bridge.multicastBuffer)
+  bridge.pendingMulticasts = []
+  bridge.nextMulticastSerial = 0
   bridge.pendingSounds = []
   bridge.nextSoundSerial = 0
   bridge.collision = collision
@@ -357,6 +409,8 @@ function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeOldSoundNamesHolder = serverSessionChangeBridgeHolder.soundNames
   serverSessionChangeOldImageNamesHolder = serverSessionChangeBridgeHolder.imageNames
   serverSessionChangeOldMulticastHolder = ssqsz.dataSlice(serverSessionChangeBridgeHolder.multicastBuffer)
+  serverSessionChangeOldPendingMulticastsHolder = serverSessionChangeBridgeHolder.pendingMulticasts
+  serverSessionChangeOldNextMulticastSerial = serverSessionChangeBridgeHolder.nextMulticastSerial
   serverSessionChangeOldPendingSoundsHolder = serverSessionChangeBridgeHolder.pendingSounds
   serverSessionChangeOldNextSoundSerial = serverSessionChangeBridgeHolder.nextSoundSerial
   serverSessionChangeOldLogsHolder = serverSessionChangeBridgeHolder.logs
@@ -379,6 +433,8 @@ function changeMapCore(session, mapName, entityText, collision)
     ssqsz.writeBytes(serverSessionChangeBridgeHolder.multicastBuffer, serverSessionChangeOldMulticastHolder)
     serverSessionChangeRestoredHolder = try(serverSessionChangeSessionHolder.gameExport.spawnEntities(
       serverSessionChangeOldMapNameHolder, serverSessionChangeOldEntityTextHolder, ""))
+    serverSessionChangeBridgeHolder.pendingMulticasts = serverSessionChangeOldPendingMulticastsHolder
+    serverSessionChangeBridgeHolder.nextMulticastSerial = serverSessionChangeOldNextMulticastSerial
     serverSessionChangeBridgeHolder.pendingSounds = serverSessionChangeOldPendingSoundsHolder
     serverSessionChangeBridgeHolder.nextSoundSerial = serverSessionChangeOldNextSoundSerial
     serverSessionChangeBridgeHolder.logs = serverSessionChangeOldLogsHolder
@@ -491,6 +547,11 @@ function step(session)
   synchronizeConfigStrings(session)
   session.frameNumber = session.frameNumber + 1
   session.networkRuntime.server.realTime = now
+  routedMulticasts = routeMulticasts(session, session.bridgeRuntime.pendingMulticasts)
+  multicastResult = ssmulticastdispatch.dispatchRouted(session.networkRuntime, session.socket,
+    session.bridgeRuntime.pendingMulticasts, routedMulticasts, now)
+  session.packetsSent = session.packetsSent + multicastResult.sent
+  if multicastResult.delivered then session.bridgeRuntime.pendingMulticasts = [] end if
   routedSounds = routeSounds(session, session.bridgeRuntime.pendingSounds)
   soundResult = ssounddispatch.dispatchRouted(session.networkRuntime, session.socket,
     session.bridgeRuntime.pendingSounds, routedSounds, now)

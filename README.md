@@ -40,7 +40,7 @@ perform a complete reconnect/signon; server restarts establish a fresh sequence
 generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
 the earlier lifecycle trace without a failure, and two runs of the current
-combat-profile build repeated the same 661-step/3,231-packet trace. An executable
+multicast build repeated the same 661-step/3,235-packet trace. An executable
 campaign matrix now covers every retail classname and proves the `boss2`
 Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
 The retail behavior matrix now classifies `point_combat`, `trigger_key`,
@@ -54,8 +54,10 @@ class-state-machine tail: the 39-map behavior matrix now reports zero
 explicitly simplified instances or classes. All 21 combat-capable monster
 classes present in those BSPs, plus the dynamically spawned Makron, now route
 through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
-rail, blaster or rocket emission; `misc_insane` and the two scripted props are
-intentionally non-combat states. Two real local UDP clients
+rail, blaster or rocket emission. Their stock first-shot MZ2 identifiers now
+travel through the typed Game-API multicast queue, PVS/PHS routing and real
+Protocol-34 UDP into client DLight/sound handoff; `misc_insane` and the two
+scripted props are intentionally non-combat states. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
 now kills a 100-health peer through seven genuine UDP Blaster commands and
 respawns it through the normal attack latch.
@@ -78,7 +80,7 @@ that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
 original `ref_gl` reference captures, exhaustive monster/weapon/turret/boss
-animation sequencing and per-frame muzzle/event exactness, and manual device
+animation sequencing and per-frame/refire muzzle/event exactness, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.

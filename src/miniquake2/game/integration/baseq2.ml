@@ -1244,6 +1244,15 @@ function monsterMuzzleAndDirection(runtime, actor)
   return [start, direction]
 end function
 
+function integratedMonsterMuzzleFlash(runtime, actor, profile, origin)
+  if profile.muzzleFlash == 0 or runtime.playerContext is void then return false end if
+  imports = runtime.playerContext.imports
+  imports.writeByte(ibqconstants.SVC_MUZZLEFLASH2)
+  imports.writeShort(actor.edict.state.number)
+  imports.writeByte(profile.muzzleFlash)
+  return imports.multicast(origin, ibgconstants.MULTICAST_PVS)
+end function
+
 function fireMonsterAttack(runtime, actor)
   if actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
   profile = ibaicombat.stockProfile(actor.className)
@@ -1276,6 +1285,7 @@ function fireMonsterAttack(runtime, actor)
       profile.damage, profile.knockback)
   else return error(9698, "unsupported monster combat profile " + kind)
   end if
+  integratedMonsterMuzzleFlash(runtime, actor, profile, start)
   return true
 end function
 
