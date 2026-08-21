@@ -22,15 +22,18 @@ All 47 classic retail BSPs now pass the read-only matrix: 36,404 source
 entities, 20,935 live edicts, all 138 stock class names, and no unknown or
 skipped class. The rare-world passes, dedicated `misc_insane` AI, scripted boss
 props and coupled turret rigs reduce the explicitly simplified retail tail to
-zero instances across zero classes. A real
+zero instances across zero classes. A 22-entry stock monster combat registry
+(21 classes present in the BSP matrix plus dynamic Makron) supplies 3.19
+damage/speed/range profiles to real melee, hitscan, rail, blaster and rocket
+paths; the unmasked 39-map product graph passes with those profiles active. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining monster animations/combat, broader save coverage, paired original-renderer
+remaining monster animation/muzzle/event sequencing, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
-two runs of the current class-closure build produced the same
-660-step/3,225-packet result. The behavior
+two runs of the current combat-profile build produced the same
+661-step/3,231-packet result. The behavior
 matrix additionally proves the persistent boss2 Jorg/Makron/counter/changelevel chain. An
 active-session adapter round-trips Game+Level saves failure-atomically while
 preserving a live Netchan and producing the next valid snapshot, and

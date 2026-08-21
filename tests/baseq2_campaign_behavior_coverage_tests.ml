@@ -2,6 +2,7 @@
 import miniquake2.qcommon.filesystem as campaigncoveragefilesystem
 import miniquake2.format.bsp as campaigncoveragebsp
 import miniquake2.game.base.entity_parser as campaigncoverageparser
+import miniquake2.game.ai.combat_profiles as campaigncoveragecombat
 import std.string as campaigncoveragestring
 
 struct CampaignCoverageEntry
@@ -58,10 +59,7 @@ function campaignCoverageBehavior(name, isMonster, isBoss, isSimplified)
   if name == "turret_base" or name == "turret_breach" or name == "turret_driver" then return "world:turret-rig" end if
   if isMonster then
     if name == "monster_jorg" then return "boss-ai+makron-successor" end if
-    if campaignCoverageContains([
-      "monster_soldier_light", "monster_soldier", "monster_soldier_ss",
-      "monster_infantry", "monster_gunner",
-    ], name) then return "ai+combat" end if
+    if campaigncoveragecombat.stockProfile(name) is not void then return "ai+combat-profile" end if
     if isBoss then return "generic-boss-ai" end if
     return "generic-ai"
   end if
@@ -110,6 +108,7 @@ function main(args)
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_base", "jail5")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_breach", "jail5")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_driver", "jail5")
+    syntheticEntries = campaignCoverageAdd(syntheticEntries, "monster_berserk", "base1")
     jorg = campaignCoverageFind(syntheticEntries, "monster_jorg")
     counter = campaignCoverageFind(syntheticEntries, "trigger_counter")
     point = campaignCoverageFind(syntheticEntries, "point_combat")
@@ -119,6 +118,7 @@ function main(args)
     turretBase = campaignCoverageFind(syntheticEntries, "turret_base")
     turretBreach = campaignCoverageFind(syntheticEntries, "turret_breach")
     turretDriver = campaignCoverageFind(syntheticEntries, "turret_driver")
+    berserk = campaignCoverageFind(syntheticEntries, "monster_berserk")
     if jorg is void or not jorg.monster or not jorg.boss or jorg.simplified or
         jorg.behavior != "boss-ai+makron-successor" then
       return error(9842, "synthetic boss coverage classification failed")
@@ -140,6 +140,9 @@ function main(args)
         turretBreach is void or turretBreach.simplified or turretBreach.behavior != "world:turret-rig" or
         turretDriver is void or turretDriver.simplified or turretDriver.behavior != "world:turret-rig" then
       return error(9847, "synthetic turret coverage classification failed")
+    end if
+    if berserk is void or berserk.behavior != "ai+combat-profile" then
+      return error(9848, "synthetic stock combat-profile classification failed")
     end if
     print("baseq2_campaign_behavior_coverage_tests: PASS (asset-free rules)")
     return 0

@@ -105,9 +105,9 @@ server alive while loading and spawning the complete 39-map single-player list.
 Each level reaches `CA_ACTIVE`; the run performs 38 transactional map changes,
 resets level-owned client state, republishes configstrings and baselines, and
 completes the next signon without resetting the Netchan sequence generation.
-Two consecutive executions of the final retail-class-closure product binary
-returned the identical result: 39 maps, 38 changes, spawn count 39, 660 session
-steps and 3,225 processed packets. Wall-clock times were 51.9 and 52.6 seconds.
+Two consecutive executions of the current combat-profile product binary
+returned the identical result: 39 maps, 38 changes, spawn count 39, 661 session
+steps and 3,231 processed packets. Wall-clock times were 38.5 and 48.7 seconds.
 This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
 
@@ -131,6 +131,17 @@ base/breach/driver turret rigs have coupled transforms, aiming, visibility,
 rocket cadence, collision damage and driver lifecycle. The measured matrix is
 now `simplified=0/0`. This closes the retail classname state-machine tail, not
 every animation or AI decision leading to it.
+
+`gameplay_monster_combat_profiles_tests` validates 22 unique stock combat
+profiles against representative integrated Berserk melee, Gladiator rail,
+Chick rocket and Parasite drain scenarios. Across the retail BSP matrix all 21
+combat-capable monster classes are now classified `ai+combat-profile`; the
+remaining monster class is the intentionally non-combat `misc_insane` prop AI.
+The dynamic Makron supplies the 22nd registry profile. Existing Soldier,
+Gunner, Infantry and player weapon goldens remain green, and the unmasked
+39-map product graph completes with the expanded profiles active. This proves
+damage/projectile emission coverage, not original per-frame attack animation,
+muzzleflash-number or randomized refire parity.
 
 `runtime_multiplayer_deathmatch_tests` and `runtime_multiplayer_coop_tests` run
 two real local UDP clients against one server. DM proves distinct slots/names,
@@ -256,8 +267,9 @@ graphs, reference-member writes and allocation-time float boxing; the repeated
 - paired fixed-camera original `ref_gl` pixel comparison and a documented
   threshold (MiniQuake2 deterministic capture/diff is passed);
 - exhaustive retail campaign playthrough behavior and frame-for-frame monster,
-  weapon, turret and boss animation/combat exactness (retail class-state-machine
-  coverage and cross-map save/re-signon orchestration are passed);
+  weapon, turret and boss animation/muzzle/event exactness (retail
+  class-state-machine, stock damage-emission and cross-map save/re-signon
+  orchestration are passed);
 - broader multi-host coop/deathmatch weapon/projectile gameplay beyond the
   two-client lifecycle/scoring/item matrix;
 - manual input/audio/fullscreen/device-loss acceptance on release hardware.

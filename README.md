@@ -39,8 +39,8 @@ unknown or skipped classes. Normal map changes retain Netchan sequencing and
 perform a complete reconnect/signon; server restarts establish a fresh sequence
 generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
-the earlier lifecycle trace without a failure, and two runs of the final
-class-closure build repeated the same 660-step/3,225-packet trace. An executable
+the earlier lifecycle trace without a failure, and two runs of the current
+combat-profile build repeated the same 661-step/3,231-packet trace. An executable
 campaign matrix now covers every retail classname and proves the `boss2`
 Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
 The retail behavior matrix now classifies `point_combat`, `trigger_key`,
@@ -51,7 +51,11 @@ remaining decorative thinkers, `info_notnull`, `light_mine2`, and all 60
 `misc_insane` entities. Scripted boss props and the coupled
 `turret_base`/`turret_breach`/`turret_driver` rigs close the final retail
 class-state-machine tail: the 39-map behavior matrix now reports zero
-explicitly simplified instances or classes. Two real local UDP clients
+explicitly simplified instances or classes. All 21 combat-capable monster
+classes present in those BSPs, plus the dynamically spawned Makron, now route
+through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
+rail, blaster or rocket emission; `misc_insane` and the two scripted props are
+intentionally non-combat states. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
 now kills a 100-health peer through seven genuine UDP Blaster commands and
 respawns it through the normal attack latch.
@@ -74,8 +78,9 @@ that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
 original `ref_gl` reference captures, exhaustive monster/weapon/turret/boss
-animation and combat exactness, and manual device acceptance. Retail class
-coverage is closed, but that is deliberately narrower than a full campaign
+animation sequencing and per-frame muzzle/event exactness, and manual device
+acceptance. Retail class and stock monster damage-emission coverage are closed,
+but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.
 
 The canonical local reference remains commit

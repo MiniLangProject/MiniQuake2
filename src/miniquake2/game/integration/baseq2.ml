@@ -15,6 +15,7 @@ import miniquake2.game.integration.pusher as ibpusher
 import miniquake2.game.ai.archetypes as ibarchetypes
 import miniquake2.game.ai.monster as ibmonster
 import miniquake2.game.ai.constants as ibaiconstants
+import miniquake2.game.ai.combat_profiles as ibaicombat
 import miniquake2.game.gameplay.registry as ibitems
 import miniquake2.game.gameplay.item_rules as ibitemrules
 import miniquake2.game.gameplay.precache as ibprecache
@@ -1230,8 +1231,7 @@ function thinkPlayerWeapon(player, playerContext)
 end function
 
 function monsterAttackSupported(actor)
-  name = actor.className
-  return name == "monster_soldier_light" or name == "monster_soldier" or name == "monster_soldier_ss" or name == "monster_infantry" or name == "monster_gunner"
+  return ibaicombat.stockProfile(actor.className) is not void
 end function
 
 function monsterMuzzleAndDirection(runtime, actor)
@@ -1246,16 +1246,35 @@ end function
 
 function fireMonsterAttack(runtime, actor)
   if actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
+  profile = ibaicombat.stockProfile(actor.className)
   muzzle = monsterMuzzleAndDirection(runtime, actor)
   start = muzzle[0]
   direction = muzzle[1]
   shooter = monsterWeaponTarget(actor)
-  name = actor.className
-  if name == "monster_soldier_light" then ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction, 5, 600.0, ibwpconstants.EF_BLASTER, false)
-  else if name == "monster_soldier" then ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction, 3, 4, 500.0, 500.0, 6, ibgpconstants.MOD_SHOTGUN)
-  else if name == "monster_soldier_ss" then ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, 3, 4, 300.0, 500.0, ibgpconstants.MOD_MACHINEGUN)
-  else if name == "monster_infantry" then ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, 3, 4, 300.0, 500.0, ibgpconstants.MOD_MACHINEGUN)
-  else if name == "monster_gunner" then ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, 3, 4, 300.0, 500.0, ibgpconstants.MOD_CHAINGUN)
+  enemyTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
+  if enemyTarget is void then return false end if
+  distance = ibwpvector.length(ibwpvector.subtract(enemyTarget.origin, shooter.origin))
+  if distance > profile.maximumRange then return false end if
+  kind = profile.attackKind
+  if kind == "melee" or kind == "drain" then
+    ibwpcore.applyDamage(runtime.weaponContext, enemyTarget, shooter, shooter, direction,
+      enemyTarget.origin, profile.damage, profile.knockback, 0, ibgpconstants.MOD_UNKNOWN)
+  else if kind == "blaster" then
+    ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction,
+      profile.damage, profile.speed, ibwpconstants.EF_BLASTER, false)
+  else if kind == "shotgun" then
+    ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction,
+      profile.damage, profile.knockback, 500.0, 500.0, profile.count, ibgpconstants.MOD_UNKNOWN)
+  else if kind == "bullet" then
+    ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction,
+      profile.damage, profile.knockback, 300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
+  else if kind == "rocket" then
+    ibwpprojectiles.fireRocket(runtime.weaponContext, shooter, start, direction,
+      profile.damage, profile.speed, profile.splashRadius, profile.damage)
+  else if kind == "rail" then
+    ibwphitscan.fireRail(runtime.weaponContext, shooter, start, direction,
+      profile.damage, profile.knockback)
+  else return error(9698, "unsupported monster combat profile " + kind)
   end if
   return true
 end function
@@ -1264,9 +1283,17 @@ function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
   if actor.enemy.health <= 0 or runtime.aiContext.time < actor.info.attackFinished then return false end if
   if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
-  if actor.info.attack is not void then actor.info.attack(actor, runtime.aiContext) end if
+  profile = ibaicombat.stockProfile(actor.className)
+  target = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
+  if target is void then return false end if
+  shooter = monsterWeaponTarget(actor)
+  if ibwpvector.length(ibwpvector.subtract(target.origin, shooter.origin)) > profile.maximumRange then return false end if
+  if profile.attackKind == "melee" and actor.info.melee is not void then actor.info.melee(actor, runtime.aiContext)
+  else if actor.info.attack is not void then actor.info.attack(actor, runtime.aiContext)
+  else return false
+  end if
   fired = fireMonsterAttack(runtime, actor)
-  actor.info.attackFinished = runtime.aiContext.time + 1.0
+  actor.info.attackFinished = runtime.aiContext.time + profile.cooldown
   return fired
 end function
 
