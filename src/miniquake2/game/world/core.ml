@@ -59,13 +59,40 @@ end function
 function zeroRandomIndex(count)
   return 0
 end function
+function noopResolveKeyItem(itemClassName)
+  return void
+end function
+function noopHasKeyItem(activator, itemClassName)
+  return false
+end function
+function noopConsumeKeyItem(activator, itemClassName)
+  return false
+end function
+function noopActorMessage(actor, message)
+  return true
+end function
+function noopActorTransition(actor, waypoint, action, actionTarget, nextTarget, wait, flags)
+  return true
+end function
+function noopCombatPointTransition(actor, point, nextTarget, hold, clearCombatPoint)
+  return true
+end function
+function zeroClockSeconds()
+  return 0
+end function
+function noopSetModel(entity, modelName)
+  return true
+end function
 
 function defaultCallbacks()
   return gwtypes.WorldCallbacks(
     noopLog, noopCenterPrint, noopSound, noopAreaPortal,
     noopDamage, noopRadiusDamage, noopEffect, noopChangeLevel,
     noopSpawnExternal, noopLinkEntity, noopKillBox,
-    zeroRandomSigned, zeroRandomIndex
+    zeroRandomSigned, zeroRandomIndex,
+    noopResolveKeyItem, noopHasKeyItem, noopConsumeKeyItem,
+    noopActorMessage, noopActorTransition, noopCombatPointTransition, zeroClockSeconds,
+    noopSetModel
   )
 end function
 

@@ -115,6 +115,59 @@ function spawnAlways(entity, world)
   return entity
 end function
 
+// -------------------------------------------------------------------------
+// trigger_key. Inventory and cooperative power-cube policy remain outside the
+// world package through resolve/has/consume callbacks.
+
+function useKey(entity, other, activator, world)
+  if entity.item == "" then return false end if
+  if activator is void or typeof(activator) != "struct" or activator.isClient == false then return false end if
+  available = world.callbacks.hasKeyItem(activator, entity.item)
+  if typeof(available) != "bool" then return error(9390, "trigger_key hasKeyItem callback must return bool") end if
+  if available == false then
+    if world.time < entity.touchDebounceTime then return false end if
+    entity.touchDebounceTime = world.time + 5.0
+    world.callbacks.centerPrint(activator, "You need the " + entity.itemName)
+    world.callbacks.sound(activator, "misc/keytry.wav")
+    gwcore.emit(world, "key-missing", entity, entity.item)
+    return true
+  end if
+
+  consumed = world.callbacks.consumeKeyItem(activator, entity.item)
+  if typeof(consumed) != "bool" then return error(9391, "trigger_key consumeKeyItem callback must return bool") end if
+  if consumed == false then
+    gwcore.log(world, "trigger_key inventory changed before consumption: " + entity.item)
+    return false
+  end if
+  world.callbacks.sound(activator, "misc/keyuse.wav")
+  gwcore.emit(world, "key-used", entity, entity.item)
+  gwcore.useTargets(world, entity, activator)
+  entity.use = void
+  return true
+end function
+
+function spawnKey(entity, world)
+  if typeof(entity.item) != "string" or entity.item == "" then
+    gwcore.log(world, "no key item for trigger_key")
+    return false
+  end if
+  pickupName = world.callbacks.resolveKeyItem(entity.item)
+  if pickupName is void then
+    gwcore.log(world, "trigger_key item not found: " + entity.item)
+    return false
+  end if
+  if typeof(pickupName) != "string" or pickupName == "" then
+    return error(9392, "trigger_key resolveKeyItem callback must return pickup text or void")
+  end if
+  if entity.target == "" then
+    gwcore.log(world, "trigger_key has no target")
+    return false
+  end if
+  entity.itemName = pickupName
+  entity.use = useKey
+  return entity
+end function
+
 function useCounter(entity, other, activator, world)
   if entity.count == 0 then return false end if
   entity.count = entity.count - 1
@@ -217,4 +270,7 @@ function SP_trigger_push(entity, world)
 end function
 function SP_trigger_monsterjump(entity, world)
   return spawnMonsterJump(entity, world)
+end function
+function SP_trigger_key(entity, world)
+  return spawnKey(entity, world)
 end function

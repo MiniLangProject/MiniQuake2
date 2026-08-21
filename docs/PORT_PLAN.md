@@ -11,7 +11,8 @@ G01 and G02 are complete. G03-G05 have integrated, deterministic native
 implementations; all classic Steam BSPs pass the retail spawn/asset smoke while
 the remaining original-differential and manual-device acceptance gates stay
 open. G06-G09 now have product-shaped acceptance evidence in addition to their
-API and wire-format cores: real UDP signon and map changes, two-client DM/coop,
+API and wire-format cores: real UDP signon and map changes, two-client DM/coop
+with command-driven Blaster damage and respawn,
 an independent bidirectional Protocol-34 peer, deterministic OpenGL capture and
 pixel diff, and an executable endgame transition slice. The product entry point
 reaches `CA_ACTIVE` and renders retail BSPs through WAL textures, lightmaps,
@@ -19,14 +20,16 @@ special surfaces, transformed brush models, BSP visibility and interpolated MD2.
 
 All 47 classic retail BSPs now pass the read-only matrix: 36,404 source
 entities, 20,935 live edicts, all 138 stock class names, and no unknown or
-skipped class. A real UDP map-change test retains Netchan sequence state while
-resetting level state and completing a fresh signon. Exact behavior for rare
-entities and monsters, dynamic-boss save restoration, paired original-renderer
+skipped class. Seven previously simplified world classes now have typed state
+machines and product integration, leaving 218 simplified instances across 17
+classes. A real UDP map-change test retains Netchan sequence state while
+resetting level state and completing a fresh signon. Exact behavior for the
+remaining rare entities and monsters, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
 three fresh runs produced the same 656-step/3,204-packet result. The behavior
-matrix additionally proves the boss2 Jorg/Makron/counter/changelevel chain, and
+matrix additionally proves the persistent boss2 Jorg/Makron/counter/changelevel chain, and
 two live UDP clients prove core DM and coop lifecycle semantics. G10 includes
 manifest and asset/source exclusion, native Release/Debug gates, diagnostics,
 retail smoke, deterministic packaging, and a 10,000-frame retail session soak

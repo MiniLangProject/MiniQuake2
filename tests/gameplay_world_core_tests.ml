@@ -65,6 +65,30 @@ end function
 function callbackRandomIndex(count)
   return 0
 end function
+function callbackResolveKey(itemClassName)
+  return void
+end function
+function callbackHasKey(activator, itemClassName)
+  return false
+end function
+function callbackConsumeKey(activator, itemClassName)
+  return false
+end function
+function callbackActorMessage(actor, message)
+  return true
+end function
+function callbackActorTransition(actor, waypoint, action, actionTarget, nextTarget, wait, flags)
+  return true
+end function
+function callbackCombatPointTransition(actor, point, nextTarget, hold, clearCombatPoint)
+  return true
+end function
+function callbackClockSeconds()
+  return 0
+end function
+function callbackSetModel(entity, modelName)
+  return true
+end function
 
 function makeWorld()
   global callbackEvents
@@ -73,7 +97,10 @@ function makeWorld()
     callbackLog, callbackCenter, callbackSound, callbackPortal,
     callbackDamage, callbackRadius, callbackEffect, callbackChange,
     callbackSpawn, callbackLink, callbackKillBox,
-    callbackRandomSigned, callbackRandomIndex
+    callbackRandomSigned, callbackRandomIndex,
+    callbackResolveKey, callbackHasKey, callbackConsumeKey,
+    callbackActorMessage, callbackActorTransition, callbackCombatPointTransition, callbackClockSeconds,
+    callbackSetModel
   )
   return gwcore.createWorld(callbacks)
 end function

@@ -31,6 +31,13 @@ jorgNumber = runtime.monsters[0].edict.state.number
 endgameintegration.damageMonster(runtime, 0, void, 4000)
 endgameAssert(runtime.monsters[0].deadFlag != 0, "Jorg death dispatch")
 endgameAssert(counter.count == 1 and runtime.world.intermission == false, "Jorg only advances first counter phase")
+endgameAssert(len(runtime.monsters) == 1 and runtime.monsters[0].bossPhase == "jorg-death",
+  "Jorg stages Makron toss")
+endgameStageFrame = 0
+while endgameStageFrame < 9
+  api.runFrame()
+  endgameStageFrame = endgameStageFrame + 1
+end while
 endgameAssert(len(runtime.monsters) == 2, "Makron successor spawned")
 makron = runtime.monsters[1]
 endgameAssert(makron.className == "monster_makron" and makron.target == "t26", "Makron inherits Jorg target")

@@ -6,18 +6,26 @@ import miniquake2.qcommon.message as privatemessage
 import miniquake2.protocol.checked as privatechecked
 import miniquake2.game.base.spawn as privatespawn
 import miniquake2.game.integration.baseq2 as privateintegration
+import miniquake2.game.ai.archetypes as privatesaveaiarchetypes
+import miniquake2.game.ai.types as privatesaveaitypes
+import miniquake2.game.types as privatesavegametypes
 import miniquake2.game.world.movers as privatemovers
 import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 2
+const PRIVATE_VERSION = 3
 
 struct PrivateRestore
   runtime
   spawnResult
   entityString
   spawnPoint
+end struct
+
+struct PrivateMonsterReference
+  actor
+  enemyNumber
 end struct
 
 function privateWriteVec(buffer, value)
@@ -69,7 +77,7 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       inventoryWords = inventoryWords + len(player.gameplay.inventory.counts)
     end for
   end if
-  capacity = 4096 + len(bytes(entityString)) + len(runtime.world.entities) * 512 + len(runtime.monsters) * 256 + len(runtime.items) * 128 + playerCount * 512 + inventoryWords * 4
+  capacity = 4096 + len(bytes(entityString)) + len(runtime.world.entities) * 512 + len(runtime.monsters) * 512 + len(runtime.items) * 128 + playerCount * 512 + inventoryWords * 4
   buffer = privatesizebuf.alloc(capacity)
   privatemessage.writeString(buffer, PRIVATE_MAGIC); privatemessage.writeLong(buffer, PRIVATE_VERSION)
   privatemessage.writeString(buffer, entityString); privatemessage.writeString(buffer, spawnPoint)
@@ -99,11 +107,19 @@ function encode(runtime, playerContext, entityString, spawnPoint)
 
   privatemessage.writeLong(buffer, len(runtime.monsters))
   for each actor in runtime.monsters
-    privatemessage.writeLong(buffer, actor.edict.state.number); privateWriteBool(buffer, actor.edict.inUse)
+    privatemessage.writeLong(buffer, actor.edict.state.number); privatemessage.writeString(buffer, actor.className)
+    privateWriteBool(buffer, actor.edict.inUse)
     privatemessage.writeLong(buffer, actor.health); privatemessage.writeLong(buffer, actor.maxHealth)
     privatemessage.writeLong(buffer, actor.deadFlag); privatemessage.writeLong(buffer, actor.flags)
     privatemessage.writeFloat(buffer, actor.nextThink); privatemessage.writeFloat(buffer, actor.info.attackFinished)
     privatemessage.writeLong(buffer, actor.edict.state.frame); privatemessage.writeString(buffer, actor.activity)
+    privatemessage.writeString(buffer, actor.target); privatemessage.writeString(buffer, actor.targetName)
+    privatemessage.writeString(buffer, actor.deathTarget); privatemessage.writeString(buffer, actor.combatTarget)
+    privateWriteVec(buffer, actor.edict.state.origin); privateWriteVec(buffer, actor.edict.state.angles); privateWriteVec(buffer, actor.edict.state.oldOrigin)
+    privatemessage.writeString(buffer, actor.thinkKind)
+    privateWriteBool(buffer, actor.deathUseComplete); privatemessage.writeString(buffer, actor.bossPhase)
+    privatemessage.writeString(buffer, actor.successorClassName); privatemessage.writeFloat(buffer, actor.successorDueTime)
+    privateWriteBool(buffer, actor.successorSpawned)
     enemyNumber = -1
     if actor.enemy is not void then enemyNumber = actor.enemy.edict.state.number end if
     privatemessage.writeLong(buffer, enemyNumber)
@@ -151,6 +167,19 @@ function findItem(runtime, number)
     if itemEntity.edict.state.number == number then return itemEntity end if
   end for
   return void
+end function
+
+function privateRestoreEnemy(runtime, number, maxClients, exportTable)
+  if number < 0 then return void end if
+  privateSavedEnemyHolder = findMonster(runtime, number)
+  if privateSavedEnemyHolder is not void then return privateSavedEnemyHolder end if
+  if number > 0 and number <= maxClients and number < exportTable.numEdicts then
+    privateClientEnemyHolder = privatesaveaitypes.createClientTarget(number)
+    privateClientEnemyHolder.edict = exportTable.edicts[number]
+    privatesavegametypes.stabilizeEdict(privateClientEnemyHolder.edict)
+    return privateClientEnemyHolder
+  end if
+  return error(3886, "private monster enemy is unavailable")
 end function
 
 function restore(data, mapName, maxClients, exportTable, playerContext)
@@ -204,19 +233,51 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   end while
 
   monsterCount = privatechecked.readLong(buffer, "private monster count")
-  if monsterCount != len(runtime.monsters) then return error(3876, "private monster count mismatch") end if
-  while monsterCount > 0
-    actor = findMonster(runtime, privatechecked.readLong(buffer, "private monster number"))
-    if actor is void then return error(3877, "private monster missing") end if
+  if monsterCount < len(runtime.monsters) then return error(3876, "private monster count mismatch") end if
+  privateMonsterReferences = []
+  privateMonstersRemaining = monsterCount
+  privateMonsterRegistryHolder = privatesaveaiarchetypes.defaultRegistry()
+  while privateMonstersRemaining > 0
+    privateMonsterNumber = privatechecked.readLong(buffer, "private monster number")
+    privateMonsterClassName = privatemessage.readString(buffer)
+    actor = findMonster(runtime, privateMonsterNumber)
+    if actor is void then
+      if privateMonsterNumber <= 0 or privateMonsterNumber >= exportTable.numEdicts then return error(3877, "private dynamic monster outside edict table") end if
+      if privatesaveaiarchetypes.find(privateMonsterRegistryHolder, privateMonsterClassName) is void then return error(3883, "private dynamic monster class is unavailable") end if
+      privateDynamicActorHolder = privatesaveaiarchetypes.SpawnMonster(privateMonsterRegistryHolder, privateMonsterClassName, privateMonsterNumber, runtime.aiContext)
+      runtime.monsters = runtime.monsters + [privateDynamicActorHolder]
+      actor = privateDynamicActorHolder
+      if privateMonsterNumber >= runtime.world.nextEntityNumber then runtime.world.nextEntityNumber = privateMonsterNumber + 1 end if
+    else if actor.className != privateMonsterClassName then
+      return error(3884, "private monster classname mismatch")
+    end if
+    actor.edict = exportTable.edicts[privateMonsterNumber]
+    privatesavegametypes.stabilizeEdict(actor.edict)
     actor.edict.inUse = privateReadBool(buffer, "private monster inuse")
     actor.health = privatechecked.readLong(buffer, "private monster health"); actor.maxHealth = privatechecked.readLong(buffer, "private monster max health")
     actor.deadFlag = privatechecked.readLong(buffer, "private monster deadflag"); actor.flags = privatechecked.readLong(buffer, "private monster flags")
     actor.nextThink = privateReadFloat(buffer, "private monster nextthink"); actor.info.attackFinished = privateReadFloat(buffer, "private monster attack time")
     actor.edict.state.frame = privatechecked.readLong(buffer, "private monster frame"); actor.activity = privatemessage.readString(buffer)
+    actor.target = privatemessage.readString(buffer); actor.targetName = privatemessage.readString(buffer)
+    actor.deathTarget = privatemessage.readString(buffer); actor.combatTarget = privatemessage.readString(buffer)
+    privateMonsterOriginHolder = privateReadVec(buffer, "private monster origin")
+    privateMonsterAnglesHolder = privateReadVec(buffer, "private monster angles")
+    privateMonsterOldOriginHolder = privateReadVec(buffer, "private monster old origin")
+    actor.edict.state.origin = privateMonsterOriginHolder; actor.edict.state.angles = privateMonsterAnglesHolder; actor.edict.state.oldOrigin = privateMonsterOldOriginHolder
+    actor.thinkKind = privatemessage.readString(buffer)
+    actor.deathUseComplete = privateReadBool(buffer, "private monster death use")
+    actor.bossPhase = privatemessage.readString(buffer); actor.successorClassName = privatemessage.readString(buffer)
+    actor.successorDueTime = privateReadFloat(buffer, "private monster successor time")
+    actor.successorSpawned = privateReadBool(buffer, "private monster successor spawned")
+    privatesavegametypes.stabilizeEdict(actor.edict)
     enemyNumber = privatechecked.readLong(buffer, "private monster enemy")
-    if enemyNumber >= 0 then actor.enemy = findMonster(runtime, enemyNumber) end if
-    monsterCount = monsterCount - 1
+    privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(actor, enemyNumber)]
+    privateMonstersRemaining = privateMonstersRemaining - 1
   end while
+  if len(runtime.monsters) != monsterCount then return error(3885, "private restored monster count mismatch") end if
+  for each privateMonsterReference in privateMonsterReferences
+    privateMonsterReference.actor.enemy = privateRestoreEnemy(runtime, privateMonsterReference.enemyNumber, maxClients, exportTable)
+  end for
 
   itemCount = privatechecked.readLong(buffer, "private item count")
   if itemCount != len(runtime.items) then return error(3878, "private item count mismatch") end if

@@ -24,6 +24,8 @@ const SVF_DEADMONSTER = 0x00000002
 const SVF_MONSTER = 0x00000004
 
 const FL_TEAMSLAVE = 0x00000400
+const FL_FLY = 0x00000001
+const FL_SWIM = 0x00000002
 
 const DAMAGE_NO = 0
 const DAMAGE_YES = 1
@@ -49,6 +51,17 @@ const TRAIN_BLOCK_STOPS = 4
 const TRIGGER_MONSTER = 1
 const TRIGGER_NOT_PLAYER = 2
 const TRIGGER_TRIGGERED = 4
+
+const ACTOR_JUMP = 1
+const ACTOR_SHOOT = 2
+const ACTOR_ATTACK = 4
+const ACTOR_HOLD = 16
+const ACTOR_BRUTAL = 32
+
+const CLOCK_TIMER_UP = 1
+const CLOCK_TIMER_DOWN = 2
+const CLOCK_START_OFF = 4
+const CLOCK_MULTI_USE = 8
 
 const MOD_CRUSH = "crush"
 const MOD_EXPLOSIVE = "explosive"

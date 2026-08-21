@@ -124,7 +124,34 @@ function M_MoveFrame(actor, context)
   return true
 end function
 
+function ContinueBossDeath(actor, context)
+  if actor.bossPhase != "jorg-death" or actor.successorSpawned then return false end if
+  if context.time < actor.successorDueTime then
+    actor.nextThink = actor.successorDueTime
+    return false
+  end if
+  if typeof(context.spawnMonster) != "function" then return error(9653, "Jorg death continuation requires spawnMonster callback") end if
+
+  // Mark the transition before invoking the external spawn boundary.  A
+  // restored frame or re-entrant think can therefore never toss Makron twice.
+  actor.successorSpawned = true
+  actor.bossPhase = "jorg-complete"
+  actor.activity = "jorg-death-complete"
+  actor.nextThink = 0.0
+  successor = context.spawnMonster(actor.successorClassName, actor)
+  if successor is void then return error(9654, "Jorg death continuation did not create Makron") end if
+  successor.bossPhase = "makron-active"
+  successor.target = actor.target
+  successor.enemy = actor.enemy
+  return true
+end function
+
 function MonsterThink(actor, context)
+  if actor.bossPhase == "jorg-death" then
+    ContinueBossDeath(actor, context)
+    return true
+  end if
+  if actor.health <= 0 then actor.nextThink = 0.0; return false end if
   M_MoveFrame(actor, context)
   actor.info.linkCount = actor.edict.linkCount
   M_SetEffects(actor, context)
@@ -245,14 +272,23 @@ function DispatchPain(actor, attacker, damage, context)
 end function
 
 function DispatchDie(actor, attacker, damage, context)
+  if actor.deathUseComplete then return false end if
   if typeof(actor.die) != "function" then return false end if
   result = actor.die(actor, attacker, damage, context)
   MonsterDeathUse(actor, context)
+  actor.deathUseComplete = true
   // Jorg's BSP target is a two-count trigger_counter.  The original death
   // animation tosses Makron, which inherits that same target; only Makron's
   // later death completes the counter and opens the campaign exit.
-  if actor.className == "monster_jorg" and typeof(context.spawnMonster) == "function" then
-    context.spawnMonster("monster_makron", actor)
+  if actor.className == "monster_jorg" then
+    actor.bossPhase = "jorg-death"
+    actor.successorClassName = "monster_makron"
+    actor.successorDueTime = context.time + 0.8
+    actor.successorSpawned = false
+    actor.activity = "jorg-death-staging"
+    actor.nextThink = actor.successorDueTime
+  else if actor.className == "monster_makron" then
+    actor.bossPhase = "makron-complete"
   end if
   return result
 end function

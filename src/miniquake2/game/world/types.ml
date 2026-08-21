@@ -91,6 +91,11 @@ struct WorldEntity
   pauseTime
   lip
   height
+  item
+  itemName
+  enemy
+  oldEnemy
+  groundEntity
 end struct
 
 struct WorldCallbacks
@@ -107,6 +112,14 @@ struct WorldCallbacks
   killBox
   randomSigned
   randomIndex
+  resolveKeyItem
+  hasKeyItem
+  consumeKeyItem
+  actorMessage
+  actorTransition
+  combatPointTransition
+  clockSeconds
+  setModel
 end struct
 
 struct WorldState
@@ -198,6 +211,7 @@ function createEntity(number, className)
     void, void, void, void, void,
     void, void, void, void, void,
     0.0, 0.0, zeroMoveInfo(),
-    0.0, 0.0, 0.0
+    0.0, 0.0, 0.0,
+    "", "", void, void, void
   )
 end function

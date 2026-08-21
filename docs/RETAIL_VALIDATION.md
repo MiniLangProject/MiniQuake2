@@ -117,13 +117,21 @@ instances across 32 classes, 1,564 monster instances across 21 BSP monster
 classes, and all five retail boss/special classes. The focused endgame gate
 executes Jorg death, the `t26` death target, dynamic Makron export with inherited
 target, the second count on `trigger_counter`, `target_changelevel`,
-intermission/next-map state and the queued `gamemap` command. This closes that
-progression slice, not every animation or AI decision leading to it.
+intermission/next-map state and the queued `gamemap` command. A separate v3
+private-save gate restores both the staged Jorg death and the dynamically
+materialized Makron while preserving enemy/target references and exactly-once
+transition guards. `point_combat`, `target_actor`, `target_character`,
+`target_string`, `trigger_key`, `func_clock` and `trigger_elevator` are now
+functional typed state machines; 218 instances across 17 classes remain
+explicitly simplified. This closes those slices, not every animation or AI
+decision leading to them.
 
 `runtime_multiplayer_deathmatch_tests` and `runtime_multiplayer_coop_tests` run
 two real local UDP clients against one server. DM proves distinct slots/names,
-mutual two-player snapshots, rocket obituary, score synchronization, death and
-respawn. Coop proves shared map/spawn epoch, `IT_STAY_COOP` key pickup for both
+mutual two-player snapshots, seven decoded UDP Blaster attack edges through
+Weapon_Generic/projectile damage, exact obituary/score synchronization, and a
+normal attack-latch respawn without `DF_FORCE_RESPAWN`. Coop proves shared
+map/spawn epoch, `IT_STAY_COOP` key pickup for both
 players, disconnect with the surviving peer still active, and a fresh reconnect
 and signon without stale visibility.
 
@@ -226,8 +234,8 @@ graphs, reference-member writes and allocation-time float boxing; the repeated
   client and server binaries (raw bidirectional Protocol-34 is passed);
 - paired fixed-camera original `ref_gl` pixel comparison and a documented
   threshold (MiniQuake2 deterministic capture/diff is passed);
-- exhaustive retail campaign playthrough behavior, rare monster/class exactness
-  and persistence of the dynamically spawned Jorg/Makron phase;
+- exhaustive retail campaign playthrough behavior, remaining rare
+  monster/class exactness, and broader private-state save coverage;
 - broader multi-host coop/deathmatch weapon/projectile gameplay beyond the
   two-client lifecycle/scoring/item matrix;
 - manual input/audio/fullscreen/device-loss acceptance on release hardware.

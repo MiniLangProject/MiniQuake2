@@ -89,6 +89,12 @@ struct AIActor
   attackCount
   meleeCount
   thinkKind
+  deathUseComplete
+  bossPhase
+  successorClassName
+  successorDueTime
+  successorSpawned
+  number
 end struct
 
 struct AIContext
@@ -178,7 +184,8 @@ function createActor(number, className)
     0, 0, gaiconstants.MOVETYPE_STEP, 2, gaiconstants.DEAD_NO,
     0.0, 0.0, 128, 0, false, true,
     "", "", "", "", void, void, void, void, void, void, void,
-    info, void, void, "created", 0, 0, 0, 0, "none"
+    info, void, void, "created", 0, 0, 0, 0, "none",
+    false, "none", "", 0.0, false, number
   )
   actor.edict = edict
   gtypes.stabilizeEdict(actor.edict)

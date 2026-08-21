@@ -2,11 +2,11 @@
 package miniquake2.runtime.multiplayer_session
 
 import miniquake2.network.constants as mpsnetworkconstants
+import miniquake2.qcommon.types as mpsqtypes
 import miniquake2.runtime.client_session as mpsclientsession
 import miniquake2.runtime.server_session as mpsserversession
 import miniquake2.platform.system as mpsplatformsystem
 import miniquake2.game.null_game as mpsgameapi
-import miniquake2.game.player.rules as mpsplayerrules
 import miniquake2.game.integration.baseq2 as mpsbaseq2
 
 const MODE_DEATHMATCH = "deathmatch"
@@ -228,23 +228,50 @@ function snapshotHasEntity(session, clientIndex, entityNumber)
   return false
 end function
 
-function kill(session, victimIndex, attackerIndex, damage, meansOfDeath)
-  if session.mode != MODE_DEATHMATCH then return error(8409, "kill helper requires deathmatch mode") end if
-  mpsVictimPlayer = player(session, victimIndex)
-  mpsAttackerPlayer = player(session, attackerIndex)
-  if mpsVictimPlayer is void or mpsAttackerPlayer is void then return error(8410, "kill helper requires two spawned players") end if
-  if typeof(damage) != "int" or damage < 1 or typeof(meansOfDeath) != "int" then
-    return error(8411, "kill helper damage or means-of-death is invalid")
+// Test/product harness helper only establishes a deterministic unobstructed
+// duel.  It never invokes combat/death code: damage must arrive through the
+// normal client UserCmd -> WeaponThink -> weapon trace/projectile callbacks.
+function prepareDuel(session, attackerIndex, victimIndex, distance)
+  if session.mode != MODE_DEATHMATCH then return error(8409, "duel helper requires deathmatch mode") end if
+  if typeof(distance) != "int" or distance < 32 or distance > 512 then
+    return error(8411, "duel distance is invalid")
   end if
-  mpsDeathContext = mpsgameapi.playerContext()
-  mpsDeathPoint = [mpsVictimPlayer.edict.state.origin.x,
-    mpsVictimPlayer.edict.state.origin.y, mpsVictimPlayer.edict.state.origin.z]
-  mpsVictimPlayer.health = mpsVictimPlayer.health - damage
-  mpsVictimPlayer.gameplay.health = mpsVictimPlayer.health
-  mpsDeathResult = mpsplayerrules.player_die(mpsDeathContext, mpsVictimPlayer,
-    mpsAttackerPlayer, mpsAttackerPlayer, damage, mpsDeathPoint, meansOfDeath)
-  synchronizeScores(session)
-  return mpsDeathResult
+  mpsDuelAttacker = player(session, attackerIndex)
+  mpsDuelVictim = player(session, victimIndex)
+  if mpsDuelAttacker is void or mpsDuelVictim is void or
+      nativeRawValue(mpsDuelAttacker) == nativeRawValue(mpsDuelVictim) then
+    return error(8410, "duel helper requires two distinct spawned players")
+  end if
+
+  mpsDuelAttackerOrigin = mpsqtypes.Vec3(0.0, 0.0, 64.0)
+  mpsDuelVictimOrigin = mpsqtypes.Vec3(distance * 1.0, 0.0, 64.0)
+  mpsDuelAttacker.edict.state.origin = mpsDuelAttackerOrigin
+  mpsDuelAttacker.edict.state.oldOrigin = mpsqtypes.Vec3(0.0, 0.0, 64.0)
+  mpsDuelVictim.edict.state.origin = mpsDuelVictimOrigin
+  mpsDuelVictim.edict.state.oldOrigin = mpsqtypes.Vec3(distance * 1.0, 0.0, 64.0)
+  mpsDuelAttacker.edict.state.angles = mpsqtypes.Vec3(0.0, 0.0, 0.0)
+  mpsDuelVictim.edict.state.angles = mpsqtypes.Vec3(0.0, 180.0, 0.0)
+  mpsDuelAttacker.edict.client.playerState.viewAngles = mpsqtypes.Vec3(0.0, 0.0, 0.0)
+  mpsDuelVictim.edict.client.playerState.viewAngles = mpsqtypes.Vec3(0.0, 180.0, 0.0)
+  mpsDuelAttacker.edict.client.playerState.pmove.origin = [0, 0, 512]
+  mpsDuelVictim.edict.client.playerState.pmove.origin = [distance * 8, 0, 512]
+  mpsDuelAttacker.edict.client.playerState.pmove.velocity = [0, 0, 0]
+  mpsDuelVictim.edict.client.playerState.pmove.velocity = [0, 0, 0]
+  mpsDuelAttacker.oldPmove.origin = [0, 0, 512]
+  mpsDuelVictim.oldPmove.origin = [distance * 8, 0, 512]
+  mpsDuelAttacker.oldPmove.velocity = [0, 0, 0]
+  mpsDuelVictim.oldPmove.velocity = [0, 0, 0]
+  mpsDuelAttacker.velocity = [0.0, 0.0, 0.0]
+  mpsDuelVictim.velocity = [0.0, 0.0, 0.0]
+  mpsDuelAttacker.respawn.commandAngles = [0.0, 0.0, 0.0]
+  mpsDuelVictim.respawn.commandAngles = [0.0, 180.0, 0.0]
+  mpsDuelAttacker.oldButtons = 0
+  mpsDuelAttacker.buttons = 0
+  mpsDuelAttacker.latchedButtons = 0
+  mpsDuelVictim.oldButtons = 0
+  mpsDuelVictim.buttons = 0
+  mpsDuelVictim.latchedButtons = 0
+  return true
 end function
 
 function touchItem(session, clientIndex, className)

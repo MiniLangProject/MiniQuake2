@@ -41,8 +41,14 @@ generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
 the same 38 transitions and 3,204-packet trace without a failure. An executable
 campaign matrix now covers every retail classname and proves the `boss2`
-Jorg-to-Makron-to-changelevel chain. Two real local UDP clients complete both
-deathmatch scoring/respawn and cooperative item/disconnect/reconnect scenarios.
+Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
+The retail behavior matrix now classifies `point_combat`, `trigger_key`,
+`target_actor`, `target_character`, `target_string`, `func_clock` and
+`trigger_elevator` as functional world state machines, reducing the explicitly
+simplified tail to 218 instances across 17 classes. Two real local UDP clients
+complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
+now kills a 100-health peer through seven genuine UDP Blaster commands and
+respawns it through the normal attack latch.
 An independent raw Protocol-34 peer validates both client and server wire
 directions, and deterministic OpenGL readback produces stable TGA captures,
 JSON pixel metrics and heatmaps. The unpaced full retail session passes 10,000
@@ -53,8 +59,9 @@ These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
-original `ref_gl` reference captures, rare-class/monster exactness, full save
-coverage of dynamic boss phases, and manual device acceptance.
+original `ref_gl` reference captures, the remaining rare-class/monster
+exactness, broader save coverage outside the dynamic boss chain, and manual
+device acceptance.
 
 The canonical local reference remains commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. Its 4,525 C definitions remain in

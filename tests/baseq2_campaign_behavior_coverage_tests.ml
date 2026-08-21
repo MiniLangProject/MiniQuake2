@@ -48,13 +48,11 @@ end function
 
 function campaignCoverageSimplified(name)
   return campaignCoverageContains([
-    "func_clock", "func_killbox", "light_mine2", "misc_blackhole",
+    "func_killbox", "light_mine2", "misc_blackhole",
     "misc_easterchick", "misc_easterchick2", "misc_eastertank", "misc_insane",
     "misc_satellite_dish", "misc_viper", "misc_viper_bomb",
-    "monster_boss3_stand", "monster_commander_body", "target_actor",
-    "target_character", "target_lightramp", "target_string", "trigger_elevator",
-    "trigger_key", "turret_base", "turret_breach", "turret_driver",
-    "info_notnull", "point_combat",
+    "monster_boss3_stand", "monster_commander_body", "target_lightramp",
+    "turret_base", "turret_breach", "turret_driver", "info_notnull",
   ], name)
 end function
 
@@ -118,8 +116,8 @@ function main(args)
     if counter is void or not counter.objective or counter.simplified then
       return error(9843, "synthetic objective coverage classification failed")
     end if
-    if point is void or not point.objective or not point.simplified then
-      return error(9844, "synthetic simplified coverage classification failed")
+    if point is void or not point.objective or point.simplified or point.behavior != "functional-world" then
+      return error(9844, "synthetic point_combat coverage classification failed")
     end if
     print("baseq2_campaign_behavior_coverage_tests: PASS (asset-free rules)")
     return 0

@@ -7,6 +7,67 @@ import miniquake2.game.world.core as wmcore
 import miniquake2.game.world.movers as wmmovers
 import miniquake2.game.world.vector as wmvector
 import miniquake2.qcommon.types as wmqtypes
+import miniquake2.qcommon.byteio as worldclockbyteio
+
+// -------------------------------------------------------------------------
+// point_combat from g_misc.c. AI_COMBAT_POINT and stand-ground mutations live
+// behind combatPointTransition; this world layer owns route consumption,
+// target lookup and G_UseTargets activator selection.
+
+function pointCombatTouch(entity, other, world)
+  if other is void or typeof(other) != "struct" or other.inUse == false then return false end if
+  if other.targetEntity != entity then return false end if
+
+  nextTarget = entity
+  if entity.target != "" then
+    other.target = entity.target
+    nextTarget = wmcore.pickTarget(world, other.target)
+    other.targetEntity = nextTarget
+    if nextTarget is void then
+      wmcore.log(world, "point_combat target " + entity.target + " does not exist")
+      other.targetEntity = entity
+      nextTarget = entity
+    end if
+    entity.target = ""
+  end if
+
+  hold = (entity.spawnFlags & 1) != 0 and
+    (other.flags & (wmconstants.FL_FLY | wmconstants.FL_SWIM)) == 0 and
+    other.targetEntity == entity
+  clearCombatPoint = false
+  if other.targetEntity == entity then
+    other.target = ""
+    other.targetEntity = void
+    nextTarget = void
+    clearCombatPoint = true
+  end if
+  world.callbacks.combatPointTransition(other, entity, nextTarget, hold, clearCombatPoint)
+  wmcore.emit(world, "combat-point", entity, [hold, clearCombatPoint])
+
+  if entity.pathTarget != "" then
+    savedTarget = entity.target
+    entity.target = entity.pathTarget
+    targetActivator = other
+    if other.enemy is not void and typeof(other.enemy) == "struct" and other.enemy.isClient then targetActivator = other.enemy
+    else if other.oldEnemy is not void and typeof(other.oldEnemy) == "struct" and other.oldEnemy.isClient then targetActivator = other.oldEnemy
+    else if other.activator is not void and typeof(other.activator) == "struct" and other.activator.isClient then targetActivator = other.activator
+    end if
+    wmcore.useTargets(world, entity, targetActivator)
+    entity.target = savedTarget
+  end if
+  return true
+end function
+
+function spawnPointCombat(entity, world, deathmatch)
+  if deathmatch then return wmcore.freeEntity(world, entity) end if
+  entity.solid = wmconstants.SOLID_TRIGGER
+  entity.touch = pointCombatTouch
+  entity.mins = wmqtypes.Vec3(-8.0, -8.0, -16.0)
+  entity.maxs = wmqtypes.Vec3(8.0, 8.0, 16.0)
+  entity.serverFlags = wmconstants.SVF_NOCLIENT
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
 
 function wallUse(entity, other, activator, world)
   if entity.solid == wmconstants.SOLID_NOT then
@@ -286,4 +347,210 @@ end function
 
 function spawnNull(entity, world)
   return wmcore.freeEntity(world, entity)
+end function
+
+// -------------------------------------------------------------------------
+// target_character / target_string from g_misc.c.
+
+function spawnTargetCharacter(entity, world)
+  if entity.model == "" then
+    wmcore.log(world, "target_character with no model")
+    return false
+  end if
+  entity.moveType = wmconstants.MOVETYPE_PUSH
+  world.callbacks.setModel(entity, entity.model)
+  entity.solid = wmconstants.SOLID_BSP
+  entity.frame = 12
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function targetStringFrame(character)
+  if character >= 48 and character <= 57 then return character - 48 end if
+  if character == 45 then return 10 end if
+  if character == 58 then return 11 end if
+  return 12
+end function
+
+function useTargetString(entity, other, activator, world)
+  if typeof(entity.message) != "string" then return error(9490, "target_string message must be text") end if
+  messageBytes = bytes(entity.message)
+  member = entity.teamMaster
+  if member is void then member = entity end if
+  visited = 0
+  visitLimit = len(world.entities) + 1
+  while member is not void
+    if typeof(member) != "struct" then return error(9491, "target_string team chain member must be an entity") end if
+    if typeof(member.count) != "int" then return error(9491, "target_string character count must be an integer") end if
+    if member.count > 0 then
+      position = member.count - 1
+      if position < 0 or position >= len(messageBytes) then member.frame = 12
+      else member.frame = targetStringFrame(messageBytes[position])
+      end if
+    end if
+    member = member.teamChain
+    visited = visited + 1
+    if visited > visitLimit then return error(9492, "target_string team chain contains a cycle") end if
+  end while
+  wmcore.emit(world, "target-string", entity, entity.message)
+  return true
+end function
+
+function spawnTargetString(entity, world)
+  if typeof(entity.message) != "string" then entity.message = "" end if
+  entity.use = useTargetString
+  return entity
+end function
+
+// -------------------------------------------------------------------------
+// func_clock. The original localtime dependency is injected as clockSeconds;
+// timer-up/down paths remain entirely scheduler-driven and deterministic.
+
+function worldClockTwoWide(value)
+  if value >= 0 and value < 10 then return " " + value end if
+  return "" + value
+end function
+
+function worldClockTwoDigits(value)
+  if value >= 0 and value < 10 then return "0" + value end if
+  return "" + value
+end function
+
+function worldClockFormatValue(value, style)
+  clockValue = worldclockbyteio.truncInt(value)
+  if style == 0 then return worldClockTwoWide(clockValue) end if
+  if style == 1 then
+    minutes = worldclockbyteio.truncInt(clockValue / 60.0)
+    seconds = clockValue % 60
+    return worldClockTwoWide(minutes) + ":" + worldClockTwoDigits(seconds)
+  end if
+  hours = worldclockbyteio.truncInt(clockValue / 3600.0)
+  minutes = worldclockbyteio.truncInt((clockValue - hours * 3600) / 60.0)
+  seconds = clockValue % 60
+  return worldClockTwoWide(hours) + ":" + worldClockTwoDigits(minutes) + ":" + worldClockTwoDigits(seconds)
+end function
+
+function resetWorldClock(entity)
+  entity.activator = void
+  if (entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 then
+    entity.health = 0
+    entity.wait = entity.count
+  else if (entity.spawnFlags & wmconstants.CLOCK_TIMER_DOWN) != 0 then
+    entity.health = entity.count
+    entity.wait = 0
+  end if
+  return entity
+end function
+
+function worldClockDisplay(entity, world)
+  if (entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 or
+      (entity.spawnFlags & wmconstants.CLOCK_TIMER_DOWN) != 0 then
+    return worldClockFormatValue(entity.health, entity.style)
+  end if
+  secondsValue = world.callbacks.clockSeconds()
+  if typeof(secondsValue) != "int" and typeof(secondsValue) != "float" then
+    return error(9493, "func_clock clockSeconds callback must return a number")
+  end if
+  seconds = worldclockbyteio.truncInt(secondsValue) % 86400
+  if seconds < 0 then seconds = seconds + 86400 end if
+  hours = worldclockbyteio.truncInt(seconds / 3600.0)
+  minutes = worldclockbyteio.truncInt((seconds - hours * 3600) / 60.0)
+  remainder = seconds % 60
+  return worldClockTwoWide(hours) + ":" + worldClockTwoDigits(minutes) + ":" + worldClockTwoDigits(remainder)
+end function
+
+function worldClockThink(entity, world)
+  display = entity.targetEntity
+  if display is not void and typeof(display) != "struct" then return error(9494, "func_clock targetEntity must be an entity") end if
+  if display is void or display.inUse == false then
+    matches = wmcore.matchingTargets(world, entity.target)
+    if len(matches) == 0 then
+      wmcore.log(world, "func_clock target " + entity.target + " not found")
+      return false
+    end if
+    display = matches[0]
+    entity.targetEntity = display
+  end if
+  if display.use is void then
+    wmcore.log(world, "func_clock target " + entity.target + " has no use function")
+    return false
+  end if
+
+  entity.message = worldClockDisplay(entity, world)
+  if (entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 then entity.health = entity.health + 1
+  else if (entity.spawnFlags & wmconstants.CLOCK_TIMER_DOWN) != 0 then entity.health = entity.health - 1
+  end if
+  display.message = entity.message
+  wmcore.useEntity(world, display, entity, entity)
+  wmcore.emit(world, "clock-tick", entity, entity.message)
+
+  finished = ((entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 and entity.health > entity.wait) or
+    ((entity.spawnFlags & wmconstants.CLOCK_TIMER_DOWN) != 0 and entity.health < entity.wait)
+  if finished then
+    if entity.pathTarget != "" then
+      savedTarget = entity.target
+      savedMessage = entity.message
+      entity.target = entity.pathTarget
+      entity.message = ""
+      wmcore.useTargets(world, entity, entity.activator)
+      entity.target = savedTarget
+      entity.message = savedMessage
+      if entity.inUse == false then return false end if
+    end if
+    if (entity.spawnFlags & wmconstants.CLOCK_MULTI_USE) == 0 then return true end if
+    resetWorldClock(entity)
+    if (entity.spawnFlags & wmconstants.CLOCK_START_OFF) != 0 then return true end if
+  end if
+  entity.think = worldClockThink
+  entity.nextThink = world.time + 1.0
+  return true
+end function
+
+function useWorldClock(entity, other, activator, world)
+  if (entity.spawnFlags & wmconstants.CLOCK_MULTI_USE) == 0 then entity.use = void end if
+  if entity.activator is not void then return false end if
+  entity.activator = activator
+  return worldClockThink(entity, world)
+end function
+
+function spawnWorldClock(entity, world)
+  if entity.target == "" then
+    wmcore.log(world, "func_clock with no target")
+    wmcore.freeEntity(world, entity)
+    return false
+  end if
+  if entity.style < 0 or entity.style > 2 then
+    wmcore.log(world, "func_clock style outside [0,2]")
+    wmcore.freeEntity(world, entity)
+    return false
+  end if
+  if (entity.spawnFlags & wmconstants.CLOCK_TIMER_DOWN) != 0 and entity.count <= 0 then
+    wmcore.log(world, "func_clock TIMER_DOWN with no count")
+    wmcore.freeEntity(world, entity)
+    return false
+  end if
+  if (entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 and entity.count <= 0 then entity.count = 3600 end if
+  resetWorldClock(entity)
+  entity.message = ""
+  entity.think = worldClockThink
+  if (entity.spawnFlags & wmconstants.CLOCK_START_OFF) != 0 then entity.use = useWorldClock
+  else entity.nextThink = world.time + 1.0
+  end if
+  return entity
+end function
+
+function SP_target_character(entity, world)
+  return spawnTargetCharacter(entity, world)
+end function
+
+function SP_target_string(entity, world)
+  return spawnTargetString(entity, world)
+end function
+
+function SP_func_clock(entity, world)
+  return spawnWorldClock(entity, world)
+end function
+
+function SP_point_combat(entity, world)
+  return spawnPointCombat(entity, world, false)
 end function

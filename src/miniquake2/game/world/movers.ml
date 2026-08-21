@@ -679,6 +679,57 @@ function spawnTrain(entity, world)
 end function
 
 // -------------------------------------------------------------------------
+// trigger_elevator from g_func.c. The train remains the authoritative mover;
+// the trigger only resolves a requested path_corner and resumes it.
+
+function elevatorUse(entity, other, activator, world)
+  train = entity.targetEntity
+  if train is void or typeof(train) != "struct" or train.inUse == false or train.className != "func_train" then
+    gwcore.log(world, "trigger_elevator has no active train")
+    return false
+  end if
+  if train.nextThink != 0.0 then return false end if
+  if other is void or typeof(other) != "struct" or typeof(other.pathTarget) != "string" or other.pathTarget == "" then
+    gwcore.log(world, "elevator used with no pathtarget")
+    return false
+  end if
+  corner = gwcore.pickTarget(world, other.pathTarget)
+  if corner is void then
+    gwcore.log(world, "elevator used with bad pathtarget: " + other.pathTarget)
+    return false
+  end if
+  train.targetEntity = corner
+  train.activator = activator
+  return trainResume(train, world)
+end function
+
+function elevatorInit(entity, world)
+  if entity.target == "" then
+    gwcore.log(world, "trigger_elevator has no target")
+    return false
+  end if
+  train = gwcore.pickTarget(world, entity.target)
+  if train is void then
+    gwcore.log(world, "trigger_elevator unable to find target " + entity.target)
+    return false
+  end if
+  if train.className != "func_train" then
+    gwcore.log(world, "trigger_elevator target " + entity.target + " is not a train")
+    return false
+  end if
+  entity.targetEntity = train
+  entity.use = elevatorUse
+  entity.serverFlags = gwconstants.SVF_NOCLIENT
+  return true
+end function
+
+function spawnElevator(entity, world)
+  entity.think = elevatorInit
+  entity.nextThink = world.time + world.frameTime
+  return entity
+end function
+
+// -------------------------------------------------------------------------
 // func_timer
 
 function timerThink(entity, world)
@@ -802,6 +853,9 @@ function SP_func_timer(entity, world)
 end function
 function SP_func_explosive(entity, world, deathmatch)
   return spawnExplosive(entity, world, deathmatch)
+end function
+function SP_trigger_elevator(entity, world)
+  return spawnElevator(entity, world)
 end function
 
 // Rebind serialized callback identities from classname/state. Function values

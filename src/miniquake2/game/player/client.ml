@@ -32,6 +32,10 @@ function shortToAngle(value)
 end function
 
 function ThinkWeapon(context, player)
+  // p_weapon.c does not run the active weapon state machine for a dead
+  // client.  In particular, Weapon_Generic must not consume BUTTON_ATTACK:
+  // ClientBeginServerFrame owns that same latched edge for deathmatch respawn.
+  if player.health < 1 then return false end if
   player.gameplay.buttons = player.buttons
   player.gameplay.latchedButtons = player.latchedButtons
   if context.weaponThink is not void then

@@ -68,6 +68,7 @@ function worldEntity(baseEdict)
   entity.mass = source.mass; entity.count = source.count
   entity.volume = source.volume; entity.attenuation = source.attenuation
   entity.style = source.style; entity.lip = source.spawnTemp.lip; entity.height = source.spawnTemp.height
+  entity.item = source.spawnTemp.item
   entity.moveInfo.distance = source.spawnTemp.distance
   entity.pauseTime = source.spawnTemp.pauseTime
   if source.className == "worldspawn" then entity.modelIndex = 1 end if
@@ -452,6 +453,124 @@ function integratedWorldRadiusDamage(inflictor, attacker, amount, radius, means)
   return true
 end function
 
+function integratedResolveKeyItem(itemClassName)
+  ibKeyRegistryHolder = ibitems.stockRegistry()
+  ibKeyDefinitionHolder = ibitemrules.findByClassName(ibKeyRegistryHolder, itemClassName)
+  if ibKeyDefinitionHolder is void then return void end if
+  return ibKeyDefinitionHolder.pickupName
+end function
+
+function integratedWorldPlayer(activator)
+  global activeIntegrationRuntime
+  ibKeyRuntimeHolder = activeIntegrationRuntime
+  if ibKeyRuntimeHolder is void or ibKeyRuntimeHolder.playerContext is void or activator is void then return void end if
+  for each ibKeyPlayerHolder in ibKeyRuntimeHolder.playerContext.players
+    if ibKeyPlayerHolder.edict.state.number == activator.number then return ibKeyPlayerHolder end if
+  end for
+  return void
+end function
+
+function integratedHasKeyItem(activator, itemClassName)
+  ibKeyPlayerHolder = integratedWorldPlayer(activator)
+  if ibKeyPlayerHolder is void then return false end if
+  global activeIntegrationRuntime
+  ibKeyRuntimeHolder = activeIntegrationRuntime
+  ibKeyDefinitionHolder = ibitemrules.findByClassName(ibKeyRuntimeHolder.playerContext.registry, itemClassName)
+  if ibKeyDefinitionHolder is void then return false end if
+  return ibKeyPlayerHolder.gameplay.inventory.counts[ibKeyDefinitionHolder.index] > 0
+end function
+
+function integratedConsumeKeyItem(activator, itemClassName)
+  ibKeyPlayerHolder = integratedWorldPlayer(activator)
+  if ibKeyPlayerHolder is void then return false end if
+  global activeIntegrationRuntime
+  ibKeyRuntimeHolder = activeIntegrationRuntime
+  ibKeyContextHolder = ibKeyRuntimeHolder.playerContext
+  ibKeyDefinitionHolder = ibitemrules.findByClassName(ibKeyContextHolder.registry, itemClassName)
+  if ibKeyDefinitionHolder is void or ibKeyPlayerHolder.gameplay.inventory.counts[ibKeyDefinitionHolder.index] <= 0 then return false end if
+  if ibKeyContextHolder.cooperative and itemClassName != "key_power_cube" then
+    for each ibKeyCoopPlayerHolder in ibKeyContextHolder.players
+      ibKeyCoopPlayerHolder.gameplay.inventory.counts[ibKeyDefinitionHolder.index] = 0
+    end for
+  else
+    ibKeyPlayerHolder.gameplay.inventory.counts[ibKeyDefinitionHolder.index] = ibKeyPlayerHolder.gameplay.inventory.counts[ibKeyDefinitionHolder.index] - 1
+  end if
+  return true
+end function
+
+function integratedWorldActor(number)
+  global activeIntegrationRuntime
+  ibWorldActorRuntimeHolder = activeIntegrationRuntime
+  if ibWorldActorRuntimeHolder is void then return void end if
+  for each ibWorldActorHolder in ibWorldActorRuntimeHolder.monsters
+    if ibWorldActorHolder.edict.state.number == number then return ibWorldActorHolder end if
+  end for
+  return void
+end function
+
+function integratedActorMessage(actorEntity, message)
+  ibWorldActorHolder = integratedWorldActor(actorEntity.number)
+  if ibWorldActorHolder is void then return false end if
+  ibWorldActorHolder.activity = "message:" + message
+  return true
+end function
+
+function integratedWorldAITarget(entity)
+  if entity is void then return void end if
+  ibWorldTargetHolder = ibaitypes.createActor(entity.number, entity.className)
+  ibWorldTargetHolder.edict.state.origin = entity.origin
+  ibWorldTargetHolder.edict.state.angles = entity.angles
+  ibWorldTargetHolder.target = entity.target
+  ibWorldTargetHolder.targetName = entity.targetName
+  ibWorldTargetHolder.isMonster = false
+  ibWorldTargetHolder.edict.inUse = entity.inUse
+  return ibWorldTargetHolder
+end function
+
+function integratedActorTransition(actorEntity, waypoint, action, actionTarget, nextTarget, wait, flags)
+  ibWorldActorHolder = integratedWorldActor(actorEntity.number)
+  if ibWorldActorHolder is void then return false end if
+  ibWorldNextHolder = integratedWorldAITarget(nextTarget)
+  ibWorldActorHolder.moveTarget = ibWorldNextHolder
+  ibWorldActorHolder.goalEntity = ibWorldNextHolder
+  ibWorldActorHolder.info.pauseTime = wait
+  ibWorldActorHolder.activity = "actor-" + action
+  if action == "attack" then ibWorldActorHolder.enemy = integratedWorldAITarget(actionTarget) end if
+  if (flags & ibworldconstants.ACTOR_HOLD) != 0 then ibWorldActorHolder.info.aiFlags = ibWorldActorHolder.info.aiFlags | ibaiconstants.AI_STAND_GROUND end if
+  if (flags & ibworldconstants.ACTOR_BRUTAL) != 0 then ibWorldActorHolder.info.aiFlags = ibWorldActorHolder.info.aiFlags | ibaiconstants.AI_BRUTAL end if
+  return true
+end function
+
+function integratedCombatPointTransition(actorEntity, point, nextTarget, hold, clearCombatPoint)
+  ibCombatActorHolder = integratedWorldActor(actorEntity.number)
+  if ibCombatActorHolder is void then return false end if
+  ibCombatNextHolder = integratedWorldAITarget(nextTarget)
+  ibCombatActorHolder.moveTarget = ibCombatNextHolder
+  ibCombatActorHolder.goalEntity = ibCombatNextHolder
+  if hold then ibCombatActorHolder.info.aiFlags = ibCombatActorHolder.info.aiFlags | ibaiconstants.AI_STAND_GROUND end if
+  if clearCombatPoint then ibCombatActorHolder.info.aiFlags = ibCombatActorHolder.info.aiFlags & ~ibaiconstants.AI_COMBAT_POINT end if
+  return true
+end function
+
+function integratedClockSeconds()
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return 0 end if
+  return activeIntegrationRuntime.playerContext.time
+end function
+
+function integratedWorldSetModel(entity, modelName)
+  global activeIntegrationRuntime
+  ibWorldModelRuntimeHolder = activeIntegrationRuntime
+  if ibWorldModelRuntimeHolder is void or ibWorldModelRuntimeHolder.playerContext is void or ibWorldModelRuntimeHolder.exportTable is void then return true end if
+  if entity.number < 0 or entity.number >= ibWorldModelRuntimeHolder.exportTable.numEdicts then return false end if
+  ibWorldModelEdictHolder = ibWorldModelRuntimeHolder.exportTable.edicts[entity.number]
+  ibWorldModelRuntimeHolder.playerContext.imports.setModel(ibWorldModelEdictHolder, modelName)
+  entity.modelIndex = ibWorldModelEdictHolder.state.modelIndex
+  entity.mins = ibWorldModelEdictHolder.mins
+  entity.maxs = ibWorldModelEdictHolder.maxs
+  return true
+end function
+
 function integratedWeaponEffect(effect)
   return true
 end function
@@ -512,6 +631,7 @@ function installWorldSpawn(entity, world)
   if name == "trigger_hurt" then return ibtriggers.spawnHurt(entity, world) end if
   if name == "trigger_push" then return ibtriggers.spawnPush(entity, world) end if
   if name == "trigger_monsterjump" then return ibtriggers.spawnMonsterJump(entity, world) end if
+  if name == "trigger_key" then return ibtriggers.spawnKey(entity, world) end if
   if name == "func_button" then return ibmovers.spawnButton(entity, world) end if
   if name == "func_door" then return ibmovers.spawnDoor(entity, world) end if
   if name == "func_water" then entity.wait = -1.0; return ibmovers.spawnDoor(entity, world) end if
@@ -519,7 +639,9 @@ function installWorldSpawn(entity, world)
   if name == "func_door_rotating" then return ibmovers.spawnRotatingDoor(entity, world) end if
   if name == "func_plat" then return ibmovers.spawnPlat(entity, world) end if
   if name == "func_train" then return ibmovers.spawnTrain(entity, world) end if
+  if name == "trigger_elevator" then return ibmovers.spawnElevator(entity, world) end if
   if name == "func_timer" then return ibmovers.spawnTimer(entity, world) end if
+  if name == "func_clock" then return ibmisc.spawnWorldClock(entity, world) end if
   if name == "func_explosive" then return ibmovers.spawnExplosive(entity, world, false) end if
   if name == "func_wall" then return ibmisc.spawnWall(entity, world) end if
   if name == "func_object" then return ibmisc.spawnWall(entity, world) end if
@@ -531,6 +653,9 @@ function installWorldSpawn(entity, world)
   if name == "misc_gib_head" then return ibmisc.spawnGibHead(entity, world) end if
   if name == "misc_teleporter" then return ibmisc.spawnTeleporter(entity, world) end if
   if name == "misc_teleporter_dest" then return ibmisc.spawnTeleporterDestination(entity, world) end if
+  if name == "point_combat" then return ibmisc.spawnPointCombat(entity, world, false) end if
+  if name == "target_character" then return ibmisc.spawnTargetCharacter(entity, world) end if
+  if name == "target_string" then return ibmisc.spawnTargetString(entity, world) end if
   if name == "light" then return ibmisc.spawnLight(entity, world) end if
   if name == "func_group" then return ibmisc.spawnNull(entity, world) end if
   if name == "target_temp_entity" then return ibtargets.spawnTempEntity(entity, world) end if
@@ -547,12 +672,21 @@ function installWorldSpawn(entity, world)
   if name == "target_crosslevel_target" then return ibtargets.spawnCrossLevelTarget(entity, world) end if
   if name == "target_laser" then return ibtargets.spawnLaser(entity, world) end if
   if name == "target_earthquake" then return ibtargets.spawnEarthquake(entity, world) end if
+  if name == "target_actor" then return ibtargets.spawnTargetActor(entity, world) end if
   return entity
 end function
 
 function create(spawnResult)
   global activeIntegrationRuntime
   world = ibworld.createWorld(void)
+  world.callbacks.resolveKeyItem = integratedResolveKeyItem
+  world.callbacks.hasKeyItem = integratedHasKeyItem
+  world.callbacks.consumeKeyItem = integratedConsumeKeyItem
+  world.callbacks.actorMessage = integratedActorMessage
+  world.callbacks.actorTransition = integratedActorTransition
+  world.callbacks.combatPointTransition = integratedCombatPointTransition
+  world.callbacks.clockSeconds = integratedClockSeconds
+  world.callbacks.setModel = integratedWorldSetModel
   aiContext = ibaitypes.defaultContext()
   monsters = []
   items = []

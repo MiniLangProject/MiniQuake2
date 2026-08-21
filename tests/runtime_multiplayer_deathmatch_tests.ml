@@ -50,10 +50,68 @@ mpdAssert(mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdPlayer0.edict.state
   mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdPlayer1.edict.state.number),
   "client one snapshot cannot see both players")
 
-mpdDeath = mpdtestsession.kill(mpdSession, 1, 0, 105, mpdtestgameplayconstants.MOD_ROCKET)
-mpdAssert(mpdDeath.message == "Bravo ate Alpha's rocket.", "deathmatch obituary mismatch")
+// Let initial blaster activation finish, then establish an unobstructed
+// duel.  prepareDuel changes only pose/aim; combat remains on
+// the normal UDP UserCmd and managed projectile path.
+mpdReadySteps = 0
+while mpdPlayer0.gameplay.weaponState != mpdtestgameplayconstants.WEAPON_READY and mpdReadySteps < 16
+  mpdtestsession.step(mpdSession)
+  mpdReadySteps = mpdReadySteps + 1
+end while
+mpdAssert(mpdPlayer0.gameplay.weaponState == mpdtestgameplayconstants.WEAPON_READY,
+  "attacker blaster did not become ready")
+mpdAssert(mpdtestsession.prepareDuel(mpdSession, 0, 1, 96),
+  "deterministic duel setup failed")
+mpdAssert(mpdPlayer1.health == 100,
+  "duel helper changed victim health")
+mpdFireCount = mpdPlayer0.gameplay.fireCount
+mpdShots = 0
+while mpdPlayer1.deadFlag == mpdtestplayerconstants.DEAD_NO and mpdShots < 7
+  mpdCycleSteps = 0
+  while mpdPlayer0.gameplay.weaponState != mpdtestgameplayconstants.WEAPON_READY and mpdCycleSteps < 16
+    mpdtestsession.step(mpdSession)
+    mpdCycleSteps = mpdCycleSteps + 1
+  end while
+  mpdAssert(mpdPlayer0.gameplay.weaponState == mpdtestgameplayconstants.WEAPON_READY,
+    "blaster did not return to ready between shots")
+  mpdShotAttack = mpdtestqtypes.UserCmd(100, mpdtestgameconstants.BUTTON_ATTACK,
+    [0, 0, 0], 0, 0, 0, 0, 64)
+  mpdtestsession.queueUserCmd(mpdSession, 0, mpdShotAttack)
+  mpdShotFireCount = mpdPlayer0.gameplay.fireCount
+  mpdShotSteps = 0
+  while mpdPlayer0.gameplay.fireCount == mpdShotFireCount and mpdShotSteps < 8
+    mpdtestsession.step(mpdSession)
+    mpdShotSteps = mpdShotSteps + 1
+  end while
+  mpdAssert(mpdPlayer0.gameplay.fireCount == mpdShotFireCount + 1,
+    "queued BUTTON_ATTACK did not reach the blaster fire frame")
+  mpdShots = mpdShots + 1
+end while
+mpdAssert(mpdShots == 7 and mpdPlayer0.gameplay.fireCount == mpdFireCount + 7,
+  "full-health kill did not require seven blaster attacks")
+mpdAssert(mpdPlayer1.deadFlag != mpdtestplayerconstants.DEAD_NO and mpdPlayer1.health <= 0,
+  "blaster projectile did not kill live victim")
+mpdSawWeaponDamage = false
+for each mpdWeaponEvent in mpdtestgameapi.baseRuntime().weaponContext.events
+  if mpdWeaponEvent[1] == "damage" and mpdWeaponEvent[2] == mpdPlayer1.edict.state.number and
+      mpdWeaponEvent[3][1] == mpdtestgameplayconstants.MOD_BLASTER then
+    mpdSawWeaponDamage = true
+  end if
+end for
+mpdAssert(mpdSawWeaponDamage,
+  "weapon event history did not record blaster damage to victim")
+mpdAssert(mpdPlayer1.obituary == "Bravo was blasted by Alpha.", "deathmatch obituary mismatch")
 mpdAssert(mpdPlayer0.respawn.score == 1 and mpdPlayer1.respawn.score == 0,
   "deathmatch score mismatch")
+mpdAssert(mpdtestsession.snapshotHasEntity(mpdSession, 0, mpdPlayer1.edict.state.number) and
+  mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdPlayer0.edict.state.number),
+  "death frame did not preserve two-client snapshot visibility")
+mpdServerChannel0 = mpdSession.server.networkRuntime.server.clients[mpdSlot0].channel
+mpdServerChannel1 = mpdSession.server.networkRuntime.server.clients[mpdSlot1].channel
+mpdAssert(mpdServerChannel0.incomingAcknowledged > 0 and mpdServerChannel1.incomingAcknowledged > 0 and
+  mpdSession.clients[0].integrated.network.client.channel.incomingAcknowledged > 0 and
+  mpdSession.clients[1].integrated.network.client.channel.incomingAcknowledged > 0,
+  "two-client netchannels did not advance bidirectional acknowledgements")
 mpdAssert(mpdSession.server.networkRuntime.server.clients[mpdSlot0].score == 1,
   "server status score was not synchronized")
 mpdAssert(mpdPlayer1.deadFlag != mpdtestplayerconstants.DEAD_NO and mpdPlayer1.showScores,
@@ -64,17 +122,11 @@ while mpdWait < 12
   mpdtestsession.step(mpdSession)
   mpdWait = mpdWait + 1
 end while
-mpdAttack = mpdtestqtypes.UserCmd(100, mpdtestgameconstants.BUTTON_ATTACK,
+mpdRespawnAttack = mpdtestqtypes.UserCmd(100, mpdtestgameconstants.BUTTON_ATTACK,
   [0, 0, 0], 0, 0, 0, 0, 64)
-mpdtestsession.queueUserCmd(mpdSession, 1, mpdAttack)
+mpdtestsession.queueUserCmd(mpdSession, 1, mpdRespawnAttack)
 mpdAssert(mpdContext.time > mpdPlayer1.respawnTime,
   "deathmatch clock did not pass respawn time")
-mpdtestsession.step(mpdSession)
-mpdAssert(mpdSession.server.networkRuntime.lastCommands[mpdSlot1].buttons == mpdtestgameconstants.BUTTON_ATTACK,
-  "server did not decode victim attack command")
-// The current managed weapon frame consumes the attack latch while dead;
-// exercise BaseQ2's canonical force-respawn rule after proving the wire cmd.
-mpdContext.dmFlags = mpdContext.dmFlags | mpdtestgameconstants.DF_FORCE_RESPAWN
 mpdRespawnSteps = 0
 while mpdPlayer1.deadFlag != mpdtestplayerconstants.DEAD_NO and mpdRespawnSteps < 20
   mpdtestsession.step(mpdSession)
@@ -82,6 +134,8 @@ while mpdPlayer1.deadFlag != mpdtestplayerconstants.DEAD_NO and mpdRespawnSteps 
 end while
 mpdAssert(mpdPlayer1.deadFlag == mpdtestplayerconstants.DEAD_NO and mpdPlayer1.health == 100,
   "attack command did not respawn victim")
+mpdAssert(mpdContext.dmFlags == 0,
+  "respawn unexpectedly depended on a deathmatch force flag")
 mpdAssert(mpdtestsession.snapshotHasEntity(mpdSession, 0, mpdPlayer1.edict.state.number),
   "respawned player was not visible in attacker snapshot")
 mpdFinal = mpdtestsession.result(mpdSession)

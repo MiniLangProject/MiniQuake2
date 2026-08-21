@@ -3,7 +3,7 @@
   "project": "MiniQuake2",
   "baseline": "Quake II 3.19 / Protocol 34 / BSP38 / Game API v3 / Renderer API v3",
   "active_blocker_count": 8,
-  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, boss2 Jorg-to-Makron progression, two-client DM/coop, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, rare-class exactness, dynamic-boss persistence, and manual device acceptance remain",
+  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, persistent boss2 Jorg-to-Makron progression, real-command two-client DM/coop, seven additional rare world state machines, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, paired ref_gl pixels, remaining rare-class/monster exactness, broader save coverage, and manual device acceptance remain",
   "release_blocking_gates": [
     {
       "id": "G01",
@@ -181,7 +181,7 @@
       "id": "G09",
       "plan_point": 9,
       "title": "complete baseq2 game matrix",
-      "status": "47_map_spawn_endgame_and_two_client_mode_matrix_passed",
+      "status": "47_map_spawn_persistent_endgame_real_command_multiplayer_and_rare_world_matrix_passed",
       "evidence": [
         "src/miniquake2/game/base/",
         "src/miniquake2/game/gameplay/",
@@ -219,6 +219,9 @@
         "tests/gameplay_world_mover_direction_tests.ml",
         "tests/baseq2_campaign_behavior_coverage_tests.ml",
         "tests/gameplay_campaign_endgame_tests.ml",
+        "tests/gameplay_boss_persistence_tests.ml",
+        "tests/gameplay_world_rare_entities_tests.ml",
+        "tests/game_api_rare_world_integration_tests.ml",
         "src/miniquake2/runtime/multiplayer_session.ml",
         "tests/runtime_multiplayer_deathmatch_tests.ml",
         "tests/runtime_multiplayer_coop_tests.ml"

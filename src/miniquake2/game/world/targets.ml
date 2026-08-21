@@ -5,6 +5,78 @@ import std.string as sstring
 import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.vector as gwvector
+import miniquake2.qcommon.types as targetactorqtypes
+
+// -------------------------------------------------------------------------
+// target_actor from m_actor.c. AI-private state changes are represented by
+// one explicit transition callback; this package still owns target lookup,
+// pathtarget dispatch, jump velocity and deterministic waypoint chaining.
+
+function targetActorTouch(entity, other, world)
+  if other is void or typeof(other) != "struct" or other.inUse == false then return false end if
+  if other.targetEntity != entity then return false end if
+  if other.enemy is not void then return false end if
+
+  other.targetEntity = void
+  if entity.message != "" then
+    world.callbacks.actorMessage(other, entity.message)
+    gwcore.emit(world, "actor-message", entity, entity.message)
+  end if
+
+  if (entity.spawnFlags & gwconstants.ACTOR_JUMP) != 0 then
+    other.velocity.x = entity.moveDirection.x * entity.speed
+    other.velocity.y = entity.moveDirection.y * entity.speed
+    if other.groundEntity is not void then
+      other.groundEntity = void
+      other.velocity.z = entity.moveDirection.z
+      world.callbacks.sound(other, "player/male/jump1.wav")
+    end if
+  end if
+
+  action = "move"
+  actionTarget = void
+  if (entity.spawnFlags & gwconstants.ACTOR_SHOOT) != 0 then
+    action = "shoot"
+    if entity.pathTarget != "" then actionTarget = gwcore.pickTarget(world, entity.pathTarget) end if
+  else if (entity.spawnFlags & gwconstants.ACTOR_ATTACK) != 0 then
+    action = "attack"
+    if entity.pathTarget != "" then actionTarget = gwcore.pickTarget(world, entity.pathTarget) end if
+    other.enemy = actionTarget
+  else if entity.pathTarget != "" then
+    savedTarget = entity.target
+    entity.target = entity.pathTarget
+    gwcore.useTargets(world, entity, other)
+    entity.target = savedTarget
+    if entity.inUse == false then return false end if
+  end if
+
+  nextTarget = void
+  if entity.target != "" then nextTarget = gwcore.pickTarget(world, entity.target) end if
+  other.targetEntity = nextTarget
+  if nextTarget is void and other.enemy is void then action = "stand" end if
+  world.callbacks.actorTransition(other, entity, action, actionTarget,
+    nextTarget, entity.wait, entity.spawnFlags)
+  gwcore.emit(world, "actor-transition", entity, action)
+  return true
+end function
+
+function spawnTargetActor(entity, world)
+  if entity.targetName == "" then gwcore.log(world, "target_actor with no targetname") end if
+  entity.solid = gwconstants.SOLID_TRIGGER
+  entity.touch = targetActorTouch
+  entity.mins = targetactorqtypes.Vec3(-8.0, -8.0, -8.0)
+  entity.maxs = targetactorqtypes.Vec3(8.0, 8.0, 8.0)
+  entity.serverFlags = gwconstants.SVF_NOCLIENT
+  if (entity.spawnFlags & gwconstants.ACTOR_JUMP) != 0 then
+    if entity.speed == 0.0 then entity.speed = 200.0 end if
+    if entity.height == 0.0 then entity.height = 200.0 end if
+    if entity.angles.y == 0.0 then entity.angles.y = 360.0 end if
+    entity.moveDirection = gwvector.movedir(entity.angles)
+    entity.moveDirection.z = entity.height
+  end if
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
 
 function useTempEntity(entity, other, activator, world)
   world.callbacks.effect("temp-entity", entity.origin, entity.style, 1)
@@ -317,4 +389,7 @@ function SP_target_laser(entity, world)
 end function
 function SP_target_earthquake(entity, world)
   return spawnEarthquake(entity, world)
+end function
+function SP_target_actor(entity, world)
+  return spawnTargetActor(entity, world)
 end function
