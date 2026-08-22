@@ -12,7 +12,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P01 | `base1` load, signon and first frame | `--play <root> base1 1`; client active, models/sounds complete, world PVS submitted | PASS | manual input/device sweep |
 | P02 | Player move, look and all stock weapons | `gameplay_player_weapon_protocol_tests.ml`, `runtime_multiplayer_deathmatch_tests.ml`, ballistics goldens | PASS (mechanics) | paired original view-model/recoil capture |
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
-| P04 | `waste1` brush, water, MD2 and alpha rendering | deterministic G06 TGA replay and zero-pixel self-diff | PASS | paired original `ref_gl` capture and tolerance gate |
+| P04 | `waste1` brush, water, MD2 and alpha rendering | paired installed-original `ref_gl` gate: 2,303 ppm MAE for world/water/MD2; deterministic Mini replay | PASS (differential) | broaden cameras, GPUs and alpha/inline runtime states |
 | P05 | Stock monster frame sequencing | attack/ranged/melee, 63 pain, 43 death, dodge, primary locomotion, class corpse bounds, stock physical gibs and staged Supertank destruction; live MZ2 and Parasite beam chains | PASS (primary moves and death terminals) | secondary fidgets and exact per-frame movement differential |
 | P06 | Save during an active monster sequence | Private-Save v7 attack/reaction fields, boss persistence and live-gib round trip | PASS | representative retail save positions and original-save policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
@@ -20,7 +20,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P09 | Two-player cooperative play | shared item, disconnect/reconnect and non-stale signon epoch | PASS | campaign checkpoint matrix and friendly-fire/difficulty variants |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
-| P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug and package gates | PARTIAL | hardware matrix, original visual references and final performance budgets |
+| P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug, package and original-renderer visual gates | PARTIAL | hardware matrix, device-loss/manual input/audio and final performance budgets |
 
 ## Current attack-sequence coverage
 
@@ -81,7 +81,7 @@ sees and what later gates depend on:
 1. Complete player weapon/view/impact feedback.
 2. Complete every stock monster and boss frame table, attack variant and event.
 3. Drive the 39-map campaign through real goals, movers, combat and transitions.
-4. Compare fixed renderer scenes against original `ref_gl` output.
+4. Broaden the passing fixed-scene original `ref_gl` differential across GPUs and runtime alpha/inline states.
 5. Expand audio, UI, menu and cinematic lifecycle comparisons.
 6. Broaden save, coop and deathmatch state matrices.
 7. Run original-process interoperability on a compatible Windows host.

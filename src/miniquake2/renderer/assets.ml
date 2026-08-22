@@ -26,6 +26,7 @@ struct PictureAsset
   width
   height
   textureId
+  usage
 end struct
 
 struct AssetRegistry
@@ -107,6 +108,7 @@ function registerMd2Skins(registry, imports, model)
     if model.skins[skinIndex] == "" then return error(9655, "MD2 contains an empty skin name") end if
     skins[skinIndex] = registerPicture(registry, imports, model.skins[skinIndex])
     if skins[skinIndex].kind != "pcx" then return error(9656, "MD2 skin is not PCX: " + model.skins[skinIndex]) end if
+    skins[skinIndex].usage = "skin"
     skinIndex = skinIndex + 1
   end while
   return skins
@@ -186,10 +188,10 @@ function registerPicture(registry, imports, name)
   asset = void
   if endsWith(name, ".wal") then
     source = fwal.parse(data)
-    asset = PictureAsset(nextHandle(registry, "pic", name), "wal", source, source.width, source.height, 0)
+    asset = PictureAsset(nextHandle(registry, "pic", name), "wal", source, source.width, source.height, 0, "picture")
   else
     source = fpcx.parse(data)
-    asset = PictureAsset(nextHandle(registry, "pic", name), "pcx", source, source.width, source.height, 0)
+    asset = PictureAsset(nextHandle(registry, "pic", name), "pcx", source, source.width, source.height, 0, "picture")
   end if
   registry.pictures = registry.pictures + [asset]
   return asset

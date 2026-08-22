@@ -269,10 +269,15 @@ byte/pixel exact (zero differing pixels) for:
   textured MD2, SHA-256
   `A1C0FF0FDDA4764EAC4D47AE783285AC886E0A63D96CD74755B88BE104277B2F`.
 
-`tools/visual_compare.py` emits stable JSON mismatch/MAE metrics and a heatmap
-for MiniQuake2 or original `ref_gl` TGA inputs. Deterministic replay is passed;
-a matched-camera original `ref_gl` reference capture and its acceptance
-threshold remain a manual external gate.
+`tools/original_ref_gl_capture.c` now hosts the installed unmodified 32-bit API
+v3 DLL directly, while `tools/run_ref_gl_differential.ps1` compiles the current
+MiniLang capture entry point and runs both sides at matched cameras. At a
+per-channel tolerance of 4, `base1_world` passes with 25,725 differing pixels
+and 2,792 ppm mean absolute error; `waste1_world_md2` passes with 10,987 pixels
+and 2,303 ppm. The accepted ceilings are 32,000 pixels, 100,000 mismatch ppm
+and 4,000 MAE ppm. JSON reports and heatmaps remain derived build artifacts;
+the installed DLL and retail data are never copied. See
+[`REF_GL_DIFFERENTIAL.md`](REF_GL_DIFFERENTIAL.md).
 
 ## Compatibility defects exposed and fixed
 
@@ -329,8 +334,8 @@ graphs, reference-member writes and allocation-time float boxing; the repeated
 
 - process-to-process interoperability with runnable unmodified original 3.19
   client and server binaries (raw bidirectional Protocol-34 is passed);
-- paired fixed-camera original `ref_gl` pixel comparison and a documented
-  threshold (MiniQuake2 deterministic capture/diff is passed);
+- broader original-`ref_gl` coverage across GPUs plus runtime-transformed
+  inline/alpha states (the two fixed world/water/MD2 differential scenes pass);
 - exhaustive retail campaign playthrough behavior and frame-for-frame monster,
   weapon, turret and boss animation/muzzle/event exactness (retail
   class-state-machine, stock damage-emission and cross-map save/re-signon

@@ -24,12 +24,33 @@ function rgbaFromIndexed(pixels, palette)
   return rgba
 end function
 
+// ref_gl uploads mipmapped world/model textures through its intensity table.
+// The stock default is 2; sky and 2-D pictures deliberately stay unscaled.
+function rgbaFromIndexedIntensity(pixels, palette, intensity)
+  rgba = rgbaFromIndexed(pixels, palette)
+  if len(rgba) == 0 then return rgba end if
+  index = 0
+  while index < len(pixels)
+    red = rgba[index * 4] * intensity
+    green = rgba[index * 4 + 1] * intensity
+    blue = rgba[index * 4 + 2] * intensity
+    if red > 255 then red = 255 end if
+    if green > 255 then green = 255 end if
+    if blue > 255 then blue = 255 end if
+    rgba[index * 4] = red
+    rgba[index * 4 + 1] = green
+    rgba[index * 4 + 2] = blue
+    index = index + 1
+  end while
+  return rgba
+end function
+
 function imageFromWal(wal, palette)
   pixels = bytes(0)
   if len(wal.mipPixels) > 0 then pixels = wal.mipPixels[0] end if
   return rclassictypes.ClassicImage(
     wal.name, wal.width, wal.height, pixels, palette,
-    rgbaFromIndexed(pixels, palette), wal.flags, wal.animationName
+    rgbaFromIndexedIntensity(pixels, palette, 2), wal.flags, wal.animationName
   )
 end function
 

@@ -99,17 +99,21 @@ Protocol-34 re-signon, Game+Level restore and a valid next snapshot; a failed
 target restore returns to the source map with a new legal spawn epoch while
 Netchan sequences only move forward.
 An independent raw Protocol-34 peer validates both client and server wire
-directions, and deterministic OpenGL readback produces stable TGA captures,
-JSON pixel metrics and heatmaps. The unpaced full retail session passes 10,000
+directions. Deterministic OpenGL readback produces stable TGA captures, and a
+native x86 API-v3 host now drives the installed unmodified classic `ref_gl.dll`
+at matching cameras. The paired `base1` and `waste1` world/water/MD2 scenes
+pass their documented 0.4% mean-error ceiling after restoring the original
+`intensity=2` material rule; JSON metrics and heatmaps remain build artifacts.
+The unpaced full retail session passes 10,000
 frames at 20.91 frames/s with 20,391 accepted packets, zero rejected packets
 and bounded diagnostic/event histories.
 
 These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
-(the installed 3.20 binary exits before networking on this host), paired
-original `ref_gl` reference captures, paired original player view-model and
-recoil captures, remaining secondary monster/turret/boss fidgets,
+(the installed 3.20 executable exits before networking on this host), paired
+original player view-model/recoil captures beyond the fixed renderer fixture,
+broader GPU/device coverage, remaining secondary monster/turret/boss fidgets,
 exact movement/event differentials, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign

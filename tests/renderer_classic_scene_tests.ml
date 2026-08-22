@@ -72,7 +72,7 @@ end function
 
 function testImagesAnimationAndChains()
   images = makeImages()
-  assertEqual(slice(images[0].rgbaPixels, 0, 4), bytes([10, 20, 30, 255]), "WAL palette expansion")
+  assertEqual(slice(images[0].rgbaPixels, 0, 4), bytes([20, 40, 60, 255]), "ref_gl intensity-scaled WAL palette expansion")
   assertEqual(images[0].rgbaPixels[7], 0, "palette index 255 transparent")
   assertEqual(len(images[2].rgbaPixels), 8, "PCX RGBA expansion")
   map = makeMap()
@@ -123,4 +123,3 @@ end function
 testImagesAnimationAndChains()
 testSpriteFrames()
 print("renderer classic scene tests passed")
-

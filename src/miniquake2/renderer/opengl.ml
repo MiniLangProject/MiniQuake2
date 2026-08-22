@@ -294,6 +294,25 @@ function picturePixels(asset)
   return rgba
 end function
 
+function pictureUploadPixels(asset)
+  rgba = picturePixels(asset)
+  if asset.usage != "skin" then return rgba end if
+  index = 0
+  while index < asset.width * asset.height
+    red = rgba[index * 4] * 2
+    green = rgba[index * 4 + 1] * 2
+    blue = rgba[index * 4 + 2] * 2
+    if red > 255 then red = 255 end if
+    if green > 255 then green = 255 end if
+    if blue > 255 then blue = 255 end if
+    rgba[index * 4] = red
+    rgba[index * 4 + 1] = green
+    rgba[index * 4 + 2] = blue
+    index = index + 1
+  end while
+  return rgba
+end function
+
 function ensureOpenGlPictureTexture(backend, asset)
   record = void
   if asset.textureId != 0 then record = findTextureRecord(backend, asset.textureId) end if
@@ -310,7 +329,7 @@ function uploadPicture(backend, asset)
   textureId = asset.textureId
   if record.uploaded then return textureId end if
   textureWidth = asset.width; textureHeight = asset.height
-  texturePixels = picturePixels(asset)
+  texturePixels = pictureUploadPixels(asset)
   native.glBindTexture(GL_TEXTURE_2D, textureId)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -936,7 +955,9 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   native.glDepthMask(1)
   native.glDepthFunc(GL_LEQUAL)
   native.glDisable(GL_BLEND)
+  native.glColor4ub(128, 128, 128, 255)
   uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.warpDraws, frame.time, false)
+  native.glColor4ub(255, 255, 255, 255)
   uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.skyDraws, frame.time, false)
   native.glPopMatrix()
   return uploaded
@@ -1040,7 +1061,7 @@ function drawOpenGlClassicTransparentFrame(binding, draws, frame)
     alphaValue = transparentDraw.alpha
     if alphaValue < 0.0 then alphaValue = 0.0 end if
     if alphaValue > 1.0 then alphaValue = 1.0 end if
-    native.glColor4ub(255, 255, 255, ropenglbyteio.truncInt(alphaValue * 255.0))
+    native.glColor4ub(128, 128, 128, ropenglbyteio.truncInt(alphaValue * 255.0))
     native.glBegin(GL_TRIANGLES)
     emitClassicDraw(draw, false, frame.time)
     native.glEnd()
@@ -1126,10 +1147,12 @@ function submitClassicWorld(binding, world, frame)
       native.glBindTexture(GL_TEXTURE_2D, baseTexture.id)
       lastTexture = baseTexture.id
     end if
+    native.glColor4ub(128, 128, 128, 255)
     native.glBegin(GL_TRIANGLES)
     emitClassicDraw(draw, false, frame.time)
     native.glEnd()
   end for
+  native.glColor4ub(255, 255, 255, 255)
 
   // Visible sky portals gate one six-face environment cube. PCX sky images
   // follow ref_gl's rt/bk/lf/ft/up/dn naming and skytexorder. Missing optional
