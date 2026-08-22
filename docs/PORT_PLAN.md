@@ -5,7 +5,7 @@ necessary but not sufficient where the gate also requires original-binary,
 retail-data, visual, or soak evidence. Retail tests run only against legal,
 user-supplied assets and never archive those assets.
 
-## Implementation snapshot (2026-08-21)
+## Implementation snapshot (2026-08-22)
 
 G01 and G02 are complete. G03-G05 have integrated, deterministic native
 implementations; all classic Steam BSPs pass the retail spawn/asset smoke while
