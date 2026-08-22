@@ -1,6 +1,7 @@
 /* Screen composition for HUD, inventory, centerprint, notify and menus. */
 package miniquake2.client.ui.screen
 
+import miniquake2.qcommon.constants as cuiscreenqc
 import miniquake2.client.layout as clayout
 import miniquake2.client.ui.console as cuiconsole
 import miniquake2.client.ui.menu as cuimenu
@@ -23,6 +24,39 @@ function setInventory(screen, items, selected)
   screen.selectedInventory = selected
   screen.showInventory = true
   return true
+end function
+
+// Convert the fixed Protocol-34 inventory vector into the compact rows the
+// renderer needs. Receiving an update does not implicitly open the inventory;
+// the local `inven` command owns that user-visible toggle.
+function updateInventory(screen, values, configStrings, selected)
+  if typeof(values) != "array" or len(values) != cuiscreenqc.MAX_ITEMS or
+      typeof(configStrings) != "array" then
+    return error(8241, "inventory handoff shape is invalid")
+  end if
+  cuiscreenInventoryItems = []
+  cuiscreenInventoryIndex = 0
+  while cuiscreenInventoryIndex < len(values)
+    cuiscreenInventoryCount = values[cuiscreenInventoryIndex]
+    if typeof(cuiscreenInventoryCount) != "int" then
+      return error(8242, "inventory handoff count must be integer")
+    end if
+    if cuiscreenInventoryCount != 0 then
+      cuiscreenInventoryName = "item " + cuiscreenInventoryIndex
+      cuiscreenInventoryConfigIndex = cuiscreenqc.CS_ITEMS + cuiscreenInventoryIndex
+      if cuiscreenInventoryConfigIndex >= 0 and
+          cuiscreenInventoryConfigIndex < len(configStrings) and
+          configStrings[cuiscreenInventoryConfigIndex] != "" then
+        cuiscreenInventoryName = configStrings[cuiscreenInventoryConfigIndex]
+      end if
+      cuiscreenInventoryItems = cuiscreenInventoryItems + [cuitypes.InventoryItem(
+        cuiscreenInventoryIndex, cuiscreenInventoryName, cuiscreenInventoryCount)]
+    end if
+    cuiscreenInventoryIndex = cuiscreenInventoryIndex + 1
+  end while
+  screen.inventory = cuiscreenInventoryItems
+  screen.selectedInventory = selected
+  return len(cuiscreenInventoryItems)
 end function
 
 function drawText(exports, x, y, text)
@@ -84,4 +118,3 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings, expo
   end if
   return count
 end function
-

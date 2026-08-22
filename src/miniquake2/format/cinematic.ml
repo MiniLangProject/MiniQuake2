@@ -59,7 +59,11 @@ function buildTree(countRow)
     nodeNumber = nodeNumber + 1
   end while
   root = nodeNumber - 1
-  if root < 256 or left[root] < 0 or right[root] < 0 then return error(2704, "CIN Huffman row has fewer than two symbols") end if
+  // The original Huff1TableInit stores root 255 when a context row contains
+  // fewer than two populated symbols. Retail CIN files contain many unused
+  // zero rows, so rejecting them makes every stock cinematic unreadable.
+  // Keeping the leaf root reproduces the classic decoder's bounded fallback.
+  if root < 0 or root >= 511 then return error(2704, "CIN Huffman root is invalid") end if
   return ft.HuffmanTree(root, left, right)
 end function
 

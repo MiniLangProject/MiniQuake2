@@ -279,6 +279,19 @@ and 4,000 MAE ppm. JSON reports and heatmaps remain derived build artifacts;
 the installed DLL and retail data are never copied. See
 [`REF_GL_DIFFERENTIAL.md`](REF_GL_DIFFERENTIAL.md).
 
+The product executable also plays the installed 3,159,828-byte
+`baseq2/video/idlog.cin` through its real Huffman/palette/OpenGL/mixer/device
+chain. The full run completed stream frame 81 exactly once with zero drops and
+254,976 mixed stereo frames. This retail gate exposed and fixed the original
+decoder's legal leaf-255 fallback for unused zero-count Huffman context rows.
+See [`CINEMATIC_ACCEPTANCE.md`](CINEMATIC_ACCEPTANCE.md).
+
+The interactive product loop also consumes the complete UI handoff and command
+surface: inventory rows use retail `CS_ITEMS` names, mixer gain changes live,
+and the three menu slots exercise atomic session save/restore. The focused
+acceptance and remaining application boundaries are recorded in
+[`UI_AUDIO_ACCEPTANCE.md`](UI_AUDIO_ACCEPTANCE.md).
+
 ## Compatibility defects exposed and fixed
 
 The first retail run rejected two historical PAK paths containing the safe

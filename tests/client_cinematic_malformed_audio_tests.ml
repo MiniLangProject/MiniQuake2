@@ -48,8 +48,9 @@ while cinematicTreeIndex < cinformat.HEADER_BYTES
   cinematicBadTree[cinematicTreeIndex] = 0
   cinematicTreeIndex = cinematicTreeIndex + 1
 end while
-cinematicSafetyAssertEqual(typeof(try(cinplayer.start(cinematicBadTree,
-  0, false, cinaudio.silent()))), "error", "degenerate Huffman tables rejected")
+cinematicZeroTreePlayer = cinplayer.start(cinematicBadTree, 0, false, cinaudio.silent())
+cinematicSafetyAssertEqual(cinematicZeroTreePlayer.pixels, bytes([255, 255, 255, 255]),
+  "classic empty Huffman rows use leaf-255 fallback")
 
 cinematicBadCommand = bytes(cinematicSafetyData)
 qbio.putI32(cinematicBadCommand, cinformat.HEADER_BYTES, 3)

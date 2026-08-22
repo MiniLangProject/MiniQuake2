@@ -20,6 +20,10 @@ function choice(id, label, value, choices, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_CHOICE, value, 0.0, len(choices) - 1, 1.0, choices, command, true)
 end function
 
+function label(id, text)
+  return cuitypes.MenuItem(id, text, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], "", false)
+end function
+
 function defaultPages()
   main = cuitypes.MenuPage("main", "QUAKE II", "", [
     action("game", "game", "menu:game"), action("video", "video", "menu:video"),
@@ -38,7 +42,17 @@ function defaultPages()
     toggle("alwaysrun", "always run", 0, "cl_run"),
     slider("volume", "sound volume", 0.7, 0.0, 1.0, 0.1, "s_volume"),
     action("keys", "customize controls", "menu:keys")])
-  return [main, game, video, options]
+  load = cuitypes.MenuPage("load", "LOAD GAME", "game", [
+    action("load0", "slot 1", "load 0"), action("load1", "slot 2", "load 1"),
+    action("load2", "slot 3", "load 2")])
+  save = cuitypes.MenuPage("save", "SAVE GAME", "game", [
+    action("save0", "slot 1", "save 0"), action("save1", "slot 2", "save 1"),
+    action("save2", "slot 3", "save 2")])
+  keys = cuitypes.MenuPage("keys", "CONTROLS", "options", [
+    label("move", "WASD move / mouse look"), label("jump", "SPACE jump"),
+    label("attack", "MOUSE1 attack"), label("use", "E use"),
+    label("inventory", "I inventory"), label("console", "` console")])
+  return [main, game, video, options, load, save, keys]
 end function
 
 function create()

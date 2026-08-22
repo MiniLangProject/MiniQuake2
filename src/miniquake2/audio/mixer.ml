@@ -18,11 +18,21 @@ struct Mixer
   sampleRate
   channels
   paintedFrames
+  masterVolume
 end struct
 
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
-  return Mixer(sampleRate, [], 0)
+  return Mixer(sampleRate, [], 0, 1.0)
+end function
+
+function setMasterVolume(mixer, value)
+  if mixer is void or (typeof(value) != "int" and typeof(value) != "float") or
+      value != value or value < 0.0 or value > 1.0 then
+    return error(2958, "mixer master volume outside [0,1]")
+  end if
+  mixer.masterVolume = value * 1.0
+  return mixer.masterVolume
 end function
 
 function clamp16(value)
@@ -93,6 +103,8 @@ function mix(mixer, frameCount)
         end if
       end if
     end for
+    mixedLeft = mixedLeft * mixer.masterVolume
+    mixedRight = mixedRight * mixer.masterVolume
     ambio.putI16(output, frameIndex * 4, ambio.truncInt(clamp16(mixedLeft)))
     ambio.putI16(output, frameIndex * 4 + 2, ambio.truncInt(clamp16(mixedRight)))
     frameIndex = frameIndex + 1

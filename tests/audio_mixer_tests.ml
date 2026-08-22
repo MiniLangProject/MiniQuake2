@@ -32,9 +32,17 @@ assertEqual(mixer.channels[0].active, true, "channel ends on next paint boundary
 amix.mix(mixer, 1)
 assertEqual(mixer.channels[0].active, false, "nonlooping channel stopped")
 
+volumeMixer = amix.create(8000)
+amix.setMasterVolume(volumeMixer, 0.5)
+amix.startSound(volumeMixer, sound, 1, 1, 255, 255)
+volumeOutput = amix.mix(volumeMixer, 2)
+assertEqual(tbio.i16(volumeOutput, 4), 16256, "runtime master volume")
+assertEqual(typeof(try(amix.setMasterVolume(volumeMixer, 1.1))), "error", "master volume upper bound")
+assertEqual(typeof(try(amix.setMasterVolume(volumeMixer, 0.0 / 0.0))), "error", "master volume NaN guard")
+
 volumes = amix.spatialVolumes(qt.zeroVec3(), qt.Vec3(1.0, 0.0, 0.0), qt.Vec3(10.0, 0.0, 0.0), 255.0, 0.01)
 assertEqual(volumes[0], 0, "hard-right left volume")
 assertEqual(volumes[1], 255, "hard-right volume clamp")
 bad = monoWav(); bad[0] = 0
 assertEqual(typeof(try(awav.parse(bad, "bad"))), "error", "bad RIFF rejected")
-print("MiniQuake2 audio mixer tests passed: 1")
+print("MiniQuake2 audio mixer tests passed: 2")

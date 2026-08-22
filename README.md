@@ -98,6 +98,15 @@ Cross-map checkpoints additionally perform a transactional map change, full
 Protocol-34 re-signon, Game+Level restore and a valid next snapshot; a failed
 target restore returns to the source map with a new legal spawn epoch while
 Netchan sequences only move forward.
+The product `--cinematic` path now plays installed retail CIN files through
+the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
+managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached
+frame 81 once with zero drops and restored the game palette on completion.
+The same product UI now applies mouse sensitivity, always-run and mixer volume
+live, renders named `svc_inventory` contents, forwards game/chat commands, and
+provides three failure-atomic in-session Save/Load slots. See
+[`docs/UI_AUDIO_ACCEPTANCE.md`](docs/UI_AUDIO_ACCEPTANCE.md) for the exact
+boundary of persistent slot browsing, live video restart and key capture.
 An independent raw Protocol-34 peer validates both client and server wire
 directions. Deterministic OpenGL readback produces stable TGA captures, and a
 native x86 API-v3 host now drives the installed unmodified classic `ref_gl.dll`
@@ -158,6 +167,7 @@ With a legal Quake II installation root containing `baseq2\pak0.pak`:
 .\MiniQuake2\build\MiniQuake2.exe --asset-smoke "C:\Games\Quake2" base1
 .\MiniQuake2\build\MiniQuake2.exe --map-preview "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --play "C:\Games\Quake2" base1 0
+.\MiniQuake2\build\MiniQuake2.exe --cinematic "C:\Games\Quake2" idlog 0 0
 .\MiniQuake2\build\MiniQuake2.exe --dedicated "C:\Games\Quake2" base1 27910 0
 .\MiniQuake2\build\MiniQuake2.exe --listen "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --connect 127.0.0.1 27910 600

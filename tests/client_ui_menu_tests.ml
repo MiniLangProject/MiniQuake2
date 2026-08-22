@@ -9,7 +9,7 @@ function uiMenuAssertEqual(actual, expected, name)
 end function
 
 uiMenuState = cuimenu.create()
-uiMenuAssertEqual(len(uiMenuState.pages), 4, "default page count")
+uiMenuAssertEqual(len(uiMenuState.pages), 7, "default page count")
 cuimenu.open(uiMenuState, "main")
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 uiMenuAssertEqual(uiMenuState.cursor, 1, "cursor movement")
@@ -21,6 +21,12 @@ uiMenuCommands = cuimenu.drainCommands(uiMenuState)
 uiMenuAssertEqual(uiMenuCommands[0], "vid_fullscreen 1", "toggle command")
 cuimenu.handleKey(uiMenuState, cuic.K_ESCAPE)
 uiMenuAssertEqual(uiMenuState.currentPage, "main", "parent navigation")
+cuimenu.open(uiMenuState, "load")
+cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "load 0", "load slot command")
+cuimenu.open(uiMenuState, "keys")
+uiMenuAssertEqual(cuimenu.activate(uiMenuState), false, "control labels are informational")
+cuimenu.open(uiMenuState, "main")
 
 uiMenuRenderer = recording.createRecordingRenderer()
 uiMenuRenderer.exports.Init(void, void)
@@ -29,4 +35,3 @@ uiMenuAssertEqual(len(bytes(recording.commandTrace(uiMenuRenderer))) > 0, true, 
 uiMenuRenderer.exports.Shutdown()
 uiMenuAssertEqual(typeof(try(cuimenu.open(uiMenuState, "missing"))), "error", "unknown page rejected")
 print("MiniQuake2 client UI menu tests passed: 1")
-

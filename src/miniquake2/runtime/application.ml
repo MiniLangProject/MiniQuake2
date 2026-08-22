@@ -1,6 +1,7 @@
 /* Retail-data validation and one-frame dedicated runtime bootstrap. */
 package miniquake2.runtime.application
 
+import std.fs as appnativefs
 import miniquake2.qcommon.filesystem as appfs
 import miniquake2.qcommon.text as apptext
 import miniquake2.format.bsp as appbsp
@@ -10,6 +11,7 @@ import miniquake2.audio.device as appaudiodevice
 import miniquake2.audio.mixer as appaudiomixer
 import miniquake2.collision.model as appcollision
 import miniquake2.game.null_game as appgame
+import miniquake2.game.constants as appgameconstants
 import miniquake2.server.game_bridge as appbridge
 import miniquake2.game.base.spawn as appspawn
 import miniquake2.platform.window as appwindow
@@ -28,9 +30,13 @@ import miniquake2.client.ui.controller as appuicontroller
 import miniquake2.client.ui.console as appuiconsole
 import miniquake2.client.ui.menu as appuimenu
 import miniquake2.client.ui.screen as appuiscreen
+import miniquake2.client.ui.commands as appuicommands
 import miniquake2.client.state as appclientstate
 import miniquake2.client.effects.handoff as appeffecthandoff
+import miniquake2.client.cinematic.audio as appcinaudio
+import miniquake2.client.cinematic.player as appcinplayer
 import miniquake2.runtime.play_session as appplay
+import miniquake2.runtime.session_persistence as apppersistence
 import miniquake2.runtime.client_assets as appclientassets
 import miniquake2.client.assets.registry as appassetregistry
 import miniquake2.physics.vector as appphysicsvector
@@ -178,7 +184,24 @@ function applyPlayHandoff(screen, handoff)
   for each value in handoff.layouts
     screen.layoutText = value.text
   end for
+  for each value in handoff.inventories
+    applicationInventorySelected = 0
+    if handoff.snapshot is not void and handoff.snapshot.playerState is not void and
+        len(handoff.snapshot.playerState.stats) > appgameconstants.STAT_SELECTED_ITEM then
+      applicationInventorySelected = handoff.snapshot.playerState.stats[appgameconstants.STAT_SELECTED_ITEM]
+    end if
+    appuiscreen.updateInventory(screen, value.values, handoff.configStrings,
+      applicationInventorySelected)
+  end for
   return true
+end function
+
+function playSavePaths(baseDirectory, slot)
+  if typeof(slot) != "int" or slot < 0 or slot > 2 then return error(9925, "play save slot outside [0,2]") end if
+  applicationSaveDirectory = appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
+  applicationSaveStem = "miniquake2_slot" + (slot + 1)
+  return [appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_game.sav"),
+    appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_level.sav")]
 end function
 
 function endsWith(value, suffix)
@@ -210,6 +233,115 @@ function mapPath(name)
     applicationMapPathValueHolder = applicationMapPathValueHolder + ".bsp"
   end if
   return applicationMapPathValueHolder
+end function
+
+function cinematicPath(name)
+  if typeof(name) != "string" or name == "" then return error(9921, "cinematicPath requires a cinematic name") end if
+  applicationCinematicPathHolder = name
+  applicationCinematicLowerHolder = apptext.lower(applicationCinematicPathHolder)
+  if not apptext.startsWith(applicationCinematicLowerHolder, "video/") then
+    applicationCinematicPathHolder = "video/" + applicationCinematicPathHolder
+  end if
+  if not endsWith(applicationCinematicPathHolder, ".cin") then
+    applicationCinematicPathHolder = applicationCinematicPathHolder + ".cin"
+  end if
+  return applicationCinematicPathHolder
+end function
+
+// Product CIN lifecycle: retail FS -> Huffman frames/palette -> OpenGL raw
+// stretch, with the CIN PCM stream feeding the same managed mixer/device used
+// by gameplay. Escape opens/closes the existing menu and pauses/resumes both
+// video time and its mixer channel without losing the current frame.
+function runCinematic(baseDirectory, name, frameLimit, looping)
+  global previewFileSystem
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9922, "cinematic requires the Quake II install root") end if
+  if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9923, "cinematic frame limit outside [0,36000]") end if
+  if typeof(looping) != "bool" then return error(9924, "cinematic looping flag must be boolean") end if
+  applicationCinematicFileSystemHolder = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationCinematicFileSystemHolder
+  applicationCinematicPathHolder = cinematicPath(name)
+  applicationCinematicDataHolder = appfs.readFile(applicationCinematicFileSystemHolder, applicationCinematicPathHolder)
+
+  applicationCinematicWindowHolder = appwindow.create("MiniQuake2 Cinematic - " + name, 640, 480, false)
+  applicationCinematicRendererHolder = appgl.createOpenGlRenderer(true)
+  applicationCinematicRendererHolder.exports.Init(void, void)
+  applicationCinematicMixerHolder = appaudiomixer.create(44100)
+  appaudiomixer.setMasterVolume(applicationCinematicMixerHolder, 0.7)
+  applicationCinematicMixerHandoffHolder = appcinaudio.mixerHandoff(applicationCinematicMixerHolder)
+  applicationCinematicDeviceResultHolder = try(appaudiodevice.open(44100, 2, 16))
+  applicationCinematicDeviceHolder = void
+  if applicationCinematicDeviceResultHolder is not error then
+    applicationCinematicDeviceHolder = applicationCinematicDeviceResultHolder
+  end if
+  applicationCinematicDeviceOpened = applicationCinematicDeviceHolder is not void
+
+  applicationCinematicInputHolder = appuikeys.createInputState()
+  applicationCinematicScreenHolder = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
+  applicationCinematicCommandStateHolder = appuicommands.create()
+  applicationCinematicClockHolder = appsystem.createClock()
+  applicationCinematicStarted = appbyteio.truncInt(appsystem.milliseconds(applicationCinematicClockHolder))
+  applicationCinematicPlaybackHolder = appcinplayer.start(applicationCinematicDataHolder,
+    applicationCinematicStarted, looping, applicationCinematicMixerHandoffHolder.callbacks)
+  applicationCinematicFrames = 0
+  applicationCinematicWasPaused = false
+  applicationCinematicStats = array(32, 0)
+  applicationCinematicConfigStrings = array(0)
+  while (frameLimit == 0 or applicationCinematicFrames < frameLimit) and
+      not appcinplayer.isFinished(applicationCinematicPlaybackHolder) and
+      not applicationCinematicCommandStateHolder.quitRequested and
+      appwindow.poll(applicationCinematicWindowHolder)
+    applicationCinematicNow = appbyteio.truncInt(appsystem.milliseconds(applicationCinematicClockHolder))
+    appuicontroller.poll(applicationCinematicInputHolder,
+      applicationCinematicScreenHolder, applicationCinematicNow)
+    appuicommands.drain(applicationCinematicCommandStateHolder,
+      applicationCinematicInputHolder, applicationCinematicScreenHolder,
+      applicationCinematicMixerHolder)
+    applicationCinematicIgnoredCommands = appuicommands.takeForwarded(
+      applicationCinematicCommandStateHolder)
+    applicationCinematicPaused = applicationCinematicScreenHolder.menu.active
+    if applicationCinematicPaused and not applicationCinematicWasPaused then
+      appcinplayer.pause(applicationCinematicPlaybackHolder, applicationCinematicNow)
+    else if not applicationCinematicPaused and applicationCinematicWasPaused then
+      appcinplayer.resume(applicationCinematicPlaybackHolder, applicationCinematicNow)
+    end if
+    applicationCinematicWasPaused = applicationCinematicPaused
+    if not applicationCinematicPaused then
+      appcinplayer.update(applicationCinematicPlaybackHolder, applicationCinematicNow)
+    end if
+
+    applicationCinematicRendererHolder.exports.BeginFrame(0.0)
+    appcinplayer.draw(applicationCinematicPlaybackHolder,
+      applicationCinematicWindowHolder.width, applicationCinematicWindowHolder.height,
+      applicationCinematicRendererHolder.exports)
+    if applicationCinematicPaused then
+      appuiscreen.draw(applicationCinematicScreenHolder, applicationCinematicNow,
+        applicationCinematicWindowHolder.width, applicationCinematicWindowHolder.height,
+        applicationCinematicStats, applicationCinematicConfigStrings,
+        applicationCinematicRendererHolder.exports)
+    end if
+    applicationCinematicRendererHolder.exports.EndFrame()
+    pumpPlayAudio(applicationCinematicDeviceHolder, applicationCinematicMixerHolder)
+    applicationCinematicFrames = applicationCinematicFrames + 1
+    appsystem.sleep(8)
+  end while
+
+  applicationCinematicStatus = applicationCinematicPlaybackHolder.status
+  applicationCinematicStreamFrame = applicationCinematicPlaybackHolder.frameNumber
+  applicationCinematicCompletions = applicationCinematicPlaybackHolder.completions
+  applicationCinematicDropped = applicationCinematicPlaybackHolder.droppedFrames
+  applicationCinematicPainted = applicationCinematicMixerHolder.paintedFrames
+  appcinplayer.stop(applicationCinematicPlaybackHolder)
+  appcinplayer.draw(applicationCinematicPlaybackHolder,
+    applicationCinematicWindowHolder.width, applicationCinematicWindowHolder.height,
+    applicationCinematicRendererHolder.exports)
+  closePlayAudio(applicationCinematicDeviceHolder, applicationCinematicMixerHolder)
+  applicationCinematicRendererHolder.exports.Shutdown()
+  appwindow.destroy(applicationCinematicWindowHolder)
+  previewFileSystem = void
+  return [applicationCinematicFrames, applicationCinematicStatus,
+    applicationCinematicStreamFrame, applicationCinematicCompletions,
+    applicationCinematicDropped, applicationCinematicPainted,
+    applicationCinematicDeviceOpened]
 end function
 
 function assetSmoke(baseDirectory, mapName)
@@ -480,6 +612,7 @@ function runPlay(baseDirectory, mapName, frameLimit)
   renderer.exports.EndRegistration()
 
   audioMixer = appaudiomixer.create(44100)
+  appaudiomixer.setMasterVolume(audioMixer, 0.7)
   audioResult = try(appaudiodevice.open(44100, 2, 16))
   audioDevice = void
   if audioResult is not error then audioDevice = audioResult end if
@@ -496,16 +629,67 @@ function runPlay(baseDirectory, mapName, frameLimit)
   appuikeys.bind(input, appuiconstants.K_SHIFT, "+speed")
   appuikeys.bind(input, appuiconstants.K_MOUSE1, "+attack")
   appuikeys.bind(input, 101, "+use")
+  appuikeys.bind(input, 105, "inven")
   screen = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
+  commandState = appuicommands.create()
+  saveCheckpoints = array(3)
   appwindow.setMouseCapture(true)
   clock = appsystem.createClock()
   networkTime = appsystem.milliseconds(clock)
   frames = 0
   latest = void
   lastWorldStats = void
-  while (frameLimit == 0 or frames < frameLimit) and appwindow.poll(window)
+  while (frameLimit == 0 or frames < frameLimit) and not commandState.quitRequested and
+      appwindow.poll(window)
     started = appsystem.milliseconds(clock)
     appuicontroller.poll(input, screen, started)
+    appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
+    appuicommands.drain(commandState, input, screen, audioMixer)
+    applicationForwardedCommands = appuicommands.takeForwarded(commandState)
+    for each applicationForwardedCommand in applicationForwardedCommands
+      applicationForwardedResult = try(appclientsession.sendStringCommand(session.client,
+        applicationForwardedCommand, appbyteio.truncInt(started)))
+    end for
+    applicationSaveSlot = appuicommands.takeSaveSlot(commandState)
+    if applicationSaveSlot >= 0 then
+      applicationSavePaths = playSavePaths(baseDirectory, applicationSaveSlot)
+      applicationSaveResult = try(apppersistence.savePlaySession(session,
+        applicationSavePaths[0], applicationSavePaths[1]))
+      if applicationSaveResult is error then
+        appuiconsole.appendLine(screen.console, "Save failed: " + applicationSaveResult.message,
+          appbyteio.truncInt(started))
+      else
+        saveCheckpoints[applicationSaveSlot] = applicationSaveResult
+        appuiconsole.appendLine(screen.console, "Saved slot " + (applicationSaveSlot + 1),
+          appbyteio.truncInt(started))
+      end if
+    end if
+    applicationLoadSlot = appuicommands.takeLoadSlot(commandState)
+    if applicationLoadSlot >= 0 then
+      applicationLoadCheckpoint = saveCheckpoints[applicationLoadSlot]
+      if applicationLoadCheckpoint is void then
+        appuiconsole.appendLine(screen.console, "No in-session save in slot " +
+          (applicationLoadSlot + 1), appbyteio.truncInt(started))
+      else
+        applicationLoadResult = try(apppersistence.restorePlaySession(session,
+          applicationLoadCheckpoint))
+        if applicationLoadResult is error then
+          appuiconsole.appendLine(screen.console, "Load failed: " + applicationLoadResult.message,
+            appbyteio.truncInt(started))
+        else
+          appuiconsole.appendLine(screen.console, "Loaded slot " + (applicationLoadSlot + 1),
+            appbyteio.truncInt(started))
+          screen.menu.active = false
+          appuikeys.setDestination(input, appuiconstants.KEY_GAME)
+        end if
+      end if
+    end if
+    if commandState.videoRestartRequested then
+      appuiconsole.appendLine(screen.console,
+        "Video mode changes are staged for the next window creation.",
+        appbyteio.truncInt(started))
+      commandState.videoRestartRequested = false
+    end if
     networkMsec = started - networkTime
     if networkMsec >= 100 then
       if networkMsec > 200 then networkMsec = 200 end if
