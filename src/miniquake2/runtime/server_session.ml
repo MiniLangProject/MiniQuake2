@@ -327,8 +327,11 @@ function synchronizeServerState(session)
   return true
 end function
 
-function createCoreMode(mapName, entityText, collision, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
+function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   if mapName == "" or typeof(entityText) != "string" then return error(9970, "server session requires map and entity text") end if
+  if typeof(spawnPoint) != "string" or len(bytes(spawnPoint)) >= ssqc.MAX_QPATH then
+    return error(9984, "server session spawn point is invalid")
+  end if
   if maxClients < 1 or maxClients > 256 then return error(9971, "server session maxclients outside range") end if
   if typeof(deathmatch) != "bool" or typeof(cooperative) != "bool" or (deathmatch and cooperative) then
     return error(9983, "server session requires one valid game mode")
@@ -343,7 +346,7 @@ function createCoreMode(mapName, entityText, collision, bindAddress, port, maxCl
   serverSessionModeContextHolder = ssgame.playerContext()
   serverSessionModeContextHolder.deathmatch = deathmatch
   serverSessionModeContextHolder.cooperative = cooperative
-  gameExport.spawnEntities(mapName, entityText, "")
+  gameExport.spawnEntities(mapName, entityText, spawnPoint)
   bridgeRuntime.mapName = mapName
   bridgeRuntime.spawnCount = 1
 
@@ -359,22 +362,43 @@ function createCoreMode(mapName, entityText, collision, bindAddress, port, maxCl
   return session
 end function
 
-function createCore(mapName, entityText, collision, bindAddress, port, maxClients, dedicated)
-  return createCoreMode(mapName, entityText, collision, bindAddress, port, maxClients, dedicated, false, false)
+function createCoreMode(mapName, entityText, collision, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
+  return createCoreModeAt(mapName, entityText, collision, "", bindAddress, port,
+    maxClients, dedicated, deathmatch, cooperative)
 end function
 
-function createRetailMode(baseDirectory, mapName, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
+function createCoreAt(mapName, entityText, collision, spawnPoint, bindAddress, port, maxClients, dedicated)
+  return createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
+    port, maxClients, dedicated, false, false)
+end function
+
+function createCore(mapName, entityText, collision, bindAddress, port, maxClients, dedicated)
+  return createCoreAt(mapName, entityText, collision, "", bindAddress, port, maxClients, dedicated)
+end function
+
+function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   filesystem = ssfs.initialize(baseDirectory, "")
   path = "maps/" + mapName + ".bsp"
   map = ssbsp.parse(ssfs.readFile(filesystem, path), path)
-  session = createCoreMode(mapName, map.entityText, sscollision.create(map), bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
+  session = createCoreModeAt(mapName, map.entityText, sscollision.create(map), spawnPoint,
+    bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   session.retailFileSystem = filesystem
   session.retailBaseDirectory = baseDirectory
   return session
 end function
 
+function createRetailMode(baseDirectory, mapName, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
+  return createRetailModeAt(baseDirectory, mapName, "", bindAddress, port,
+    maxClients, dedicated, deathmatch, cooperative)
+end function
+
+function createRetailAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated)
+  return createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress,
+    port, maxClients, dedicated, false, false)
+end function
+
 function createRetail(baseDirectory, mapName, bindAddress, port, maxClients, dedicated)
-  return createRetailMode(baseDirectory, mapName, bindAddress, port, maxClients, dedicated, false, false)
+  return createRetailAt(baseDirectory, mapName, "", bindAddress, port, maxClients, dedicated)
 end function
 
 function resetBridgeLevel(bridge, mapName, spawnCount, collision)

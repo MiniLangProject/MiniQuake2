@@ -34,12 +34,24 @@ function wrap(server, userInfo)
 end function
 
 function createCore(mapName, entityText, collision, userInfo)
-  server = plserver.createCore(mapName, entityText, collision, "127.0.0.1", 0, 1, false)
+  server = plserver.createCoreAt(mapName, entityText, collision, "", "127.0.0.1", 0, 1, false)
+  return wrap(server, userInfo)
+end function
+
+function createCoreAt(mapName, entityText, collision, spawnPoint, userInfo)
+  server = plserver.createCoreAt(mapName, entityText, collision, spawnPoint,
+    "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
 function createRetail(baseDirectory, mapName, userInfo)
-  server = plserver.createRetail(baseDirectory, mapName, "127.0.0.1", 0, 1, false)
+  server = plserver.createRetailAt(baseDirectory, mapName, "", "127.0.0.1", 0, 1, false)
+  return wrap(server, userInfo)
+end function
+
+function createRetailAt(baseDirectory, mapName, spawnPoint, userInfo)
+  server = plserver.createRetailAt(baseDirectory, mapName, spawnPoint,
+    "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 

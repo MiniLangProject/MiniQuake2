@@ -35,8 +35,10 @@ import miniquake2.client.state as appclientstate
 import miniquake2.client.effects.handoff as appeffecthandoff
 import miniquake2.client.cinematic.audio as appcinaudio
 import miniquake2.client.cinematic.player as appcinplayer
+import miniquake2.client.cinematic.picture as appcinpicture
 import miniquake2.runtime.play_session as appplay
 import miniquake2.runtime.session_persistence as apppersistence
+import miniquake2.runtime.media_sequence as appmediaseq
 import miniquake2.runtime.client_assets as appclientassets
 import miniquake2.client.assets.registry as appassetregistry
 import miniquake2.physics.vector as appphysicsvector
@@ -248,11 +250,24 @@ function cinematicPath(name)
   return applicationCinematicPathHolder
 end function
 
+function picturePath(name)
+  if typeof(name) != "string" or name == "" then return error(9926, "picturePath requires a picture name") end if
+  applicationPicturePathHolder = name
+  applicationPictureLowerHolder = apptext.lower(applicationPicturePathHolder)
+  if not apptext.startsWith(applicationPictureLowerHolder, "pics/") then
+    applicationPicturePathHolder = "pics/" + applicationPicturePathHolder
+  end if
+  if not endsWith(applicationPicturePathHolder, ".pcx") then
+    applicationPicturePathHolder = applicationPicturePathHolder + ".pcx"
+  end if
+  return applicationPicturePathHolder
+end function
+
 // Product CIN lifecycle: retail FS -> Huffman frames/palette -> OpenGL raw
 // stretch, with the CIN PCM stream feeding the same managed mixer/device used
 // by gameplay. Escape opens/closes the existing menu and pauses/resumes both
 // video time and its mixer channel without losing the current frame.
-function runCinematic(baseDirectory, name, frameLimit, looping)
+function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9922, "cinematic requires the Quake II install root") end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9923, "cinematic frame limit outside [0,36000]") end if
@@ -342,6 +357,127 @@ function runCinematic(baseDirectory, name, frameLimit, looping)
     applicationCinematicStreamFrame, applicationCinematicCompletions,
     applicationCinematicDropped, applicationCinematicPainted,
     applicationCinematicDeviceOpened]
+end function
+
+// Static intermission counterpart to runCinematic. Space/Enter emits the
+// classic nextserver intent; Escape opens the same menu/quit lifecycle.
+function runRetailPicture(baseDirectory, name, frameLimit)
+  global previewFileSystem
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9927, "picture requires the Quake II install root") end if
+  if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9928, "picture frame limit outside [0,36000]") end if
+  applicationPictureFileSystemHolder = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationPictureFileSystemHolder
+  applicationPicturePathHolder = picturePath(name)
+  applicationPicturePlaybackHolder = appcinpicture.start(appfs.readFile(
+    applicationPictureFileSystemHolder, applicationPicturePathHolder))
+  applicationPictureWindowHolder = appwindow.create("MiniQuake2 Picture - " + name,
+    640, 480, false)
+  applicationPictureRendererHolder = appgl.createOpenGlRenderer(true)
+  applicationPictureRendererHolder.exports.Init(void, void)
+  applicationPictureMixerHolder = appaudiomixer.create(44100)
+  appaudiomixer.setMasterVolume(applicationPictureMixerHolder, 0.7)
+  applicationPictureInputHolder = appuikeys.createInputState()
+  appuikeys.bind(applicationPictureInputHolder, appuiconstants.K_SPACE, "nextserver")
+  appuikeys.bind(applicationPictureInputHolder, appuiconstants.K_ENTER, "nextserver")
+  applicationPictureScreenHolder = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
+  applicationPictureCommandHolder = appuicommands.create()
+  applicationPictureClockHolder = appsystem.createClock()
+  applicationPictureFrames = 0
+  applicationPictureAdvanced = false
+  applicationPictureStats = array(32, 0)
+  applicationPictureConfigStrings = array(0)
+  while (frameLimit == 0 or applicationPictureFrames < frameLimit) and
+      not applicationPictureAdvanced and not applicationPictureCommandHolder.quitRequested and
+      appwindow.poll(applicationPictureWindowHolder)
+    applicationPictureNow = appbyteio.truncInt(appsystem.milliseconds(applicationPictureClockHolder))
+    appuicontroller.poll(applicationPictureInputHolder,
+      applicationPictureScreenHolder, applicationPictureNow)
+    appuicommands.drain(applicationPictureCommandHolder, applicationPictureInputHolder,
+      applicationPictureScreenHolder, applicationPictureMixerHolder)
+    applicationPictureForwarded = appuicommands.takeForwarded(applicationPictureCommandHolder)
+    for each applicationPictureCommand in applicationPictureForwarded
+      if apptext.equalInsensitive(applicationPictureCommand, "nextserver") then
+        applicationPictureAdvanced = true
+      end if
+    end for
+    applicationPictureRendererHolder.exports.BeginFrame(0.0)
+    if applicationPictureScreenHolder.menu.active then
+      if applicationPicturePlaybackHolder.paletteActive then
+        applicationPictureRendererHolder.exports.CinematicSetPalette(void)
+        applicationPicturePlaybackHolder.paletteActive = false
+      end if
+    else
+      appcinpicture.draw(applicationPicturePlaybackHolder,
+        applicationPictureWindowHolder.width, applicationPictureWindowHolder.height,
+        applicationPictureRendererHolder.exports)
+    end if
+    appuiscreen.draw(applicationPictureScreenHolder, applicationPictureNow,
+      applicationPictureWindowHolder.width, applicationPictureWindowHolder.height,
+      applicationPictureStats, applicationPictureConfigStrings,
+      applicationPictureRendererHolder.exports)
+    applicationPictureRendererHolder.exports.EndFrame()
+    applicationPictureFrames = applicationPictureFrames + 1
+    appsystem.sleep(8)
+  end while
+  applicationPictureStatus = applicationPicturePlaybackHolder.status
+  applicationPictureWidth = applicationPicturePlaybackHolder.image.width
+  applicationPictureHeight = applicationPicturePlaybackHolder.image.height
+  appcinpicture.stop(applicationPicturePlaybackHolder)
+  appcinpicture.draw(applicationPicturePlaybackHolder,
+    applicationPictureWindowHolder.width, applicationPictureWindowHolder.height,
+    applicationPictureRendererHolder.exports)
+  applicationPictureRendererHolder.exports.Shutdown()
+  appwindow.destroy(applicationPictureWindowHolder)
+  previewFileSystem = void
+  return [applicationPictureFrames, applicationPictureStatus,
+    applicationPictureWidth, applicationPictureHeight, applicationPictureAdvanced]
+end function
+
+// Execute the exact classic `map first+nextserver` media chain. A positive
+// frame limit is a deterministic preview gate per step; zero retains normal
+// interactive behavior (CIN to completion, PCX until Space/Enter, map until
+// window close). DM2 is parsed but remains an explicit unsupported boundary.
+function runRetailMediaSequence(baseDirectory, specification, frameLimit)
+  if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
+    return error(9929, "media sequence frame limit outside [0,36000]")
+  end if
+  applicationMediaSequenceHolder = appmediaseq.parse(specification)
+  applicationMediaCinematics = 0
+  applicationMediaPictures = 0
+  applicationMediaMaps = 0
+  applicationMediaCompleted = 0
+  applicationMediaIndex = 0
+  while applicationMediaIndex < len(applicationMediaSequenceHolder.steps)
+    applicationMediaStepHolder = applicationMediaSequenceHolder.steps[applicationMediaIndex]
+    if applicationMediaStepHolder.kind == appmediaseq.MEDIA_CIN then
+      applicationMediaCinematicResult = runRetailCinematic(baseDirectory,
+        applicationMediaStepHolder.name, frameLimit, false)
+      applicationMediaCinematics = applicationMediaCinematics + 1
+      if frameLimit == 0 and applicationMediaCinematicResult[1] != "completed" then
+        return [applicationMediaCompleted, applicationMediaCinematics,
+          applicationMediaPictures, applicationMediaMaps, "aborted"]
+      end if
+    else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_PCX then
+      applicationMediaPictureResult = runRetailPicture(baseDirectory,
+        applicationMediaStepHolder.name, frameLimit)
+      applicationMediaPictures = applicationMediaPictures + 1
+      if frameLimit == 0 and not applicationMediaPictureResult[4] and
+          applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
+        return [applicationMediaCompleted, applicationMediaCinematics,
+          applicationMediaPictures, applicationMediaMaps, "aborted"]
+      end if
+    else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP then
+      runPlayAt(baseDirectory, applicationMediaStepHolder.name,
+        applicationMediaStepHolder.spawnPoint, frameLimit)
+      applicationMediaMaps = applicationMediaMaps + 1
+    else
+      return error(9930, "DM2 playback is not implemented in the product media sequence")
+    end if
+    applicationMediaCompleted = applicationMediaCompleted + 1
+    applicationMediaIndex = applicationMediaIndex + 1
+  end while
+  return [applicationMediaCompleted, applicationMediaCinematics,
+    applicationMediaPictures, applicationMediaMaps, "completed"]
 end function
 
 function assetSmoke(baseDirectory, mapName)
@@ -587,14 +723,14 @@ function previewMap(baseDirectory, mapName, frameLimit)
   return frames
 end function
 
-function runPlay(baseDirectory, mapName, frameLimit)
+function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   global previewFileSystem, playAssetState, playClientRuntime
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
   previewFileSystem = filesystem
   path = mapPath(mapName)
   map = appbsp.parse(appfs.readFile(filesystem, path), path)
-  session = appplay.createCore(mapName, map.entityText, appcollision.create(map),
+  session = appplay.createCoreAt(mapName, map.entityText, appcollision.create(map), spawnPoint,
     "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000")
   appplay.runUntilActive(session, 256)
 
@@ -639,7 +775,9 @@ function runPlay(baseDirectory, mapName, frameLimit)
   frames = 0
   latest = void
   lastWorldStats = void
+  applicationPendingMediaSpecification = ""
   while (frameLimit == 0 or frames < frameLimit) and not commandState.quitRequested and
+      applicationPendingMediaSpecification == "" and
       appwindow.poll(window)
     started = appsystem.milliseconds(clock)
     appuicontroller.poll(input, screen, started)
@@ -698,6 +836,8 @@ function runPlay(baseDirectory, mapName, frameLimit)
       stepResult = appplay.step(session)
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
+      applicationPendingMediaSpecification = appmediaseq.takeQueuedGameMap(
+        session.server.bridgeRuntime.commands)
       networkTime = started
     end if
 
@@ -752,9 +892,16 @@ function runPlay(baseDirectory, mapName, frameLimit)
   previewFileSystem = void
   playAssetState = void
   playClientRuntime = void
+  if applicationPendingMediaSpecification != "" then
+    runRetailMediaSequence(baseDirectory, applicationPendingMediaSpecification, frameLimit)
+  end if
   return [frames, clientState, serverFrame, registeredModels,
     registeredSounds, missingAssets, submittedEntities,
     visibleSurfaces, culledSurfaces, viewCluster]
+end function
+
+function runPlay(baseDirectory, mapName, frameLimit)
+  return runPlayAt(baseDirectory, mapName, "", frameLimit)
 end function
 
 function runDedicated(baseDirectory, mapName, port, frameLimit)

@@ -14,6 +14,9 @@ the menu resumes without advancing the stream. Completion or window close
 stops PCM, restores the game palette, shuts down the audio device and destroys
 the OpenGL window.
 
+Classic `+nextserver` chains are also executable through `--media-sequence`;
+see [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
+
 ## Retail evidence
 
 The installed, user-owned fixture is read in place and never copied:
@@ -39,9 +42,10 @@ remain strict and covered by native tests.
 ## Remaining integration boundary
 
 This command closes real retail decoding/render/audio/device lifecycle. The
-campaign server's `nextserver`/loading-plaque sequence does not yet launch the
-standalone player automatically, and PCX still-image intermissions use their
-separate screen path. Those are explicit application-state integration tasks,
-not decoder or device gaps. Menu `quit`, pause/resume and live mixer volume now
+product now parses and executes CIN/PCX/map `+nextserver` sequences, including
+named map spawn points. The active `--play` loop consumes the validated queued
+`gamemap` after intermission and enters that executor. It does not yet reuse
+one loading-plaque window across steps. That is an application-state visual
+continuity task, not a decoder or device gap. Menu `quit`, pause/resume and live mixer volume now
 share the product command policy documented in
 [`UI_AUDIO_ACCEPTANCE.md`](UI_AUDIO_ACCEPTANCE.md).

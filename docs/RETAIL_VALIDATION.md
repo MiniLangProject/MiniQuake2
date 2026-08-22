@@ -286,6 +286,11 @@ chain. The full run completed stream frame 81 exactly once with zero drops and
 decoder's legal leaf-255 fallback for unused zero-count Huffman context rows.
 See [`CINEMATIC_ACCEPTANCE.md`](CINEMATIC_ACCEPTANCE.md).
 
+The original `SV_Map` grammar is additionally exercised with the installed
+`eou1_.cin+*bunk1$start` and `end.cin+victory.pcx` chains. CIN, terminal PCX
+and named map spawn all pass through product-owned lifecycles; see
+[`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
+
 The interactive product loop also consumes the complete UI handoff and command
 surface: inventory rows use retail `CS_ITEMS` names, mixer gain changes live,
 and the three menu slots exercise atomic session save/restore. The focused

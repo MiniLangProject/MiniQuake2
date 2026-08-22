@@ -102,6 +102,8 @@ The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached
 frame 81 once with zero drops and restored the game palette on completion.
+Classic `+nextserver` strings now drive CIN, PCX and named-spawn map steps;
+the interactive loop consumes the validated `gamemap` queued at intermission.
 The same product UI now applies mouse sensitivity, always-run and mixer volume
 live, renders named `svc_inventory` contents, forwards game/chat commands, and
 provides three failure-atomic in-session Save/Load slots. See
@@ -168,6 +170,7 @@ With a legal Quake II installation root containing `baseq2\pak0.pak`:
 .\MiniQuake2\build\MiniQuake2.exe --map-preview "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --play "C:\Games\Quake2" base1 0
 .\MiniQuake2\build\MiniQuake2.exe --cinematic "C:\Games\Quake2" idlog 0 0
+.\MiniQuake2\build\MiniQuake2.exe --media-sequence "C:\Games\Quake2" "end.cin+victory.pcx" 0
 .\MiniQuake2\build\MiniQuake2.exe --dedicated "C:\Games\Quake2" base1 27910 0
 .\MiniQuake2\build\MiniQuake2.exe --listen "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --connect 127.0.0.1 27910 600
