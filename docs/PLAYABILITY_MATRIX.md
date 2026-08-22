@@ -18,7 +18,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
 | P08 | Two-player deathmatch | real UDP Blaster kill, visible projectile, effects, obituary, score and attack-latch respawn | PASS | all-weapon UDP matrix, map rotation, spectator and long soak |
 | P09 | Two-player cooperative play | shared item, disconnect/reconnect and non-stale signon epoch | PASS | campaign checkpoint matrix and friendly-fire/difficulty variants |
-| P10 | Complete single-player map lifecycle | 39 maps, 38 changes/re-signons, no packet rejection | PASS | automated goal-driven progression rather than direct map changes |
+| P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
 | P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug and package gates | PARTIAL | hardware matrix, original visual references and final performance budgets |
 

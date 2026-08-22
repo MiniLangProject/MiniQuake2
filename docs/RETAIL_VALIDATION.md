@@ -123,13 +123,27 @@ entities and selected 326 visible versus 6,981 culled world surfaces.
 This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
 
+`runtime_campaign_goal_session_tests` supplies the complementary goal-graph
+evidence. Starting at `base1`, it follows the canonical branched route through
+51 transitions and all 39 unique BSPs, including every required return trip.
+Each step must first reach the selected map through the existing Game/World
+key, counter, timer, trigger, monster-death or boss callbacks; only then may the
+runtime commit that selected map and complete a normal Protocol-34 re-signon.
+The final `boss2` chain reaches `victory.pcx`. The retail run passes with zero
+direct `target_changelevel` fallbacks. This is state-machine progression, not a
+claim of PMove navigation or weapon-by-weapon clearing: the driver invokes
+trigger use boundaries and deterministic lethal damage for goal-bound
+monsters rather than synthesizing a human input path. The optional Retail
+test is compiled with the product's 1-GB reserved heap profile; the canonical
+asset-free test binary deliberately retains the smaller 256-MB test profile.
+
 `baseq2_campaign_behavior_coverage_tests` inventories executable behavior over
 all 39 single-player BSPs: 34,298 raw entities, 9,304 target/transition
 instances across 32 classes, 1,624 monster instances across 22 BSP monster
 classes, and all five retail boss/special classes. The focused endgame gate
 executes Jorg death, the `t26` death target, dynamic Makron export with inherited
 target, the second count on `trigger_counter`, `target_changelevel`,
-intermission/next-map state and the queued `gamemap` command. A separate v5
+intermission/next-map state and the queued `gamemap` command. A separate v6
 private-save gate restores both the staged Jorg death and the dynamically
 materialized Makron while preserving enemy/target references and exactly-once
 transition guards. `point_combat`, `target_actor`, `target_character`,

@@ -165,6 +165,10 @@ function main(args)
         print("  endgame-link class=" + entity.className + " target=" + entity.target +
           " targetname=" + entity.targetName + " map=" + entity.map)
       end if
+      if entity.className == "target_changelevel" then
+        print("  transition map=" + mapName + " targetname=" + entity.targetName +
+          " target=" + entity.target + " next=" + entity.map)
+      end if
     end for
   end for
   if raw != 34298 then return error(9845, "campaign coverage retail aggregate changed") end if

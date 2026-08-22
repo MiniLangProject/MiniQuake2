@@ -41,7 +41,13 @@ generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
 the earlier lifecycle trace without a failure. The current complete attack-timeline
 build completes in 661 steps and 3,232 processed packets. An executable
-campaign matrix now covers every retail classname and proves the `boss2`
+goal-route gate additionally visits all 39 unique BSPs in their canonical
+branched order through 51 real objective-confirmed map changes, retaining one
+Protocol-34 session and completing every re-signon without a direct
+`target_changelevel` fallback. It drives the existing key, counter, timer,
+trigger, monster-death and boss state machines and terminates at `victory.pcx`;
+it intentionally abstracts player navigation and uses deterministic damage for
+goal-bound monsters. An executable campaign matrix covers every retail classname and proves the `boss2`
 Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
 The retail behavior matrix now classifies `point_combat`, `trigger_key`,
 `target_actor`, `target_character`, `target_string`, `func_clock` and

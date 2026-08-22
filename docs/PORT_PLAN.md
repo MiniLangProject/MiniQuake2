@@ -47,7 +47,12 @@ pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
 the current complete attack-timeline build produces a
-661-step/3,232-packet result. The behavior
+661-step/3,232-packet result. A second campaign gate follows the canonical
+branched route through 51 objective-confirmed changes and all 39 unique BSPs.
+It executes existing key/counter/timer/trigger/monster-death/boss callbacks,
+commits only their selected next map, re-signs on after every transition and
+reaches `victory.pcx` with zero direct changelevel fallbacks. Physical player
+navigation and weapon-by-weapon clearing remain separate acceptance work. The behavior
 matrix additionally proves the persistent boss2 Jorg/Makron/counter/changelevel chain. An
 active-session adapter round-trips Game+Level saves failure-atomically while
 preserving a live Netchan and producing the next valid snapshot, and
