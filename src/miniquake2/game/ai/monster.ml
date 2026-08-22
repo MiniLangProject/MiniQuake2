@@ -4,6 +4,7 @@ package miniquake2.game.ai.monster
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
 import miniquake2.game.ai.reaction_sequences as gaireactions
+import miniquake2.game.ai.death_effects as gaideatheffects
 import miniquake2.game.ai.locomotion_sequences as gailocomotion
 import miniquake2.game.ai.props as gaimonsterprops
 import miniquake2.game.constants as gconstants
@@ -183,7 +184,22 @@ function FinishReaction(actor, plan, context)
   end if
   actor.deadFlag = gaiconstants.DEAD_DEAD
   actor.edict.serverFlags = actor.edict.serverFlags | gconstants.SVF_DEADMONSTER
-  if plan.terminalKind == "explode" or plan.terminalKind == "gib" then
+  if plan.terminalKind == "boss-explode" then
+    actor.activity = "boss-explode"
+    actor.bossPhase = "supertank-explode"
+    actor.info.nextFrame = 0
+    actor.nextThink = context.time + gaiconstants.FRAMETIME
+    return true
+  end if
+  if plan.terminalKind == "explode" then
+    gaiExplosionResult = gaideatheffects.emitExplosion(actor, actor.edict.state.origin, 0, context)
+    if gaiExplosionResult is error then return gaiExplosionResult end if
+    actor.edict.inUse = false
+    actor.activity = plan.terminalKind
+    actor.nextThink = 0.0
+    return true
+  end if
+  if plan.terminalKind == "gib" then
     actor.edict.inUse = false
     actor.activity = plan.terminalKind
     actor.nextThink = 0.0
@@ -192,7 +208,29 @@ function FinishReaction(actor, plan, context)
   actor.moveType = gaiconstants.MOVETYPE_TOSS
   actor.activity = "corpse"
   actor.nextThink = 0.0
+  gaiCorpseResult = gaideatheffects.applyCorpse(actor, context)
+  if gaiCorpseResult is error then return gaiCorpseResult end if
   if plan.terminalKind == "jorg" then actor.bossPhase = "jorg-complete" end if
+  return true
+end function
+
+function AdvanceBossExplosion(actor, context)
+  stage = actor.info.nextFrame
+  if stage < 0 then stage = 0 end if
+  if stage < 8 then
+    gaideathExplosionOriginHolder = gaideatheffects.supertankExplosionOrigin(actor, stage)
+    gaiBossExplosionResult = gaideatheffects.emitExplosion(actor, gaideathExplosionOriginHolder, stage, context)
+    if gaiBossExplosionResult is error then return gaiBossExplosionResult end if
+    actor.info.nextFrame = stage + 1
+    actor.nextThink = context.time + gaiconstants.FRAMETIME
+    return true
+  end if
+  gaiBossGibResult = gaideatheffects.emitSupertankFinalGibs(actor, context)
+  if gaiBossGibResult is error then return gaiBossGibResult end if
+  actor.edict.inUse = false
+  actor.activity = "gib"
+  actor.bossPhase = "supertank-complete"
+  actor.nextThink = 0.0
   return true
 end function
 
@@ -215,6 +253,7 @@ end function
 
 function MonsterThink(actor, context)
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.Think(actor, context) end if
+  if actor.activity == "boss-explode" then return AdvanceBossExplosion(actor, context) end if
   reactionPlan = gaireactions.planByName(actor.className, actor.activity)
   if reactionPlan is not void then return AdvanceReaction(actor, reactionPlan, context) end if
   if actor.bossPhase == "jorg-death" then return ContinueBossDeath(actor, context) end if
@@ -366,7 +405,13 @@ function DispatchDie(actor, attacker, damage, context)
   result = actor.die(actor, attacker, damage, context)
   plan = gaireactions.selectDeathPlan(actor.className, actor.edict.state.number,
     actor.dieCount, actor.health <= actor.gibHealth)
-  if plan is not void then StartReaction(actor, plan, context) end if
+  if plan is not void then
+    StartReaction(actor, plan, context)
+    if plan.terminalKind == "gib" then
+      gaiGibResult = gaideatheffects.emitMonsterGibs(actor, damage, context)
+      if gaiGibResult is error then return gaiGibResult end if
+    end if
+  end if
   MonsterDeathUse(actor, context)
   actor.deathUseComplete = true
   // Jorg's BSP target is a two-count trigger_counter.  The original death

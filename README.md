@@ -40,7 +40,8 @@ perform a complete reconnect/signon; server restarts establish a fresh sequence
 generation. A persistent internal UDP session now loads, spawns, signs on and
 changes through all 39 single-player maps; three fresh product runs completed
 the earlier lifecycle trace without a failure. The current complete attack-timeline
-build completes in 661 steps and 3,232 processed packets. An executable
+build completes in 665 steps and 3,252 processed packets after publishing the
+complete stock gib-model inventory. An executable
 goal-route gate additionally visits all 39 unique BSPs in their canonical
 branched order through 51 real objective-confirmed map changes, retaining one
 Protocol-34 session and completing every re-signon without a direct
@@ -67,10 +68,13 @@ refire, all close-combat loops and the Parasite's ordered damage/beam frames in
 addition to the Infantry, Gunner, Soldier and boss schedules. The same stock
 layer now covers 63 pain variants, 43 normal-death variants, the original
 duck/dodge ranges for the six supporting families, and primary stand, idle,
-walk and run MD2 ranges for all 22 combat entries. Private-Save v6 resumes both
-attacks and active reactions at their next frame. Secondary fidgets, exact
-per-frame movement distances, corpse-bound variants, gib models and multi-stage
-death effects remain explicit differential-parity work. Muzzle and beam events travel through the typed
+walk and run MD2 ranges for all 22 combat entries. Stock terminal deaths now
+apply the original class-specific corpse bounds, export the original organic
+and metallic gib-model inventories as timed physics edicts, and reproduce the
+Supertank's eight-step explosion sequence before its final 14-part breakup.
+Private-Save v7 resumes attacks and active reactions at their next frame and
+round-trips live dynamic gib records. Secondary fidgets and exact per-frame
+movement distances remain explicit differential-parity work. Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
 non-combat states. The complete stock player-weapon set now uses its original
@@ -105,8 +109,8 @@ that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
 original `ref_gl` reference captures, paired original player view-model and
-recoil captures, the remaining secondary monster/turret/boss animation and
-gib/death-effect sequencing, exact movement/event differentials, and manual device
+recoil captures, remaining secondary monster/turret/boss fidgets,
+exact movement/event differentials, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.

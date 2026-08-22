@@ -29,11 +29,14 @@ paths. All 22 combat-capable stock entries now use data-driven frame-relative
 attack, melee or drain schedules with projected MD2 frames and ordered
 muzzle/beam events. In addition, 63 stock pain variants, 43 normal-death
 variants, the original six-family duck/dodge ranges and primary stand/idle/
-walk/run ranges cover all 22 combat entries; Private-Save v6 retains in-flight
-attack and reaction state. Their MZ2 and Parasite beam events pass through a
+walk/run ranges cover all 22 combat entries. Class-specific corpse bounds,
+stock organic/metallic gib inventories and the Supertank's eight-explosion plus
+14-gib terminal sequence are exported through real managed edicts and
+Protocol-34 effects; Private-Save v7 retains in-flight attack/reaction state
+and dynamic gib records. Their MZ2 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
-handoff. Secondary fidgets, exact movement distances, corpse-bound variants,
-gib models and multi-stage death effects remain an open differential gate. The
+handoff. Secondary fidgets and exact movement distances remain an open
+differential gate. The
 unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
@@ -42,12 +45,12 @@ Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining secondary monster animation/death effects, broader save coverage, paired original-renderer
+remaining secondary monster animation, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
-the current complete attack-timeline build produces a
-661-step/3,232-packet result. A second campaign gate follows the canonical
+the current death-terminal build produces a
+665-step/3,252-packet result. A second campaign gate follows the canonical
 branched route through 51 objective-confirmed changes and all 39 unique BSPs.
 It executes existing key/counter/timer/trigger/monster-death/boss callbacks,
 commits only their selected next map, re-signs on after every transition and

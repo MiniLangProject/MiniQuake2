@@ -13,10 +13,11 @@ import miniquake2.game.ai.types as privatesaveaitypes
 import miniquake2.game.types as privatesavegametypes
 import miniquake2.game.world.movers as privatemovers
 import miniquake2.game.world.types as privateworldtypes
+import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 6
+const PRIVATE_VERSION = 7
 
 struct PrivateRestore
   runtime
@@ -91,7 +92,10 @@ function encode(runtime, playerContext, entityString, spawnPoint)
 
   privatemessage.writeLong(buffer, len(runtime.world.entities))
   for each entity in runtime.world.entities
-    privatemessage.writeLong(buffer, entity.number); privateWriteBool(buffer, entity.inUse)
+    privatemessage.writeLong(buffer, entity.number)
+    privatemessage.writeString(buffer, entity.className); privatemessage.writeString(buffer, entity.model)
+    privatemessage.writeLong(buffer, entity.modelIndex)
+    privateWriteBool(buffer, entity.inUse)
     privateWriteVec(buffer, entity.origin); privateWriteVec(buffer, entity.angles); privateWriteVec(buffer, entity.oldOrigin)
     privateWriteVec(buffer, entity.velocity); privateWriteVec(buffer, entity.angularVelocity)
     privatemessage.writeLong(buffer, entity.health); privatemessage.writeLong(buffer, entity.maxHealth)
@@ -177,6 +181,13 @@ function findItem(runtime, number)
   return void
 end function
 
+function privateFindWorld(runtime, number)
+  for each entity in runtime.world.entities
+    if entity.number == number then return entity end if
+  end for
+  return void
+end function
+
 function privateRestoreEnemy(runtime, number, maxClients, exportTable)
   if number < 0 then return void end if
   privateSavedEnemyHolder = findMonster(runtime, number)
@@ -217,11 +228,22 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   runtime.world.intermission = privateReadBool(buffer, "private intermission")
 
   worldCount = privatechecked.readLong(buffer, "private world count")
-  if worldCount != len(runtime.world.entities) then return error(3874, "private world entity count mismatch") end if
+  if worldCount < len(runtime.world.entities) then return error(3874, "private world entity count mismatch") end if
   while worldCount > 0
     number = privatechecked.readLong(buffer, "private world number")
-    entity = privateintegration.findWorldByNumber(runtime, number)
-    if entity is void then return error(3875, "private world entity missing") end if
+    className = privatemessage.readString(buffer)
+    modelName = privatemessage.readString(buffer)
+    modelIndex = privatechecked.readLong(buffer, "private world model index")
+    entity = privateFindWorld(runtime, number)
+    if entity is void then
+      if className != "monster_gib" then return error(3875, "private world entity missing") end if
+      privateDynamicWorldHolder = privateworldtypes.createEntity(number, className)
+      privateworldcore.addEntity(runtime.world, privateDynamicWorldHolder)
+      entity = privateDynamicWorldHolder
+    else if entity.className != className then
+      return error(3887, "private world classname mismatch")
+    end if
+    entity.model = modelName; entity.modelIndex = modelIndex
     entity.inUse = privateReadBool(buffer, "private world inuse")
     entity.origin = privateReadVec(buffer, "private world origin"); entity.angles = privateReadVec(buffer, "private world angles"); entity.oldOrigin = privateReadVec(buffer, "private world old origin")
     entity.velocity = privateReadVec(buffer, "private world velocity"); entity.angularVelocity = privateReadVec(buffer, "private world angular velocity")
@@ -236,7 +258,9 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     entity.moveInfo.direction = privateReadVec(buffer, "private mover direction")
     entity.moveInfo.startOrigin = privateReadVec(buffer, "private mover start"); entity.moveInfo.endOrigin = privateReadVec(buffer, "private mover end")
     entity.moveInfo.startAngles = privateReadVec(buffer, "private mover start angles"); entity.moveInfo.endAngles = privateReadVec(buffer, "private mover end angles")
-    privatemovers.restoreMoverState(entity, runtime.world)
+    if entity.className == "monster_gib" then entity.think = privateworldcore.freeThink
+    else privatemovers.restoreMoverState(entity, runtime.world) end if
+    if entity.number >= runtime.world.nextEntityNumber then runtime.world.nextEntityNumber = entity.number + 1 end if
     worldCount = worldCount - 1
   end while
 

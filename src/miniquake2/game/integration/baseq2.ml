@@ -19,6 +19,7 @@ import miniquake2.game.ai.constants as ibaiconstants
 import miniquake2.game.ai.combat_profiles as ibaicombat
 import miniquake2.game.ai.attack_sequences as ibattackseq
 import miniquake2.game.ai.reaction_sequences as ibreactionseq
+import miniquake2.game.ai.death_effects as ibdeatheffects
 import miniquake2.game.gameplay.registry as ibitems
 import miniquake2.game.gameplay.item_rules as ibitemrules
 import miniquake2.game.gameplay.precache as ibprecache
@@ -153,6 +154,82 @@ function integratedAITempEntity(actor, effectType)
   return ibAITempImportsHolder.multicast(ibAITempOriginHolder, ibgconstants.MULTICAST_PVS)
 end function
 
+function integratedAIDeathEffect(actor, effect)
+  global activeIntegrationRuntime
+  ibDeathRuntimeHolder = activeIntegrationRuntime
+  if ibDeathRuntimeHolder is void then return false end if
+
+  if effect.kind == "corpse" then
+    if ibDeathRuntimeHolder.playerContext is not void then
+      return ibDeathRuntimeHolder.playerContext.imports.linkEntity(actor.edict)
+    end if
+    return true
+  end if
+
+  if effect.kind == "explosion" then
+    if ibDeathRuntimeHolder.playerContext is void then return true end if
+    ibDeathExplosionImportsHolder = ibDeathRuntimeHolder.playerContext.imports
+    ibDeathExplosionOriginHolder = effect.origin
+    ibDeathExplosionImportsHolder.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+    ibDeathExplosionImportsHolder.writeByte(effect.effectType)
+    ibDeathExplosionImportsHolder.writePosition(ibDeathExplosionOriginHolder)
+    return ibDeathExplosionImportsHolder.multicast(ibDeathExplosionOriginHolder, ibgconstants.MULTICAST_PVS)
+  end if
+
+  if effect.kind != "gib" then return error(9708, "unsupported monster death effect " + effect.kind) end if
+  if ibDeathRuntimeHolder.exportTable is void or ibDeathRuntimeHolder.playerContext is void then return true end if
+  ibDeathExportHolder = ibDeathRuntimeHolder.exportTable
+  ibDeathGibNumber = ibDeathExportHolder.numEdicts
+  if ibDeathGibNumber < 1 or ibDeathGibNumber >= ibDeathExportHolder.maxEdicts then
+    return error(9709, "monster gib exceeds edict capacity")
+  end if
+
+  ibDeathGibHolder = ibwtypes.createEntity(ibDeathGibNumber, "monster_gib")
+  ibDeathGibHolder.model = effect.modelName
+  ibDeathGibHolder.modelIndex = ibDeathRuntimeHolder.playerContext.imports.modelIndex(effect.modelName)
+  ibDeathSequence = effect.sequence
+  ibDeathSeed = actor.edict.state.number * 41 + ibDeathSequence * 73 + 19
+  ibDeathOriginHolder = effect.origin
+  ibDeathGibHolder.origin = ibqtypes.Vec3(
+    ibDeathOriginHolder.x + ((ibDeathSeed % 33) - 16),
+    ibDeathOriginHolder.y + (((ibDeathSeed * 3) % 33) - 16),
+    ibDeathOriginHolder.z + (((ibDeathSeed * 7) % 25) - 4)
+  )
+  ibDeathVelocityScale = 0.5
+  if effect.gibType == ibdeatheffects.GIB_METALLIC then ibDeathVelocityScale = 1.0 end if
+  ibDeathGibHolder.velocity = ibqtypes.Vec3(
+    (((ibDeathSeed * 17) % 401) - 200) * ibDeathVelocityScale,
+    (((ibDeathSeed * 29) % 401) - 200) * ibDeathVelocityScale,
+    200.0 + ((ibDeathSeed * 11) % 301)
+  )
+  ibDeathGibHolder.angularVelocity = ibqtypes.Vec3(
+    (ibDeathSeed * 31) % 600, (ibDeathSeed * 47) % 600, (ibDeathSeed * 59) % 600)
+  ibDeathGibHolder.effects = ibgconstants.EF_GIB
+  ibDeathGibHolder.solid = ibworldconstants.SOLID_NOT
+  ibDeathGibHolder.moveType = ibworldconstants.MOVETYPE_TOSS
+  if effect.gibType == ibdeatheffects.GIB_METALLIC then ibDeathGibHolder.moveType = ibworldconstants.MOVETYPE_BOUNCE end if
+  ibDeathGibHolder.takeDamage = ibworldconstants.DAMAGE_YES
+  ibDeathGibHolder.think = ibworld.freeThink
+  ibDeathGibHolder.nextThink = ibDeathRuntimeHolder.world.time + 10.0 + (ibDeathSequence % 10)
+  ibworld.addEntity(ibDeathRuntimeHolder.world, ibDeathGibHolder)
+
+  ibDeathGibEdictHolder = ibgametypes.zeroEdict(ibDeathGibNumber)
+  ibDeathGibEdictHolder.inUse = true
+  ibDeathGibEdictHolder.solid = ibworldconstants.SOLID_NOT
+  ibDeathGibEdictHolder.state.origin = ibDeathGibHolder.origin
+  ibDeathGibEdictHolder.state.oldOrigin = ibDeathGibHolder.origin
+  ibDeathGibEdictHolder.state.effects = ibDeathGibHolder.effects
+  ibDeathGibEdictHolder.mins = ibqtypes.Vec3(0.0, 0.0, 0.0)
+  ibDeathGibEdictHolder.maxs = ibqtypes.Vec3(0.0, 0.0, 0.0)
+  ibDeathExportHolder.edicts[ibDeathGibNumber] = ibDeathGibEdictHolder
+  ibDeathExportHolder.numEdicts = ibDeathGibNumber + 1
+  ibDeathRuntimeHolder.playerContext.imports.setModel(ibDeathGibEdictHolder, effect.modelName)
+  ibDeathGibEdictHolder.state.modelIndex = ibDeathGibHolder.modelIndex
+  ibDeathExportHolder.edicts[ibDeathGibNumber] = ibgametypes.stabilizeEdict(ibDeathGibEdictHolder)
+  ibDeathRuntimeHolder.playerContext.imports.linkEntity(ibDeathGibEdictHolder)
+  return true
+end function
+
 function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
@@ -163,6 +240,7 @@ function configureAI(context)
   context.spawnMonster = integratedSpawnMonster
   context.playSound = integratedAISound
   context.tempEntity = integratedAITempEntity
+  context.deathEffect = integratedAIDeathEffect
   return context
 end function
 
@@ -1164,6 +1242,17 @@ function precacheSpawned(runtime, playerContext)
     end if
     ibPrecacheMonsterPosition = ibPrecacheMonsterPosition + 1
   end while
+  if len(runtime.monsters) > 0 then
+    // Every stock death function draws from this bounded shared inventory.
+    // Register it during level setup so a later gib never mutates model
+    // configstrings in the middle of an unreliable snapshot.
+    imports.modelIndex("models/objects/gibs/bone/tris.md2")
+    imports.modelIndex("models/objects/gibs/sm_meat/tris.md2")
+    imports.modelIndex("models/objects/gibs/head2/tris.md2")
+    imports.modelIndex("models/objects/gibs/chest/tris.md2")
+    imports.modelIndex("models/objects/gibs/sm_metal/tris.md2")
+    imports.modelIndex("models/objects/gibs/gear/tris.md2")
+  end if
   worldModels = []
   for each entity in runtime.world.entities
     if entity.inUse and entity.model != "" then

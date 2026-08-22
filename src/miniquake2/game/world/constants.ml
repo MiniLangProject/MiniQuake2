@@ -13,6 +13,7 @@ const MOVETYPE_STEP = 4
 const MOVETYPE_TOSS = 6
 const MOVETYPE_PUSH = 7
 const MOVETYPE_STOP = 8
+const MOVETYPE_BOUNCE = 10
 
 const SOLID_NOT = 0
 const SOLID_TRIGGER = 1

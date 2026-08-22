@@ -117,8 +117,13 @@ product passed the same matrix again in 661 steps and 3,234 processed packets.
 After completing every stock monster ranged, melee and drain attack timeline,
 the rebuilt Release product passed all 39 maps and 38 changes again with spawn
 count 39, 661 steps and 3,232 processed packets.
+After adding the complete stock death-terminal model inventory, the rebuilt
+Release product passed the same 39 maps and 38 changes with spawn count 39 in
+665 steps and 3,252 packets. The deterministic increase is the four newly
+published model configstrings needed beyond the previously registered gib
+assets.
 The matching visible `base1` start reached `CA_ACTIVE` at server frame 14,
-registered 80 models and 45 sounds with zero missing assets, submitted 25
+registered 84 models and 45 sounds with zero missing assets, submitted 25
 entities and selected 326 visible versus 6,981 culled world surfaces.
 This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
@@ -175,13 +180,15 @@ damage/beam chain. The product-shaped Gunner gate observes eight ordered MZ2
 45–52 events from one AI attack. The reaction and locomotion suites inventory
 63 original pain variants, 43 normal-death variants, six stock duck/dodge
 ranges and primary stand/idle/walk/run ranges for all 22 combat entries.
-Private Save v6 retains a running attack or reaction's event index,
-next-frame time and reaction debounce. The
+Private Save v7 retains a running attack or reaction's event index,
+next-frame time and reaction debounce. Stock death terminals additionally
+carry their class-specific corpse bounds, exact organic/metallic gib-model
+inventories and the eight-step Supertank explosion/final-gib sequence through
+real engine edicts; active gibs round-trip through the same save format. The
 focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
 backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
-as the expected DLight and attack sound. Secondary fidgets, exact per-frame
-movement distances, corpse-bound variants, gib models and multi-stage death
-effects remain open; deterministic refire is deliberately bounded to eight
+as the expected DLight and attack sound. Secondary fidgets and exact per-frame
+movement distances remain open; deterministic refire is deliberately bounded to eight
 cycles.
 
 `server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and

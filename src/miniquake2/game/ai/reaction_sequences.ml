@@ -267,7 +267,7 @@ function deathVariant(className, variant)
     if variant == 0 then return reactionPlan(className, "death1", "death", 15, 23, "mutant/mutdeth1.wav", 1, "corpse") end if
     if variant == 1 then return reactionPlan(className, "death2", "death", 24, 33, "mutant/mutdeth1.wav", 1, "corpse") end if
   end if
-  if className == "monster_supertank" then return reactionPlan(className, "death", "death", 98, 121, "bosstank/btkdeth1.wav", 1, "corpse") end if
+  if className == "monster_supertank" then return reactionPlan(className, "death", "death", 98, 121, "bosstank/btkdeth1.wav", 1, "boss-explode") end if
   if className == "monster_boss2" then return reactionPlan(className, "death", "death", 132, 180, "bosshovr/bhvdeth1.wav", 0, "corpse") end if
   if className == "monster_jorg" then return reactionPlan(className, "death", "death", 31, 80, "boss3/bs3deth1.wav", 1, "jorg") end if
   if className == "monster_makron" then return reactionPlan(className, "death", "death", 251, 345, "makron/death.wav", 0, "corpse") end if
@@ -277,6 +277,12 @@ end function
 function selectDeathPlan(className, actorNumber, dieCount, gibbed)
   gaiReactionDeathVariantTotal = deathVariantCount(className)
   if gaiReactionDeathVariantTotal == 0 then return void end if
+  // These stock death functions never take the generic over-gib branch.
+  if className == "monster_flyer" or className == "monster_floater" or
+      className == "monster_supertank" or className == "monster_jorg" then
+    return deathVariant(className, deterministicValue(actorNumber, dieCount, 173,
+      gaiReactionDeathVariantTotal))
+  end if
   if gibbed then return reactionPlan(className, "gib", "death", 0, 0, "misc/udeath.wav", 1, "gib") end if
   return deathVariant(className, deterministicValue(actorNumber, dieCount, 173,
     gaiReactionDeathVariantTotal))
@@ -295,6 +301,9 @@ function stockDodgePlan(className)
 end function
 
 function planByName(className, name)
+  if name == className + "-gib" then
+    return reactionPlan(className, "gib", "death", 0, 0, "misc/udeath.wav", 1, "gib")
+  end if
   painIndex = 0
   while painIndex < painVariantCount(className)
     candidate = painVariant(className, painIndex)
@@ -332,7 +341,8 @@ function validatePlan(plan)
   end if
   if plan.attenuation != 0 and plan.attenuation != 1 then return error(9671, "invalid monster reaction attenuation") end if
   if plan.terminalKind != "run" and plan.terminalKind != "corpse" and
-      plan.terminalKind != "explode" and plan.terminalKind != "jorg" and plan.terminalKind != "gib" then
+      plan.terminalKind != "explode" and plan.terminalKind != "jorg" and
+      plan.terminalKind != "gib" and plan.terminalKind != "boss-explode" then
     return error(9672, "invalid monster reaction terminal kind")
   end if
   return true
