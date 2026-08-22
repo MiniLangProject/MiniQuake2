@@ -38,6 +38,7 @@ import miniquake2.client.cinematic.audio as appcinaudio
 import miniquake2.client.cinematic.player as appcinplayer
 import miniquake2.client.cinematic.picture as appcinpicture
 import miniquake2.runtime.play_session as appplay
+import miniquake2.runtime.campaign_playtest as appcampaignplaytest
 import miniquake2.runtime.session_persistence as apppersistence
 import miniquake2.runtime.media_sequence as appmediaseq
 import miniquake2.runtime.product_host as appproducthost
@@ -943,6 +944,23 @@ function runCampaignSessionSmoke(baseDirectory, maximumMaps)
   packets = session.client.packetsReceived + session.server.packetsReceived
   appplay.shutdown(session)
   return [completed, changes, state, spawnCount, steps, packets]
+end function
+
+function runPlayInputSmoke(baseDirectory, mapName, commandSteps)
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then
+    return error(9921, "play input smoke requires the Quake II install root")
+  end if
+  if typeof(mapName) != "string" or mapName == "" then return error(9922, "play input smoke map is missing") end if
+  appPhysicalInputSession = appplay.createRetailAtSkill(baseDirectory, mapName, "",
+    "\\name\\InputSmoke\\skin\\male/grunt\\rate\\25000", 0)
+  appplay.runUntilActive(appPhysicalInputSession, 512)
+  appPhysicalInputReport = appcampaignplaytest.drive(appPhysicalInputSession, commandSteps)
+  appplay.shutdown(appPhysicalInputSession)
+  if appPhysicalInputReport.planarDisplacement <= 64.0 then return error(9923, "play input smoke did not move") end if
+  if appPhysicalInputReport.fireCount < 1 then return error(9924, "play input smoke did not fire") end if
+  if appPhysicalInputReport.snapshots < 1 then return error(9925, "play input smoke did not receive snapshots") end if
+  if appPhysicalInputReport.rejectedPackets != 0 then return error(9926, "play input smoke rejected packets") end if
+  return appPhysicalInputReport
 end function
 
 function previewMap(baseDirectory, mapName, frameLimit)

@@ -18,13 +18,14 @@ const PORT_STAGE = "integrated-runtime-foundation"
 // Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
-  print "usage: MiniQuake2.exe [--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
+  print "usage: MiniQuake2.exe [--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
   print ""
   print "  --version             print the port and compatibility target"
   print "  --diagnostics         print the current bootstrap contract"
   print "  --capabilities        list linked Quake II port subsystems"
   print "  --asset-smoke ROOT [MAP] validate retail PAK/BSP/MD2/WAV and one server frame"
   print "  --campaign-session-smoke ROOT [MAPS] rotate one UDP session through up to 39 retail maps"
+  print "  --play-input-smoke ROOT [MAP] [STEPS] drive real UDP movement, weapon and snapshot input"
   print "  --map-preview ROOT MAP [FRAMES] open a native OpenGL BSP38 preview"
   print "  --play ROOT MAP [FRAMES] run the interactive local vertical slice (FRAMES=0 until closed)"
   print "  --cinematic ROOT NAME [FRAMES] [LOOP] play a retail CIN (FRAMES=0 until completion, LOOP=0|1)"
@@ -95,6 +96,24 @@ function runCampaignSessionSmoke(args)
   print "MiniQuake2 campaign session smoke: PASS"
   print "  maps=" + result[0] + " changes=" + result[1] + " client-state=" + result[2] + " spawn-count=" + result[3]
   print "  steps=" + result[4] + " packets=" + result[5]
+  return 0
+end function
+
+function runPlayInputSmoke(args)
+  if len(args) < 2 or len(args) > 4 then return error(9927, "--play-input-smoke expects install root, optional map and optional steps") end if
+  playInputMap = "base1"
+  playInputSteps = 48
+  if len(args) >= 3 then playInputMap = args[2] end if
+  if len(args) == 4 then playInputSteps = mainByteio.truncInt(toNumber(args[3])) end if
+  playInputResult = runtimeApplication.runPlayInputSmoke(args[1], playInputMap, playInputSteps)
+  print "MiniQuake2 play input smoke: PASS"
+  print "  map=" + playInputResult.mapName + " steps=" + playInputResult.commandSteps +
+    " snapshots=" + playInputResult.snapshots + " fire=" + playInputResult.fireCount +
+    " items=" + playInputResult.itemDelta + " health=" + playInputResult.health
+  print "  start=" + playInputResult.startOrigin.x + "," + playInputResult.startOrigin.y + "," + playInputResult.startOrigin.z +
+    " end=" + playInputResult.endOrigin.x + "," + playInputResult.endOrigin.y + "," + playInputResult.endOrigin.z +
+    " displacement2=" + playInputResult.planarDisplacement
+  print "  packets=" + playInputResult.packets + " rejected=" + playInputResult.rejectedPackets
   return 0
 end function
 
@@ -234,6 +253,7 @@ function main(args)
   if command == "--capabilities" and len(args) == 1 then printCapabilities(); return 0 end if
   if command == "--asset-smoke" then return runAssetSmoke(args) end if
   if command == "--campaign-session-smoke" then return runCampaignSessionSmoke(args) end if
+  if command == "--play-input-smoke" then return runPlayInputSmoke(args) end if
   if command == "--map-preview" then return runMapPreview(args) end if
   if command == "--play" then return runPlay(args) end if
   if command == "--cinematic" then return runCinematic(args) end if

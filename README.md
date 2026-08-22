@@ -196,6 +196,7 @@ With a legal Quake II installation root containing `baseq2\pak0.pak`:
 .\MiniQuake2\build\MiniQuake2.exe --listen "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --connect 127.0.0.1 27910 600
 .\MiniQuake2\scripts\campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
+.\MiniQuake2\scripts\physical_campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
 .\MiniQuake2\scripts\session_soak.ps1 -Quake2Root "C:\Games\Quake2" -Frames 10000
 ```
 
@@ -217,6 +218,12 @@ parser, then runs every discovered BSP through the built executable's
 Game-API/asset smoke. By default any failed map or skipped entity fails the
 gate; `-AllowSkipped` is available only for diagnostic work on incomplete
 branches. A machine-readable report can be requested with `-Json PATH`.
+
+The physical campaign smoke starts a fresh real UDP client/server session for
+each of the 39 stock single-player BSPs. Every map must accept decoded movement
+and attack UserCmds, produce PMove displacement, fire through Weapon_Generic,
+publish snapshots and reject zero packets. It records item deltas and deaths
+without treating an expected combat/environment death as a transport failure.
 
 ## Project contracts
 

@@ -128,6 +128,17 @@ entities and selected 326 visible versus 6,981 culled world surfaces.
 This is repeated map-load/spawn/network-lifecycle evidence only: it
 does not simulate campaign objectives, combat progression or an end-boss run.
 
+`scripts/physical_campaign_smoke.ps1` adds a separate physical-entry matrix.
+It starts a fresh real UDP session on each of the same 39 campaign BSPs and
+sends 48 decoded movement/attack UserCmds. Every map must produce PMove
+displacement, at least one normally scheduled weapon shot, 48 snapshots and
+zero rejected packets. The 2026-08-22 run passed 39/39; `base1` additionally
+crossed the stock item corridor and gained nine inventory units. `fact3`,
+`mine4` and `waste3` killed the deliberately non-reactive probe during those
+4.8 seconds, which is retained as hazard telemetry rather than hidden. This
+closes physical input at every campaign entry, not full human route-finding or
+resource-aware combat clearing.
+
 `runtime_campaign_goal_session_tests` supplies the complementary goal-graph
 evidence. Starting at `base1`, it follows the canonical branched route through
 51 transitions and all 39 unique BSPs, including every required return trip.
