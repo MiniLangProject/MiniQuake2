@@ -73,9 +73,11 @@ versioned private save format. Coupled turret rigs carry their bounds, team,
 aim, cadence, projectile and driver lifecycle through the integrated world
 runtime. Targeted Game-API `unicast`, `cprintf` and `centerprintf` messages also
 reach exactly one transactional client UI handoff through bounded reliable or
-sequenced-unreliable queues. In addition,
-two live UDP clients prove core DM and coop lifecycle semantics. G10 includes
-manifest and asset/source exclusion, native Release/Debug gates, diagnostics,
+sequenced-unreliable queues. In addition, the bounded 2–8-client harness keeps
+the detailed two-player DM/coop cases and adds a four-client signon,
+disconnect/reconnect, channel-preserving checkpoint, map-change and 500-frame
+steady-state gate. G10 includes manifest and asset/source exclusion, native
+Release/Debug gates, diagnostics,
 retail smoke, deterministic packaging, and a 10,000-frame retail session soak
 at 20.91 frames/s with zero packet rejects and bounded handles/history. Retail
 input hashes and results are recorded in

@@ -16,7 +16,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P05 | Stock monster frame sequencing | attack/ranged/melee, 63 pain, 43 death, dodge, primary locomotion, class corpse bounds, stock physical gibs and staged Supertank destruction; live MZ2 and Parasite beam chains | PASS (primary moves and death terminals) | secondary fidgets and exact per-frame movement differential |
 | P06 | Save during an active monster sequence | Private-Save v10 attack/reaction fields, dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
-| P08 | Two-player deathmatch | all 11 stock weapon modes through real UDP UserCmds, projectiles/effects, scoring/respawn, spectator transition, maplist re-signon and post-change soaks | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
+| P08 | Multiplayer deathmatch | all 11 stock weapon modes through real UDP UserCmds, projectiles/effects, scoring/respawn, spectator transition, maplist re-signon; additional four-client signon, telefrag recovery, reconnect, live checkpoint, map change and 500-frame tail | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P09 | Two-player cooperative play | shared item/reconnect, skill 0/3, teammate damage, plus 39-BSP/51-goal-transition route with 39 live two-player checkpoints | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke, 39-map physical input/PMove/weapon/snapshot entry matrix, plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (physical entry + goal graph) | full corridor navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
@@ -89,6 +89,18 @@ through reliable `clc_userinfo`, reaches a frag-limit intermission, consumes
 the queued `gamemap`, re-signs both clients on the successor map without
 rewinding either Netchan, and then runs 500 additional server frames without a
 rejected packet.
+
+`runtime.multiplayer_session` now accepts a bounded 2–8 clients rather than
+hard-coding two. The four-client acceptance fixture proves distinct server
+slots and complete snapshot visibility, recovers simultaneous signon
+telefrags through the normal force-respawn path, drives every Netchan, drops
+and reconnects two peers, preserves all eight client/server channel objects
+through a same-map four-player checkpoint, changes map without rewinding any
+sequence and completes a 500-frame steady-state tail. Late classic
+three-disconnect bursts are bounded before the tail; no additional packet is
+rejected during steady state. The 4-MB-GC run processed 6,330 received and
+6,323 sent datagrams; the four counted rejects are only the bounded stale
+disconnect bursts preceding the clean tail.
 
 `runtime_multiplayer_all_weapons_tests` equips each stock weapon only as test
 setup, then requires the actual attack to travel through a decoded UDP UserCmd.

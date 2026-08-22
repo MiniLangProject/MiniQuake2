@@ -219,10 +219,11 @@ function restoreMultiplayerSession(session, checkpoint)
   if session is void or session.closed or not savegatemultiplayer.signonComplete(session) then
     return error(8481, "multiplayer session must be active before restore")
   end if
-  savegateMultiplayerClientChannels = array(savegatemultiplayer.CLIENT_COUNT, void)
-  savegateMultiplayerServerChannels = array(savegatemultiplayer.CLIENT_COUNT, void)
+  savegateMultiplayerCount = len(session.clients)
+  savegateMultiplayerClientChannels = array(savegateMultiplayerCount, void)
+  savegateMultiplayerServerChannels = array(savegateMultiplayerCount, void)
   savegateMultiplayerChannelIndex = 0
-  while savegateMultiplayerChannelIndex < savegatemultiplayer.CLIENT_COUNT
+  while savegateMultiplayerChannelIndex < savegateMultiplayerCount
     savegateMultiplayerClientChannel = session.clients[
       savegateMultiplayerChannelIndex].integrated.network.client.channel
     savegateMultiplayerClientChannels[savegateMultiplayerChannelIndex] = savegateMultiplayerClientChannel
@@ -239,7 +240,7 @@ function restoreMultiplayerSession(session, checkpoint)
 
   savegateMultiplayerResult = restoreServerSession(session.server, checkpoint)
   savegateMultiplayerVerifyIndex = 0
-  while savegateMultiplayerVerifyIndex < savegatemultiplayer.CLIENT_COUNT
+  while savegateMultiplayerVerifyIndex < savegateMultiplayerCount
     savegateMultiplayerVerifySlot = savegatemultiplayer.serverSlot(session,
       savegateMultiplayerVerifyIndex)
     if savegateMultiplayerVerifySlot < 0 or

@@ -1,4 +1,4 @@
-/* Two-client listen-server harness over the real nonblocking UDP sessions. */
+/* Bounded multi-client listen-server harness over real nonblocking UDP sessions. */
 package miniquake2.runtime.multiplayer_session
 
 import miniquake2.network.constants as mpsnetworkconstants
@@ -13,7 +13,8 @@ import miniquake2.runtime.media_sequence as mpsmediasequence
 
 const MODE_DEATHMATCH = "deathmatch"
 const MODE_COOP = "coop"
-const CLIENT_COUNT = 2
+const MIN_CLIENT_COUNT = 2
+const MAX_CLIENT_COUNT = 8
 
 struct MultiplayerStepResult
   clientStates
@@ -42,11 +43,12 @@ function validateMode(mode)
 end function
 
 function validateUserInfos(userInfos)
-  if typeof(userInfos) != "array" or len(userInfos) != CLIENT_COUNT then
-    return error(8401, "multiplayer session requires exactly two client userinfos")
+  if typeof(userInfos) != "array" or len(userInfos) < MIN_CLIENT_COUNT or
+      len(userInfos) > MAX_CLIENT_COUNT then
+    return error(8401, "multiplayer session requires between two and eight client userinfos")
   end if
   mpsUserInfoIndex = 0
-  while mpsUserInfoIndex < CLIENT_COUNT
+  while mpsUserInfoIndex < len(userInfos)
     if typeof(userInfos[mpsUserInfoIndex]) != "string" or userInfos[mpsUserInfoIndex] == "" then
       return error(8402, "multiplayer client userinfo is missing")
     end if
@@ -58,18 +60,21 @@ end function
 function wrap(mode, server, userInfos)
   validateMode(mode)
   validateUserInfos(userInfos)
-  if server is void or server.networkRuntime.server.maxClients != CLIENT_COUNT then
-    return error(8403, "multiplayer server must expose exactly two slots")
+  mpsWrapCount = len(userInfos)
+  if server is void or server.networkRuntime.server.maxClients != mpsWrapCount then
+    return error(8403, "multiplayer server slot count must match client userinfos")
   end if
-  mpsWrappedClients = array(CLIENT_COUNT, void)
+  mpsWrappedClients = array(mpsWrapCount, void)
+  mpsWrappedUserInfos = array(mpsWrapCount, "")
   mpsWrapIndex = 0
-  while mpsWrapIndex < CLIENT_COUNT
+  while mpsWrapIndex < mpsWrapCount
     mpsWrappedClients[mpsWrapIndex] = mpsclientsession.create("127.0.0.1",
       server.socket.port, userInfos[mpsWrapIndex], 0)
+    mpsWrappedUserInfos[mpsWrapIndex] = userInfos[mpsWrapIndex]
     mpsWrapIndex = mpsWrapIndex + 1
   end while
   return MultiplayerSession(mode, server, mpsWrappedClients,
-    [userInfos[0], userInfos[1]], 0, false)
+    mpsWrappedUserInfos, 0, false)
 end function
 
 function createCore(mode, mapName, entityText, collision, userInfos)
@@ -78,10 +83,11 @@ end function
 
 function createCoreAtSkill(mode, mapName, entityText, collision, userInfos, skill)
   validateMode(mode)
+  validateUserInfos(userInfos)
   mpsDeathmatchMode = mode == MODE_DEATHMATCH
   mpsCoopMode = mode == MODE_COOP
   mpsCreatedServer = mpsserversession.createCoreModeAtSkill(mapName, entityText,
-    collision, "", "127.0.0.1", 0, CLIENT_COUNT, false,
+    collision, "", "127.0.0.1", 0, len(userInfos), false,
     mpsDeathmatchMode, mpsCoopMode, skill)
   return wrap(mode, mpsCreatedServer, userInfos)
 end function
@@ -92,18 +98,19 @@ end function
 
 function createRetailAtSkill(mode, baseDirectory, mapName, userInfos, skill)
   validateMode(mode)
+  validateUserInfos(userInfos)
   mpsRetailDeathmatchMode = mode == MODE_DEATHMATCH
   mpsRetailCoopMode = mode == MODE_COOP
   mpsRetailServer = mpsserversession.createRetailModeAtSkill(baseDirectory,
-    mapName, "", "127.0.0.1", 0, CLIENT_COUNT, false,
+    mapName, "", "127.0.0.1", 0, len(userInfos), false,
     mpsRetailDeathmatchMode, mpsRetailCoopMode, skill)
   return wrap(mode, mpsRetailServer, userInfos)
 end function
 
 function checkedClientIndex(session, clientIndex, operation)
   if session.closed then return error(8404, operation + ": multiplayer session is closed") end if
-  if typeof(clientIndex) != "int" or clientIndex < 0 or clientIndex >= CLIENT_COUNT then
-    return error(8405, operation + ": client index outside two-client session")
+  if typeof(clientIndex) != "int" or clientIndex < 0 or clientIndex >= len(session.clients) then
+    return error(8405, operation + ": client index outside multiplayer session")
   end if
   return clientIndex
 end function
@@ -126,7 +133,7 @@ end function
 
 function synchronizeScores(session)
   mpsScoreIndex = 0
-  while mpsScoreIndex < CLIENT_COUNT
+  while mpsScoreIndex < len(session.clients)
     mpsScoreSlot = serverSlot(session, mpsScoreIndex)
     if mpsScoreSlot >= 0 then
       mpsScorePlayer = player(session, mpsScoreIndex)
@@ -143,7 +150,7 @@ function activeClients(session)
   if session.closed then return 0 end if
   mpsActiveCount = 0
   mpsActiveIndex = 0
-  while mpsActiveIndex < CLIENT_COUNT
+  while mpsActiveIndex < len(session.clients)
     mpsActiveClient = session.clients[mpsActiveIndex]
     mpsActiveSlot = serverSlot(session, mpsActiveIndex)
     if mpsActiveClient is not void and not mpsActiveClient.closed and
@@ -159,17 +166,17 @@ function activeClients(session)
 end function
 
 function signonComplete(session)
-  return activeClients(session) == CLIENT_COUNT
+  return activeClients(session) == len(session.clients)
 end function
 
 function result(session)
-  mpsClientStates = array(CLIENT_COUNT, mpsnetworkconstants.CA_DISCONNECTED)
-  mpsServerStates = array(CLIENT_COUNT, mpsnetworkconstants.CS_FREE)
+  mpsClientStates = array(len(session.clients), mpsnetworkconstants.CA_DISCONNECTED)
+  mpsServerStates = array(len(session.clients), mpsnetworkconstants.CS_FREE)
   mpsResultReceived = session.server.packetsReceived
   mpsResultSent = session.server.packetsSent
   mpsResultRejected = session.server.packetsRejected
   mpsResultIndex = 0
-  while mpsResultIndex < CLIENT_COUNT
+  while mpsResultIndex < len(session.clients)
     mpsResultClient = session.clients[mpsResultIndex]
     if mpsResultClient is not void then
       mpsClientStates[mpsResultIndex] = mpsResultClient.integrated.network.client.state
@@ -191,14 +198,14 @@ end function
 function step(session)
   if session.closed then return error(8404, "step: multiplayer session is closed") end if
   mpsStepIndex = 0
-  while mpsStepIndex < CLIENT_COUNT
+  while mpsStepIndex < len(session.clients)
     mpsStepClient = session.clients[mpsStepIndex]
     if mpsStepClient is not void and not mpsStepClient.closed then mpsclientsession.step(mpsStepClient) end if
     mpsStepIndex = mpsStepIndex + 1
   end while
   mpsserversession.step(session.server)
   mpsPollIndex = 0
-  while mpsPollIndex < CLIENT_COUNT
+  while mpsPollIndex < len(session.clients)
     mpsPollClient = session.clients[mpsPollIndex]
     if mpsPollClient is not void and not mpsPollClient.closed then mpsclientsession.poll(mpsPollClient) end if
     mpsPollIndex = mpsPollIndex + 1
@@ -219,7 +226,7 @@ function runUntilActive(session, maximumSteps)
     mpsActivationSteps = mpsActivationSteps + 1
     if not signonComplete(session) then mpsplatformsystem.sleep(1) end if
   end while
-  if not signonComplete(session) then return error(8407, "two-client signon did not complete") end if
+  if not signonComplete(session) then return error(8407, "multiplayer signon did not complete") end if
   return mpsActivationResult
 end function
 
@@ -390,7 +397,7 @@ function disconnectClient(session, clientIndex)
       mpsDisconnectAttempts < 32
     mpsserversession.step(session.server)
     mpsOtherIndex = 0
-    while mpsOtherIndex < CLIENT_COUNT
+    while mpsOtherIndex < len(session.clients)
       mpsOtherClient = session.clients[mpsOtherIndex]
       if mpsOtherIndex != clientIndex and mpsOtherClient is not void and not mpsOtherClient.closed then
         mpsclientsession.poll(mpsOtherClient)
@@ -423,7 +430,7 @@ end function
 function shutdown(session)
   if session.closed then return false end if
   mpsShutdownIndex = 0
-  while mpsShutdownIndex < CLIENT_COUNT
+  while mpsShutdownIndex < len(session.clients)
     mpsShutdownClient = session.clients[mpsShutdownIndex]
     if mpsShutdownClient is not void and not mpsShutdownClient.closed then mpsclientsession.shutdown(mpsShutdownClient) end if
     mpsShutdownIndex = mpsShutdownIndex + 1

@@ -91,6 +91,10 @@ maplist rotation, full re-signon and a 500-frame post-change soak without
 rewinding the live Netchans. A complete UDP arsenal matrix fires all ten stock
 guns plus the cooked hand grenade, checking bilateral effects/projectile
 visibility, ammo consumption and a 300-frame transport tail.
+The same harness now scales from two through eight local peers; its four-client
+gate covers simultaneous signon/telefrag recovery, two disconnect/reconnect
+cycles, full snapshot visibility, a channel-preserving four-player checkpoint,
+map re-signon and a 500-frame steady-state tail.
 Game-API `unicast`, `cprintf` and `centerprintf` now use a separate bounded
 per-client queue: reliable text is ACK-retained, unreliable service commands
 remain sequenced, and transactional client handoff exposes prints only to the
