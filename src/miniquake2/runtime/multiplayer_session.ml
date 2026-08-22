@@ -73,20 +73,30 @@ function wrap(mode, server, userInfos)
 end function
 
 function createCore(mode, mapName, entityText, collision, userInfos)
+  return createCoreAtSkill(mode, mapName, entityText, collision, userInfos, 1)
+end function
+
+function createCoreAtSkill(mode, mapName, entityText, collision, userInfos, skill)
   validateMode(mode)
   mpsDeathmatchMode = mode == MODE_DEATHMATCH
   mpsCoopMode = mode == MODE_COOP
-  mpsCreatedServer = mpsserversession.createCoreMode(mapName, entityText, collision,
-    "127.0.0.1", 0, CLIENT_COUNT, false, mpsDeathmatchMode, mpsCoopMode)
+  mpsCreatedServer = mpsserversession.createCoreModeAtSkill(mapName, entityText,
+    collision, "", "127.0.0.1", 0, CLIENT_COUNT, false,
+    mpsDeathmatchMode, mpsCoopMode, skill)
   return wrap(mode, mpsCreatedServer, userInfos)
 end function
 
 function createRetail(mode, baseDirectory, mapName, userInfos)
+  return createRetailAtSkill(mode, baseDirectory, mapName, userInfos, 1)
+end function
+
+function createRetailAtSkill(mode, baseDirectory, mapName, userInfos, skill)
   validateMode(mode)
   mpsRetailDeathmatchMode = mode == MODE_DEATHMATCH
   mpsRetailCoopMode = mode == MODE_COOP
-  mpsRetailServer = mpsserversession.createRetailMode(baseDirectory, mapName,
-    "127.0.0.1", 0, CLIENT_COUNT, false, mpsRetailDeathmatchMode, mpsRetailCoopMode)
+  mpsRetailServer = mpsserversession.createRetailModeAtSkill(baseDirectory,
+    mapName, "", "127.0.0.1", 0, CLIENT_COUNT, false,
+    mpsRetailDeathmatchMode, mpsRetailCoopMode, skill)
   return wrap(mode, mpsRetailServer, userInfos)
 end function
 
@@ -304,8 +314,7 @@ end function
 // Test/product harness helper only establishes a deterministic unobstructed
 // duel.  It never invokes combat/death code: damage must arrive through the
 // normal client UserCmd -> WeaponThink -> weapon trace/projectile callbacks.
-function prepareDuel(session, attackerIndex, victimIndex, distance)
-  if session.mode != MODE_DEATHMATCH then return error(8409, "duel helper requires deathmatch mode") end if
+function prepareCombatPair(session, attackerIndex, victimIndex, distance)
   if typeof(distance) != "int" or distance < 32 or distance > 512 then
     return error(8411, "duel distance is invalid")
   end if
@@ -345,6 +354,16 @@ function prepareDuel(session, attackerIndex, victimIndex, distance)
   mpsDuelVictim.buttons = 0
   mpsDuelVictim.latchedButtons = 0
   return true
+end function
+
+function prepareDuel(session, attackerIndex, victimIndex, distance)
+  if session.mode != MODE_DEATHMATCH then return error(8409, "duel helper requires deathmatch mode") end if
+  return prepareCombatPair(session, attackerIndex, victimIndex, distance)
+end function
+
+function prepareCoopPair(session, attackerIndex, victimIndex, distance)
+  if session.mode != MODE_COOP then return error(8423, "coop combat helper requires cooperative mode") end if
+  return prepareCombatPair(session, attackerIndex, victimIndex, distance)
 end function
 
 function touchItem(session, clientIndex, className)

@@ -264,6 +264,7 @@
         "tests/runtime_multiplayer_deathmatch_tests.ml",
         "tests/runtime_multiplayer_coop_tests.ml",
         "tests/runtime_multiplayer_rotation_spectator_tests.ml",
+        "tests/runtime_multiplayer_coop_checkpoint_tests.ml",
         "docs/PLAYABILITY_MATRIX.md"
       ]
     },

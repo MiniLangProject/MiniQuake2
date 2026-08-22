@@ -6,6 +6,7 @@ import miniquake2.game.null_game as savegategameapi
 import miniquake2.network.constants as savegatenetworkconstants
 import miniquake2.runtime.server_session as savegateserversession
 import miniquake2.runtime.play_session as savegateplaysession
+import miniquake2.runtime.multiplayer_session as savegatemultiplayer
 
 struct SessionCheckpoint
   gamePath
@@ -89,6 +90,13 @@ end function
 function savePlaySession(session, gamePath, levelPath)
   if session is void or session.closed or not savegateplaysession.signonComplete(session) then
     return error(8446, "play session must be active before save")
+  end if
+  return saveServerSession(session.server, gamePath, levelPath)
+end function
+
+function saveMultiplayerSession(session, gamePath, levelPath)
+  if session is void or session.closed or not savegatemultiplayer.signonComplete(session) then
+    return error(8480, "multiplayer session must be active before save")
   end if
   return saveServerSession(session.server, gamePath, levelPath)
 end function
@@ -205,6 +213,49 @@ function restorePlaySession(session, checkpoint)
     return error(8454, "active channel state changed during same-map restore")
   end if
   return savegatePlayResult
+end function
+
+function restoreMultiplayerSession(session, checkpoint)
+  if session is void or session.closed or not savegatemultiplayer.signonComplete(session) then
+    return error(8481, "multiplayer session must be active before restore")
+  end if
+  savegateMultiplayerClientChannels = array(savegatemultiplayer.CLIENT_COUNT, void)
+  savegateMultiplayerServerChannels = array(savegatemultiplayer.CLIENT_COUNT, void)
+  savegateMultiplayerChannelIndex = 0
+  while savegateMultiplayerChannelIndex < savegatemultiplayer.CLIENT_COUNT
+    savegateMultiplayerClientChannel = session.clients[
+      savegateMultiplayerChannelIndex].integrated.network.client.channel
+    savegateMultiplayerClientChannels[savegateMultiplayerChannelIndex] = savegateMultiplayerClientChannel
+    savegateMultiplayerSlot = savegatemultiplayer.serverSlot(session,
+      savegateMultiplayerChannelIndex)
+    if savegateMultiplayerSlot < 0 then
+      return error(8482, "multiplayer restore lost an active server slot")
+    end if
+    savegateMultiplayerServerChannel = session.server.networkRuntime.server.clients[
+      savegateMultiplayerSlot].channel
+    savegateMultiplayerServerChannels[savegateMultiplayerChannelIndex] = savegateMultiplayerServerChannel
+    savegateMultiplayerChannelIndex = savegateMultiplayerChannelIndex + 1
+  end while
+
+  savegateMultiplayerResult = restoreServerSession(session.server, checkpoint)
+  savegateMultiplayerVerifyIndex = 0
+  while savegateMultiplayerVerifyIndex < savegatemultiplayer.CLIENT_COUNT
+    savegateMultiplayerVerifySlot = savegatemultiplayer.serverSlot(session,
+      savegateMultiplayerVerifyIndex)
+    if savegateMultiplayerVerifySlot < 0 or
+        nativeRawValue(session.clients[savegateMultiplayerVerifyIndex].integrated.network.client.channel) !=
+          nativeRawValue(savegateMultiplayerClientChannels[savegateMultiplayerVerifyIndex]) or
+        nativeRawValue(session.server.networkRuntime.server.clients[savegateMultiplayerVerifySlot].channel) !=
+          nativeRawValue(savegateMultiplayerServerChannels[savegateMultiplayerVerifyIndex]) then
+      return error(8483, "multiplayer restore replaced a live Netchan")
+    end if
+    savegateMultiplayerVerifyIndex = savegateMultiplayerVerifyIndex + 1
+  end while
+  if not savegatemultiplayer.signonComplete(session) then
+    return error(8484, "multiplayer restore changed active signon state")
+  end if
+  savegatemultiplayer.synchronizeScores(session)
+  return savegateMultiplayerResult
 end function
 
 function saveCrossMapRollback(session, checkpoint)

@@ -214,6 +214,13 @@ gate, consumes the resulting `gamemap`, re-signs both UDP clients on the next
 map while preserving monotone Netchan sequences, and completes a 500-frame
 post-change soak with zero rejected packets.
 
+`runtime_multiplayer_coop_checkpoint_tests` exercises both skill endpoints,
+saves and restores both connected players plus shared world state without
+replacing any of the four live client/server Netchans, validates independent
+key inventories and scores, then kills one teammate through eight decoded UDP
+Blaster commands. The coop obituary is retained without awarding a deathmatch
+frag, and a 200-frame post-restore transport soak completes with zero rejects.
+
 `gameplay_player_weapon_protocol_tests` now validates all ten stock player
 muzzle mappings, silencer framing, hit/blood/splash/bubble/rail/BFG effects,
 Shotgun pump timing, BFG windup and late ammo checks, Machinegun/Chaingun/

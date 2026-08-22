@@ -101,6 +101,10 @@ Cross-map checkpoints additionally perform a transactional map change, full
 Protocol-34 re-signon, Game+Level restore and a valid next snapshot; a failed
 target restore returns to the source map with a new legal spawn epoch while
 Netchan sequences only move forward.
+The same persistence boundary now also saves and restores both players in a
+live cooperative session without replacing either client or server Netchan;
+skill endpoints, shared key state, teammate damage and a post-restore UDP soak
+are covered by a dedicated native gate.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached

@@ -17,7 +17,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P06 | Save during an active monster sequence | Private-Save v7 attack/reaction fields, boss persistence and live-gib round trip | PASS | representative retail save positions and original-save policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
 | P08 | Two-player deathmatch | real UDP Blaster kill, visible projectile/effects, reliable spectator transition, maplist rotation with two-client re-signon, and 500-frame post-change soak | PASS | all-weapon UDP matrix |
-| P09 | Two-player cooperative play | shared item, disconnect/reconnect and non-stale signon epoch | PASS | campaign checkpoint matrix and friendly-fire/difficulty variants |
+| P09 | Two-player cooperative play | shared item, reconnect, skill 0/3, live two-player checkpoint restore, real teammate damage and 200-frame post-restore soak | PASS | retail multi-map objective/checkpoint sweep |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
 | P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug, package and original-renderer visual gates | PARTIAL | hardware matrix, device-loss/manual input/audio and final performance budgets |
