@@ -142,6 +142,21 @@ function sendStringCommand(session, command, now)
   return true
 end function
 
+function sendUserInfo(session, userInfo, now)
+  network = session.integrated.network
+  if network.client.state < csnc.CA_CONNECTED or network.client.channel is void then return false end if
+  buffer = csqsz.alloc(1024)
+  cscommands.writeUserInfo(buffer, userInfo)
+  queued = cspnetchan.queueReliableFragments(network.client.channel,
+    [csqsz.dataSlice(buffer)])
+  if queued == false then return false end if
+  network.client.userInfo = userInfo
+  stats = csnrtypes.stats()
+  cspump.flushClient(network, session.socket, now, bytes(), stats)
+  session.packetsSent = session.packetsSent + stats.sent
+  return true
+end function
+
 function signonCommand(text)
   arguments = csqcmd.tokenize(text)
   if len(arguments) == 0 then return "" end if

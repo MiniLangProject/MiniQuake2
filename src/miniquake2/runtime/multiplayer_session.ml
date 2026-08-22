@@ -8,6 +8,8 @@ import miniquake2.runtime.server_session as mpsserversession
 import miniquake2.platform.system as mpsplatformsystem
 import miniquake2.game.null_game as mpsgameapi
 import miniquake2.game.integration.baseq2 as mpsbaseq2
+import miniquake2.qcommon.byteio as mpsbyteio
+import miniquake2.runtime.media_sequence as mpsmediasequence
 
 const MODE_DEATHMATCH = "deathmatch"
 const MODE_COOP = "coop"
@@ -216,6 +218,77 @@ function queueUserCmd(session, clientIndex, command)
   mpsCommandClient = session.clients[clientIndex]
   if mpsCommandClient is void or mpsCommandClient.closed then return error(8408, "client is disconnected") end if
   return mpsclientsession.queueUserCmd(mpsCommandClient, command)
+end function
+
+function setUserInfo(session, clientIndex, userInfo)
+  checkedClientIndex(session, clientIndex, "setUserInfo")
+  if typeof(userInfo) != "string" or userInfo == "" then
+    return error(8402, "multiplayer client userinfo is missing")
+  end if
+  mpsUserInfoClient = session.clients[clientIndex]
+  if mpsUserInfoClient is void or mpsUserInfoClient.closed then
+    return error(8408, "client is disconnected")
+  end if
+  mpsUserInfoNow = mpsbyteio.truncInt(mpsplatformsystem.milliseconds(
+    mpsUserInfoClient.clock))
+  mpsUserInfoSent = mpsclientsession.sendUserInfo(mpsUserInfoClient,
+    userInfo, mpsUserInfoNow)
+  if mpsUserInfoSent then
+    session.userInfos[clientIndex] = userInfo
+  end if
+  return mpsUserInfoSent
+end function
+
+function takeQueuedMap(session)
+  if session.closed then return error(8404, "takeQueuedMap: multiplayer session is closed") end if
+  return mpsmediasequence.takeQueuedGameMap(
+    session.server.bridgeRuntime.commands)
+end function
+
+function changeMapCore(session, mapName, entityText, collision, maximumSteps)
+  if session.closed then return error(8404, "changeMapCore: multiplayer session is closed") end if
+  if typeof(maximumSteps) != "int" or maximumSteps < 1 then
+    return error(8406, "multiplayer map-change step limit must be positive")
+  end if
+  mpsCoreChangeAttempts = 0
+  while mpsCoreChangeAttempts < maximumSteps
+    mpsCoreChangeResult = mpsserversession.changeMapCore(session.server,
+      mapName, entityText, collision)
+    if mpsCoreChangeResult.changed then
+      runUntilActive(session, maximumSteps)
+      return mpsCoreChangeResult
+    end if
+    if not mpsCoreChangeResult.deferred then
+      return error(8417, "multiplayer core map change rejected: " +
+        mpsCoreChangeResult.reason)
+    end if
+    step(session)
+    mpsCoreChangeAttempts = mpsCoreChangeAttempts + 1
+  end while
+  return error(8418, "multiplayer core map change remained deferred")
+end function
+
+function changeMapRetail(session, baseDirectory, mapName, maximumSteps)
+  if session.closed then return error(8404, "changeMapRetail: multiplayer session is closed") end if
+  if typeof(maximumSteps) != "int" or maximumSteps < 1 then
+    return error(8406, "multiplayer map-change step limit must be positive")
+  end if
+  mpsRetailChangeAttempts = 0
+  while mpsRetailChangeAttempts < maximumSteps
+    mpsRetailChangeResult = mpsserversession.changeMapRetail(session.server,
+      baseDirectory, mapName)
+    if mpsRetailChangeResult.changed then
+      runUntilActive(session, maximumSteps)
+      return mpsRetailChangeResult
+    end if
+    if not mpsRetailChangeResult.deferred then
+      return error(8419, "multiplayer retail map change rejected: " +
+        mpsRetailChangeResult.reason)
+    end if
+    step(session)
+    mpsRetailChangeAttempts = mpsRetailChangeAttempts + 1
+  end while
+  return error(8421, "multiplayer retail map change remained deferred")
 end function
 
 function snapshotHasEntity(session, clientIndex, entityNumber)

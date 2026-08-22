@@ -85,7 +85,10 @@ with model/effect/loop-sound state. Two real local UDP clients
 complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
 now sees a moving Blaster bolt in both snapshots, kills a 100-health peer
 through seven genuine UDP Blaster commands, observes muzzle/sound/blood
-handoffs on both clients and respawns through the normal attack latch.
+handoffs on both clients and respawns through the normal attack latch. A second
+two-client gate performs a reliable spectator-to-player transition, frag-limit
+maplist rotation, full re-signon and a 500-frame post-change soak without
+rewinding the live Netchans.
 Game-API `unicast`, `cprintf` and `centerprintf` now use a separate bounded
 per-client queue: reliable text is ACK-retained, unreliable service commands
 remain sequenced, and transactional client handoff exposes prints only to the

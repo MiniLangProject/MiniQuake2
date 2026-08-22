@@ -16,7 +16,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P05 | Stock monster frame sequencing | attack/ranged/melee, 63 pain, 43 death, dodge, primary locomotion, class corpse bounds, stock physical gibs and staged Supertank destruction; live MZ2 and Parasite beam chains | PASS (primary moves and death terminals) | secondary fidgets and exact per-frame movement differential |
 | P06 | Save during an active monster sequence | Private-Save v7 attack/reaction fields, boss persistence and live-gib round trip | PASS | representative retail save positions and original-save policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
-| P08 | Two-player deathmatch | real UDP Blaster kill, visible projectile, effects, obituary, score and attack-latch respawn | PASS | all-weapon UDP matrix, map rotation, spectator and long soak |
+| P08 | Two-player deathmatch | real UDP Blaster kill, visible projectile/effects, reliable spectator transition, maplist rotation with two-client re-signon, and 500-frame post-change soak | PASS | all-weapon UDP matrix |
 | P09 | Two-player cooperative play | shared item, disconnect/reconnect and non-stale signon epoch | PASS | campaign checkpoint matrix and friendly-fire/difficulty variants |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
@@ -73,7 +73,12 @@ Managed moving projectiles own reusable engine edicts with the stock model,
 effect and loop-sound fields; a real two-client UDP gate observes a live bolt
 in both snapshots before the normal seven-shot Blaster kill. Remaining evidence
 is visual/differential rather than a known missing player-weapon family: paired
-original view-model/recoil captures and an all-weapon two-client soak.
+original view-model/recoil captures and an all-weapon two-client soak. The
+separate rotation gate changes a connected spectator back into a solid player
+through reliable `clc_userinfo`, reaches a frag-limit intermission, consumes
+the queued `gamemap`, re-signs both clients on the successor map without
+rewinding either Netchan, and then runs 500 additional server frames without a
+rejected packet.
 
 ## Closure order
 

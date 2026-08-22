@@ -207,6 +207,13 @@ map/spawn epoch, `IT_STAY_COOP` key pickup for both
 players, disconnect with the surviving peer still active, and a fresh reconnect
 and signon without stale visibility.
 
+`runtime_multiplayer_rotation_spectator_tests` adds a real reliable
+`clc_userinfo` transition from spectator to active deathmatch player, drives
+the frag-limit and maplist rules through the five-second intermission input
+gate, consumes the resulting `gamemap`, re-signs both UDP clients on the next
+map while preserving monotone Netchan sequences, and completes a 500-frame
+post-change soak with zero rejected packets.
+
 `gameplay_player_weapon_protocol_tests` now validates all ten stock player
 muzzle mappings, silencer framing, hit/blood/splash/bubble/rail/BFG effects,
 Shotgun pump timing, BFG windup and late ammo checks, Machinegun/Chaingun/
