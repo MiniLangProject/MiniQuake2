@@ -223,6 +223,7 @@ branches. A machine-readable report can be requested with `-Json PATH`.
 - [Compatibility, scope, and asset contract](docs/COMPATIBILITY_CONTRACT.md)
 - [Architecture decisions](docs/ARCHITECTURE.md)
 - [Ten-point implementation and acceptance plan](docs/PORT_PLAN.md)
+- [Release, Debug and deterministic package acceptance](docs/RELEASE_ACCEPTANCE.md)
 - [Player-facing playability and parity matrix](docs/PLAYABILITY_MATRIX.md)
 - [Reference inventory method and counts](docs/reference/README.md)
 - [Known risks and release-blocking gates](BLOCK_LEDGER.json)

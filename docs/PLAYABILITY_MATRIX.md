@@ -20,7 +20,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P09 | Two-player cooperative play | shared item/reconnect, skill 0/3, teammate damage, plus 39-BSP/51-goal-transition route with 39 live two-player checkpoints | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
-| P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug, package and original-renderer visual gates | PARTIAL | hardware matrix, device-loss/manual input/audio and final performance budgets |
+| P12 | Release/package/device acceptance | full 335-file Release/native matrix, 374-file manifest, Debug product graph, byte-reproducible packages, extracted-package smoke and original-renderer visual gates | PARTIAL | hardware matrix, device-loss/manual input/audio and final performance budgets |
 | P13 | Retail cinematic, demo and intermission playback | product `--cinematic` completes `idlog.cin`; installed `demo1.dm2` completes 696 packets/688 rendered frames; one shared host executes DM2/map and installed unit/end chains; `--play` consumes validated queued `gamemap` | PASS (product chain) | paired original demo timing/pixel trace on compatible host |
 | P14 | Product menu, inventory and volume | live mode restart, persistent config/key capture, difficulty-aware New Game, durable same/cross-map slots, settings/quit, inventory and mixer gain | PASS (product lifecycle) | hardware gamma and richer save-slot presentation |
 
@@ -111,3 +111,7 @@ sees and what later gates depend on:
 Every block must leave its focused native test, adjacent regressions, project
 syntax/inventory, Release build and relevant retail smoke green before it is
 marked complete.
+
+The current local Release/Debug/package evidence is recorded in
+[`RELEASE_ACCEPTANCE.md`](RELEASE_ACCEPTANCE.md). P12 remains partial only for
+the explicitly hardware- or external-host-dependent gates listed there.
