@@ -37,17 +37,21 @@ Two installed-data product chains pass without copying assets:
 | `eou1_.cin+*bunk1$start` | CIN frame presentation, `bunk1` load, named `start` spawn and one rendered game frame |
 | `end.cin+victory.pcx` | one CIN step plus the decoded/paletted terminal picture; two steps completed |
 
+Both steps report `host-generation=1 loading-frames=2`: the same native window
+and initialized Renderer API instance survives the entire chain. A loading
+plaque is presented before each potentially allocating/decoding step.
+
 Asset-free native gates cover the complete grammar, malformed cases, the PCX
 palette lifecycle and explicit named-spawn propagation. Existing listen,
 map-change, campaign-goal, dedicated, deathmatch and cooperative session tests
 remain green.
 
-## Remaining live transition boundary
+## Remaining boundary
 
 The command closes parsing and product execution of classic media chains. The
 active `--play` loop also validates and atomically consumes the game module's
 queued `gamemap` command after intermission, shuts the old session down and
-enters the same executor. Each media/map step currently owns a separate
-window/renderer lifecycle instead of reusing one loading-plaque state machine;
-that visual continuity is the remaining live-campaign orchestration task. DM2
-playback is a separate decoder/player feature.
+enters the same executor. Map, CIN and PCX steps now share one product host and
+loading lifecycle; map render resources are released between steps while the
+window/GL context remains owned until the complete chain ends. DM2 playback is
+the remaining classic media type and is still rejected explicitly.

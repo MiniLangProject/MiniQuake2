@@ -22,6 +22,7 @@ end if
 server = privaterestorebridge.createRuntime(4)
 api = privaterestoregame.GetGameApi(privaterestorebridge.makeImports(server))
 server.game = api
+privaterestoregame.configureSkill(2)
 api.init()
 fixture = "{\"classname\" \"worldspawn\"}" +
   "{\"classname\" \"info_player_start\" \"origin\" \"0 0 0\"}" +
@@ -75,6 +76,9 @@ restoreAssert(typeof(restoredLinearDoor.moveInfo.direction) == "struct" and
   restoredLinearDoor.moveInfo.remainingDistance == savedLinearRemaining,
   "linear mover direction/distance restored")
 restoreAssert(restoredRuntime.world.totalSecrets == 4 and restoredRuntime.world.foundSecrets == 3, "level counters restored")
+restoreAssert(restoredRuntime.aiContext.skill == 2 and
+  privaterestoregame.configuredGameSkill() == 2,
+  "new game skill restored and retained for later maps")
 restoredMonster = restoredRuntime.monsters[0]
 restoreAssert(restoredMonster.health == 41 and restoredMonster.activity == "soldier-shotgun-attack2" and restoredMonster.edict.state.frame == 77, "monster private state restored")
 restoreAssert(restoredMonster.attackCount == 7 and restoredMonster.meleeCount == 2 and

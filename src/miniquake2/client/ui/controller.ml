@@ -52,6 +52,12 @@ function handleEvent(input, screen, event, time)
   down = event.value != 0
   if event.type == cuic.EVENT_MOUSE_WHEEL then down = true end if
 
+  // Binding capture owns the next press before console/menu/game routing.
+  // Releases still pass through the normal stuck-key prevention path.
+  if input.captureCommand != "" and down then
+    return cuikeys.handleEvent(input, event, time)
+  end if
+
   // Always pass releases through, even if a menu opened while a +binding was
   // held. This is the original client's stuck-key prevention invariant.
   if down == false then return cuikeys.handleEvent(input, event, time) end if

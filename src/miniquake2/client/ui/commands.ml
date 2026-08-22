@@ -20,10 +20,12 @@ struct CommandState
   executed
   rejected
   forwarded
+  newGameSkill
+  configDirty
 end struct
 
 function create()
-  return CommandState(false, false, 0, false, 1.0, -1, -1, 0, 0, [])
+  return CommandState(false, false, 0, false, 1.0, -1, -1, 0, 0, [], -1, false)
 end function
 
 function numericArgument(arguments, name)
@@ -56,6 +58,7 @@ function localAction(commandState, input, screen, mixer, command)
       return error(8282, "sensitivity outside [1,20]")
     end if
     input.config.sensitivity = cuicmdSensitivity * 1.0
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "cl_run" then
@@ -65,11 +68,13 @@ function localAction(commandState, input, screen, mixer, command)
       return error(8283, "cl_run expects 0 or 1")
     end if
     input.config.alwaysRun = cuicmdAlwaysRun != 0
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "s_volume" then
     cuicmdVolume = numericArgument(cuicmdArguments, cuicmdName)
     cuicmdmixer.setMasterVolume(mixer, cuicmdVolume)
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "vid_mode" then
@@ -79,6 +84,7 @@ function localAction(commandState, input, screen, mixer, command)
       return error(8284, "vid_mode outside [0,3]")
     end if
     commandState.videoMode = cuicmdMode
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "vid_fullscreen" then
@@ -88,6 +94,7 @@ function localAction(commandState, input, screen, mixer, command)
       return error(8285, "vid_fullscreen expects 0 or 1")
     end if
     commandState.fullScreen = cuicmdFullScreen != 0
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "vid_gamma" then
@@ -96,10 +103,32 @@ function localAction(commandState, input, screen, mixer, command)
       return error(8286, "vid_gamma outside [0.5,2]")
     end if
     commandState.brightness = cuicmdBrightness * 1.0
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "vid_restart" then
     commandState.videoRestartRequested = true
+    return true
+  end if
+  if cuicmdName == "bindcapture" then
+    if len(cuicmdArguments) != 2 then return error(8288, "bindcapture expects one command") end if
+    cuicmdBindingCommand = cuicmdArguments[1]
+    cuicmdBindingAllowed = cuicmdBindingCommand == "+forward" or
+      cuicmdBindingCommand == "+back" or cuicmdBindingCommand == "+moveleft" or
+      cuicmdBindingCommand == "+moveright" or cuicmdBindingCommand == "+moveup" or
+      cuicmdBindingCommand == "+attack" or cuicmdBindingCommand == "+use" or
+      cuicmdBindingCommand == "inven"
+    if not cuicmdBindingAllowed then return error(8288, "bindcapture command is not allowed") end if
+    cuicmdkeys.beginBindingCapture(input, cuicmdBindingCommand)
+    return true
+  end if
+  if cuicmdName == "newgame" then
+    if len(cuicmdArguments) != 2 then return error(8289, "newgame expects a difficulty") end if
+    cuicmdDifficulty = cuicmdtext.lower(cuicmdArguments[1])
+    if cuicmdDifficulty == "easy" then commandState.newGameSkill = 0
+    else if cuicmdDifficulty == "medium" then commandState.newGameSkill = 1
+    else if cuicmdDifficulty == "hard" then commandState.newGameSkill = 2
+    else return error(8289, "newgame difficulty must be easy, medium or hard") end if
     return true
   end if
   if cuicmdName == "save" or cuicmdName == "load" then
@@ -164,4 +193,16 @@ function takeLoadSlot(commandState)
   cuicmdLoadSlot = commandState.loadSlot
   commandState.loadSlot = -1
   return cuicmdLoadSlot
+end function
+
+function takeNewGameSkill(commandState)
+  cuicmdNewGameSkill = commandState.newGameSkill
+  commandState.newGameSkill = -1
+  return cuicmdNewGameSkill
+end function
+
+function takeConfigDirty(commandState)
+  cuicmdConfigDirty = commandState.configDirty
+  commandState.configDirty = false
+  return cuicmdConfigDirty
 end function

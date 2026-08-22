@@ -93,6 +93,29 @@ function savePlaySession(session, gamePath, levelPath)
   return saveServerSession(session.server, gamePath, levelPath)
 end function
 
+// Reconstruct durable slot metadata after a process restart. Spawn/server
+// epochs are intentionally unknown (-1/0); restorePlaySessionRetail therefore
+// performs a legal re-signon before applying the images.
+function loadSessionCheckpoint(gamePath, levelPath, maxEdicts)
+  validatePaths(gamePath, levelPath)
+  if typeof(maxEdicts) != "int" or maxEdicts < 1 then
+    return error(8467, "persistent checkpoint maxEdicts must be positive")
+  end if
+  savegatePersistentGame = savegategamepersistence.readFile(gamePath, maxEdicts)
+  savegatePersistentLevel = savegategamepersistence.readFile(levelPath, maxEdicts)
+  if savegatePersistentGame.kind != "game" or savegatePersistentLevel.kind != "level" or
+      savegatePersistentGame.mapName == "" or
+      savegatePersistentGame.mapName != savegatePersistentLevel.mapName or
+      savegatePersistentGame.frameNumber != savegatePersistentLevel.frameNumber or
+      savegatePersistentGame.numEdicts != savegatePersistentLevel.numEdicts or
+      len(savegatePersistentGame.privateData) == 0 or
+      len(savegatePersistentLevel.privateData) == 0 then
+    return error(8468, "persistent checkpoint pair is inconsistent")
+  end if
+  return SessionCheckpoint(gamePath, levelPath, savegatePersistentGame.mapName,
+    -1, savegatePersistentGame.frameNumber, 0)
+end function
+
 function rollbackServerSession(server, rollbackGamePath, rollbackLevelPath)
   savegateRollbackGame = try(server.gameExport.readGame(rollbackGamePath))
   if savegateRollbackGame is error then return savegateRollbackGame end if

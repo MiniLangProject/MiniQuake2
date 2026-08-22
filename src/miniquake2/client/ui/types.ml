@@ -42,6 +42,8 @@ struct InputState
   message
   messageTeam
   config
+  captureCommand
+  capturedKey
 end struct
 
 struct ConsoleLine

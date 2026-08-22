@@ -44,6 +44,7 @@ lastSpawnResult = void
 activeBaseRuntime = void
 activePlayerContext = void
 activeMaxClients = 4
+activeSkill = 1
 
 function playerPmoveTrace(start, mins, maxs, finish)
   global activeImports
@@ -381,7 +382,7 @@ function Shutdown()
 end function
 
 function SpawnEntities(mapName, entityString, spawnPoint)
-  global mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activeMaxClients
+  global mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill
   requireInitialized("SpawnEntities")
   if typeof(mapName) != "string" or len(bytes(mapName)) == 0 then return error(3805, "SpawnEntities: empty map name") end if
   if typeof(entityString) != "string" then return error(3806, "SpawnEntities: entity string must be text") end if
@@ -417,6 +418,9 @@ function SpawnEntities(mapName, entityString, spawnPoint)
     index = index + 1
   end while
   activeBaseRuntime = ngbaseq2.create(spawned)
+  ngSkillRuntimeHolder = activeBaseRuntime
+  ngSkillAiContextHolder = ngSkillRuntimeHolder.aiContext
+  ngSkillAiContextHolder.skill = activeSkill
   ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
   playerContext = activePlayerContext
   playerContext.spawnSpots = levelSpawnSpots
@@ -456,7 +460,7 @@ function WriteGame(filename, autosave)
 end function
 
 function restoreManagedImage(image)
-  global currentMap, currentSpawnPoint, currentEntityString, frameNumber, mapLoaded, activeBaseRuntime, activePlayerContext, spawnedBaseEdicts, lastSpawnResult, activeMaxClients, activeImports, activeExport
+  global currentMap, currentSpawnPoint, currentEntityString, frameNumber, mapLoaded, activeBaseRuntime, activePlayerContext, spawnedBaseEdicts, lastSpawnResult, activeMaxClients, activeImports, activeExport, activeSkill
   exportTable = activeExport
   ngRestoredEdictsHolder = image.edicts
   ngRestoreIndex = 0
@@ -487,6 +491,7 @@ function restoreManagedImage(image)
   lastSpawnResult = restoredSpawnResult
   currentSpawnPoint = restored.spawnPoint
   currentEntityString = restored.entityString
+  activeSkill = restored.skill
   playerContext = activePlayerContext
   playerContext.spawnSpots = restoredSpawnSpots
   playerContext.spawnPoint = currentSpawnPoint
@@ -669,7 +674,7 @@ function ServerCommand()
 end function
 
 function GetGameApi(imports)
-  global activeImports, activeExport, initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, activeBaseRuntime, activePlayerContext, activeMaxClients
+  global activeImports, activeExport, initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill
   validateGameImport(imports)
   if initialized then return error(3821, "GetGameApi: active game must be shut down before replacement") end if
   activeImports = imports
@@ -685,6 +690,7 @@ function GetGameApi(imports)
   activeBaseRuntime = void
   activePlayerContext = void
   activeMaxClients = 4
+  activeSkill = 1
   activeExport = gt.GameExport(
     gc.GAME_API_VERSION,
     Init, Shutdown, SpawnEntities,
@@ -703,6 +709,22 @@ function configureMaxClients(count)
   if typeof(count) != "int" or count < 1 or count > qc.MAX_CLIENTS then return error(3829, "configureMaxClients: count outside protocol range") end if
   activeMaxClients = count
   return true
+end function
+
+function configureSkill(skill)
+  global activeSkill, initialized
+  requireInstalled("configureSkill")
+  if initialized then return error(3830, "configureSkill: game is already initialized") end if
+  if typeof(skill) != "int" or skill < 0 or skill > 3 then
+    return error(3831, "configureSkill: difficulty outside [0,3]")
+  end if
+  activeSkill = skill
+  return true
+end function
+
+function configuredGameSkill()
+  global activeSkill
+  return activeSkill
 end function
 
 function edictAt(index)

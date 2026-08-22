@@ -24,8 +24,14 @@ uiMenuAssertEqual(uiMenuState.currentPage, "main", "parent navigation")
 cuimenu.open(uiMenuState, "load")
 cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
 uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "load 0", "load slot command")
+uiMenuAssertEqual(cuimenu.setItemLabel(uiMenuState, "load", "load0", "slot 1 - base1"),
+  true, "persistent slot label update")
+uiMenuAssertEqual(uiMenuState.pages[4].items[0].label, "slot 1 - base1",
+  "persistent slot label retained")
 cuimenu.open(uiMenuState, "keys")
-uiMenuAssertEqual(cuimenu.activate(uiMenuState), false, "control labels are informational")
+uiMenuAssertEqual(cuimenu.activate(uiMenuState), true, "control binding action")
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "bindcapture +forward",
+  "control capture command")
 cuimenu.open(uiMenuState, "main")
 
 uiMenuRenderer = recording.createRecordingRenderer()

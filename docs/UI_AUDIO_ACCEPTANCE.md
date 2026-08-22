@@ -15,15 +15,22 @@ Protocol-34 `clc_stringcmd` messages.
   `svc_inventory` handoff and the `CS_ITEMS` names;
 - Escape releases relative mouse capture while the menu is active;
 - `quit` exits through the normal audio, renderer, window and UDP shutdown;
-- Load, Save and Controls are real menu pages rather than invalid page links;
-- three in-session save slots call the failure-atomic `WriteGame` +
-  `WriteLevel` session adapter, and load preserves the active Netchan epoch.
+- the Controls page captures the next keyboard, mouse-button or wheel press,
+  replaces the previous binding for that command and treats Escape as cancel;
+- `vid_restart` recreates the selected window mode and OpenGL renderer, then
+  re-registers the current BSP, textures, models and sounds without replacing
+  the live network/Game session;
+- New Game Easy/Medium/Hard constructs a fresh `base1` Game API at skill 0/1/2
+  in the existing product host;
+- sensitivity, always-run, volume, video choices and the complete binding table
+  round-trip through the bounded, strictly parsed `miniquake2.cfg` format;
+- three save slots call the failure-atomic `WriteGame` + `WriteLevel` session
+  adapter. Existing pairs are validated after process start, labelled with
+  their map and loaded through same-map or cross-map re-signon as required.
 
 The save images are written to the user's existing `baseq2` directory as
-`miniquake2_slotN_{game,level}.sav`. The current application intentionally
-keeps the validated `SessionCheckpoint` metadata in memory, so a slot is
-loadable during the running process. Discovering and validating those files
-after a fresh process start remains a separate save-browser task.
+`miniquake2_slotN_{game,level}.sav`. Private-Save v8 retains the selected
+difficulty; v7 images remain readable and default to Medium.
 
 ## Executable evidence
 
@@ -32,16 +39,15 @@ after a fresh process start remains a separate save-browser task.
   settings, save request, quit and compact inventory conversion;
 - `client_ui_menu_tests.ml`: seven-page navigation and slot commands;
 - `client_ui_input_tests.ml`: key destinations, release safety and UserCmd;
+- `client_ui_config_tests.ml`: disk roundtrip, live apply and malformed config;
+- `runtime_product_host_tests.ml`: one shared lifecycle, loading frames and
+  exact restart ownership;
+- `runtime_new_game_skill_tests.ml`: fresh Easy/Hard session construction;
 - `client_runtime_ui_messages_tests.ml`: strict Protocol-34 UI framing;
 - `runtime_active_session_persistence_tests.ml`: atomic live save/restore.
 
 ## Remaining boundary
 
-Video choices are retained locally and `vid_restart` is acknowledged, but an
-existing Win32/OpenGL window is not recreated yet. The Controls page documents
-the default bindings; it does not capture arbitrary rebinding input. New Game
-difficulty selection is still forwarded to the game command boundary rather
-than rebuilding the current retail session. Finally, automatic
-`nextserver`/loading-plaque orchestration of CIN and PCX media remains the
-campaign application-state task described in
-[`CINEMATIC_ACCEPTANCE.md`](CINEMATIC_ACCEPTANCE.md).
+`vid_gamma` is persisted but does not yet drive a hardware gamma ramp. Save
+slots intentionally show map names only; classic screenshots/timestamps are a
+presentation enhancement, not a restore gap.

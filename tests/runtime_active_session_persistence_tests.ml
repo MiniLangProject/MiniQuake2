@@ -68,6 +68,12 @@ saveGateLevelPath = "build/runtime_active_session_level.sav"
 saveGateWrongLevelPath = "build/runtime_active_session_wrong_level.sav"
 saveGateCheckpoint = savegatetestpersistence.savePlaySession(saveGateSession,
   saveGateGamePath, saveGateLevelPath)
+saveGateDurableCheckpoint = savegatetestpersistence.loadSessionCheckpoint(
+  saveGateGamePath, saveGateLevelPath, saveGateSession.server.gameExport.maxEdicts)
+saveGateAssert(saveGateDurableCheckpoint.mapName == "save_active" and
+  saveGateDurableCheckpoint.gameFrame == saveGateCheckpoint.gameFrame and
+  saveGateDurableCheckpoint.spawnCount == -1,
+  "persistent slot metadata was not reconstructed from disk")
 saveGateSavedWorldTime = saveGateRuntime.world.time
 saveGateSavedGameFrame = saveGateCheckpoint.gameFrame
 saveGateServerChannel = saveGateSession.server.networkRuntime.server.clients[0].channel

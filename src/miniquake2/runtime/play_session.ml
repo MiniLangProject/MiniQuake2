@@ -44,6 +44,12 @@ function createCoreAt(mapName, entityText, collision, spawnPoint, userInfo)
   return wrap(server, userInfo)
 end function
 
+function createCoreAtSkill(mapName, entityText, collision, spawnPoint, userInfo, skill)
+  playSkillServer = plserver.createCoreAtSkill(mapName, entityText, collision,
+    spawnPoint, "127.0.0.1", 0, 1, false, skill)
+  return wrap(playSkillServer, userInfo)
+end function
+
 function createRetail(baseDirectory, mapName, userInfo)
   server = plserver.createRetailAt(baseDirectory, mapName, "", "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
@@ -53,6 +59,12 @@ function createRetailAt(baseDirectory, mapName, spawnPoint, userInfo)
   server = plserver.createRetailAt(baseDirectory, mapName, spawnPoint,
     "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
+end function
+
+function createRetailAtSkill(baseDirectory, mapName, spawnPoint, userInfo, skill)
+  playSkillRetailServer = plserver.createRetailAtSkill(baseDirectory, mapName,
+    spawnPoint, "127.0.0.1", 0, 1, false, skill)
+  return wrap(playSkillRetailServer, userInfo)
 end function
 
 function signonComplete(session)

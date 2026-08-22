@@ -21,8 +21,8 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
 | P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug, package and original-renderer visual gates | PARTIAL | hardware matrix, device-loss/manual input/audio and final performance budgets |
-| P13 | Retail cinematic and intermission playback | product `--cinematic` completes `idlog.cin`; `--media-sequence` executes installed unit/end chains; `--play` consumes validated queued `gamemap` | PASS (product chain) | shared loading window and DM2 |
-| P14 | Product menu, inventory and volume | live settings/quit, three in-session save slots, reliable command forwarding, `svc_inventory`/`CS_ITEMS`, mixer-wide gain | PASS (running session) | persistent save browser, live `vid_restart`, key capture and New Game rebuild |
+| P13 | Retail cinematic and intermission playback | product `--cinematic` completes `idlog.cin`; one shared host executes installed unit/end chains; `--play` consumes validated queued `gamemap` | PASS (product chain) | DM2 playback |
+| P14 | Product menu, inventory and volume | live mode restart, persistent config/key capture, difficulty-aware New Game, durable same/cross-map slots, settings/quit, inventory and mixer gain | PASS (product lifecycle) | hardware gamma and richer save-slot presentation |
 
 ## Current attack-sequence coverage
 
@@ -84,7 +84,9 @@ sees and what later gates depend on:
 2. Complete every stock monster and boss frame table, attack variant and event.
 3. Drive the 39-map campaign through real goals, movers, combat and transitions.
 4. Broaden the passing fixed-scene original `ref_gl` differential across GPUs and runtime alpha/inline states.
-5. Reuse one loading window across the passing active-campaign `gamemap` media executor; product menu/audio/inventory and in-session save slots now pass, while live video restart/key capture remain.
+5. Product lifecycle is closed for one-window media chains, live mode restart,
+   key capture, difficulty-aware New Game and persistent save slots; retain
+   hardware gamma and richer save-slot presentation as remaining polish.
 6. Broaden save, coop and deathmatch state matrices.
 7. Run original-process interoperability on a compatible Windows host.
 8. Close malformed-input, performance, hardware and deterministic package gates.

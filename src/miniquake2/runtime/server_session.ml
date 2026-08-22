@@ -327,7 +327,8 @@ function synchronizeServerState(session)
   return true
 end function
 
-function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
+function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
+    port, maxClients, dedicated, deathmatch, cooperative, skill)
   if mapName == "" or typeof(entityText) != "string" then return error(9970, "server session requires map and entity text") end if
   if typeof(spawnPoint) != "string" or len(bytes(spawnPoint)) >= ssqc.MAX_QPATH then
     return error(9984, "server session spawn point is invalid")
@@ -336,11 +337,15 @@ function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddres
   if typeof(deathmatch) != "bool" or typeof(cooperative) != "bool" or (deathmatch and cooperative) then
     return error(9983, "server session requires one valid game mode")
   end if
+  if typeof(skill) != "int" or skill < 0 or skill > 3 then
+    return error(9985, "server session skill outside [0,3]")
+  end if
   bridgeRuntime = ssbridge.createRuntime(maxClients)
   bridgeRuntime.collision = collision
   imports = ssbridge.makeImports(bridgeRuntime)
   gameExport = ssgame.GetGameApi(imports)
   ssgame.configureMaxClients(maxClients)
+  ssgame.configureSkill(skill)
   bridgeRuntime.game = gameExport
   gameExport.init()
   serverSessionModeContextHolder = ssgame.playerContext()
@@ -362,6 +367,12 @@ function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddres
   return session
 end function
 
+function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
+    port, maxClients, dedicated, deathmatch, cooperative)
+  return createCoreModeAtSkill(mapName, entityText, collision, spawnPoint,
+    bindAddress, port, maxClients, dedicated, deathmatch, cooperative, 1)
+end function
+
 function createCoreMode(mapName, entityText, collision, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   return createCoreModeAt(mapName, entityText, collision, "", bindAddress, port,
     maxClients, dedicated, deathmatch, cooperative)
@@ -370,6 +381,12 @@ end function
 function createCoreAt(mapName, entityText, collision, spawnPoint, bindAddress, port, maxClients, dedicated)
   return createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false)
+end function
+
+function createCoreAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
+    port, maxClients, dedicated, skill)
+  return createCoreModeAtSkill(mapName, entityText, collision, spawnPoint,
+    bindAddress, port, maxClients, dedicated, false, false, skill)
 end function
 
 function createCore(mapName, entityText, collision, bindAddress, port, maxClients, dedicated)
@@ -387,6 +404,20 @@ function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, por
   return session
 end function
 
+function createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
+    port, maxClients, dedicated, deathmatch, cooperative, skill)
+  serverSessionSkillFileSystem = ssfs.initialize(baseDirectory, "")
+  serverSessionSkillPath = "maps/" + mapName + ".bsp"
+  serverSessionSkillMap = ssbsp.parse(ssfs.readFile(serverSessionSkillFileSystem,
+    serverSessionSkillPath), serverSessionSkillPath)
+  serverSessionSkillValue = createCoreModeAtSkill(mapName,
+    serverSessionSkillMap.entityText, sscollision.create(serverSessionSkillMap),
+    spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative, skill)
+  serverSessionSkillValue.retailFileSystem = serverSessionSkillFileSystem
+  serverSessionSkillValue.retailBaseDirectory = baseDirectory
+  return serverSessionSkillValue
+end function
+
 function createRetailMode(baseDirectory, mapName, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   return createRetailModeAt(baseDirectory, mapName, "", bindAddress, port,
     maxClients, dedicated, deathmatch, cooperative)
@@ -395,6 +426,12 @@ end function
 function createRetailAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated)
   return createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false)
+end function
+
+function createRetailAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
+    port, maxClients, dedicated, skill)
+  return createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
+    port, maxClients, dedicated, false, false, skill)
 end function
 
 function createRetail(baseDirectory, mapName, bindAddress, port, maxClients, dedicated)

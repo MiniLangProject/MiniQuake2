@@ -2017,6 +2017,7 @@ end function
 
 function runPlayerGameplayFrame(runtime, playerContext)
   pickupContext = ibgtypes.pickupContext(playerContext.deathmatch, playerContext.cooperative, playerContext.dmFlags, playerContext.time)
+  pickupContext.skill = runtime.aiContext.skill
   pickupContext.frameNumber = playerContext.frameNumber
   for each item in runtime.items
     if item.decaying and item.nextThink <= playerContext.time then

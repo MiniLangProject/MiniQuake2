@@ -44,8 +44,8 @@ remain strict and covered by native tests.
 This command closes real retail decoding/render/audio/device lifecycle. The
 product now parses and executes CIN/PCX/map `+nextserver` sequences, including
 named map spawn points. The active `--play` loop consumes the validated queued
-`gamemap` after intermission and enters that executor. It does not yet reuse
-one loading-plaque window across steps. That is an application-state visual
-continuity task, not a decoder or device gap. Menu `quit`, pause/resume and live mixer volume now
+`gamemap` after intermission and enters that executor. One product window and
+renderer now span the complete chain with loading frames between steps. Menu
+`quit`, pause/resume and live mixer volume now
 share the product command policy documented in
 [`UI_AUDIO_ACCEPTANCE.md`](UI_AUDIO_ACCEPTANCE.md).

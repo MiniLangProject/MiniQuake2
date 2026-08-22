@@ -31,6 +31,9 @@ uiCommandAssert(uiCommandState.quitRequested and uiCommandState.executed == 12 a
 uiCommandAssert(uiCommandState.videoRestartRequested and uiCommandState.videoMode == 3 and
   uiCommandState.fullScreen and uiCommandState.brightness == 1.3,
   "video menu state retained locally")
+uiCommandAssert(uicmdtestcommands.takeConfigDirty(uiCommandState) and
+  not uicmdtestcommands.takeConfigDirty(uiCommandState),
+  "persistent config dirty state drained atomically")
 uiCommandAssert(uicmdtestcommands.takeSaveSlot(uiCommandState) == 2 and
   uicmdtestcommands.takeSaveSlot(uiCommandState) == -1, "save slot request drained")
 uiCommandForwarded = uicmdtestcommands.takeForwarded(uiCommandState)
@@ -39,12 +42,29 @@ uiCommandAssert(len(uiCommandForwarded) == 1 and uiCommandForwarded[0] == "say h
 uiCommandAssert(len(uicmdtestcommands.takeForwarded(uiCommandState)) == 0,
   "forward queue drained atomically")
 
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "bindcapture +attack"),
+  "binding capture command handled locally")
+uiCommandAssert(uiCommandInput.captureCommand == "+attack" and
+  len(uicmdtestcommands.takeForwarded(uiCommandState)) == 0,
+  "binding capture not forwarded")
+uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "bindcapture disconnect")) is error,
+  "unsafe binding capture rejected")
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "newgame hard"), "new game handled locally")
+uiCommandAssert(uicmdtestcommands.takeNewGameSkill(uiCommandState) == 2 and
+  uicmdtestcommands.takeNewGameSkill(uiCommandState) == -1,
+  "new game difficulty drained atomically")
+uiCommandAssert(len(uicmdtestcommands.takeForwarded(uiCommandState)) == 0,
+  "new game not forwarded as inert server text")
+
 uiCommandOldSensitivity = uiCommandInput.config.sensitivity
 uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "sensitivity 99")) is error,
   "invalid sensitivity rejected")
 uiCommandAssert(uiCommandInput.config.sensitivity == uiCommandOldSensitivity and
-  uiCommandState.rejected == 1, "invalid local command did not mutate setting")
+  uiCommandState.rejected == 2, "invalid local command did not mutate setting")
 
 uiCommandInventoryValues = array(uicmdtestqc.MAX_ITEMS, 0)
 uiCommandInventoryValues[2] = 17

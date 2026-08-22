@@ -47,6 +47,11 @@ UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
 remaining secondary monster animation, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
+lifecycle now keeps one window/renderer across CIN, PCX and map steps, performs
+a live mode/fullscreen renderer restart with complete retail resource
+registration, captures control bindings, reconstructs New Game at the selected
+skill, persists validated settings/bindings and validates persistent
+same-/cross-map save slots. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
 the current death-terminal build produces a

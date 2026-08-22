@@ -17,13 +17,14 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 7
+const PRIVATE_VERSION = 8
 
 struct PrivateRestore
   runtime
   spawnResult
   entityString
   spawnPoint
+  skill
 end struct
 
 struct PrivateMonsterReference
@@ -84,6 +85,7 @@ function encode(runtime, playerContext, entityString, spawnPoint)
   buffer = privatesizebuf.alloc(capacity)
   privatemessage.writeString(buffer, PRIVATE_MAGIC); privatemessage.writeLong(buffer, PRIVATE_VERSION)
   privatemessage.writeString(buffer, entityString); privatemessage.writeString(buffer, spawnPoint)
+  privatemessage.writeLong(buffer, runtime.aiContext.skill)
   privatemessage.writeFloat(buffer, runtime.world.time)
   privatemessage.writeLong(buffer, runtime.world.serverFlags)
   privatemessage.writeLong(buffer, runtime.world.totalSecrets); privatemessage.writeLong(buffer, runtime.world.foundSecrets)
@@ -205,8 +207,18 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if typeof(data) != "bytes" or len(data) == 0 then return error(3871, "private BaseQ2 save payload missing") end if
   buffer = privatesizebuf.alloc(len(data)); privatesizebuf.writeBytes(buffer, data); privatemessage.beginReading(buffer)
   if privatemessage.readString(buffer) != PRIVATE_MAGIC then return error(3872, "private BaseQ2 save magic mismatch") end if
-  if privatechecked.readLong(buffer, "private save version") != PRIVATE_VERSION then return error(3873, "unsupported private BaseQ2 save version") end if
+  privateSaveVersion = privatechecked.readLong(buffer, "private save version")
+  if privateSaveVersion != 7 and privateSaveVersion != PRIVATE_VERSION then
+    return error(3873, "unsupported private BaseQ2 save version")
+  end if
   entityString = privatemessage.readString(buffer); spawnPoint = privatemessage.readString(buffer)
+  privateSavedSkill = 1
+  if privateSaveVersion >= 8 then
+    privateSavedSkill = privatechecked.readLong(buffer, "private skill")
+    if privateSavedSkill < 0 or privateSavedSkill > 3 then
+      return error(3888, "private skill outside [0,3]")
+    end if
+  end if
   spawnResult = privatespawn.SpawnEntities(mapName, entityString, spawnPoint)
   restoredBaseEdicts = spawnResult.edicts
   index = 0
@@ -220,6 +232,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     index = index + 1
   end while
   runtime = privateintegration.create(spawnResult)
+  runtime.aiContext.skill = privateSavedSkill
   runtime.exportTable = exportTable
   runtime.world.time = privateReadFloat(buffer, "private world time")
   runtime.world.serverFlags = privatechecked.readLong(buffer, "private server flags")
@@ -361,5 +374,5 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     playerCount = playerCount - 1
   end while
   if buffer.readCount != buffer.curSize then return error(3882, "trailing private BaseQ2 save data") end if
-  return PrivateRestore(runtime, spawnResult, entityString, spawnPoint)
+  return PrivateRestore(runtime, spawnResult, entityString, spawnPoint, privateSavedSkill)
 end function

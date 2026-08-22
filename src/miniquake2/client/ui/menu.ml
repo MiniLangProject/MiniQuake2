@@ -49,9 +49,15 @@ function defaultPages()
     action("save0", "slot 1", "save 0"), action("save1", "slot 2", "save 1"),
     action("save2", "slot 3", "save 2")])
   keys = cuitypes.MenuPage("keys", "CONTROLS", "options", [
-    label("move", "WASD move / mouse look"), label("jump", "SPACE jump"),
-    label("attack", "MOUSE1 attack"), label("use", "E use"),
-    label("inventory", "I inventory"), label("console", "` console")])
+    action("forward", "bind forward", "bindcapture +forward"),
+    action("back", "bind back", "bindcapture +back"),
+    action("left", "bind move left", "bindcapture +moveleft"),
+    action("right", "bind move right", "bindcapture +moveright"),
+    action("jump", "bind jump", "bindcapture +moveup"),
+    action("attack", "bind attack", "bindcapture +attack"),
+    action("use", "bind use", "bindcapture +use"),
+    action("inventory", "bind inventory", "bindcapture inven"),
+    label("hint", "ENTER, then key; ESC cancels")])
   return [main, game, video, options, load, save, keys]
 end function
 
@@ -69,6 +75,19 @@ end function
 function open(menu, id)
   for each value in menu.pages
     if value.id == id then menu.currentPage = id; menu.cursor = 0; menu.active = true; return true end if
+  end for
+  return error(8230, "unknown menu page")
+end function
+
+function setItemLabel(menu, pageId, itemId, text)
+  if typeof(text) != "string" then return error(8232, "menu label must be text") end if
+  for each menuLabelPage in menu.pages
+    if menuLabelPage.id == pageId then
+      for each menuLabelItem in menuLabelPage.items
+        if menuLabelItem.id == itemId then menuLabelItem.label = text; return true end if
+      end for
+      return error(8233, "menu item is unavailable")
+    end if
   end for
   return error(8230, "unknown menu page")
 end function

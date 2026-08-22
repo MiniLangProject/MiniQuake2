@@ -106,9 +106,11 @@ Classic `+nextserver` strings now drive CIN, PCX and named-spawn map steps;
 the interactive loop consumes the validated `gamemap` queued at intermission.
 The same product UI now applies mouse sensitivity, always-run and mixer volume
 live, renders named `svc_inventory` contents, forwards game/chat commands, and
-provides three failure-atomic in-session Save/Load slots. See
+provides three failure-atomic persistent Save/Load slots, live video-mode
+restart, arbitrary key capture and difficulty-aware New Game reconstruction. See
 [`docs/UI_AUDIO_ACCEPTANCE.md`](docs/UI_AUDIO_ACCEPTANCE.md) for the exact
-boundary of persistent slot browsing, live video restart and key capture.
+remaining hardware-gamma and save-slot presentation boundary. Product settings
+and bindings persist through a strict, bounded `miniquake2.cfg` format.
 An independent raw Protocol-34 peer validates both client and server wire
 directions. Deterministic OpenGL readback produces stable TGA captures, and a
 native x86 API-v3 host now drives the installed unmodified classic `ref_gl.dll`

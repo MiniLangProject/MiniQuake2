@@ -57,6 +57,24 @@ cuikeys.drainCommands(uiInputState)
 uiInputAssertEqual(cuikeys.scanKey(72), cuic.K_UPARROW, "navigation scan map")
 uiInputAssertEqual(cuikeys.scanKey(30), 97, "letter scan map")
 
+// The controls menu captures the next discrete press before destination
+// routing and replaces the previous binding for that command.
+cuikeys.bind(uiInputState, 119, "+forward")
+cuikeys.beginBindingCapture(uiInputState, "+forward")
+uiCaptureScreen = cuiscreen.create(cuiconsole.create(40), cuimenu.create())
+cuimenu.open(uiCaptureScreen.menu, "keys")
+cuikeys.setDestination(uiInputState, cuic.KEY_MENU)
+cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
+  pwindow.InputEvent(cuic.EVENT_KEY, 114, 1), 1250)
+uiInputAssertEqual(uiInputState.capturedKey, 114, "captured key")
+uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 114), "+forward", "captured binding")
+uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 119), "", "old command binding replaced")
+cuikeys.beginBindingCapture(uiInputState, "+attack")
+cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
+  pwindow.InputEvent(cuic.EVENT_KEY, cuic.K_ESCAPE, 1), 1251)
+uiInputAssertEqual(uiInputState.capturedKey, -2, "capture escape cancellation")
+uiInputAssertEqual(uiInputState.captureCommand, "", "capture cancellation cleared")
+
 // Destination router edits the console, opens/closes the menu and submits chat.
 uiInputScreen = cuiscreen.create(cuiconsole.create(40), cuimenu.create())
 cuicontroller.handleEvent(uiInputState, uiInputScreen, pwindow.InputEvent(cuic.EVENT_KEY, 96, 1), 1300)

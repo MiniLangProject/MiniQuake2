@@ -288,12 +288,19 @@ See [`CINEMATIC_ACCEPTANCE.md`](CINEMATIC_ACCEPTANCE.md).
 
 The original `SV_Map` grammar is additionally exercised with the installed
 `eou1_.cin+*bunk1$start` and `end.cin+victory.pcx` chains. CIN, terminal PCX
-and named map spawn all pass through product-owned lifecycles; see
+and named map spawn all pass through one product-owned window/renderer
+lifecycle; `end.cin+victory.pcx` reports generation 1 and two loading frames.
+The native `--video-restart-smoke` replaces a 640x480 renderer with 1280x720,
+re-registers `base1`, and produces the same 60 visible surfaces before and
+after restart; see
 [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
 
 The interactive product loop also consumes the complete UI handoff and command
 surface: inventory rows use retail `CS_ITEMS` names, mixer gain changes live,
-and the three menu slots exercise atomic session save/restore. The focused
+and the three menu slots discover durable pairs and exercise atomic same- or
+cross-map session restore. New Game applies skill before spawn, v8 persists it,
+Controls captures a replacement binding, and the complete settings/binding
+table passes a validated config-file roundtrip. The focused
 acceptance and remaining application boundaries are recorded in
 [`UI_AUDIO_ACCEPTANCE.md`](UI_AUDIO_ACCEPTANCE.md).
 

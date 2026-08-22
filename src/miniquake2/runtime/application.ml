@@ -31,6 +31,7 @@ import miniquake2.client.ui.console as appuiconsole
 import miniquake2.client.ui.menu as appuimenu
 import miniquake2.client.ui.screen as appuiscreen
 import miniquake2.client.ui.commands as appuicommands
+import miniquake2.client.ui.config as appuiconfig
 import miniquake2.client.state as appclientstate
 import miniquake2.client.effects.handoff as appeffecthandoff
 import miniquake2.client.cinematic.audio as appcinaudio
@@ -39,6 +40,7 @@ import miniquake2.client.cinematic.picture as appcinpicture
 import miniquake2.runtime.play_session as appplay
 import miniquake2.runtime.session_persistence as apppersistence
 import miniquake2.runtime.media_sequence as appmediaseq
+import miniquake2.runtime.product_host as appproducthost
 import miniquake2.runtime.client_assets as appclientassets
 import miniquake2.client.assets.registry as appassetregistry
 import miniquake2.physics.vector as appphysicsvector
@@ -206,6 +208,14 @@ function playSavePaths(baseDirectory, slot)
     appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_level.sav")]
 end function
 
+function playConfigPath(baseDirectory)
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then
+    return error(9942, "product config requires the Quake II install root")
+  end if
+  return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
+    appfs.BASE_DIRECTORY_NAME), "miniquake2.cfg")
+end function
+
 function endsWith(value, suffix)
   if typeof(value) != "string" or typeof(suffix) != "string" then return error(9916, "endsWith requires text") end if
   applicationEndsValueLowerHolder = apptext.lower(value)
@@ -267,7 +277,7 @@ end function
 // stretch, with the CIN PCM stream feeding the same managed mixer/device used
 // by gameplay. Escape opens/closes the existing menu and pauses/resumes both
 // video time and its mixer channel without losing the current frame.
-function runRetailCinematic(baseDirectory, name, frameLimit, looping)
+function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, productHost)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9922, "cinematic requires the Quake II install root") end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9923, "cinematic frame limit outside [0,36000]") end if
@@ -277,9 +287,8 @@ function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   applicationCinematicPathHolder = cinematicPath(name)
   applicationCinematicDataHolder = appfs.readFile(applicationCinematicFileSystemHolder, applicationCinematicPathHolder)
 
-  applicationCinematicWindowHolder = appwindow.create("MiniQuake2 Cinematic - " + name, 640, 480, false)
-  applicationCinematicRendererHolder = appgl.createOpenGlRenderer(true)
-  applicationCinematicRendererHolder.exports.Init(void, void)
+  applicationCinematicWindowHolder = productHost.window
+  applicationCinematicRendererHolder = productHost.renderer
   applicationCinematicMixerHolder = appaudiomixer.create(44100)
   appaudiomixer.setMasterVolume(applicationCinematicMixerHolder, 0.7)
   applicationCinematicMixerHandoffHolder = appcinaudio.mixerHandoff(applicationCinematicMixerHolder)
@@ -350,8 +359,6 @@ function runRetailCinematic(baseDirectory, name, frameLimit, looping)
     applicationCinematicWindowHolder.width, applicationCinematicWindowHolder.height,
     applicationCinematicRendererHolder.exports)
   closePlayAudio(applicationCinematicDeviceHolder, applicationCinematicMixerHolder)
-  applicationCinematicRendererHolder.exports.Shutdown()
-  appwindow.destroy(applicationCinematicWindowHolder)
   previewFileSystem = void
   return [applicationCinematicFrames, applicationCinematicStatus,
     applicationCinematicStreamFrame, applicationCinematicCompletions,
@@ -359,9 +366,20 @@ function runRetailCinematic(baseDirectory, name, frameLimit, looping)
     applicationCinematicDeviceOpened]
 end function
 
+function runRetailCinematic(baseDirectory, name, frameLimit, looping)
+  applicationCinematicProductHost = appproducthost.openProductHost(
+    "MiniQuake2 Cinematic - " + name, 0, false, applicationRendererImports())
+  appproducthost.showProductLoading(applicationCinematicProductHost, "loading " + name)
+  applicationCinematicProductResult = try(runRetailCinematicOnHost(baseDirectory,
+    name, frameLimit, looping, applicationCinematicProductHost))
+  appproducthost.closeProductHost(applicationCinematicProductHost)
+  if applicationCinematicProductResult is error then return applicationCinematicProductResult end if
+  return applicationCinematicProductResult
+end function
+
 // Static intermission counterpart to runCinematic. Space/Enter emits the
 // classic nextserver intent; Escape opens the same menu/quit lifecycle.
-function runRetailPicture(baseDirectory, name, frameLimit)
+function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9927, "picture requires the Quake II install root") end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9928, "picture frame limit outside [0,36000]") end if
@@ -370,10 +388,8 @@ function runRetailPicture(baseDirectory, name, frameLimit)
   applicationPicturePathHolder = picturePath(name)
   applicationPicturePlaybackHolder = appcinpicture.start(appfs.readFile(
     applicationPictureFileSystemHolder, applicationPicturePathHolder))
-  applicationPictureWindowHolder = appwindow.create("MiniQuake2 Picture - " + name,
-    640, 480, false)
-  applicationPictureRendererHolder = appgl.createOpenGlRenderer(true)
-  applicationPictureRendererHolder.exports.Init(void, void)
+  applicationPictureWindowHolder = productHost.window
+  applicationPictureRendererHolder = productHost.renderer
   applicationPictureMixerHolder = appaudiomixer.create(44100)
   appaudiomixer.setMasterVolume(applicationPictureMixerHolder, 0.7)
   applicationPictureInputHolder = appuikeys.createInputState()
@@ -426,18 +442,28 @@ function runRetailPicture(baseDirectory, name, frameLimit)
   appcinpicture.draw(applicationPicturePlaybackHolder,
     applicationPictureWindowHolder.width, applicationPictureWindowHolder.height,
     applicationPictureRendererHolder.exports)
-  applicationPictureRendererHolder.exports.Shutdown()
-  appwindow.destroy(applicationPictureWindowHolder)
   previewFileSystem = void
   return [applicationPictureFrames, applicationPictureStatus,
     applicationPictureWidth, applicationPictureHeight, applicationPictureAdvanced]
+end function
+
+function runRetailPicture(baseDirectory, name, frameLimit)
+  applicationPictureProductHost = appproducthost.openProductHost(
+    "MiniQuake2 Picture - " + name, 0, false, applicationRendererImports())
+  appproducthost.showProductLoading(applicationPictureProductHost, "loading " + name)
+  applicationPictureProductResult = try(runRetailPictureOnHost(baseDirectory,
+    name, frameLimit, applicationPictureProductHost))
+  appproducthost.closeProductHost(applicationPictureProductHost)
+  if applicationPictureProductResult is error then return applicationPictureProductResult end if
+  return applicationPictureProductResult
 end function
 
 // Execute the exact classic `map first+nextserver` media chain. A positive
 // frame limit is a deterministic preview gate per step; zero retains normal
 // interactive behavior (CIN to completion, PCX until Space/Enter, map until
 // window close). DM2 is parsed but remains an explicit unsupported boundary.
-function runRetailMediaSequence(baseDirectory, specification, frameLimit)
+function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
+    productHost, skill)
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
     return error(9929, "media sequence frame limit outside [0,36000]")
   end if
@@ -449,17 +475,22 @@ function runRetailMediaSequence(baseDirectory, specification, frameLimit)
   applicationMediaIndex = 0
   while applicationMediaIndex < len(applicationMediaSequenceHolder.steps)
     applicationMediaStepHolder = applicationMediaSequenceHolder.steps[applicationMediaIndex]
+    if not appproducthost.showProductLoading(productHost,
+        "loading " + applicationMediaStepHolder.name) then
+      return [applicationMediaCompleted, applicationMediaCinematics,
+        applicationMediaPictures, applicationMediaMaps, "aborted"]
+    end if
     if applicationMediaStepHolder.kind == appmediaseq.MEDIA_CIN then
-      applicationMediaCinematicResult = runRetailCinematic(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit, false)
+      applicationMediaCinematicResult = runRetailCinematicOnHost(baseDirectory,
+        applicationMediaStepHolder.name, frameLimit, false, productHost)
       applicationMediaCinematics = applicationMediaCinematics + 1
       if frameLimit == 0 and applicationMediaCinematicResult[1] != "completed" then
         return [applicationMediaCompleted, applicationMediaCinematics,
           applicationMediaPictures, applicationMediaMaps, "aborted"]
       end if
     else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_PCX then
-      applicationMediaPictureResult = runRetailPicture(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit)
+      applicationMediaPictureResult = runRetailPictureOnHost(baseDirectory,
+        applicationMediaStepHolder.name, frameLimit, productHost)
       applicationMediaPictures = applicationMediaPictures + 1
       if frameLimit == 0 and not applicationMediaPictureResult[4] and
           applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
@@ -467,8 +498,8 @@ function runRetailMediaSequence(baseDirectory, specification, frameLimit)
           applicationMediaPictures, applicationMediaMaps, "aborted"]
       end if
     else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP then
-      runPlayAt(baseDirectory, applicationMediaStepHolder.name,
-        applicationMediaStepHolder.spawnPoint, frameLimit)
+      runPlayAtOnHost(baseDirectory, applicationMediaStepHolder.name,
+        applicationMediaStepHolder.spawnPoint, frameLimit, productHost, skill)
       applicationMediaMaps = applicationMediaMaps + 1
     else
       return error(9930, "DM2 playback is not implemented in the product media sequence")
@@ -478,6 +509,19 @@ function runRetailMediaSequence(baseDirectory, specification, frameLimit)
   end while
   return [applicationMediaCompleted, applicationMediaCinematics,
     applicationMediaPictures, applicationMediaMaps, "completed"]
+end function
+
+function runRetailMediaSequence(baseDirectory, specification, frameLimit)
+  applicationMediaProductHost = appproducthost.openProductHost("MiniQuake2", 3, false,
+    applicationRendererImports())
+  applicationMediaProductResult = try(runRetailMediaSequenceOnHost(baseDirectory,
+    specification, frameLimit, applicationMediaProductHost, 1))
+  applicationMediaProductGeneration = applicationMediaProductHost.generation
+  applicationMediaProductLoadingFrames = applicationMediaProductHost.loadingFrames
+  appproducthost.closeProductHost(applicationMediaProductHost)
+  if applicationMediaProductResult is error then return applicationMediaProductResult end if
+  return applicationMediaProductResult + [applicationMediaProductGeneration,
+    applicationMediaProductLoadingFrames]
 end function
 
 function assetSmoke(baseDirectory, mapName)
@@ -723,20 +767,94 @@ function previewMap(baseDirectory, mapName, frameLimit)
   return frames
 end function
 
-function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
+// Native product acceptance for the same host-restart path used by the live
+// Video menu. The network/game session deliberately does not participate:
+// the gate isolates destruction, mode recreation and complete BSP resource
+// registration on the replacement Renderer API generation.
+function runRetailVideoRestartSmoke(baseDirectory, mapName)
+  global previewFileSystem
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then
+    return error(9938, "video restart smoke requires the Quake II install root")
+  end if
+  applicationVideoSmokeFileSystem = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationVideoSmokeFileSystem
+  applicationVideoSmokePath = mapPath(mapName)
+  applicationVideoSmokeMap = appbsp.parse(appfs.readFile(
+    applicationVideoSmokeFileSystem, applicationVideoSmokePath), applicationVideoSmokePath)
+  applicationVideoSmokeHost = appproducthost.openProductHost(
+    "MiniQuake2 Video Restart", 0, false, applicationRendererImports())
+  appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
+
+  applicationVideoSmokeRenderer = applicationVideoSmokeHost.renderer
+  applicationVideoSmokeRenderer.exports.BeginRegistration(applicationVideoSmokePath)
+  appgl.adoptClassicMapModel(applicationVideoSmokeRenderer,
+    applicationVideoSmokeMap, applicationVideoSmokePath)
+  applicationVideoSmokeWorld = appgl.prepareClassicWorld(applicationVideoSmokeRenderer,
+    applicationVideoSmokeMap, loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
+  applicationVideoSmokeRenderer.exports.EndRegistration()
+  applicationVideoSmokeFrame = apprtypes.defaultRefDef(
+    applicationVideoSmokeHost.window.width, applicationVideoSmokeHost.window.height)
+  applicationVideoSmokeRenderer.exports.BeginFrame(0.0)
+  applicationVideoSmokeRenderer.exports.RenderFrame(applicationVideoSmokeFrame)
+  applicationVideoSmokeBefore = appgl.submitClassicWorld(applicationVideoSmokeRenderer,
+    applicationVideoSmokeWorld, applicationVideoSmokeFrame)
+  applicationVideoSmokeRenderer.exports.EndFrame()
+  appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
+
+  appproducthost.restartProductHost(applicationVideoSmokeHost,
+    "MiniQuake2 Video Restart", 3, false, applicationRendererImports())
+  appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
+  applicationVideoSmokeRenderer = applicationVideoSmokeHost.renderer
+  applicationVideoSmokeRenderer.exports.BeginRegistration(applicationVideoSmokePath)
+  appgl.adoptClassicMapModel(applicationVideoSmokeRenderer,
+    applicationVideoSmokeMap, applicationVideoSmokePath)
+  applicationVideoSmokeWorld = appgl.prepareClassicWorld(applicationVideoSmokeRenderer,
+    applicationVideoSmokeMap, loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
+  applicationVideoSmokeRenderer.exports.EndRegistration()
+  applicationVideoSmokeFrame = apprtypes.defaultRefDef(
+    applicationVideoSmokeHost.window.width, applicationVideoSmokeHost.window.height)
+  applicationVideoSmokeRenderer.exports.BeginFrame(0.0)
+  applicationVideoSmokeRenderer.exports.RenderFrame(applicationVideoSmokeFrame)
+  applicationVideoSmokeAfter = appgl.submitClassicWorld(applicationVideoSmokeRenderer,
+    applicationVideoSmokeWorld, applicationVideoSmokeFrame)
+  applicationVideoSmokeRenderer.exports.EndFrame()
+
+  applicationVideoSmokeGeneration = applicationVideoSmokeHost.generation
+  applicationVideoSmokeWidth = applicationVideoSmokeHost.window.width
+  applicationVideoSmokeHeight = applicationVideoSmokeHost.window.height
+  applicationVideoSmokeLoadingFrames = applicationVideoSmokeHost.loadingFrames
+  applicationVideoSmokeBeforeVisible = applicationVideoSmokeBefore.visibleSurfaces
+  applicationVideoSmokeAfterVisible = applicationVideoSmokeAfter.visibleSurfaces
+  appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
+  appproducthost.closeProductHost(applicationVideoSmokeHost)
+  previewFileSystem = void
+  if applicationVideoSmokeGeneration != 2 or applicationVideoSmokeWidth != 1280 or
+      applicationVideoSmokeHeight != 720 or applicationVideoSmokeLoadingFrames != 2 then
+    return error(9939, "video restart host lifecycle mismatch")
+  end if
+  if applicationVideoSmokeBeforeVisible != applicationVideoSmokeAfterVisible then
+    return error(9940, "video restart changed deterministic BSP visibility")
+  end if
+  return [applicationVideoSmokeGeneration, applicationVideoSmokeWidth,
+    applicationVideoSmokeHeight, applicationVideoSmokeLoadingFrames,
+    applicationVideoSmokeBeforeVisible, applicationVideoSmokeAfterVisible]
+end function
+
+function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, productHost, skill)
   global previewFileSystem, playAssetState, playClientRuntime
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
   previewFileSystem = filesystem
-  path = mapPath(mapName)
+  applicationCurrentMapName = mapName
+  path = mapPath(applicationCurrentMapName)
   map = appbsp.parse(appfs.readFile(filesystem, path), path)
-  session = appplay.createCoreAt(mapName, map.entityText, appcollision.create(map), spawnPoint,
-    "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000")
+  session = appplay.createCoreAtSkill(applicationCurrentMapName, map.entityText,
+    appcollision.create(map),
+    spawnPoint, "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000", skill)
   appplay.runUntilActive(session, 256)
 
-  window = appwindow.create("MiniQuake2 - " + mapName, 1280, 720, false)
-  renderer = appgl.getRefAPI(applicationRendererImports(), true)
-  renderer.exports.Init(void, void)
+  window = productHost.window
+  renderer = productHost.renderer
   renderer.exports.BeginRegistration(path)
   appgl.adoptClassicMapModel(renderer, map, path)
   world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
@@ -744,7 +862,7 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   playAssetState = assetState
   playClientRuntime = session.client.integrated.client
   appclientassets.registerConfigStrings(assetState,
-    session.client.integrated.network.configStrings, mapName)
+    session.client.integrated.network.configStrings, applicationCurrentMapName)
   renderer.exports.EndRegistration()
 
   audioMixer = appaudiomixer.create(44100)
@@ -768,7 +886,35 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   appuikeys.bind(input, 105, "inven")
   screen = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
   commandState = appuicommands.create()
+  commandState.videoMode = productHost.videoMode
+  commandState.fullScreen = productHost.fullScreen
+  applicationConfigPath = playConfigPath(baseDirectory)
+  applicationConfigLoad = try(appuiconfig.loadProductConfig(applicationConfigPath))
+  if applicationConfigLoad is error then
+    appuiconsole.appendLine(screen.console,
+      "Config ignored: " + applicationConfigLoad.message, 0)
+  else if applicationConfigLoad is not void then
+    appuiconfig.applyProductConfig(applicationConfigLoad, input, commandState, audioMixer)
+    if commandState.videoMode != productHost.videoMode or
+        commandState.fullScreen != productHost.fullScreen then
+      commandState.videoRestartRequested = true
+    end if
+  end if
   saveCheckpoints = array(3)
+  applicationPersistentSlot = 0
+  while applicationPersistentSlot < len(saveCheckpoints)
+    applicationPersistentPaths = playSavePaths(baseDirectory, applicationPersistentSlot)
+    applicationPersistentResult = try(apppersistence.loadSessionCheckpoint(
+      applicationPersistentPaths[0], applicationPersistentPaths[1],
+      session.server.gameExport.maxEdicts))
+    if applicationPersistentResult is not error then
+      saveCheckpoints[applicationPersistentSlot] = applicationPersistentResult
+      appuimenu.setItemLabel(screen.menu, "load", "load" + applicationPersistentSlot,
+        "slot " + (applicationPersistentSlot + 1) + " - " +
+        applicationPersistentResult.mapName)
+    end if
+    applicationPersistentSlot = applicationPersistentSlot + 1
+  end while
   appwindow.setMouseCapture(true)
   clock = appsystem.createClock()
   networkTime = appsystem.milliseconds(clock)
@@ -776,6 +922,7 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   latest = void
   lastWorldStats = void
   applicationPendingMediaSpecification = ""
+  applicationNextSkill = skill
   while (frameLimit == 0 or frames < frameLimit) and not commandState.quitRequested and
       applicationPendingMediaSpecification == "" and
       appwindow.poll(window)
@@ -783,6 +930,25 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
     appuicontroller.poll(input, screen, started)
     appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
     appuicommands.drain(commandState, input, screen, audioMixer)
+    applicationConfigChanged = appuicommands.takeConfigDirty(commandState) or
+      input.capturedKey >= 0
+    if applicationConfigChanged then
+      applicationConfigSave = try(appuiconfig.saveProductConfig(applicationConfigPath,
+        appuiconfig.captureProductConfig(input, commandState, audioMixer)))
+      if applicationConfigSave is error then
+        appuiconsole.appendLine(screen.console,
+          "Config save failed: " + applicationConfigSave.message,
+          appbyteio.truncInt(started))
+      end if
+      input.capturedKey = -1
+    end if
+    applicationNewGameSkill = appuicommands.takeNewGameSkill(commandState)
+    if applicationNewGameSkill >= 0 then
+      applicationNextSkill = applicationNewGameSkill
+      applicationPendingMediaSpecification = "*base1"
+      screen.menu.active = false
+      appuikeys.setDestination(input, appuiconstants.KEY_GAME)
+    end if
     applicationForwardedCommands = appuicommands.takeForwarded(commandState)
     for each applicationForwardedCommand in applicationForwardedCommands
       applicationForwardedResult = try(appclientsession.sendStringCommand(session.client,
@@ -798,6 +964,8 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
           appbyteio.truncInt(started))
       else
         saveCheckpoints[applicationSaveSlot] = applicationSaveResult
+        appuimenu.setItemLabel(screen.menu, "load", "load" + applicationSaveSlot,
+          "slot " + (applicationSaveSlot + 1) + " - " + applicationSaveResult.mapName)
         appuiconsole.appendLine(screen.console, "Saved slot " + (applicationSaveSlot + 1),
           appbyteio.truncInt(started))
       end if
@@ -809,12 +977,37 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
         appuiconsole.appendLine(screen.console, "No in-session save in slot " +
           (applicationLoadSlot + 1), appbyteio.truncInt(started))
       else
-        applicationLoadResult = try(apppersistence.restorePlaySession(session,
-          applicationLoadCheckpoint))
+        if applicationLoadCheckpoint.mapName != applicationCurrentMapName then
+          appproducthost.showProductLoading(productHost,
+            "loading " + applicationLoadCheckpoint.mapName)
+        end if
+        applicationLoadResult = try(apppersistence.restorePlaySessionRetail(session,
+          applicationLoadCheckpoint, baseDirectory, 512))
         if applicationLoadResult is error then
           appuiconsole.appendLine(screen.console, "Load failed: " + applicationLoadResult.message,
             appbyteio.truncInt(started))
         else
+          if applicationLoadResult.reSignon then
+            appgl.releaseClassicWorld(renderer, world)
+            applicationCurrentMapName = applicationLoadCheckpoint.mapName
+            path = mapPath(applicationCurrentMapName)
+            map = appbsp.parse(appfs.readFile(filesystem, path), path)
+            renderer.exports.BeginRegistration(path)
+            appgl.adoptClassicMapModel(renderer, map, path)
+            world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile,
+              apprtypes.defaultLightStyles(), 0, 1.0)
+            assetState = appclientassets.createForRenderer(renderer.exports,
+              loadPlaySound, noteMissingPlayAsset)
+            playAssetState = assetState
+            appclientassets.registerConfigStrings(assetState,
+              session.client.integrated.network.configStrings,
+              applicationCurrentMapName)
+            renderer.exports.EndRegistration()
+            applicationRestoredPlayerState = session.client.integrated.client.current.playerState
+            input.viewAngles = [applicationRestoredPlayerState.viewAngles[0],
+              applicationRestoredPlayerState.viewAngles[1],
+              applicationRestoredPlayerState.viewAngles[2]]
+          end if
           appuiconsole.appendLine(screen.console, "Loaded slot " + (applicationLoadSlot + 1),
             appbyteio.truncInt(started))
           screen.menu.active = false
@@ -823,10 +1016,37 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
       end if
     end if
     if commandState.videoRestartRequested then
-      appuiconsole.appendLine(screen.console,
-        "Video mode changes are staged for the next window creation.",
-        appbyteio.truncInt(started))
       commandState.videoRestartRequested = false
+      appgl.releaseClassicWorld(renderer, world)
+      world = void
+      applicationVideoRestartResult = try(appproducthost.restartProductHost(productHost,
+        "MiniQuake2 - " + applicationCurrentMapName, commandState.videoMode,
+        commandState.fullScreen, applicationRendererImports()))
+      if applicationVideoRestartResult is error then
+        appuiconsole.appendLine(screen.console,
+          "Video restart failed: " + applicationVideoRestartResult.message,
+          appbyteio.truncInt(started))
+        commandState.quitRequested = true
+        continue
+      end if
+      window = productHost.window
+      renderer = productHost.renderer
+      appproducthost.showProductLoading(productHost,
+        "loading " + applicationCurrentMapName)
+      renderer.exports.BeginRegistration(path)
+      appgl.adoptClassicMapModel(renderer, map, path)
+      world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile,
+        apprtypes.defaultLightStyles(), 0, 1.0)
+      assetState = appclientassets.createForRenderer(renderer.exports,
+        loadPlaySound, noteMissingPlayAsset)
+      playAssetState = assetState
+      appclientassets.registerConfigStrings(assetState,
+        session.client.integrated.network.configStrings, applicationCurrentMapName)
+      renderer.exports.EndRegistration()
+      appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
+      appuiconsole.appendLine(screen.console,
+        "Video restarted: " + window.width + "x" + window.height,
+        appbyteio.truncInt(started))
     end if
     networkMsec = started - networkTime
     if networkMsec >= 100 then
@@ -836,8 +1056,10 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
       stepResult = appplay.step(session)
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
-      applicationPendingMediaSpecification = appmediaseq.takeQueuedGameMap(
-        session.server.bridgeRuntime.commands)
+      if applicationPendingMediaSpecification == "" then
+        applicationPendingMediaSpecification = appmediaseq.takeQueuedGameMap(
+          session.server.bridgeRuntime.commands)
+      end if
       networkTime = started
     end if
 
@@ -871,9 +1093,7 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
 
   appwindow.setMouseCapture(false)
   closePlayAudio(audioDevice, audioMixer)
-  appgl.releaseClassicWorld(renderer, world)
-  renderer.exports.Shutdown()
-  appwindow.destroy(window)
+  if world is not void then appgl.releaseClassicWorld(renderer, world) end if
   clientState = session.client.integrated.network.client.state
   serverFrame = session.server.frameNumber
   registeredModels = countAvailableAssets(assetState.modelEntries)
@@ -893,11 +1113,23 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   playAssetState = void
   playClientRuntime = void
   if applicationPendingMediaSpecification != "" then
-    runRetailMediaSequence(baseDirectory, applicationPendingMediaSpecification, frameLimit)
+    runRetailMediaSequenceOnHost(baseDirectory, applicationPendingMediaSpecification,
+      frameLimit, productHost, applicationNextSkill)
   end if
   return [frames, clientState, serverFrame, registeredModels,
     registeredSounds, missingAssets, submittedEntities,
     visibleSurfaces, culledSurfaces, viewCluster]
+end function
+
+function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
+  applicationPlayProductHost = appproducthost.openProductHost("MiniQuake2 - " + mapName,
+    3, false, applicationRendererImports())
+  appproducthost.showProductLoading(applicationPlayProductHost, "loading " + mapName)
+  applicationPlayProductResult = try(runPlayAtOnHost(baseDirectory, mapName,
+    spawnPoint, frameLimit, applicationPlayProductHost, 1))
+  appproducthost.closeProductHost(applicationPlayProductHost)
+  if applicationPlayProductResult is error then return applicationPlayProductResult end if
+  return applicationPlayProductResult
 end function
 
 function runPlay(baseDirectory, mapName, frameLimit)

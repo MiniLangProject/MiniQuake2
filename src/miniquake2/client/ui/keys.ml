@@ -22,7 +22,8 @@ function createInputState()
     actions = actions + [cuitypes.ActionState(name, false, false)]
   end for
   return cuitypes.InputState(cuic.KEY_GAME, true, [], array(cuic.MAX_KEYS, false),
-    actions, [0.0, 0.0, 0.0], 0.0, 0.0, 0, 0, [], "", false, defaultConfig())
+    actions, [0.0, 0.0, 0.0], 0.0, 0.0, 0, 0, [], "", false,
+    defaultConfig(), "", -1)
 end function
 
 function setDestination(state, destination)
@@ -61,6 +62,43 @@ function bindingFor(state, key)
   binding = findBinding(state, key)
   if binding is void then return "" end if
   return binding.command
+end function
+
+function beginBindingCapture(state, command)
+  if typeof(command) != "string" or command == "" then
+    return error(8203, "binding capture requires a command")
+  end if
+  state.captureCommand = command
+  state.capturedKey = -1
+  return true
+end function
+
+function cancelBindingCapture(state)
+  state.captureCommand = ""
+  state.capturedKey = -2
+  return true
+end function
+
+function unbindCommand(state, command)
+  cuikeysRemainingBindings = []
+  for each cuikeysExistingBinding in state.bindings
+    if cuikeysExistingBinding.command != command then
+      cuikeysRemainingBindings = cuikeysRemainingBindings + [cuikeysExistingBinding]
+    end if
+  end for
+  state.bindings = cuikeysRemainingBindings
+  return true
+end function
+
+function captureBindingEvent(state, key)
+  if state.captureCommand == "" then return false end if
+  if key == cuic.K_ESCAPE then return cancelBindingCapture(state) end if
+  cuikeysCapturedCommand = state.captureCommand
+  unbindCommand(state, cuikeysCapturedCommand)
+  bind(state, key, cuikeysCapturedCommand)
+  state.captureCommand = ""
+  state.capturedKey = key
+  return true
 end function
 
 function findAction(state, name)
@@ -165,6 +203,7 @@ function handleEvent(state, event, time)
   down = event.value != 0
   if event.type == cuic.EVENT_MOUSE_WHEEL then down = true end if
   if key < 0 or key >= len(state.keys) then return error(8202, "input key outside table") end if
+  if state.captureCommand != "" and down then return captureBindingEvent(state, key) end if
   wasDown = state.keys[key]
   state.keys[key] = down
   if (state.destination == cuic.KEY_GAME or (down == false and wasDown)) and (down != wasDown or event.type == cuic.EVENT_MOUSE_WHEEL) then
