@@ -17,7 +17,7 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 8
+const PRIVATE_VERSION = 10
 
 struct PrivateRestore
   runtime
@@ -31,6 +31,29 @@ struct PrivateMonsterReference
   actor
   enemyNumber
 end struct
+
+struct PrivateWorldReference
+  entity
+  activatorNumber
+  ownerNumber
+  teamMasterNumber
+  teamChainNumber
+  targetEntityNumber
+  enemyNumber
+  oldEnemyNumber
+  groundEntityNumber
+end struct
+
+function privateReferenceNumber(value)
+  if value is void then return -1 end if
+  privateDirectNumber = try(value.number)
+  if typeof(privateDirectNumber) == "int" then return privateDirectNumber end if
+  privateEdictNumber = try(value.edict.state.number)
+  if typeof(privateEdictNumber) == "int" then return privateEdictNumber end if
+  privateEngineEdictNumber = try(value.state.number)
+  if typeof(privateEngineEdictNumber) == "int" then return privateEngineEdictNumber end if
+  return -1
+end function
 
 function privateWriteVec(buffer, value)
   privateWriteVectorHolder = privateworldtypes.vec3FromValue(value, "private save vector")
@@ -84,7 +107,10 @@ function encode(runtime, playerContext, entityString, spawnPoint)
   capacity = 4096 + len(bytes(entityString)) + len(runtime.world.entities) * 512 + len(runtime.monsters) * 512 + len(runtime.items) * 128 + playerCount * 512 + inventoryWords * 4
   buffer = privatesizebuf.alloc(capacity)
   privatemessage.writeString(buffer, PRIVATE_MAGIC); privatemessage.writeLong(buffer, PRIVATE_VERSION)
-  privatemessage.writeString(buffer, entityString); privatemessage.writeString(buffer, spawnPoint)
+  privateEntityBytes = bytes(entityString)
+  privatemessage.writeLong(buffer, len(privateEntityBytes))
+  privatesizebuf.writeBytes(buffer, privateEntityBytes)
+  privatemessage.writeString(buffer, spawnPoint)
   privatemessage.writeLong(buffer, runtime.aiContext.skill)
   privatemessage.writeFloat(buffer, runtime.world.time)
   privatemessage.writeLong(buffer, runtime.world.serverFlags)
@@ -98,6 +124,26 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privatemessage.writeString(buffer, entity.className); privatemessage.writeString(buffer, entity.model)
     privatemessage.writeLong(buffer, entity.modelIndex)
     privateWriteBool(buffer, entity.inUse)
+    privatemessage.writeString(buffer, entity.target); privatemessage.writeString(buffer, entity.targetName)
+    privatemessage.writeString(buffer, entity.killTarget); privatemessage.writeString(buffer, entity.pathTarget)
+    privatemessage.writeString(buffer, entity.team); privatemessage.writeString(buffer, entity.message)
+    privatemessage.writeString(buffer, entity.map)
+    privateWorldItemIsText = typeof(entity.item) == "string"
+    privateWriteBool(buffer, privateWorldItemIsText)
+    privateWorldItemText = ""
+    if privateWorldItemIsText then privateWorldItemText = entity.item end if
+    privatemessage.writeString(buffer, privateWorldItemText)
+    privatemessage.writeString(buffer, entity.itemName)
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.activator))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.owner))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.teamMaster))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.teamChain))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.targetEntity))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.enemy))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.oldEnemy))
+    privatemessage.writeLong(buffer, privateReferenceNumber(entity.groundEntity))
+    privatemessage.writeFloat(buffer, entity.delay); privatemessage.writeFloat(buffer, entity.wait)
+    privatemessage.writeFloat(buffer, entity.speed)
     privateWriteVec(buffer, entity.origin); privateWriteVec(buffer, entity.angles); privateWriteVec(buffer, entity.oldOrigin)
     privateWriteVec(buffer, entity.velocity); privateWriteVec(buffer, entity.angularVelocity)
     privatemessage.writeLong(buffer, entity.health); privatemessage.writeLong(buffer, entity.maxHealth)
@@ -183,11 +229,46 @@ function findItem(runtime, number)
   return void
 end function
 
-function privateFindWorld(runtime, number)
+function privateFindWorld(runtime, number, className)
+  privateWorldNumberFallback = void
   for each entity in runtime.world.entities
-    if entity.number == number then return entity end if
+    if entity.number == number then
+      if privateWorldNumberFallback is void then
+        privateWorldNumberFallback = entity
+      end if
+      if entity.className == className then return entity end if
+    end if
   end for
-  return void
+  return privateWorldNumberFallback
+end function
+
+function privateResolveWorldReference(runtime, playerContext, number, label)
+  if number < 0 then return void end if
+  for each privateReferencePlayer in playerContext.players
+    if privateReferencePlayer.edict.state.number == number then
+      return privateintegration.playerWorldProxy(privateReferencePlayer)
+    end if
+  end for
+  privateReferenceMonster = findMonster(runtime, number)
+  if privateReferenceMonster is not void then
+    privateMonsterProxy = privateworldtypes.createEntity(number,
+      privateReferenceMonster.className)
+    privateMonsterProxy.serverFlags = privateReferenceMonster.edict.serverFlags
+    privateMonsterProxy.origin = privateReferenceMonster.edict.state.origin
+    privateMonsterProxy.angles = privateReferenceMonster.edict.state.angles
+    privateMonsterProxy.mins = privateReferenceMonster.edict.mins
+    privateMonsterProxy.maxs = privateReferenceMonster.edict.maxs
+    privateMonsterProxy.health = privateReferenceMonster.health
+    privateMonsterProxy.maxHealth = privateReferenceMonster.maxHealth
+    privateMonsterProxy.mass = privateReferenceMonster.mass
+    return privateMonsterProxy
+  end if
+  privateReferenceWorld = privateworldcore.findByNumber(runtime.world, number)
+  if privateReferenceWorld is void then
+    privateReferenceWorld = privateFindWorld(runtime, number, "")
+  end if
+  if privateReferenceWorld is not void then return privateReferenceWorld end if
+  return error(3890, "private world " + label + " is unavailable: " + number)
 end function
 
 function privateRestoreEnemy(runtime, number, maxClients, exportTable)
@@ -208,10 +289,25 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   buffer = privatesizebuf.alloc(len(data)); privatesizebuf.writeBytes(buffer, data); privatemessage.beginReading(buffer)
   if privatemessage.readString(buffer) != PRIVATE_MAGIC then return error(3872, "private BaseQ2 save magic mismatch") end if
   privateSaveVersion = privatechecked.readLong(buffer, "private save version")
-  if privateSaveVersion != 7 and privateSaveVersion != PRIVATE_VERSION then
+  if privateSaveVersion != 7 and privateSaveVersion != 8 and
+      privateSaveVersion != 9 and
+      privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
-  entityString = privatemessage.readString(buffer); spawnPoint = privatemessage.readString(buffer)
+  entityString = ""
+  if privateSaveVersion >= 9 then
+    privateEntityLength = privatechecked.readLong(buffer,
+      "private entity string length")
+    if privateEntityLength < 0 or privateEntityLength > 16 * 1024 * 1024 then
+      return error(3889, "private entity string length outside bound")
+    end if
+    privatechecked.require(buffer, privateEntityLength,
+      "private entity string")
+    entityString = decode(privatemessage.readData(buffer, privateEntityLength))
+  else
+    entityString = privatemessage.readString(buffer)
+  end if
+  spawnPoint = privatemessage.readString(buffer)
   privateSavedSkill = 1
   if privateSaveVersion >= 8 then
     privateSavedSkill = privatechecked.readLong(buffer, "private skill")
@@ -242,22 +338,86 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
 
   worldCount = privatechecked.readLong(buffer, "private world count")
   if worldCount < len(runtime.world.entities) then return error(3874, "private world entity count mismatch") end if
+  privateWorldReferences = []
   while worldCount > 0
     number = privatechecked.readLong(buffer, "private world number")
     className = privatemessage.readString(buffer)
     modelName = privatemessage.readString(buffer)
     modelIndex = privatechecked.readLong(buffer, "private world model index")
-    entity = privateFindWorld(runtime, number)
+    privateWorldInUse = privateReadBool(buffer, "private world inuse")
+    privateWorldTarget = ""; privateWorldTargetName = ""
+    privateWorldKillTarget = ""; privateWorldPathTarget = ""
+    privateWorldTeam = ""; privateWorldMessage = ""; privateWorldMap = ""
+    privateWorldItem = ""; privateWorldItemName = ""
+    privateWorldItemIsText = true
+    privateWorldActivatorNumber = -1
+    privateWorldOwnerNumber = -1; privateWorldTeamMasterNumber = -1
+    privateWorldTeamChainNumber = -1; privateWorldTargetEntityNumber = -1
+    privateWorldEnemyNumber = -1; privateWorldOldEnemyNumber = -1
+    privateWorldGroundEntityNumber = -1
+    privateWorldDelay = 0.0; privateWorldWait = 0.0; privateWorldSpeed = 0.0
+    if privateSaveVersion >= 10 then
+      privateWorldTarget = privatemessage.readString(buffer)
+      privateWorldTargetName = privatemessage.readString(buffer)
+      privateWorldKillTarget = privatemessage.readString(buffer)
+      privateWorldPathTarget = privatemessage.readString(buffer)
+      privateWorldTeam = privatemessage.readString(buffer)
+      privateWorldMessage = privatemessage.readString(buffer)
+      privateWorldMap = privatemessage.readString(buffer)
+      privateWorldItemIsText = privateReadBool(buffer,
+        "private world item text marker")
+      privateWorldItem = privatemessage.readString(buffer)
+      privateWorldItemName = privatemessage.readString(buffer)
+      privateWorldActivatorNumber = privatechecked.readLong(buffer,
+        "private world activator")
+      privateWorldOwnerNumber = privatechecked.readLong(buffer,
+        "private world owner")
+      privateWorldTeamMasterNumber = privatechecked.readLong(buffer,
+        "private world team master")
+      privateWorldTeamChainNumber = privatechecked.readLong(buffer,
+        "private world team chain")
+      privateWorldTargetEntityNumber = privatechecked.readLong(buffer,
+        "private world target entity")
+      privateWorldEnemyNumber = privatechecked.readLong(buffer,
+        "private world enemy")
+      privateWorldOldEnemyNumber = privatechecked.readLong(buffer,
+        "private world old enemy")
+      privateWorldGroundEntityNumber = privatechecked.readLong(buffer,
+        "private world ground entity")
+      privateWorldDelay = privateReadFloat(buffer, "private world delay")
+      privateWorldWait = privateReadFloat(buffer, "private world wait")
+      privateWorldSpeed = privateReadFloat(buffer, "private world speed")
+    end if
+    entity = privateFindWorld(runtime, number, className)
+    if entity is not void and entity.className != className and
+        (className == "monster_gib" or className == "DelayedUse") then
+      entity = void
+    end if
     if entity is void then
-      if className != "monster_gib" then return error(3875, "private world entity missing") end if
+      if className != "monster_gib" and className != "DelayedUse" and
+          privateWorldInUse then
+        return error(3875, "active private world entity missing at " + number +
+          ": saved=" + className)
+      end if
       privateDynamicWorldHolder = privateworldtypes.createEntity(number, className)
       privateworldcore.addEntity(runtime.world, privateDynamicWorldHolder)
       entity = privateDynamicWorldHolder
     else if entity.className != className then
-      return error(3887, "private world classname mismatch")
+      return error(3887, "private world classname mismatch at " + number +
+        ": saved=" + className + " restored=" + entity.className)
     end if
     entity.model = modelName; entity.modelIndex = modelIndex
-    entity.inUse = privateReadBool(buffer, "private world inuse")
+    entity.inUse = privateWorldInUse
+    if privateSaveVersion >= 10 then
+      entity.target = privateWorldTarget; entity.targetName = privateWorldTargetName
+      entity.killTarget = privateWorldKillTarget; entity.pathTarget = privateWorldPathTarget
+      entity.team = privateWorldTeam; entity.message = privateWorldMessage
+      entity.map = privateWorldMap
+      if privateWorldItemIsText then entity.item = privateWorldItem end if
+      entity.itemName = privateWorldItemName
+      entity.delay = privateWorldDelay; entity.wait = privateWorldWait
+      entity.speed = privateWorldSpeed
+    end if
     entity.origin = privateReadVec(buffer, "private world origin"); entity.angles = privateReadVec(buffer, "private world angles"); entity.oldOrigin = privateReadVec(buffer, "private world old origin")
     entity.velocity = privateReadVec(buffer, "private world velocity"); entity.angularVelocity = privateReadVec(buffer, "private world angular velocity")
     entity.health = privatechecked.readLong(buffer, "private world health"); entity.maxHealth = privatechecked.readLong(buffer, "private world max health")
@@ -272,7 +432,14 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     entity.moveInfo.startOrigin = privateReadVec(buffer, "private mover start"); entity.moveInfo.endOrigin = privateReadVec(buffer, "private mover end")
     entity.moveInfo.startAngles = privateReadVec(buffer, "private mover start angles"); entity.moveInfo.endAngles = privateReadVec(buffer, "private mover end angles")
     if entity.className == "monster_gib" then entity.think = privateworldcore.freeThink
+    else if entity.className == "DelayedUse" then entity.think = privateworldcore.thinkDelayed
     else privatemovers.restoreMoverState(entity, runtime.world) end if
+    privateWorldReferences = privateWorldReferences + [
+      PrivateWorldReference(entity, privateWorldActivatorNumber,
+        privateWorldOwnerNumber, privateWorldTeamMasterNumber,
+        privateWorldTeamChainNumber, privateWorldTargetEntityNumber,
+        privateWorldEnemyNumber, privateWorldOldEnemyNumber,
+        privateWorldGroundEntityNumber)]
     if entity.number >= runtime.world.nextEntityNumber then runtime.world.nextEntityNumber = entity.number + 1 end if
     worldCount = worldCount - 1
   end while
@@ -373,6 +540,26 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     playerContext.players = playerContext.players + [player]
     playerCount = playerCount - 1
   end while
+  if privateSaveVersion >= 10 then
+    for each privateWorldReference in privateWorldReferences
+      privateWorldReference.entity.activator = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.activatorNumber, "activator")
+      privateWorldReference.entity.owner = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.ownerNumber, "owner")
+      privateWorldReference.entity.teamMaster = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.teamMasterNumber, "team master")
+      privateWorldReference.entity.teamChain = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.teamChainNumber, "team chain")
+      privateWorldReference.entity.targetEntity = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.targetEntityNumber, "target entity")
+      privateWorldReference.entity.enemy = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.enemyNumber, "enemy")
+      privateWorldReference.entity.oldEnemy = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.oldEnemyNumber, "old enemy")
+      privateWorldReference.entity.groundEntity = privateResolveWorldReference(
+        runtime, playerContext, privateWorldReference.groundEntityNumber, "ground entity")
+    end for
+  end if
   if buffer.readCount != buffer.curSize then return error(3882, "trailing private BaseQ2 save data") end if
   return PrivateRestore(runtime, spawnResult, entityString, spawnPoint, privateSavedSkill)
 end function

@@ -199,7 +199,7 @@
       "id": "G09",
       "plan_point": 9,
       "title": "complete baseq2 game matrix",
-      "status": "47_map_spawn_zero_simplified_retail_classes_stock_combat_profiles_key_attack_sequences_all_player_weapon_mechanics_persistent_boss_props_cross_map_save_real_command_multiplayer_spectator_and_rotation_passed",
+      "status": "47_map_spawn_zero_simplified_retail_classes_stock_combat_profiles_all_player_weapons_persistent_world_references_bosses_and_39_map_two_client_campaign_passed",
       "evidence": [
         "src/miniquake2/game/base/",
         "src/miniquake2/game/gameplay/",
@@ -266,6 +266,8 @@
         "tests/runtime_multiplayer_coop_tests.ml",
         "tests/runtime_multiplayer_rotation_spectator_tests.ml",
         "tests/runtime_multiplayer_coop_checkpoint_tests.ml",
+        "src/miniquake2/runtime/multiplayer_campaign_session.ml",
+        "tests/runtime_multiplayer_campaign_checkpoint_tests.ml",
         "docs/PLAYABILITY_MATRIX.md"
       ]
     },

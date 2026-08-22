@@ -72,7 +72,7 @@ walk and run MD2 ranges for all 22 combat entries. Stock terminal deaths now
 apply the original class-specific corpse bounds, export the original organic
 and metallic gib-model inventories as timed physics edicts, and reproduce the
 Supertank's eight-step explosion sequence before its final 14-part breakup.
-Private-Save v7 resumes attacks and active reactions at their next frame and
+Private-Save v10 resumes attacks and active reactions at their next frame and
 round-trips live dynamic gib records. Secondary fidgets and exact per-frame
 movement distances remain explicit differential-parity work. Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
@@ -106,7 +106,10 @@ Netchan sequences only move forward.
 The same persistence boundary now also saves and restores both players in a
 live cooperative session without replacing either client or server Netchan;
 skill endpoints, shared key state, teammate damage and a post-restore UDP soak
-are covered by a dedicated native gate.
+are covered by a dedicated native gate. A full installed-retail matrix extends
+that evidence across 39 campaign BSPs, 51 goal-confirmed transitions and 39
+two-player checkpoints. v10 length-prefixes full retail entity text and restores
+dynamic world references while retaining readers for earlier v7/v8 payloads.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached

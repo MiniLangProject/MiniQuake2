@@ -180,7 +180,7 @@ damage/beam chain. The product-shaped Gunner gate observes eight ordered MZ2
 45–52 events from one AI attack. The reaction and locomotion suites inventory
 63 original pain variants, 43 normal-death variants, six stock duck/dodge
 ranges and primary stand/idle/walk/run ranges for all 22 combat entries.
-Private Save v7 retains a running attack or reaction's event index,
+Private Save v10 retains a running attack or reaction's event index,
 next-frame time and reaction debounce. Stock death terminals additionally
 carry their class-specific corpse bounds, exact organic/metallic gib-model
 inventories and the eight-step Supertank explosion/final-gib sequence through
@@ -227,6 +227,19 @@ both integrated clients; the cooked hand grenade is observed as the same live
 engine edict in both snapshots. The gate validates per-weapon ammo cost,
 Netchan progress, zero rejects and a 300-frame tail soak, including a repeated
 run with a 4-MB GC limit.
+
+`runtime_multiplayer_campaign_checkpoint_tests` connects the same goal driver
+to two real cooperative UDP clients. Against the installed retail data it
+passes all 51 goal-confirmed transitions covering 39 unique campaign BSPs and
+creates/restores a two-player checkpoint on every first visit. Each checkpoint
+retains both player records and all four live Netchans and produces valid
+post-restore health snapshots; the aggregate finishes with zero packet rejects.
+
+The accompanying Private-Save v10 change length-prefixes retail entity text
+beyond the 2,047-byte network-string boundary, preserves typed/non-text world
+adapters, reconstructs dynamic delayed-use/gib edicts, and restores numbered
+activator, owner, team, target, enemy and ground references. Legacy v7 and v8
+payloads remain readable.
 
 `gameplay_player_weapon_protocol_tests` now validates all ten stock player
 muzzle mappings, silencer framing, hit/blood/splash/bubble/rail/BFG effects,

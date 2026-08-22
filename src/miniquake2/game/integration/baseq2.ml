@@ -111,9 +111,33 @@ end function
 function aiUseTargets(actor, activator)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or actor.target == "" then return false end if
+  ibAiWorldActivatorHolder = activator
+  if activator is not void then
+    ibAiWorldServerFlagsProbe = try(activator.serverFlags)
+    if typeof(ibAiWorldServerFlagsProbe) != "int" then
+      ibAiWorldActivatorHolder = ibwtypes.createEntity(
+        activator.edict.state.number, activator.className)
+      ibAiWorldActivatorHolder.serverFlags = activator.edict.serverFlags
+      ibAiWorldActivatorHolder.origin = ibqtypes.Vec3(
+        activator.edict.state.origin.x, activator.edict.state.origin.y,
+        activator.edict.state.origin.z)
+      ibAiWorldActivatorHolder.angles = ibqtypes.Vec3(
+        activator.edict.state.angles.x, activator.edict.state.angles.y,
+        activator.edict.state.angles.z)
+      ibAiWorldActivatorHolder.mins = ibqtypes.Vec3(activator.edict.mins.x,
+        activator.edict.mins.y, activator.edict.mins.z)
+      ibAiWorldActivatorHolder.maxs = ibqtypes.Vec3(activator.edict.maxs.x,
+        activator.edict.maxs.y, activator.edict.maxs.z)
+      ibAiWorldActivatorHolder.health = activator.health
+      ibAiWorldActivatorHolder.maxHealth = activator.maxHealth
+      ibAiWorldActivatorHolder.mass = activator.mass
+      ibAiWorldActivatorHolder.isClient = activator.isClient
+    end if
+  end if
   used = false
   for each targetEntity in ibworld.matchingTargets(activeIntegrationRuntime.world, actor.target)
-    if ibworld.useEntity(activeIntegrationRuntime.world, targetEntity, void, activator) then used = true end if
+    if ibworld.useEntity(activeIntegrationRuntime.world, targetEntity, void,
+        ibAiWorldActivatorHolder) then used = true end if
   end for
   return used
 end function

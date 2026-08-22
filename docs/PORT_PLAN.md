@@ -32,7 +32,7 @@ variants, the original six-family duck/dodge ranges and primary stand/idle/
 walk/run ranges cover all 22 combat entries. Class-specific corpse bounds,
 stock organic/metallic gib inventories and the Supertank's eight-explosion plus
 14-gib terminal sequence are exported through real managed edicts and
-Protocol-34 effects; Private-Save v7 retains in-flight attack/reaction state
+Protocol-34 effects; Private-Save v10 retains in-flight attack/reaction state
 and dynamic gib records. Their MZ2 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
 handoff. Secondary fidgets and exact movement distances remain an open

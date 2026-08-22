@@ -14,10 +14,10 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
 | P04 | `waste1` brush, water, MD2 and alpha rendering | paired installed-original `ref_gl` gate: 2,303 ppm MAE for world/water/MD2; deterministic Mini replay | PASS (differential) | broaden cameras, GPUs and alpha/inline runtime states |
 | P05 | Stock monster frame sequencing | attack/ranged/melee, 63 pain, 43 death, dodge, primary locomotion, class corpse bounds, stock physical gibs and staged Supertank destruction; live MZ2 and Parasite beam chains | PASS (primary moves and death terminals) | secondary fidgets and exact per-frame movement differential |
-| P06 | Save during an active monster sequence | Private-Save v7 attack/reaction fields, boss persistence and live-gib round trip | PASS | representative retail save positions and original-save policy |
+| P06 | Save during an active monster sequence | Private-Save v10 attack/reaction fields, dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
 | P08 | Two-player deathmatch | all 11 stock weapon modes through real UDP UserCmds, projectiles/effects, scoring/respawn, spectator transition, maplist re-signon and post-change soaks | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
-| P09 | Two-player cooperative play | shared item, reconnect, skill 0/3, live two-player checkpoint restore, real teammate damage and 200-frame post-restore soak | PASS | retail multi-map objective/checkpoint sweep |
+| P09 | Two-player cooperative play | shared item/reconnect, skill 0/3, teammate damage, plus 39-BSP/51-goal-transition route with 39 live two-player checkpoints | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (goal graph) | physical navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
 | P12 | Release/package/device acceptance | manifest, asset exclusion, Release/Debug, package and original-renderer visual gates | PARTIAL | hardware matrix, device-loss/manual input/audio and final performance budgets |
@@ -52,11 +52,16 @@ remain a separate differential-parity gate.
 | Berserk/Infantry/Flipper/Chick/Flyer/Brain/Floater/Mutant | stock close-combat loops, event damage and MD2 frame projection |
 | Parasite | 18-frame drain move, first/subsequent damage split and ordered `TE_PARASITE_ATTACK` beam handoff |
 
-Private-Save v7 persists attack/melee/pain/death counts, reaction debounce and
+Private-Save v10 persists attack/melee/pain/death counts, reaction debounce and
 the in-flight `nextFrame`, `pauseTime` and `attackState`. A restored attack or
 reaction therefore resumes at its next event rather than restarting or
 silently collapsing to one shot; dynamic gib entities retain model, physics
 state and expiry across a level save.
+
+The v10 world payload length-prefixes the complete retail entity text instead
+of using the network string limit, reconstructs dynamic `DelayedUse` and gib
+edicts, and restores activator/owner/team/target/enemy/ground references by
+stable edict number. Readers remain compatible with the earlier v7/v8 payloads.
 
 ## Current player-weapon coverage
 
