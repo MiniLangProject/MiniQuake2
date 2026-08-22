@@ -73,6 +73,10 @@ $Scenes = @(
   [pscustomobject]@{
     Name = "waste1_world_md2"; Map = "waste1"; Model = "models/monsters/soldier/tris.md2"; Inline = 0
     Camera = @(-2192.0, 1796.0, -366.0, 0.0, 270.0, 0.0)
+  },
+  [pscustomobject]@{
+    Name = "cool1_alpha_md2"; Map = "cool1"; Model = "models/monsters/soldier/tris.md2"; Inline = 0
+    Camera = @(-1448.0, -1520.0, 46.0, 0.0, 90.0, 0.0)
   }
 )
 
@@ -108,6 +112,50 @@ foreach ($Scene in $Scenes) {
   $Reports += Get-Content -LiteralPath $Report -Raw | ConvertFrom-Json
 }
 
+# Original ref_gl has no authoritative way to reconstruct the live transforms
+# of moving inline BSP entities from a static entity lump.  Cover that runtime
+# state separately with byte-exact independent MiniQuake2 replays, including
+# water, alpha/sky, MD2 and dense inline-brush submissions.
+$ReplayScenes = @(
+  [pscustomobject]@{
+    Name = "base1_inline"; Map = "base1"; Model = "-"; Inline = 1
+    Camera = @(-1768.0, 1536.0, 150.0, 0.0, 0.0, 0.0)
+  },
+  [pscustomobject]@{
+    Name = "waste1_water_inline_md2"; Map = "waste1"; Model = "models/monsters/soldier/tris.md2"; Inline = 1
+    Camera = @(-2192.0, 1796.0, -366.0, 0.0, 270.0, 0.0)
+  },
+  [pscustomobject]@{
+    Name = "cool1_alpha_inline_md2"; Map = "cool1"; Model = "models/monsters/soldier/tris.md2"; Inline = 1
+    Camera = @(-1448.0, -1520.0, 46.0, 0.0, 90.0, 0.0)
+  },
+  [pscustomobject]@{
+    Name = "boss2_sky_inline_md2"; Map = "boss2"; Model = "models/monsters/soldier/tris.md2"; Inline = 1
+    Camera = @(696.0, -964.0, -106.0, 0.0, 0.0, 0.0)
+  }
+)
+$ReplayReports = @()
+foreach ($Scene in $ReplayScenes) {
+  $FirstTga = Join-Path $OutputDirectory ("replay_a_" + $Scene.Name + ".tga")
+  $SecondTga = Join-Path $OutputDirectory ("replay_b_" + $Scene.Name + ".tga")
+  $Heatmap = Join-Path $OutputDirectory ("replay_diff_" + $Scene.Name + ".tga")
+  $Report = Join-Path $OutputDirectory ("replay_" + $Scene.Name + ".json")
+  $MiniArguments = @($RetailRoot, $Scene.Map, $FirstTga, $Scene.Model,
+    640, 480, 4, $Scene.Inline) + $Scene.Camera
+  $FirstLines = @(& $MiniCapture @MiniArguments 2>&1)
+  if ($LASTEXITCODE -ne 0) { throw "First MiniQuake2 replay failed for $($Scene.Name)." }
+  $MiniArguments[2] = $SecondTga
+  $SecondLines = @(& $MiniCapture @MiniArguments 2>&1)
+  if ($LASTEXITCODE -ne 0) { throw "Second MiniQuake2 replay failed for $($Scene.Name)." }
+  ($FirstLines + $SecondLines) | Set-Content -LiteralPath (Join-Path $OutputDirectory ("replay_" + $Scene.Name + ".log")) -Encoding UTF8
+  & py -3 (Join-Path $Root "tools\visual_compare.py") $FirstTga $SecondTga `
+    --channel-tolerance 0 --max-differing-pixels 0 `
+    --max-mismatch-ratio-ppm 0 --max-mean-absolute-error-ppm 0 `
+    --diff-output $Heatmap --json-output $Report
+  if ($LASTEXITCODE -ne 0) { throw "deterministic renderer replay failed for $($Scene.Name); see $Report" }
+  $ReplayReports += Get-Content -LiteralPath $Report -Raw | ConvertFrom-Json
+}
+
 $Summary = [ordered]@{
   schema = "miniquake2.ref-gl-differential.v1"
   reference = [ordered]@{ path = $ReferenceDll; sha256 = $ReferenceHash }
@@ -120,6 +168,7 @@ $Summary = [ordered]@{
     max_mean_absolute_error_ppm = $MaxMeanAbsoluteErrorPpm
   }
   scenes = $Reports
+  deterministic_replays = $ReplayReports
   pass = $true
 }
 $SummaryPath = Join-Path $OutputDirectory "summary.json"
@@ -130,5 +179,10 @@ foreach ($Report in $Reports) {
   Write-Host ("  {0}: pixels={1}, mismatch-ppm={2}, mae-ppm={3}" -f `
     ([System.IO.Path]::GetFileNameWithoutExtension($Report.actual.path)), `
     $Report.metrics.differing_pixels, $Report.metrics.mismatch_ratio_ppm, $Report.metrics.mean_absolute_error_ppm)
+}
+foreach ($Report in $ReplayReports) {
+  Write-Host ("  replay {0}: pixels={1}, sha256={2}" -f `
+    ([System.IO.Path]::GetFileNameWithoutExtension($Report.actual.path)), `
+    $Report.metrics.differing_pixels, $Report.actual.sha256)
 }
 Write-Host "  report=$SummaryPath"

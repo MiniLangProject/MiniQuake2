@@ -35,6 +35,9 @@ difficulty; v7 images remain readable and default to Medium.
 ## Executable evidence
 
 - `audio_mixer_tests.ml`: live master gain and strict range;
+- `audio_replay_tests.ml`: two independent 512-frame, multi-rate,
+  multi-channel replacement/loop replays produce the same 2,048 PCM bytes and
+  fixed FNV-1a checksum `630146404` under a 4-MB GC limit;
 - `client_ui_command_tests.ml`: three-source drain, local/forward policy,
   settings, save request, quit and compact inventory conversion;
 - `client_ui_menu_tests.ml`: seven-page navigation and slot commands;
@@ -45,6 +48,10 @@ difficulty; v7 images remain readable and default to Medium.
 - `runtime_new_game_skill_tests.ml`: fresh Easy/Hard session construction;
 - `client_runtime_ui_messages_tests.ml`: strict Protocol-34 UI framing;
 - `runtime_active_session_persistence_tests.ml`: atomic live save/restore.
+
+`scripts/renderer_audio_acceptance.ps1` combines the PCM gate with three
+installed-original renderer pairs and four exact MiniQuake2 renderer replays,
+emitting one JSON acceptance report below `build/`.
 
 ## Remaining boundary
 

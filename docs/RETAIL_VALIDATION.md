@@ -305,24 +305,27 @@ blocked and is not reported as passed. Exact 3.19 evidence remains the pinned
 source reference rather than this installed binary.
 
 The renderer capture path performs native GL readback into canonical top-left
-RGBA and writes lossless 32-bit TGA. Repeated independent captures were
-byte/pixel exact (zero differing pixels) for:
-
-- `base1_start_world`, 640x480, SHA-256
-  `FF336C57FC8C50C3B9CEE04289954D14EC6AEAADDF280285EB4B58934B6D5F29`;
-- `waste1_brush_water_md2`, including warp/water, 22 inline-brush entities and
-  textured MD2, SHA-256
-  `A1C0FF0FDDA4764EAC4D47AE783285AC886E0A63D96CD74755B88BE104277B2F`.
+RGBA and writes lossless 32-bit TGA. Four repeated 640x480 scenes are now
+byte/pixel exact: `base1` inline world, `waste1` water/22 brushes/MD2, `cool1`
+alpha/20 brushes/MD2 and `boss2` sky/alpha/11 brushes/MD2. Their hashes are
+recorded in [`REF_GL_DIFFERENTIAL.md`](REF_GL_DIFFERENTIAL.md) and in the
+generated combined JSON report.
 
 `tools/original_ref_gl_capture.c` now hosts the installed unmodified 32-bit API
 v3 DLL directly, while `tools/run_ref_gl_differential.ps1` compiles the current
 MiniLang capture entry point and runs both sides at matched cameras. At a
 per-channel tolerance of 4, `base1_world` passes with 25,725 differing pixels
 and 2,792 ppm mean absolute error; `waste1_world_md2` passes with 10,987 pixels
-and 2,303 ppm. The accepted ceilings are 32,000 pixels, 100,000 mismatch ppm
+and 2,303 ppm; the added `cool1_alpha_md2` scene passes with 16,263 pixels and
+2,963 ppm while exercising 56 alpha surfaces. The accepted ceilings are
+32,000 pixels, 100,000 mismatch ppm
 and 4,000 MAE ppm. JSON reports and heatmaps remain derived build artifacts;
 the installed DLL and retail data are never copied. See
 [`REF_GL_DIFFERENTIAL.md`](REF_GL_DIFFERENTIAL.md).
+
+The combined gate also performs two independent 512-frame audio mixes across
+8-bit mono looping and 16-bit stereo replacement channels. Both produce the
+same 2,048 PCM bytes and FNV-1a `630146404` under the 4-MB GC profile.
 
 The product executable also plays the installed 3,159,828-byte
 `baseq2/video/idlog.cin` through its real Huffman/palette/OpenGL/mixer/device

@@ -132,7 +132,8 @@ and bindings persist through a strict, bounded `miniquake2.cfg` format.
 An independent raw Protocol-34 peer validates both client and server wire
 directions. Deterministic OpenGL readback produces stable TGA captures, and a
 native x86 API-v3 host now drives the installed unmodified classic `ref_gl.dll`
-at matching cameras. The paired `base1` and `waste1` world/water/MD2 scenes
+at matching cameras. The paired `base1`, `waste1` and `cool1`
+world/water/alpha/MD2 scenes
 pass their documented 0.4% mean-error ceiling after restoring the original
 `intensity=2` material rule; JSON metrics and heatmaps remain build artifacts.
 The unpaced full retail session passes 10,000

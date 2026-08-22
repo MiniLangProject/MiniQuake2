@@ -28,12 +28,13 @@ MD2 submissions.
 
 ## Fixed scenes and thresholds
 
-Both scenes use 640x480, four frames and capture time 0.3 seconds.
+All three paired scenes use 640x480, four frames and capture time 0.3 seconds.
 
 | Scene | Camera `x y z pitch yaw roll` | Additional coverage |
 |---|---|---|
 | `base1_world` | `-1768 1536 150 0 0 0` | opaque BSP, PVS, static lightmaps |
 | `waste1_world_md2` | `-2192 1796 -366 0 270 0` | warp/water and fullbright Soldier MD2 |
+| `cool1_alpha_md2` | `-1448 -1520 46 0 90 0` | 56 alpha surfaces and fullbright Soldier MD2 |
 
 The comparison ignores per-channel deltas up to 4 and requires all of:
 
@@ -47,6 +48,7 @@ The current NVIDIA OpenGL compatibility run passes with:
 |---|---:|---:|---:|
 | `base1_world` | 25,725 | 83,740 | 2,792 |
 | `waste1_world_md2` | 10,987 | 35,765 | 2,303 |
+| `cool1_alpha_md2` | 16,263 | 52,939 | 2,963 |
 
 The gate exposed a material defect rather than merely documenting it: classic
 `ref_gl` scales mipmapped WAL and model-skin RGB through its default
@@ -54,6 +56,17 @@ The gate exposed a material defect rather than merely documenting it: classic
 the original inverse-intensity color for warp and alpha passes. The remaining
 small differences are concentrated at filtered texture/lightmap edges and the
 MD2 silhouette; exact pixels are not claimed.
+
+The same command captures four independent MiniQuake2 runs twice and requires
+zero differing pixels. These scenes enable inline BSP models whose live mover
+transforms cannot be reconstructed authoritatively by a static original host:
+
+| Replay | Coverage | TGA SHA-256 |
+|---|---|---|
+| `base1_inline` | opaque world and inline movers | `DDB0D0F2D0248E9C4D040E443C7D9368DDF00B056BD5E966B4B7E7C78300DDEC` |
+| `waste1_water_inline_md2` | 20 warp surfaces, 22 inline brushes, MD2 | `E41051C6B099D9D1353AE649B148DD811E637267D6B889EFCE5A7AB3467887BA` |
+| `cool1_alpha_inline_md2` | 56 alpha surfaces, 20 inline brushes, MD2 | `3C1736908C0790ACA73162350E9D7EA14F255E032288A2B6B8597153571E93D5` |
+| `boss2_sky_inline_md2` | sky, alpha, 11 inline brushes, MD2 | `A3208B1A63169ACBC2B90BC24402E24E032CD0F318975A200B1A290782D80B0B` |
 
 ## Reproduce
 
@@ -65,8 +78,16 @@ From `MiniQuake2`:
 ```
 
 The command compiles the current MiniLang capture entry point, builds the x86
-original host, runs both fixed scenes, verifies the reference hash, and emits
+original host, runs all paired scenes and deterministic replays, verifies the reference hash, and emits
 TGA pairs, heatmaps, per-scene JSON and `summary.json` under
 `build/ref_gl_differential/`. A different classic DLL is rejected unless the
 caller explicitly supplies `-AllowDifferentReferenceBinary`; such a run is new
 evidence and must not silently replace the accepted baseline.
+
+The combined renderer/audio entry point additionally compiles and runs the
+byte-golden PCM replay:
+
+```powershell
+.\scripts\renderer_audio_acceptance.ps1 `
+  -RetailRoot "C:\Program Files (x86)\Steam\steamapps\common\Quake 2"
+```
