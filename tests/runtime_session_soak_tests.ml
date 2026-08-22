@@ -16,6 +16,11 @@ function verify(result, expectedFrames, label)
   soakAssert(result.packetsReceived > expectedFrames, label + " receive progress")
   soakAssert(result.packetsSent > expectedFrames, label + " send progress")
   soakAssert(result.packetsRejected == 0, label + " rejected packets")
+  soakAssert(result.commandBufferBytes == 0, label + " retained server commands")
+  soakAssert(result.queuedMapCommands >= 0 and result.queuedMapCommands <= expectedFrames,
+    label + " invalid queued-map count")
+  soakAssert(result.queuedLoadMenus >= 0 and result.queuedLoadMenus <= expectedFrames,
+    label + " invalid load-menu count")
   // The first Winsock use in a fresh process may retain up to three process-wide
   // provider handles. A second complete session below must remain within the
   // same bound instead of growing per session.
@@ -43,7 +48,8 @@ function main(args)
     print "  frames=" + result.frames + " elapsed-ms=" + result.elapsedMilliseconds +
       " fps=" + result.framesPerSecond + " packets=" + result.packetsReceived +
       "/" + result.packetsSent + " handles=" + result.handleDelta +
-      "/" + repeated.handleDelta
+      "/" + repeated.handleDelta + " map-commands=" + result.queuedMapCommands +
+      " load-menus=" + result.queuedLoadMenus
     return 0
   end if
   if len(args) < 1 or len(args) > 3 then
@@ -60,6 +66,7 @@ function main(args)
     " elapsed-ms=" + result.elapsedMilliseconds + " fps=" + result.framesPerSecond
   print "  server-frame=" + result.serverFrame + " packets=" + result.packetsReceived +
     "/" + result.packetsSent + " rejected=" + result.packetsRejected +
-    " handles=" + result.handleDelta
+    " handles=" + result.handleDelta + " map-commands=" + result.queuedMapCommands +
+    " load-menus=" + result.queuedLoadMenus + " command-bytes=" + result.commandBufferBytes
   return 0
 end function

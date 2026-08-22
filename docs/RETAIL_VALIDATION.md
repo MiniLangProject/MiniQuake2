@@ -269,14 +269,14 @@ the next snapshot. A valid outer image with deliberately corrupted private
 payload proves that a mid-restore failure rolls back atomically. Cross-map
 restore remains an explicit map-change/re-signon responsibility.
 
-The unpaced full retail session soak completed 10,000 `base1` frames through
-server frame 10,014 in 478,205.944 ms (20.91 frames/s), processing
-20,391/20,391 packets with zero rejects and a three-handle first-Winsock delta.
-Earlier 45-minute pressure observation held private memory at approximately
-456.7 MB and 142 handles. Histories for world, weapons, network commands and
-bridge diagnostics are explicitly bounded, and inactive managed projectiles
+The extended unpaced retail session soak completed 20,000 `base1` frames
+through server frame 20,014 in 455,711.083 ms (43.89 frames/s), processing
+40,740/40,740 packets with zero rejects and a three-handle first-Winsock delta.
+It validated and consumed 987 original `menu_loadgame` requests and finished
+with zero command-buffer bytes. Histories for world, weapons, network commands
+and bridge diagnostics are explicitly bounded, and inactive managed projectiles
 are compacted. The same executable completes two asset-free 5,000-frame
-sessions at roughly 3,200 frames/s with handle deltas `+3` then `+0`.
+sessions at roughly 3,640 frames/s with handle deltas `+3` then `+0`.
 
 `runtime_cross_map_session_persistence_tests` saves Game+Level state on a live
 source map, changes maps, completes a full Protocol-34 re-signon and restores
@@ -338,10 +338,15 @@ The original `SV_Map` grammar is additionally exercised with the installed
 `eou1_.cin+*bunk1$start` and `end.cin+victory.pcx` chains. CIN, terminal PCX
 and named map spawn all pass through one product-owned window/renderer
 lifecycle; `end.cin+victory.pcx` reports generation 1 and two loading frames.
-The native `--video-restart-smoke` replaces a 640x480 renderer with 1280x720,
+The native `--video-restart-smoke` replaces a 640x480 windowed renderer with a
+1280x720 fullscreen window and GL context,
 re-registers `base1`, and produces the same 60 visible surfaces before and
 after restart; see
 [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
+
+The combined one-command host gate, hardware inventory, native audio result and
+remaining external device matrix are recorded in
+[`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md).
 
 The installed release demos are now product gates as well. Their serverdata
 uses the historical protocol number 26; the isolated DemoSession mirrors the

@@ -148,3 +148,27 @@ function takeQueuedGameMap(commandSystem)
   commandSystem.buffer = mediaseqQueuedParts[1]
   return mediaseqQueuedSpecification
 end function
+
+// Single-player death uses the original game-DLL AddCommandString boundary to
+// ask the client host for its load-game menu. Keep that request out of the UI
+// module itself, validate it exactly, and preserve unrelated console commands.
+function takeQueuedLoadMenu(commandSystem)
+  if commandSystem is void or typeof(commandSystem.buffer) != "string" then
+    return error(8498, "server command buffer is invalid")
+  end if
+  if commandSystem.buffer == "" then return false end if
+  mediaseqLoadParts = mediaseqcmd.splitFirst(commandSystem.buffer)
+  mediaseqLoadArguments = mediaseqcmd.tokenize(mediaseqLoadParts[0])
+  if len(mediaseqLoadArguments) == 0 then
+    commandSystem.buffer = mediaseqLoadParts[1]
+    return false
+  end if
+  if not mediaseqtext.equalInsensitive(mediaseqLoadArguments[0], "menu_loadgame") then
+    return false
+  end if
+  if len(mediaseqLoadArguments) != 1 then
+    return error(8498, "queued load-menu command is malformed")
+  end if
+  commandSystem.buffer = mediaseqLoadParts[1]
+  return true
+end function

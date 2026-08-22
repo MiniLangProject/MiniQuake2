@@ -183,7 +183,8 @@ function runVideoRestartSmokeCommand(args)
   print "MiniQuake2 video restart smoke: PASS"
   print "  generation=" + videoRestartResult[0] + " mode=" +
     videoRestartResult[1] + "x" + videoRestartResult[2] +
-    " loading-frames=" + videoRestartResult[3]
+    " loading-frames=" + videoRestartResult[3] +
+    " fullscreen=" + videoRestartResult[6]
   print "  visible-before=" + videoRestartResult[4] +
     " visible-after=" + videoRestartResult[5]
   return 0

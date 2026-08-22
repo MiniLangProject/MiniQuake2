@@ -140,16 +140,19 @@ at matching cameras. The paired `base1`, `waste1` and `cool1`
 world/water/alpha/MD2 scenes
 pass their documented 0.4% mean-error ceiling after restoring the original
 `intensity=2` material rule; JSON metrics and heatmaps remain build artifacts.
-The unpaced full retail session passes 10,000
-frames at 20.91 frames/s with 20,391 accepted packets, zero rejected packets
-and bounded diagnostic/event histories.
+The unpaced full retail session now passes 20,000 frames at 43.89 frames/s with
+40,740 accepted packets, zero rejected packets, a zero-byte engine-command
+buffer and bounded diagnostic/event histories. The local RTX-5080/Windows host
+also passes a real 640x480-window to 1280x720-fullscreen GL restart and complete
+native-device `idlog.cin` playback; see
+[`docs/HARDWARE_ACCEPTANCE.md`](docs/HARDWARE_ACCEPTANCE.md).
 
 These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 executable exits before networking on this host), paired
 original player view-model/recoil captures beyond the fixed renderer fixture,
-broader GPU/device coverage, remaining secondary monster/turret/boss fidgets,
+broader multi-host GPU/device coverage, remaining secondary monster/turret/boss fidgets,
 exact movement/event differentials, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
@@ -203,6 +206,7 @@ With a legal Quake II installation root containing `baseq2\pak0.pak`:
 .\MiniQuake2\scripts\campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
 .\MiniQuake2\scripts\physical_campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
 .\MiniQuake2\scripts\session_soak.ps1 -Quake2Root "C:\Games\Quake2" -Frames 10000
+.\MiniQuake2\scripts\hardware_acceptance.ps1 -Quake2Root "C:\Games\Quake2" -SoakFrames 20000
 ```
 
 The first command validates a real PAK/BSP38/MD2/WAV set and executes one

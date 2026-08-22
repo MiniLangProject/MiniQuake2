@@ -47,6 +47,19 @@ mediaSequenceAssert(mediatestseq.takeQueuedGameMap(mediaCommandSystem) ==
 mediaSequenceAssert(mediaCommandSystem.buffer == "status\n" and
   mediatestseq.takeQueuedGameMap(mediaCommandSystem) == "" and
   mediaCommandSystem.buffer == "status\n", "unrelated command preserved")
+mediaLoadCommandSystem = mediatestcmd.create(mediatestcvar.createRegistry())
+mediatestcmd.addText(mediaLoadCommandSystem,
+  "menu_loadgame\ngamemap \"base1\"\nstatus\n")
+mediaSequenceAssert(mediatestseq.takeQueuedLoadMenu(mediaLoadCommandSystem),
+  "queued load menu extracted")
+mediaSequenceAssert(mediatestseq.takeQueuedGameMap(mediaLoadCommandSystem) == "base1" and
+  mediaLoadCommandSystem.buffer == "status\n", "load menu preserves following map command")
+mediaSequenceAssert(not mediatestseq.takeQueuedLoadMenu(mediaLoadCommandSystem) and
+  mediaLoadCommandSystem.buffer == "status\n", "unrelated load-menu command preserved")
+mediaMalformedLoadSystem = mediatestcmd.create(mediatestcvar.createRegistry())
+mediatestcmd.addText(mediaMalformedLoadSystem, "menu_loadgame unexpected\n")
+mediaSequenceAssert(try(mediatestseq.takeQueuedLoadMenu(mediaMalformedLoadSystem)) is error and
+  mediaMalformedLoadSystem.buffer != "", "invalid queued load menu retained atomically")
 mediaMalformedCommandSystem = mediatestcmd.create(mediatestcvar.createRegistry())
 mediatestcmd.addText(mediaMalformedCommandSystem, "gamemap \"end.cin++victory.pcx\"\n")
 mediaSequenceAssert(try(mediatestseq.takeQueuedGameMap(mediaMalformedCommandSystem)) is error and

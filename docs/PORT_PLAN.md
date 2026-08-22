@@ -78,8 +78,10 @@ the detailed two-player DM/coop cases and adds a four-client signon,
 disconnect/reconnect, channel-preserving checkpoint, map-change and 500-frame
 steady-state gate. G10 includes manifest and asset/source exclusion, native
 Release/Debug gates, diagnostics,
-retail smoke, deterministic packaging, and a 10,000-frame retail session soak
-at 20.91 frames/s with zero packet rejects and bounded handles/history. Retail
+retail smoke, deterministic packaging, and a 20,000-frame retail session soak
+at 43.89 frames/s with zero packet rejects, a drained engine-command buffer and
+bounded handles/history. The accepted local host additionally passes a real
+window-to-fullscreen GL restart and native-device cinematic playback. Retail
 input hashes and results are recorded in
 `docs/RETAIL_VALIDATION.md`; the authoritative machine-readable status and
 evidence paths are in `BLOCK_LEDGER.json`.

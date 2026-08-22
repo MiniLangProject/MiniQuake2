@@ -12,6 +12,7 @@ package miniquake2.runtime.soak
 import miniquake2.network.constants as soaknc
 import miniquake2.platform.system as soaksystem
 import miniquake2.qcommon.types as soakqt
+import miniquake2.runtime.media_sequence as soakmedia
 import miniquake2.runtime.play_session as soakplay
 
 struct SessionSoakResult
@@ -25,6 +26,9 @@ struct SessionSoakResult
   packetsSent
   packetsRejected
   handleDelta
+  queuedMapCommands
+  queuedLoadMenus
+  commandBufferBytes
 end struct
 
 function commandForFrame(frame)
@@ -50,6 +54,8 @@ function runOwned(session, frameLimit, handlesBefore)
   frame = 0
   previousServerFrame = session.server.frameNumber
   lastResult = void
+  queuedMapCommands = 0
+  queuedLoadMenus = 0
   while frame < frameLimit
     soakplay.setUserCmd(session, commandForFrame(frame))
     lastResult = soakplay.step(session)
@@ -63,6 +69,19 @@ function runOwned(session, frameLimit, handlesBefore)
       return error(9933, "session soak rejected a packet at frame " + frame)
     end if
     previousServerFrame = lastResult.serverFrame
+    // The interactive product host consumes AddCommandString `gamemap`
+    // requests after every network frame. This fixed-map lifetime runner has
+    // no media executor, but must still validate and drain that engine-owned
+    // command boundary. Otherwise repeatedly crossing a changelevel trigger
+    // measures an unconsumed test-harness queue instead of session lifetime.
+    if soakmedia.takeQueuedLoadMenu(session.server.bridgeRuntime.commands) then
+      queuedLoadMenus = queuedLoadMenus + 1
+    end if
+    queuedMap = soakmedia.takeQueuedGameMap(session.server.bridgeRuntime.commands)
+    if queuedMap != "" then queuedMapCommands = queuedMapCommands + 1 end if
+    if session.server.bridgeRuntime.commands.buffer != "" then
+      return error(9938, "session soak left an unsupported server command queued")
+    end if
     while soakplay.takeFrame(session) is not void
     end while
     frame = frame + 1
@@ -75,7 +94,8 @@ function runOwned(session, frameLimit, handlesBefore)
         "/" + (session.client.packetsSent + session.server.packetsSent) +
         " bridge-logs=" + len(session.server.bridgeRuntime.logs) +
         " command-log=" + len(session.server.networkRuntime.commandLog) +
-        " pending-sounds=" + len(session.server.bridgeRuntime.pendingSounds)
+        " pending-sounds=" + len(session.server.bridgeRuntime.pendingSounds) +
+        " map-commands=" + queuedMapCommands + " load-menus=" + queuedLoadMenus
     end if
   end while
   elapsed = soaksystem.milliseconds(clock) - started
@@ -88,9 +108,11 @@ function runOwned(session, frameLimit, handlesBefore)
   rejected = session.client.packetsRejected + session.server.packetsRejected
   soakplay.shutdown(session)
   handlesAfter = soaksystem.handleCount()
+  commandBufferBytes = len(bytes(session.server.bridgeRuntime.commands.buffer))
   return SessionSoakResult(frameLimit, elapsed, frameLimit * 1000 / elapsed,
     clientState, serverFrame, spawnCount, received, sent, rejected,
-    handlesAfter - handlesBefore)
+    handlesAfter - handlesBefore, queuedMapCommands, queuedLoadMenus,
+    commandBufferBytes)
 end function
 
 function runCore(mapName, entityText, collision, frameLimit)

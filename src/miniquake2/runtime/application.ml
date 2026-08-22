@@ -1068,7 +1068,7 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
 
   appproducthost.restartProductHost(applicationVideoSmokeHost,
-    "MiniQuake2 Video Restart", 3, false, applicationRendererImports())
+    "MiniQuake2 Video Restart", 3, true, applicationRendererImports())
   appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
   applicationVideoSmokeRenderer = applicationVideoSmokeHost.renderer
   applicationVideoSmokeRenderer.exports.BeginRegistration(applicationVideoSmokePath)
@@ -1091,11 +1091,13 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   applicationVideoSmokeLoadingFrames = applicationVideoSmokeHost.loadingFrames
   applicationVideoSmokeBeforeVisible = applicationVideoSmokeBefore.visibleSurfaces
   applicationVideoSmokeAfterVisible = applicationVideoSmokeAfter.visibleSurfaces
+  applicationVideoSmokeFullScreen = applicationVideoSmokeHost.fullScreen
   appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
   appproducthost.closeProductHost(applicationVideoSmokeHost)
   previewFileSystem = void
   if applicationVideoSmokeGeneration != 2 or applicationVideoSmokeWidth != 1280 or
-      applicationVideoSmokeHeight != 720 or applicationVideoSmokeLoadingFrames != 2 then
+      applicationVideoSmokeHeight != 720 or applicationVideoSmokeLoadingFrames != 2 or
+      not applicationVideoSmokeFullScreen then
     return error(9939, "video restart host lifecycle mismatch")
   end if
   if applicationVideoSmokeBeforeVisible != applicationVideoSmokeAfterVisible then
@@ -1103,7 +1105,8 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   end if
   return [applicationVideoSmokeGeneration, applicationVideoSmokeWidth,
     applicationVideoSmokeHeight, applicationVideoSmokeLoadingFrames,
-    applicationVideoSmokeBeforeVisible, applicationVideoSmokeAfterVisible]
+    applicationVideoSmokeBeforeVisible, applicationVideoSmokeAfterVisible,
+    applicationVideoSmokeFullScreen]
 end function
 
 function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, productHost, skill)
@@ -1324,6 +1327,10 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       stepResult = appplay.step(session)
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
+      if appmediaseq.takeQueuedLoadMenu(session.server.bridgeRuntime.commands) then
+        appuimenu.open(screen.menu, "load")
+        appuikeys.setDestination(input, appuiconstants.KEY_MENU)
+      end if
       if applicationPendingMediaSpecification == "" then
         applicationPendingMediaSpecification = appmediaseq.takeQueuedGameMap(
           session.server.bridgeRuntime.commands)
