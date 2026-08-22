@@ -155,8 +155,12 @@ function acceptFrame(client, frame)
 end function
 
 function parseFrame(client, buffer, baselines)
+  return parseFrameProtocol(client, buffer, baselines, 34)
+end function
+
+function parseFrameProtocol(client, buffer, baselines, protocol)
   if client.state < nc.CA_CONNECTED then return error(7117, "frame received before client connection") end if
-  frame = nsnapshot.readFrame(buffer, client.frames, baselines)
+  frame = nsnapshot.readFrameProtocol(buffer, client.frames, baselines, protocol)
   acceptFrame(client, frame)
   return frame
 end function

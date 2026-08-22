@@ -104,6 +104,12 @@ managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached
 frame 81 once with zero drops and restored the game palette on completion.
 Classic `+nextserver` strings now drive CIN, PCX and named-spawn map steps;
 the interactive loop consumes the validated `gamemap` queued at intermission.
+The same executor now plays the installed release DM2 files through the live
+snapshot/effect/renderer/audio path. `demo1.dm2` completes all 696 packets and
+688 rendered frames on `base2`; its historical Protocol-26 frame layout is
+accepted only inside the demo session, while every network connection remains
+strict Protocol 34. Heavyweight DM2-to-map chains preserve the window and GL
+context but reset renderer-owned managed state between BSPs.
 The same product UI now applies mouse sensitivity, always-run and mixer volume
 live, renders named `svc_inventory` contents, forwards game/chat commands, and
 provides three failure-atomic persistent Save/Load slots, live video-mode
@@ -172,6 +178,7 @@ With a legal Quake II installation root containing `baseq2\pak0.pak`:
 .\MiniQuake2\build\MiniQuake2.exe --map-preview "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --play "C:\Games\Quake2" base1 0
 .\MiniQuake2\build\MiniQuake2.exe --cinematic "C:\Games\Quake2" idlog 0 0
+.\MiniQuake2\build\MiniQuake2.exe --demo "C:\Games\Quake2" demo1.dm2 0
 .\MiniQuake2\build\MiniQuake2.exe --media-sequence "C:\Games\Quake2" "end.cin+victory.pcx" 0
 .\MiniQuake2\build\MiniQuake2.exe --dedicated "C:\Games\Quake2" base1 27910 0
 .\MiniQuake2\build\MiniQuake2.exe --listen "C:\Games\Quake2" base1 600
@@ -185,6 +192,8 @@ server/Game-API frame. The second opens the free-camera OpenGL BSP preview. The
 third starts the interactive local vertical slice; `0` keeps it open until the
 window is closed. Controls are `W/A/S/D`, mouse look, `Space`/`C` for vertical
 movement, `Shift` for speed, mouse button 1 to attack, and `E` to use.
+The demo command plays an installed DM2 to completion; a positive frame count
+is a deterministic visual preview gate.
 The package script emits deterministic, asset-scanned binary and corresponding
 source ZIPs, then extracts and starts the shipped executable for diagnostics and
 CLI smoke checks. The source archive also carries the exact shared native-bridge

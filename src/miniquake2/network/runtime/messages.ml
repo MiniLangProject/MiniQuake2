@@ -93,9 +93,12 @@ function writeDownload(buffer, data, offset, count, percent)
   return buffer
 end function
 
-function parseServerData(runtime, buffer)
+function parseServerDataVersion(runtime, buffer, allowLegacyDemo)
+  if typeof(allowLegacyDemo) != "bool" then return error(7238, "legacy demo protocol flag must be boolean") end if
   version = pchecked.readLong(buffer, "serverdata protocol")
-  if version != qc.PROTOCOL_VERSION then return error(7229, "server uses unsupported protocol " + version) end if
+  if version != qc.PROTOCOL_VERSION and not (allowLegacyDemo and version == 26) then
+    return error(7229, "server uses unsupported protocol " + version)
+  end if
   spawnCount = pchecked.readLong(buffer, "serverdata spawn count")
   attract = pchecked.readByte(buffer, "serverdata attract loop")
   if attract != 0 and attract != 1 then return error(7230, "serverdata attract loop is not boolean") end if
@@ -119,6 +122,10 @@ function parseServerData(runtime, buffer)
   runtime.client.currentFrame = void
   if runtime.client.state >= nc.CA_CONNECTED then runtime.client.state = nc.CA_CONNECTED end if
   return true
+end function
+
+function parseServerData(runtime, buffer)
+  return parseServerDataVersion(runtime, buffer, false)
 end function
 
 function parsePayload(runtime, payload)

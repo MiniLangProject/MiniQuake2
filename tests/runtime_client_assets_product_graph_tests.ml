@@ -46,6 +46,12 @@ assetGraphAssert(resolver.modelName("models/objects/asset_graph.md2") is not voi
 asset_graph_runtime.reset(assets, "asset_graph_reset")
 assetGraphAssert(resolver.modelIndex(2) is void and resolver.soundIndex(3) is void,
   "binding did not observe reset generation")
+asset_graph_runtime.registerConfigStrings(assets, configStrings, "asset_graph_again")
+assetGraphAssert(resolver.soundIndex(3) is not void,
+  "binding did not observe replacement generation")
+asset_graph_runtime.releaseBindings()
+assetGraphAssert(resolver.modelIndex(2) is void and resolver.soundIndex(3) is void,
+  "released product binding retained the asset registry")
 renderer.exports.EndRegistration()
 renderer.exports.Shutdown()
 print("runtime_client_assets_product_graph_tests: PASS")

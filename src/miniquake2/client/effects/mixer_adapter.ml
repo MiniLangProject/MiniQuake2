@@ -54,3 +54,13 @@ function install(mixer, resolveIndexCallback, resolveNameCallback, entityPositio
   return ceaudio.callbacks(resolveIndex, resolveName, play)
 end function
 
+function release()
+  global activeMixer, indexResolver, nameResolver, entityPositionResolver, listenerOrigin, listenerRight
+  activeMixer = void
+  indexResolver = void
+  nameResolver = void
+  entityPositionResolver = void
+  listenerOrigin = void
+  listenerRight = void
+  return true
+end function

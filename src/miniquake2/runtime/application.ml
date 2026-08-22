@@ -41,6 +41,7 @@ import miniquake2.runtime.play_session as appplay
 import miniquake2.runtime.session_persistence as apppersistence
 import miniquake2.runtime.media_sequence as appmediaseq
 import miniquake2.runtime.product_host as appproducthost
+import miniquake2.runtime.demo_session as appdemosession
 import miniquake2.runtime.client_assets as appclientassets
 import miniquake2.client.assets.registry as appassetregistry
 import miniquake2.physics.vector as appphysicsvector
@@ -164,7 +165,10 @@ function pumpPlayAudio(device, mixer)
 end function
 
 function closePlayAudio(device, mixer)
-  if mixer is not void then appaudiomixer.stopAll(mixer) end if
+  if mixer is not void then
+    appaudiomixer.stopAll(mixer)
+    mixer.channels = []
+  end if
   if device is not void then appaudiodevice.reset(device); appaudiodevice.close(device) end if
   return void
 end function
@@ -271,6 +275,19 @@ function picturePath(name)
     applicationPicturePathHolder = applicationPicturePathHolder + ".pcx"
   end if
   return applicationPicturePathHolder
+end function
+
+function demoPath(name)
+  if typeof(name) != "string" or name == "" then return error(9948, "demoPath requires a demo name") end if
+  applicationDemoPathHolder = name
+  applicationDemoPathLowerHolder = apptext.lower(applicationDemoPathHolder)
+  if not apptext.startsWith(applicationDemoPathLowerHolder, "demos/") then
+    applicationDemoPathHolder = "demos/" + applicationDemoPathHolder
+  end if
+  if not endsWith(applicationDemoPathHolder, ".dm2") then
+    applicationDemoPathHolder = applicationDemoPathHolder + ".dm2"
+  end if
+  return applicationDemoPathHolder
 end function
 
 // Product CIN lifecycle: retail FS -> Huffman frames/palette -> OpenGL raw
@@ -458,10 +475,215 @@ function runRetailPicture(baseDirectory, name, frameLimit)
   return applicationPictureProductResult
 end function
 
+function applicationSubmitDemoFrame(renderer, world, frame, screen, now,
+    window, stats, configStrings)
+  renderer.exports.RenderFrame(frame)
+  applicationDemoSubmitStats = appgl.submitClassicWorld(renderer, world, frame)
+  appuiscreen.draw(screen, now, window.width, window.height,
+    stats, configStrings, renderer.exports)
+  return applicationDemoSubmitStats
+end function
+
+// Product DM2 lifecycle. Release demos are Protocol 26 streams; DemoSession
+// owns that isolated compatibility mode while all live networking remains 34.
+// Configstrings drive the same BSP/model/sound registration and frame/effect
+// handoff used by a connected game.
+function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
+  global previewFileSystem, playAssetState, playClientRuntime
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then
+    return error(9949, "demo requires the Quake II install root")
+  end if
+  if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
+    return error(9950, "demo frame limit outside [0,36000]")
+  end if
+  applicationDemoFileSystemHolder = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationDemoFileSystemHolder
+  applicationDemoFilePathHolder = demoPath(name)
+  applicationDemoSessionHolder = appdemosession.create(appfs.readFile(
+    applicationDemoFileSystemHolder, applicationDemoFilePathHolder), 19)
+  applicationDemoWindowHolder = productHost.window
+  applicationDemoRendererHolder = productHost.renderer
+  applicationDemoWorldHolder = void
+  applicationDemoMapHolder = void
+  applicationDemoMapPathHolder = ""
+  applicationDemoAssetStateHolder = void
+  playClientRuntime = applicationDemoSessionHolder.runtime.client
+
+  applicationDemoMixerHolder = appaudiomixer.create(44100)
+  appaudiomixer.setMasterVolume(applicationDemoMixerHolder, 0.7)
+  applicationDemoDeviceResult = try(appaudiodevice.open(44100, 2, 16))
+  applicationDemoDeviceHolder = void
+  if applicationDemoDeviceResult is not error then
+    applicationDemoDeviceHolder = applicationDemoDeviceResult
+  end if
+  applicationDemoInputHolder = appuikeys.createInputState()
+  applicationDemoScreenHolder = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
+  applicationDemoCommandHolder = appuicommands.create()
+  applicationDemoClockHolder = appsystem.createClock()
+  applicationDemoRenderedFrames = 0
+  applicationDemoLastWorldStats = void
+  applicationDemoStatus = "preview"
+
+  while (frameLimit == 0 or applicationDemoRenderedFrames < frameLimit) and
+      not applicationDemoSessionHolder.finished and
+      not applicationDemoCommandHolder.quitRequested and
+      appwindow.poll(applicationDemoWindowHolder)
+    applicationDemoStarted = appsystem.milliseconds(applicationDemoClockHolder)
+    applicationDemoUiNow = appbyteio.truncInt(applicationDemoStarted)
+    appuicontroller.poll(applicationDemoInputHolder, applicationDemoScreenHolder,
+      applicationDemoUiNow)
+    appuicommands.drain(applicationDemoCommandHolder, applicationDemoInputHolder,
+      applicationDemoScreenHolder, applicationDemoMixerHolder)
+    applicationDemoIgnoredCommands = appuicommands.takeForwarded(
+      applicationDemoCommandHolder)
+    if not applicationDemoScreenHolder.menu.active then
+      applicationDemoStepHolder = appdemosession.step(applicationDemoSessionHolder,
+        applicationDemoSessionHolder.framesRead * 100)
+      if applicationDemoStepHolder is void then break end if
+      applyPlayHandoff(applicationDemoScreenHolder,
+        applicationDemoStepHolder.handoff)
+
+      applicationDemoNextMapPath = appdemosession.mapModelPath(
+        applicationDemoSessionHolder)
+      if applicationDemoNextMapPath != "" and
+          applicationDemoNextMapPath != applicationDemoMapPathHolder then
+        if applicationDemoWorldHolder is not void then
+          appgl.releaseClassicWorld(applicationDemoRendererHolder,
+            applicationDemoWorldHolder)
+        end if
+        applicationDemoMapPathHolder = mapPath(applicationDemoNextMapPath)
+        // BeginRegistration releases the previous step's renderer-owned BSP
+        // before parsing the replacement map. Two expanded retail maps can
+        // otherwise coexist transiently and exhaust the bounded product heap.
+        applicationDemoRendererHolder.exports.BeginRegistration(
+          applicationDemoMapPathHolder)
+        applicationDemoMapHolder = appbsp.parse(appfs.readFile(
+          applicationDemoFileSystemHolder, applicationDemoMapPathHolder),
+          applicationDemoMapPathHolder)
+        appgl.adoptClassicMapModel(applicationDemoRendererHolder,
+          applicationDemoMapHolder, applicationDemoMapPathHolder)
+        applicationDemoWorldHolder = appgl.prepareClassicWorld(
+          applicationDemoRendererHolder, applicationDemoMapHolder,
+          loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
+        applicationDemoAssetStateHolder = appclientassets.createForRenderer(
+          applicationDemoRendererHolder.exports, loadPlaySound, noteMissingPlayAsset)
+        playAssetState = applicationDemoAssetStateHolder
+        appclientassets.registerConfigStrings(applicationDemoAssetStateHolder,
+          applicationDemoSessionHolder.runtime.network.configStrings,
+          applicationDemoMapPathHolder)
+        applicationDemoRendererHolder.exports.EndRegistration()
+      end if
+
+      if applicationDemoStepHolder.frames > 0 then
+        if applicationDemoWorldHolder is void or
+            applicationDemoAssetStateHolder is void then
+          return error(9951, "demo snapshot arrived before map registration")
+        end if
+        applicationDemoFrameHolder = appclientstate.buildRefDef(
+          applicationDemoSessionHolder.runtime.client, 1.0,
+          applicationDemoWindowHolder.width, applicationDemoWindowHolder.height,
+          resolvePlayModelIndex)
+        applicationDemoAxesHolder = appphysicsvector.angleVectors(
+          applicationDemoFrameHolder.viewAngles)
+        appclientassets.attachMixer(applicationDemoAssetStateHolder,
+          applicationDemoSessionHolder.runtime.effects,
+          applicationDemoMixerHolder, resolvePlayEntityPosition,
+          applicationDemoFrameHolder.viewOrigin, applicationDemoAxesHolder[1])
+        appeffecthandoff.apply(applicationDemoSessionHolder.runtime.effects,
+          applicationDemoFrameHolder,
+          applicationDemoSessionHolder.runtime.client.serverTime,
+          resolvePlayEffectModel)
+        applicationDemoRendererHolder.exports.BeginFrame(0.0)
+        applicationDemoSubmitResult = try(applicationSubmitDemoFrame(
+          applicationDemoRendererHolder, applicationDemoWorldHolder,
+          applicationDemoFrameHolder, applicationDemoScreenHolder,
+          applicationDemoUiNow, applicationDemoWindowHolder,
+          applicationDemoSessionHolder.runtime.client.current.playerState.stats,
+          applicationDemoSessionHolder.runtime.network.configStrings))
+        applicationDemoEndFrameResult = try(
+          applicationDemoRendererHolder.exports.EndFrame())
+        if applicationDemoSubmitResult is error then
+          return applicationDemoSubmitResult
+        end if
+        if applicationDemoEndFrameResult is error then
+          return applicationDemoEndFrameResult
+        end if
+        applicationDemoLastWorldStats = applicationDemoSubmitResult
+        pumpPlayAudio(applicationDemoDeviceHolder, applicationDemoMixerHolder)
+        applicationDemoRenderedFrames = applicationDemoRenderedFrames + 1
+        if frameLimit == 0 then
+          applicationDemoElapsed = appsystem.milliseconds(applicationDemoClockHolder) -
+            applicationDemoStarted
+          if applicationDemoElapsed < 100 then
+            appsystem.sleep(appbyteio.truncInt(100 - applicationDemoElapsed))
+          end if
+        end if
+      end if
+    else
+      appsystem.sleep(8)
+    end if
+  end while
+
+  if applicationDemoSessionHolder.finished then applicationDemoStatus = "completed" end if
+  applicationDemoRegisteredModels = 0
+  applicationDemoRegisteredSounds = 0
+  applicationDemoMissingAssets = 0
+  if applicationDemoAssetStateHolder is not void then
+    applicationDemoRegisteredModels = countAvailableAssets(
+      applicationDemoAssetStateHolder.modelEntries)
+    applicationDemoRegisteredSounds = countAvailableAssets(
+      applicationDemoAssetStateHolder.soundEntries)
+    applicationDemoMissingAssets = len(appclientassets.missingAssets(
+      applicationDemoAssetStateHolder))
+  end if
+  applicationDemoSubmittedEntities = applicationDemoRendererHolder.state.submittedEntities
+  applicationDemoVisibleSurfaces = 0
+  if applicationDemoLastWorldStats is not void then
+    applicationDemoVisibleSurfaces = applicationDemoLastWorldStats.visibleSurfaces
+  end if
+  closePlayAudio(applicationDemoDeviceHolder, applicationDemoMixerHolder)
+  appclientassets.releaseBindings()
+  if applicationDemoWorldHolder is not void then
+    appgl.releaseClassicWorld(applicationDemoRendererHolder,
+      applicationDemoWorldHolder)
+  end if
+  applicationDemoPacketsRead = applicationDemoSessionHolder.packetsRead
+  // These explicit root clears are required even when the compiler inlines a
+  // media step into the sequence loop. The next BSP must not retain the
+  // previous expanded map, snapshot history or client asset registry.
+  applicationDemoMapHolder = void
+  applicationDemoWorldHolder = void
+  applicationDemoAssetStateHolder = void
+  appdemosession.release(applicationDemoSessionHolder)
+  applicationDemoSessionHolder = void
+  applicationDemoFileSystemHolder = void
+  previewFileSystem = void
+  playAssetState = void
+  playClientRuntime = void
+  return [applicationDemoRenderedFrames,
+    applicationDemoPacketsRead, applicationDemoStatus,
+    applicationDemoMapPathHolder, applicationDemoRegisteredModels,
+    applicationDemoRegisteredSounds, applicationDemoMissingAssets,
+    applicationDemoSubmittedEntities, applicationDemoVisibleSurfaces]
+end function
+
+function runRetailDemo(baseDirectory, name, frameLimit)
+  applicationDemoProductHost = appproducthost.openProductHost(
+    "MiniQuake2 Demo - " + name, 3, false, applicationRendererImports())
+  appproducthost.showProductLoading(applicationDemoProductHost,
+    "loading " + name)
+  applicationDemoProductResult = try(runRetailDemoOnHost(baseDirectory,
+    name, frameLimit, applicationDemoProductHost))
+  appproducthost.closeProductHost(applicationDemoProductHost)
+  if applicationDemoProductResult is error then return applicationDemoProductResult end if
+  return applicationDemoProductResult
+end function
+
 // Execute the exact classic `map first+nextserver` media chain. A positive
 // frame limit is a deterministic preview gate per step; zero retains normal
 // interactive behavior (CIN to completion, PCX until Space/Enter, map until
-// window close). DM2 is parsed but remains an explicit unsupported boundary.
+// window close). DM2 uses the isolated release-demo Protocol-26 compatibility
+// path and renders through the same Protocol-34 client state and product host.
 function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
     productHost, skill)
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
@@ -471,6 +693,7 @@ function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
   applicationMediaCinematics = 0
   applicationMediaPictures = 0
   applicationMediaMaps = 0
+  applicationMediaDemos = 0
   applicationMediaCompleted = 0
   applicationMediaIndex = 0
   while applicationMediaIndex < len(applicationMediaSequenceHolder.steps)
@@ -478,7 +701,8 @@ function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
     if not appproducthost.showProductLoading(productHost,
         "loading " + applicationMediaStepHolder.name) then
       return [applicationMediaCompleted, applicationMediaCinematics,
-        applicationMediaPictures, applicationMediaMaps, "aborted"]
+        applicationMediaPictures, applicationMediaMaps, "aborted",
+        applicationMediaDemos]
     end if
     if applicationMediaStepHolder.kind == appmediaseq.MEDIA_CIN then
       applicationMediaCinematicResult = runRetailCinematicOnHost(baseDirectory,
@@ -486,7 +710,8 @@ function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
       applicationMediaCinematics = applicationMediaCinematics + 1
       if frameLimit == 0 and applicationMediaCinematicResult[1] != "completed" then
         return [applicationMediaCompleted, applicationMediaCinematics,
-          applicationMediaPictures, applicationMediaMaps, "aborted"]
+          applicationMediaPictures, applicationMediaMaps, "aborted",
+          applicationMediaDemos]
       end if
     else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_PCX then
       applicationMediaPictureResult = runRetailPictureOnHost(baseDirectory,
@@ -495,20 +720,43 @@ function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
       if frameLimit == 0 and not applicationMediaPictureResult[4] and
           applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
         return [applicationMediaCompleted, applicationMediaCinematics,
-          applicationMediaPictures, applicationMediaMaps, "aborted"]
+          applicationMediaPictures, applicationMediaMaps, "aborted",
+          applicationMediaDemos]
       end if
     else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP then
       runPlayAtOnHost(baseDirectory, applicationMediaStepHolder.name,
         applicationMediaStepHolder.spawnPoint, frameLimit, productHost, skill)
       applicationMediaMaps = applicationMediaMaps + 1
+    else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2 then
+      applicationMediaDemoResult = runRetailDemoOnHost(baseDirectory,
+        applicationMediaStepHolder.name, frameLimit, productHost)
+      applicationMediaDemos = applicationMediaDemos + 1
+      if frameLimit == 0 and applicationMediaDemoResult[2] != "completed" then
+        return [applicationMediaCompleted, applicationMediaCinematics,
+          applicationMediaPictures, applicationMediaMaps, "aborted",
+          applicationMediaDemos]
+      end if
     else
-      return error(9930, "DM2 playback is not implemented in the product media sequence")
+      return error(9930, "unknown product media kind")
+    end if
+    if applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
+      applicationMediaNextStepHolder = applicationMediaSequenceHolder.steps[
+        applicationMediaIndex + 1]
+      applicationMediaCurrentIs3d = applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP or
+        applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2
+      applicationMediaNextIs3d = applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_MAP or
+        applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_DM2
+      if applicationMediaCurrentIs3d and applicationMediaNextIs3d then
+        appproducthost.resetProductRenderer(productHost,
+          applicationRendererImports())
+      end if
     end if
     applicationMediaCompleted = applicationMediaCompleted + 1
     applicationMediaIndex = applicationMediaIndex + 1
   end while
   return [applicationMediaCompleted, applicationMediaCinematics,
-    applicationMediaPictures, applicationMediaMaps, "completed"]
+    applicationMediaPictures, applicationMediaMaps, "completed",
+    applicationMediaDemos]
 end function
 
 function runRetailMediaSequence(baseDirectory, specification, frameLimit)
@@ -847,15 +1095,17 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   previewFileSystem = filesystem
   applicationCurrentMapName = mapName
   path = mapPath(applicationCurrentMapName)
+  window = productHost.window
+  renderer = productHost.renderer
+  // Drop any CIN/DM2/previous-map registration before expanding the next BSP.
+  // Registration remains open until all world and client assets are ready.
+  renderer.exports.BeginRegistration(path)
   map = appbsp.parse(appfs.readFile(filesystem, path), path)
   session = appplay.createCoreAtSkill(applicationCurrentMapName, map.entityText,
     appcollision.create(map),
     spawnPoint, "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000", skill)
   appplay.runUntilActive(session, 256)
 
-  window = productHost.window
-  renderer = productHost.renderer
-  renderer.exports.BeginRegistration(path)
   appgl.adoptClassicMapModel(renderer, map, path)
   world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
   assetState = appclientassets.createForRenderer(renderer.exports, loadPlaySound, noteMissingPlayAsset)
@@ -1093,6 +1343,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
 
   appwindow.setMouseCapture(false)
   closePlayAudio(audioDevice, audioMixer)
+  appclientassets.releaseBindings()
   if world is not void then appgl.releaseClassicWorld(renderer, world) end if
   clientState = session.client.integrated.network.client.state
   serverFrame = session.server.frameNumber

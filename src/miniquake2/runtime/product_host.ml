@@ -173,6 +173,35 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   return true
 end function
 
+// Rebuild renderer-owned managed state while preserving the native window and
+// its OpenGL context. Media chains use this between heavyweight 3D steps.
+function resetProductRenderer(host, rendererImports)
+  if typeof(host) != "struct" or host.closed then
+    return error(9938, "cannot reset renderer on a closed product host")
+  end if
+  productHostResetCallbacks = host.callbacks
+  productHostResetCallbacks.shutdownRenderer(host.renderer)
+  productHostResetRendererResult = try(productHostResetCallbacks.createRenderer(
+    rendererImports, true))
+  if productHostResetRendererResult is error then
+    productHostResetCallbacks.destroyWindow(host.window)
+    host.closed = true
+    return productHostResetRendererResult
+  end if
+  productHostResetRenderer = productHostResetRendererResult
+  productHostResetInit = try(productHostResetCallbacks.initRenderer(
+    productHostResetRenderer))
+  if productHostResetInit is error then
+    productHostResetCallbacks.shutdownRenderer(productHostResetRenderer)
+    productHostResetCallbacks.destroyWindow(host.window)
+    host.closed = true
+    return productHostResetInit
+  end if
+  host.renderer = productHostResetRenderer
+  host.generation = host.generation + 1
+  return true
+end function
+
 function closeProductHost(host)
   if typeof(host) != "struct" or host.closed then return false end if
   host.callbacks.shutdownRenderer(host.renderer)

@@ -39,6 +39,21 @@ function setDemoRecorder(runtime, demo)
   return true
 end function
 
+// Release DM2 files shipped with Quake II use protocol 26. The 3.19 client
+// kept an explicit demo-only compatibility hack; live network sessions remain
+// strictly Protocol 34.
+function setLegacyDemoCompatibility(runtime, enabled)
+  if typeof(enabled) != "bool" then return error(8281, "legacy demo compatibility flag must be boolean") end if
+  runtime.allowDemoProtocol26 = enabled
+  return true
+end function
+
+function releaseResolver()
+  global activeResolverRuntime
+  activeResolverRuntime = void
+  return true
+end function
+
 function resetClientState(runtime)
   clean = cstate.create()
   runtime.client.state = "connected"
@@ -119,7 +134,9 @@ function validationRuntime(runtime)
   client.serverFrame = runtime.client.serverFrame
   client.serverTime = runtime.client.serverTime
   effects = cestate.createSilent(runtime.effects.randomSeed)
-  return crtypes.create(network, client, effects)
+  copy = crtypes.create(network, client, effects)
+  copy.allowDemoProtocol26 = runtime.allowDemoProtocol26
+  return copy
 end function
 
 function appendLimited(values, value, maximum)
@@ -213,7 +230,10 @@ function acceptFrame(runtime, buffer)
   // network.snapshot.readFrame owns the svc_frame byte. The outer dispatcher
   // already inspected it, so expose it again to the existing parser.
   buffer.readCount = buffer.readCount - 1
-  frame = nclient.parseFrame(runtime.network.client, buffer, runtime.network.baselines)
+  frameProtocol = runtime.network.protocol
+  if frameProtocol == 0 then frameProtocol = qc.PROTOCOL_VERSION end if
+  frame = nclient.parseFrameProtocol(runtime.network.client, buffer,
+    runtime.network.baselines, frameProtocol)
   snapshot = crtypes.snapshot(frame)
   accepted = cstate.acceptSnapshot(runtime.client, snapshot)
   if accepted then
@@ -240,7 +260,8 @@ function parseBuffer(runtime, buffer, now)
     if opcode == qc.SVC_NOP then
       // no body
     else if opcode == qc.SVC_SERVERDATA then
-      rmessages.parseServerData(runtime.network, buffer)
+      rmessages.parseServerDataVersion(runtime.network, buffer,
+        runtime.allowDemoProtocol26)
       runtime.network.stuffedTexts = []
       resetClientState(runtime)
     else if opcode == qc.SVC_CONFIGSTRING then

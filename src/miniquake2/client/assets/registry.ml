@@ -302,6 +302,15 @@ function bindings(state)
     clientAssetBoundSoundIndex, clientAssetBoundSoundName)
 end function
 
+function releaseBindings()
+  // The product intentionally has one active client resolver. Explicitly
+  // release its registry when a map/demo session ends so parsed BSP/MD2/WAV
+  // graphs do not survive into the next media step.
+  holder = clientAssetBindingSlot
+  holder.registry = void
+  return true
+end function
+
 function missingAssets(state)
   return state.missing
 end function

@@ -166,14 +166,16 @@ function writeFrameForClient(buffer, current, lastFrame, history, baselines, max
   return wireLast
 end function
 
-function readFrame(buffer, history, baselines)
+function readFrameProtocol(buffer, history, baselines, protocol)
   if typeof(history) != "array" or len(history) != nc.UPDATE_BACKUP then return error(7139, "frame history must contain UPDATE_BACKUP slots") end if
+  if protocol != 26 and protocol != 34 then return error(7146, "unsupported snapshot protocol") end if
   opcode = pchecked.readByte(buffer, "frame opcode")
   if opcode != nc.SVC_FRAME then return error(7140, "expected svc_frame") end if
   serverFrame = pchecked.readLong(buffer, "server frame")
   deltaFrame = pchecked.readLong(buffer, "delta frame")
   if serverFrame < 0 or deltaFrame >= serverFrame then return error(7141, "invalid frame sequence") end if
-  suppressCount = pchecked.readByte(buffer, "frame suppress count")
+  suppressCount = 0
+  if protocol != 26 then suppressCount = pchecked.readByte(buffer, "frame suppress count") end if
   areaLength = pchecked.readByte(buffer, "frame area byte count")
   if areaLength > nc.MAX_MAP_AREA_BYTES then return error(7142, "frame area bits exceed protocol capacity") end if
   areaBits = pchecked.readBytes(buffer, areaLength, "frame area bits")
@@ -194,4 +196,8 @@ function readFrame(buffer, history, baselines)
     areaBits, playerState, entities)
   history[serverFrame & nc.UPDATE_MASK] = frame
   return frame
+end function
+
+function readFrame(buffer, history, baselines)
+  return readFrameProtocol(buffer, history, baselines, 34)
 end function

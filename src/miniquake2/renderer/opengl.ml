@@ -367,8 +367,24 @@ end function
 function prepareOpenGlMd2Entity(backend, entity)
   modelAsset = rassets.modelForHandle(backend.assets, entity.model)
   if modelAsset.kind != "md2" then return error(9628, "entity model is not MD2") end if
-  mesh = rgeom.md2FrameMesh(modelAsset.source, entity.frame, entity.oldFrame, entity.backLerp)
-  bounds = rgeom.md2FrameBounds(modelAsset.source, entity.frame, entity.oldFrame, entity.backLerp)
+  openGlMd2FrameIndex = entity.frame
+  openGlMd2OldFrameIndex = entity.oldFrame
+  openGlMd2FrameCount = len(modelAsset.source.frames)
+  // ref_gl R_DrawAliasModel prints a developer warning and resets both
+  // frames when either index is outside the MD2 table. Recorded release
+  // demos rely on this tolerant renderer boundary.
+  if openGlMd2FrameIndex < 0 or openGlMd2FrameIndex >= openGlMd2FrameCount then
+    openGlMd2FrameIndex = 0
+    openGlMd2OldFrameIndex = 0
+  end if
+  if openGlMd2OldFrameIndex < 0 or openGlMd2OldFrameIndex >= openGlMd2FrameCount then
+    openGlMd2FrameIndex = 0
+    openGlMd2OldFrameIndex = 0
+  end if
+  mesh = rgeom.md2FrameMesh(modelAsset.source, openGlMd2FrameIndex,
+    openGlMd2OldFrameIndex, entity.backLerp)
+  bounds = rgeom.md2FrameBounds(modelAsset.source, openGlMd2FrameIndex,
+    openGlMd2OldFrameIndex, entity.backLerp)
   skinAsset = resolveOpenGlMd2Skin(backend, modelAsset, entity)
   glVertices = array(len(mesh.vertices) * 5, 0.0)
   vertexIndex = 0
@@ -383,7 +399,8 @@ function prepareOpenGlMd2Entity(backend, entity)
     glVertices[scalarIndex + 4] = position.z
     vertexIndex = vertexIndex + 1
   end while
-  return Md2EntityPlan(modelAsset, skinAsset, mesh, glVertices, bounds, entity.frame, entity.oldFrame, entity.backLerp)
+  return Md2EntityPlan(modelAsset, skinAsset, mesh, glVertices, bounds,
+    openGlMd2FrameIndex, openGlMd2OldFrameIndex, entity.backLerp)
 end function
 
 function drawOpenGlMd2Plan(backend, plan, entity)
@@ -1211,6 +1228,15 @@ function releaseClassicWorld(binding, world)
     if releaseOpenGlTextureRecord(binding.state, record) then released = released + 1 end if
   end for
   world.released = true
+  // A released handle may remain reachable through product/UI state. Detach
+  // all heavyweight CPU ownership so the next BSP can be expanded without
+  // retaining the previous map, scene, lightmaps and triangle arrays.
+  world.map = void
+  world.scene = void
+  world.textures = []
+  world.draws = []
+  world.brushModels = []
+  world.skyBox = void
   return released
 end function
 

@@ -18,7 +18,7 @@ const PORT_STAGE = "integrated-runtime-foundation"
 // Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
-  print "usage: MiniQuake2.exe [--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
+  print "usage: MiniQuake2.exe [--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
   print ""
   print "  --version             print the port and compatibility target"
   print "  --diagnostics         print the current bootstrap contract"
@@ -29,6 +29,7 @@ function printUsage()
   print "  --play ROOT MAP [FRAMES] run the interactive local vertical slice (FRAMES=0 until closed)"
   print "  --cinematic ROOT NAME [FRAMES] [LOOP] play a retail CIN (FRAMES=0 until completion, LOOP=0|1)"
   print "  --media-sequence ROOT SPEC [FRAMES] play classic CIN/PCX/map +nextserver chains"
+  print "  --demo ROOT NAME [FRAMES] play a release or Protocol-34 DM2 through the product renderer"
   print "  --video-restart-smoke ROOT [MAP] rebuild the live window/renderer and retail BSP resources"
   print "  --dedicated ROOT MAP [PORT] [FRAMES] run a Protocol-34 dedicated server (FRAMES=0 runs until stopped)"
   print "  --listen ROOT MAP [FRAMES] run a headless local client/listen-server session"
@@ -131,8 +132,25 @@ function runMediaSequence(args)
   result = runtimeApplication.runRetailMediaSequence(args[1], args[2], frames)
   print "MiniQuake2 media sequence: PASS"
   print "  steps=" + result[0] + " cinematics=" + result[1] +
-    " pictures=" + result[2] + " maps=" + result[3] + " status=" + result[4]
-  print "  host-generation=" + result[5] + " loading-frames=" + result[6]
+    " pictures=" + result[2] + " maps=" + result[3] + " demos=" + result[5] +
+    " status=" + result[4]
+  print "  host-generation=" + result[6] + " loading-frames=" + result[7]
+  return 0
+end function
+
+function runDemo(args)
+  if len(args) < 3 or len(args) > 4 then
+    return error(9912, "--demo expects install root, name and optional frames")
+  end if
+  demoFrames = 0
+  if len(args) == 4 then demoFrames = mainByteio.truncInt(toNumber(args[3])) end if
+  demoResult = runtimeApplication.runRetailDemo(args[1], args[2], demoFrames)
+  print "MiniQuake2 demo playback: PASS"
+  print "  frames=" + demoResult[0] + " packets=" + demoResult[1] +
+    " status=" + demoResult[2] + " map=" + demoResult[3]
+  print "  models=" + demoResult[4] + " sounds=" + demoResult[5] +
+    " missing-assets=" + demoResult[6] + " submitted-entities=" + demoResult[7] +
+    " visible-surfaces=" + demoResult[8]
   return 0
 end function
 
@@ -220,6 +238,7 @@ function main(args)
   if command == "--play" then return runPlay(args) end if
   if command == "--cinematic" then return runCinematic(args) end if
   if command == "--media-sequence" then return runMediaSequence(args) end if
+  if command == "--demo" then return runDemo(args) end if
   if command == "--video-restart-smoke" then return runVideoRestartSmokeCommand(args) end if
   if command == "--dedicated" then return runDedicated(args) end if
   if command == "--connect" then return runHeadlessClient(args) end if

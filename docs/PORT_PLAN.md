@@ -155,6 +155,12 @@ moves with matching pmove fixtures, receives deltas/events/sounds, survives
 reliable retransmission and reconnect, and plays approved original demos to the
 same terminal state.
 
+Current demo evidence: both installed release streams parse to their terminal
+marker (`demo1`: 696 packets/688 frames; `demo2`: 625/617). Product `demo1`
+renders all 688 frames, and `demo1.dm2+base1` retains one native window/GL
+context while releasing and rebuilding bounded renderer state between BSPs.
+Protocol 26 is enabled only for this original release-demo compatibility path.
+
 ## 8. Server and internal Game API v3 — G08
 
 Port server initialization/map changes, client lifecycle, userinfo/commands,

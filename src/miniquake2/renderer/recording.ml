@@ -115,6 +115,7 @@ function makeExports(state)
     state.models = []
     state.skins = []
     state.pictures = []
+    state.lastRefDef = void
     record(state, "BeginRegistration", mapName + ":" + state.registrationGeneration)
   end function
 

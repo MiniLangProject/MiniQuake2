@@ -108,16 +108,20 @@ productHostAssert(fakeProductCreates == 1 and fakeProductInits == 1,
 productHostAssert(fakeProductFrames == 2 and productHost.loadingFrames == 2 and
   fakeProductCharacters == len(bytes("loading base1")) + len(bytes("loading end.cin")),
   "loading plaque frames")
+testproducthost.resetProductRenderer(productHost, void)
+productHostAssert(productHost.generation == 2 and fakeProductCreates == 1 and
+  fakeProductDestroys == 0 and fakeProductInits == 2 and fakeProductShutdowns == 1,
+  "renderer reset preserves the native window")
 testproducthost.restartProductHost(productHost, "MiniQuake2", 1, true, void)
 productHostAssert(productHost.window.width == 800 and productHost.window.height == 600 and
-  productHost.fullScreen and productHost.videoMode == 1 and productHost.generation == 2,
+  productHost.fullScreen and productHost.videoMode == 1 and productHost.generation == 3,
   "live video restart applies mode")
-productHostAssert(fakeProductCreates == 2 and fakeProductInits == 2 and
-  fakeProductDestroys == 1 and fakeProductShutdowns == 1,
+productHostAssert(fakeProductCreates == 2 and fakeProductInits == 3 and
+  fakeProductDestroys == 1 and fakeProductShutdowns == 2,
   "restart replaces exactly one window and renderer")
 productHostAssert(testproducthost.closeProductHost(productHost), "first close")
 productHostAssert(not testproducthost.closeProductHost(productHost), "idempotent close")
-productHostAssert(fakeProductDestroys == 2 and fakeProductShutdowns == 2,
+productHostAssert(fakeProductDestroys == 2 and fakeProductShutdowns == 3,
   "one final shutdown")
 
 print "runtime_product_host_tests: PASS"

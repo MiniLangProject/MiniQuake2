@@ -295,6 +295,16 @@ re-registers `base1`, and produces the same 60 visible surfaces before and
 after restart; see
 [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
 
+The installed release demos are now product gates as well. Their serverdata
+uses the historical protocol number 26; the isolated DemoSession mirrors the
+3.19 client's compatibility hack and omits only the old frame suppress byte.
+`demo1.dm2` completes 696 packets and 688 rendered frames on `base2` (97 models,
+153 sounds and 20,605 entity submissions), while `demo2.dm2` parses all 625
+packets/617 frames and renders its `waste2` opening. The mixed
+`demo1.dm2+base1` media chain passes under the 1-GiB product heap with two
+loading frames, one native window/context and a renderer-state generation
+boundary between the expanded BSPs.
+
 The interactive product loop also consumes the complete UI handoff and command
 surface: inventory rows use retail `CS_ITEMS` names, mixer gain changes live,
 and the three menu slots discover durable pairs and exercise atomic same- or

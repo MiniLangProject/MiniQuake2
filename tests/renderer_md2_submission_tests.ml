@@ -150,7 +150,11 @@ function testRegistrationInterpolationAndBounds()
   assertEqual(stats.triangles, 1, "headless planned triangles")
   assertEqual(typeof(try(ropengl.md2ModelFrameBounds(renderer, handle, 7))), "error", "bad bounds frame rejected")
   entity.frame = 7
-  assertEqual(typeof(try(ropengl.prepareMd2Entity(renderer, entity))), "error", "bad entity frame rejected")
+  fallback = ropengl.prepareMd2Entity(renderer, entity)
+  assertEqual(fallback.frame, 0, "bad entity frame falls back to zero")
+  assertEqual(fallback.oldFrame, 0, "bad entity old frame falls back with current")
+  assertNear(fallback.mesh.vertices[0].position.x, 0.0, 0.0001,
+    "fallback uses first MD2 frame")
 
   renderer.state.textureRecords[0].uploaded = true
   renderer.exports.BeginRegistration("next-generation")
