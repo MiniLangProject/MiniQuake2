@@ -41,6 +41,9 @@ unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
 muzzle projection, recoil, PlayerNoise and Protocol-34 muzzle/impact feedback.
+The integrated Windows path also uses the Visual-C `rand` sequence for ordered
+`random`/`crandom` consumption, restoring stock hitscan spread, grenade
+impulse, automatic-weapon recoil, BFG roll and Rocket damage variance.
 Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while

@@ -8,6 +8,7 @@ import miniquake2.game.weapons.constants as weaponprotocolconstants
 import miniquake2.game.weapons.types as weaponprotocoltypes
 import miniquake2.game.weapons.core as weaponprotocolcore
 import miniquake2.game.constants as weaponprotocolgameconstants
+import miniquake2.game.random as weaponprotocolrandom
 import miniquake2.qcommon.constants as weaponprotocolqconstants
 import miniquake2.qcommon.types as weaponprotocolqtypes
 import miniquake2.server.game_bridge as weaponprotocolbridge
@@ -269,6 +270,47 @@ weaponprotocolintegration.applyPlayerWeaponRecoil(weaponprotocolgame.baseRuntime
 weaponProtocolAssert(weaponSequencePlayer.view.kickOrigin.x == -3.0 and
   weaponSequencePlayer.view.kickAngles.x == -3.0,
   "Railgun recoil")
+
+weaponprotocolgame.baseRuntime().randomState = weaponprotocolrandom.create(1)
+weaponSequencePlayer.view.machinegunShots = 0
+weaponprotocolintegration.applyPlayerWeaponRecoil(weaponprotocolgame.baseRuntime(),
+  weaponSequencePlayer, weaponProtocolItem(weaponRegistry, "weapon_machinegun"),
+  weaponprotocolqtypes.Vec3(1.0, 0.0, 0.0))
+weaponProtocolAssert(weaponprotocolgame.baseRuntime().randomState.seed == 3403800452 and
+  weaponSequencePlayer.view.machinegunShots == 1 and
+  weaponSequencePlayer.view.kickOrigin.x > 0.059 and weaponSequencePlayer.view.kickOrigin.x < 0.060 and
+  weaponSequencePlayer.view.kickOrigin.y < -0.349 and
+  weaponSequencePlayer.view.kickAngles.y > 0.089 and weaponSequencePlayer.view.kickAngles.y < 0.090,
+  "Machinegun Win32-rand recoil sequence")
+
+weaponprotocolgame.baseRuntime().randomState = weaponprotocolrandom.create(1)
+weaponprotocolintegration.applyPlayerWeaponRecoil(weaponprotocolgame.baseRuntime(),
+  weaponSequencePlayer, weaponProtocolItem(weaponRegistry, "weapon_chaingun"),
+  weaponprotocolqtypes.Vec3(1.0, 0.0, 0.0))
+weaponProtocolAssert(weaponprotocolgame.baseRuntime().randomState.seed == 1030492215 and
+  weaponSequencePlayer.view.kickOrigin.x < -0.349 and
+  weaponSequencePlayer.view.kickAngles.x > 0.089 and weaponSequencePlayer.view.kickAngles.x < 0.090,
+  "Chaingun Win32-rand recoil sequence")
+
+weaponprotocolgame.baseRuntime().randomState = weaponprotocolrandom.create(1)
+weaponprotocolintegration.applyPlayerWeaponRecoil(weaponprotocolgame.baseRuntime(),
+  weaponSequencePlayer, weaponProtocolItem(weaponRegistry, "weapon_bfg"),
+  weaponprotocolqtypes.Vec3(1.0, 0.0, 0.0))
+weaponProtocolAssert(weaponprotocolgame.baseRuntime().randomState.seed == 2745024 and
+  weaponSequencePlayer.view.damagePitch == -40.0 and
+  weaponSequencePlayer.view.damageRoll < -7.97,
+  "BFG Win32-rand damage recoil")
+
+weaponprotocolgame.baseRuntime().randomState = weaponprotocolrandom.create(2745024)
+weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry,
+  "weapon_rocketlauncher", 4, weaponSequenceAttack, 5)
+weaponRocketCountBefore = len(weaponprotocolgame.baseRuntime().weaponContext.projectiles)
+weaponprotocolintegration.integratedPlayerFire(weaponSequenceGameplay, weaponRegistry)
+weaponProtocolAssert(len(weaponprotocolgame.baseRuntime().weaponContext.projectiles) ==
+    weaponRocketCountBefore + 1 and
+  weaponprotocolgame.baseRuntime().weaponContext.projectiles[weaponRocketCountBefore].damage == 111 and
+  weaponprotocolgame.baseRuntime().randomState.seed == 3357800067,
+  "Rocket 100-plus-random-20 damage")
 
 weaponHandItem = weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry,
   "ammo_grenades", 0, 0, 2)

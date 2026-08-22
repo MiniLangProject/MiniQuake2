@@ -71,6 +71,11 @@ HyperBlaster, Railgun, BFG10K and the special cooked hand grenade. Golden tests
 cover the Shotgun pump frame, BFG wind-up and late ammo recheck, held/released
 Machinegun and HyperBlaster loops, all three Chaingun burst stages, infinite
 ammo, handed muzzle projection, recoil, silencing and hand-grenade cook/release.
+The product callback follows the original Win32 C-runtime `rand` sequence from
+seed 1. Bullet and pellet spread, grenade impulse, Machinegun/Chaingun recoil,
+BFG damage roll and Rocket Launcher's `100 + random()*20` direct damage consume
+the same ordered 15-bit values as the original 3.19 Windows game-DLL path;
+fixed Golden vectors guard the seed, state and first eight outputs.
 
 Every real shot emits Protocol-34 player muzzle flashes and appropriate impact,
 blood, armor-spark, splash, bubble, rail, explosion and BFG temp entities.

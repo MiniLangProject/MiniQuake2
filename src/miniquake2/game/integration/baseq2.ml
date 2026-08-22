@@ -30,6 +30,7 @@ import miniquake2.game.gameplay.weapons as ibgpweapons
 import miniquake2.game.gameplay.combat as ibgpcombat
 import miniquake2.game.constants as ibgconstants
 import miniquake2.game.types as ibgametypes
+import miniquake2.game.random as ibrandom
 import miniquake2.game.ai.types as ibaitypes
 import miniquake2.game.player.view as ibplayerview
 import miniquake2.game.player.rules as ibplayerrules
@@ -53,6 +54,7 @@ struct IntegratedBaseQ2
   weaponContext
   playerContext
   exportTable
+  randomState
 end struct
 
 activeIntegrationRuntime = void
@@ -959,7 +961,17 @@ function integratedDodge(owner, start, direction, speed)
 end function
 
 function integratedRandomSigned()
-  return 0.0
+  global activeIntegrationRuntime
+  ibRandomRuntimeHolder = activeIntegrationRuntime
+  if ibRandomRuntimeHolder is void then return 0.0 end if
+  return ibrandom.signed(ibRandomRuntimeHolder.randomState)
+end function
+
+function integratedRandomUnit()
+  global activeIntegrationRuntime
+  ibRandomUnitRuntimeHolder = activeIntegrationRuntime
+  if ibRandomUnitRuntimeHolder is void then return 0.0 end if
+  return ibrandom.unit(ibRandomUnitRuntimeHolder.randomState)
 end function
 
 function integratedTurretAcquire(driver, world)
@@ -1196,7 +1208,12 @@ function create(spawnResult)
     end if
   end for
   weaponContext = ibwpcore.createContext(integratedWeaponCallbacks())
-  runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void)
+  ibCreateRandomStateHolder = ibrandom.create(1)
+  if activeIntegrationRuntime is not void and activeIntegrationRuntime.randomState is not void then
+    ibCreateRandomStateHolder = activeIntegrationRuntime.randomState
+  end if
+  runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void,
+    ibCreateRandomStateHolder)
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
   installTurretRigs(runtime)
@@ -1479,8 +1496,8 @@ function setPlayerGameplayGunFrame(gameplayPlayer, frame)
   return frame
 end function
 
-function playerMuzzle(player, item, gunFrame, shotIndex)
-  ibPlayerMuzzleAnglesHolder = player.edict.client.playerState.viewAngles
+function playerMuzzleForAngles(player, item, gunFrame, shotIndex, angles)
+  ibPlayerMuzzleAnglesHolder = angles
   ibPlayerMuzzleBasisHolder = ibwpvector.angleVectors(ibPlayerMuzzleAnglesHolder)
   ibPlayerMuzzleForwardHolder = ibPlayerMuzzleBasisHolder[0]
   ibPlayerMuzzleRightHolder = ibPlayerMuzzleBasisHolder[1]
@@ -1509,6 +1526,28 @@ function playerMuzzle(player, item, gunFrame, shotIndex)
   return [ibPlayerMuzzleStartHolder, ibPlayerMuzzleForwardHolder, ibPlayerMuzzleRightHolder]
 end function
 
+function playerMuzzle(player, item, gunFrame, shotIndex)
+  ibPlayerMuzzleViewAnglesHolder = player.edict.client.playerState.viewAngles
+  return playerMuzzleForAngles(player, item, gunFrame, shotIndex, ibPlayerMuzzleViewAnglesHolder)
+end function
+
+function playerChaingunMuzzle(player)
+  ibChainMuzzleAnglesHolder = player.edict.client.playerState.viewAngles
+  ibChainMuzzleBasisHolder = ibwpvector.angleVectors(ibChainMuzzleAnglesHolder)
+  ibChainMuzzleForwardHolder = ibChainMuzzleBasisHolder[0]
+  ibChainMuzzleRightHolder = ibChainMuzzleBasisHolder[1]
+  ibChainMuzzleOriginHolder = weaponVector(player.edict.state.origin)
+  ibChainMuzzleLateral = 7.0 + integratedRandomSigned() * 4.0
+  ibChainMuzzleVertical = player.viewHeight - 8.0 + integratedRandomSigned() * 4.0
+  if player.persistent.hand == 1 then ibChainMuzzleLateral = -ibChainMuzzleLateral
+  else if player.persistent.hand == 2 then ibChainMuzzleLateral = 0.0
+  end if
+  ibChainMuzzleStartHolder = ibwpvector.multiplyAdd(ibChainMuzzleOriginHolder,
+    ibChainMuzzleLateral, ibChainMuzzleRightHolder)
+  ibChainMuzzleStartHolder.z = ibChainMuzzleStartHolder.z + ibChainMuzzleVertical
+  return [ibChainMuzzleStartHolder, ibChainMuzzleForwardHolder]
+end function
+
 function beginPlayerAttackAnimation(player)
   player.view.animPriority = ibplayerconstants.ANIM_ATTACK
   if (player.edict.client.playerState.pmove.flags & ibgconstants.PMF_DUCKED) != 0 then
@@ -1524,6 +1563,7 @@ end function
 function applyPlayerWeaponRecoil(runtime, player, item, direction)
   ibPlayerRecoilOrigin = 0.0
   ibPlayerRecoilPitch = 0.0
+  ibPlayerRandomRecoil = false
   if item.className == "weapon_blaster" or item.className == "weapon_hyperblaster" or
       item.className == "weapon_grenadelauncher" or item.className == "weapon_rocketlauncher" then
     ibPlayerRecoilOrigin = 2.0; ibPlayerRecoilPitch = -1.0
@@ -1533,17 +1573,44 @@ function applyPlayerWeaponRecoil(runtime, player, item, direction)
     ibPlayerRecoilOrigin = 3.0; ibPlayerRecoilPitch = -3.0
   else if item.className == "weapon_bfg" then ibPlayerRecoilOrigin = 2.0
   else if item.className == "weapon_machinegun" then
+    // Machinegun_Fire consumes crandom in y/z origin-angle pairs, followed
+    // by x origin.  The x angle is the accumulated single-player climb.
+    ibMachineRecoilOriginY = integratedRandomSigned() * 0.35
+    ibMachineRecoilAngleY = integratedRandomSigned() * 0.7
+    ibMachineRecoilOriginZ = integratedRandomSigned() * 0.35
+    ibMachineRecoilAngleZ = integratedRandomSigned() * 0.7
+    ibMachineRecoilOriginX = integratedRandomSigned() * 0.35
     if not runtime.playerContext.deathmatch then
       ibPlayerRecoilPitch = player.view.machinegunShots * -1.5
       player.view.machinegunShots = player.view.machinegunShots + 1
       if player.view.machinegunShots > 9 then player.view.machinegunShots = 9 end if
     end if
+    player.view.kickOrigin = ibqtypes.Vec3(ibMachineRecoilOriginX,
+      ibMachineRecoilOriginY, ibMachineRecoilOriginZ)
+    player.view.kickAngles = ibqtypes.Vec3(ibPlayerRecoilPitch,
+      ibMachineRecoilAngleY, ibMachineRecoilAngleZ)
+    ibPlayerRandomRecoil = true
+  else if item.className == "weapon_chaingun" then
+    // Chaingun_Fire consumes one origin/angle pair for each axis.
+    ibChainRecoilOriginX = integratedRandomSigned() * 0.35
+    ibChainRecoilAngleX = integratedRandomSigned() * 0.7
+    ibChainRecoilOriginY = integratedRandomSigned() * 0.35
+    ibChainRecoilAngleY = integratedRandomSigned() * 0.7
+    ibChainRecoilOriginZ = integratedRandomSigned() * 0.35
+    ibChainRecoilAngleZ = integratedRandomSigned() * 0.7
+    player.view.kickOrigin = ibqtypes.Vec3(ibChainRecoilOriginX,
+      ibChainRecoilOriginY, ibChainRecoilOriginZ)
+    player.view.kickAngles = ibqtypes.Vec3(ibChainRecoilAngleX,
+      ibChainRecoilAngleY, ibChainRecoilAngleZ)
+    ibPlayerRandomRecoil = true
   end if
-  player.view.kickOrigin = ibwpvector.scale(direction, -ibPlayerRecoilOrigin)
-  player.view.kickAngles = ibqtypes.Vec3(ibPlayerRecoilPitch, 0.0, 0.0)
+  if not ibPlayerRandomRecoil then
+    player.view.kickOrigin = ibwpvector.scale(direction, -ibPlayerRecoilOrigin)
+    player.view.kickAngles = ibqtypes.Vec3(ibPlayerRecoilPitch, 0.0, 0.0)
+  end if
   if item.className == "weapon_bfg" then
     player.view.damagePitch = -40.0
-    player.view.damageRoll = 0.0
+    player.view.damageRoll = integratedRandomSigned() * 8.0
     player.view.damageTime = runtime.playerContext.time + ibplayerconstants.DAMAGE_TIME
   end if
   return true
@@ -1671,6 +1738,17 @@ function integratedPlayerFire(gameplayPlayer, registry)
   if silenced then gameplayPlayer.silencerShots = gameplayPlayer.silencerShots - 1 end if
 
   applyPlayerWeaponRecoil(runtime, player, item, direction)
+  if item.className == "weapon_machinegun" then
+    ibMachineFireViewHolder = player.edict.client.playerState.viewAngles
+    ibMachineFireAnglesHolder = ibqtypes.Vec3(
+      ibMachineFireViewHolder.x + player.view.kickAngles.x,
+      ibMachineFireViewHolder.y + player.view.kickAngles.y,
+      ibMachineFireViewHolder.z + player.view.kickAngles.z)
+    ibMachineFireMuzzleHolder = playerMuzzleForAngles(player, item, preFrame, 0,
+      ibMachineFireAnglesHolder)
+    start = ibMachineFireMuzzleHolder[0]
+    direction = ibMachineFireMuzzleHolder[1]
+  end if
   beginPlayerAttackAnimation(player)
   if item.className == "weapon_blaster" then
     ibBlasterDamage = 10
@@ -1694,11 +1772,19 @@ function integratedPlayerFire(gameplayPlayer, registry)
     if runtime.playerContext.deathmatch then ibChainDamage = 6 end if
     shot = 0
     while shot < shots
-      ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction, ibChainDamage * multiplier, 2 * multiplier, 300.0, 500.0, ibgpconstants.MOD_CHAINGUN)
+      ibChainShotMuzzleHolder = playerChaingunMuzzle(player)
+      start = ibChainShotMuzzleHolder[0]
+      direction = ibChainShotMuzzleHolder[1]
+      ibwphitscan.fireBullet(runtime.weaponContext, shooter, start, direction,
+        ibChainDamage * multiplier, 2 * multiplier, 300.0, 500.0,
+        ibgpconstants.MOD_CHAINGUN)
       shot = shot + 1
     end while
   else if item.className == "weapon_grenadelauncher" then ibwpprojectiles.fireGrenade(runtime.weaponContext, shooter, start, direction, 120 * multiplier, 600.0, 2.5, 160.0)
-  else if item.className == "weapon_rocketlauncher" then ibwpprojectiles.fireRocket(runtime.weaponContext, shooter, start, direction, 100 * multiplier, 650.0, 120.0, 120 * multiplier)
+  else if item.className == "weapon_rocketlauncher" then
+    ibRocketDamage = 100 + ibmath.floor(integratedRandomUnit() * 20.0)
+    ibwpprojectiles.fireRocket(runtime.weaponContext, shooter, start, direction,
+      ibRocketDamage * multiplier, 650.0, 120.0, 120 * multiplier)
   else if item.className == "weapon_hyperblaster" then
     ibHyperDamage = 20; if runtime.playerContext.deathmatch then ibHyperDamage = 15 end if
     ibHyperEffect = 0
