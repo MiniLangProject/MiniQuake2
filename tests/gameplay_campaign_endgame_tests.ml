@@ -34,7 +34,7 @@ endgameAssert(counter.count == 1 and runtime.world.intermission == false, "Jorg 
 endgameAssert(len(runtime.monsters) == 1 and runtime.monsters[0].bossPhase == "jorg-death",
   "Jorg stages Makron toss")
 endgameStageFrame = 0
-while endgameStageFrame < 9
+while endgameStageFrame < 55
   api.runFrame()
   endgameStageFrame = endgameStageFrame + 1
 end while

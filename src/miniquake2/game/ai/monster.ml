@@ -3,9 +3,12 @@ package miniquake2.game.ai.monster
 
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
+import miniquake2.game.ai.reaction_sequences as gaireactions
+import miniquake2.game.ai.locomotion_sequences as gailocomotion
 import miniquake2.game.ai.props as gaimonsterprops
 import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.constants as qconstants
+import miniquake2.qcommon.types as gaiqtypes
 
 function StateStand(actor, context)
   actor.activity = "stand"
@@ -136,9 +139,7 @@ function ContinueBossDeath(actor, context)
   // Mark the transition before invoking the external spawn boundary.  A
   // restored frame or re-entrant think can therefore never toss Makron twice.
   actor.successorSpawned = true
-  actor.bossPhase = "jorg-complete"
-  actor.activity = "jorg-death-complete"
-  actor.nextThink = 0.0
+  actor.bossPhase = "jorg-makron-tossed"
   successor = context.spawnMonster(actor.successorClassName, actor)
   if successor is void then return error(9654, "Jorg death continuation did not create Makron") end if
   successor.bossPhase = "makron-active"
@@ -147,16 +148,85 @@ function ContinueBossDeath(actor, context)
   return true
 end function
 
-function MonsterThink(actor, context)
-  if gaimonsterprops.isProp(actor) then return gaimonsterprops.Think(actor, context) end if
-  if actor.bossPhase == "jorg-death" then
-    ContinueBossDeath(actor, context)
+function StartReaction(actor, plan, context)
+  gaireactions.validatePlan(plan)
+  actor.activity = plan.name
+  // The first pose becomes visible in the damage frame itself. The next
+  // scheduled think therefore advances to offset one without duplicating it.
+  actor.info.nextFrame = 1
+  actor.info.pauseTime = context.time + gaiconstants.FRAMETIME
+  actor.edict.state.frame = plan.firstFrame
+  actor.nextThink = context.time + gaiconstants.FRAMETIME
+  if plan.reactionKind == "dodge" then
+    actor.info.aiFlags = actor.info.aiFlags | gaiconstants.AI_DUCKED
+    gaiDodgeMaximumHolder = actor.edict.maxs
+    actor.edict.maxs = gaiqtypes.Vec3(gaiDodgeMaximumHolder.x, gaiDodgeMaximumHolder.y, gaiDodgeMaximumHolder.z - 32.0)
+  end if
+  if plan.soundName != "" and typeof(context.playSound) == "function" then
+    context.playSound(actor, plan.soundName, gconstants.CHAN_VOICE, plan.attenuation)
+  end if
+  return true
+end function
+
+function FinishReaction(actor, plan, context)
+  actor.info.nextFrame = 0
+  actor.info.pauseTime = 0.0
+  if plan.terminalKind == "run" then
+    if plan.reactionKind == "dodge" then
+      actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_DUCKED
+      actor.edict.maxs = gaiqtypes.Vec3(actor.maxs[0], actor.maxs[1], actor.maxs[2])
+    end if
+    if typeof(actor.info.run) == "function" then actor.info.run(actor, context)
+    else actor.activity = "run" end if
+    actor.nextThink = context.time + gaiconstants.FRAMETIME
     return true
   end if
+  actor.deadFlag = gaiconstants.DEAD_DEAD
+  actor.edict.serverFlags = actor.edict.serverFlags | gconstants.SVF_DEADMONSTER
+  if plan.terminalKind == "explode" or plan.terminalKind == "gib" then
+    actor.edict.inUse = false
+    actor.activity = plan.terminalKind
+    actor.nextThink = 0.0
+    return true
+  end if
+  actor.moveType = gaiconstants.MOVETYPE_TOSS
+  actor.activity = "corpse"
+  actor.nextThink = 0.0
+  if plan.terminalKind == "jorg" then actor.bossPhase = "jorg-complete" end if
+  return true
+end function
+
+function AdvanceReaction(actor, plan, context)
+  if context.time + 0.00001 < actor.info.pauseTime then return false end if
+  timelineOffset = actor.info.nextFrame
+  duration = gaireactions.durationFrames(plan)
+  if timelineOffset < 0 then timelineOffset = 0 end if
+  if timelineOffset >= duration then return FinishReaction(actor, plan, context) end if
+  actor.edict.state.frame = gaireactions.modelFrameAt(plan, timelineOffset)
+  if plan.terminalKind == "jorg" and timelineOffset == duration - 2 and not actor.successorSpawned then
+    actor.successorDueTime = context.time
+    ContinueBossDeath(actor, context)
+  end if
+  actor.info.nextFrame = timelineOffset + 1
+  actor.info.pauseTime = actor.info.pauseTime + gaiconstants.FRAMETIME
+  actor.nextThink = context.time + gaiconstants.FRAMETIME
+  return true
+end function
+
+function MonsterThink(actor, context)
+  if gaimonsterprops.isProp(actor) then return gaimonsterprops.Think(actor, context) end if
+  reactionPlan = gaireactions.planByName(actor.className, actor.activity)
+  if reactionPlan is not void then return AdvanceReaction(actor, reactionPlan, context) end if
+  if actor.bossPhase == "jorg-death" then return ContinueBossDeath(actor, context) end if
   // misc_insane owns real post-mortem moves whose end callback shrinks the
   // corpse bounds. Other generic actors have no managed death animation.
   if actor.health <= 0 and actor.className != "misc_insane" then actor.nextThink = 0.0; return false end if
   M_MoveFrame(actor, context)
+  gaiLocomotionPlanHolder = gailocomotion.stockPlan(actor.className)
+  if gaiLocomotionPlanHolder is not void then
+    actor.edict.state.frame = gailocomotion.modelFrameAt(gaiLocomotionPlanHolder,
+      actor.activity, context.frameNumber, actor.edict.state.number)
+  end if
   actor.info.linkCount = actor.edict.linkCount
   M_SetEffects(actor, context)
   actor.thinkKind = "monster-think"
@@ -279,8 +349,14 @@ end function
 function DispatchPain(actor, attacker, damage, context)
   if gaimonsterprops.isProp(actor) then actor.health = actor.maxHealth; return false end if
   if actor.health <= 0 then return false end if
-  if typeof(actor.pain) != "function" then return false end if
-  return actor.pain(actor, attacker, damage, context)
+  if typeof(actor.pain) != "function" or context.time < actor.reactionDebounce then return false end if
+  nextPainCount = actor.painCount + 1
+  plan = gaireactions.selectPainPlan(actor.className, actor.edict.state.number,
+    nextPainCount, damage, context.skill)
+  result = actor.pain(actor, attacker, damage, context)
+  actor.reactionDebounce = context.time + 3.0
+  if plan is not void then StartReaction(actor, plan, context) end if
+  return result
 end function
 
 function DispatchDie(actor, attacker, damage, context)
@@ -288,6 +364,9 @@ function DispatchDie(actor, attacker, damage, context)
   if actor.deathUseComplete then return false end if
   if typeof(actor.die) != "function" then return false end if
   result = actor.die(actor, attacker, damage, context)
+  plan = gaireactions.selectDeathPlan(actor.className, actor.edict.state.number,
+    actor.dieCount, actor.health <= actor.gibHealth)
+  if plan is not void then StartReaction(actor, plan, context) end if
   MonsterDeathUse(actor, context)
   actor.deathUseComplete = true
   // Jorg's BSP target is a two-count trigger_counter.  The original death
@@ -296,10 +375,9 @@ function DispatchDie(actor, attacker, damage, context)
   if actor.className == "monster_jorg" then
     actor.bossPhase = "jorg-death"
     actor.successorClassName = "monster_makron"
-    actor.successorDueTime = context.time + 0.8
+    actor.successorDueTime = context.time + 4.9
     actor.successorSpawned = false
-    actor.activity = "jorg-death-staging"
-    actor.nextThink = actor.successorDueTime
+    if plan is void then actor.activity = "jorg-death-staging"; actor.nextThink = actor.successorDueTime end if
   else if actor.className == "monster_makron" then
     actor.bossPhase = "makron-complete"
   end if

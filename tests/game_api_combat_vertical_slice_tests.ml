@@ -8,7 +8,7 @@ import miniquake2.qcommon.types as cvqtypes
 import miniquake2.server.game_bridge as cvbridge
 
 function assertEqual(actual, expected, name)
-  if actual != expected then return error(9980, name + ": values differ") end if
+  if actual != expected then return error(9980, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 

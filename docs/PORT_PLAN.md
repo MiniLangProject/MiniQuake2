@@ -27,10 +27,13 @@ zero instances across zero classes. A 22-entry stock monster combat registry
 damage/speed/range profiles to real melee, hitscan, rail, blaster and rocket
 paths. All 22 combat-capable stock entries now use data-driven frame-relative
 attack, melee or drain schedules with projected MD2 frames and ordered
-muzzle/beam events; Private-Save v5 retains their in-flight event index and
-timing. Their MZ2 and Parasite beam events pass through a bounded Game-API
-multicast queue, PVS/PHS routing and real UDP client-effect handoff; pain,
-death, dodge and non-combat move tables remain an open parity gate. The
+muzzle/beam events. In addition, 63 stock pain variants, 43 normal-death
+variants, the original six-family duck/dodge ranges and primary stand/idle/
+walk/run ranges cover all 22 combat entries; Private-Save v6 retains in-flight
+attack and reaction state. Their MZ2 and Parasite beam events pass through a
+bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
+handoff. Secondary fidgets, exact movement distances, corpse-bound variants,
+gib models and multi-stage death effects remain an open differential gate. The
 unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
@@ -39,7 +42,7 @@ Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining monster pain/death/dodge sequencing, broader save coverage, paired original-renderer
+remaining secondary monster animation/death effects, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;

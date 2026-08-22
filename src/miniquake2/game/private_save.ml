@@ -16,7 +16,7 @@ import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 5
+const PRIVATE_VERSION = 6
 
 struct PrivateRestore
   runtime
@@ -117,6 +117,7 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privatemessage.writeFloat(buffer, actor.nextThink); privatemessage.writeFloat(buffer, actor.info.attackFinished)
     privatemessage.writeLong(buffer, actor.painCount); privatemessage.writeLong(buffer, actor.dieCount)
     privatemessage.writeLong(buffer, actor.attackCount); privatemessage.writeLong(buffer, actor.meleeCount)
+    privatemessage.writeFloat(buffer, actor.reactionDebounce)
     privatemessage.writeLong(buffer, actor.info.nextFrame); privatemessage.writeFloat(buffer, actor.info.pauseTime)
     privatemessage.writeLong(buffer, actor.info.attackState)
     privatemessage.writeLong(buffer, actor.edict.state.frame); privatemessage.writeString(buffer, actor.activity)
@@ -267,6 +268,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     actor.nextThink = privateReadFloat(buffer, "private monster nextthink"); actor.info.attackFinished = privateReadFloat(buffer, "private monster attack time")
     actor.painCount = privatechecked.readLong(buffer, "private monster pain count"); actor.dieCount = privatechecked.readLong(buffer, "private monster die count")
     actor.attackCount = privatechecked.readLong(buffer, "private monster attack count"); actor.meleeCount = privatechecked.readLong(buffer, "private monster melee count")
+    actor.reactionDebounce = privateReadFloat(buffer, "private monster reaction debounce")
     actor.info.nextFrame = privatechecked.readLong(buffer, "private monster attack event")
     actor.info.pauseTime = privateReadFloat(buffer, "private monster attack pause")
     actor.info.attackState = privatechecked.readLong(buffer, "private monster attack state")

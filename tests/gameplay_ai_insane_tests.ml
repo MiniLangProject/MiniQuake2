@@ -3,6 +3,7 @@ import miniquake2.game.ai.archetypes as insanetestarchetypes
 import miniquake2.game.ai.constants as insanetestconstants
 import miniquake2.game.ai.insane as insanetestinsane
 import miniquake2.game.ai.monster as insanetestmonster
+import miniquake2.game.ai.reaction_sequences as insanetestreactions
 import miniquake2.game.ai.types as insanetesttypes
 import miniquake2.game.constants as insanetestgameconstants
 
@@ -22,7 +23,8 @@ function insaneTestSound(actor, soundName, channel, attenuation)
   global insaneTestSounds
   insaneTestSounds = insaneTestSounds + [soundName]
   insaneTestEqual(channel, insanetestgameconstants.CHAN_VOICE, "insane sound channel")
-  insaneTestEqual(attenuation, insanetestgameconstants.ATTN_IDLE, "insane sound attenuation")
+  insaneTestEqual(attenuation, insanetestgameconstants.ATTN_IDLE,
+    "insane sound attenuation for " + soundName)
   return true
 end function
 
@@ -39,6 +41,8 @@ insaneRegistry = insanetestarchetypes.defaultRegistry()
 insaneTestAssert(insanetestarchetypes.validate(insaneRegistry), "campaign AI registry validates")
 insaneTestEqual(len(insaneRegistry.entries), 22, "base monster registry remains duplicate-free")
 insaneTestEqual(len(insaneRegistry.campaignEntries), 3, "campaign AI registry count")
+insaneTestAssert(insanetestreactions.selectDeathPlan("misc_insane", 76, 1, true) is void,
+  "misc_insane keeps its dedicated gib sequence")
 insaneDefinition = insanetestarchetypes.find(insaneRegistry, "misc_insane")
 insaneTestEqual(insaneDefinition.model, "models/monsters/insane/tris.md2", "Classic insane model")
 insaneTestEqual(insaneDefinition.health, 100, "Classic insane health")

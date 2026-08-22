@@ -13,8 +13,8 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P02 | Player move, look and all stock weapons | `gameplay_player_weapon_protocol_tests.ml`, `runtime_multiplayer_deathmatch_tests.ml`, ballistics goldens | PASS (mechanics) | paired original view-model/recoil capture |
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
 | P04 | `waste1` brush, water, MD2 and alpha rendering | deterministic G06 TGA replay and zero-pixel self-diff | PASS | paired original `ref_gl` capture and tolerance gate |
-| P05 | Stock monster attack framing | attack, ranged and melee sequence suites; live MZ2 and Parasite beam chains | PASS (attacks) | complete pain, death, dodge and non-combat animation variants |
-| P06 | Save during an active monster sequence | Private-Save v5 fields in `gameplay_private_save_restore_tests.ml` | PASS | representative retail save positions and original-save policy |
+| P05 | Stock monster frame sequencing | attack/ranged/melee, 63 pain, 43 death, dodge and primary-locomotion suites; live MZ2 and Parasite beam chains | PASS (primary moves) | secondary fidgets, exact movement/corpse/gib/death-effect differential |
+| P06 | Save during an active monster sequence | Private-Save v6 attack/reaction fields in `gameplay_private_save_restore_tests.ml` and boss persistence gates | PASS | representative retail save positions and original-save policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
 | P08 | Two-player deathmatch | real UDP Blaster kill, visible projectile, effects, obituary, score and attack-latch respawn | PASS | all-weapon UDP matrix, map rotation, spectator and long soak |
 | P09 | Two-player cooperative play | shared item, disconnect/reconnect and non-stale signon epoch | PASS | campaign checkpoint matrix and friendly-fire/difficulty variants |
@@ -28,9 +28,12 @@ The data-driven sequence layer follows the original 0.1-second game frame and
 uses the original MZ2 identifiers. Random choices are deterministic functions
 of edict number and persisted attack count, so save/reload and replay choose the
 same branch. This block schedules weapon callbacks at the original relative
-frames and projects every attack timeline onto its stock MD2 frames. Pain,
-death, dodge, idle and locomotion moves remain a separate model-animation
-parity gate.
+frames and projects every attack timeline onto its stock MD2 frames. A companion
+reaction/movement layer contains 63 pain variants, 43 normal-death variants,
+the stock duck/dodge ranges for six families, and primary stand, idle, walk and
+run ranges for all 22 combat entries. Secondary fidgets, exact movement
+distances, corpse bounds, gib models and multi-stage death effects remain a
+separate differential-parity gate.
 
 | Family | Implemented sequence |
 |---|---|
@@ -45,9 +48,10 @@ parity gate.
 | Berserk/Infantry/Flipper/Chick/Flyer/Brain/Floater/Mutant | stock close-combat loops, event damage and MD2 frame projection |
 | Parasite | 18-frame drain move, first/subsequent damage split and ordered `TE_PARASITE_ATTACK` beam handoff |
 
-Private-Save v5 persists attack/melee/pain/death counts and the in-flight
-`nextFrame`, `pauseTime` and `attackState`. A restored burst therefore resumes
-at its next event rather than restarting or silently collapsing to one shot.
+Private-Save v6 persists attack/melee/pain/death counts, reaction debounce and
+the in-flight `nextFrame`, `pauseTime` and `attackState`. A restored attack or
+reaction therefore resumes at its next event rather than restarting or
+silently collapsing to one shot.
 
 ## Current player-weapon coverage
 

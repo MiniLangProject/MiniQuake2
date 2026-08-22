@@ -58,9 +58,13 @@ rail, blaster or rocket emission. Every combat-capable family now uses a stock
 frame-relative attack, melee or drain timeline with projected MD2 frames. This
 includes the Tank/Supertank sweeps, Medic/Flyer/Floater/Hover bursts, Chick
 refire, all close-combat loops and the Parasite's ordered damage/beam frames in
-addition to the Infantry, Gunner, Soldier and boss schedules. Private-Save v5
-resumes a running sequence at its next event. Pain, death, dodge and non-weapon
-animation tables remain explicit frame-parity work. Muzzle and beam events travel through the typed
+addition to the Infantry, Gunner, Soldier and boss schedules. The same stock
+layer now covers 63 pain variants, 43 normal-death variants, the original
+duck/dodge ranges for the six supporting families, and primary stand, idle,
+walk and run MD2 ranges for all 22 combat entries. Private-Save v6 resumes both
+attacks and active reactions at their next frame. Secondary fidgets, exact
+per-frame movement distances, corpse-bound variants, gib models and multi-stage
+death effects remain explicit differential-parity work. Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
 non-combat states. The complete stock player-weapon set now uses its original
@@ -95,8 +99,8 @@ that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 binary exits before networking on this host), paired
 original `ref_gl` reference captures, paired original player view-model and
-recoil captures, the remaining monster/turret/boss model-animation sequencing
-and per-frame/refire event exactness, and manual device
+recoil captures, the remaining secondary monster/turret/boss animation and
+gib/death-effect sequencing, exact movement/event differentials, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.

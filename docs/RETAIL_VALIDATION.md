@@ -158,13 +158,17 @@ profile also carries its stock first-shot MZ2 identifier. The
 `gameplay_monster_melee_sequences_tests` cover every combat family, including
 stock MD2 projection, bounded refire, ordered MZ2 sequences and the Parasite
 damage/beam chain. The product-shaped Gunner gate observes eight ordered MZ2
-45–52 events from one AI attack. Private
-Save v5 retains a running sequence's event index and next-frame time. The
+45–52 events from one AI attack. The reaction and locomotion suites inventory
+63 original pain variants, 43 normal-death variants, six stock duck/dodge
+ranges and primary stand/idle/walk/run ranges for all 22 combat entries.
+Private Save v6 retains a running attack or reaction's event index,
+next-frame time and reaction debounce. The
 focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
 backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
-as the expected DLight and attack sound. Original pain/death/dodge and
-non-combat animation events remain open; deterministic refire is deliberately
-bounded to eight cycles.
+as the expected DLight and attack sound. Secondary fidgets, exact per-frame
+movement distances, corpse-bound variants, gib models and multi-stage death
+effects remain open; deterministic refire is deliberately bounded to eight
+cycles.
 
 `server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and
 `network_runtime_unicast_loopback_tests` close the targeted half of the same

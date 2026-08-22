@@ -77,11 +77,12 @@ bossPersistenceAssert(bossPersistenceJorg.enemy is not void and bossPersistenceJ
 bossPersistenceAssert(bossPersistenceJorg.edict.state.origin.x == 144.0 and bossPersistenceJorg.edict.state.origin.y == 24.0 and
   bossPersistenceJorg.edict.state.angles.y == 75.0 and bossPersistenceJorg.edict.state.oldOrigin.x == 140.0,
   "Jorg transform restored")
-bossPersistenceAssert(bossPersistenceJorg.nextThink == bossPersistenceJorg.successorDueTime,
-  "Jorg successor think deadline restored")
+bossPersistenceAssert(bossPersistenceJorg.nextThink < bossPersistenceJorg.successorDueTime and
+  bossPersistenceJorg.activity == "monster_jorg-death",
+  "Jorg death animation and successor deadline restored")
 
 bossPersistenceStageFrames = 0
-while len(bossPersistenceRuntime.monsters) == 2 and bossPersistenceStageFrames < 20
+while len(bossPersistenceRuntime.monsters) == 2 and bossPersistenceStageFrames < 55
   bossPersistenceApi.runFrame()
   bossPersistenceStageFrames = bossPersistenceStageFrames + 1
 end while

@@ -95,6 +95,7 @@ struct AIActor
   successorDueTime
   successorSpawned
   number
+  reactionDebounce
 end struct
 
 struct AIContext
@@ -188,7 +189,7 @@ function createActor(number, className)
     0.0, 0.0, 128, 0, false, true,
     "", "", "", "", void, void, void, void, void, void, void,
     info, void, void, "created", 0, 0, 0, 0, "none",
-    false, "none", "", 0.0, false, number
+    false, "none", "", 0.0, false, number, 0.0
   )
   actor.edict = edict
   gtypes.stabilizeEdict(actor.edict)

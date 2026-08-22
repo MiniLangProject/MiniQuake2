@@ -14,9 +14,11 @@ import miniquake2.game.world.constants as ibworldconstants
 import miniquake2.game.integration.pusher as ibpusher
 import miniquake2.game.ai.archetypes as ibarchetypes
 import miniquake2.game.ai.monster as ibmonster
+import miniquake2.game.ai.core as ibgaicore
 import miniquake2.game.ai.constants as ibaiconstants
 import miniquake2.game.ai.combat_profiles as ibaicombat
 import miniquake2.game.ai.attack_sequences as ibattackseq
+import miniquake2.game.ai.reaction_sequences as ibreactionseq
 import miniquake2.game.gameplay.registry as ibitems
 import miniquake2.game.gameplay.item_rules as ibitemrules
 import miniquake2.game.gameplay.precache as ibprecache
@@ -825,7 +827,33 @@ function integratedPlayerNoise(owner, position, noiseType)
 end function
 
 function integratedDodge(owner, start, direction, speed)
-  return true
+  global activeIntegrationRuntime
+  ibDodgeRuntimeHolder = activeIntegrationRuntime
+  if ibDodgeRuntimeHolder is void or speed <= 0.0 then return false end if
+  // g_weapon.c applies a separate easy-skill 25% gate before tracing.  Each
+  // stock dodge callback then applies its own 25% gate on every skill.  Keep
+  // both decisions replay-stable while preserving those original odds.
+  ibDodgeFrameNumber = ibDodgeRuntimeHolder.aiContext.frameNumber
+  ibDodgeEndHolder = ibwpvector.multiplyAdd(start, 8192.0, direction)
+  ibDodgeTraceHolder = integratedWeaponTrace(start, ibqtypes.zeroVec3(), ibqtypes.zeroVec3(),
+    ibDodgeEndHolder, owner, ibqconstants.MASK_SHOT)
+  if ibDodgeTraceHolder.entity is void then return false end if
+  ibDodgeActorHolder = integratedMonsterByNumber(ibDodgeRuntimeHolder, ibDodgeTraceHolder.entity.number)
+  if ibDodgeActorHolder is void or ibDodgeActorHolder.health <= 0 then return false end if
+  ibDodgePlanHolder = ibreactionseq.stockDodgePlan(ibDodgeActorHolder.className)
+  if ibDodgePlanHolder is void or ibreactionseq.planByName(ibDodgeActorHolder.className, ibDodgeActorHolder.activity) is not void then return false end if
+  if ibDodgeRuntimeHolder.aiContext.skill == 0 and
+      ibreactionseq.deterministicValue(ibDodgeActorHolder.edict.state.number,
+        ibDodgeFrameNumber, 179, 100) >= 25 then return false end if
+  if ibreactionseq.deterministicValue(ibDodgeActorHolder.edict.state.number,
+      ibDodgeFrameNumber, 181, 100) >= 25 then return false end if
+  ibDodgeAttackerActorHolder = findAIPlayer(ibDodgeRuntimeHolder, owner.number)
+  if ibDodgeAttackerActorHolder is void then
+    ibDodgeAttackerActorHolder = integratedMonsterByNumber(ibDodgeRuntimeHolder, owner.number)
+  end if
+  if ibDodgeAttackerActorHolder is not void and
+      ibgaicore.infront(ibDodgeActorHolder, ibDodgeAttackerActorHolder) != true then return false end if
+  return ibmonster.StartReaction(ibDodgeActorHolder, ibDodgePlanHolder, ibDodgeRuntimeHolder.aiContext)
 end function
 
 function integratedRandomSigned()
@@ -1827,6 +1855,7 @@ end function
 
 function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
+  if ibreactionseq.planByName(actor.className, actor.activity) is not void then return false end if
   activePlan = activeMonsterAttackPlan(actor)
   if activePlan is not void then return advanceMonsterAttack(runtime, actor, activePlan) end if
   if actor.enemy.health <= 0 or runtime.aiContext.time < actor.info.attackFinished then return false end if
