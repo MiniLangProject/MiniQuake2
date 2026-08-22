@@ -221,6 +221,13 @@ key inventories and scores, then kills one teammate through eight decoded UDP
 Blaster commands. The coop obituary is retained without awarding a deathmatch
 frag, and a 200-frame post-restore transport soak completes with zero rejects.
 
+`runtime_multiplayer_all_weapons_tests` sends a real attack UserCmd for all 11
+stock weapon modes. Ten firearms produce their normal muzzle/effect handoff on
+both integrated clients; the cooked hand grenade is observed as the same live
+engine edict in both snapshots. The gate validates per-weapon ammo cost,
+Netchan progress, zero rejects and a 300-frame tail soak, including a repeated
+run with a 4-MB GC limit.
+
 `gameplay_player_weapon_protocol_tests` now validates all ten stock player
 muzzle mappings, silencer framing, hit/blood/splash/bubble/rail/BFG effects,
 Shotgun pump timing, BFG windup and late ammo checks, Machinegun/Chaingun/

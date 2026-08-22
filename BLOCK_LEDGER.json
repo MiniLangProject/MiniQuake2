@@ -262,6 +262,7 @@
         "tests/runtime_cross_map_session_persistence_tests.ml",
         "src/miniquake2/runtime/multiplayer_session.ml",
         "tests/runtime_multiplayer_deathmatch_tests.ml",
+        "tests/runtime_multiplayer_all_weapons_tests.ml",
         "tests/runtime_multiplayer_coop_tests.ml",
         "tests/runtime_multiplayer_rotation_spectator_tests.ml",
         "tests/runtime_multiplayer_coop_checkpoint_tests.ml",
