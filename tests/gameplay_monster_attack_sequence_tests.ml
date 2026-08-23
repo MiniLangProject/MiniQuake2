@@ -2,6 +2,7 @@
 import miniquake2.game.ai.attack_sequences as attacksequences
 import miniquake2.game.ai.types as attacksequenceaitypes
 import miniquake2.game.integration.baseq2 as attacksequencebaseq2
+import miniquake2.game.random as attacksequencerandom
 import miniquake2.game.null_game as attacksequencegame
 import miniquake2.game.constants as attacksequencegameconstants
 import miniquake2.qcommon.constants as attacksequenceqconstants
@@ -47,6 +48,9 @@ sequenceAssert(attacksequences.modelFrameAt(infantryPlan, 0) == 184 and
   attacksequences.modelFrameAt(infantryPlan, 10 + len(infantryPlan.frameOffsets) - 1) == 194 and
   attacksequences.modelFrameAt(infantryPlan, infantryPlan.durationFrames - 1) == 198,
   "infantry stock windup/held-fire/postfire model frames")
+sequenceAssert(len(attacksequences.infantryPlanShots(10).frameOffsets) == 10 and
+  len(attacksequences.infantryPlanShots(25).frameOffsets) == 25,
+  "Infantry exact raw-rand shot-count builders")
 
 gunnerPlan = attacksequences.gunnerChainPlan(2, 1)
 sequenceAssert(attacksequences.validatePlan(gunnerPlan), "gunner chain validates")
@@ -62,6 +66,12 @@ sequenceAssert(attacksequences.modelFrameAt(gunnerPlan, 0) == 137 and
   attacksequences.modelFrameAt(gunnerPlan, 14) == 151 and
   attacksequences.modelFrameAt(gunnerPlan, gunnerPlan.durationFrames - 1) == 158,
   "gunner stock open/fire/close model frames")
+gunnerOneCycle = attacksequences.gunnerChainPlanCycles(1)
+gunnerTwoCycles = attacksequences.gunnerChainPlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(gunnerOneCycle) == 15 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(gunnerTwoCycles) == 23 and
+  gunnerTwoCycles.frameOffsets[8] == 15,
+  "Gunner live refire decision fires the next chain frame immediately")
 gunnerGrenades = attacksequences.gunnerGrenadePlan()
 assertConsecutive(gunnerGrenades.muzzleFlashes, 53, 4, "gunner grenade muzzles")
 sequenceAssert(gunnerGrenades.frameOffsets == [4, 7, 10, 13], "gunner grenade frames")
@@ -97,23 +107,36 @@ sequenceAssert(chickSlash.frameOffsets[0] == 4 and
   attacksequences.modelFrameAt(chickSlash, 3) == 35 and
   attacksequences.modelFrameAt(chickSlash, chickSlash.durationFrames - 1) == 47,
   "Chick slash start/refire/end frames")
+chickSlashTwoCycles = attacksequences.chickMeleePlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(
+    attacksequences.chickMeleePlanCycles(1)) == 11 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(chickSlashTwoCycles) == 20 and
+  chickSlashTwoCycles.frameOffsets[1] == 13,
+  "Chick slash live refire preserves its start-frame restart")
 flyerSlashes = attacksequences.flyerMeleePlan()
 sequenceAssert(len(flyerSlashes.frameOffsets) == 16 and
   attacksequences.modelFrameAt(flyerSlashes, 0) == 58 and
   attacksequences.modelFrameAt(flyerSlashes, 6) == 64 and
   attacksequences.modelFrameAt(flyerSlashes, flyerSlashes.durationFrames - 1) == 78,
   "Flyer slash start/refire/end frames")
+flyerTwoCycles = attacksequences.flyerMeleePlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(
+    attacksequences.flyerMeleePlanCycles(1)) == 18 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(flyerTwoCycles) == 30 and
+  flyerTwoCycles.frameOffsets[2] == 20,
+  "Flyer live melee refire preserves the twelve-frame loop")
 brainClaws = attacksequences.brainClawPlan()
 brainTentacle = attacksequences.brainTentaclePlan(1)
 sequenceAssert(brainClaws.frameOffsets == [7, 11] and
   attacksequences.modelFrameAt(brainClaws, 0) == 53 and
   attacksequences.modelFrameAt(brainClaws, 17) == 70 and
-  brainTentacle.frameOffsets == [6, 24, 28] and
+  brainTentacle.frameOffsets == [6, 18, 22] and
   attacksequences.eventDamage(brainTentacle, 0) == 12 and
   attacksequences.eventKnockback(brainTentacle, 0) == -600 and
-  attacksequences.modelFrameAt(brainTentacle, 16) == 87 and
-  attacksequences.modelFrameAt(brainTentacle, 17) == 53,
-  "Brain tentacle-to-claw stock transition")
+  attacksequences.modelFrameAt(brainTentacle, 10) == 81 and
+  attacksequences.modelFrameAt(brainTentacle, 11) == 53 and
+  attacksequences.modelFrameAt(brainTentacle, 28) == 70,
+  "Brain successful tentacle-to-claw stock transition")
 floaterWham = attacksequences.floaterWhamPlan()
 floaterZap = attacksequences.floaterZapPlan()
 sequenceAssert(attacksequences.modelFrameAt(floaterWham, 0) == 45 and
@@ -126,6 +149,17 @@ sequenceAssert(mutantClaws.frameOffsets[0] == 2 and mutantClaws.frameOffsets[1] 
   attacksequences.modelFrameAt(mutantClaws, 0) == 8 and
   attacksequences.modelFrameAt(mutantClaws, 7) == 8,
   "Mutant claw loop frames")
+mutantTwoCycles = attacksequences.mutantMeleePlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(
+    attacksequences.mutantMeleePlanCycles(1)) == 6 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(mutantTwoCycles) == 13 and
+  mutantTwoCycles.frameOffsets[2] == 9,
+  "Mutant nextframe refire returns to attack09")
+mutantJump = attacksequences.mutantJumpPlan()
+sequenceAssert(mutantJump.frameOffsets == [2, 4] and mutantJump.attackKind == "jump" and
+  attacksequences.modelFrameAt(mutantJump, 0) == 0 and
+  attacksequences.modelFrameAt(mutantJump, 7) == 7,
+  "Mutant stock attack03 takeoff and attack05 landing check")
 parasiteDrain = attacksequences.parasiteDrainPlan()
 sequenceAssert(len(parasiteDrain.frameOffsets) == 11 and
   attacksequences.eventDamage(parasiteDrain, 0) == 5 and
@@ -155,6 +189,17 @@ sequenceAssert(tankRockets.frameOffsets == [23, 26, 29] and tankRockets.muzzleFl
   attacksequences.modelFrameAt(tankRockets, 23) == 138 and
   attacksequences.modelFrameAt(tankRockets, 52) == 167,
   "Tank rocket windup/fire/post frames")
+tankBlasterHardOne = attacksequences.tankBlasterPlanCycles("monster_tank", 1, true)
+tankBlasterHardTwo = attacksequences.tankBlasterPlanCycles("monster_tank", 2, true)
+tankRocketHardOne = attacksequences.tankRocketPlanCycles("monster_tank", 1, true)
+tankRocketHardTwo = attacksequences.tankRocketPlanCycles("monster_tank", 2, true)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(tankBlasterHardOne) == 16 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(tankBlasterHardTwo) == 22 and
+  tankBlasterHardTwo.frameOffsets[3] == 18 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(tankRocketHardOne) == 30 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(tankRocketHardTwo) == 39 and
+  tankRocketHardTwo.frameOffsets[3] == 32,
+  "Tank hard-mode live blaster and rocket refire points")
 
 medicPlan = attacksequences.medicBlasterPlan(2, 1)
 sequenceAssert(medicPlan.frameOffsets[0] == 8 and medicPlan.frameOffsets[1] == 11 and
@@ -167,11 +212,23 @@ if len(medicPlan.frameOffsets) > 2 then
     attacksequences.eventUsesHyperblasterEffect(medicPlan, 5),
     "Medic hyperblaster trail cadence")
 end if
+medicBase = attacksequences.medicBlasterPlanContinue(false)
+medicHyper = attacksequences.medicBlasterPlanContinue(true)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(medicBase) == 13 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(medicHyper) == -1 and
+  medicHyper.frameOffsets[2] == 18,
+  "Medic performs one live continue decision before attack19 hyperfire")
 chickPlan = attacksequences.chickRocketPlan(2, 1)
 sequenceAssert(chickPlan.frameOffsets[0] == 13 and chickPlan.muzzleFlashes[0] == 57 and
   attacksequences.modelFrameAt(chickPlan, 13) == 13 and
   attacksequences.modelFrameAt(chickPlan, chickPlan.durationFrames - 1) == 31,
   "Chick rocket refire frames")
+chickRocketTwoCycles = attacksequences.chickRocketPlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(
+    attacksequences.chickRocketPlanCycles(1)) == 26 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(chickRocketTwoCycles) == 40 and
+  chickRocketTwoCycles.frameOffsets[1] == 27,
+  "Chick live rocket refire restarts at attack114")
 flyerPlan = attacksequences.flyerBlasterPlan()
 sequenceAssert(flyerPlan.frameOffsets == [3, 4, 5, 6, 7, 8, 9, 10] and
   flyerPlan.muzzleFlashes == [58, 59, 58, 59, 58, 59, 58, 59] and
@@ -197,12 +254,24 @@ sequenceAssert(hoverPlan.frameOffsets[0] == 3 and hoverPlan.frameOffsets[1] == 4
 sequenceAssert(attacksequences.eventUsesHyperblasterEffect(hoverPlan, 0) and
   not attacksequences.eventUsesHyperblasterEffect(hoverPlan, 1),
   "Hover first bolt of each pair uses hyperblaster trail")
+hoverTwoCycles = attacksequences.hoverBlasterPlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(
+    attacksequences.hoverBlasterPlanCycles(1)) == 5 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(hoverTwoCycles) == 8 and
+  hoverTwoCycles.frameOffsets[2] == 6,
+  "Hover live refire restarts on the next frame")
 supertankChain = attacksequences.supertankMachinegunPlan(2, 1)
 supertankRockets = attacksequences.supertankRocketPlan()
 sequenceAssert(supertankChain.muzzleFlashes[0] == 64 and supertankChain.muzzleFlashes[5] == 69 and
   attacksequences.modelFrameAt(supertankChain, 0) == 0 and
   attacksequences.modelFrameAt(supertankChain, supertankChain.durationFrames - 1) == 19,
   "Supertank machinegun refire frames")
+supertankTwoCycles = attacksequences.supertankMachinegunPlanCycles(2)
+sequenceAssert(attacksequencebaseq2.monsterRefireDecisionOffset(
+    attacksequences.supertankMachinegunPlanCycles(1)) == 6 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(supertankTwoCycles) == 12 and
+  supertankTwoCycles.frameOffsets[6] == 6,
+  "Supertank live machinegun refire fires again on the decision tick")
 sequenceAssert(supertankRockets.frameOffsets == [7, 10, 13] and
   supertankRockets.muzzleFlashes == [70, 71, 72] and
   attacksequences.modelFrameAt(supertankRockets, 7) == 27,
@@ -214,9 +283,28 @@ sequenceAssert(soldierLight1.frameOffsets == [2] and soldierLight1.muzzleFlashes
   "soldier light attack1 frame/muzzle")
 sequenceAssert(soldierLight2.frameOffsets == [4] and soldierLight2.muzzleFlashes == [40],
   "soldier light attack2 frame/muzzle")
+soldierLight1Two = attacksequences.soldierLightPlanCycles("monster_soldier_light", false, 2)
+soldierLight2Two = attacksequences.soldierLightPlanCycles("monster_soldier_light", true, 2)
+sequenceAssert(soldierLight1Two.frameOffsets == [2, 7] and
+  attacksequencebaseq2.monsterRefireDecisionOffset(soldierLight1Two) == 10 and
+  attacksequences.modelFrameAt(soldierLight1Two, 6) == 1 and
+  attacksequences.modelFrameAt(soldierLight1Two, 11) == 9 and
+  soldierLight2Two.frameOffsets == [4, 9] and
+  attacksequencebaseq2.monsterRefireDecisionOffset(soldierLight2Two) == 12 and
+  attacksequences.modelFrameAt(soldierLight2Two, 8) == 15,
+  "light Soldier exact attack102/attack204 nextframe loops")
 soldierShotgun2 = attacksequences.planByName("monster_soldier", "soldier-shotgun-attack2", 2, 1)
 sequenceAssert(soldierShotgun2.muzzleFlashes == [42] and soldierShotgun2.count == 12,
   "soldier shotgun attack2 payload")
+soldierShotgun1Two = attacksequences.soldierShotgunPlanCycles("monster_soldier", false, 2)
+soldierShotgun2Two = attacksequences.soldierShotgunPlanCycles("monster_soldier", true, 2)
+sequenceAssert(soldierShotgun1Two.frameOffsets == [2, 10] and
+  attacksequencebaseq2.monsterRefireDecisionOffset(soldierShotgun1Two) == 16 and
+  attacksequences.modelFrameAt(soldierShotgun1Two, 9) == 1 and
+  soldierShotgun2Two.frameOffsets == [4, 16] and
+  attacksequencebaseq2.monsterRefireDecisionOffset(soldierShotgun2Two) == 26 and
+  attacksequences.modelFrameAt(soldierShotgun2Two, 15) == 15,
+  "shotgun Soldier exact post-cock nextframe loops")
 soldierMachinegun = attacksequences.soldierPlan("monster_soldier_ss", 2, 1)
 sequenceAssert(len(soldierMachinegun.muzzleFlashes) >= 3 and len(soldierMachinegun.muzzleFlashes) <= 10,
   "soldier machinegun hold count")
@@ -228,6 +316,9 @@ sequenceAssert(attacksequences.modelFrameAt(soldierMachinegun, 0) == 39 and
   attacksequences.modelFrameAt(soldierMachinegun, 2 + len(soldierMachinegun.frameOffsets) - 1) == 41 and
   attacksequences.modelFrameAt(soldierMachinegun, soldierMachinegun.durationFrames - 1) == 44,
   "soldier held machinegun model frames")
+sequenceAssert(len(attacksequences.soldierMachinegunPlanShots("monster_soldier_ss", 3).frameOffsets) == 3 and
+  len(attacksequences.soldierMachinegunPlanShots("monster_soldier_ss", 10).frameOffsets) == 10,
+  "machinegun Soldier exact raw-rand shot-count builders")
 
 jorgAttackPlan = attacksequences.jorgPlan(7, 1)
 sequenceAssert(len(jorgAttackPlan.muzzleFlashes) % 12 == 0, "Jorg complete six-frame paired cycle")
@@ -302,8 +393,36 @@ sequenceAssert(attacksequences.modelFrameAt(makronBfg, 3) == 204 and
 
 sequenceAssert(attacksequences.selectionRandomKind("monster_jorg", 500.0) == 1 and
   attacksequences.selectionRandomKind("monster_boss2", 100.0) == 0 and
-  attacksequences.selectionRandomKind("monster_berserk", 40.0) == 0,
+  attacksequences.selectionRandomKind("monster_berserk", 40.0) == 2 and
+  attacksequences.selectionRandomKind("monster_tank", 40.0) == 1 and
+  attacksequences.selectionRandomKind("monster_soldier_ss", 500.0) == 0,
   "stock attack selection consumes only the original random draw kind")
+sequenceAssert(attacksequences.berserkPlanWithRaw(40).name == "berserk-spike" and
+  attacksequences.berserkPlanWithRaw(41).name == "berserk-club",
+  "Berserk uses exact raw rand parity")
+sequenceAssert(attacksequences.gunnerPlanWithRoll(7, 1, 81.0, 0.5).name == "gunner-grenade" and
+  attacksequences.gunnerPlanWithRoll(7, 1, 81.0, 0.5001).name == "gunner-chain" and
+  attacksequences.gunnerPlanWithRoll(7, 1, 80.0, 0.0).name == "gunner-grenade" and
+  attacksequences.gunnerPlanWithRoll(7, 1, 79.999, 0.0).name == "gunner-chain",
+  "Gunner exact selection range and random boundary")
+sequenceAssert(attacksequences.soldierPlanWithRoll("monster_soldier_light", 7, 1, 0.4999).name ==
+    "soldier-light-attack1" and
+  attacksequences.soldierPlanWithRoll("monster_soldier_light", 7, 1, 0.5).name ==
+    "soldier-light-attack2",
+  "Soldier exact attack-layout random boundary")
+sequenceAssert(attacksequences.brainPlanWithRoll(1, 0.5).name == "brain-claws" and
+  attacksequences.brainPlanWithRoll(1, 0.5001).name == "brain-tentacle",
+  "Brain exact melee random boundary defers chaining until fire_hit")
+sequenceAssert(attacksequences.floaterPlanWithRoll(79.999, 0.4999).name == "floater-zap" and
+  attacksequences.floaterPlanWithRoll(79.999, 0.5).name == "floater-wham" and
+  attacksequences.floaterPlanWithRoll(80.0, 0.0).name == "floater-blasters",
+  "Floater exact melee selection boundary")
+sequenceAssert(attacksequences.supertankPlanWithRoll(7, 1, 160.0, 1.0).name ==
+    "supertank-machinegun" and
+  attacksequences.supertankPlanWithRoll(7, 1, 160.1, 0.2999).name ==
+    "supertank-machinegun" and
+  attacksequences.supertankPlanWithRoll(7, 1, 160.1, 0.3).name == "supertank-rockets",
+  "Supertank exact range and random boundary")
 jorgRandomLow = attacksequences.jorgPlanWithRoll(7, 1, 0.75)
 jorgRandomHigh = attacksequences.jorgPlanWithRoll(7, 1, 0.7501)
 sequenceAssert(jorgRandomLow is not void, "Jorg low randomized plan exists")
@@ -355,6 +474,27 @@ sequenceAssert(not attacksequencebaseq2.parasiteDrainPointOk(
 sequenceAssert(not attacksequencebaseq2.parasiteDrainPointOk(
     attacksequenceqtypes.Vec3(0.0, 0.0, 0.0), attacksequenceqtypes.Vec3(100.0, 0.0, 70.0)),
   "Parasite rejects drain pitch beyond 30 degrees")
+meleeAimActor = attacksequenceaitypes.createActor(18, "monster_brain")
+meleeAimActor.mins[0] = -24.0; meleeAimActor.maxs[0] = 24.0
+brainRightAim = attacksequencebaseq2.monsterMeleeAim(meleeAimActor, brainClaws, 0)
+brainLeftAim = attacksequencebaseq2.monsterMeleeAim(meleeAimActor, brainClaws, 1)
+mutantLeftAim = attacksequencebaseq2.monsterMeleeAim(meleeAimActor, mutantClaws, 0)
+mutantRightAim = attacksequencebaseq2.monsterMeleeAim(meleeAimActor, mutantClaws, 1)
+sequenceAssert(brainRightAim.y == 24.0 and brainLeftAim.y == -24.0 and
+  brainRightAim.z == 8.0 and mutantLeftAim.y == -24.0 and mutantRightAim.y == 24.0,
+  "fire_hit uses exact left/right claw aim offsets")
+damageRandom = attacksequencerandom.create(1)
+sequenceAssert(attacksequencebaseq2.monsterAttackDamageFromState(damageRandom,
+    attacksequences.gladiatorMeleePlan(), 0) == 21,
+  "Gladiator consumes exact rand percent-five damage")
+damageRandom = attacksequencerandom.create(1)
+sequenceAssert(attacksequencebaseq2.monsterAttackDamageFromState(damageRandom,
+    attacksequences.infantryMeleePlan(), 0) == 6,
+  "Infantry consumes exact rand percent-five damage")
+damageRandom = attacksequencerandom.create(1)
+sequenceAssert(attacksequencebaseq2.monsterAttackDamageFromState(damageRandom,
+    attacksequences.chickMeleePlan(1, 1), 0) == 15,
+  "Chick consumes exact rand percent-six damage")
 aimStart = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
 aimDestination = attacksequenceqtypes.Vec3(100.0, 0.0, 0.0)
 gunnerStraight = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
@@ -385,6 +525,14 @@ makronSweepSecond = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
 sequenceNear(makronSweepFirst.y, 0.984808, "Makron sweep starts at +80 yaw")
 sequenceNear(makronSweepCenter.y, 0.0, "Makron sweep reaches center")
 sequenceNear(makronSweepSecond.y, -0.939693, "Makron sweep restarts at -70 yaw")
+soldierSpreadState = attacksequencerandom.create(1)
+soldierSpread = attacksequencebaseq2.monsterSoldierAttackDirection(soldierSpreadState,
+  attacksequenceqtypes.Vec3(0.0, 0.0, 0.0), attacksequenceqtypes.Vec3(100.0, 0.0, 0.0))
+sequenceAssert(soldierSpread.x > 0.992 and soldierSpread.x < 0.994 and
+  soldierSpread.y > 0.120 and soldierSpread.y < 0.122 and
+  soldierSpread.z > 0.007 and soldierSpread.z < 0.009 and
+  soldierSpreadState.seed == 3357800067,
+  "Soldier outer crandom spread consumes two exact CRT values")
 
 // Product-shaped GameImport integration: a real Gunner chain must emit all
 // eight svc_muzzleflash2 messages, in order, instead of one approximation.
@@ -481,6 +629,255 @@ attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveBoss2,
 sequenceAssert(liveBoss2.attackCycles == 2 and liveBoss2.info.nextFrame == 10 and
   liveBoss2.info.pauseTime > 10.09 and liveBoss2.info.pauseTime < 10.11,
   "Boss2 refire decision waits one frame before next attack10 pair")
+
+sequenceRuntime.randomState.seed = 1
+liveGunner = attacksequenceaitypes.createActor(95, "monster_gunner")
+liveGunner.enemy = liveEnemy
+liveGunner.activity = "gunner-chain"
+liveGunner.attackCycles = 1
+liveGunner.info.nextFrame = 8
+liveGunner.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveGunner,
+  attacksequences.gunnerChainPlanCycles(1))
+sequenceAssert(liveGunner.attackCycles == 2 and liveGunner.info.nextFrame == 9 and
+  liveGunner.info.pauseTime > 10.09 and liveGunner.info.pauseTime < 10.11,
+  "Gunner live refire emits attack216 on the decision tick")
+
+sequenceRuntime.randomState.seed = 1
+liveMedic = attacksequenceaitypes.createActor(94, "monster_medic")
+liveMedic.enemy = liveEnemy
+liveMedic.activity = "medic-blaster"
+liveMedic.attackCycles = 0
+liveMedic.info.nextFrame = 2
+liveMedic.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveMedic,
+  attacksequences.medicBlasterPlanContinue(false))
+sequenceAssert(liveMedic.attackCycles == 1 and liveMedic.info.nextFrame == 2 and
+  liveMedic.info.pauseTime > 10.49 and liveMedic.info.pauseTime < 10.51,
+  "Medic live continue waits through attack15..18 before hyperfire")
+
+sequenceRuntime.randomState.seed = 1
+liveChickRocket = attacksequenceaitypes.createActor(93, "monster_chick")
+liveChickRocket.enemy = liveEnemy
+liveChickRocket.activity = "chick-rockets"
+liveChickRocket.attackCycles = 1
+liveChickRocket.info.nextFrame = 1
+liveChickRocket.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveChickRocket,
+  attacksequences.chickRocketPlanCycles(1))
+sequenceAssert(liveChickRocket.attackCycles == 2 and liveChickRocket.info.nextFrame == 1 and
+  liveChickRocket.info.pauseTime > 10.09 and liveChickRocket.info.pauseTime < 10.11,
+  "Chick live rerocket enters attack114 on the following tick")
+
+liveMeleeEnemy = attacksequenceaitypes.createClientTarget(92)
+liveMeleeEnemy.health = 100
+liveMeleeEnemy.edict.state.origin = attacksequenceqtypes.Vec3(64.0, 0.0, 0.0)
+sequenceRuntime.randomState.seed = 1
+liveChickSlash = attacksequenceaitypes.createActor(91, "monster_chick")
+liveChickSlash.enemy = liveMeleeEnemy
+liveChickSlash.activity = "chick-slash"
+liveChickSlash.attackCycles = 1
+liveChickSlash.info.nextFrame = 1
+liveChickSlash.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveChickSlash,
+  attacksequences.chickMeleePlanCycles(1))
+sequenceAssert(liveChickSlash.attackCycles == 2 and liveChickSlash.info.nextFrame == 1 and
+  liveChickSlash.info.pauseTime > 10.19 and liveChickSlash.info.pauseTime < 10.21,
+  "Chick live reslash preserves the attack204 restart frame")
+
+sequenceRuntime.randomState.seed = 1
+liveFlyer = attacksequenceaitypes.createActor(90, "monster_flyer")
+liveFlyer.enemy = liveMeleeEnemy
+liveFlyer.activity = "flyer-slashes"
+liveFlyer.attackCycles = 1
+liveFlyer.info.nextFrame = 2
+liveFlyer.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveFlyer,
+  attacksequences.flyerMeleePlanCycles(1))
+sequenceAssert(liveFlyer.attackCycles == 2 and liveFlyer.info.nextFrame == 2 and
+  liveFlyer.info.pauseTime > 10.19 and liveFlyer.info.pauseTime < 10.21 and
+  sequenceRuntime.randomState.seed != 1,
+  "Flyer live melee loop consumes the stock 80-percent refire draw")
+
+sequenceRuntime.randomState.seed = 1
+liveHover = attacksequenceaitypes.createActor(89, "monster_hover")
+liveHover.enemy = liveEnemy
+liveHover.activity = "hover-blasters"
+liveHover.attackCycles = 1
+liveHover.info.nextFrame = 2
+liveHover.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveHover,
+  attacksequences.hoverBlasterPlanCycles(1))
+sequenceAssert(liveHover.attackCycles == 2 and liveHover.info.nextFrame == 2 and
+  liveHover.info.pauseTime > 10.09 and liveHover.info.pauseTime < 10.11,
+  "Hover live reattack restarts at attack104")
+
+sequenceRuntime.aiContext.skill = 2
+sequenceRuntime.randomState.seed = 1
+liveMutant = attacksequenceaitypes.createActor(88, "monster_mutant")
+liveMutant.enemy = liveMeleeEnemy
+liveMutant.activity = "mutant-claws"
+liveMutant.attackCycles = 1
+liveMutant.info.nextFrame = 2
+liveMutant.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveMutant,
+  attacksequences.mutantMeleePlanCycles(1))
+sequenceAssert(liveMutant.attackCycles == 2 and liveMutant.info.nextFrame == 2 and
+  liveMutant.info.pauseTime > 10.29 and liveMutant.info.pauseTime < 10.31 and
+  sequenceRuntime.randomState.seed == 1,
+  "Mutant melee-range nextframe loop consumes no non-nightmare random draw")
+
+sequenceRuntime.randomState.seed = 1
+liveSupertank = attacksequenceaitypes.createActor(87, "monster_supertank")
+liveSupertank.enemy = liveEnemy
+liveSupertank.activity = "supertank-machinegun"
+liveSupertank.attackCycles = 1
+liveSupertank.info.nextFrame = 6
+liveSupertank.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveSupertank,
+  attacksequences.supertankMachinegunPlanCycles(1))
+sequenceAssert(liveSupertank.attackCycles == 2 and liveSupertank.info.nextFrame == 7 and
+  liveSupertank.info.pauseTime > 10.09 and liveSupertank.info.pauseTime < 10.11,
+  "Supertank live reattack emits attack1_1 on the decision tick")
+
+sequenceRuntime.aiContext.skill = 3
+sequenceRuntime.randomState.seed = 1
+liveSoldier = attacksequenceaitypes.createActor(86, "monster_soldier_light")
+liveSoldier.enemy = liveEnemy
+liveSoldier.activity = "soldier-light-attack1"
+liveSoldier.attackCycles = 1
+liveSoldier.info.nextFrame = 1
+liveSoldier.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveSoldier,
+  attacksequences.soldierLightPlanCycles("monster_soldier_light", false, 1))
+sequenceAssert(liveSoldier.attackCycles == 2 and liveSoldier.info.nextFrame == 1 and
+  liveSoldier.info.pauseTime > 10.19 and liveSoldier.info.pauseTime < 10.21,
+  "nightmare light Soldier performs the exact attack102 refire jump")
+
+sequenceRuntime.randomState.seed = 1
+liveShotgunSoldier = attacksequenceaitypes.createActor(85, "monster_soldier")
+liveShotgunSoldier.enemy = liveEnemy
+liveShotgunSoldier.activity = "soldier-shotgun-attack2"
+liveShotgunSoldier.attackCycles = 1
+liveShotgunSoldier.info.nextFrame = 1
+liveShotgunSoldier.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveShotgunSoldier,
+  attacksequences.soldierShotgunPlanCycles("monster_soldier", true, 1))
+sequenceAssert(liveShotgunSoldier.attackCycles == 2 and liveShotgunSoldier.info.nextFrame == 1 and
+  liveShotgunSoldier.info.pauseTime > 10.19 and liveShotgunSoldier.info.pauseTime < 10.21,
+  "nightmare shotgun Soldier performs the exact post-cock attack204 refire jump")
+
+sequenceRuntime.aiContext.skill = 2
+sequenceRuntime.randomState.seed = 1
+liveTankBlaster = attacksequenceaitypes.createActor(84, "monster_tank")
+liveTankBlaster.enemy = liveEnemy
+liveTankBlaster.activity = "tank-blasters-hard"
+liveTankBlaster.attackCycles = 1
+liveTankBlaster.info.nextFrame = 3
+liveTankBlaster.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveTankBlaster,
+  attacksequences.tankBlasterPlanCycles("monster_tank", 1, true))
+sequenceAssert(liveTankBlaster.attackCycles == 2 and liveTankBlaster.info.nextFrame == 3 and
+  liveTankBlaster.info.pauseTime > 10.19 and liveTankBlaster.info.pauseTime < 10.21,
+  "hard Tank live blaster refire enters attack111")
+
+sequenceRuntime.randomState.seed = 1
+liveTankRocket = attacksequenceaitypes.createActor(83, "monster_tank")
+liveTankRocket.enemy = liveEnemy
+liveTankRocket.activity = "tank-rockets-hard"
+liveTankRocket.attackCycles = 1
+liveTankRocket.info.nextFrame = 3
+liveTankRocket.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveTankRocket,
+  attacksequences.tankRocketPlanCycles("monster_tank", 1, true))
+sequenceAssert(liveTankRocket.attackCycles == 2 and liveTankRocket.info.nextFrame == 3 and
+  liveTankRocket.info.pauseTime > 10.19 and liveTankRocket.info.pauseTime < 10.21,
+  "hard Tank live rocket refire enters attack322")
+
+sequenceRuntime.aiContext.skill = 2
+liveBrainEnemy = sequenceRuntime.aiPlayers[0]
+liveBrainEnemy.health = sequencePlayer.health
+safeGladiator = attacksequenceaitypes.createActor(80, "monster_gladiator")
+safeGladiator.edict.state.origin = attacksequenceqtypes.Vec3(
+  sequencePlayer.edict.state.origin.x + 112.0, sequencePlayer.edict.state.origin.y,
+  sequencePlayer.edict.state.origin.z)
+safeGladiator.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 180.0, 0.0)
+safeGladiator.enemy = liveBrainEnemy
+safeGladiator.activity = "attack"
+sequenceAssert(not attacksequencebaseq2.runMonsterCombat(sequenceRuntime, safeGladiator) and
+  attacksequencebaseq2.activeMonsterAttackPlan(safeGladiator) is void,
+  "Gladiator exact 112-unit rail safe zone is an attack no-op")
+savedAimGladiator = attacksequenceaitypes.createActor(79, "monster_gladiator")
+savedAimGladiator.edict.state.origin = attacksequenceqtypes.Vec3(
+  sequencePlayer.edict.state.origin.x + 113.0, sequencePlayer.edict.state.origin.y,
+  sequencePlayer.edict.state.origin.z)
+savedAimGladiator.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 180.0, 0.0)
+savedAimGladiator.enemy = liveBrainEnemy
+savedAimGladiator.activity = "attack"
+attacksequencebaseq2.runMonsterCombat(sequenceRuntime, savedAimGladiator)
+sequenceAssert(savedAimGladiator.activity == "gladiator-rail" and
+  savedAimGladiator.attackAimValid and savedAimGladiator.attackAim.y == 0.0,
+  "Gladiator snapshots the rail target at attack start")
+savedGladiatorBefore = attacksequencebaseq2.monsterMuzzleAndDirection(sequenceRuntime,
+  savedAimGladiator, attacksequences.gladiatorRailPlan(), 0, 61)
+sequencePlayer.edict.state.origin.y = 100.0
+savedGladiatorMuzzle = attacksequencebaseq2.monsterMuzzleAndDirection(sequenceRuntime,
+  savedAimGladiator, attacksequences.gladiatorRailPlan(), 0, 61)
+sequenceNear(savedGladiatorMuzzle[1].x, savedGladiatorBefore[1].x,
+  "Gladiator rail saved x direction")
+sequenceNear(savedGladiatorMuzzle[1].y, savedGladiatorBefore[1].y,
+  "Gladiator rail saved y direction")
+sequenceNear(savedGladiatorMuzzle[1].z, savedGladiatorBefore[1].z,
+  "Gladiator rail saved z direction")
+sequencePlayer.edict.state.origin.y = 0.0
+liveMutantJump = attacksequenceaitypes.createActor(81, "monster_mutant")
+liveMutantJump.edict.state.origin = attacksequenceqtypes.Vec3(100.0, 0.0, 0.0)
+liveMutantJump.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 180.0, 0.0)
+liveMutantJump.enemy = liveBrainEnemy
+liveMutantJump.activity = "mutant-jump"
+liveMutantJump.info.nextFrame = 0
+liveMutantJump.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveMutantJump,
+  attacksequences.mutantJumpPlan())
+sequenceAssert(liveMutantJump.attackAimValid and liveMutantJump.info.nextFrame == 1 and
+  liveMutantJump.info.pauseTime > 10.19 and liveMutantJump.info.pauseTime < 10.21 and
+  liveMutantJump.attackAim.x < -599.9 and liveMutantJump.attackAim.z == 250.0 and
+  (liveMutantJump.info.aiFlags & 0x00000800) != 0,
+  "Mutant attack03 launches at stock 600/250 velocity")
+sequenceRuntime.randomState.seed = 1
+jumpTarget = attacksequencebaseq2.weaponTargetByNumber(sequenceRuntime,
+  liveBrainEnemy.edict.state.number)
+jumpHealthBefore = sequencePlayer.health
+attacksequencebaseq2.damageMutantJumpTarget(sequenceRuntime, liveMutantJump, jumpTarget,
+  liveMutantJump.attackAim, liveBrainEnemy.edict.state.origin)
+attacksequencebaseq2.damageMutantJumpTarget(sequenceRuntime, liveMutantJump, jumpTarget,
+  liveMutantJump.attackAim, liveBrainEnemy.edict.state.origin)
+sequenceAssert(jumpHealthBefore - sequencePlayer.health == 40 and liveMutantJump.attackCycles == 1,
+  "Mutant high-speed jump touch applies one exact 40-plus-random impact")
+liveMutantJump.attackAimValid = false
+sequenceRuntime.aiContext.time = 10.2
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveMutantJump,
+  attacksequences.mutantJumpPlan())
+sequenceAssert(liveMutantJump.info.nextFrame == 2 and
+  liveMutantJump.info.pauseTime > 10.49 and liveMutantJump.info.pauseTime < 10.51 and
+  (liveMutantJump.info.aiFlags & 0x00000800) == 0,
+  "Mutant grounded attack05 enters the three-frame landing tail")
+sequenceRuntime.aiContext.time = 10.0
+liveBrain = attacksequenceaitypes.createActor(82, "monster_brain")
+liveBrain.edict.state.origin = attacksequenceqtypes.Vec3(64.0, 0.0, 0.0)
+liveBrain.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 180.0, 0.0)
+liveBrain.enemy = liveBrainEnemy
+liveBrain.activity = "brain-tentacle"
+liveBrain.info.nextFrame = 0
+liveBrain.info.pauseTime = 10.0
+brainHealthBefore = sequencePlayer.health
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveBrain,
+  attacksequences.brainTentaclePlan(0))
+sequenceAssert(liveBrain.activity == "brain-tentacle-claws" and
+  liveBrain.info.nextFrame == 1 and
+  liveBrain.info.pauseTime > 11.19 and liveBrain.info.pauseTime < 11.21 and
+  sequencePlayer.health < brainHealthBefore,
+  "Brain chains attack1 only after a successful stock tentacle fire_hit")
 sequenceApi.clientDisconnect(sequenceClient)
 sequenceApi.shutdown()
 

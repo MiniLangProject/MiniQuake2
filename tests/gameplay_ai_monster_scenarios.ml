@@ -257,6 +257,33 @@ function testSightMovementAndAttack()
   assertEqual(missile.info.attackFinished, 6.0, "attack cooldown")
   assertTrue(gaicore.DispatchAttackState(missile, attackContext, 0.0), "missile dispatch")
   assertEqual(missile.attackCount, 1, "attack callback count")
+
+  mutant = gaitypes.createActor(52, "monster_mutant")
+  gaimonster.installDefaultCallbacks(mutant, true, true)
+  mutantEnemy = gaitypes.createClientTarget(53)
+  mutant.enemy = mutantEnemy
+  mutant.edict.state.origin.x = 0.0; mutant.edict.state.origin.y = 0.0
+  mutant.edict.state.origin.z = 0.0
+  mutantEnemy.edict.state.origin.x = 40.0; mutantEnemy.edict.state.origin.y = 0.0
+  mutantEnemy.edict.state.origin.z = 0.0
+  attackContext.randomAttack = 0.0
+  assertTrue(mutant.info.checkAttack(mutant, attackContext, gaiconstants.RANGE_MELEE),
+    "Mutant exact melee check")
+  assertEqual(mutant.info.attackState, gaiconstants.AS_MELEE, "Mutant melee state")
+  mutantEnemy.edict.state.origin.x = 100.0
+  assertTrue(mutant.info.checkAttack(mutant, attackContext, gaiconstants.RANGE_NEAR),
+    "Mutant exact 100-unit jump boundary")
+  assertEqual(mutant.info.attackState, gaiconstants.AS_MISSILE, "Mutant jump state")
+  mutantEnemy.edict.state.origin.x = 101.0
+  attackContext.randomAttack = 0.8999
+  assertEqual(mutant.info.checkAttack(mutant, attackContext, gaiconstants.RANGE_NEAR), false,
+    "Mutant rejects below 90-percent far-jump boundary")
+  attackContext.randomAttack = 0.9
+  assertTrue(mutant.info.checkAttack(mutant, attackContext, gaiconstants.RANGE_NEAR),
+    "Mutant accepts exact 90-percent far-jump boundary")
+  mutantEnemy.edict.state.origin.z = 200.0
+  assertEqual(mutant.info.checkAttack(mutant, attackContext, gaiconstants.RANGE_NEAR), false,
+    "Mutant rejects vertically disjoint jump target")
   return true
 end function
 

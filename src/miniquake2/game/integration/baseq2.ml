@@ -2021,6 +2021,18 @@ function monsterAttackDirection(actor, attackPlan, eventIndex, start, destinatio
   return ibwpvector.normalized(aim)[0]
 end function
 
+function monsterSoldierAttackDirection(randomState, start, destination)
+  aim = ibwpvector.subtract(destination, start)
+  basis = ibwpvector.angleVectors(ibwpvector.vectorToAngles(aim))
+  horizontal = ibrandom.signed(randomState) * 1000.0
+  vertical = ibrandom.signed(randomState) * 500.0
+  // Algebraically equivalent to the stock 8192-unit endpoint, but scaling
+  // before normalisation keeps the MiniLang hot path in a compact float range.
+  spread = ibwpvector.multiplyAdd(basis[0], horizontal / 8192.0, basis[1])
+  spread = ibwpvector.multiplyAdd(spread, vertical / 8192.0, basis[2])
+  return ibwpvector.normalized(spread)[0]
+end function
+
 function monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   sourceFlash = ibattackseq.eventSourceFlash(attackPlan, eventIndex)
   start = monsterMuzzleStart(actor, sourceFlash)
@@ -2034,11 +2046,19 @@ function monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzl
   enemy = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
   if enemy is void then return [start, ibqtypes.Vec3(1.0, 0.0, 0.0)] end if
   destination = monsterEnemyAimPoint(actor, enemy)
-  if attackPlan.name == "makron-rail" and actor.attackAimValid then
+  if (attackPlan.name == "makron-rail" or attackPlan.name == "gladiator-rail") and
+      actor.attackAimValid then
     destination = ibqtypes.Vec3(actor.attackAim.x, actor.attackAim.y, actor.attackAim.z)
   end if
-  direction = monsterAttackDirection(actor, attackPlan, eventIndex, start, destination,
-    enemy.combatant.velocity)
+  direction = ibqtypes.Vec3(1.0, 0.0, 0.0)
+  if attackPlan.name == "soldier-light-attack1" or attackPlan.name == "soldier-light-attack2" or
+      attackPlan.name == "soldier-shotgun-attack1" or attackPlan.name == "soldier-shotgun-attack2" or
+      attackPlan.name == "soldier-ss-machinegun" then
+    direction = monsterSoldierAttackDirection(runtime.randomState, start, destination)
+  else
+    direction = monsterAttackDirection(actor, attackPlan, eventIndex, start, destination,
+      enemy.combatant.velocity)
+  end if
   // Floater zap passes its unnormalised origin-to-origin vector to both the
   // spark direction encoder and T_Damage. Parasite damage uses the reverse
   // start-to-end vector from m_parasite.c.
@@ -2077,6 +2097,168 @@ function parasiteDrainCanDamage(runtime, shooter, enemyTarget, start)
   return trace.entity is not void and trace.entity.number == enemyTarget.number
 end function
 
+function monsterMeleeAim(actor, attackPlan, eventIndex)
+  side = 0.0
+  height = 0.0
+  if attackPlan.name == "gladiator-cleaver" or attackPlan.name == "berserk-club" or
+      attackPlan.name == "chick-slash" then side = actor.mins[0]
+  end if
+  if attackPlan.name == "gladiator-cleaver" or attackPlan.name == "berserk-club" then height = -4.0 end if
+  if attackPlan.name == "berserk-spike" then height = -24.0 end if
+  if attackPlan.name == "chick-slash" then height = 10.0 end if
+  if attackPlan.name == "brain-tentacle" or
+      (attackPlan.name == "brain-tentacle-claws" and eventIndex == 0) then height = 8.0 end if
+  if attackPlan.name == "brain-claws" or
+      (attackPlan.name == "brain-tentacle-claws" and eventIndex > 0) then
+    side = actor.maxs[0]
+    if eventIndex % 2 == 1 then side = actor.mins[0] end if
+    height = 8.0
+  end if
+  if attackPlan.name == "flyer-slashes" or attackPlan.name == "mutant-claws" then
+    side = actor.mins[0]
+    if eventIndex % 2 == 1 then side = actor.maxs[0] end if
+    if attackPlan.name == "mutant-claws" then height = 8.0 end if
+  end if
+  return ibqtypes.Vec3(80.0, side, height)
+end function
+
+function monsterAttackDamageFromState(randomState, attackPlan, eventIndex)
+  value = ibattackseq.eventDamage(attackPlan, eventIndex)
+  modulus = 0
+  base = value
+  if attackPlan.name == "berserk-spike" then base = 15; modulus = 6
+  else if attackPlan.name == "berserk-club" then base = 5; modulus = 6
+  else if attackPlan.name == "gladiator-cleaver" then base = 20; modulus = 5
+  else if attackPlan.name == "infantry-punch" then base = 5; modulus = 5
+  else if attackPlan.name == "chick-slash" then base = 10; modulus = 6
+  else if attackPlan.name == "mutant-claws" then base = 10; modulus = 5
+  else if attackPlan.name == "brain-claws" then base = 15; modulus = 5
+  else if attackPlan.name == "brain-tentacle" then base = 10; modulus = 5
+  else if attackPlan.name == "brain-tentacle-claws" then
+    base = 15
+    if eventIndex == 0 then base = 10 end if
+    modulus = 5
+  else if attackPlan.name == "floater-wham" or attackPlan.name == "floater-zap" then
+    base = 5; modulus = 6
+  end if
+  if modulus > 0 then return base + (ibrandom.nextInteger(randomState) % modulus) end if
+  return value
+end function
+
+function monsterAttackDamage(runtime, attackPlan, eventIndex)
+  return monsterAttackDamageFromState(runtime.randomState, attackPlan, eventIndex)
+end function
+
+function startMutantJump(runtime, actor)
+  basis = ibwpvector.angleVectors(actor.edict.state.angles)
+  actor.edict.state.origin.z = actor.edict.state.origin.z + 1.0
+  actor.attackAim = ibqtypes.Vec3(basis[0].x * 600.0, basis[0].y * 600.0, 250.0)
+  actor.attackAimValid = true
+  actor.attackCycles = 0
+  actor.info.aiFlags = actor.info.aiFlags | ibaiconstants.AI_DUCKED
+  actor.info.attackFinished = runtime.aiContext.time + 3.0
+  integratedAISound(actor, "mutant/mutsght1.wav", ibgconstants.CHAN_VOICE, ibgconstants.ATTN_NORM)
+  if runtime.playerContext is not void then runtime.playerContext.imports.linkEntity(actor.edict) end if
+  return true
+end function
+
+function damageMutantJumpTarget(runtime, actor, target, velocity, impactPoint)
+  if target is void or target.combatant is void or target.combatant.takeDamage != true then return false end if
+  speed = ibwpvector.length(velocity)
+  if speed <= 400.0 or actor.attackCycles != 0 then return false end if
+  normal = ibwpvector.normalized(velocity)[0]
+  damage = 40 + ibmath.floor(ibrandom.unit(runtime.randomState) * 10.0)
+  shooter = monsterWeaponTarget(actor)
+  actor.attackCycles = 1
+  return ibwpcore.applyDamage(runtime.weaponContext, target, shooter, shooter, velocity,
+    impactPoint, damage, damage, 0, ibgpconstants.MOD_UNKNOWN)
+end function
+
+function advanceMutantJumpPhysics(runtime, actor)
+  if actor.activity != "mutant-jump" or actor.attackAimValid != true then return false end if
+  start = ibqtypes.Vec3(actor.edict.state.origin.x, actor.edict.state.origin.y,
+    actor.edict.state.origin.z)
+  velocity = actor.attackAim
+  velocity.z = velocity.z - 800.0 * ibattackseq.FRAME_TIME
+  finish = ibwpvector.multiplyAdd(start, ibattackseq.FRAME_TIME, velocity)
+  shooter = monsterWeaponTarget(actor)
+  trace = integratedWeaponTrace(start, weaponVector(actor.edict.mins), weaponVector(actor.edict.maxs),
+    finish, shooter, ibqconstants.MASK_MONSTERSOLID)
+  actor.edict.state.oldOrigin = start
+  actor.edict.state.origin = trace.endPosition
+  actor.attackAim = velocity
+  if trace.fraction < 1.0 then
+    target = trace.entity
+    normal = ibwpvector.normalized(velocity)[0]
+    impactPoint = ibwpvector.multiplyAdd(actor.edict.state.origin, actor.maxs[0], normal)
+    damageMutantJumpTarget(runtime, actor, target, velocity, impactPoint)
+    if trace.plane.normal.z > 0.7 or trace.allSolid or trace.startSolid then
+      actor.attackAimValid = false
+      actor.attackAim = ibqtypes.Vec3(0.0, 0.0, 0.0)
+    end if
+  end if
+  if runtime.playerContext is not void then runtime.playerContext.imports.linkEntity(actor.edict) end if
+  return true
+end function
+
+function monsterFireHit(runtime, actor, enemyTarget, shooter, attackPlan, eventIndex,
+    damage, kick)
+  aim = monsterMeleeAim(actor, attackPlan, eventIndex)
+  origin = actor.edict.state.origin
+  direction = ibwpvector.subtract(enemyTarget.origin, origin)
+  range = ibwpvector.length(direction)
+  if range > aim.x then return false end if
+
+  if aim.y > actor.mins[0] and aim.y < actor.maxs[0] then
+    range = range - enemyTarget.maxs.x
+  else if aim.y < 0.0 then aim.y = enemyTarget.mins.x
+  else aim.y = enemyTarget.maxs.x
+  end if
+
+  // Preserve the original fire_hit trace, including its unnormalised first
+  // VectorMA. It answers whether solid geometry blocks the intended victim.
+  traceEnd = ibwpvector.multiplyAdd(origin, range, direction)
+  trace = runtime.weaponContext.callbacks.trace(origin, ibqtypes.zeroVec3(),
+    ibqtypes.zeroVec3(), traceEnd, shooter, ibqconstants.MASK_SHOT)
+  hitTarget = trace.entity
+  if trace.fraction < 1.0 then
+    if hitTarget is void or hitTarget.combatant is void or hitTarget.combatant.takeDamage != true then
+      return false
+    end if
+    if hitTarget.isMonster or hitTarget.isClient then hitTarget = enemyTarget end if
+  end if
+  if hitTarget is void or hitTarget.combatant is void or hitTarget.combatant.takeDamage != true then
+    return false
+  end if
+
+  basis = ibwpvector.angleVectors(actor.edict.state.angles)
+  point = ibwpvector.multiplyAdd(origin, range, basis[0])
+  point = ibwpvector.multiplyAdd(point, aim.y, basis[1])
+  point = ibwpvector.multiplyAdd(point, aim.z, basis[2])
+  damageDirection = ibwpvector.subtract(point, enemyTarget.origin)
+  ibwpcore.applyDamage(runtime.weaponContext, hitTarget, shooter, shooter, damageDirection,
+    point, damage, kick / 2, ibgpconstants.DAMAGE_NO_KNOCKBACK, ibplayerconstants.MOD_HIT)
+
+  if hitTarget.isMonster != true and hitTarget.isClient != true then return false end if
+  center = ibqtypes.Vec3(
+    enemyTarget.origin.x + (enemyTarget.mins.x + enemyTarget.maxs.x) * 0.5,
+    enemyTarget.origin.y + (enemyTarget.mins.y + enemyTarget.maxs.y) * 0.5,
+    enemyTarget.origin.z + (enemyTarget.mins.z + enemyTarget.maxs.z) * 0.5
+  )
+  kickDirection = ibwpvector.normalized(ibwpvector.subtract(center, point))[0]
+  enemyTarget.combatant.velocity[0] = enemyTarget.combatant.velocity[0] + kick * kickDirection.x
+  enemyTarget.combatant.velocity[1] = enemyTarget.combatant.velocity[1] + kick * kickDirection.y
+  enemyTarget.combatant.velocity[2] = enemyTarget.combatant.velocity[2] + kick * kickDirection.z
+  if enemyTarget.combatant.velocity[2] > 0.0 then
+    enemyTarget.combatant.edict.groundEntity = void
+    kickedPlayer = integratedPlayerByNumber(runtime, enemyTarget.number)
+    if kickedPlayer is not void then kickedPlayer.groundEntity = void end if
+    kickedWorld = ibworld.findByNumber(runtime.world, enemyTarget.number)
+    if kickedWorld is not void then kickedWorld.groundEntity = void end if
+  end if
+  return true
+end function
+
 function integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, origin)
   if muzzleFlash == 0 or runtime.playerContext is void then return false end if
   imports = runtime.playerContext.imports
@@ -2105,21 +2287,14 @@ function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   shooter = monsterWeaponTarget(actor)
   enemyTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
   if enemyTarget is void then return false end if
-  distance = ibwpvector.length(ibwpvector.subtract(enemyTarget.origin, shooter.origin))
-  // Parasite validates range from its projected proboscis source and may use
-  // the target's top/bottom fallback. All other attacks use origin distance.
-  if distance > attackPlan.maximumRange and attackPlan.name != "parasite-drain" then return false end if
   kind = attackPlan.attackKind
-  attackDamage = ibattackseq.eventDamage(attackPlan, eventIndex)
+  attackDamage = monsterAttackDamage(runtime, attackPlan, eventIndex)
   attackKnockback = ibattackseq.eventKnockback(attackPlan, eventIndex)
-  if attackPlan.name == "floater-wham" or attackPlan.name == "floater-zap" then
-    attackDamage = 5 + (ibrandom.nextInteger(runtime.randomState) % 6)
+  if kind == "melee" and attackPlan.name != "floater-zap" then
+    return monsterFireHit(runtime, actor, enemyTarget, shooter, attackPlan, eventIndex,
+      attackDamage, attackKnockback)
   end if
   damageKnockback = attackKnockback
-  // Quake II fire_hit accepts a negative special kick and applies it after a
-  // DAMAGE_NO_KNOCKBACK T_Damage call, so keep that move metadata out of the
-  // generic melee request. Floater zap is the stock signed T_Damage exception.
-  if damageKnockback < 0 and attackPlan.name != "floater-zap" then damageKnockback = 0 end if
   if kind == "melee" or kind == "drain" then
     if kind == "drain" and parasiteDrainCanDamage(runtime, shooter, enemyTarget, start) != true then
       return false
@@ -2170,6 +2345,42 @@ function activeMonsterAttackPlan(actor)
 end function
 
 function monsterRefireDecisionOffset(attackPlan)
+  if attackPlan.name == "soldier-light-attack1" then
+    return 5 + (len(attackPlan.frameOffsets) - 1) * 5
+  end if
+  if attackPlan.name == "soldier-light-attack2" then
+    return 7 + (len(attackPlan.frameOffsets) - 1) * 5
+  end if
+  if attackPlan.name == "soldier-shotgun-attack1" then
+    return 8 + (len(attackPlan.frameOffsets) - 1) * 8
+  end if
+  if attackPlan.name == "soldier-shotgun-attack2" then
+    return 14 + (len(attackPlan.frameOffsets) - 1) * 12
+  end if
+  if attackPlan.name == "tank-blasters-hard" then
+    return 16 + ((len(attackPlan.frameOffsets) - 3) / 2) * 6
+  end if
+  if attackPlan.name == "tank-rockets-hard" then
+    return 21 + (len(attackPlan.frameOffsets) / 3) * 9
+  end if
+  if attackPlan.name == "gunner-chain" then
+    return 7 + (len(attackPlan.frameOffsets) / 8) * 8
+  end if
+  if attackPlan.name == "medic-blaster" and len(attackPlan.frameOffsets) == 2 then return 13 end if
+  if attackPlan.name == "chick-rockets" then return 12 + len(attackPlan.frameOffsets) * 14 end if
+  if attackPlan.name == "chick-slash" then return 2 + len(attackPlan.frameOffsets) * 9 end if
+  if attackPlan.name == "flyer-slashes" then
+    return 6 + (len(attackPlan.frameOffsets) / 2) * 12
+  end if
+  if attackPlan.name == "hover-blasters" then
+    return 2 + (len(attackPlan.frameOffsets) / 2) * 3
+  end if
+  if attackPlan.name == "mutant-claws" then
+    return (len(attackPlan.frameOffsets) / 2) * 7 - 1
+  end if
+  if attackPlan.name == "supertank-machinegun" then
+    return (len(attackPlan.frameOffsets) / 6) * 6
+  end if
   if attackPlan.name == "jorg-machineguns" then
     return 8 + (len(attackPlan.frameOffsets) / 12) * 6
   end if
@@ -2181,6 +2392,60 @@ end function
 
 function monsterShouldRefire(runtime, actor, attackPlan)
   if actor.enemy is void or actor.enemy.health <= 0 then return false end if
+  refireTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
+  refireShooter = monsterWeaponTarget(actor)
+  refireDistance = ibwpvector.length(ibwpvector.subtract(
+    actor.enemy.edict.state.origin, actor.edict.state.origin))
+  if refireTarget is not void then
+    refireDistance = ibwpvector.length(ibwpvector.subtract(refireTarget.origin, refireShooter.origin))
+  end if
+  if attackPlan.name == "soldier-light-attack1" or
+      attackPlan.name == "soldier-light-attack2" or
+      attackPlan.name == "soldier-shotgun-attack1" or
+      attackPlan.name == "soldier-shotgun-attack2" then
+    if runtime.aiContext.skill == 3 and ibrandom.unit(runtime.randomState) < 0.5 then return true end if
+    return refireDistance < 80.0
+  end if
+  if attackPlan.name == "tank-blasters-hard" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.6
+  end if
+  if attackPlan.name == "tank-rockets-hard" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.4
+  end if
+  if attackPlan.name == "gunner-chain" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.5
+  end if
+  if attackPlan.name == "medic-blaster" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.95
+  end if
+  if attackPlan.name == "chick-rockets" then
+    if refireDistance < 80.0 or runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.6
+  end if
+  if attackPlan.name == "chick-slash" then
+    if refireDistance >= 80.0 then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.9
+  end if
+  if attackPlan.name == "flyer-slashes" then
+    if refireDistance >= 80.0 then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.8
+  end if
+  if attackPlan.name == "hover-blasters" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.6
+  end if
+  if attackPlan.name == "mutant-claws" then
+    if runtime.aiContext.skill == 3 and ibrandom.unit(runtime.randomState) < 0.5 then return true end if
+    return refireDistance < 80.0
+  end if
+  if attackPlan.name == "supertank-machinegun" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) < 0.9
+  end if
   if attackPlan.name == "jorg-machineguns" then
     if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
     return ibrandom.unit(runtime.randomState) < 0.9
@@ -2240,6 +2505,21 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
     return finishMonsterAttack(runtime, actor, attackPlan, 0)
   end if
   eventIndex = actor.info.nextFrame
+  if attackPlan.name == "infantry-machinegun" and eventIndex == -2 then
+    if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
+    actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, 3)
+    actor.attackCycles = 10 + (ibrandom.nextInteger(runtime.randomState) & 15)
+    exactInfantryPlan = activeMonsterAttackPlan(actor)
+    actor.info.nextFrame = 0
+    actor.info.pauseTime = actor.info.pauseTime +
+      (exactInfantryPlan.frameOffsets[0] - 3) * ibattackseq.FRAME_TIME
+    return false
+  end if
+  if attackPlan.name == "soldier-ss-machinegun" and eventIndex == 0 and actor.attackCycles == 0 then
+    if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
+    actor.attackCycles = 3 + (ibrandom.nextInteger(runtime.randomState) % 8)
+    attackPlan = activeMonsterAttackPlan(actor)
+  end if
   timelineOffset = projectMonsterAttackFrame(runtime, actor, attackPlan)
   if attackPlan.name == "makron-rail" and timelineOffset == 7 and not actor.attackAimValid then
     railTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
@@ -2263,6 +2543,10 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
         extendedPlan = activeMonsterAttackPlan(actor)
         actor.info.nextFrame = previousEventCount
         nextAttackOffset = extendedPlan.frameOffsets[previousEventCount]
+        // Endfunc-driven loops (notably Flyer) install the first frame of the
+        // next move on the decision tick even when its first hit comes later.
+        // Callback-driven loops map to the same old frame at this offset.
+        actor.edict.state.frame = ibattackseq.modelFrameAt(extendedPlan, decisionOffset)
         actor.info.pauseTime = actor.info.pauseTime +
           (nextAttackOffset - decisionOffset) * ibattackseq.FRAME_TIME
         if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
@@ -2279,9 +2563,39 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
   end if
   if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
   currentFrameOffset = attackPlan.frameOffsets[eventIndex]
+  if attackPlan.name == "mutant-jump" and eventIndex == 1 and actor.attackAimValid then
+    // mutant_check_landing keeps nextframe on attack05 until server physics
+    // reports a floor. Keep the callback live instead of pre-bounding airtime.
+    if runtime.aiContext.time <= actor.info.attackFinished then
+      actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, currentFrameOffset)
+      actor.info.pauseTime = actor.info.pauseTime + ibattackseq.FRAME_TIME
+      return false
+    end if
+    actor.attackAimValid = false
+  end if
   fired = false
   while eventIndex < len(attackPlan.frameOffsets) and attackPlan.frameOffsets[eventIndex] == currentFrameOffset
-    if fireMonsterAttack(runtime, actor, attackPlan, eventIndex, attackPlan.muzzleFlashes[eventIndex]) then fired = true end if
+    eventFired = false
+    if attackPlan.name == "mutant-jump" then
+      if eventIndex == 0 then eventFired = startMutantJump(runtime, actor)
+      else
+        actor.info.aiFlags = actor.info.aiFlags & ~ibaiconstants.AI_DUCKED
+        actor.info.attackFinished = 0.0
+        integratedAISound(actor, "mutant/thud1.wav", ibgconstants.CHAN_WEAPON,
+          ibgconstants.ATTN_NORM)
+      end if
+    else
+      eventFired = fireMonsterAttack(runtime, actor, attackPlan, eventIndex,
+        attackPlan.muzzleFlashes[eventIndex])
+    end if
+    if eventFired then fired = true end if
+    if attackPlan.name == "brain-tentacle" and eventIndex == 0 and eventFired and
+        runtime.aiContext.skill > 0 then
+      // brain_tentacle_attack marks the successful hit; brain_chest_closed on
+      // attack211 then changes directly to attack1 instead of finishing attack2.
+      actor.activity = "brain-tentacle-claws"
+      attackPlan = activeMonsterAttackPlan(actor)
+    end if
     eventIndex = eventIndex + 1
   end while
   actor.info.nextFrame = eventIndex
@@ -2311,23 +2625,72 @@ function runMonsterCombat(runtime, actor)
   if target is void then return false end if
   shooter = monsterWeaponTarget(actor)
   distance = ibwpvector.length(ibwpvector.subtract(target.origin, shooter.origin))
-  if distance > profile.maximumRange then return false end if
+  if distance > profile.maximumRange and actor.className != "monster_mutant" then return false end if
   // ai_run may already have selected AS_MELEE/AS_MISSILE and invoked the
   // callback during this same M_MoveFrame. Consume that pending choice rather
   // than incrementing the class attack counter a second time.
   pendingAiAttack = actor.activity == "attack" or actor.activity == "melee"
+  pendingAiMelee = actor.activity == "melee"
+  if actor.className == "monster_mutant" and not pendingAiAttack then return false end if
   if not pendingAiAttack then
     if profile.attackKind == "melee" and actor.info.melee is not void then actor.info.melee(actor, runtime.aiContext)
     else if actor.info.attack is not void then actor.info.attack(actor, runtime.aiContext)
     else return false
     end if
   end if
+  if actor.className == "monster_gladiator" and not pendingAiMelee and distance <= 112.0 then
+    // gladiator_attack intentionally leaves currentmove unchanged inside its
+    // 32-unit rail safe zone. Do not turn that no-op into a long-range cleaver.
+    if typeof(actor.info.run) == "function" then actor.info.run(actor, runtime.aiContext) end if
+    return false
+  end if
   selectionUnit = 0.0
+  selectionRaw = 0
   selectionKind = ibattackseq.selectionRandomKind(actor.className, distance)
   if selectionKind == 1 then selectionUnit = ibrandom.unit(runtime.randomState)
+  else if selectionKind == 2 then selectionRaw = ibrandom.nextInteger(runtime.randomState)
   end if
   attackPlan = void
-  if actor.className == "monster_jorg" then
+  if actor.className == "monster_gladiator" then
+    if pendingAiMelee or distance < 80.0 then attackPlan = ibattackseq.gladiatorMeleePlan()
+    else attackPlan = ibattackseq.gladiatorRailPlan()
+    end if
+  else if actor.className == "monster_berserk" then
+    attackPlan = ibattackseq.berserkPlanWithRaw(selectionRaw)
+  else if actor.className == "monster_gunner" then
+    attackPlan = ibattackseq.gunnerPlanWithRoll(actor.edict.state.number, actor.attackCount,
+      distance, selectionUnit)
+  else if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or
+      actor.className == "monster_soldier_ss" then
+    attackPlan = ibattackseq.soldierPlanWithRoll(actor.className, actor.edict.state.number,
+      actor.attackCount, selectionUnit)
+  else if actor.className == "monster_tank" or actor.className == "monster_tank_commander" then
+    attackPlan = ibattackseq.tankPlanWithRoll(actor.className, actor.edict.state.number,
+      actor.attackCount, distance, runtime.aiContext.skill, selectionUnit)
+  else if actor.className == "monster_medic" then
+    attackPlan = ibattackseq.medicBlasterPlanContinue(false)
+  else if actor.className == "monster_chick" then
+    if distance < 80.0 then attackPlan = ibattackseq.chickMeleePlanCycles(1)
+    else attackPlan = ibattackseq.chickRocketPlanCycles(1)
+    end if
+  else if actor.className == "monster_flyer" then
+    if distance < 80.0 then attackPlan = ibattackseq.flyerMeleePlanCycles(1)
+    else attackPlan = ibattackseq.flyerBlasterPlan()
+    end if
+  else if actor.className == "monster_brain" then
+    attackPlan = ibattackseq.brainPlanWithRoll(runtime.aiContext.skill, selectionUnit)
+  else if actor.className == "monster_floater" then
+    attackPlan = ibattackseq.floaterPlanWithRoll(distance, selectionUnit)
+  else if actor.className == "monster_hover" then
+    attackPlan = ibattackseq.hoverBlasterPlanCycles(1)
+  else if actor.className == "monster_mutant" then
+    if pendingAiMelee or distance < 80.0 then attackPlan = ibattackseq.mutantMeleePlanCycles(1)
+    else attackPlan = ibattackseq.mutantJumpPlan()
+    end if
+  else if actor.className == "monster_supertank" then
+    attackPlan = ibattackseq.supertankPlanWithRoll(actor.edict.state.number, actor.attackCount,
+      distance, selectionUnit)
+  else if actor.className == "monster_jorg" then
     attackPlan = ibattackseq.jorgPlanWithRoll(actor.edict.state.number, actor.attackCount, selectionUnit)
   else if actor.className == "monster_boss2" then
     attackPlan = ibattackseq.boss2PlanWithRoll(actor.edict.state.number, actor.attackCount, distance, selectionUnit)
@@ -2339,12 +2702,33 @@ function runMonsterCombat(runtime, actor)
   actor.activity = attackPlan.name
   actor.attackAimValid = false
   actor.attackCycles = 0
-  if attackPlan.name == "jorg-machineguns" or attackPlan.name == "boss2-machineguns" then
+  if attackPlan.name == "soldier-light-attack1" or attackPlan.name == "soldier-light-attack2" or
+      attackPlan.name == "soldier-shotgun-attack1" or attackPlan.name == "soldier-shotgun-attack2" or
+      attackPlan.name == "tank-blasters-hard" or attackPlan.name == "tank-rockets-hard" or
+      attackPlan.name == "gunner-chain" or attackPlan.name == "chick-rockets" or
+      attackPlan.name == "chick-slash" or attackPlan.name == "flyer-slashes" or
+      attackPlan.name == "hover-blasters" or attackPlan.name == "mutant-claws" or
+      attackPlan.name == "supertank-machinegun" or attackPlan.name == "jorg-machineguns" or
+      attackPlan.name == "boss2-machineguns" then
     actor.attackCycles = 1
   end if
   actor.info.nextFrame = 0
   actor.info.attackState = ibaiconstants.AS_MISSILE
   actor.info.pauseTime = runtime.aiContext.time + attackPlan.frameOffsets[0] * ibattackseq.FRAME_TIME
+  if attackPlan.name == "gladiator-rail" then
+    gladiatorTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
+    if gladiatorTarget is not void then
+      gladiatorAim = monsterEnemyAimPoint(actor, gladiatorTarget)
+      actor.attackAim = ibqtypes.Vec3(gladiatorAim.x, gladiatorAim.y, gladiatorAim.z)
+      actor.attackAimValid = true
+    end if
+  end if
+  if attackPlan.name == "infantry-machinegun" then
+    // infantry_cock_gun runs on FRAME_attak104, seven frames before the first
+    // held FRAME_attak111 shot, and consumes the raw rand() shot count there.
+    actor.info.nextFrame = -2
+    actor.info.pauseTime = runtime.aiContext.time + 3.0 * ibattackseq.FRAME_TIME
+  end if
   actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, 0)
   return advanceMonsterAttack(runtime, actor, attackPlan)
 end function
@@ -2386,6 +2770,7 @@ function runFrame(runtime)
   runtime.weaponContext.time = runtime.world.time
   runtime.aiContext.frameNumber = runtime.aiContext.frameNumber + 1
   for each actor in runtime.monsters
+    advanceMutantJumpPhysics(runtime, actor)
     if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then
       refreshAiRandom(runtime)
       ibmonster.MonsterThink(actor, runtime.aiContext)

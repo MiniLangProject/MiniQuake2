@@ -32,23 +32,49 @@ function runMeleeSequence(className, origin, expectDrain)
 
   meleeActor = meleegame.baseRuntime().monsters[0]
   meleePlan = void
+  meleePlanName = ""
+  meleePlanCycles = 0
+  meleeLoopTargetMoved = false
   meleeFrames = []
   meleeStep = 0
   meleeFinished = false
   while meleeStep < 280 and meleeFinished != true
     meleeApi.runFrame()
     if meleePlan is void then
-      meleeCandidate = meleesequences.planByName(className, meleeActor.activity,
-        meleeActor.edict.state.number, meleeActor.attackCount)
-      if meleeCandidate is not void then meleePlan = meleeCandidate end if
+      meleeCandidate = meleesequences.planByNameCycles(className, meleeActor.activity,
+        meleeActor.edict.state.number, meleeActor.attackCount, meleeActor.attackCycles)
+      if meleeCandidate is not void then
+        meleePlan = meleeCandidate
+        meleePlanName = meleeActor.activity
+      end if
     end if
     if meleePlan is not void then
+      if meleePlanName == "brain-tentacle" and
+          meleeActor.activity == "brain-tentacle-claws" then
+        meleePlanName = meleeActor.activity
+        meleePlan = meleesequences.planByName(className, meleePlanName,
+          meleeActor.edict.state.number, meleeActor.attackCount)
+      end if
+      if meleeActor.attackCycles > meleePlanCycles then meleePlanCycles = meleeActor.attackCycles end if
       meleeFrames = meleeFrames + [meleeActor.edict.state.frame]
+      // Stock Chick/Flyer/Mutant refires are live rather than pre-bounded. A
+      // stationary melee target can keep Mutant in attack09 forever, so move
+      // the shared player/AI edict away after observing the second real cycle.
+      if meleeLoopTargetMoved != true and meleePlanCycles >= 2 and
+          (meleePlanName == "chick-slash" or meleePlanName == "flyer-slashes" or
+           meleePlanName == "mutant-claws") then
+        meleePlayer.edict.state.origin = meleeqtypes.Vec3(-160.0, 0.0, 0.0)
+        meleeLoopTargetMoved = true
+      end if
       if meleeActor.activity != meleePlan.name then meleeFinished = true end if
     end if
     meleeStep = meleeStep + 1
   end while
 
+  if meleePlanCycles > 0 then
+    meleePlan = meleesequences.planByNameCycles(className, meleePlanName,
+      meleeActor.edict.state.number, meleeActor.attackCount, meleePlanCycles)
+  end if
   meleeAssert(meleePlan is not void and meleesequences.validatePlan(meleePlan),
     className + " selected validated stock plan")
   meleeAssert(meleeFinished and len(meleeFrames) == meleePlan.durationFrames,

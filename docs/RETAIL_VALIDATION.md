@@ -122,12 +122,12 @@ Release product passed the same 39 maps and 38 changes with spawn count 39 in
 665 steps and 3,252 packets. The deterministic increase is the four newly
 published model configstrings needed beyond the previously registered gib
 assets.
-After restoring shared-random boss selection/refires, saved Makron rail aim,
-the exact shared MZ2 table, Jorg's second model, stock projectile effects and
-the Parasite/Floater private-source attacks, the 2026-08-23 Release executable
-again passed all 39 maps and 38 changes with spawn count 39 in 689 steps and
-3,376 processed packets. A matching `base1` input smoke completed 64 movement/
-combat steps, 64 snapshots and 201 accepted packets with zero rejects.
+After restoring all live stock monster refires, exact melee/random boundaries,
+the conditional Brain chain, Mutant jump and saved Gladiator aim, the 2026-08-23
+Release executable again passed all 39 maps and 38 changes with spawn count 39
+in 689 steps and 3,376 processed packets. A matching `base1` input smoke
+completed 64 movement/combat steps, 64 snapshots and 201 accepted packets with
+zero rejects.
 The matching visible `base1` start reached `CA_ACTIVE` at server frame 14,
 registered 84 models and 45 sounds with zero missing assets, submitted 25
 entities and selected 326 visible versus 6,981 culled world surfaces.
@@ -191,25 +191,27 @@ Gunner, Infantry and player weapon goldens remain green, and the unmasked
 profile also carries its stock first-shot MZ2 identifier. The
 `gameplay_monster_attack_sequence_tests`,
 `gameplay_monster_ranged_sequences_tests` and
-`gameplay_monster_melee_sequences_tests` cover every combat family, including
-stock MD2 projection, bounded refire, ordered MZ2 sequences and the Parasite
-damage/beam chain. The product-shaped Gunner gate observes eight ordered MZ2
-45–52 events from one AI attack. The reaction and locomotion suites inventory
+ `gameplay_monster_melee_sequences_tests` cover every combat family, including
+ stock MD2 projection, live stock refire callbacks, ordered MZ2 sequences, the
+ conditional Brain tentacle chain, Mutant jump and the Parasite damage/beam
+ chain. The product-shaped Gunner gate observes the ordered MZ2 45–52 events
+ and its live 50% refire decision from one AI attack. The reaction and locomotion suites inventory
 63 original pain variants, 43 normal-death variants, six stock duck/dodge
 ranges and primary stand/idle/walk/run ranges for all 22 combat entries.
 Private Save v11 retains a running attack or reaction's event index,
-next-frame time, reaction debounce, boss refire/aim state and the shared Win32
+ next-frame time, reaction debounce, live refire/jump/aim state and the shared Win32
 random seed. Stock death terminals additionally
 carry their class-specific corpse bounds, exact organic/metallic gib-model
 inventories and the eight-step Supertank explosion/final-gib sequence through
 real engine edicts; active gibs round-trip through the same save format. The
 focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
 backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
-as the expected DLight and attack sound. Secondary fidgets and exact per-frame
-movement distances remain open. Jorg and Boss2 now make their live stock refire
-decisions from the persisted shared CRT stream; the remaining generated repeat
-families are still deliberately bounded to eight cycles pending their live-
-callback conversion.
+ as the expected DLight and attack sound. Secondary fidgets and exact per-frame
+ movement distances remain open. Gunner, Medic, Chick, Flyer, Hover, Tank,
+ Soldier, Supertank, Jorg and Boss2 now make their live stock refire decisions
+ from the persisted shared CRT stream. Brain follow-up and Mutant jump decisions
+ likewise happen at their original callback frames rather than during plan
+ construction.
 
 `server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and
 `network_runtime_unicast_loopback_tests` close the targeted half of the same

@@ -259,6 +259,27 @@ function DefaultCheckAttack(actor, context, enemyRange)
   return gaicore.M_CheckAttack(actor, context, enemyRange)
 end function
 
+function MutantCheckAttack(actor, context, enemyRange)
+  if actor.enemy is void or actor.enemy.edict.inUse != true or actor.enemy.health <= 0 then return false end if
+  if enemyRange == gaiconstants.RANGE_MELEE then
+    actor.info.attackState = gaiconstants.AS_MELEE
+    return true
+  end if
+  actorBottom = actor.edict.state.origin.z + actor.mins[2]
+  actorTop = actor.edict.state.origin.z + actor.maxs[2]
+  enemyBottom = actor.enemy.edict.state.origin.z + actor.enemy.mins[2]
+  enemyHeight = actor.enemy.maxs[2] - actor.enemy.mins[2]
+  if actorBottom > enemyBottom + 0.75 * enemyHeight then return false end if
+  if actorTop < enemyBottom + 0.25 * enemyHeight then return false end if
+  deltaX = actor.edict.state.origin.x - actor.enemy.edict.state.origin.x
+  deltaY = actor.edict.state.origin.y - actor.enemy.edict.state.origin.y
+  horizontalSquared = deltaX * deltaX + deltaY * deltaY
+  if horizontalSquared < 10000.0 then return false end if
+  if horizontalSquared > 10000.0 and context.randomAttack < 0.9 then return false end if
+  actor.info.attackState = gaiconstants.AS_MISSILE
+  return true
+end function
+
 function installDefaultCallbacks(actor, hasAttack, hasMelee)
   actor.info.stand = StateStand
   actor.info.idle = void
@@ -276,6 +297,7 @@ function installDefaultCallbacks(actor, hasAttack, hasMelee)
   if hasMelee then actor.info.melee = StateMelee else actor.info.melee = void end if
   actor.info.sight = StateSight
   actor.info.checkAttack = DefaultCheckAttack
+  if actor.className == "monster_mutant" then actor.info.checkAttack = MutantCheckAttack end if
   actor.pain = StatePain
   actor.die = StateDie
   return actor

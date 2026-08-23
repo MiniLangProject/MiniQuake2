@@ -31,23 +31,35 @@ function runRangedSequence(className, origin)
 
   rangedActor = rangedgame.baseRuntime().monsters[0]
   rangedPlan = void
+  rangedPlanName = ""
+  rangedPlanCycles = 0
   rangedFrames = []
   rangedStep = 0
   rangedFinished = false
   while rangedStep < 240 and rangedFinished != true
     rangedApi.runFrame()
     if rangedPlan is void then
-      rangedCandidate = rangedsequences.planByName(className, rangedActor.activity,
-        rangedActor.edict.state.number, rangedActor.attackCount)
-      if rangedCandidate is not void then rangedPlan = rangedCandidate end if
+      rangedCandidate = rangedsequences.planByNameCycles(className, rangedActor.activity,
+        rangedActor.edict.state.number, rangedActor.attackCount, rangedActor.attackCycles)
+      if rangedCandidate is not void then
+        rangedPlan = rangedCandidate
+        rangedPlanName = rangedActor.activity
+      end if
     end if
     if rangedPlan is not void then
+      if rangedActor.attackCycles > rangedPlanCycles then
+        rangedPlanCycles = rangedActor.attackCycles
+      end if
       rangedFrames = rangedFrames + [rangedActor.edict.state.frame]
       if rangedActor.activity != rangedPlan.name then rangedFinished = true end if
     end if
     rangedStep = rangedStep + 1
   end while
 
+  if rangedPlanCycles > 0 then
+    rangedPlan = rangedsequences.planByNameCycles(className, rangedPlanName,
+      rangedActor.edict.state.number, rangedActor.attackCount, rangedPlanCycles)
+  end if
   rangedAssert(rangedPlan is not void and rangedsequences.validatePlan(rangedPlan),
     className + " selected validated stock plan")
   rangedAssert(rangedFinished and len(rangedFrames) == rangedPlan.durationFrames,

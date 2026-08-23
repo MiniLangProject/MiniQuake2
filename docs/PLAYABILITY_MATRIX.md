@@ -27,11 +27,11 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 ## Current attack-sequence coverage
 
 The data-driven sequence layer follows the original 0.1-second game frame and
-uses the original MZ2 identifiers. The integrated Jorg, Boss2 and Makron paths
+uses the original MZ2 identifiers. All integrated selection and refire paths
 consume the original shared Win32 CRT stream, whose state is persisted so a
-save/reload resumes the same branch and refire sequence. Other bounded repeat
-families still use deterministic plan construction until their live callback
-conversion. This block schedules weapon callbacks at the original relative
+save/reload resumes the same branch and refire sequence. Live callbacks now
+cover Gunner, Medic, Chick, Flyer, Hover, Tank, Soldier, Supertank, Jorg and
+Boss2, plus the Brain follow-up and Mutant jump decisions. This block schedules weapon callbacks at the original relative
 frames and projects every attack timeline onto its stock MD2 frames. A companion
 reaction/movement layer contains 63 pain variants, 43 normal-death variants,
 the stock duck/dodge ranges for six families, and primary stand, idle, walk and
@@ -44,18 +44,18 @@ remain a separate differential-parity gate.
 | Family | Implemented sequence |
 |---|---|
 | Infantry | attack111 wind-up and 10–25 held machinegun frames, MZ2 26 |
-| Gunner | 7-frame open, MZ2 45–52 chain with bounded 50% refire; four-grenade MZ2 53–56 alternative |
-| Light/shotgun soldier | both stock attack layouts and their distinct MZ2 39/40 and 41/42 positions |
+| Gunner | 7-frame open, MZ2 45–52 chain with live 50% refire; four-grenade MZ2 53–56 alternative |
+| Light/shotgun soldier | both stock attack layouts, live next-frame refires and their distinct MZ2 39/40 and 41/42 positions |
 | Machinegun soldier | attack403 hold for 3–10 shots at the correct fourth position, MZ2 88 |
-| Jorg | paired left/right six-frame machinegun cycle, MZ2 120/126, bounded 90% refire |
+| Jorg | paired left/right six-frame machinegun cycle, MZ2 120/126, live 90% refire |
 | Boss2 | paired machinegun loop and simultaneous four-rocket MZ2 78–81 frame |
 | Makron | BFG, 17-frame hyperblaster and saved-position rail alternatives |
-| Gladiator/Tank/Medic/Chick/Flyer/Floater/Hover/Supertank | stock ranged wind-up, burst/refire, muzzle order and MD2 frame projection |
-| Berserk/Infantry/Flipper/Chick/Flyer/Brain/Floater/Mutant | stock close-combat loops, event damage and MD2 frame projection |
+| Gladiator/Tank/Medic/Chick/Flyer/Floater/Hover/Supertank | stock ranged wind-up, live burst/refire, saved Gladiator rail aim, muzzle order and MD2 frame projection |
+| Berserk/Infantry/Flipper/Chick/Flyer/Brain/Floater/Mutant | stock close-combat loops, conditional Brain chain, physical Mutant jump, event damage and MD2 frame projection |
 | Parasite | 18-frame drain move, first/subsequent damage split and ordered `TE_PARASITE_ATTACK` beam handoff |
 
 Private-Save v11 persists attack/melee/pain/death counts, reaction debounce,
-boss refire cycles, saved Makron rail aim, the shared Win32 random seed and
+live refire cycles, saved Gladiator/Makron aim, Mutant jump state, the shared Win32 random seed and
 the in-flight `nextFrame`, `pauseTime` and `attackState`. A restored attack or
 reaction therefore resumes at its next event rather than restarting or
 silently collapsing to one shot; dynamic gib entities retain model, physics
