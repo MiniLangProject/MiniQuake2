@@ -45,6 +45,16 @@ function requireActive(operation)
   return gameBridgeActiveRuntime
 end function
 
+// Listen-client prediction shares the exact live collision bridge with the
+// authoritative server. Explicit activation prevents a second test/listen
+// session from leaving the module-global callback context on the wrong map.
+function activateRuntime(context)
+  global gameBridgeActiveRuntime
+  if typeof(context) != "struct" then return error(3900, "invalid server bridge runtime") end if
+  gameBridgeActiveRuntime = context
+  return context
+end function
+
 function appendLog(level, value)
   context = requireActive("print")
   return gameBridgeAppendLog(context, [level, value])
@@ -286,9 +296,9 @@ function trace(start, mins, maxs, finish, passEntity, contentMask)
   // are traced in model-local coordinates.  This is the physical collision
   // boundary needed by doors, plats, walls and rotating brushes.
   if context.game is not void then
-    index = 1
-    while index < context.game.numEdicts
-      entity = context.game.edicts[index]
+    index = 0
+    while index < context.inlineBrushCount
+      entity = context.inlineBrushes[index]
       eligible = entity.inUse and entity.solid == gc.SOLID_BSP and sameTraceEntity(entity, passEntity) != true
       modelName = ""
       if entity.state.modelIndex > 0 and entity.state.modelIndex < len(context.modelNames) then modelName = context.modelNames[entity.state.modelIndex] end if
@@ -323,9 +333,9 @@ function pointContents(point)
   if context.collision is void then return 0 end if
   contents = collision.pointContents(context.collision, point, 0)
   if context.game is not void then
-    index = 1
-    while index < context.game.numEdicts
-      entity = context.game.edicts[index]
+    index = 0
+    while index < context.inlineBrushCount
+      entity = context.inlineBrushes[index]
       modelName = ""
       if entity.state.modelIndex > 0 and entity.state.modelIndex < len(context.modelNames) then modelName = context.modelNames[entity.state.modelIndex] end if
       inlineNumber = inlineModelNumber(modelName)
@@ -421,6 +431,44 @@ function transformedEntityBounds(entity)
   return [sgbBoundsResultMinsHolder, sgbBoundsResultMaxsHolder]
 end function
 
+function inlineBrushCacheIndex(context, entity)
+  index = 0
+  while index < context.inlineBrushCount
+    if context.inlineBrushes[index].state.number == entity.state.number then return index end if
+    index = index + 1
+  end while
+  return -1
+end function
+
+// SV_ClipMoveToEntities previously scanned every allocated edict for every
+// Pmove trace. Maintain the tiny linked inline-brush set instead; retail maps
+// typically reduce this hot loop from hundreds of entries to a few doors.
+function updateInlineBrushCache(context, entity, linked)
+  existing = inlineBrushCacheIndex(context, entity)
+  modelName = ""
+  if entity.state.modelIndex > 0 and entity.state.modelIndex < len(context.modelNames) then
+    modelName = context.modelNames[entity.state.modelIndex]
+  end if
+  eligible = linked and entity.inUse and entity.state.number > 0 and
+    entity.solid == gc.SOLID_BSP and inlineModelNumber(modelName) >= 0
+  if eligible then
+    if existing < 0 then
+      if context.inlineBrushCount >= len(context.inlineBrushes) then
+        return error(3935, "inline brush cache overflow")
+      end if
+      context.inlineBrushes[context.inlineBrushCount] = entity
+      context.inlineBrushCount = context.inlineBrushCount + 1
+    else
+      context.inlineBrushes[existing] = entity
+    end if
+  else if existing >= 0 then
+    last = context.inlineBrushCount - 1
+    if existing != last then context.inlineBrushes[existing] = context.inlineBrushes[last] end if
+    context.inlineBrushCount = last
+  end if
+  return true
+end function
+
 function linkEntity(entity)
   sgbLinkEntityHolder = entity
   sgbLinkEntityHolder.linkCount = sgbLinkEntityHolder.linkCount + 1
@@ -435,10 +483,12 @@ function linkEntity(entity)
   sgbLinkEntityHolder.absoluteMaxs = sgbLinkAbsoluteMaxsHolder
   sgbLinkEntityHolder.size = sgbLinkSizeHolder
   gt.stabilizeEdict(sgbLinkEntityHolder)
+  updateInlineBrushCache(requireActive("linkentity"), sgbLinkEntityHolder, true)
   return true
 end function
 
 function unlinkEntity(entity)
+  updateInlineBrushCache(requireActive("unlinkentity"), entity, false)
   entity.area.previous = void
   entity.area.next = void
   return true
@@ -595,12 +645,12 @@ function createRuntime(maxClients)
     clients[i] = st.ClientSlot(0, "", "", 0, 0, 0, void)
     i = i + 1
   end while
-  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, [], 0, [], registry, commandSystem, void, void)
+  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, [], 0, [], registry, commandSystem, void, void,
+    array(qc.MAX_EDICTS, void), 0)
 end function
 
 function makeImports(context)
-  global gameBridgeActiveRuntime
-  gameBridgeActiveRuntime = context
+  activateRuntime(context)
   return gt.GameImport(
     bprintf, dprintf, cprintf, centerprintf,
     sound, positionedSound, configString, fail,

@@ -15,16 +15,18 @@ struct ClientRuntime
   current
   previous
   predictedOrigin
+  predictedAngles
   predictionError
+  predictionValid
   serverFrame
   serverTime
   lightStyles
 end struct
 
 function create()
-  zero = cqt.zeroVec3()
   return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void,
-    zero, zero, -1, 0, crt.defaultLightStyles())
+    cqt.zeroVec3(), cqt.zeroVec3(), cqt.zeroVec3(), false,
+    -1, 0, crt.defaultLightStyles())
 end function
 
 function setConnectionState(client, state)
@@ -200,35 +202,76 @@ end function
 function updatePredictionError(client, predictedFixedOrigin)
   if client.current is void then return cqt.zeroVec3() end if
   server = client.current.playerState.pmove.origin
-  client.predictedOrigin = cqt.vec3(predictedFixedOrigin[0] * 0.125, predictedFixedOrigin[1] * 0.125, predictedFixedOrigin[2] * 0.125)
-  client.predictionError = cqt.vec3(
-    (server[0] - predictedFixedOrigin[0]) * 0.125,
-    (server[1] - predictedFixedOrigin[1]) * 0.125,
-    (server[2] - predictedFixedOrigin[2]) * 0.125,
-  )
+  deltaX = server[0] - predictedFixedOrigin[0]
+  deltaY = server[1] - predictedFixedOrigin[1]
+  deltaZ = server[2] - predictedFixedOrigin[2]
+  length = cstatemath.abs(deltaX) + cstatemath.abs(deltaY) + cstatemath.abs(deltaZ)
+  // A discrepancy above 80 world units is a teleport, not a movement miss.
+  if length > 640 then client.predictionError = cqt.zeroVec3()
+  else client.predictionError = cqt.vec3(deltaX * 0.125, deltaY * 0.125, deltaZ * 0.125)
+  end if
   return client.predictionError
 end function
 
-function buildRefDef(client, fraction, width, height, modelResolver)
+function acceptPrediction(client, fixedOrigin, angles)
+  if typeof(fixedOrigin) != "array" or len(fixedOrigin) != 3 then
+    return error(7603, "prediction requires a fixed-point origin")
+  end if
+  client.predictedOrigin = cqt.vec3(fixedOrigin[0] * 0.125,
+    fixedOrigin[1] * 0.125, fixedOrigin[2] * 0.125)
+  if typeof(angles) == "array" then
+    client.predictedAngles = cqt.vec3(angles[0], angles[1], angles[2])
+  else
+    client.predictedAngles = cqt.vec3(angles.x, angles.y, angles.z)
+  end if
+  client.predictionValid = true
+  return true
+end function
+
+function clearPrediction(client)
+  client.predictionValid = false
+  client.predictionError = cqt.zeroVec3()
+  return true
+end function
+
+function buildRefDefInternal(client, fraction, width, height, modelResolver,
+    usePrediction)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
   fraction = clampFraction(fraction)
   player = client.current.playerState
   previousPlayer = interpolationPlayer(client)
-  viewOrigin = cqt.vec3(
-    lerp(previousPlayer.pmove.origin[0] * 0.125 + previousPlayer.viewOffset[0],
-      player.pmove.origin[0] * 0.125 + player.viewOffset[0], fraction),
-    lerp(previousPlayer.pmove.origin[1] * 0.125 + previousPlayer.viewOffset[1],
-      player.pmove.origin[1] * 0.125 + player.viewOffset[1], fraction),
-    lerp(previousPlayer.pmove.origin[2] * 0.125 + previousPlayer.viewOffset[2],
-      player.pmove.origin[2] * 0.125 + player.viewOffset[2], fraction),
-  )
-  viewAngles = cqt.vec3(
-    lerpAngle(previousPlayer.viewAngles[0], player.viewAngles[0], fraction) +
-      lerpAngle(previousPlayer.kickAngles[0], player.kickAngles[0], fraction),
-    lerpAngle(previousPlayer.viewAngles[1], player.viewAngles[1], fraction) +
-      lerpAngle(previousPlayer.kickAngles[1], player.kickAngles[1], fraction),
-    lerpAngle(previousPlayer.viewAngles[2], player.viewAngles[2], fraction) +
-      lerpAngle(previousPlayer.kickAngles[2], player.kickAngles[2], fraction))
+  predictionAllowed = usePrediction and client.predictionValid and
+    (player.pmove.flags & qc.PMF_NO_PREDICTION) == 0 and
+    player.pmove.moveType < qc.PM_DEAD
+  viewOrigin = cqt.zeroVec3()
+  if predictionAllowed then
+    backlerp = 1.0 - fraction
+    viewOrigin = cqt.vec3(
+      client.predictedOrigin.x + lerp(previousPlayer.viewOffset[0], player.viewOffset[0], fraction) - backlerp * client.predictionError.x,
+      client.predictedOrigin.y + lerp(previousPlayer.viewOffset[1], player.viewOffset[1], fraction) - backlerp * client.predictionError.y,
+      client.predictedOrigin.z + lerp(previousPlayer.viewOffset[2], player.viewOffset[2], fraction) - backlerp * client.predictionError.z)
+  else
+    viewOrigin = cqt.vec3(
+      lerp(previousPlayer.pmove.origin[0] * 0.125 + previousPlayer.viewOffset[0],
+        player.pmove.origin[0] * 0.125 + player.viewOffset[0], fraction),
+      lerp(previousPlayer.pmove.origin[1] * 0.125 + previousPlayer.viewOffset[1],
+        player.pmove.origin[1] * 0.125 + player.viewOffset[1], fraction),
+      lerp(previousPlayer.pmove.origin[2] * 0.125 + previousPlayer.viewOffset[2],
+        player.pmove.origin[2] * 0.125 + player.viewOffset[2], fraction))
+  end if
+  viewAngles = cqt.zeroVec3()
+  if usePrediction and client.predictionValid and player.pmove.moveType < qc.PM_DEAD then
+    viewAngles = cqt.vec3(client.predictedAngles.x, client.predictedAngles.y,
+      client.predictedAngles.z)
+  else
+    viewAngles = cqt.vec3(
+      lerpAngle(previousPlayer.viewAngles[0], player.viewAngles[0], fraction),
+      lerpAngle(previousPlayer.viewAngles[1], player.viewAngles[1], fraction),
+      lerpAngle(previousPlayer.viewAngles[2], player.viewAngles[2], fraction))
+  end if
+  viewAngles.x = viewAngles.x + lerpAngle(previousPlayer.kickAngles[0], player.kickAngles[0], fraction)
+  viewAngles.y = viewAngles.y + lerpAngle(previousPlayer.kickAngles[1], player.kickAngles[1], fraction)
+  viewAngles.z = viewAngles.z + lerpAngle(previousPlayer.kickAngles[2], player.kickAngles[2], fraction)
   fov = lerp(previousPlayer.fov, player.fov, fraction)
   if fov <= 0.0 then fov = 90.0 end if
   halfFov = fov * 0.008726646259971648
@@ -239,4 +282,14 @@ function buildRefDef(client, fraction, width, height, modelResolver)
     blend, client.serverTime * 0.001, player.rdFlags, void,
     client.lightStyles, buildEntities(client, fraction, modelResolver,
     viewOrigin, viewAngles), [], [])
+end function
+
+// Demos and deterministic renderer captures intentionally retain pure server
+// interpolation.  The live product uses the explicit predicted entry point.
+function buildRefDef(client, fraction, width, height, modelResolver)
+  return buildRefDefInternal(client, fraction, width, height, modelResolver, false)
+end function
+
+function buildPredictedRefDef(client, fraction, width, height, modelResolver)
+  return buildRefDefInternal(client, fraction, width, height, modelResolver, true)
 end function

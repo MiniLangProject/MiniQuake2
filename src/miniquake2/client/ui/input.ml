@@ -29,6 +29,12 @@ function clampPitch(state)
   if state.viewAngles[0] < -89.0 then state.viewAngles[0] = -89.0 end if
 end function
 
+function inline clampCommandMsec(frameMsec)
+  if frameMsec < 1 then return 1 end if
+  if frameMsec > 200 then return 200 end if
+  return frameMsec
+end function
+
 function angleShort(value)
   scaled = value * 65536.0 / 360.0
   result = 0
@@ -38,9 +44,13 @@ function angleShort(value)
   return result
 end function
 
-function createUserCmd(state, frameMsec)
-  if frameMsec < 1 then frameMsec = 1 end if
-  if frameMsec > 200 then frameMsec = 200 end if
+// Apply view changes independently from the network command cadence.  The
+// product samples this once per rendered frame, matching Quake II's
+// CL_AdjustAngles/IN_Move split and removing the former 100 ms mouse-look lag.
+// Mouse axes routed to strafe/klook deliberately remain accumulated until the
+// next UserCmd because those axes are movement rather than view input.
+function sampleView(state, frameMsec)
+  frameMsec = clampCommandMsec(frameMsec)
   seconds = frameMsec / 1000.0
   cfg = state.config
   angleScale = seconds
@@ -59,6 +69,29 @@ function createUserCmd(state, frameMsec)
   state.viewAngles[0] = state.viewAngles[0] - angleScale * cfg.pitchSpeed * action(state, "lookup")
   state.viewAngles[0] = state.viewAngles[0] + angleScale * cfg.pitchSpeed * action(state, "lookdown")
 
+  mouseX = state.mouseDx * cfg.sensitivity
+  mouseY = state.mouseDy * cfg.sensitivity
+  if strafing == false then
+    state.viewAngles[1] = state.viewAngles[1] - cfg.mouseYaw * mouseX
+    state.mouseDx = 0.0
+  end if
+  if klook == false then
+    state.viewAngles[0] = state.viewAngles[0] + cfg.mousePitch * mouseY
+    state.mouseDy = 0.0
+  end if
+  clampPitch(state)
+  return true
+end function
+
+// Construct a command after sampleView has already consumed this render
+// frame's look input.  consumeTransient=false is the side-effect-free preview
+// used by client prediction between network ticks.
+function buildSampledUserCmd(state, frameMsec, consumeTransient)
+  frameMsec = clampCommandMsec(frameMsec)
+  cfg = state.config
+  strafing = action(state, "strafe") > 0.0
+  klook = action(state, "klook") > 0.0
+
   forward = 0.0
   side = 0.0
   up = cfg.upSpeed * (action(state, "moveup") - action(state, "movedown"))
@@ -66,31 +99,26 @@ function createUserCmd(state, frameMsec)
   side = side + cfg.sideSpeed * (action(state, "moveright") - action(state, "moveleft"))
   if klook == false then forward = cfg.forwardSpeed * (action(state, "forward") - action(state, "back")) end if
 
-  // Win32 provides raw motion separately from button InputEvents. Accumulation
-  // here keeps that platform boundary narrow and makes command creation pure.
+  // Axes left behind by sampleView are strafe/klook movement.  A prediction
+  // preview observes them without consuming them; the transmitted command is
+  // the single owner that clears the accumulators.
   mouseX = state.mouseDx * cfg.sensitivity
   mouseY = state.mouseDy * cfg.sensitivity
-  if strafing then side = side + cfg.mouseSide * mouseX
-  else state.viewAngles[1] = state.viewAngles[1] - cfg.mouseYaw * mouseX
-  end if
-  if klook then forward = forward - cfg.mouseForward * mouseY
-  else state.viewAngles[0] = state.viewAngles[0] + cfg.mousePitch * mouseY
-  end if
-  state.mouseDx = 0.0
-  state.mouseDy = 0.0
+  if strafing then side = side + cfg.mouseSide * mouseX end if
+  if klook then forward = forward - cfg.mouseForward * mouseY end if
+  if consumeTransient then state.mouseDx = 0.0; state.mouseDy = 0.0 end if
 
   running = cfg.alwaysRun
   if action(state, "speed") > 0.0 then running = running == false end if
   if running then forward = forward * 2.0; side = side * 2.0; up = up * 2.0 end if
-  clampPitch(state)
 
   buttons = 0
   attack = cuikeys.findAction(state, "attack")
   if attack.down or attack.pressed then buttons = buttons | cuic.BUTTON_ATTACK end if
-  attack.pressed = false
+  if consumeTransient then attack.pressed = false end if
   useAction = cuikeys.findAction(state, "use")
   if useAction.down or useAction.pressed then buttons = buttons | cuic.BUTTON_USE end if
-  useAction.pressed = false
+  if consumeTransient then useAction.pressed = false end if
   if state.destination == cuic.KEY_GAME then
     for each keyDown in state.keys
       if keyDown then buttons = buttons | cuic.BUTTON_ANY end if
@@ -98,8 +126,21 @@ function createUserCmd(state, frameMsec)
   end if
 
   impulse = state.impulse
-  state.impulse = 0
+  if consumeTransient then state.impulse = 0 end if
   return qt.UserCmd(frameMsec, buttons,
     [angleShort(state.viewAngles[0]), angleShort(state.viewAngles[1]), angleShort(state.viewAngles[2])],
     forward, side, up, impulse, state.lightLevel)
+end function
+
+function createSampledUserCmd(state, frameMsec)
+  return buildSampledUserCmd(state, frameMsec, true)
+end function
+
+function previewUserCmd(state, frameMsec)
+  return buildSampledUserCmd(state, frameMsec, false)
+end function
+
+function createUserCmd(state, frameMsec)
+  sampleView(state, frameMsec)
+  return createSampledUserCmd(state, frameMsec)
 end function

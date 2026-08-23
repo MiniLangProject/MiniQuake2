@@ -455,6 +455,7 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.pendingSounds = []
   bridge.nextSoundSerial = 0
   bridge.collision = collision
+  bridge.inlineBrushCount = 0
   return true
 end function
 
@@ -513,6 +514,7 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder.soundNames = serverSessionChangeOldSoundNamesHolder
     serverSessionChangeBridgeHolder.imageNames = serverSessionChangeOldImageNamesHolder
     serverSessionChangeBridgeHolder.collision = serverSessionChangeOldCollisionHolder
+    serverSessionChangeBridgeHolder.inlineBrushCount = 0
     ssqsz.clear(serverSessionChangeBridgeHolder.multicastBuffer)
     ssqsz.writeBytes(serverSessionChangeBridgeHolder.multicastBuffer, serverSessionChangeOldMulticastHolder)
     serverSessionChangeRestoredHolder = try(serverSessionChangeSessionHolder.gameExport.spawnEntities(

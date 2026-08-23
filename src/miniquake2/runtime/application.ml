@@ -33,6 +33,7 @@ import miniquake2.client.ui.screen as appuiscreen
 import miniquake2.client.ui.commands as appuicommands
 import miniquake2.client.ui.config as appuiconfig
 import miniquake2.client.state as appclientstate
+import miniquake2.client.prediction as appprediction
 import miniquake2.client.effects.handoff as appeffecthandoff
 import miniquake2.client.cinematic.audio as appcinaudio
 import miniquake2.client.cinematic.player as appcinplayer
@@ -1124,8 +1125,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   // Registration remains open until all world and client assets are ready.
   renderer.exports.BeginRegistration(path)
   map = appbsp.parse(appfs.readFile(filesystem, path), path)
+  collision = appcollision.create(map)
   session = appplay.createCoreAtSkill(applicationCurrentMapName, map.entityText,
-    appcollision.create(map),
+    collision,
     spawnPoint, "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000", skill)
   appplay.runUntilActive(session, 256)
 
@@ -1146,7 +1148,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
 
   input = appuikeys.createInputState()
   playerState = session.client.integrated.client.current.playerState
-  input.viewAngles = [playerState.viewAngles[0], playerState.viewAngles[1], playerState.viewAngles[2]]
+  input.viewAngles = appprediction.localInputAngles(playerState)
   appuikeys.bind(input, 119, "+forward")
   appuikeys.bind(input, 115, "+back")
   appuikeys.bind(input, 97, "+moveleft")
@@ -1197,6 +1199,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
   clock = appsystem.createClock()
   networkTime = appsystem.milliseconds(clock)
+  inputTime = networkTime
   frames = 0
   applicationFpsWindowStart = networkTime
   applicationFpsFrameCount = 0
@@ -1215,6 +1218,11 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       appwindow.poll(window)
     started = appsystem.milliseconds(clock)
     appuicontroller.poll(input, screen, started)
+    applicationInputMsec = started - inputTime
+    inputTime = started
+    if applicationInputMsec < 1 then applicationInputMsec = 1 end if
+    if applicationInputMsec > 200 then applicationInputMsec = 200 end if
+    appuiinput.sampleView(input, appbyteio.truncInt(applicationInputMsec))
     appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
     appuicommands.drain(commandState, input, screen, audioMixer)
     applicationConfigChanged = appuicommands.takeConfigDirty(commandState) or
@@ -1291,9 +1299,8 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
               applicationCurrentMapName)
             renderer.exports.EndRegistration()
             applicationRestoredPlayerState = session.client.integrated.client.current.playerState
-            input.viewAngles = [applicationRestoredPlayerState.viewAngles[0],
-              applicationRestoredPlayerState.viewAngles[1],
-              applicationRestoredPlayerState.viewAngles[2]]
+            input.viewAngles = appprediction.localInputAngles(
+              applicationRestoredPlayerState)
           end if
           appuiconsole.appendLine(screen.console, "Loaded slot " + (applicationLoadSlot + 1),
             appbyteio.truncInt(started))
@@ -1338,7 +1345,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     networkMsec = started - networkTime
     if networkMsec >= 100 then
       if networkMsec > 200 then networkMsec = 200 end if
-      command = appuiinput.createUserCmd(input, appbyteio.truncInt(networkMsec))
+      command = appuiinput.createSampledUserCmd(input,
+        appbyteio.truncInt(networkMsec))
+      appplay.predictLocal(session, command)
       appplay.setUserCmd(session, command)
       stepResult = appplay.step(session)
       latest = stepResult.handoff
@@ -1358,7 +1367,15 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     fraction = (started - networkTime) / 100.0
     if fraction < 0.0 then fraction = 0.0 end if
     if fraction > 1.0 then fraction = 1.0 end if
-    frame = appclientstate.buildRefDef(session.client.integrated.client, fraction,
+    applicationPredictionMsec = started - networkTime
+    if applicationPredictionMsec > 0 then
+      if applicationPredictionMsec > 200 then applicationPredictionMsec = 200 end if
+      applicationPreviewCommand = appuiinput.previewUserCmd(input,
+        appbyteio.truncInt(applicationPredictionMsec))
+      appplay.predictLocal(session, applicationPreviewCommand)
+    end if
+    frame = appclientstate.buildPredictedRefDef(
+      session.client.integrated.client, fraction,
       window.width, window.height, resolvePlayModelIndex)
     if audioDevice is not void then
       viewAxes = appphysicsvector.angleVectors(frame.viewAngles)

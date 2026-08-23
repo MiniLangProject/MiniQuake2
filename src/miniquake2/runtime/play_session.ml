@@ -2,10 +2,14 @@
 package miniquake2.runtime.play_session
 
 import miniquake2.qcommon.byteio as plbyteio
+import miniquake2.qcommon.constants as plqc
 import miniquake2.network.constants as plnc
+import miniquake2.client.prediction as plprediction
+import miniquake2.client.state as plstate
 import miniquake2.client.runtime.handoff as plhandoff
 import miniquake2.runtime.client_session as plclient
 import miniquake2.runtime.server_session as plserver
+import miniquake2.server.game_bridge as plbridge
 import miniquake2.platform.system as plsystem
 
 struct StepResult
@@ -25,6 +29,24 @@ struct PlaySession
   steps
   closed
 end struct
+
+playPredictionSession = void
+
+function playPredictionTrace(start, mins, maxs, finish)
+  global playPredictionSession
+  if playPredictionSession is void then return error(8395, "play prediction context is missing") end if
+  ignored = void
+  if playPredictionSession.server.gameExport.numEdicts > 1 then
+    ignored = playPredictionSession.server.gameExport.edicts[1]
+  end if
+  return plbridge.trace(start, mins, maxs, finish, ignored, plqc.MASK_PLAYERSOLID)
+end function
+
+function playPredictionPointContents(point)
+  global playPredictionSession
+  if playPredictionSession is void then return error(8395, "play prediction context is missing") end if
+  return plbridge.pointContents(point)
+end function
 
 function wrap(server, userInfo)
   if server is void then return error(8390, "play session server is missing") end if
@@ -87,6 +109,32 @@ end function
 function pendingUserCmds(session)
   if session.closed then return 0 end if
   return plclient.pendingUserCmds(session.client)
+end function
+
+// Replay the original 64-entry command ring plus a side-effect-free command
+// for the unsent portion of the current render interval. The listen product
+// uses the authoritative collision bridge, including moving inline brushes.
+function predictLocal(session, previewCommand)
+  global playPredictionSession
+  if session.closed or session.client.integrated.client.current is void then return false end if
+  commands = plclient.predictionCommands(session.client, previewCommand)
+  if len(commands) == 0 then return false end if
+  airAcceleration = 0.0
+  configStrings = session.client.integrated.network.configStrings
+  if plqc.CS_AIRACCEL < len(configStrings) and configStrings[plqc.CS_AIRACCEL] != "" then
+    parsedAirAcceleration = try(toNumber(configStrings[plqc.CS_AIRACCEL]))
+    if parsedAirAcceleration is not error then airAcceleration = parsedAirAcceleration end if
+  end if
+  playPredictionSession = session
+  plbridge.activateRuntime(session.server.bridgeRuntime)
+  result = plprediction.predict(session.client.integrated.client.current.playerState,
+    commands, playPredictionTrace, playPredictionPointContents, airAcceleration)
+  playPredictionSession = void
+  plstate.acceptPrediction(session.client.integrated.client,
+    result.state.origin, result.viewAngles)
+  plclient.storePredictedOrigin(session.client,
+    plclient.predictionSequence(session.client), result.state.origin)
+  return result
 end function
 
 function changeMapCore(session, mapName, entityText, collision)

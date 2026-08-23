@@ -75,6 +75,26 @@ cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
 uiInputAssertEqual(uiInputState.capturedKey, -2, "capture escape cancellation")
 uiInputAssertEqual(uiInputState.captureCommand, "", "capture cancellation cleared")
 
+// The rendered view samples mouse input immediately while the prediction
+// preview remains side-effect free until the network command consumes it.
+uiPredictionInput = cuikeys.createInputState()
+cuikeys.bind(uiPredictionInput, 119, "+forward")
+cuikeys.handleEvent(uiPredictionInput,
+  pwindow.InputEvent(cuic.EVENT_SCAN_KEY, 17, 1), 1260)
+cuiinput.addMouseDelta(uiPredictionInput, 10.0, -5.0)
+cuiinput.sampleView(uiPredictionInput, 16)
+uiInputAssertNear(uiPredictionInput.viewAngles[1], -0.66, 0.0001,
+  "render-frame mouse yaw")
+uiPredictionPreview = cuiinput.previewUserCmd(uiPredictionInput, 40)
+uiPredictionPreviewAgain = cuiinput.previewUserCmd(uiPredictionInput, 40)
+uiInputAssertEqual(uiPredictionPreview.forwardMove, 200.0,
+  "prediction preview movement")
+uiInputAssertEqual(uiPredictionPreviewAgain.angles[1],
+  uiPredictionPreview.angles[1], "prediction preview has no side effects")
+uiPredictionSent = cuiinput.createSampledUserCmd(uiPredictionInput, 40)
+uiInputAssertEqual(uiPredictionSent.angles[1], uiPredictionPreview.angles[1],
+  "sampled command preserves immediate view")
+
 // Destination router edits the console, opens/closes the menu and submits chat.
 uiInputScreen = cuiscreen.create(cuiconsole.create(40), cuimenu.create())
 cuicontroller.handleEvent(uiInputState, uiInputScreen, pwindow.InputEvent(cuic.EVENT_KEY, 96, 1), 1300)

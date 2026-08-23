@@ -62,4 +62,6 @@ struct ServerRuntime
   commands
   collision
   game
+  inlineBrushes
+  inlineBrushCount
 end struct

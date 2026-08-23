@@ -37,6 +37,13 @@ struct ClientSession
   previousCommand
   lastCommand
   pendingCommands
+  pendingCommandHead
+  pendingCommandCount
+  commandHistory
+  commandSequences
+  predictedOrigins
+  predictedSequences
+  lastPredictionAck
   packetsReceived
   packetsSent
   packetsRejected
@@ -44,6 +51,8 @@ struct ClientSession
 end struct
 
 const MAX_PENDING_USERCMDS = 64
+const CMD_BACKUP = 64
+const CMD_MASK = 63
 
 function create(serverAddress, serverPort, userInfo, localPort)
   socket = csudp.open("0.0.0.0", localPort)
@@ -53,7 +62,22 @@ function create(serverAddress, serverPort, userInfo, localPort)
   network = csnrtypes.createClient(client)
   integrated = csdispatcher.create(network, csstate.create(), cseffects.createSilent(1))
   return ClientSession(integrated, socket, cssystem.createClock(), 0, 0,
-    csqtypes.zeroUserCmd(), csqtypes.zeroUserCmd(), [], 0, 0, 0, false)
+    csqtypes.zeroUserCmd(), csqtypes.zeroUserCmd(),
+    array(MAX_PENDING_USERCMDS, void), 0, 0,
+    array(CMD_BACKUP, void), array(CMD_BACKUP, -1),
+    array(CMD_BACKUP, void), array(CMD_BACKUP, -1), -1,
+    0, 0, 0, false)
+end function
+
+function validatedMovement(value)
+  if typeof(value) != "int" and typeof(value) != "float" then
+    return error(9997, "client usercmd movement must be numeric")
+  end if
+  encoded = csqbyteio.truncInt(value)
+  if encoded < -32768 or encoded > 32767 then
+    return error(9997, "client usercmd movement outside short range")
+  end if
+  return encoded
 end function
 
 function validateUserCmd(command)
@@ -74,58 +98,113 @@ function validateUserCmd(command)
       return error(9996, "client usercmd angle outside short range")
     end if
   end for
-  movements = []
-  for each movement in [command.forwardMove, command.sideMove, command.upMove]
-    if typeof(movement) != "int" and typeof(movement) != "float" then
-      return error(9997, "client usercmd movement must be numeric")
-    end if
-    encoded = csqbyteio.truncInt(movement)
-    if encoded < -32768 or encoded > 32767 then
-      return error(9997, "client usercmd movement outside short range")
-    end if
-    movements = movements + [encoded]
-  end for
+  forwardMove = validatedMovement(command.forwardMove)
+  sideMove = validatedMovement(command.sideMove)
+  upMove = validatedMovement(command.upMove)
   return csqtypes.UserCmd(command.msec, command.buttons,
     [command.angles[0], command.angles[1], command.angles[2]],
-    movements[0], movements[1], movements[2], command.impulse, command.lightLevel)
+    forwardMove, sideMove, upMove, command.impulse, command.lightLevel)
 end function
 
 // Queue preserves every input sample. The bounded backlog prevents a paused
 // UI producer from causing unbounded latency when networking resumes.
 function queueUserCmd(session, command)
   if session.closed then return error(9998, "client session is closed") end if
-  if len(session.pendingCommands) >= MAX_PENDING_USERCMDS then return error(9999, "client usercmd queue is full") end if
-  session.pendingCommands = session.pendingCommands + [validateUserCmd(command)]
-  return len(session.pendingCommands)
+  if session.pendingCommandCount >= MAX_PENDING_USERCMDS then return error(9999, "client usercmd queue is full") end if
+  slot = (session.pendingCommandHead + session.pendingCommandCount) & (MAX_PENDING_USERCMDS - 1)
+  session.pendingCommands[slot] = validateUserCmd(command)
+  session.pendingCommandCount = session.pendingCommandCount + 1
+  return session.pendingCommandCount
 end function
 
 // Replace pending samples with the newest command, useful for frame-driven UI
 // where old unsent mouse deltas must not be replayed later.
 function setUserCmd(session, command)
   if session.closed then return error(9998, "client session is closed") end if
-  session.pendingCommands = [validateUserCmd(command)]
+  session.pendingCommandHead = 0
+  session.pendingCommandCount = 1
+  session.pendingCommands[0] = validateUserCmd(command)
   return true
 end function
 
 function pendingUserCmds(session)
-  return len(session.pendingCommands)
+  return session.pendingCommandCount
 end function
 
 function nextUserCmd(session)
-  if len(session.pendingCommands) == 0 then
+  if session.pendingCommandCount == 0 then
     command = csqtypes.zeroUserCmd()
     command.msec = 100
     return command
   end if
-  command = session.pendingCommands[0]
-  remaining = []
-  index = 1
-  while index < len(session.pendingCommands)
-    remaining = remaining + [session.pendingCommands[index]]
-    index = index + 1
-  end while
-  session.pendingCommands = remaining
+  command = session.pendingCommands[session.pendingCommandHead]
+  session.pendingCommandHead = (session.pendingCommandHead + 1) & (MAX_PENDING_USERCMDS - 1)
+  session.pendingCommandCount = session.pendingCommandCount - 1
   return command
+end function
+
+function inline sequenceDistance(candidate, base)
+  return (candidate - base) & cspc.SEQUENCE_MASK
+end function
+
+// Return exactly the unacknowledged cmd ring followed by the current render
+// preview. Missing pre-active/sign-on sequences are intentionally skipped.
+function predictionCommands(session, previewCommand)
+  network = session.integrated.network
+  if network.client.channel is void then return [] end if
+  channel = network.client.channel
+  distance = sequenceDistance(channel.outgoingSequence,
+    channel.incomingAcknowledged)
+  if distance >= CMD_BACKUP then return [] end if
+  count = 0
+  sequence = cspnetchan.nextSequence(channel.incomingAcknowledged)
+  while sequence != channel.outgoingSequence
+    slot = sequence & CMD_MASK
+    if session.commandSequences[slot] == sequence then count = count + 1 end if
+    sequence = cspnetchan.nextSequence(sequence)
+  end while
+  if previewCommand is not void then count = count + 1 end if
+  if count == 0 then return [] end if
+  output = array(count, void)
+  outputIndex = 0
+  sequence = cspnetchan.nextSequence(channel.incomingAcknowledged)
+  while sequence != channel.outgoingSequence
+    slot = sequence & CMD_MASK
+    if session.commandSequences[slot] == sequence then
+      output[outputIndex] = cspt.copyUserCmd(session.commandHistory[slot])
+      outputIndex = outputIndex + 1
+    end if
+    sequence = cspnetchan.nextSequence(sequence)
+  end while
+  if previewCommand is not void then output[outputIndex] = validateUserCmd(previewCommand) end if
+  return output
+end function
+
+function predictionSequence(session)
+  channel = session.integrated.network.client.channel
+  if channel is void then return -1 end if
+  return channel.outgoingSequence
+end function
+
+function storePredictedOrigin(session, sequence, fixedOrigin)
+  if sequence < 0 then return false end if
+  slot = sequence & CMD_MASK
+  session.predictedOrigins[slot] = [fixedOrigin[0], fixedOrigin[1], fixedOrigin[2]]
+  session.predictedSequences[slot] = sequence
+  return true
+end function
+
+function reconcilePrediction(session)
+  networkClient = session.integrated.network.client
+  if networkClient.channel is void or session.integrated.client.current is void then return false end if
+  acknowledge = networkClient.channel.incomingAcknowledged
+  if acknowledge == session.lastPredictionAck then return false end if
+  slot = acknowledge & CMD_MASK
+  if session.predictedSequences[slot] != acknowledge then return false end if
+  session.lastPredictionAck = acknowledge
+  csstate.updatePredictionError(session.integrated.client,
+    session.predictedOrigins[slot])
+  return true
 end function
 
 function sendStringCommand(session, command, now)
@@ -172,7 +251,15 @@ end function
 function resetMapInput(session)
   session.previousCommand = csqtypes.zeroUserCmd()
   session.lastCommand = csqtypes.zeroUserCmd()
-  session.pendingCommands = []
+  session.pendingCommands = array(MAX_PENDING_USERCMDS, void)
+  session.pendingCommandHead = 0
+  session.pendingCommandCount = 0
+  session.commandHistory = array(CMD_BACKUP, void)
+  session.commandSequences = array(CMD_BACKUP, -1)
+  session.predictedOrigins = array(CMD_BACKUP, void)
+  session.predictedSequences = array(CMD_BACKUP, -1)
+  session.lastPredictionAck = -1
+  csstate.clearPrediction(session.integrated.client)
   return true
 end function
 
@@ -215,8 +302,12 @@ function sendMove(session, now)
   lastFrame = -1
   if network.client.currentFrame is not void then lastFrame = network.client.currentFrame.serverFrame end if
   command = nextUserCmd(session)
+  sequence = network.client.channel.outgoingSequence
+  historySlot = sequence & CMD_MASK
+  session.commandHistory[historySlot] = cspt.copyUserCmd(command)
+  session.commandSequences[historySlot] = sequence
   buffer = csqsz.alloc(256)
-  cscommands.writeMove(buffer, network.client.channel.outgoingSequence, lastFrame,
+  cscommands.writeMove(buffer, sequence, lastFrame,
     session.previousCommand, session.lastCommand, command)
   stats = csnrtypes.stats()
   cspump.flushClient(network, session.socket, now, csqsz.dataSlice(buffer), stats)
@@ -234,6 +325,7 @@ function pump(session, sendMovement)
   session.packetsSent = session.packetsSent + stats.sent
   session.packetsRejected = session.packetsRejected + stats.rejected
   processSignon(session, now)
+  reconcilePrediction(session)
   if sendMovement then sendMove(session, now) end if
   return session.integrated.network.client.state
 end function

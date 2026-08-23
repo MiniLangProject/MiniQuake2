@@ -5,6 +5,7 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.validation as rval
 import miniquake2.server.snapshot as ssnap
 import miniquake2.client.state as cstate
+import miniquake2.qcommon.constants as qc
 
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7980, name + ": expected " + expected + ", got " + actual) end if
@@ -67,6 +68,23 @@ function testSnapshotsAndRefDef()
   assertEqual(frame.entities[2].origin.x, 11.5, "view weapon offset interpolation")
   assertEqual(frame.entities[2].flags & rc.RF_WEAPONMODEL, rc.RF_WEAPONMODEL,
     "view weapon render flags")
+
+  cstate.acceptPrediction(client, [160, 80, 32], [40.0, 50.0, 60.0])
+  predictedFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
+    resolveModel)
+  assertEqual(predictedFrame.viewOrigin.x, 20.5, "predicted view origin")
+  assertEqual(predictedFrame.viewOrigin.y, 11.0, "predicted view offset")
+  assertEqual(predictedFrame.viewAngles.x, 41.0, "predicted view plus kick")
+  assertEqual(predictedFrame.entities[2].angles.x, 41.0,
+    "predicted view weapon angle")
+
+  // Dead cameras and demos remain locked to authoritative interpolation.
+  secondPlayer.pmove.moveType = qc.PM_DEAD
+  deadFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
+    resolveModel)
+  assertEqual(deadFrame.viewOrigin.x, 10.5, "dead camera server origin")
+  assertEqual(deadFrame.viewAngles.x, 6.0, "dead camera server angles")
+  secondPlayer.pmove.moveType = qc.PM_NORMAL
 
   firstPlayer.viewAngles = [0.0, 359.0, 0.0]
   secondPlayer.viewAngles = [0.0, 1.0, 0.0]

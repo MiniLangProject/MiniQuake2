@@ -61,7 +61,9 @@ function resetClientState(runtime)
   runtime.client.current = clean.current
   runtime.client.previous = clean.previous
   runtime.client.predictedOrigin = clean.predictedOrigin
+  runtime.client.predictedAngles = clean.predictedAngles
   runtime.client.predictionError = clean.predictionError
+  runtime.client.predictionValid = clean.predictionValid
   runtime.client.serverFrame = clean.serverFrame
   runtime.client.serverTime = clean.serverTime
   runtime.effects.dLights = []
@@ -130,7 +132,9 @@ function validationRuntime(runtime)
   client.current = runtime.client.current
   client.previous = runtime.client.previous
   client.predictedOrigin = runtime.client.predictedOrigin
+  client.predictedAngles = runtime.client.predictedAngles
   client.predictionError = runtime.client.predictionError
+  client.predictionValid = runtime.client.predictionValid
   client.serverFrame = runtime.client.serverFrame
   client.serverTime = runtime.client.serverTime
   effects = cestate.createSilent(runtime.effects.randomSeed)
