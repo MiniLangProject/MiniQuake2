@@ -17,7 +17,7 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 11
+const PRIVATE_VERSION = 12
 
 struct PrivateRestore
   runtime
@@ -30,6 +30,8 @@ end struct
 struct PrivateMonsterReference
   actor
   enemyNumber
+  oldEnemyNumber
+  ownerNumber
 end struct
 
 struct PrivateWorldReference
@@ -183,6 +185,9 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privateWriteBool(buffer, actor.successorSpawned)
     privateWriteVec(buffer, actor.attackAim); privateWriteBool(buffer, actor.attackAimValid)
     privatemessage.writeLong(buffer, actor.attackCycles)
+    privatemessage.writeLong(buffer, actor.info.aiFlags)
+    privatemessage.writeLong(buffer, privateReferenceNumber(actor.oldEnemy))
+    privatemessage.writeLong(buffer, privateReferenceNumber(actor.owner))
     enemyNumber = -1
     if actor.enemy is not void then enemyNumber = actor.enemy.edict.state.number end if
     privatemessage.writeLong(buffer, enemyNumber)
@@ -294,6 +299,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   privateSaveVersion = privatechecked.readLong(buffer, "private save version")
   if privateSaveVersion != 7 and privateSaveVersion != 8 and
       privateSaveVersion != 9 and privateSaveVersion != 10 and
+      privateSaveVersion != 11 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -506,14 +512,29 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       actor.attackAimValid = false
       actor.attackCycles = 0
     end if
+    privateMonsterOldEnemyNumber = -1
+    privateMonsterOwnerNumber = -1
+    if privateSaveVersion >= 12 then
+      actor.info.aiFlags = privatechecked.readLong(buffer,
+        "private monster AI flags")
+      privateMonsterOldEnemyNumber = privatechecked.readLong(buffer,
+        "private monster old enemy")
+      privateMonsterOwnerNumber = privatechecked.readLong(buffer,
+        "private monster owner")
+    end if
     privatesavegametypes.stabilizeEdict(actor.edict)
     enemyNumber = privatechecked.readLong(buffer, "private monster enemy")
-    privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(actor, enemyNumber)]
+    privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(
+      actor, enemyNumber, privateMonsterOldEnemyNumber, privateMonsterOwnerNumber)]
     privateMonstersRemaining = privateMonstersRemaining - 1
   end while
   if len(runtime.monsters) != monsterCount then return error(3885, "private restored monster count mismatch") end if
   for each privateMonsterReference in privateMonsterReferences
     privateMonsterReference.actor.enemy = privateRestoreEnemy(runtime, privateMonsterReference.enemyNumber, maxClients, exportTable)
+    privateMonsterReference.actor.oldEnemy = privateRestoreEnemy(runtime,
+      privateMonsterReference.oldEnemyNumber, maxClients, exportTable)
+    privateMonsterReference.actor.owner = privateRestoreEnemy(runtime,
+      privateMonsterReference.ownerNumber, maxClients, exportTable)
   end for
 
   itemCount = privatechecked.readLong(buffer, "private item count")

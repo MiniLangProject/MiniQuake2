@@ -36,6 +36,9 @@ soldierRunShootDistances = [10.0, 4.0, 12.0, 11.0, 13.0, 18.0, 15.0,
   14.0, 11.0, 8.0, 11.0, 12.0, 12.0, 17.0]
 medicBlasterDistances = [0.0, 5.0, 5.0, 3.0, 2.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+medicCableDistances = [2.0, 3.0, 5.0, 4.4, 4.7, 5.0, 6.0, 4.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -15.0,
+  -1.5, -1.2, -3.0, -2.0, 0.3, 0.7, 1.2, 1.3]
 chickRocketStartDistances = [0.0, 0.0, 0.0, 4.0, 0.0, -3.0, 3.0, 5.0,
   7.0, 0.0, 0.0, 0.0, 0.0]
 chickRocketCycleDistances = [19.0, -6.0, -5.0, -2.0, -7.0, 0.0, 1.0,
@@ -89,6 +92,7 @@ function movementDistanceAt(plan, timelineOffset)
   if name == "medic-blaster" and offset < len(medicBlasterDistances) then
     return medicBlasterDistances[offset]
   end if
+  if name == "medic-cable" then return medicCableDistances[offset] end if
   if name == "chick-rockets" then
     if offset < 13 then return chickRocketStartDistances[offset] end if
     cycles = len(plan.frameOffsets)
@@ -144,6 +148,10 @@ end function
 function movementAiAt(plan, timelineOffset)
   offset = boundedAttackOffset(plan, timelineOffset)
   name = plan.name
+  if name == "medic-cable" then
+    if offset >= 4 and offset <= 8 then return ATTACK_AI_CHARGE end if
+    return ATTACK_AI_MOVE
+  end if
   if name == "tank-machinegun" and offset >= 5 and offset <= 23 then return ATTACK_AI_NONE end if
   if name == "tank-blasters" or name == "tank-blasters-hard" then
     cycles = (len(plan.frameOffsets) - 1) / 2
@@ -461,6 +469,14 @@ end function
 
 function medicBlasterPlan(actorNumber, attackCount)
   return medicBlasterPlanContinue(deterministicValue(actorNumber, attackCount, 83, 100) < 95)
+end function
+
+function medicCablePlan()
+  // attack42 launches, attack43..51 update the cable, and attack52 retracts.
+  return attackPlan("monster_medic", "medic-cable", "medic-cable", 0, 0,
+    0.0, 0.0, 256.0, 1,
+    [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 28)
 end function
 
 function chickRocketPlanCycles(cycles)
@@ -1032,6 +1048,7 @@ function planByName(className, name, actorNumber, attackCount)
   if name == "tank-rockets" then return tankRocketPlan(className, actorNumber, attackCount, 1) end if
   if name == "tank-rockets-hard" then return tankRocketPlan(className, actorNumber, attackCount, 3) end if
   if name == "medic-blaster" then return medicBlasterPlan(actorNumber, attackCount) end if
+  if name == "medic-cable" then return medicCablePlan() end if
   if name == "flipper-bites" then return flipperBitePlan() end if
   if name == "chick-rockets" then return chickRocketPlan(actorNumber, attackCount) end if
   if name == "chick-slash" then return chickMeleePlan(actorNumber, attackCount) end if
@@ -1089,6 +1106,7 @@ function planByNameCycles(className, name, actorNumber, attackCount, cycles)
   end if
   if name == "gunner-chain" and cycles > 0 then return gunnerChainPlanCycles(cycles) end if
   if name == "medic-blaster" then return medicBlasterPlanContinue(cycles > 0) end if
+  if name == "medic-cable" then return medicCablePlan() end if
   if name == "chick-rockets" and cycles > 0 then return chickRocketPlanCycles(cycles) end if
   if name == "chick-slash" and cycles > 0 then return chickMeleePlanCycles(cycles) end if
   if name == "flyer-slashes" and cycles > 0 then return flyerMeleePlanCycles(cycles) end if
@@ -1218,6 +1236,7 @@ function modelFrameAt(plan, timelineOffset)
     return 145 + offset - (21 + tankRocketCycles * 9)
   end if
   if name == "medic-blaster" then return 177 + offset end if
+  if name == "medic-cable" then return 209 + offset end if
   if name == "flipper-bites" then return offset end if
   if name == "chick-slash" then
     chickSlashCycles = len(plan.frameOffsets)

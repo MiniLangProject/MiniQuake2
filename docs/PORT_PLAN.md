@@ -32,8 +32,8 @@ variants, the original six-family duck/dodge ranges and primary stand/idle/
 walk/run ranges cover all 22 combat entries. Class-specific corpse bounds,
 stock organic/metallic gib inventories and the Supertank's eight-explosion plus
 14-gib terminal sequence are exported through real managed edicts and
-Protocol-34 effects; Private-Save v11 retains in-flight attack/reaction,
-boss-refire/aim, shared Win32-random state and dynamic gib records. Their MZ2
+Protocol-34 effects; Private-Save v12 retains in-flight attack/reaction,
+boss-refire/aim, shared Win32-random state, Medic ownership and dynamic gib records. Their MZ2
 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
 handoff. Attack sequences additionally execute their exact 3.19 movement
@@ -41,8 +41,10 @@ columns, charge/move modes, held frames and mechanical sound callbacks; stock
 sound inventories are registered before signon. Original class-level
 sight/search callback presence, sound/RNG branches and Makron activation are
 covered, as are Soldier's sight-selected running attack and dodge-selected
-ducking attack. Remaining Medic corpse-search/resurrection, secondary animation
-and reaction/death movement differentials remain open gates. The
+ducking attack. Medic now claims the strongest visible unowned corpse, executes
+the exact 28-frame cable with nine Protocol-34 beams, and rebuilds the patient
+in-place. Remaining secondary animation and reaction/death movement
+differentials remain open gates. The
 unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
@@ -54,8 +56,8 @@ Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining secondary monster animation, reaction/death movement and Medic
-corpse-search/resurrection behavior, broader save coverage, paired original-renderer
+remaining secondary monster animation and reaction/death movement, broader
+save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle now keeps one window/renderer across CIN, PCX and map steps, performs
 a live mode/fullscreen renderer restart with complete retail resource

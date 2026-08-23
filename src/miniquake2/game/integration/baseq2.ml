@@ -61,6 +61,12 @@ end struct
 
 activeIntegrationRuntime = void
 
+// Exact m_medic.c attack42-relative cable offsets. Package-rooted scalar
+// tables avoid rebuilding arrays in the live resurrection callback.
+medicCableOffsetX = [45.0, 48.4, 47.8, 47.3, 45.4, 41.9, 37.8, 34.3, 32.7, 32.7]
+medicCableOffsetY = [-9.2, -9.7, -9.8, -9.3, -10.1, -12.7, -15.8, -18.4, -19.7, -19.7]
+medicCableOffsetZ = [15.5, 15.2, 15.8, 14.3, 13.1, 12.0, 11.2, 10.7, 10.4, 10.4]
+
 function compactIntegratedValues(values, count)
   if count <= 0 then return [] end if
   if count == len(values) then return values end if
@@ -270,6 +276,60 @@ function integratedAIDeathEffect(actor, effect)
   return true
 end function
 
+function integratedMedicCorpseVisible(runtime, medic, patient)
+  if runtime.playerContext is void then return true end if
+  ibMedicSightStartHolder = ibqtypes.Vec3(medic.edict.state.origin.x,
+    medic.edict.state.origin.y, medic.edict.state.origin.z + medic.viewHeight)
+  ibMedicSightEndHolder = ibqtypes.Vec3(patient.edict.state.origin.x,
+    patient.edict.state.origin.y, patient.edict.state.origin.z + patient.viewHeight)
+  ibMedicSightTraceHolder = runtime.playerContext.imports.trace(
+    ibMedicSightStartHolder, ibqtypes.zeroVec3(), ibqtypes.zeroVec3(),
+    ibMedicSightEndHolder, medic.edict, ibqconstants.MASK_OPAQUE)
+  return ibMedicSightTraceHolder.fraction == 1.0
+end function
+
+function integratedFindDeadMonster(medic)
+  global activeIntegrationRuntime
+  ibMedicFindRuntimeHolder = activeIntegrationRuntime
+  if ibMedicFindRuntimeHolder is void then return void end if
+  ibMedicBestHolder = void
+  for each ibMedicCandidateHolder in ibMedicFindRuntimeHolder.monsters
+    ibMedicCandidateValid = nativeRawValue(ibMedicCandidateHolder) != nativeRawValue(medic) and
+      ibMedicCandidateHolder.edict.inUse and
+      ibMedicCandidateHolder.edict.solid != ibgconstants.SOLID_NOT and
+      (ibMedicCandidateHolder.edict.serverFlags & ibgconstants.SVF_MONSTER) != 0 and
+      (ibMedicCandidateHolder.info.aiFlags & ibaiconstants.AI_GOOD_GUY) == 0 and
+      ibMedicCandidateHolder.owner is void and ibMedicCandidateHolder.health <= 0 and
+      ibMedicCandidateHolder.nextThink == 0.0
+    if ibMedicCandidateValid then
+      // findradius compares against the entity centre. Keep this hot scan in
+      // scalar squared space: Vec3/subtract/length would allocate two arrays
+      // and perform an unnecessary square root for every monster candidate.
+      ibMedicCenterDeltaX = ibMedicCandidateHolder.edict.state.origin.x +
+        (ibMedicCandidateHolder.edict.mins.x + ibMedicCandidateHolder.edict.maxs.x) * 0.5 -
+        medic.edict.state.origin.x
+      ibMedicCenterDeltaY = ibMedicCandidateHolder.edict.state.origin.y +
+        (ibMedicCandidateHolder.edict.mins.y + ibMedicCandidateHolder.edict.maxs.y) * 0.5 -
+        medic.edict.state.origin.y
+      ibMedicCenterDeltaZ = ibMedicCandidateHolder.edict.state.origin.z +
+        (ibMedicCandidateHolder.edict.mins.z + ibMedicCandidateHolder.edict.maxs.z) * 0.5 -
+        medic.edict.state.origin.z
+      ibMedicDistanceSquared = ibMedicCenterDeltaX * ibMedicCenterDeltaX +
+        ibMedicCenterDeltaY * ibMedicCenterDeltaY +
+        ibMedicCenterDeltaZ * ibMedicCenterDeltaZ
+      if ibMedicDistanceSquared <= 1048576.0 and
+          integratedMedicCorpseVisible(ibMedicFindRuntimeHolder, medic,
+            ibMedicCandidateHolder) then
+        if ibMedicBestHolder is void or
+            ibMedicCandidateHolder.maxHealth > ibMedicBestHolder.maxHealth then
+          ibMedicBestHolder = ibMedicCandidateHolder
+        end if
+      end if
+    end if
+  end for
+  return ibMedicBestHolder
+end function
+
 function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
@@ -283,6 +343,7 @@ function configureAI(context)
   context.deathEffect = integratedAIDeathEffect
   context.nextRandomUnit = integratedRandomUnit
   context.nextRandomInteger = integratedRandomInteger
+  context.findDeadMonster = integratedFindDeadMonster
   return context
 end function
 
@@ -2316,6 +2377,105 @@ function integratedMonsterDrainBeam(runtime, actor, start, endPosition)
   return imports.multicast(start, ibgconstants.MULTICAST_PVS)
 end function
 
+function integratedResurrectMonster(runtime, medic, patient)
+  if patient is void or patient.edict.inUse != true then return false end if
+  patient.spawnFlags = 0
+  patient.info.aiFlags = 0
+  patient.target = ""
+  patient.targetName = ""
+  patient.combatTarget = ""
+  patient.deathTarget = ""
+  patient.owner = medic
+  // monster_start randomises the resurrected spawn's first frame with one raw
+  // CRT rand() call at this exact callback boundary.
+  runtime.aiContext.randomFrame = ibrandom.nextInteger(runtime.randomState)
+  ibMedicRespawnResult = ibarchetypes.ReinitializeMonster(patient, runtime.aiContext)
+  if ibMedicRespawnResult is error then return ibMedicRespawnResult end if
+  patient.owner = void
+  if runtime.playerContext is not void then
+    ibMedicRespawnImportsHolder = runtime.playerContext.imports
+    ibMedicRespawnImportsHolder.setModel(patient.edict, patient.model)
+    patient.edict.state.modelIndex = ibMedicRespawnImportsHolder.modelIndex(patient.model)
+    ibMedicRespawnImportsHolder.linkEntity(patient.edict)
+  end if
+  patient.info.aiFlags = patient.info.aiFlags | ibaiconstants.AI_RESURRECTING
+  if medic.oldEnemy is not void and medic.oldEnemy.isClient then
+    patient.enemy = medic.oldEnemy
+    ibgaicore.FoundTarget(patient, runtime.aiContext)
+  end if
+  return true
+end function
+
+function integratedMonsterMedicCable(runtime, medic, cableOffsetIndex)
+  patient = medic.enemy
+  if patient is void or patient.edict.inUse != true or cableOffsetIndex < 1 or
+      cableOffsetIndex >= len(medicCableOffsetX) then return false end if
+  ibMedicCableOffsetHolder = ibqtypes.Vec3(medicCableOffsetX[cableOffsetIndex],
+    medicCableOffsetY[cableOffsetIndex], medicCableOffsetZ[cableOffsetIndex])
+  ibMedicCableStartHolder = monsterProjectedStart(medic, ibMedicCableOffsetHolder)
+  ibMedicCableDeltaHolder = ibwpvector.subtract(
+    ibMedicCableStartHolder, patient.edict.state.origin)
+  if ibwpvector.length(ibMedicCableDeltaHolder) > 256.0 then return false end if
+  ibMedicCableAnglesHolder = ibwpvector.vectorToAngles(ibMedicCableDeltaHolder)
+  ibMedicCablePitch = ibMedicCableAnglesHolder.x
+  if ibMedicCablePitch < -180.0 then ibMedicCablePitch = ibMedicCablePitch + 360.0 end if
+  if ibmath.abs(ibMedicCablePitch) > 45.0 then return false end if
+  if runtime.playerContext is not void then
+    ibMedicCableTraceHolder = runtime.playerContext.imports.trace(
+      ibMedicCableStartHolder, ibqtypes.zeroVec3(), ibqtypes.zeroVec3(),
+      patient.edict.state.origin, medic.edict, ibqconstants.MASK_SHOT)
+    if ibMedicCableTraceHolder.fraction != 1.0 and
+        (ibMedicCableTraceHolder.entity is void or
+          ibMedicCableTraceHolder.entity.state.number != patient.edict.state.number) then
+      return false
+    end if
+  end if
+
+  if cableOffsetIndex == 1 then
+    integratedAISound(patient, "medic/medatck3.wav", ibgconstants.CHAN_AUTO,
+      ibgconstants.ATTN_NORM)
+    patient.info.aiFlags = patient.info.aiFlags | ibaiconstants.AI_RESURRECTING
+  else if cableOffsetIndex == 8 then
+    ibMedicResurrectionResult = integratedResurrectMonster(runtime, medic, patient)
+    if ibMedicResurrectionResult is error then return ibMedicResurrectionResult end if
+  else if cableOffsetIndex == 2 then
+    integratedAISound(medic, "medic/medatck4.wav", ibgconstants.CHAN_WEAPON,
+      ibgconstants.ATTN_NORM)
+  end if
+
+  if runtime.playerContext is void then return true end if
+  ibMedicCableBasisHolder = ibwpvector.angleVectors(medic.edict.state.angles)
+  ibMedicCableBeamStartHolder = ibwpvector.multiplyAdd(
+    ibMedicCableStartHolder, 8.0, ibMedicCableBasisHolder[0])
+  ibMedicCableBeamEndHolder = ibqtypes.Vec3(patient.edict.state.origin.x,
+    patient.edict.state.origin.y, patient.edict.state.origin.z +
+      (patient.edict.mins.z + patient.edict.maxs.z) * 0.5)
+  ibMedicCableImportsHolder = runtime.playerContext.imports
+  ibMedicCableImportsHolder.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  ibMedicCableImportsHolder.writeByte(ibwpconstants.TE_MEDIC_CABLE_ATTACK)
+  ibMedicCableImportsHolder.writeShort(medic.edict.state.number)
+  ibMedicCableImportsHolder.writePosition(ibMedicCableBeamStartHolder)
+  ibMedicCableImportsHolder.writePosition(ibMedicCableBeamEndHolder)
+  return ibMedicCableImportsHolder.multicast(
+    medic.edict.state.origin, ibgconstants.MULTICAST_PVS)
+end function
+
+function integratedMedicCableEvent(runtime, medic, eventIndex)
+  if eventIndex == 0 then
+    return integratedAISound(medic, "medic/medatck2.wav", ibgconstants.CHAN_WEAPON,
+      ibgconstants.ATTN_NORM)
+  end if
+  if eventIndex == 10 then
+    integratedAISound(medic, "medic/medatck5.wav", ibgconstants.CHAN_WEAPON,
+      ibgconstants.ATTN_NORM)
+    if medic.enemy is not void then
+      medic.enemy.info.aiFlags = medic.enemy.info.aiFlags & ~ibaiconstants.AI_RESURRECTING
+    end if
+    return true
+  end if
+  return integratedMonsterMedicCable(runtime, medic, eventIndex)
+end function
+
 function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   if actor.enemy is void or attackPlan is void then return false end if
   muzzle = monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzleFlash)
@@ -2620,7 +2780,11 @@ function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
 end function
 
 function advanceMonsterAttack(runtime, actor, attackPlan)
-  if actor.enemy is void or actor.enemy.health <= 0 then
+  if actor.enemy is void or
+      (actor.enemy.health <= 0 and attackPlan.name != "medic-cable") then
+    return finishMonsterAttack(runtime, actor, attackPlan, 0)
+  end if
+  if attackPlan.name == "medic-cable" and actor.enemy.edict.inUse != true then
     return finishMonsterAttack(runtime, actor, attackPlan, 0)
   end if
   eventIndex = actor.info.nextFrame
@@ -2698,7 +2862,9 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
   fired = false
   while eventIndex < len(attackPlan.frameOffsets) and attackPlan.frameOffsets[eventIndex] == currentFrameOffset
     eventFired = false
-    if attackPlan.name == "mutant-jump" then
+    if attackPlan.name == "medic-cable" then
+      eventFired = integratedMedicCableEvent(runtime, actor, eventIndex)
+    else if attackPlan.name == "mutant-jump" then
       if eventIndex == 0 then eventFired = startMutantJump(runtime, actor)
       else
         actor.info.aiFlags = actor.info.aiFlags & ~ibaiconstants.AI_DUCKED
@@ -2711,6 +2877,7 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
         attackPlan.muzzleFlashes[eventIndex])
       emitMonsterAttackEventSound(actor, attackPlan, eventIndex, eventFired)
     end if
+    if eventFired is error then return eventFired end if
     if eventFired then fired = true end if
     if attackPlan.name == "brain-tentacle" and eventIndex == 0 and eventFired and
         runtime.aiContext.skill > 0 then
@@ -2784,6 +2951,9 @@ function runMonsterCombat(runtime, actor)
   end if
   if actor.activity == "soldier-duck-shoot-pending" then
     return beginMonsterAttack(runtime, actor, ibattackseq.soldierDuckShootPlan(actor.className))
+  end if
+  if actor.activity == "medic-cable-pending" then
+    return beginMonsterAttack(runtime, actor, ibattackseq.medicCablePlan())
   end if
   activePlan = activeMonsterAttackPlan(actor)
   if activePlan is not void then

@@ -205,9 +205,9 @@ profile also carries its stock first-shot MZ2 identifier. The
  and its live 50% refire decision from one AI attack. The reaction and locomotion suites inventory
 63 original pain variants, 43 normal-death variants, six stock duck/dodge
 ranges and primary stand/idle/walk/run ranges for all 22 combat entries.
-Private Save v11 retains a running attack or reaction's event index,
- next-frame time, reaction debounce, live refire/jump/aim state and the shared Win32
-random seed. Stock death terminals additionally
+Private Save v12 retains a running attack or reaction's event index,
+ next-frame time, reaction debounce, live refire/jump/aim state, the shared Win32
+random seed and stable Medic patient/old-enemy/owner state. Stock death terminals additionally
 carry their class-specific corpse bounds, exact organic/metallic gib-model
 inventories and the eight-step Supertank explosion/final-gib sequence through
 real engine edicts; active gibs round-trip through the same save format. The
@@ -224,8 +224,10 @@ real engine edicts; active gibs round-trip through the same save format. The
  dodge-selected ducking `attack3` frames, movement, MZ2 events, bounds and
  Nightmare refire rule; Mutant footstep selection consumes raw CRT `rand` just
  like 3.19. `gameplay_monster_sight_search_tests` and the extended attack/dodge
- gates cover those seams. Remaining reaction/death movement columns, secondary
- fidgets and Medic corpse-search/resurrection behavior stay open. Gunner, Medic,
+ gates cover those seams. Medic corpse search now selects the strongest visible
+unowned patient within 1,024 units and its exact `attack33..60` cable resumes
+through Private Save v12. Remaining reaction/death movement columns and secondary
+ fidgets stay open. Gunner, Medic,
  Chick, Flyer, Hover, Tank,
  Soldier, Supertank, Jorg and Boss2 now make their live stock refire decisions
  from the persisted shared CRT stream. Brain follow-up and Mutant jump decisions

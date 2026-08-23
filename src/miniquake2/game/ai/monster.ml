@@ -148,6 +148,21 @@ function StockMutantIdleLoop(actor, context)
   return true
 end function
 
+function ClaimMedicPatient(actor, patient, preserveEnemy, context)
+  if patient is void then return false end if
+  if preserveEnemy then actor.oldEnemy = actor.enemy end if
+  actor.enemy = patient
+  patient.owner = actor
+  actor.info.aiFlags = actor.info.aiFlags | gaiconstants.AI_MEDIC
+  gaicore.FoundTarget(actor, context)
+  return true
+end function
+
+function FindMedicPatient(actor, preserveEnemy, context)
+  if typeof(context.findDeadMonster) != "function" then return false end if
+  return ClaimMedicPatient(actor, context.findDeadMonster(actor), preserveEnemy, context)
+end function
+
 function FinishWalkStart(actor, context)
   actor.activity = "walk"
   return SetStockMove(actor, "walk", void)
@@ -198,6 +213,9 @@ function StateIdle(actor, context)
     return SetStockMove(actor, "fidget-start", FinishParasiteFidgetStart)
   end if
   StockFidgetFrameSound(actor, context)
+  // medic_idle plays its idle voice first and then claims the strongest
+  // visible unowned corpse in range without preserving the prior enemy.
+  if actor.className == "monster_medic" then FindMedicPatient(actor, false, context) end if
   return true
 end function
 
@@ -209,6 +227,10 @@ function StateSearch(actor, context)
   end if
   EmitStockSound(actor, context, gaisounds.searchName(actor.className, searchRoll),
     gconstants.CHAN_VOICE, gaisounds.searchAttenuation(actor.className))
+  // medic_search only interrupts the current hunt when it has no saved enemy.
+  if actor.className == "monster_medic" and actor.oldEnemy is void then
+    FindMedicPatient(actor, true, context)
+  end if
   return true
 end function
 
@@ -225,6 +247,13 @@ function StateWalk(actor, context)
 end function
 
 function StateRun(actor, context)
+  // medic_run opportunistically scans whenever it is not already committed to
+  // a patient. FoundTarget re-enters this callback with AI_MEDIC set, so the
+  // second invocation installs the run move without recursing again.
+  if actor.className == "monster_medic" and
+      (actor.info.aiFlags & gaiconstants.AI_MEDIC) == 0 then
+    if FindMedicPatient(actor, true, context) then return true end if
+  end if
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then return StateStand(actor, context) end if
   actor.activity = "run"
   if not gailocomotion.hasStockMoves(actor.className) then return true end if
@@ -293,6 +322,12 @@ function StatePain(actor, attacker, damage, context)
 end function
 
 function StateDie(actor, attacker, damage, context)
+  if actor.className == "monster_medic" and actor.enemy is not void and
+      actor.enemy.owner is not void and
+      nativeRawValue(actor.enemy.owner) == nativeRawValue(actor) then
+    // medic_die releases a reserved patient so another Medic can take over.
+    actor.enemy.owner = void
+  end if
   actor.activity = "dead"
   actor.dieCount = actor.dieCount + 1
   actor.deadFlag = gaiconstants.DEAD_DEAD
@@ -302,6 +337,15 @@ end function
 
 function DefaultCheckAttack(actor, context, enemyRange)
   return gaicore.M_CheckAttack(actor, context, enemyRange)
+end function
+
+function MedicCheckAttack(actor, context, enemyRange)
+  if (actor.info.aiFlags & gaiconstants.AI_MEDIC) != 0 then
+    StateAttack(actor, context)
+    actor.activity = "medic-cable-pending"
+    return true
+  end if
+  return DefaultCheckAttack(actor, context, enemyRange)
 end function
 
 function MutantCheckAttack(actor, context, enemyRange)
@@ -344,6 +388,7 @@ function installDefaultCallbacks(actor, hasAttack, hasMelee)
   if gaisounds.hasSightCallback(actor.className) then actor.info.sight = StateSight
   else actor.info.sight = void end if
   actor.info.checkAttack = DefaultCheckAttack
+  if actor.className == "monster_medic" then actor.info.checkAttack = MedicCheckAttack end if
   if actor.className == "monster_mutant" then actor.info.checkAttack = MutantCheckAttack end if
   actor.pain = StatePain
   actor.die = StateDie

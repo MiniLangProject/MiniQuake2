@@ -4,6 +4,32 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-23 Medic parity acceptance run
+
+The release gate was rerun after the exact Medic corpse-search, cable,
+resurrection and Private-Save v12 work:
+
+```powershell
+.\scripts\test.ps1 -Configuration Release
+```
+
+The run passed MiniLang syntax for 346 files, exact manifest membership for 389
+maintained files, verifier self-tests, all 152 freshly compiled native test
+programs, the Release product build, and the version, diagnostics, capabilities
+and CLI smokes. The new `gameplay_medic_resurrection_tests.ml` verifies the
+strongest visible unowned corpse selection, all 28 cable frames, nine
+`TE_MEDIC_CABLE_ATTACK` multicasts, exact launch/hit/heal/retract sounds,
+in-place patient reconstruction and old-enemy restoration. The expanded private
+save gate restores `AI_MEDIC`, patient/owner/old-enemy references and completes
+a cable saved in flight.
+
+The freshly accepted executable then passed the installed Steam retail gates:
+
+```text
+base1: maps=1 steps=64 snapshots=64 fire=1 items=9 health=100 packets=201 rejected=0
+campaign: maps=39 changes=38 client-state=4 spawn-count=39 steps=753 packets=3697
+```
+
 ## 2026-08-22 acceptance run
 
 The release gate was executed from a clean `main` worktree at implementation

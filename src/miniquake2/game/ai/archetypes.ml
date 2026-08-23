@@ -8,6 +8,7 @@ import miniquake2.game.ai.insane as gaiinsane
 import miniquake2.game.ai.props as gaiprops
 import miniquake2.game.ai.types as gaitypes
 import miniquake2.game.constants as gconstants
+import miniquake2.qcommon.types as gaiqtypes
 import miniquake2.qcommon.text as qtext
 
 function archetype(className, model, mins, maxs, health, gibHealth, mass, movement, hasAttack, hasMelee)
@@ -81,6 +82,75 @@ end function
 function idleMove()
   frame = gaitypes.MonsterFrame(gaicore.ai_stand, 0.0, void)
   return gaitypes.MonsterMove("spawn-stand", 0, 0, [frame], void)
+end function
+
+function ReinitializeMonster(actor, context)
+  definition = find(defaultRegistry(), actor.className)
+  if definition is void then return error(9686, "cannot resurrect unknown monster " + actor.className) end if
+
+  // ED_CallSpawn reuses the same edict. Keep identity, transform and existing
+  // model indices while rebuilding all spawn-owned combat and AI state.
+  actor.model = definition.model
+  actor.mins = [definition.mins[0], definition.mins[1], definition.mins[2]]
+  actor.maxs = [definition.maxs[0], definition.maxs[1], definition.maxs[2]]
+  actor.health = definition.health
+  actor.maxHealth = definition.health
+  actor.gibHealth = definition.gibHealth
+  actor.mass = definition.mass
+  actor.viewHeight = 25.0
+  actor.yawSpeed = 20.0
+  actor.idealYaw = actor.edict.state.angles.y
+  actor.flags = 0
+  actor.spawnFlags = 0
+  actor.moveType = gaiconstants.MOVETYPE_STEP
+  actor.takeDamage = 2
+  actor.deadFlag = gaiconstants.DEAD_NO
+  actor.nextThink = 0.0
+  actor.showHostile = 0.0
+  actor.target = ""
+  actor.targetName = ""
+  actor.deathTarget = ""
+  actor.combatTarget = ""
+  actor.isClient = false
+  actor.isMonster = true
+  actor.info = gaitypes.defaultMonsterInfo()
+  actor.info.scale = definition.scale
+  actor.info.currentMove = idleMove()
+  actor.pain = void
+  actor.die = void
+  actor.activity = "created"
+  actor.painCount = 0
+  actor.dieCount = 0
+  actor.attackCount = 0
+  actor.meleeCount = 0
+  actor.thinkKind = "none"
+  actor.deathUseComplete = false
+  actor.bossPhase = "none"
+  actor.successorClassName = ""
+  actor.successorDueTime = 0.0
+  actor.successorSpawned = false
+  actor.reactionDebounce = 0.0
+  actor.attackAim = gaiqtypes.Vec3(0.0, 0.0, 0.0)
+  actor.attackAimValid = false
+  actor.attackCycles = 0
+
+  actor.edict.inUse = true
+  actor.edict.solid = gconstants.SOLID_BBOX
+  actor.edict.mins = gaiqtypes.Vec3(actor.mins[0], actor.mins[1], actor.mins[2])
+  actor.edict.maxs = gaiqtypes.Vec3(actor.maxs[0], actor.maxs[1], actor.maxs[2])
+  actor.edict.serverFlags = actor.edict.serverFlags &
+    ~(gconstants.SVF_DEADMONSTER | gconstants.SVF_NOCLIENT)
+  actor.edict.state.effects = actor.edict.state.effects &
+    ~(gconstants.EF_COLOR_SHELL | gconstants.EF_POWERSCREEN)
+  actor.edict.state.renderFx = actor.edict.state.renderFx &
+    ~(gconstants.RF_SHELL_RED | gconstants.RF_SHELL_GREEN | gconstants.RF_SHELL_BLUE)
+
+  gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee)
+  if definition.movement == "fly" then gaimonster.FlyMonsterStart(actor, context)
+  else if definition.movement == "swim" then gaimonster.SwimMonsterStart(actor, context)
+  else gaimonster.WalkMonsterStart(actor, context)
+  end if
+  return actor
 end function
 
 function SpawnMonster(registry, className, number, context)

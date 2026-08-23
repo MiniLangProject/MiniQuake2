@@ -313,7 +313,19 @@ function DispatchAttackState(actor, context, enemyYaw)
 end function
 
 function ai_checkattack(actor, distance, context)
-  if actor.enemy is void or actor.enemy.edict.inUse != true or actor.enemy.health <= 0 then
+  enemyUnavailable = actor.enemy is void
+  if not enemyUnavailable then enemyUnavailable = actor.enemy.edict.inUse != true end if
+  if not enemyUnavailable and (actor.info.aiFlags & gaiconstants.AI_MEDIC) != 0 then
+    // A Medic deliberately hunts a dead monster. Only a patient that has
+    // already become alive again ends this special target state.
+    if actor.enemy.health > 0 then
+      enemyUnavailable = true
+      actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_MEDIC
+    end if
+  else if not enemyUnavailable and actor.enemy.health <= 0 then
+    enemyUnavailable = true
+  end if
+  if enemyUnavailable then
     actor.enemy = void
     if actor.oldEnemy is not void and actor.oldEnemy.health > 0 then actor.enemy = actor.oldEnemy; actor.oldEnemy = void; HuntTarget(actor, context)
     else if actor.moveTarget is not void then actor.goalEntity = actor.moveTarget; if typeof(actor.info.walk) == "function" then actor.info.walk(actor, context) end if

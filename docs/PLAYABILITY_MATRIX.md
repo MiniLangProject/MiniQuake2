@@ -13,14 +13,14 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P02 | Player move, look and all stock weapons | `gameplay_player_weapon_protocol_tests.ml`, `runtime_multiplayer_deathmatch_tests.ml`, ballistics goldens | PASS (mechanics) | paired original view-model/recoil capture |
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
 | P04 | `waste1` brush, water, MD2 and alpha rendering | paired installed-original `ref_gl` gate: 2,303 ppm MAE for world/water/MD2; deterministic Mini replay | PASS (differential) | broaden cameras, GPUs and alpha/inline runtime states |
-| P05 | Stock monster frame sequencing | attack/ranged/melee with exact attack movement and mechanical sounds, Soldier sight `attack6`/dodge `attack3`, original sight/search callback sound/RNG inventory, Makron activation, 63 pain, 43 death, dodge, primary locomotion, complete stock sound precache, class corpse bounds, physical gibs and staged Supertank destruction; live MZ2 and Parasite beam chains | PASS (attacks, primary moves and death terminals) | secondary fidgets, Medic corpse-search/resurrection and reaction/death movement differential |
-| P06 | Save during an active monster sequence | Private-Save v11 attack/reaction, boss aim/refire and shared-random fields; dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
+| P05 | Stock monster frame sequencing | attack/ranged/melee with exact attack movement and mechanical sounds, Soldier sight `attack6`/dodge `attack3`, original sight/search callback sound/RNG inventory, Makron activation, exact Medic corpse selection/cable/resurrection, 63 pain, 43 death, dodge, primary locomotion, complete stock sound precache, class corpse bounds, physical gibs and staged Supertank destruction; live MZ2, Medic and Parasite beam chains | PASS (attacks, primary moves and death terminals) | secondary fidgets and reaction/death movement differential |
+| P06 | Save during an active monster sequence | Private-Save v12 attack/reaction, boss aim/refire, shared-random and Medic owner/old-enemy fields; dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
 | P08 | Multiplayer deathmatch | all 11 stock weapon modes through real UDP UserCmds, projectiles/effects, scoring/respawn, spectator transition, maplist re-signon; additional four-client signon, telefrag recovery, reconnect, live checkpoint, map change and 500-frame tail | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P09 | Two-player cooperative play | shared item/reconnect, skill 0/3, teammate damage, plus 39-BSP/51-goal-transition route with 39 live two-player checkpoints | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke, 39-map physical input/PMove/weapon/snapshot entry matrix, plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (physical entry + goal graph) | full corridor navigation, combat clearing and item-resource playthrough |
 | P11 | Original Protocol-34 process interop | independent bidirectional raw peer passes | PARTIAL | installed original 3.20 process exits before UDP on this host; rerun on compatible host |
-| P12 | Release/package/device acceptance | current 151-program Release matrix, Debug product graph, byte-reproducible/extracted-smoked packages, RTX-5080 fullscreen restart, native default-device cinematic and 20,000-frame/40,740-packet retail soak at 43.89 fps | PARTIAL (local RC complete) | second-host GPU/audio, hot-unplug, controller/manual latency and compatible-host original process |
+| P12 | Release/package/device acceptance | current 152-program Release matrix, Debug product graph, byte-reproducible/extracted-smoked packages, RTX-5080 fullscreen restart, native default-device cinematic and 20,000-frame/40,740-packet retail soak at 43.89 fps | PARTIAL (local RC complete) | second-host GPU/audio, hot-unplug, controller/manual latency and compatible-host original process |
 | P13 | Retail cinematic, demo and intermission playback | product `--cinematic` completes `idlog.cin`; installed `demo1.dm2` completes 696 packets/688 rendered frames; one shared host executes DM2/map and installed unit/end chains; `--play` consumes validated queued `gamemap` | PASS (product chain) | paired original demo timing/pixel trace on compatible host |
 | P14 | Product menu, inventory and volume | live mode restart, persistent config/key capture, difficulty-aware New Game, durable same/cross-map slots, settings/quit, inventory and mixer gain | PASS (product lifecycle) | hardware gamma and richer save-slot presentation |
 
@@ -50,21 +50,24 @@ remain a separate differential-parity gate.
 | Jorg | paired left/right six-frame machinegun cycle, MZ2 120/126, live 90% refire |
 | Boss2 | paired machinegun loop and simultaneous four-rocket MZ2 78–81 frame |
 | Makron | BFG, 17-frame hyperblaster and saved-position rail alternatives |
-| Gladiator/Tank/Medic/Chick/Flyer/Floater/Hover/Supertank | stock ranged wind-up, live burst/refire, saved Gladiator rail aim, muzzle order and MD2 frame projection |
+| Medic | stock blaster/refire plus strongest visible corpse claim, 28-frame cable movement, nine `TE_MEDIC_CABLE_ATTACK` beams and in-place patient resurrection |
+| Gladiator/Tank/Chick/Flyer/Floater/Hover/Supertank | stock ranged wind-up, live burst/refire, saved Gladiator rail aim, muzzle order and MD2 frame projection |
 | Berserk/Infantry/Flipper/Chick/Flyer/Brain/Floater/Mutant | stock close-combat loops, conditional Brain chain, physical Mutant jump, event damage and MD2 frame projection |
 | Parasite | 18-frame drain move, first/subsequent damage split and ordered `TE_PARASITE_ATTACK` beam handoff |
 
-Private-Save v11 persists attack/melee/pain/death counts, reaction debounce,
-live refire cycles, saved Gladiator/Makron aim, Mutant jump state, the shared Win32 random seed and
-the in-flight `nextFrame`, `pauseTime` and `attackState`. A restored attack or
+Private-Save v12 persists attack/melee/pain/death counts, reaction debounce,
+live refire cycles, saved Gladiator/Makron aim, Mutant jump state, the shared Win32 random seed,
+monster AI flags and stable old-enemy/owner references, plus the in-flight
+`nextFrame`, `pauseTime` and `attackState`. A restored attack or
 reaction therefore resumes at its next event rather than restarting or
 silently collapsing to one shot; dynamic gib entities retain model, physics
-state and expiry across a level save.
+state and expiry across a level save, and an active Medic cable resumes against
+its reserved patient instead of losing or duplicating the resurrection.
 
 The v10+ world payload length-prefixes the complete retail entity text instead
 of using the network string limit, reconstructs dynamic `DelayedUse` and gib
 edicts, and restores activator/owner/team/target/enemy/ground references by
-stable edict number. Readers remain compatible with the earlier v7-v10 payloads.
+stable edict number. Readers remain compatible with the earlier v7-v11 payloads.
 
 ## Current player-weapon coverage
 

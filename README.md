@@ -77,14 +77,16 @@ walk and run MD2 ranges for all 22 combat entries. Stock terminal deaths now
 apply the original class-specific corpse bounds, export the original organic
 and metallic gib-model inventories as timed physics edicts, and reproduce the
 Supertank's eight-step explosion sequence before its final 14-part breakup.
- Private-Save v11 resumes attacks and active reactions at their next frame,
- preserves live refire, jump, saved-aim and shared-random state, and round-trips
- live dynamic gib records. The original class-level sight/search callback
+ Private-Save v12 resumes attacks and active reactions at their next frame,
+ preserves live refire, jump, saved-aim, shared-random and Medic ownership state,
+ and round-trips live dynamic gib records. The original class-level sight/search callback
  inventory, sound channels/attenuation and callback-local random branches are
  now active as well, including Makron's silent 13-frame activation, Mutant's
  CRT-driven step choice and Soldier's sight-triggered `attack6` plus
- dodge-triggered `attack3` timelines. Remaining reaction/death movement
- columns, secondary fidgets and Medic corpse-search/resurrection behavior remain
+ dodge-triggered `attack3` timelines. Medic corpse selection now follows the
+ original 1,024-unit visible/unowned strongest-patient rule and runs the full
+ `attack33..60` cable, sound, Protocol-34 beam and in-place resurrection path.
+ Remaining reaction/death movement columns and secondary fidgets remain
  explicit differential-parity work.
  Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
@@ -125,8 +127,9 @@ skill endpoints, shared key state, teammate damage and a post-restore UDP soak
 are covered by a dedicated native gate. A full installed-retail matrix extends
 that evidence across 39 campaign BSPs, 51 goal-confirmed transitions and 39
 two-player checkpoints. v10 introduced length-prefixed retail entity text and
-dynamic world references; v11 retains v7-v10 readers and adds in-flight boss
-aim/refire plus Win32 random-stream state.
+dynamic world references; v11 added in-flight boss aim/refire plus Win32
+random-stream state, while v12 retains v7-v11 readers and adds transient monster
+AI, old-enemy and owner references required to resume a Medic cable safely.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached
@@ -166,7 +169,7 @@ remaining release work is concentrated in original-process interoperability
 (the installed 3.20 executable exits before networking on this host), paired
 original player view-model/recoil captures beyond the fixed renderer fixture,
 broader multi-host GPU/device coverage, remaining secondary monster/turret/boss
-fidgets, reaction/death movement, Medic corpse-search/resurrection parity, and manual device
+fidgets, reaction/death movement, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.
