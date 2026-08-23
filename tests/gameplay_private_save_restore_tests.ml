@@ -6,6 +6,7 @@ import miniquake2.game.null_game as privaterestoregame
 import miniquake2.game.integration.baseq2 as privaterestoreintegration
 import miniquake2.game.world.core as privaterestoreworld
 import miniquake2.game.ai.constants as privaterestoreaiconstants
+import miniquake2.qcommon.constants as privaterestoreqconstants
 import miniquake2.qcommon.types as privaterestoreqtypes
 
 function restoreAssert(value, message)
@@ -39,7 +40,11 @@ fixture = "{\"classname\" \"worldspawn\"}" +
   "{\"classname\" \"ammo_shells\" \"origin\" \"40 0 0\"}" +
   "{\"classname\" \"monster_soldier\" \"origin\" \"80 64 0\"}" +
   "{\"classname\" \"monster_medic\" \"origin\" \"160 0 10\" \"angle\" \"0\"}" +
-  "{\"classname\" \"monster_gunner\" \"origin\" \"240 0 10\"}"
+  "{\"classname\" \"monster_gunner\" \"origin\" \"240 0 10\"}" +
+  "{\"classname\" \"info_notnull\" \"targetname\" \"save-turret-muzzle\" \"origin\" \"32 0 16\"}" +
+  "{\"classname\" \"turret_base\" \"team\" \"save-turret\" \"model\" \"*3\"}" +
+  "{\"classname\" \"turret_breach\" \"team\" \"save-turret\" \"targetname\" \"save-turret-gun\" \"target\" \"save-turret-muzzle\" \"model\" \"*4\"}" +
+  "{\"classname\" \"turret_driver\" \"target\" \"save-turret-gun\" \"origin\" \"0 -32 0\"}"
 api.spawnEntities("save-unit", fixture, "")
 client = api.edicts[1]
 api.clientConnect(client, "\\name\\Saver")
@@ -49,6 +54,8 @@ runtime = privaterestoregame.baseRuntime()
 context = privaterestoregame.playerContext()
 door = privaterestoreintegration.findWorldByClass(runtime, "func_door_rotating")
 linearDoor = privaterestoreintegration.findWorldByClass(runtime, "func_door")
+saveTurretBreach = privaterestoreintegration.findWorldByClass(runtime, "turret_breach")
+saveTurretDriver = privaterestoreintegration.findWorldByClass(runtime, "turret_driver")
 privaterestoreworld.useEntity(runtime.world, door, void, door)
 privaterestoreworld.useEntity(runtime.world, linearDoor, void, linearDoor)
 api.runFrame()
@@ -57,6 +64,10 @@ savedDoorState = door.moveInfo.state
 savedLinearDirectionX = linearDoor.moveInfo.direction.x
 savedLinearRemaining = linearDoor.moveInfo.remainingDistance
 runtime.world.totalSecrets = 4; runtime.world.foundSecrets = 3
+saveTurretDriver.timestamp = 4.25
+saveTurretDriver.pauseTime = 8.5
+saveTurretDriver.aiFlags = saveTurretDriver.aiFlags |
+  privaterestoreaiconstants.AI_LOST_SIGHT
 monster = findPrivateSaveMonster(runtime, "monster_soldier"); monster.health = 41; monster.activity = "soldier-shotgun-attack2"; monster.edict.state.frame = 77
 monster.attackCount = 7; monster.meleeCount = 2; monster.painCount = 3; monster.dieCount = 1
 monster.info.nextFrame = 0; monster.info.pauseTime = runtime.world.time + 0.2
@@ -93,6 +104,10 @@ monster.attackAim = privaterestoreqtypes.Vec3(0.0, 0.0, 0.0); monster.attackAimV
 monster.attackCycles = 0
 monster.info.aiFlags = monster.info.aiFlags & ~privaterestoreaiconstants.AI_HOLD_FRAME
 runtime.randomState.seed = 1
+saveTurretDriver.timestamp = 0.0; saveTurretDriver.pauseTime = 0.0
+saveTurretDriver.aiFlags = saveTurretDriver.aiFlags &
+  ~privaterestoreaiconstants.AI_LOST_SIGHT
+saveTurretDriver.clipMask = 0
 item.hidden = false; item.nextThink = 0.0; item.count = 0
 player.health = 1; player.gameplay.inventory.counts[2] = 0; player.powerups.quadFrame = 0; player.persistent.score = 0
 
@@ -101,6 +116,8 @@ restoredRuntime = privaterestoregame.baseRuntime()
 restoredContext = privaterestoregame.playerContext()
 restoredDoor = privaterestoreintegration.findWorldByClass(restoredRuntime, "func_door_rotating")
 restoredLinearDoor = privaterestoreintegration.findWorldByClass(restoredRuntime, "func_door")
+restoredTurretBreach = privaterestoreintegration.findWorldByClass(restoredRuntime, "turret_breach")
+restoredTurretDriver = privaterestoreintegration.findWorldByClass(restoredRuntime, "turret_driver")
 restoreAssert(restoredDoor.angles.y == savedDoorAngle and restoredDoor.moveInfo.state == savedDoorState, "mover transform/state restored")
 restoreAssert(restoredDoor.think is not void, "mid-move callback rebound")
 restoreAssert(typeof(restoredLinearDoor.moveInfo.direction) == "struct" and
@@ -113,6 +130,13 @@ restoreAssert(restoredRuntime.aiContext.skill == 2 and
   "new game skill restored and retained for later maps")
 restoreAssert(restoredRuntime.randomState.seed == 305419896,
   "shared Win32 random stream restored")
+restoreAssert(restoredTurretDriver.timestamp == 4.25 and
+  restoredTurretDriver.pauseTime == 8.5 and
+  (restoredTurretDriver.aiFlags & privaterestoreaiconstants.AI_LOST_SIGHT) != 0 and
+  restoredTurretDriver.clipMask == privaterestoreqconstants.MASK_MONSTERSOLID and
+  restoredTurretDriver.think is not void and restoredTurretDriver.die is not void and
+  nativeRawValue(restoredTurretBreach.owner) == nativeRawValue(restoredTurretDriver),
+  "private v13 restores live turret AI/cooldown/team state")
 restoredMonster = findPrivateSaveMonster(restoredRuntime, "monster_soldier")
 restoreAssert(restoredMonster.health == 41 and restoredMonster.activity == "soldier-shotgun-attack2" and restoredMonster.edict.state.frame == 77, "monster private state restored")
 restoreAssert(restoredMonster.attackCount == 7 and restoredMonster.meleeCount == 2 and
@@ -134,7 +158,7 @@ restoreAssert(restoredMedic.activity == "medic-cable" and
   restoredMedic.oldEnemy.edict.state.number == 1 and
   nativeRawValue(restoredPatient.owner) == nativeRawValue(restoredMedic) and
   (restoredPatient.info.aiFlags & privaterestoreaiconstants.AI_RESURRECTING) != 0,
-  "private v12 restores Medic cable references and AI flags")
+  "private v13 restores Medic cable references and AI flags")
 restoreAssert(restoredRuntime.items[0].hidden and restoredRuntime.items[0].nextThink == 12.5 and restoredRuntime.items[0].count == 9, "item respawn state restored")
 restoredPlayer = restoredContext.players[0]
 restoreAssert(restoredPlayer.health == 73 and restoredPlayer.maxHealth == 125, "player health restored")

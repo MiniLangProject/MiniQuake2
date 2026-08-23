@@ -4,6 +4,35 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-23 turret parity and Private-Save v13 acceptance run
+
+The Release product and all 152 native test programs were freshly rebuilt and
+executed after completing the coupled 3.19 turret behavior and persistence
+boundary:
+
+```powershell
+.\build.ps1 -Configuration Release -SkipPreflight
+```
+
+The run exited with code 0. Product diagnostics, capabilities, CLI smoke and
+the post-build inventory passed with 346 MiniLang files and 389 maintained
+files. The expanded isolated and product-shaped gates prove live skill-based
+reaction time and 550/600/650/700 rocket speed, shared Win32 CRT damage,
+positioned muzzle sound, crush knockback 10, `DAMAGE_AIM` combat, driver team
+detach, the stock Infantry seven-gib inventory and `misc/udeath.wav`. Private
+Save v13 retains v7-v12 readers and restores the driver target references,
+lost-sight flag, trail time, attack cooldown, clip mask and exact think/die
+phase without relinking the team twice. The complete 5,000-frame synthetic
+session soak also passed at over 3,700 fps with no pending sounds or rejected
+packets.
+
+The freshly accepted executable then passed both installed Steam retail gates:
+
+```text
+base1: maps=1 steps=64 snapshots=64 fire=1 items=9 health=100 packets=202 rejected=0
+campaign: maps=39 changes=38 client-state=4 spawn-count=39 steps=753 packets=3697
+```
+
 ## 2026-08-23 reaction/death parity acceptance run
 
 The Release product and all 152 native test programs were freshly rebuilt and

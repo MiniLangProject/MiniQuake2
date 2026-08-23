@@ -34,9 +34,10 @@ Reachable secondary fidget/locomotion callbacks, pain/death frame sounds,
 Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg explosion-entry
 frames execute live. Class-specific corpse bounds, stock organic/metallic gib
 inventories and the eight-explosion plus 14-gib terminal sequence are exported
-through real managed edicts and Protocol-34 effects; Private-Save v12 retains
+through real managed edicts and Protocol-34 effects; Private-Save v13 retains
 in-flight attack/reaction, held death-fire state, boss-refire/aim, shared
-Win32-random state, Medic ownership and dynamic gib records. Their MZ2
+Win32-random state, Medic ownership, live turret AI/cooldown state and dynamic
+gib records. Their MZ2
 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
 handoff. Attack sequences additionally execute their exact 3.19 movement
@@ -81,8 +82,11 @@ preserving a live Netchan and producing the next valid snapshot, and
 cross-map restore performs a full re-signon with failure-atomic source-map
 rollback. Scripted boss-prop phases and the Jorg/Makron chain survive the
 versioned private save format. Coupled turret rigs carry their bounds, team,
-aim, cadence, projectile and driver lifecycle through the integrated world
-runtime. Targeted Game-API `unicast`, `cprintf` and `centerprintf` messages also
+target references, lost-sight state, reaction cooldown, live difficulty,
+shared-CRT rocket damage, exact rocket speed, positioned muzzle sound, crush
+knockback and Infantry driver-gib lifecycle through the integrated world
+runtime and Private-Save v13. Targeted Game-API `unicast`, `cprintf` and
+`centerprintf` messages also
 reach exactly one transactional client UI handoff through bounded reliable or
 sequenced-unreliable queues. In addition, the bounded 2–8-client harness keeps
 the detailed two-player DM/coop cases and adds a four-client signon,

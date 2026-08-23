@@ -183,7 +183,11 @@ state machines. All 60 `misc_insane` instances use a dedicated AI with
 persisted crawl/crucified/pain/death phases. The two scripted boss props have
 their original use/think phases and versioned restore state; the two complete
 base/breach/driver turret rigs have coupled transforms, aiming, visibility,
-rocket cadence, collision damage and driver lifecycle. The measured matrix is
+rocket cadence, collision damage and driver lifecycle. The live Game-API gate
+also proves current-skill reaction/speed, shared-CRT damage, exact muzzle sound,
+crush knockback 10, `DAMAGE_AIM` handling, seven Infantry gibs and the stock
+gib sound; Private Save v13 resumes its references, sight state and cooldown.
+The measured matrix is
 now `simplified=0/0`. This closes the retail classname state-machine tail, not
 every animation or AI decision leading to it.
 
@@ -208,7 +212,7 @@ profile also carries its stock first-shot MZ2 identifier. The
  walk/run ranges for all 22 combat entries. They also prove every reachable
  secondary fidget/locomotion callback, the complete pain/death frame-sound
  inventory, Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg
- explosion-entry offsets. Private Save v12 retains a running attack or
+ explosion-entry offsets. Private Save v13 retains a running attack or
  reaction's event index,
  next-frame time, reaction debounce, live refire/jump/aim state, the shared Win32
 random seed and stable Medic patient/old-enemy/owner state. Stock death terminals additionally
@@ -230,7 +234,7 @@ real engine edicts; active gibs round-trip through the same save format. The
  like 3.19. `gameplay_monster_sight_search_tests` and the extended attack/dodge
  gates cover those seams. Medic corpse search now selects the strongest visible
 unowned patient within 1,024 units and its exact `attack33..60` cable resumes
-through Private Save v12. A held Soldier SS death burst also resumes with its
+through Private Save v13. A held Soldier SS death burst also resumes with its
 remaining shot count. Paired original full-encounter traces remain open, but no
 reachable stock pain/death movement or secondary callback table is known
 missing. Gunner, Medic,

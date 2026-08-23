@@ -1,11 +1,39 @@
 /* Product-graph wiring for the remaining stock campaign world state machines. */
 import miniquake2.game.base.spawn as rareintegrationbase
 import miniquake2.game.integration.baseq2 as rareintegration
+import miniquake2.game.null_game as rareintegrationgame
+import miniquake2.game.constants as rareintegrationgameconstants
 import miniquake2.game.world.constants as rareintegrationconstants
 import miniquake2.game.world.core as rareintegrationworld
+import miniquake2.server.game_bridge as rareintegrationbridge
 
 function requireTrue(value, label)
   if value != true then return error(9991, label) end if
+end function
+
+function rareNameIndex(values, value)
+  index = 1
+  while index < len(values)
+    if values[index] == value then return index end if
+    index = index + 1
+  end while
+  return 0
+end function
+
+function rareWorldClassCount(runtime, className)
+  count = 0
+  for each candidate in runtime.world.entities
+    if candidate.inUse and candidate.className == className then count = count + 1 end if
+  end for
+  return count
+end function
+
+function rareWorldEvent(runtime, kind)
+  found = void
+  for each event in runtime.world.events
+    if event[1] == kind then found = event end if
+  end for
+  return found
 end function
 
 fixture = "{ \"classname\" \"worldspawn\" }\n" +
@@ -109,4 +137,82 @@ raremeaning = rareintegrationworld.advance(runtime.world, runtime.world.frameTim
 requireTrue(raremeaning, "rare integration scheduler executes elevator initialization")
 requireTrue(elevator.use is not void, "trigger_elevator resolves its train")
 
-print "MiniQuake2 rare world integration tests passed: 2"
+// Exercise the same turret through the shipped Game API so engine sound,
+// projectile, difficulty, damage and physical-gib boundaries cannot drift
+// independently from the isolated world state machine.
+rareTurretFixture = "{\"classname\" \"worldspawn\"}" +
+  "{\"classname\" \"info_player_start\" \"origin\" \"0 -512 0\"}" +
+  "{\"classname\" \"info_notnull\" \"targetname\" \"live-muzzle\" \"origin\" \"32 0 16\"}" +
+  "{\"classname\" \"turret_base\" \"team\" \"live-turret\" \"model\" \"*1\"}" +
+  "{\"classname\" \"turret_breach\" \"team\" \"live-turret\" \"targetname\" \"live-gun\" \"target\" \"live-muzzle\" \"model\" \"*2\"}" +
+  "{\"classname\" \"turret_driver\" \"target\" \"live-gun\" \"origin\" \"0 -32 0\"}"
+rareTurretServer = rareintegrationbridge.createRuntime(4)
+rareTurretApi = rareintegrationgame.GetGameApi(
+  rareintegrationbridge.makeImports(rareTurretServer))
+rareTurretServer.game = rareTurretApi
+rareintegrationgame.configureSkill(3)
+rareTurretApi.init()
+rareTurretApi.spawnEntities("rare-turret", rareTurretFixture, "")
+rareTurretClient = rareTurretApi.edicts[1]
+requireTrue(rareTurretApi.clientConnect(rareTurretClient,
+  "\\name\\TurretTarget\\skin\\male/grunt"), "turret target connects")
+requireTrue(rareTurretApi.clientBegin(rareTurretClient), "turret target begins")
+rareTurretRuntime = rareintegrationgame.baseRuntime()
+rareTurretRuntime.randomState.seed = 1
+rareTurretApi.runFrame(); rareTurretApi.runFrame(); rareTurretApi.runFrame()
+
+rareLiveBreach = rareintegration.findWorldByClass(rareTurretRuntime, "turret_breach")
+rareLiveDriver = rareintegration.findWorldByClass(rareTurretRuntime, "turret_driver")
+rareFireEvent = rareWorldEvent(rareTurretRuntime, "turret-fire")
+requireTrue(rareFireEvent is not void and rareFireEvent[3][0] == 100 and
+  rareFireEvent[3][1] == 700,
+  "live skill 3 turret consumes stock random damage and fires at speed 700")
+requireTrue(rareTurretRuntime.randomState.seed == 2745024 and
+  len(rareTurretRuntime.weaponContext.projectiles) == 1 and
+  rareTurretRuntime.weaponContext.projectiles[0].className == "rocket" and
+  rareTurretRuntime.weaponContext.projectiles[0].damage == 100 and
+  rareTurretRuntime.weaponContext.projectiles[0].velocity.x == 700.0,
+  "turret rocket uses shared CRT stream and live weapon projectile path")
+
+rareRocketSoundIndex = rareNameIndex(rareTurretServer.soundNames,
+  "weapons/rocklf1a.wav")
+rarePositionedLaunches = 0
+for each rareTurretSound in rareTurretServer.pendingSounds
+  if rareTurretSound.soundIndex == rareRocketSoundIndex and
+      rareTurretSound.entity == rareLiveBreach.number and
+      rareTurretSound.channel == rareintegrationgameconstants.CHAN_WEAPON and
+      rareTurretSound.position is not void then
+    requireTrue(rareTurretSound.position.x == rareFireEvent[3][2].x and
+      rareTurretSound.position.y == rareFireEvent[3][2].y and
+      rareTurretSound.position.z == rareFireEvent[3][2].z,
+      "turret launch sound is positioned at the exact muzzle")
+    rarePositionedLaunches = rarePositionedLaunches + 1
+  end if
+end for
+requireTrue(rarePositionedLaunches == 1, "one positioned launch sound per rocket")
+
+rareGibsBefore = rareWorldClassCount(rareTurretRuntime, "monster_gib")
+rareDriverEdictsBefore = rareTurretApi.numEdicts
+rareDriverDeath = rareintegration.damageWorldEntity(
+  rareTurretRuntime, rareLiveDriver.number, void, 120)
+requireTrue(rareDriverDeath.killed and rareLiveDriver.health == -20 and
+  rareLiveDriver.inUse == false and rareLiveBreach.owner is void and
+  rareTurretApi.edicts[rareLiveDriver.number].inUse == false,
+  "DAMAGE_AIM turret driver accepts live damage and detaches on death")
+requireTrue(rareWorldClassCount(rareTurretRuntime, "monster_gib") -
+  rareGibsBefore == 7 and rareTurretApi.numEdicts - rareDriverEdictsBefore == 7,
+  "turret driver death emits the Infantry stock seven-gib inventory")
+rareDeathSoundIndex = rareNameIndex(rareTurretServer.soundNames, "misc/udeath.wav")
+rareDeathSounds = 0
+for each rareTurretDeathSound in rareTurretServer.pendingSounds
+  if rareTurretDeathSound.soundIndex == rareDeathSoundIndex and
+      rareTurretDeathSound.entity == rareLiveDriver.number and
+      rareTurretDeathSound.channel == rareintegrationgameconstants.CHAN_VOICE then
+    rareDeathSounds = rareDeathSounds + 1
+  end if
+end for
+requireTrue(rareDeathSounds == 1, "turret driver emits exact Infantry gib sound")
+
+rareTurretApi.clientDisconnect(rareTurretClient)
+rareTurretApi.shutdown()
+print "game_api_rare_world_integration_tests: PASS"

@@ -59,7 +59,11 @@ remaining decorative thinkers, `info_notnull`, `light_mine2`, and all 60
 `misc_insane` entities. Scripted boss props and the coupled
 `turret_base`/`turret_breach`/`turret_driver` rigs close the final retail
 class-state-machine tail: the 39-map behavior matrix now reports zero
-explicitly simplified instances or classes. All 21 combat-capable monster
+explicitly simplified instances or classes. Their live Game-API path now uses
+the current skill for stock reaction time and 550/600/650/700 rocket speed,
+consumes the shared CRT stream for damage, positions the launch sound at the
+muzzle, retains crush knockback 10, accepts `DAMAGE_AIM` combat and emits the
+Infantry seven-gib inventory on driver death. All 21 combat-capable monster
 classes present in those BSPs, plus the dynamically spawned Makron, now route
  through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
  rail, blaster or rocket emission. Every combat-capable family now uses a stock
@@ -83,10 +87,10 @@ Medic corpse scans, Parasite taps/scratch loops, Jorg steps and Tank run start.
 Stock terminal deaths apply the original class-specific corpse bounds, export
 the original organic and metallic gib-model inventories as timed physics
 edicts, and reproduce the eight-step boss explosion sequence before the final
-14-part breakup. Private-Save v12 resumes attacks and active reactions at their
+14-part breakup. Private-Save v13 resumes attacks and active reactions at their
 next frame, preserves held death-fire bursts, live refire, jump, saved-aim,
-shared-random and Medic ownership state, and round-trips live dynamic gib
-records. The original class-level sight/search callback inventory, sound
+shared-random, Medic ownership and live turret sight/reaction state, and
+round-trips live dynamic gib records. The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
 Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.
@@ -133,8 +137,10 @@ are covered by a dedicated native gate. A full installed-retail matrix extends
 that evidence across 39 campaign BSPs, 51 goal-confirmed transitions and 39
 two-player checkpoints. v10 introduced length-prefixed retail entity text and
 dynamic world references; v11 added in-flight boss aim/refire plus Win32
-random-stream state, while v12 retains v7-v11 readers and adds transient monster
-AI, old-enemy and owner references required to resume a Medic cable safely.
+random-stream state; v12 added transient monster AI, old-enemy and owner
+references required to resume a Medic cable safely; v13 retains v7-v12 readers
+and adds the world combat/AI/cooldown fields required to resume a coupled turret
+without resetting its target cadence.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached

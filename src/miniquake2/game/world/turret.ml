@@ -3,16 +3,17 @@ package miniquake2.game.world.turret
 
 import std.math as turretmath
 import miniquake2.game.constants as turretgameconstants
+import miniquake2.game.ai.constants as turretaiconstants
 import miniquake2.game.world.constants as turretworldconstants
 import miniquake2.game.world.core as turretcore
 import miniquake2.game.world.vector as turretvector
 import miniquake2.game.world.turret_types as turrettypes
 import miniquake2.qcommon.byteio as turretbyteio
+import miniquake2.qcommon.constants as turretqconstants
 import miniquake2.qcommon.types as turretqtypes
 
 const TURRET_FIRE_REQUEST = 65536
 const TURRET_NO_KNOCKBACK = 0x00000800
-const TURRET_DAMAGE_AIM = 2
 
 function turretControl(entity)
   control = entity.item
@@ -28,6 +29,14 @@ function turretAttachControl(entity, control)
   end if
   entity.item = control
   return control
+end function
+
+function inline turretCurrentSkill(control)
+  skill = control.callbacks.skillValue()
+  if typeof(skill) != "int" and typeof(skill) != "float" then skill = control.skill end if
+  if skill < 0.0 then skill = 0.0 end if
+  if skill > 3.0 then skill = 3.0 end if
+  return skill
 end function
 
 function turretNormalizeAngle(value)
@@ -123,11 +132,13 @@ end function
 
 function turretBlocked(entity, other, world)
   if other is void or other.takeDamage == turretworldconstants.DAMAGE_NO then return false end if
+  control = turretControl(entity)
   master = entity.teamMaster
   if master is void then master = entity end if
   attacker = master
   if master.owner is not void then attacker = master.owner end if
-  world.callbacks.damage(other, entity, attacker, master.damage, turretworldconstants.MOD_CRUSH)
+  control.callbacks.crushDamage(other, entity, attacker, master.damage, 10,
+    turretworldconstants.MOD_CRUSH, world)
   turretcore.emit(world, "turret-blocked", entity, [other.number, master.damage])
   return true
 end function
@@ -144,14 +155,14 @@ function turretBreachFire(entity, world)
   if randomValue < 0.0 then randomValue = 0.0 end if
   if randomValue > 1.0 then randomValue = 1.0 end if
   damage = 100 + turretbyteio.truncInt(randomValue * 50.0)
-  speed = 550 + turretbyteio.truncInt(50.0 * control.skill)
+  speed = 550 + turretbyteio.truncInt(50.0 * turretCurrentSkill(control))
   master = entity.teamMaster
   if master is void then master = entity end if
   attacker = master.owner
   if attacker is void then attacker = entity.owner end if
   if attacker is void then attacker = entity end if
   control.callbacks.fireRocket(attacker, start, forward, damage, speed, 150, world)
-  world.callbacks.sound(entity, "weapons/rocklf1a.wav")
+  control.callbacks.positionedSound(start, entity, "weapons/rocklf1a.wav", world)
   turretcore.emit(world, "turret-fire", entity, [damage, speed, start])
   return true
 end function
@@ -295,6 +306,13 @@ end function
 
 function turretDriverUse(entity, other, activator, world)
   control = turretControl(entity)
+  if entity.enemy is not void or entity.health <= 0 or activator is void then return false end if
+  if (activator.flags & turretaiconstants.FL_NOTARGET) != 0 then return false end if
+  if activator.isClient != true and
+      (activator.aiFlags & turretaiconstants.AI_GOOD_GUY) == 0 then return false end if
+  entity.enemy = activator
+  entity.timestamp = world.time
+  entity.aiFlags = entity.aiFlags & ~turretaiconstants.AI_LOST_SIGHT
   return control.callbacks.driverUse(entity, other, activator, world)
 end function
 
@@ -343,15 +361,18 @@ function turretDriverThink(entity, world)
     end if
     entity.enemy = candidate
     enemy = candidate
-    control.trailTime = world.time
-    control.lostSight = false
+    entity.timestamp = world.time
+    entity.aiFlags = entity.aiFlags & ~turretaiconstants.AI_LOST_SIGHT
   else
     visible = control.callbacks.traceVisible(entity, enemy, world)
     if typeof(visible) != "bool" then return error(9556, "turret traceVisible must return bool") end if
     if visible then
-      if control.lostSight then control.trailTime = world.time; control.lostSight = false end if
+      if (entity.aiFlags & turretaiconstants.AI_LOST_SIGHT) != 0 then
+        entity.timestamp = world.time
+        entity.aiFlags = entity.aiFlags & ~turretaiconstants.AI_LOST_SIGHT
+      end if
     else
-      control.lostSight = true
+      entity.aiFlags = entity.aiFlags | turretaiconstants.AI_LOST_SIGHT
       return true
     end if
   end if
@@ -365,10 +386,10 @@ function turretDriverThink(entity, world)
   target.z = target.z + enemy.height
   direction = turretvector.subtract(target, breach.origin)
   breach.moveDirection = turretvector.toAngles(direction)
-  if world.time < control.attackFinished then return true end if
-  reactionTime = 3.0 - control.skill
-  if world.time - control.trailTime < reactionTime then return true end if
-  control.attackFinished = world.time + reactionTime + 1.0
+  if world.time < entity.pauseTime then return true end if
+  reactionTime = 3.0 - turretCurrentSkill(control)
+  if world.time - entity.timestamp < reactionTime then return true end if
+  entity.pauseTime = world.time + reactionTime + 1.0
   breach.spawnFlags = breach.spawnFlags | TURRET_FIRE_REQUEST
   turretcore.emit(world, "turret-fire-request", entity, breach.number)
   return true
@@ -417,13 +438,17 @@ function spawnTurretDriver(entity, world, control, deathmatch)
   entity.maxs = turretqtypes.Vec3(16.0, 16.0, 32.0)
   entity.health = 100
   entity.maxHealth = 100
+  entity.gibHealth = 0
   entity.mass = 200
   entity.height = 24.0
   entity.die = turretDriverDie
   entity.flags = entity.flags | TURRET_NO_KNOCKBACK
   entity.serverFlags = entity.serverFlags | turretworldconstants.SVF_MONSTER
   entity.renderFx = entity.renderFx | turretgameconstants.RF_FRAMELERP
-  entity.takeDamage = TURRET_DAMAGE_AIM
+  entity.takeDamage = turretworldconstants.DAMAGE_AIM
+  entity.clipMask = turretqconstants.MASK_MONSTERSOLID
+  entity.aiFlags = entity.aiFlags | turretaiconstants.AI_STAND_GROUND |
+    turretaiconstants.AI_DUCKED
   entity.use = turretDriverUse
   entity.oldOrigin = turretvector.copy(entity.origin)
   entity.think = turretDriverLink
@@ -443,4 +468,28 @@ end function
 
 function SP_turret_driver(entity, world, control, deathmatch)
   return spawnTurretDriver(entity, world, control, deathmatch)
+end function
+
+// Function identities are not serialized. Rebind the stock phase only after
+// private-save reference numbers have been resolved, so an already linked
+// driver resumes turret_driver_think instead of appending itself a second time.
+function restoreTurretState(entity, world)
+  if entity.className == "turret_base" then
+    entity.blocked = turretBlocked
+    return entity
+  end if
+  if entity.className == "turret_breach" then
+    entity.blocked = turretBlocked
+    if entity.nextThink > 0.0 then entity.think = turretBreachThink end if
+    return entity
+  end if
+  if entity.className == "turret_driver" then
+    entity.use = turretDriverUse
+    entity.die = turretDriverDie
+    if entity.inUse == false or entity.nextThink <= 0.0 then
+      entity.think = void
+    else if entity.targetEntity is void then entity.think = turretDriverLink
+    else entity.think = turretDriverThink end if
+  end if
+  return entity
 end function

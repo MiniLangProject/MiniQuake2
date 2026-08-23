@@ -30,6 +30,7 @@ const FL_SWIM = 0x00000002
 
 const DAMAGE_NO = 0
 const DAMAGE_YES = 1
+const DAMAGE_AIM = 2
 
 const EF_ANIM01 = 0x00000400
 const EF_ANIM23 = 0x00000800

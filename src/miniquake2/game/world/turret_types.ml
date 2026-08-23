@@ -5,7 +5,10 @@ struct TurretCallbacks
   acquireTarget
   traceVisible
   randomUnit
+  skillValue
   fireRocket
+  positionedSound
+  crushDamage
   driverSpawn
   driverUse
   driverDie
@@ -14,9 +17,6 @@ end struct
 struct TurretControl
   callbacks
   skill
-  lostSight
-  trailTime
-  attackFinished
 end struct
 
 struct TurretLimits
@@ -38,8 +38,20 @@ function turretZeroRandom()
   return 0.0
 end function
 
+function turretNoSkill()
+  return void
+end function
+
 function turretNoRocket(attacker, start, direction, damage, speed, splashRadius, world)
   return true
+end function
+
+function turretEntitySound(origin, entity, soundName, world)
+  return world.callbacks.sound(entity, soundName)
+end function
+
+function turretWorldCrush(target, inflictor, attacker, amount, knockback, means, world)
+  return world.callbacks.damage(target, inflictor, attacker, amount, means)
 end function
 
 function turretNoDriverSpawn(driver, world)
@@ -56,7 +68,8 @@ end function
 
 function defaultTurretCallbacks()
   return TurretCallbacks(
-    turretNoTarget, turretAlwaysVisible, turretZeroRandom, turretNoRocket,
+    turretNoTarget, turretAlwaysVisible, turretZeroRandom, turretNoSkill,
+    turretNoRocket, turretEntitySound, turretWorldCrush,
     turretNoDriverSpawn, turretNoDriverUse, turretNoDriverDie
   )
 end function
@@ -66,7 +79,7 @@ function createTurretControl(callbacks, skill)
   if typeof(skill) != "int" and typeof(skill) != "float" then skill = 1.0 end if
   if skill < 0.0 then skill = 0.0 end if
   if skill > 3.0 then skill = 3.0 end if
-  return TurretControl(callbacks, skill, false, 0.0, 0.0)
+  return TurretControl(callbacks, skill)
 end function
 
 function defaultTurretLimits()

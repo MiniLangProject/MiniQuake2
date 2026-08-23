@@ -4,6 +4,8 @@ import miniquake2.game.world.core as turrettestcore
 import miniquake2.game.world.vector as turrettestvector
 import miniquake2.game.world.turret as turrettestlogic
 import miniquake2.game.world.turret_types as turrettesttypes
+import miniquake2.game.ai.constants as turrettestaiconstants
+import miniquake2.qcommon.constants as turrettestqconstants
 import miniquake2.qcommon.types as turrettestqtypes
 
 turretTestEnemy = void
@@ -16,6 +18,9 @@ turretTestUseCount = 0
 turretTestDieCount = 0
 turretTestLinks = 0
 turretTestModels = 0
+turretTestPositionedSounds = []
+turretTestCrushKnockback = 0
+turretTestLiveSkill = 2.0
 
 function turretTestAssert(condition, label)
   if condition == false then return error(9960, label) end if
@@ -45,10 +50,28 @@ function turretTestRandom()
   return 0.5
 end function
 
+function turretTestSkillValue()
+  global turretTestLiveSkill
+  return turretTestLiveSkill
+end function
+
 function turretTestFire(attacker, start, direction, damage, speed, splashRadius, world)
   global turretTestRockets
   turretTestRockets = turretTestRockets + [[attacker.number, start, direction, damage, speed, splashRadius]]
   return true
+end function
+
+function turretTestPositionedSound(origin, entity, soundName, world)
+  global turretTestPositionedSounds
+  turretTestPositionedSounds = turretTestPositionedSounds + [
+    [turrettestvector.copy(origin), entity.number, soundName]]
+  return true
+end function
+
+function turretTestCrush(target, inflictor, attacker, amount, knockback, means, world)
+  global turretTestCrushKnockback
+  turretTestCrushKnockback = knockback
+  return world.callbacks.damage(target, inflictor, attacker, amount, means)
 end function
 
 function turretTestDriverSpawn(driver, world)
@@ -102,7 +125,10 @@ function turretTestControl(skill)
   callbacks.acquireTarget = turretTestAcquire
   callbacks.traceVisible = turretTestTraceVisible
   callbacks.randomUnit = turretTestRandom
+  callbacks.skillValue = turretTestSkillValue
   callbacks.fireRocket = turretTestFire
+  callbacks.positionedSound = turretTestPositionedSound
+  callbacks.crushDamage = turretTestCrush
   callbacks.driverSpawn = turretTestDriverSpawn
   callbacks.driverUse = turretTestDriverUse
   callbacks.driverDie = turretTestDriverDie
@@ -110,6 +136,8 @@ function turretTestControl(skill)
 end function
 
 function testAnglesAndTeamBinding()
+  global turretTestRockets, turretTestPositionedSounds, turretTestLiveSkill
+  turretTestRockets = []; turretTestPositionedSounds = []; turretTestLiveSkill = 2.0
   world = turretTestWorld()
   control = turretTestControl(2.0)
   baseEntity = turrettestcore.spawnEntity(world, "turret_base")
@@ -134,6 +162,17 @@ function testAnglesAndTeamBinding()
   turretTestAssertNear(baseEntity.angularVelocity.y, 50.0, 0.0001, "base inherits breach yaw velocity")
   turretTestAssertNear(turrettestlogic.turretSnapToEighth(1.07), 1.125, 0.0001, "positive eighth snap")
   turretTestAssertNear(turrettestlogic.turretSnapToEighth(-1.07), -1.125, 0.0001, "negative eighth snap")
+  turretTestLiveSkill = 3.0
+  turrettestlogic.turretBreachFire(breach, world)
+  turretTestAssertEqual(turretTestRockets[0][4], 700,
+    "turret fire reads live skill rather than spawn-time skill")
+  turretTestAssertEqual(len(turretTestPositionedSounds), 1,
+    "turret emits one positioned launch sound")
+  turretTestAssertEqual(turretTestPositionedSounds[0][2], "weapons/rocklf1a.wav",
+    "turret launch sound asset")
+  turretTestAssertNear(turretTestPositionedSounds[0][0].x,
+    turretTestRockets[0][1].x, 0.0001, "launch sound shares muzzle x")
+  turretTestLiveSkill = 2.0
 end function
 
 function createLinkedTurretWorld()
@@ -162,8 +201,10 @@ function createLinkedTurretWorld()
 end function
 
 function testDriverAimFireAndDamage()
-  global turretTestRockets, turretTestDamageAmount, turretTestDamageAttacker, turretTestVisible
-  turretTestRockets = []; turretTestDamageAmount = 0; turretTestDamageAttacker = 0; turretTestVisible = true
+  global turretTestRockets, turretTestDamageAmount, turretTestDamageAttacker, turretTestVisible, turretTestPositionedSounds, turretTestCrushKnockback, turretTestLiveSkill
+  turretTestRockets = []; turretTestDamageAmount = 0; turretTestDamageAttacker = 0
+  turretTestVisible = true; turretTestPositionedSounds = []
+  turretTestCrushKnockback = 0; turretTestLiveSkill = 2.0
   rig = createLinkedTurretWorld()
   world = rig[0]; baseEntity = rig[2]; breach = rig[3]; driver = rig[4]; muzzle = rig[6]
   turrettestcore.advance(world, 0.1)
@@ -173,6 +214,11 @@ function testDriverAimFireAndDamage()
   turretTestAssertEqual(baseEntity.owner, driver, "base master owns linked driver")
   turretTestAssertEqual(driver.targetEntity, breach, "driver targets breach")
   turretTestAssert((driver.flags & turrettestconstants.FL_TEAMSLAVE) != 0, "driver appended as team slave")
+  turretTestAssert(driver.gibHealth == 0 and
+    driver.clipMask == turrettestqconstants.MASK_MONSTERSOLID and
+    (driver.aiFlags & turrettestaiconstants.AI_STAND_GROUND) != 0 and
+    (driver.aiFlags & turrettestaiconstants.AI_DUCKED) != 0,
+    "driver stock gib/clip/stand-ground state")
 
   turrettestcore.advance(world, 0.4)
   turretTestAssert(breach.moveDirection.x < 0.0, "driver aims breach at enemy viewheight")
@@ -188,11 +234,16 @@ function testDriverAimFireAndDamage()
   turretTestAssertEqual(rocket[5], 150, "rocket splash radius")
   muzzleDistance = turrettestvector.length(turrettestvector.subtract(rocket[1], breach.origin))
   turretTestAssertNear(muzzleDistance, 32.0, 0.001, "rocket starts at rotated muzzle offset")
+  turretTestAssertEqual(len(turretTestPositionedSounds), 1,
+    "one positioned sound follows one rocket")
+  turretTestAssertNear(turretTestPositionedSounds[0][0].x, rocket[1].x,
+    0.001, "positioned sound follows rotated muzzle")
 
   turretTestVisible = false
   turrettestcore.advance(world, 2.4)
   turretTestAssertEqual(len(turretTestRockets), 1, "lost sight suppresses fire")
-  turretTestAssertEqual(rig[1].lostSight, true, "lost sight state retained")
+  turretTestAssert((driver.aiFlags & turrettestaiconstants.AI_LOST_SIGHT) != 0,
+    "lost sight state retained on serializable driver")
   turretTestVisible = true
   turrettestcore.advance(world, 3.6)
   turretTestAssertEqual(len(turretTestRockets), 2, "reacquisition restarts reaction cadence")
@@ -202,6 +253,8 @@ function testDriverAimFireAndDamage()
   turrettestcore.blockedEntity(world, baseEntity, victim)
   turretTestAssertEqual(turretTestDamageAmount, 10, "blocked damage inherited from breach")
   turretTestAssertEqual(turretTestDamageAttacker, driver.number, "driver receives blocked damage credit")
+  turretTestAssertEqual(turretTestCrushKnockback, 10,
+    "blocked damage retains stock crush knockback")
 end function
 
 function testDriverLifecycleAndMalformed()
@@ -211,7 +264,7 @@ function testDriverLifecycleAndMalformed()
   world = rig[0]; baseEntity = rig[2]; breach = rig[3]; driver = rig[4]
   turrettestcore.advance(world, 0.1)
   turretTestAssertEqual(turretTestSpawnCount, 1, "driver spawn lifecycle callback")
-  turrettestcore.useEntity(world, driver, baseEntity, breach)
+  turrettestcore.useEntity(world, driver, baseEntity, rig[5])
   turretTestAssertEqual(turretTestUseCount, 1, "driver use lifecycle callback")
   breach.moveDirection.x = -15.0
   turrettestcore.killEntity(world, driver, breach, breach, 120, turrettestqtypes.zeroVec3())

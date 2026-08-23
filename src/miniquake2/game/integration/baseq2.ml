@@ -579,7 +579,7 @@ function worldWeaponTarget(entity)
   target.combatant.edict.mins = weaponVector(entity.mins)
   target.combatant.edict.maxs = weaponVector(entity.maxs)
   target.combatant.health = entity.health
-  target.combatant.takeDamage = entity.takeDamage == ibworldconstants.DAMAGE_YES
+  target.combatant.takeDamage = entity.takeDamage != ibworldconstants.DAMAGE_NO
   target.combatant.flags = entity.flags
   target.combatant.moveType = entity.moveType
   target.combatant.mass = entity.mass
@@ -593,7 +593,7 @@ function weaponTargetByNumber(runtime, number)
   actor = integratedMonsterByNumber(runtime, number)
   if actor is not void then return monsterWeaponTarget(actor) end if
   worldEntity = ibworld.findByNumber(runtime.world, number)
-  if worldEntity is not void and worldEntity.takeDamage == ibworldconstants.DAMAGE_YES then return worldWeaponTarget(worldEntity) end if
+  if worldEntity is not void and worldEntity.takeDamage != ibworldconstants.DAMAGE_NO then return worldWeaponTarget(worldEntity) end if
   return void
 end function
 
@@ -616,7 +616,7 @@ function integratedWeaponTargets(runtime)
     end if
   end for
   for each entity in runtime.world.entities
-    if entity.inUse and entity.takeDamage == ibworldconstants.DAMAGE_YES then
+    if entity.inUse and entity.takeDamage != ibworldconstants.DAMAGE_NO then
       targets[targetCount] = worldWeaponTarget(entity); targetCount = targetCount + 1
     end if
   end for
@@ -1216,7 +1216,14 @@ function integratedTurretVisible(driver, enemy, world)
 end function
 
 function integratedTurretRandomUnit()
-  return 0.5
+  return integratedRandomUnit()
+end function
+
+function integratedTurretSkillValue()
+  global activeIntegrationRuntime
+  ibTurretSkillRuntimeHolder = activeIntegrationRuntime
+  if ibTurretSkillRuntimeHolder is void then return void end if
+  return ibTurretSkillRuntimeHolder.aiContext.skill
 end function
 
 function integratedTurretFire(attacker, start, direction, damage, speed, splashRadius, world)
@@ -1230,6 +1237,44 @@ function integratedTurretFire(attacker, start, direction, damage, speed, splashR
   return true
 end function
 
+function integratedTurretPositionedSound(origin, entity, soundName, world)
+  global activeIntegrationRuntime
+  ibTurretSoundRuntimeHolder = activeIntegrationRuntime
+  if ibTurretSoundRuntimeHolder is void or ibTurretSoundRuntimeHolder.playerContext is void or
+      ibTurretSoundRuntimeHolder.exportTable is void then return false end if
+  if entity.number < 0 or entity.number >= ibTurretSoundRuntimeHolder.exportTable.numEdicts then return false end if
+  ibTurretSoundImportsHolder = ibTurretSoundRuntimeHolder.playerContext.imports
+  ibTurretSoundEdictHolder = ibTurretSoundRuntimeHolder.exportTable.edicts[entity.number]
+  return ibTurretSoundImportsHolder.positionedSound(origin, ibTurretSoundEdictHolder,
+    ibgconstants.CHAN_WEAPON, ibTurretSoundImportsHolder.soundIndex(soundName),
+    1.0, ibgconstants.ATTN_NORM, 0.0)
+end function
+
+function integratedTurretCrushDamage(targetEntity, inflictor, attacker, amount,
+    knockback, means, world)
+  global activeIntegrationRuntime
+  ibTurretCrushRuntimeHolder = activeIntegrationRuntime
+  if ibTurretCrushRuntimeHolder is void or targetEntity is void then return false end if
+  ibTurretCrushTargetHolder = weaponTargetByNumber(
+    ibTurretCrushRuntimeHolder, targetEntity.number)
+  if ibTurretCrushTargetHolder is void then return false end if
+  ibTurretCrushInflictorHolder = void
+  ibTurretCrushAttackerHolder = void
+  if inflictor is not void then
+    ibTurretCrushInflictorHolder = weaponTargetByNumber(
+      ibTurretCrushRuntimeHolder, inflictor.number)
+  end if
+  if attacker is not void then
+    ibTurretCrushAttackerHolder = weaponTargetByNumber(
+      ibTurretCrushRuntimeHolder, attacker.number)
+  end if
+  return ibwpcore.applyDamage(ibTurretCrushRuntimeHolder.weaponContext,
+    ibTurretCrushTargetHolder, ibTurretCrushInflictorHolder,
+    ibTurretCrushAttackerHolder, ibqtypes.zeroVec3(),
+    ibTurretCrushTargetHolder.origin, amount, knockback, 0,
+    integratedWorldMeans(means))
+end function
+
 function integratedTurretDriverSpawn(driver, world)
   return true
 end function
@@ -1239,6 +1284,36 @@ function integratedTurretDriverUse(driver, other, activator, world)
 end function
 
 function integratedTurretDriverDie(driver, inflictor, attacker, damage, point, world)
+  global activeIntegrationRuntime
+  ibTurretDeathRuntimeHolder = activeIntegrationRuntime
+  if ibTurretDeathRuntimeHolder is void then driver.inUse = false; return true end if
+  if ibTurretDeathRuntimeHolder.playerContext is not void and
+      ibTurretDeathRuntimeHolder.exportTable is not void and driver.number >= 0 and
+      driver.number < ibTurretDeathRuntimeHolder.exportTable.numEdicts then
+    ibTurretDeathImportsHolder = ibTurretDeathRuntimeHolder.playerContext.imports
+    ibTurretDeathEdictHolder = ibTurretDeathRuntimeHolder.exportTable.edicts[driver.number]
+    ibTurretDeathImportsHolder.sound(ibTurretDeathEdictHolder,
+      ibgconstants.CHAN_VOICE,
+      ibTurretDeathImportsHolder.soundIndex("misc/udeath.wav"),
+      1.0, ibgconstants.ATTN_NORM, 0.0)
+  end if
+  ibTurretDeathActorHolder = ibaitypes.createActor(driver.number, "monster_infantry")
+  ibTurretDeathActorHolder.edict.state.origin = ibqtypes.Vec3(
+    driver.origin.x, driver.origin.y, driver.origin.z)
+  ibTurretDeathActorHolder.edict.state.angles = ibqtypes.Vec3(
+    driver.angles.x, driver.angles.y, driver.angles.z)
+  ibTurretDeathGibResult = ibdeatheffects.emitMonsterGibs(
+    ibTurretDeathActorHolder, damage, ibTurretDeathRuntimeHolder.aiContext)
+  if ibTurretDeathGibResult is error then return ibTurretDeathGibResult end if
+  driver.inUse = false
+  driver.solid = ibworldconstants.SOLID_NOT
+  driver.takeDamage = ibworldconstants.DAMAGE_NO
+  driver.modelIndex = 0
+  driver.nextThink = 0.0
+  if ibTurretDeathRuntimeHolder.exportTable is not void and driver.number >= 0 and
+      driver.number < ibTurretDeathRuntimeHolder.exportTable.numEdicts then
+    ibTurretDeathRuntimeHolder.exportTable.edicts[driver.number].inUse = false
+  end if
   return true
 end function
 
@@ -1247,7 +1322,10 @@ function integratedTurretControl()
   ibTurretCallbacksHolder.acquireTarget = integratedTurretAcquire
   ibTurretCallbacksHolder.traceVisible = integratedTurretVisible
   ibTurretCallbacksHolder.randomUnit = integratedTurretRandomUnit
+  ibTurretCallbacksHolder.skillValue = integratedTurretSkillValue
   ibTurretCallbacksHolder.fireRocket = integratedTurretFire
+  ibTurretCallbacksHolder.positionedSound = integratedTurretPositionedSound
+  ibTurretCallbacksHolder.crushDamage = integratedTurretCrushDamage
   ibTurretCallbacksHolder.driverSpawn = integratedTurretDriverSpawn
   ibTurretCallbacksHolder.driverUse = integratedTurretDriverUse
   ibTurretCallbacksHolder.driverDie = integratedTurretDriverDie
@@ -1542,6 +1620,11 @@ function precacheSpawned(runtime, playerContext)
       imports.soundIndex("tank/thud.wav")
       imports.soundIndex("tank/pain.wav")
     else if entity.inUse and entity.className == "misc_deadsoldier" then
+      imports.modelIndex("models/objects/gibs/sm_meat/tris.md2")
+      imports.modelIndex("models/objects/gibs/head2/tris.md2")
+      imports.soundIndex("misc/udeath.wav")
+    else if entity.inUse and entity.className == "turret_driver" then
+      imports.modelIndex("models/objects/gibs/bone/tris.md2")
       imports.modelIndex("models/objects/gibs/sm_meat/tris.md2")
       imports.modelIndex("models/objects/gibs/head2/tris.md2")
       imports.soundIndex("misc/udeath.wav")
@@ -3239,6 +3322,7 @@ function syncGameEdicts(runtime, exportTable)
       ibSyncTargetHolder.state.sound = entity.loopSound
       ibSyncTargetHolder.serverFlags = entity.serverFlags
       ibSyncTargetHolder.solid = entity.solid
+      ibSyncTargetHolder.clipMask = entity.clipMask
       ibSyncTargetHolder.mins = ibSyncMinsHolder
       ibSyncTargetHolder.maxs = ibSyncMaxsHolder
       ibgametypes.stabilizeEdict(ibSyncTargetHolder)

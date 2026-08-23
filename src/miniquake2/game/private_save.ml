@@ -12,12 +12,13 @@ import miniquake2.game.ai.props as privatesaveaiprops
 import miniquake2.game.ai.types as privatesaveaitypes
 import miniquake2.game.types as privatesavegametypes
 import miniquake2.game.world.movers as privatemovers
+import miniquake2.game.world.turret as privateturret
 import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 12
+const PRIVATE_VERSION = 13
 
 struct PrivateRestore
   runtime
@@ -160,6 +161,10 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privateWriteVec(buffer, entity.moveInfo.direction)
     privateWriteVec(buffer, entity.moveInfo.startOrigin); privateWriteVec(buffer, entity.moveInfo.endOrigin)
     privateWriteVec(buffer, entity.moveInfo.startAngles); privateWriteVec(buffer, entity.moveInfo.endAngles)
+    privatemessage.writeLong(buffer, entity.flags); privatemessage.writeLong(buffer, entity.serverFlags)
+    privatemessage.writeLong(buffer, entity.takeDamage); privatemessage.writeLong(buffer, entity.gibHealth)
+    privatemessage.writeLong(buffer, entity.clipMask); privatemessage.writeLong(buffer, entity.aiFlags)
+    privatemessage.writeFloat(buffer, entity.timestamp); privatemessage.writeFloat(buffer, entity.pauseTime)
   end for
 
   privatemessage.writeLong(buffer, len(runtime.monsters))
@@ -299,7 +304,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   privateSaveVersion = privatechecked.readLong(buffer, "private save version")
   if privateSaveVersion != 7 and privateSaveVersion != 8 and
       privateSaveVersion != 9 and privateSaveVersion != 10 and
-      privateSaveVersion != 11 and
+      privateSaveVersion != 11 and privateSaveVersion != 12 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -445,6 +450,16 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     entity.moveInfo.direction = privateReadVec(buffer, "private mover direction")
     entity.moveInfo.startOrigin = privateReadVec(buffer, "private mover start"); entity.moveInfo.endOrigin = privateReadVec(buffer, "private mover end")
     entity.moveInfo.startAngles = privateReadVec(buffer, "private mover start angles"); entity.moveInfo.endAngles = privateReadVec(buffer, "private mover end angles")
+    if privateSaveVersion >= 13 then
+      entity.flags = privatechecked.readLong(buffer, "private world flags")
+      entity.serverFlags = privatechecked.readLong(buffer, "private world server flags")
+      entity.takeDamage = privatechecked.readLong(buffer, "private world take damage")
+      entity.gibHealth = privatechecked.readLong(buffer, "private world gib health")
+      entity.clipMask = privatechecked.readLong(buffer, "private world clip mask")
+      entity.aiFlags = privatechecked.readLong(buffer, "private world AI flags")
+      entity.timestamp = privateReadFloat(buffer, "private world trail time")
+      entity.pauseTime = privateReadFloat(buffer, "private world attack finished")
+    end if
     if entity.className == "monster_gib" then entity.think = privateworldcore.freeThink
     else if entity.className == "DelayedUse" then entity.think = privateworldcore.thinkDelayed
     else privatemovers.restoreMoverState(entity, runtime.world) end if
@@ -595,6 +610,11 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
         runtime, playerContext, privateWorldReference.oldEnemyNumber, "old enemy")
       privateWorldReference.entity.groundEntity = privateResolveWorldReference(
         runtime, playerContext, privateWorldReference.groundEntityNumber, "ground entity")
+      if privateWorldReference.entity.className == "turret_base" or
+          privateWorldReference.entity.className == "turret_breach" or
+          privateWorldReference.entity.className == "turret_driver" then
+        privateturret.restoreTurretState(privateWorldReference.entity, runtime.world)
+      end if
     end for
   end if
   if buffer.readCount != buffer.curSize then return error(3882, "trailing private BaseQ2 save data") end if

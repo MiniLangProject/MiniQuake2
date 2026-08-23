@@ -97,6 +97,9 @@ struct WorldEntity
   enemy
   oldEnemy
   groundEntity
+  gibHealth
+  clipMask
+  aiFlags
 end struct
 
 struct WorldCallbacks
@@ -214,6 +217,7 @@ function createEntity(number, className)
     void, void, void, void, void,
     0.0, 0.0, 0.0, zeroMoveInfo(),
     0.0, 0.0, 0.0,
-    "", "", void, void, void
+    "", "", void, void, void,
+    0, 0, 0
   )
 end function
