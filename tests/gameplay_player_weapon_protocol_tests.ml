@@ -86,6 +86,27 @@ weaponProtocolAssert(weaponMuzzleEvent.destination == weaponprotocolgameconstant
   weaponMuzzleEvent.payload[3] == (weaponprotocolconstants.MZ_BLASTER | weaponprotocolconstants.MZ_SILENCED),
   "silenced player muzzle framing")
 weaponProtocolAssert(weaponPlayer.gameplay.silencerShots == 0, "silencer shot consumed")
+weaponNoiseRuntime = weaponprotocolgame.baseRuntime()
+weaponProtocolAssert(weaponNoiseRuntime.aiContext.soundEntity is void,
+  "silenced Blaster published a weapon noise")
+weaponNoiseOwner = weaponprotocolintegration.playerWeaponTarget(weaponPlayer, weaponRegistry)
+weaponImpactNoisePosition = weaponprotocolqtypes.Vec3(80.0, -12.0, 36.0)
+weaponProtocolAssert(weaponprotocolintegration.integratedPlayerNoise(
+  weaponNoiseOwner, weaponImpactNoisePosition, 2), "impact player noise dispatch")
+weaponImpactNoise = weaponNoiseRuntime.aiContext.sound2Entity
+weaponProtocolAssert(weaponImpactNoise.className == "player_noise" and
+  weaponImpactNoise.owner.edict.state.number == weaponClient.state.number and
+  weaponImpactNoise.edict.state.origin.x == 80.0 and
+  weaponImpactNoise.edict.state.origin.y == -12.0 and
+  weaponImpactNoise.edict.state.origin.z == 36.0 and
+  weaponImpactNoise.mins[0] == -8.0 and weaponImpactNoise.maxs[0] == 8.0,
+  "impact player_noise shape/location")
+weaponprotocolgame.playerContext().deathmatch = true
+weaponProtocolAssert(weaponprotocolintegration.integratedPlayerNoise(
+  weaponNoiseOwner, weaponImpactNoisePosition, 1) == false and
+  weaponNoiseRuntime.aiContext.soundEntity is void,
+  "deathmatch published a player noise")
+weaponprotocolgame.playerContext().deathmatch = false
 weaponLinkedBolt = weaponprotocolgame.baseRuntime().weaponContext.projectiles[0]
 weaponProtocolAssert(weaponLinkedBolt.engineNumber > weaponClient.state.number and
   weaponLinkedBolt.engineNumber < weaponApi.numEdicts,
@@ -196,6 +217,14 @@ weaponprotocolintegration.integratedPlayerFire(weaponSequenceGameplay, weaponReg
 weaponProtocolAssert(weaponSequenceGameplay.gunFrame == 5 and
   weaponSequenceGameplay.inventory.counts[weaponSequenceGameplay.ammoIndex] == 9,
   "Machinegun first toggle frame")
+weaponPrimaryNoise = weaponNoiseRuntime.aiContext.soundEntity
+weaponProtocolAssert(weaponPrimaryNoise is not void and
+  weaponPrimaryNoise.className == "player_noise" and
+  weaponPrimaryNoise.owner.edict.state.number == weaponClient.state.number and
+  nativeRawValue(weaponPrimaryNoise) != nativeRawValue(weaponImpactNoise) and
+  weaponPrimaryNoise.edict.state.origin.x != weaponPlayer.edict.state.origin.x and
+  weaponPrimaryNoise.teleportTime == weaponNoiseRuntime.aiContext.time,
+  "unsilenced weapon player_noise publication")
 weaponprotocolintegration.integratedPlayerFire(weaponSequenceGameplay, weaponRegistry)
 weaponProtocolAssert(weaponSequenceGameplay.gunFrame == 4 and
   weaponSequenceGameplay.inventory.counts[weaponSequenceGameplay.ammoIndex] == 8,
@@ -312,6 +341,11 @@ weaponProtocolAssert(len(weaponprotocolgame.baseRuntime().weaponContext.projecti
   weaponprotocolgame.baseRuntime().randomState.seed == 3357800067,
   "Rocket 100-plus-random-20 damage")
 
+weaponNoiseBeforeHand = weaponNoiseRuntime.aiContext.soundEntity
+weaponNoiseFrameBeforeHand = weaponNoiseRuntime.aiContext.soundEntityFrame
+weaponNoiseXBeforeHand = weaponNoiseBeforeHand.edict.state.origin.x
+weaponNoiseYBeforeHand = weaponNoiseBeforeHand.edict.state.origin.y
+weaponNoiseZBeforeHand = weaponNoiseBeforeHand.edict.state.origin.z
 weaponHandItem = weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry,
   "ammo_grenades", 0, 0, 2)
 weaponSequenceGameplay.weaponState = weaponprotocolgameplayconstants.WEAPON_ACTIVATING
@@ -341,6 +375,13 @@ weaponProtocolAssert(weaponSequencePlayer.handGrenadeState.lastProjectile is not
   weaponSequenceGameplay.inventory.counts[weaponSequenceGameplay.ammoIndex] == 1 and
   weaponSequenceGameplay.gunFrame == 13,
   "hand grenade release/projectile/ammo")
+weaponProtocolAssert(nativeRawValue(weaponNoiseRuntime.aiContext.soundEntity) ==
+    nativeRawValue(weaponNoiseBeforeHand) and
+  weaponNoiseRuntime.aiContext.soundEntityFrame == weaponNoiseFrameBeforeHand and
+  weaponNoiseRuntime.aiContext.soundEntity.edict.state.origin.x == weaponNoiseXBeforeHand and
+  weaponNoiseRuntime.aiContext.soundEntity.edict.state.origin.y == weaponNoiseYBeforeHand and
+  weaponNoiseRuntime.aiContext.soundEntity.edict.state.origin.z == weaponNoiseZBeforeHand,
+  "hand grenade incorrectly published PlayerNoise")
 
 weaponProtocolAssert(weaponprotocolcore.freeProjectile(weaponprotocolgame.baseRuntime().weaponContext,
   weaponLinkedBolt), "projectile free")

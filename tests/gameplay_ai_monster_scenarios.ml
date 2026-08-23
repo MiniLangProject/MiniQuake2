@@ -196,6 +196,9 @@ function testSightMovementAndAttack()
   assertEqual(monster.enemy.edict.state.number, 1, "enemy assignment")
   assertEqual(monster.goalEntity.edict.state.number, 1, "hunt goal")
   assertEqual(monster.info.lastSighting[0], 100.0, "last sighting")
+  assertEqual(context.sightEntity.edict.state.number, 30, "found target sight publication")
+  assertEqual(context.sightEntityFrame, 100, "found target sight frame")
+  assertEqual(monster.lightLevel, 128, "found target light publication")
   assertEqual(monster.activity, "sight", "sight callback dispatch")
   beforeMoves = len(walkDistances)
   gaicore.ai_charge(monster, 3.0, context)
@@ -210,6 +213,8 @@ function testSightMovementAndAttack()
   other = gaitypes.createActor(31, "monster_infantry")
   gaimonster.installDefaultCallbacks(other, true, false)
   other.edict.state.angles = [0.0, 0.0, 0.0]
+  context.sightEntity = void
+  context.sightEntityFrame = -1000
   context.sightClient = behind
   assertEqual(gaicore.FindTarget(other, context), false, "midrange target behind rejected")
   behind.edict.state.origin = [600.0, 0.0, 0.0]
@@ -232,6 +237,27 @@ function testSightMovementAndAttack()
   assertTrue(gaicore.FindTarget(listener, soundContext), "sound target acquired")
   assertTrue((listener.info.aiFlags & gaiconstants.AI_SOUND_TARGET) != 0, "sound target flag")
   assertEqual(listener.enemy.className, "player_noise", "sound enemy")
+  waypoint = gaitypes.createActor(42, "path_corner")
+  listener.moveTarget = waypoint
+  noise.teleportTime = 2.0
+  soundContext.time = 7.1
+  gaicore.ai_checkattack(listener, 0.0, soundContext)
+  assertEqual(listener.goalEntity.edict.state.number, 42, "expired sound target restores move target")
+  assertTrue((listener.info.aiFlags & gaiconstants.AI_SOUND_TARGET) == 0,
+    "expired sound target flag cleared")
+
+  brutal = gaitypes.createActor(43, "monster_brutal")
+  gaimonster.installDefaultCallbacks(brutal, true, false)
+  brutalEnemy = gaitypes.createClientTarget(44)
+  brutalEnemy.health = -1
+  brutal.enemy = brutalEnemy
+  brutal.info.aiFlags = brutal.info.aiFlags | gaiconstants.AI_BRUTAL
+  gaicore.ai_checkattack(brutal, 0.0, soundContext)
+  assertEqual(brutal.enemy.edict.state.number, 44, "brutal wounded target retained")
+  brutalEnemy.health = -80
+  assertTrue(gaicore.ai_checkattack(brutal, 0.0, soundContext),
+    "brutal monster releases gibbed target")
+  assertTrue(brutal.enemy is void, "brutal gibbed target cleared")
 
   melee = gaitypes.createActor(50, "monster_berserk")
   gaimonster.installDefaultCallbacks(melee, false, true)

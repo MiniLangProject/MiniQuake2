@@ -186,6 +186,13 @@ end function
 
 function FoundTarget(actor, context)
   if actor.enemy is void then return error(9601, "FoundTarget: enemy required") end if
+  // Publish a monster that found a client for one frame so nearby monsters
+  // can inherit the sighting without scanning every client.
+  if actor.enemy.isClient then
+    context.sightEntity = actor
+    context.sightEntityFrame = context.frameNumber
+    actor.lightLevel = 128
+  end if
   actor.showHostile = context.time + 1.0
   actor.info.lastSighting = [vectorX(actor.enemy.edict.state.origin), vectorY(actor.enemy.edict.state.origin), vectorZ(actor.enemy.edict.state.origin)]
   actor.info.trailTime = context.time
@@ -313,6 +320,22 @@ function DispatchAttackState(actor, context, enemyYaw)
 end function
 
 function ai_checkattack(actor, distance, context)
+  // Stock g_ai.c hunts a player_noise for at most five seconds.
+  if actor.goalEntity is not void then
+    if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then return false end if
+    if (actor.info.aiFlags & gaiconstants.AI_SOUND_TARGET) != 0 and actor.enemy is not void then
+      if context.time - actor.enemy.teleportTime > 5.0 then
+        if nativeRawValue(actor.goalEntity) == nativeRawValue(actor.enemy) then actor.goalEntity = actor.moveTarget end if
+        actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_SOUND_TARGET
+        if (actor.info.aiFlags & gaiconstants.AI_TEMP_STAND_GROUND) != 0 then
+          actor.info.aiFlags = actor.info.aiFlags & ~(gaiconstants.AI_STAND_GROUND | gaiconstants.AI_TEMP_STAND_GROUND)
+        end if
+      else
+        actor.showHostile = context.time + 1.0
+        return false
+      end if
+    end if
+  end if
   enemyUnavailable = actor.enemy is void
   if not enemyUnavailable then enemyUnavailable = actor.enemy.edict.inUse != true end if
   if not enemyUnavailable and (actor.info.aiFlags & gaiconstants.AI_MEDIC) != 0 then
@@ -322,8 +345,11 @@ function ai_checkattack(actor, distance, context)
       enemyUnavailable = true
       actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_MEDIC
     end if
-  else if not enemyUnavailable and actor.enemy.health <= 0 then
-    enemyUnavailable = true
+  else if not enemyUnavailable then
+    if (actor.info.aiFlags & gaiconstants.AI_BRUTAL) != 0 then
+      if actor.enemy.health <= -80 then enemyUnavailable = true end if
+    else if actor.enemy.health <= 0 then enemyUnavailable = true
+    end if
   end if
   if enemyUnavailable then
     actor.enemy = void

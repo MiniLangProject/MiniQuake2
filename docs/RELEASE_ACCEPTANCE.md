@@ -4,6 +4,40 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-23 monster sensing and PlayerNoise acceptance run
+
+The Release product and all 152 native test programs were freshly rebuilt and
+executed after replacing the remaining generic AI sensing placeholders with the
+Quake II 3.19 collision, hearing and sound-target behavior:
+
+```powershell
+.\build.ps1 -Configuration Release -SkipPreflight
+.\build.ps1 -Configuration Release -PreflightOnly
+```
+
+Both commands exited with code 0. The strict gate passed MiniLang syntax for
+346 files, exact manifest membership for 389 maintained files and verifier
+self-tests. The product-shaped inline-brush regression proves that a live door
+blocks both the eye-to-eye `MASK_OPAQUE` visibility trace and the exact
+`M_CheckAttack` shot mask, then restores sight and fire after moving away. The
+AI scenarios cover one-frame sight publication, the five-second
+`AI_SOUND_TARGET` lifetime and the `AI_BRUTAL` -80 health threshold.
+
+Player weapon integration now retains the original two reusable
+`player_noise` objects per player, separates primary and impact noise, records
+the actual linked BSP area and position, suppresses weapon noise for silenced
+shots, deathmatch and `FL_NOTARGET`, and preserves the original absence of
+hand-grenade noise. The area-portal link traversal and eye traces are
+allocation-free in their hot paths. The complete 5,000-frame synthetic session
+soak passed at over 3,565 fps with 10,027/10,027 packets processed.
+
+The accepted executable then passed both installed Steam retail gates:
+
+```text
+base1: maps=1 steps=64 snapshots=64 fire=1 items=9 health=100 packets=202 rejected=0
+campaign: maps=39 changes=38 client-state=4 spawn-count=39 steps=753 packets=3700
+```
+
 ## 2026-08-23 turret parity and Private-Save v13 acceptance run
 
 The Release product and all 152 native test programs were freshly rebuilt and

@@ -44,8 +44,8 @@ function inlineFixture()
   ]
   brushes = [informattypes.BspBrush(0, 6, informatconstants.CONTENTS_SOLID)]
   leafs = [
-    informattypes.BspLeaf(0, 0, 0, informattypes.Vec3(-32.0, -32.0, -32.0), informattypes.Vec3(32.0, 32.0, 32.0), 0, 0, 0, 0),
-    informattypes.BspLeaf(informatconstants.CONTENTS_SOLID, -1, 0, informattypes.Vec3(-2.0, -2.0, -2.0), informattypes.Vec3(0.0, 2.0, 2.0), 0, 0, 0, 1),
+    informattypes.BspLeaf(0, 0, 1, informattypes.Vec3(-32.0, -32.0, -32.0), informattypes.Vec3(32.0, 32.0, 32.0), 0, 0, 0, 0),
+    informattypes.BspLeaf(informatconstants.CONTENTS_SOLID, -1, 1, informattypes.Vec3(-2.0, -2.0, -2.0), informattypes.Vec3(0.0, 2.0, 2.0), 0, 0, 0, 1),
   ]
   models = [
     informattypes.BspModel(informattypes.Vec3(-32.0, -32.0, -32.0), informattypes.Vec3(32.0, 32.0, 32.0), informattypes.Vec3(0.0, 0.0, 0.0), 0, 0, 0),
@@ -53,7 +53,7 @@ function inlineFixture()
   ]
   map = informattypes.BspMap("inline-fixture", bytes(0), [], "", planes, [],
     informattypes.BspVisibility(0, [], [], bytes(0)), nodes, [texture], [], bytes(0), leafs, [], [0], [], [], models,
-    brushes, sides, [informattypes.BspArea(0, 0)], [])
+    brushes, sides, [informattypes.BspArea(0, 0), informattypes.BspArea(0, 0)], [])
   return incollision.create(map)
 end function
 
@@ -118,7 +118,8 @@ brush = game.edicts[2]
 
 inlineAssert(brush.headNode == 1, "setmodel adopts inline hull headnode")
 inlineAssert(brush.mins.x == -1.0 and brush.maxs.x == 1.0, "setmodel adopts inline hull bounds")
-inlineAssert(brush.size.x == 2.0 and game.numEdicts == 3, "Game API binds compact brush edict")
+inlineAssert(brush.size.x == 2.0 and brush.areaNumber == 1 and game.numEdicts == 3,
+  "Game API binds compact brush edict and BSP area")
 hit = imports.trace(inqtypes.Vec3(14.0, 0.0, 0.0), inqtypes.zeroVec3(), inqtypes.zeroVec3(),
   inqtypes.Vec3(6.0, 0.0, 0.0), void, inqconstants.MASK_SOLID)
 inlineAssert(hit.entity is not void and hit.entity.state.number == 2, "trace hits dynamic inline brush edict")
@@ -132,6 +133,54 @@ brush.state.angles = inqtypes.Vec3(0.0, 90.0, 0.0)
 imports.linkEntity(brush)
 rotatedHits = imports.boxEdicts(inqtypes.Vec3(9.5, 3.0, -0.5), inqtypes.Vec3(10.5, 4.0, 0.5), 1)
 inlineAssert(len(rotatedHits) == 1 and rotatedHits[0].state.number == brush.state.number, "rotated brush broadphase uses transformed bounds")
+
+// Product-level g_ai.c visibility and M_CheckAttack traces must use the same
+// live inline-brush collision boundary as ordinary server traces.
+aiFixture = "{\"classname\" \"worldspawn\"}" +
+  "{\"classname\" \"info_player_start\" \"origin\" \"-64 0 0\" \"angle\" \"0\"}" +
+  "{\"classname\" \"func_door\" \"model\" \"*1\" \"origin\" \"0 0 24\" \"angle\" \"0\"}" +
+  "{\"classname\" \"monster_soldier\" \"origin\" \"64 0 0\" \"angle\" \"180\"}"
+game.spawnEntities("inline-ai-fixture", aiFixture, "")
+aiClient = game.edicts[1]
+inlineAssert(game.clientConnect(aiClient, "\\name\\InlineRanger\\skin\\male/grunt"),
+  "inline AI client connect")
+inlineAssert(game.clientBegin(aiClient), "inline AI client begin")
+aiDoor = game.edicts[3]
+aiDoor.mins = inqtypes.Vec3(-1.0, -32.0, -64.0)
+aiDoor.maxs = inqtypes.Vec3(1.0, 32.0, 64.0)
+imports.linkEntity(aiDoor)
+aiRuntime = ingameapi.baseRuntime()
+aiMonster = aiRuntime.monsters[0]
+aiPlayer = aiRuntime.aiPlayers[0]
+aiSightStart = inqtypes.Vec3(aiMonster.edict.state.origin.x,
+  aiMonster.edict.state.origin.y, aiMonster.edict.state.origin.z + aiMonster.viewHeight)
+aiSightEnd = inqtypes.Vec3(aiPlayer.edict.state.origin.x,
+  aiPlayer.edict.state.origin.y, aiPlayer.edict.state.origin.z + aiPlayer.viewHeight)
+aiDoor.state.origin = inqtypes.Vec3(0.0, 0.0, (aiSightStart.z + aiSightEnd.z) * 0.5)
+imports.linkEntity(aiDoor)
+aiKnownDoorTrace = imports.trace(inqtypes.Vec3(64.0, 0.0, aiDoor.state.origin.z),
+  inqtypes.zeroVec3(), inqtypes.zeroVec3(),
+  inqtypes.Vec3(-64.0, 0.0, aiDoor.state.origin.z), void, inqconstants.MASK_OPAQUE)
+inlineAssert(aiKnownDoorTrace.entity is not void and
+  aiKnownDoorTrace.entity.state.number == aiDoor.state.number,
+  "known-height trace missed the closed inline door")
+aiDoorTrace = imports.trace(aiSightStart, inqtypes.zeroVec3(), inqtypes.zeroVec3(),
+  aiSightEnd, aiMonster.edict, inqconstants.MASK_OPAQUE)
+inlineAssert(aiDoorTrace.entity is not void and aiDoorTrace.entity.state.number == aiDoor.state.number,
+  "raw eye trace missed the closed inline door start-z=" + aiSightStart.z +
+    " end-z=" + aiSightEnd.z + " door-z=" + aiDoor.state.origin.z)
+inlineAssert(aiRuntime.aiContext.visible(aiMonster, aiPlayer) == false,
+  "monster visibility crossed a closed inline door")
+inlineAssert(aiRuntime.aiContext.clearShot(aiMonster, aiPlayer) == false,
+  "monster clear-shot trace crossed a closed inline door")
+aiDoor.state.origin = inqtypes.Vec3(200.0, 0.0, aiDoor.state.origin.z)
+imports.linkEntity(aiDoor)
+inlineAssert(aiRuntime.aiContext.visible(aiMonster, aiPlayer),
+  "monster visibility stayed blocked after door moved away")
+inlineAssert(aiRuntime.aiContext.clearShot(aiMonster, aiPlayer),
+  "monster clear-shot trace did not hit the live player target")
+game.clientDisconnect(aiClient)
+
 inlineRepeatedBrushLifetime(runtime, imports, game)
 malformedBrush = ingametypes.zeroEdict(99)
 malformedBrush.inUse = true

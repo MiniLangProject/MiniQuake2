@@ -194,10 +194,10 @@ function configureIntegratedRuntime(runtime, playerContext)
   runtime.world.callbacks.radiusDamage = ngbaseq2.integratedWorldRadiusDamage
   runtime.world.callbacks.changeLevel = baseWorldChangeLevel
   runtime.world.callbacks.linkEntity = baseWorldLink
-  runtime.aiContext.visible = aiTraceVisible
-  runtime.aiContext.clearShot = aiTraceVisible
-  runtime.aiContext.inPHS = aiInPHS
-  runtime.aiContext.areasConnected = aiAreasConnected
+  runtime.aiContext.visible = ngbaseq2.aiVisible
+  runtime.aiContext.clearShot = ngbaseq2.aiClearShot
+  runtime.aiContext.inPHS = ngbaseq2.aiInPHS
+  runtime.aiContext.areasConnected = ngbaseq2.aiAreasConnected
   playerContext.touchTriggers = playerTouchTriggers
   playerContext.touchEntity = playerTouchEntity
   playerContext.weaponThink = ngbaseq2.thinkPlayerWeapon

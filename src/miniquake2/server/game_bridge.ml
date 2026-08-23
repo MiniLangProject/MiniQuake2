@@ -469,7 +469,40 @@ function updateInlineBrushCache(context, entity, linked)
   return true
 end function
 
+function collectLinkedEntityAreas(context, nodeNumber, mins, maxs, entity)
+  if entity.areaNumber != 0 and entity.areaNumber2 != 0 then return true end if
+  if nodeNumber < 0 then
+    sgbAreaLeafNumber = -1 - nodeNumber
+    if sgbAreaLeafNumber < 0 or sgbAreaLeafNumber >= len(context.collision.map.leafs) then
+      return error(3936, "linked entity leaf outside table")
+    end if
+    sgbAreaLeafHolder = context.collision.map.leafs[sgbAreaLeafNumber]
+    sgbAreaNumber = sgbAreaLeafHolder.area
+    if sgbAreaNumber != 0 then
+      if entity.areaNumber == 0 then entity.areaNumber = sgbAreaNumber
+      else if entity.areaNumber != sgbAreaNumber and entity.areaNumber2 == 0 then
+        entity.areaNumber2 = sgbAreaNumber
+      end if
+    end if
+    return true
+  end if
+  if nodeNumber >= len(context.collision.map.nodes) then
+    return error(3937, "linked entity node outside table")
+  end if
+  sgbAreaNodeHolder = context.collision.map.nodes[nodeNumber]
+  sgbAreaPlaneHolder = context.collision.map.planes[sgbAreaNodeHolder.planeIndex]
+  sgbAreaSide = collision.boxOnPlaneSide(mins, maxs, sgbAreaPlaneHolder)
+  if (sgbAreaSide & 1) != 0 then
+    collectLinkedEntityAreas(context, sgbAreaNodeHolder.child0, mins, maxs, entity)
+  end if
+  if (sgbAreaSide & 2) != 0 and entity.areaNumber2 == 0 then
+    collectLinkedEntityAreas(context, sgbAreaNodeHolder.child1, mins, maxs, entity)
+  end if
+  return true
+end function
+
 function linkEntity(entity)
+  sgbLinkContextHolder = requireActive("linkentity")
   sgbLinkEntityHolder = entity
   sgbLinkEntityHolder.linkCount = sgbLinkEntityHolder.linkCount + 1
   sgbLinkTransformedHolder = transformedEntityBounds(sgbLinkEntityHolder)
@@ -482,8 +515,16 @@ function linkEntity(entity)
   sgbLinkEntityHolder.absoluteMins = sgbLinkAbsoluteMinsHolder
   sgbLinkEntityHolder.absoluteMaxs = sgbLinkAbsoluteMaxsHolder
   sgbLinkEntityHolder.size = sgbLinkSizeHolder
+  // SV_LinkEdict publishes the BSP areas occupied by the entity. Monster
+  // hearing uses these fields to respect closed area portals.
+  sgbLinkEntityHolder.areaNumber = 0
+  sgbLinkEntityHolder.areaNumber2 = 0
+  if sgbLinkContextHolder.collision is not void then
+    collectLinkedEntityAreas(sgbLinkContextHolder, 0, sgbLinkAbsoluteMinsHolder,
+      sgbLinkAbsoluteMaxsHolder, sgbLinkEntityHolder)
+  end if
   gt.stabilizeEdict(sgbLinkEntityHolder)
-  updateInlineBrushCache(requireActive("linkentity"), sgbLinkEntityHolder, true)
+  updateInlineBrushCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)
   return true
 end function
 

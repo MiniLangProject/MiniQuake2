@@ -99,6 +99,9 @@ struct AIActor
   attackAim
   attackAimValid
   attackCycles
+  teleportTime
+  noisePrimary
+  noiseSecondary
 end struct
 
 struct AIContext
@@ -199,7 +202,7 @@ function createActor(number, className)
     "", "", "", "", void, void, void, void, void, void, void,
     info, void, void, "created", 0, 0, 0, 0, "none",
     false, "none", "", 0.0, false, number, 0.0,
-    gaiAttackAimHolder, false, 0
+    gaiAttackAimHolder, false, 0, 0.0, void, void
   )
   actor.edict = edict
   gtypes.stabilizeEdict(actor.edict)

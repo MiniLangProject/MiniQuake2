@@ -74,6 +74,13 @@ infantryDeathAimPitch = [0.0, 10.0, 20.0, 25.0, 30.0, 30.0,
 infantryDeathAimYaw = [5.0, 15.0, 25.0, 35.0, 40.0, 45.0,
   50.0, 40.0, 35.0, 35.0, 35.0, 35.0]
 
+// The server game is single-threaded. Reuse the three immutable-by-callee
+// trace arguments instead of allocating eye/zero vectors for every monster
+// visibility and attack check in the hot frame path.
+aiTraceStartScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+aiTraceEndScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+aiTraceZeroScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+
 function compactIntegratedValues(values, count)
   if count <= 0 then return [] end if
   if count == len(values) then return values end if
@@ -172,18 +179,57 @@ function aiUseTargets(actor, activator)
 end function
 
 function aiVisible(actor, other)
-  // Collision-aware visibility can replace this callback when the BSP trace
-  // adapter exposes entity-to-entity line tests. The base1 slice remains
-  // deterministic and range/front gated in the AI core.
-  return true
+  global activeIntegrationRuntime
+  ibVisibleRuntimeHolder = activeIntegrationRuntime
+  if ibVisibleRuntimeHolder is void or ibVisibleRuntimeHolder.playerContext is void then return true end if
+  ibVisibleActorOriginHolder = actor.edict.state.origin
+  ibVisibleOtherOriginHolder = other.edict.state.origin
+  ibVisibleStartHolder = aiTraceStartScratch
+  ibVisibleStartHolder.x = ibVisibleActorOriginHolder.x
+  ibVisibleStartHolder.y = ibVisibleActorOriginHolder.y
+  ibVisibleStartHolder.z = ibVisibleActorOriginHolder.z + actor.viewHeight
+  ibVisibleEndHolder = aiTraceEndScratch
+  ibVisibleEndHolder.x = ibVisibleOtherOriginHolder.x
+  ibVisibleEndHolder.y = ibVisibleOtherOriginHolder.y
+  ibVisibleEndHolder.z = ibVisibleOtherOriginHolder.z + other.viewHeight
+  ibVisibleTraceHolder = ibVisibleRuntimeHolder.playerContext.imports.trace(
+    ibVisibleStartHolder, aiTraceZeroScratch, aiTraceZeroScratch,
+    ibVisibleEndHolder, actor.edict, ibqconstants.MASK_OPAQUE)
+  return ibVisibleTraceHolder.fraction == 1.0
+end function
+
+function aiClearShot(actor, other)
+  global activeIntegrationRuntime
+  ibClearRuntimeHolder = activeIntegrationRuntime
+  if ibClearRuntimeHolder is void or ibClearRuntimeHolder.playerContext is void then return true end if
+  ibClearActorOriginHolder = actor.edict.state.origin
+  ibClearOtherOriginHolder = other.edict.state.origin
+  ibClearStartHolder = aiTraceStartScratch
+  ibClearStartHolder.x = ibClearActorOriginHolder.x
+  ibClearStartHolder.y = ibClearActorOriginHolder.y
+  ibClearStartHolder.z = ibClearActorOriginHolder.z + actor.viewHeight
+  ibClearEndHolder = aiTraceEndScratch
+  ibClearEndHolder.x = ibClearOtherOriginHolder.x
+  ibClearEndHolder.y = ibClearOtherOriginHolder.y
+  ibClearEndHolder.z = ibClearOtherOriginHolder.z + other.viewHeight
+  ibClearMask = ibqconstants.CONTENTS_SOLID | ibqconstants.CONTENTS_MONSTER |
+    ibqconstants.CONTENTS_SLIME | ibqconstants.CONTENTS_LAVA | ibqconstants.CONTENTS_WINDOW
+  ibClearTraceHolder = integratedWeaponTrace(ibClearStartHolder,
+    aiTraceZeroScratch, aiTraceZeroScratch, ibClearEndHolder, actor, ibClearMask)
+  return ibClearTraceHolder.entity is not void and
+    ibClearTraceHolder.entity.number == other.edict.state.number
 end function
 
 function aiInPHS(first, second)
-  return true
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return true end if
+  return activeIntegrationRuntime.playerContext.imports.inPHS(first, second)
 end function
 
 function aiAreasConnected(first, second)
-  return true
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return true end if
+  return activeIntegrationRuntime.playerContext.imports.areasConnected(first, second)
 end function
 
 function integratedAISound(actor, soundName, channel, attenuation)
@@ -415,7 +461,7 @@ function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
   context.visible = aiVisible
-  context.clearShot = aiVisible
+  context.clearShot = aiClearShot
   context.inPHS = aiInPHS
   context.areasConnected = aiAreasConnected
   context.spawnMonster = integratedSpawnMonster
@@ -1095,11 +1141,55 @@ end function
 function integratedPlayerNoise(owner, position, noiseType)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
-  if runtime is void then return false end if
+  if runtime is void or noiseType < 0 or noiseType > 2 then return false end if
   source = findAIPlayer(runtime, owner.number)
   if source is void then return false end if
-  runtime.aiContext.soundEntity = source
-  runtime.aiContext.soundEntityFrame = runtime.aiContext.frameNumber
+  if runtime.playerContext is not void and runtime.playerContext.deathmatch then return false end if
+  if (source.flags & ibaiconstants.FL_NOTARGET) != 0 then return false end if
+
+  if source.noisePrimary is void then
+    ibNoisePrimaryNumber = -(source.edict.state.number * 2 + 1)
+    ibNoiseSecondaryNumber = -(source.edict.state.number * 2 + 2)
+    ibNoisePrimaryHolder = ibaitypes.createActor(ibNoisePrimaryNumber, "player_noise")
+    ibNoiseSecondaryHolder = ibaitypes.createActor(ibNoiseSecondaryNumber, "player_noise")
+    ibNoisePrimaryHolder.isClient = false; ibNoisePrimaryHolder.isMonster = false
+    ibNoiseSecondaryHolder.isClient = false; ibNoiseSecondaryHolder.isMonster = false
+    ibNoisePrimaryHolder.owner = source; ibNoiseSecondaryHolder.owner = source
+    ibNoisePrimaryHolder.edict.serverFlags = ibNoisePrimaryHolder.edict.serverFlags | ibgconstants.SVF_NOCLIENT
+    ibNoiseSecondaryHolder.edict.serverFlags = ibNoiseSecondaryHolder.edict.serverFlags | ibgconstants.SVF_NOCLIENT
+    ibNoisePrimaryHolder.mins = [-8.0, -8.0, -8.0]
+    ibNoisePrimaryHolder.maxs = [8.0, 8.0, 8.0]
+    ibNoiseSecondaryHolder.mins = [-8.0, -8.0, -8.0]
+    ibNoiseSecondaryHolder.maxs = [8.0, 8.0, 8.0]
+    ibNoisePrimaryHolder.edict.mins = ibqtypes.Vec3(-8.0, -8.0, -8.0)
+    ibNoisePrimaryHolder.edict.maxs = ibqtypes.Vec3(8.0, 8.0, 8.0)
+    ibNoiseSecondaryHolder.edict.mins = ibqtypes.Vec3(-8.0, -8.0, -8.0)
+    ibNoiseSecondaryHolder.edict.maxs = ibqtypes.Vec3(8.0, 8.0, 8.0)
+    source.noisePrimary = ibNoisePrimaryHolder
+    source.noiseSecondary = ibNoiseSecondaryHolder
+  end if
+
+  noise = source.noisePrimary
+  if noiseType == 2 then noise = source.noiseSecondary end if
+  noise.owner = source
+  noise.edict.inUse = true
+  ibNoiseOriginHolder = noise.edict.state.origin
+  ibNoiseOriginHolder.x = position.x; ibNoiseOriginHolder.y = position.y
+  ibNoiseOriginHolder.z = position.z
+  noise.edict.state.origin = ibNoiseOriginHolder
+  noise.teleportTime = runtime.aiContext.time
+  noise.areaNumber = source.edict.areaNumber
+  if runtime.playerContext is not void then
+    runtime.playerContext.imports.linkEntity(noise.edict)
+    noise.areaNumber = noise.edict.areaNumber
+  end if
+  if noiseType == 2 then
+    runtime.aiContext.sound2Entity = noise
+    runtime.aiContext.sound2EntityFrame = runtime.aiContext.frameNumber
+  else
+    runtime.aiContext.soundEntity = noise
+    runtime.aiContext.soundEntityFrame = runtime.aiContext.frameNumber
+  end if
   return true
 end function
 
@@ -1791,6 +1881,7 @@ function syncPlayers(runtime, playerContext)
     actor.maxHealth = player.maxHealth
     actor.viewHeight = player.viewHeight
     actor.flags = player.flags
+    actor.areaNumber = player.edict.areaNumber
     actor.lightLevel = player.lightLevel
     if actor.lightLevel <= 5 then actor.lightLevel = 128 end if
     actor.isClient = true
@@ -1996,7 +2087,7 @@ function integratedPlayerFire(gameplayPlayer, registry)
   if item.className == "weapon_bfg" and gameplayPlayer.gunFrame == 9 then
     ibBfgWindupSilenced = gameplayPlayer.silencerShots > 0
     integratedPlayerMuzzleFlash(runtime, shooter, item, 1, ibBfgWindupSilenced)
-    integratedPlayerNoise(shooter, shooter.origin, 1)
+    if not ibBfgWindupSilenced then integratedPlayerNoise(shooter, shooter.origin, 1) end if
     if ibBfgWindupSilenced then gameplayPlayer.silencerShots = gameplayPlayer.silencerShots - 1 end if
     setPlayerGameplayGunFrame(gameplayPlayer, gameplayPlayer.gunFrame + 1)
     return true
@@ -2119,7 +2210,7 @@ function integratedPlayerFire(gameplayPlayer, registry)
     ibwpprojectiles.fireBfg(runtime.weaponContext, shooter, start, direction, ibBfgDamage * multiplier, 400.0, 1000.0)
   end if
   if item.className != "weapon_bfg" then integratedPlayerMuzzleFlash(runtime, shooter, item, shots, silenced) end if
-  integratedPlayerNoise(shooter, start, 1)
+  if not silenced then integratedPlayerNoise(shooter, start, 1) end if
   if item.className == "weapon_chaingun" then
     if preFrame == 5 then emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO, "weapons/chngnu1a.wav", ibgconstants.ATTN_IDLE) end if
     if gameplayPlayer.gunFrame == 22 then
@@ -2184,7 +2275,6 @@ function thinkPlayerHandGrenade(player, playerContext, runtime, item)
   end if
   if ibHandResultHolder is not void and
       (ibHandPreviousProjectileHolder is void or nativeRawValue(ibHandResultHolder) != nativeRawValue(ibHandPreviousProjectileHolder)) then
-    integratedPlayerNoise(ibHandOwnerHolder, ibHandMuzzleHolder[0], 1)
     beginPlayerAttackAnimation(player)
   end if
   return true
@@ -3247,6 +3337,7 @@ function runFrame(runtime)
   runtime.weaponContext.time = runtime.world.time
   runtime.aiContext.frameNumber = runtime.aiContext.frameNumber + 1
   for each actor in runtime.monsters
+    actor.areaNumber = actor.edict.areaNumber
     advanceMutantJumpPhysics(runtime, actor)
     if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then
       refreshAiRandom(runtime)
