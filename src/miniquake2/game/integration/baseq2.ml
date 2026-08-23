@@ -1000,6 +1000,17 @@ function integratedRandomUnit()
   return ibrandom.unit(ibRandomUnitRuntimeHolder.randomState)
 end function
 
+function refreshAiRandom(runtime)
+  // Stock game AI shares the Win32 CRT rand() stream with weapons. Refresh
+  // decision inputs only for an actual monster think, so idle server frames do
+  // not consume entropy and save/demo replay remains deterministic.
+  runtime.aiContext.randomFrame = ibrandom.nextInteger(runtime.randomState)
+  runtime.aiContext.randomAttack = ibrandom.unit(runtime.randomState)
+  runtime.aiContext.randomDelay = ibrandom.unit(runtime.randomState)
+  runtime.aiContext.randomIdle = ibrandom.unit(runtime.randomState)
+  return true
+end function
+
 function integratedTurretAcquire(driver, world)
   global activeIntegrationRuntime
   ibTurretRuntimeHolder = activeIntegrationRuntime
@@ -1248,6 +1259,7 @@ function create(spawnResult)
   // SpawnMonster establishes defaults before the parsed fields are copied.
   // Re-running the generic start boundary applies target/trigger-spawn state.
   for each actor in runtime.monsters
+    refreshAiRandom(runtime)
     ibmonster.MonsterStart(actor, aiContext)
     ibmonster.MonsterStartGo(actor, aiContext)
   end for
@@ -2041,6 +2053,10 @@ function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   actor.info.pauseTime = 0.0
   actor.info.attackState = ibaiconstants.AS_STRAIGHT
   actor.info.attackFinished = runtime.aiContext.time + remaining
+  // C attack mmoves end in the class-specific run callback. Reinstalling the
+  // exact locomotion move here prevents a stand pose from surviving an attack
+  // that began while the monster was stationary.
+  if typeof(actor.info.run) == "function" then actor.info.run(actor, runtime.aiContext) end if
   return true
 end function
 
@@ -2091,9 +2107,15 @@ function runMonsterCombat(runtime, actor)
   shooter = monsterWeaponTarget(actor)
   distance = ibwpvector.length(ibwpvector.subtract(target.origin, shooter.origin))
   if distance > profile.maximumRange then return false end if
-  if profile.attackKind == "melee" and actor.info.melee is not void then actor.info.melee(actor, runtime.aiContext)
-  else if actor.info.attack is not void then actor.info.attack(actor, runtime.aiContext)
-  else return false
+  // ai_run may already have selected AS_MELEE/AS_MISSILE and invoked the
+  // callback during this same M_MoveFrame. Consume that pending choice rather
+  // than incrementing the class attack counter a second time.
+  pendingAiAttack = actor.activity == "attack" or actor.activity == "melee"
+  if not pendingAiAttack then
+    if profile.attackKind == "melee" and actor.info.melee is not void then actor.info.melee(actor, runtime.aiContext)
+    else if actor.info.attack is not void then actor.info.attack(actor, runtime.aiContext)
+    else return false
+    end if
   end if
   attackPlan = ibattackseq.selectPlan(actor.className, actor.edict.state.number,
     actor.attackCount, distance, runtime.aiContext.skill)
@@ -2143,7 +2165,10 @@ function runFrame(runtime)
   runtime.weaponContext.time = runtime.world.time
   runtime.aiContext.frameNumber = runtime.aiContext.frameNumber + 1
   for each actor in runtime.monsters
-    if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then ibmonster.MonsterThink(actor, runtime.aiContext) end if
+    if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then
+      refreshAiRandom(runtime)
+      ibmonster.MonsterThink(actor, runtime.aiContext)
+    end if
     runMonsterCombat(runtime, actor)
   end for
   advanceWeaponProjectiles(runtime)

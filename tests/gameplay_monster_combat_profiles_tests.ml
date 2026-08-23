@@ -100,7 +100,10 @@ monsterCombatAssert(monstercombatprofiles.stockProfile("monster_boss3_stand") is
   "scripted boss prop has no attack profile")
 
 monsterCombatRun("monster_berserk", "48 0 10", 16, true, false)
-monsterCombatRun("monster_gladiator", "160 0 10", 16, false, false)
+// Exact locomotion covers roughly 160 units during HuntTarget's one-second
+// attack delay. Keep this fixture at rail range instead of letting the
+// Gladiator correctly close from the old stationary 160-unit setup to cleaver.
+monsterCombatRun("monster_gladiator", "512 0 10", 24, false, false)
 // The complete stock rocket move includes its 13-frame wind-up and possible
 // bounded refire tail; leave enough product frames for the projectile impact.
 monsterCombatRun("monster_chick", "160 0 10", 64, false, true)

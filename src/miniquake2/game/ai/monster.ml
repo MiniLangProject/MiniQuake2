@@ -11,13 +11,173 @@ import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.types as gaiqtypes
 
+function CurrentMoveName(actor)
+  if actor.info.currentMove is void then return "" end if
+  return actor.info.currentMove.name
+end function
+
+function EmitStockSound(actor, context, soundName, channel, attenuation)
+  if soundName != "" and typeof(context.playSound) == "function" then
+    context.playSound(actor, soundName, channel, attenuation)
+  end if
+  return soundName
+end function
+
+function StockIdleSoundName(className)
+  if className == "monster_berserk" then return "berserk/beridle1.wav" end if
+  if className == "monster_gladiator" then return "gladiator/gldidle1.wav" end if
+  if className == "monster_gunner" then return "gunner/gunidle1.wav" end if
+  if className == "monster_infantry" then return "infantry/infidle1.wav" end if
+  if className == "monster_soldier_light" or className == "monster_soldier" or className == "monster_soldier_ss" then return "soldier/solidle1.wav" end if
+  if className == "monster_tank" or className == "monster_tank_commander" then return "tank/tnkidle1.wav" end if
+  if className == "monster_medic" then return "medic/idle.wav" end if
+  if className == "monster_flipper" then return "flipper/flpidle1.wav" end if
+  if className == "monster_chick" then return "chick/chkidle1.wav" end if
+  if className == "monster_brain" then return "brain/brnlens1.wav" end if
+  if className == "monster_floater" then return "floater/fltidle1.wav" end if
+  if className == "monster_flyer" then return "flyer/flysrch1.wav" end if
+  if className == "monster_mutant" then return "mutant/mutidle1.wav" end if
+  if className == "monster_jorg" then return "boss3/bs3idle1.wav" end if
+  return ""
+end function
+
+function StockFidgetFrameSound(actor, context)
+  return EmitStockSound(actor, context, StockIdleSoundName(actor.className),
+    gconstants.CHAN_VOICE, gconstants.ATTN_IDLE)
+end function
+
+function StockScratchSound(actor, context)
+  return EmitStockSound(actor, context, "parasite/paridle2.wav",
+    gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
+end function
+
+function StockSoldierCockSound(actor, context)
+  return EmitStockSound(actor, context, "infantry/infatck3.wav",
+    gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
+end function
+
+function StockStepSound(actor, context)
+  soundName = ""
+  if actor.className == "monster_tank" or actor.className == "monster_tank_commander" then soundName = "tank/step.wav"
+  else if actor.className == "monster_supertank" then soundName = "bosstank/step.wav"
+  else if actor.className == "monster_jorg" then
+    if (actor.edict.state.frame % 2) == 0 then soundName = "boss3/step1.wav" else soundName = "boss3/step2.wav" end if
+  else if actor.className == "monster_mutant" then
+    stepVariant = actor.edict.state.frame % 3
+    if stepVariant == 0 then soundName = "mutant/step1.wav"
+    else if stepVariant == 1 then soundName = "mutant/step2.wav"
+    else soundName = "mutant/step3.wav" end if
+  end if
+  return EmitStockSound(actor, context, soundName, gconstants.CHAN_BODY, gconstants.ATTN_NORM)
+end function
+
+function ConfigureStockMoveCallbacks(actor, move)
+  if move is void then return move end if
+  moveName = move.name
+  if moveName == "berserk-stand" then move.frames[0].thinkFunction = StockStandFidgetProbe
+  else if moveName == "gunner-stand" then
+    move.frames[9].thinkFunction = StockStandFidgetProbe
+    move.frames[19].thinkFunction = StockStandFidgetProbe
+    move.frames[29].thinkFunction = StockStandFidgetProbe
+  else if moveName == "chick-stand" then move.frames[29].thinkFunction = StockStandFidgetProbe
+  else if moveName == "gunner-stand-fidget" then move.frames[7].thinkFunction = StockFidgetFrameSound
+  else if moveName == "chick-stand-fidget" then move.frames[8].thinkFunction = StockFidgetFrameSound
+  else if moveName == "soldier-stand-fidget" then move.frames[21].thinkFunction = StockSoldierCockSound
+  else if moveName == "parasite-fidget-loop" then
+    move.frames[0].thinkFunction = StockScratchSound
+    move.frames[3].thinkFunction = StockScratchSound
+  else if moveName == "parasite-fidget-end" then move.frames[0].thinkFunction = StockScratchSound
+  else if moveName == "mutant-stand-fidget" then move.frames[6].thinkFunction = StockMutantIdleLoop
+  else if moveName == "tank-walk" or moveName == "tank-run" then
+    move.frames[7].thinkFunction = StockStepSound
+    move.frames[15].thinkFunction = StockStepSound
+  else if moveName == "supertank-walk" or moveName == "supertank-run" then move.frames[0].thinkFunction = StockStepSound
+  else if moveName == "mutant-run" then
+    move.frames[1].thinkFunction = StockStepSound
+    move.frames[3].thinkFunction = StockStepSound
+  else if moveName == "jorg-walk" or moveName == "jorg-run" then
+    move.frames[0].thinkFunction = StockStepSound
+    move.frames[7].thinkFunction = StockStepSound
+  end if
+  return move
+end function
+
+function SetStockMove(actor, moveKind, endFunction)
+  move = gailocomotion.stockMove(actor.className, moveKind, endFunction)
+  if move is void then return error(9655, "missing stock locomotion move " + actor.className + "/" + moveKind) end if
+  ConfigureStockMoveCallbacks(actor, move)
+  actor.info.currentMove = move
+  return move
+end function
+
+function StockStandFidgetProbe(actor, context)
+  if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then return false end if
+  threshold = -1.0
+  if actor.className == "monster_berserk" then threshold = 0.15
+  else if actor.className == "monster_gunner" then threshold = 0.05
+  else if actor.className == "monster_chick" then threshold = 0.30 end if
+  if threshold < 0.0 or context.randomIdle > threshold then return false end if
+  actor.activity = "idle"
+  SetStockMove(actor, "stand-fidget", StateStand)
+  if actor.className == "monster_berserk" then StockFidgetFrameSound(actor, context) end if
+  return true
+end function
+
+function StockMutantIdleLoop(actor, context)
+  if context.randomIdle < 0.75 then actor.info.nextFrame = 116 end if
+  return true
+end function
+
+function FinishWalkStart(actor, context)
+  actor.activity = "walk"
+  return SetStockMove(actor, "walk", void)
+end function
+
+function FinishRunStart(actor, context)
+  actor.activity = "run"
+  return SetStockMove(actor, "run", void)
+end function
+
+function FinishFlipperRunTransition(actor, context)
+  actor.activity = "run"
+  return SetStockMove(actor, "run-start", FinishRunStart)
+end function
+
+function FinishParasiteFidgetStart(actor, context)
+  actor.activity = "idle"
+  return SetStockMove(actor, "fidget-loop", FinishParasiteFidgetLoop)
+end function
+
+function FinishParasiteFidgetLoop(actor, context)
+  actor.activity = "idle"
+  if context.randomIdle <= 0.8 then return SetStockMove(actor, "fidget-loop", FinishParasiteFidgetLoop) end if
+  return SetStockMove(actor, "fidget-end", StateStand)
+end function
+
 function StateStand(actor, context)
   actor.activity = "stand"
-  return true
+  if not gailocomotion.hasStockMoves(actor.className) then return true end if
+  currentName = CurrentMoveName(actor)
+  if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or actor.className == "monster_soldier_ss" then
+    if currentName == "soldier-stand-fidget" or context.randomIdle < 0.8 then return SetStockMove(actor, "stand", StateStand) end if
+    return SetStockMove(actor, "stand-fidget", StateStand)
+  end if
+  if actor.className == "monster_floater" and context.randomIdle > 0.5 then return SetStockMove(actor, "stand2", void) end if
+  if actor.className == "monster_parasite" then return SetStockMove(actor, "stand", StateStand) end if
+  return SetStockMove(actor, "stand", void)
 end function
 
 function StateIdle(actor, context)
   actor.activity = "idle"
+  if actor.className == "monster_infantry" or actor.className == "monster_brain" or
+      actor.className == "monster_mutant" then
+    StockFidgetFrameSound(actor, context)
+    return SetStockMove(actor, "stand-fidget", StateStand)
+  end if
+  if actor.className == "monster_parasite" then
+    return SetStockMove(actor, "fidget-start", FinishParasiteFidgetStart)
+  end if
+  StockFidgetFrameSound(actor, context)
   return true
 end function
 
@@ -28,12 +188,40 @@ end function
 
 function StateWalk(actor, context)
   actor.activity = "walk"
-  return true
+  if not gailocomotion.hasStockMoves(actor.className) then return true end if
+  if actor.className == "monster_mutant" or actor.className == "monster_parasite" then
+    return SetStockMove(actor, "walk-start", FinishWalkStart)
+  end if
+  if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or actor.className == "monster_soldier_ss" then
+    if context.randomIdle >= 0.5 then return SetStockMove(actor, "soldier-walk2", void) end if
+  end if
+  return SetStockMove(actor, "walk", void)
 end function
 
 function StateRun(actor, context)
+  if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then return StateStand(actor, context) end if
   actor.activity = "run"
-  return true
+  if not gailocomotion.hasStockMoves(actor.className) then return true end if
+  currentName = CurrentMoveName(actor)
+  if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or actor.className == "monster_soldier_ss" then
+    if currentName == "soldier-walk1" or currentName == "soldier-walk2" or currentName == "soldier-run-start" then return SetStockMove(actor, "run", void) end if
+    return SetStockMove(actor, "run-start", FinishRunStart)
+  end if
+  if actor.className == "monster_tank" or actor.className == "monster_tank_commander" then
+    if currentName == "tank-walk" or currentName == "tank-run-start" then return SetStockMove(actor, "run", void) end if
+    return SetStockMove(actor, "run-start", FinishRunStart)
+  end if
+  if actor.className == "monster_chick" then
+    if currentName == "chick-walk" or currentName == "chick-run-start" then return SetStockMove(actor, "run", void) end if
+    return SetStockMove(actor, "run-start", FinishRunStart)
+  end if
+  if actor.className == "monster_parasite" then
+    return SetStockMove(actor, "run-start", FinishRunStart)
+  end if
+  if actor.className == "monster_flipper" then
+    return SetStockMove(actor, "run-transition", FinishFlipperRunTransition)
+  end if
+  return SetStockMove(actor, "run", void)
 end function
 
 function StateAttack(actor, context)
@@ -73,7 +261,14 @@ end function
 
 function installDefaultCallbacks(actor, hasAttack, hasMelee)
   actor.info.stand = StateStand
-  actor.info.idle = StateIdle
+  actor.info.idle = void
+  if actor.className == "monster_gladiator" or actor.className == "monster_infantry" or
+      actor.className == "monster_tank" or actor.className == "monster_tank_commander" or
+      actor.className == "monster_medic" or actor.className == "monster_parasite" or
+      actor.className == "monster_flyer" or actor.className == "monster_brain" or
+      actor.className == "monster_floater" or actor.className == "monster_mutant" then
+    actor.info.idle = StateIdle
+  end if
   actor.info.search = StateSearch
   actor.info.walk = StateWalk
   actor.info.run = StateRun
@@ -251,6 +446,11 @@ function AdvanceReaction(actor, plan, context)
   return true
 end function
 
+function inline IsLocomotionActivity(activity)
+  return activity == "started" or activity == "stand" or activity == "idle" or
+    activity == "search" or activity == "walk" or activity == "run" or activity == "sight"
+end function
+
 function MonsterThink(actor, context)
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.Think(actor, context) end if
   if actor.activity == "boss-explode" then return AdvanceBossExplosion(actor, context) end if
@@ -260,12 +460,12 @@ function MonsterThink(actor, context)
   // misc_insane owns real post-mortem moves whose end callback shrinks the
   // corpse bounds. Other generic actors have no managed death animation.
   if actor.health <= 0 and actor.className != "misc_insane" then actor.nextThink = 0.0; return false end if
-  M_MoveFrame(actor, context)
-  gaiLocomotionPlanHolder = gailocomotion.stockPlan(actor.className)
-  if gaiLocomotionPlanHolder is not void then
-    actor.edict.state.frame = gailocomotion.modelFrameAt(gaiLocomotionPlanHolder,
-      actor.activity, context.frameNumber, actor.edict.state.number)
-  end if
+  // Stock attack timelines are projected by the integrated combat layer. Do
+  // not advance the prior run move underneath them: the original game swaps
+  // currentmove to an attack table and therefore never gains a hidden run
+  // distance while firing.
+  if actor.className == "misc_insane" or IsLocomotionActivity(actor.activity) then M_MoveFrame(actor, context)
+  else actor.nextThink = context.time + gaiconstants.FRAMETIME end if
   actor.info.linkCount = actor.edict.linkCount
   M_SetEffects(actor, context)
   actor.thinkKind = "monster-think"
