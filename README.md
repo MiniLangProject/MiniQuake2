@@ -61,13 +61,16 @@ remaining decorative thinkers, `info_notnull`, `light_mine2`, and all 60
 class-state-machine tail: the 39-map behavior matrix now reports zero
 explicitly simplified instances or classes. All 21 combat-capable monster
 classes present in those BSPs, plus the dynamically spawned Makron, now route
-through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
-rail, blaster or rocket emission. Every combat-capable family now uses a stock
+ through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
+ rail, blaster or rocket emission. Every combat-capable family now uses a stock
  frame-relative attack, melee or drain timeline with projected MD2 frames. This
  includes live Gunner, Medic, Chick, Flyer, Hover, Tank, Soldier, Supertank and
  boss refire callbacks, the conditional Brain tentacle chain, the Mutant jump,
  the Gladiator's saved rail aim, all close-combat loops and the Parasite's
- ordered damage/beam frames. The same stock
+ ordered damage/beam frames. The attack tables also execute their exact 3.19
+ `ai_charge`/`ai_move` distance columns, held-frame rules and mechanical sound
+ callbacks; every spawned stock monster publishes its original sound inventory
+ before signon, including the Makron assets needed by a dying Jorg. The same stock
 layer now covers 63 pain variants, 43 normal-death variants, the original
 duck/dodge ranges for the six supporting families, and primary stand, idle,
 walk and run MD2 ranges for all 22 combat entries. Stock terminal deaths now
@@ -76,8 +79,9 @@ and metallic gib-model inventories as timed physics edicts, and reproduce the
 Supertank's eight-step explosion sequence before its final 14-part breakup.
  Private-Save v11 resumes attacks and active reactions at their next frame,
  preserves live refire, jump, saved-aim and shared-random state, and round-trips
- live dynamic gib records. Secondary fidgets and exact per-frame
-movement distances remain explicit differential-parity work. Muzzle and beam events travel through the typed
+ live dynamic gib records. Remaining reaction/death movement columns, secondary
+ fidgets and sight/search decisions remain explicit differential-parity work.
+ Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
 non-combat states. The complete stock player-weapon set now uses its original
@@ -156,8 +160,8 @@ that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 executable exits before networking on this host), paired
 original player view-model/recoil captures beyond the fixed renderer fixture,
-broader multi-host GPU/device coverage, remaining secondary monster/turret/boss fidgets,
-exact movement/event differentials, and manual device
+broader multi-host GPU/device coverage, remaining secondary monster/turret/boss
+fidgets, reaction/death movement and sight/search differentials, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.

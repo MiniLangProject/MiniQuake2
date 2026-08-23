@@ -36,7 +36,10 @@ Protocol-34 effects; Private-Save v11 retains in-flight attack/reaction,
 boss-refire/aim, shared Win32-random state and dynamic gib records. Their MZ2
 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
-handoff. Differential combat decisions and feedback remain open gates. The
+handoff. Attack sequences additionally execute their exact 3.19 movement
+columns, charge/move modes, held frames and mechanical sound callbacks; stock
+sound inventories are registered before signon. Remaining sight/search choices
+and reaction/death movement differentials remain open gates. The
 unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
@@ -48,7 +51,7 @@ Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining secondary monster animation, broader save coverage, paired original-renderer
+remaining secondary monster animation and reaction/death movement, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle now keeps one window/renderer across CIN, PCX and map steps, performs
 a live mode/fullscreen renderer restart with complete retail resource
@@ -57,8 +60,8 @@ skill, persists validated settings/bindings and validates persistent
 same-/cross-map save slots. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
-the current death-terminal build produces a
-689-step/3,376-packet result. A second campaign gate follows the canonical
+the current attack-movement/sound build produces a
+753-step/3,697-packet result. A second campaign gate follows the canonical
 branched route through 51 objective-confirmed changes and all 39 unique BSPs.
 It executes existing key/counter/timer/trigger/monster-death/boss callbacks,
 commits only their selected next map, re-signs on after every transition and

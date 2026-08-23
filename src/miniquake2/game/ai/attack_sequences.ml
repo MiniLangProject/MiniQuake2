@@ -2,6 +2,7 @@
 package miniquake2.game.ai.attack_sequences
 
 import miniquake2.game.ai.combat_profiles as attackprofiles
+import miniquake2.game.constants as attackconstants
 
 const FRAME_TIME = 0.1
 
@@ -20,6 +21,214 @@ struct MonsterAttackPlan
   durationFrames
   cooldown
 end struct
+
+const ATTACK_AI_NONE = 0
+const ATTACK_AI_CHARGE = 1
+const ATTACK_AI_MOVE = 2
+
+// Exact movement columns from the Quake II 3.19 mframe_t attack tables. Keep
+// these package-rooted: constructing them inside movementDistanceAt would add
+// allocation and GC pressure to every live monster frame.
+infantryMachinegunDistances = [4.0, -1.0, -1.0, 0.0, -1.0, 1.0, 1.0, 2.0,
+  -2.0, -3.0, 1.0, 5.0, -1.0, -2.0, -3.0]
+infantryPunchDistances = [3.0, 6.0, 0.0, 8.0, 5.0, 8.0, 6.0, 3.0]
+medicBlasterDistances = [0.0, 5.0, 5.0, 3.0, 2.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+chickRocketStartDistances = [0.0, 0.0, 0.0, 4.0, 0.0, -3.0, 3.0, 5.0,
+  7.0, 0.0, 0.0, 0.0, 0.0]
+chickRocketCycleDistances = [19.0, -6.0, -5.0, -2.0, -7.0, 0.0, 1.0,
+  10.0, 4.0, 5.0, 6.0, 6.0, 4.0, 3.0]
+chickRocketEndDistances = [-3.0, 0.0, -6.0, -4.0, -2.0]
+chickSlashStartDistances = [1.0, 8.0, 3.0]
+chickSlashCycleDistances = [1.0, 7.0, -7.0, 1.0, -1.0, 1.0, 0.0, 1.0, -2.0]
+chickSlashEndDistances = [-6.0, -1.0, -6.0, 0.0]
+flyerBlasterDistances = [0.0, 0.0, 0.0, -10.0, -10.0, -10.0, -10.0,
+  -10.0, -10.0, -10.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+brainClawDistances = [8.0, 3.0, 5.0, 0.0, -3.0, 0.0, -5.0, -7.0,
+  0.0, 6.0, 1.0, 2.0, -3.0, 6.0, -1.0, -3.0, 2.0, -11.0]
+brainTentacleDistances = [5.0, -4.0, -4.0, -3.0, 0.0, 0.0, 13.0, 0.0,
+  2.0, 0.0, -9.0, 0.0, 4.0, 3.0, 2.0, -3.0, -6.0]
+hoverStartDistances = [1.0, 1.0, 1.0]
+hoverCycleDistances = [-10.0, -10.0, 0.0]
+hoverEndDistances = [1.0, 1.0]
+mutantJumpDistances = [0.0, 17.0, 15.0, 15.0, 15.0, 0.0, 3.0, 0.0]
+parasiteDrainDistances = [0.0, 0.0, 15.0, 0.0, 0.0, 0.0, 0.0, -2.0,
+  -2.0, -3.0, -2.0, 0.0, -1.0, 0.0, -2.0, -2.0, -3.0, 0.0]
+tankBlasterDistances = [0.0, 0.0, 0.0, 0.0, -1.0, -2.0, -1.0, -1.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+tankBlasterPostDistances = [0.0, 0.0, 2.0, 3.0, 2.0, -2.0]
+tankRocketPreDistances = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 1.0, 2.0, 7.0, 7.0, 7.0, 0.0, 0.0, 0.0, 0.0, -3.0]
+tankRocketCycleDistances = [-3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0]
+tankRocketPostDistances = [0.0, -1.0, -1.0, 0.0, 2.0, 3.0, 4.0, 2.0,
+  0.0, 0.0, 0.0, -9.0, -8.0, -7.0, -1.0, -1.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0]
+
+function boundedAttackOffset(plan, timelineOffset)
+  if timelineOffset < 0 then return 0 end if
+  if timelineOffset >= plan.durationFrames then return plan.durationFrames - 1 end if
+  return timelineOffset
+end function
+
+function movementDistanceAt(plan, timelineOffset)
+  offset = boundedAttackOffset(plan, timelineOffset)
+  name = plan.name
+  if name == "infantry-machinegun" then
+    shots = len(plan.frameOffsets)
+    if offset <= 10 then return infantryMachinegunDistances[offset] end if
+    if offset < 10 + shots then return 0.0 end if
+    return infantryMachinegunDistances[11 + offset - (10 + shots)]
+  end if
+  if name == "infantry-punch" then return infantryPunchDistances[offset] end if
+  if name == "medic-blaster" and offset < len(medicBlasterDistances) then
+    return medicBlasterDistances[offset]
+  end if
+  if name == "chick-rockets" then
+    if offset < 13 then return chickRocketStartDistances[offset] end if
+    cycles = len(plan.frameOffsets)
+    cycleEnd = 13 + cycles * 14
+    if offset < cycleEnd then return chickRocketCycleDistances[(offset - 13) % 14] end if
+    return chickRocketEndDistances[offset - cycleEnd]
+  end if
+  if name == "chick-slash" then
+    if offset < 3 then return chickSlashStartDistances[offset] end if
+    cycles = len(plan.frameOffsets)
+    cycleEnd = 3 + cycles * 9
+    if offset < cycleEnd then return chickSlashCycleDistances[(offset - 3) % 9] end if
+    return chickSlashEndDistances[offset - cycleEnd]
+  end if
+  if name == "flyer-blasters" then return flyerBlasterDistances[offset] end if
+  if name == "brain-claws" then return brainClawDistances[offset] end if
+  if name == "brain-tentacle" then return brainTentacleDistances[offset] end if
+  if name == "brain-tentacle-claws" then
+    if offset <= 10 then return brainTentacleDistances[offset] end if
+    return brainClawDistances[offset - 11]
+  end if
+  if name == "hover-blasters" then
+    if offset < 3 then return hoverStartDistances[offset] end if
+    cycles = len(plan.frameOffsets) / 2
+    cycleEnd = 3 + cycles * 3
+    if offset < cycleEnd then return hoverCycleDistances[(offset - 3) % 3] end if
+    return hoverEndDistances[offset - cycleEnd]
+  end if
+  if name == "mutant-jump" then return mutantJumpDistances[offset] end if
+  if name == "parasite-drain" then return parasiteDrainDistances[offset] end if
+  if name == "tank-blasters" or name == "tank-blasters-hard" then
+    if offset < 16 then return tankBlasterDistances[offset] end if
+    cycles = (len(plan.frameOffsets) - 1) / 2
+    postStart = 16 + (cycles - 1) * 6
+    if offset < postStart then return 0.0 end if
+    return tankBlasterPostDistances[offset - postStart]
+  end if
+  if name == "tank-rockets" or name == "tank-rockets-hard" then
+    if offset < 21 then return tankRocketPreDistances[offset] end if
+    cycles = len(plan.frameOffsets) / 3
+    postStart = 21 + cycles * 9
+    if offset < postStart then return tankRocketCycleDistances[(offset - 21) % 9] end if
+    return tankRocketPostDistances[offset - postStart]
+  end if
+  if name == "boss2-machineguns" then return 1.0 end if
+  if name == "boss2-rockets" then
+    if offset == 12 then return -20.0 end if
+    return 1.0
+  end if
+  return 0.0
+end function
+
+function movementAiAt(plan, timelineOffset)
+  offset = boundedAttackOffset(plan, timelineOffset)
+  name = plan.name
+  if name == "tank-machinegun" and offset >= 5 and offset <= 23 then return ATTACK_AI_NONE end if
+  if name == "tank-blasters" or name == "tank-blasters-hard" then
+    cycles = (len(plan.frameOffsets) - 1) / 2
+    if offset >= 16 + (cycles - 1) * 6 then return ATTACK_AI_MOVE end if
+  end if
+  if name == "supertank-machinegun" then
+    cycles = len(plan.frameOffsets) / 6
+    if offset >= cycles * 6 then return ATTACK_AI_MOVE end if
+  end if
+  if name == "supertank-rockets" and offset >= 8 then return ATTACK_AI_MOVE end if
+  if name == "jorg-machineguns" then
+    cycles = len(plan.frameOffsets) / 12
+    if offset >= 8 + cycles * 6 then return ATTACK_AI_MOVE end if
+  end if
+  if name == "jorg-bfg" and offset >= 7 then return ATTACK_AI_MOVE end if
+  if name == "makron-bfg" and offset >= 4 then return ATTACK_AI_MOVE end if
+  if name == "makron-hyperblaster" and offset >= 4 then return ATTACK_AI_MOVE end if
+  if name == "makron-rail" and offset >= 8 then return ATTACK_AI_MOVE end if
+  if name == "boss2-rockets" and offset == 12 then return ATTACK_AI_MOVE end if
+  return ATTACK_AI_CHARGE
+end function
+
+function frameSoundAt(plan, timelineOffset)
+  offset = boundedAttackOffset(plan, timelineOffset)
+  name = plan.name
+  if name == "berserk-spike" and offset == 2 then return "berserk/attack.wav" end if
+  if name == "berserk-club" and offset == 4 then return "berserk/attack.wav" end if
+  if name == "gladiator-cleaver" and (offset == 4 or offset == 10) then return "gladiator/melee1.wav" end if
+  if name == "gunner-chain" and offset == 0 then return "gunner/gunatck1.wav" end if
+  if name == "infantry-machinegun" and offset == 3 then return "infantry/infatck3.wav" end if
+  if name == "infantry-punch" and offset == 2 then return "infantry/infatck2.wav" end if
+  if name == "soldier-shotgun-attack1" and offset >= 7 and ((offset - 7) % 8) == 0 then
+    return "infantry/infatck3.wav"
+  end if
+  if name == "soldier-shotgun-attack2" and offset >= 12 and ((offset - 12) % 12) == 0 then
+    return "infantry/infatck3.wav"
+  end if
+  if name == "chick-rockets" then
+    if offset == 0 then return "chick/chkatck1.wav" end if
+    cycles = len(plan.frameOffsets)
+    if offset >= 13 and offset < 13 + cycles * 14 and ((offset - 13) % 14) == 7 then
+      return "chick/chkatck5.wav"
+    end if
+  end if
+  if name == "flipper-bites" and offset == 0 then return "flipper/flpatck1.wav" end if
+  if name == "flyer-slashes" and offset == 0 then return "flyer/flyatck1.wav" end if
+  if name == "brain-claws" then
+    if offset == 4 then return "brain/melee1.wav" end if
+    if offset == 9 then return "brain/melee2.wav" end if
+  end if
+  if name == "brain-tentacle" and offset == 4 then return "brain/brnatck1.wav" end if
+  if name == "brain-tentacle-claws" then
+    if offset == 4 then return "brain/brnatck1.wav" end if
+    if offset == 15 then return "brain/melee1.wav" end if
+    if offset == 20 then return "brain/melee2.wav" end if
+  end if
+  if name == "parasite-drain" then
+    if offset == 0 then return "parasite/paratck1.wav" end if
+    if offset == 13 then return "parasite/paratck4.wav" end if
+  end if
+  if name == "tank-blasters" or name == "tank-blasters-hard" then
+    cycles = (len(plan.frameOffsets) - 1) / 2
+    if offset == 21 + (cycles - 1) * 6 then return "tank/step.wav" end if
+  end if
+  if name == "tank-rockets" or name == "tank-rockets-hard" then
+    cycles = len(plan.frameOffsets) / 3
+    if offset == 15 or offset == 21 + cycles * 9 + 15 then return "tank/step.wav" end if
+  end if
+  if name == "makron-rail" and offset == 0 then return "makron/rail_up.wav" end if
+  return ""
+end function
+
+function frameSoundChannelAt(plan, timelineOffset)
+  soundName = frameSoundAt(plan, timelineOffset)
+  if soundName == "gunner/gunatck1.wav" or soundName == "chick/chkatck1.wav" or
+      soundName == "chick/chkatck5.wav" or soundName == "flyer/flyatck1.wav" then
+    return attackconstants.CHAN_VOICE
+  end if
+  if soundName == "brain/melee1.wav" or soundName == "brain/melee2.wav" or
+      soundName == "brain/brnatck1.wav" or soundName == "tank/step.wav" then
+    return attackconstants.CHAN_BODY
+  end if
+  return attackconstants.CHAN_WEAPON
+end function
+
+function frameSoundAttenuationAt(plan, timelineOffset)
+  if frameSoundAt(plan, timelineOffset) == "gunner/gunatck1.wav" then
+    return attackconstants.ATTN_IDLE
+  end if
+  return attackconstants.ATTN_NORM
+end function
 
 function attackPlan(className, name, attackKind, damage, knockback, speed, splashRadius,
     maximumRange, count, frameOffsets, muzzleFlashes, durationFrames)

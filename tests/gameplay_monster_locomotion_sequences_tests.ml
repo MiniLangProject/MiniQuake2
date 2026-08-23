@@ -152,6 +152,31 @@ end while
 locomotionAssert(parasiteActor.info.currentMove.name == "parasite-fidget-loop" and
   parasiteActor.edict.state.frame == 104, "parasite fidget lead-in reaches scratch loop")
 
+jorgCallbackActor = locomotionarchetypes.SpawnMonster(moveRegistry, "monster_jorg", 94, transitionContext)
+jorgCallbackActor.goalEntity = transitionTarget; jorgCallbackActor.moveTarget = transitionTarget
+jorgCallbackActor.info.walk(jorgCallbackActor, transitionContext)
+locomotionAssert(jorgCallbackActor.info.currentMove.name == "jorg-walk" and
+  jorgCallbackActor.info.currentMove.frames[0].thinkFunction is void and
+  jorgCallbackActor.info.currentMove.frames[7].thinkFunction is void,
+  "Jorg walking has no footstep callbacks in the 3.19 table")
+jorgCallbackActor.info.run(jorgCallbackActor, transitionContext)
+locomotionAssert(typeof(jorgCallbackActor.info.currentMove.frames[0].thinkFunction) == "function" and
+  typeof(jorgCallbackActor.info.currentMove.frames[7].thinkFunction) == "function",
+  "Jorg running owns left and right step callbacks")
+
+makronCallbackActor = locomotionarchetypes.SpawnMonster(moveRegistry, "monster_makron", 95, transitionContext)
+makronCallbackActor.goalEntity = transitionTarget; makronCallbackActor.moveTarget = transitionTarget
+makronCallbackActor.info.run(makronCallbackActor, transitionContext)
+locomotionAssert(typeof(makronCallbackActor.info.currentMove.frames[0].thinkFunction) == "function" and
+  typeof(makronCallbackActor.info.currentMove.frames[4].thinkFunction) == "function",
+  "Makron run owns exact left and right step callbacks")
+
+supertankCallbackActor = locomotionarchetypes.SpawnMonster(moveRegistry, "monster_supertank", 96, transitionContext)
+supertankCallbackActor.goalEntity = transitionTarget; supertankCallbackActor.moveTarget = transitionTarget
+supertankCallbackActor.info.run(supertankCallbackActor, transitionContext)
+locomotionAssert(typeof(supertankCallbackActor.info.currentMove.frames[0].thinkFunction) == "function",
+  "Supertank tread callback remains on the first movement frame")
+
 locomotionServer = locomotionbridge.createRuntime(4)
 locomotionApi = locomotiongame.GetGameApi(locomotionbridge.makeImports(locomotionServer))
 locomotionServer.game = locomotionApi

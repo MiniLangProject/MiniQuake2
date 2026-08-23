@@ -34,6 +34,16 @@ function assertConsecutive(values, first, count, message)
   return true
 end function
 
+function movementTotal(plan)
+  total = 0.0
+  offset = 0
+  while offset < plan.durationFrames
+    total = total + attacksequences.movementDistanceAt(plan, offset)
+    offset = offset + 1
+  end while
+  return total
+end function
+
 infantryPlan = attacksequences.infantryPlan(2, 1)
 sequenceAssert(attacksequences.validatePlan(infantryPlan), "infantry plan validates")
 sequenceAssert(len(infantryPlan.frameOffsets) >= 10 and len(infantryPlan.frameOffsets) <= 25,
@@ -390,6 +400,73 @@ sequenceAssert(attacksequences.modelFrameAt(makronBfg, 3) == 204 and
   attacksequences.modelFrameAt(makronHyper, 20) == 229 and
   attacksequences.modelFrameAt(makronRail, 8) == 243,
   "Makron stock attack model frames")
+
+// The C mframe_t movement column is part of an attack, not just visual pose.
+// Verify direct, held-frame and composite callback moves without rebuilding
+// any arrays in the live lookup path.
+sequenceNear(attacksequences.movementDistanceAt(infantryPlan, 0), 4.0,
+  "Infantry attack first charge distance")
+sequenceNear(attacksequences.movementDistanceAt(infantryPlan, 11), 0.0,
+  "Infantry held attack111 suppresses repeated distance")
+sequenceNear(attacksequences.movementDistanceAt(infantryPlan,
+  10 + len(infantryPlan.frameOffsets)), 5.0, "Infantry postfire resumes frame distance")
+sequenceNear(movementTotal(infantryPlan), 0.0, "Infantry complete attack displacement")
+sequenceNear(movementTotal(infantryPunch), 39.0, "Infantry punch advances 39 units")
+sequenceNear(movementTotal(attacksequences.medicBlasterPlanContinue(true)), 15.0,
+  "Medic blaster advances during windup only")
+sequenceNear(movementTotal(attacksequences.chickRocketPlanCycles(2)), 77.0,
+  "Chick two-rocket live chain movement")
+sequenceNear(movementTotal(attacksequences.chickMeleePlanCycles(2)), 1.0,
+  "Chick two-slash live chain movement")
+sequenceNear(movementTotal(flyerPlan), -80.0, "Flyer firing recoil movement")
+sequenceNear(movementTotal(brainClaws), 0.0, "Brain claw balanced movement")
+sequenceNear(movementTotal(brainTentacle), 0.0, "Brain conditional chain balanced movement")
+sequenceNear(movementTotal(attacksequences.hoverBlasterPlanCycles(1)), -15.0,
+  "Hover blaster recoil movement")
+sequenceNear(movementTotal(mutantJump), 65.0, "Mutant jump animation charge movement")
+sequenceNear(movementTotal(parasiteDrain), -2.0, "Parasite drain movement")
+sequenceNear(movementTotal(attacksequences.tankBlasterPlanCycles("monster_tank", 2, true)), 0.0,
+  "Tank repeated blaster movement")
+sequenceNear(movementTotal(attacksequences.tankRocketPlanCycles("monster_tank", 2, true)), -4.0,
+  "Tank repeated rocket movement")
+sequenceNear(movementTotal(boss2Machineguns), boss2Machineguns.durationFrames,
+  "Boss2 machinegun charges one unit per frame")
+sequenceNear(movementTotal(boss2Rockets), 0.0, "Boss2 rocket recoil balances its charge")
+sequenceAssert(attacksequences.movementAiAt(tankChain, 4) == attacksequences.ATTACK_AI_CHARGE and
+  attacksequences.movementAiAt(tankChain, 5) == attacksequences.ATTACK_AI_NONE and
+  attacksequences.movementAiAt(tankChain, 24) == attacksequences.ATTACK_AI_CHARGE and
+  attacksequences.movementAiAt(tankBlasters, 16) == attacksequences.ATTACK_AI_MOVE and
+  attacksequences.movementAiAt(boss2Rockets, 12) == attacksequences.ATTACK_AI_MOVE and
+  attacksequences.movementAiAt(makronRail, 8) == attacksequences.ATTACK_AI_MOVE,
+  "stock attack ai_charge/NULL/ai_move boundaries")
+sequenceAssert(attacksequences.frameSoundAt(infantryPlan, 3) == "infantry/infatck3.wav" and
+  attacksequences.frameSoundAt(gunnerOneCycle, 0) == "gunner/gunatck1.wav" and
+  attacksequences.frameSoundAttenuationAt(gunnerOneCycle, 0) == 2 and
+  attacksequences.frameSoundAt(attacksequences.chickRocketPlanCycles(2), 20) ==
+    "chick/chkatck5.wav" and
+  attacksequences.frameSoundAt(attacksequences.chickRocketPlanCycles(2), 34) ==
+    "chick/chkatck5.wav" and
+  attacksequences.frameSoundAt(brainTentacle, 4) == "brain/brnatck1.wav" and
+  attacksequences.frameSoundAt(brainTentacle, 15) == "brain/melee1.wav" and
+  attacksequences.frameSoundAt(parasiteDrain, 13) == "parasite/paratck4.wav" and
+  attacksequences.frameSoundAt(tankRockets, 15) == "tank/step.wav" and
+  attacksequences.frameSoundAt(makronRail, 0) == "makron/rail_up.wav",
+  "stock attack mechanical sound callback offsets")
+
+movementContext = attacksequenceaitypes.defaultContext()
+movementEnemy = attacksequenceaitypes.createClientTarget(301)
+movementEnemy.edict.state.origin = attacksequenceqtypes.Vec3(1000.0, 0.0, 0.0)
+movementActor = attacksequenceaitypes.createActor(300, "monster_infantry")
+movementActor.enemy = movementEnemy
+movementActor.edict.state.origin = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
+movementActor.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
+attacksequencebaseq2.applyMonsterAttackMovement(movementActor, infantryPunch, 0, movementContext)
+attacksequencebaseq2.applyMonsterAttackMovement(movementActor, infantryPunch, 1, movementContext)
+sequenceNear(movementActor.edict.state.origin.x, 9.0,
+  "integrated attack movement executes exact consecutive charge distances")
+attacksequencebaseq2.applyMonsterAttackMovement(movementActor, boss2Rockets, 12, movementContext)
+sequenceNear(movementActor.edict.state.origin.x, -11.0,
+  "integrated ai_move recoil retains actor yaw instead of charging toward target")
 
 sequenceAssert(attacksequences.selectionRandomKind("monster_jorg", 500.0) == 1 and
   attacksequences.selectionRandomKind("monster_boss2", 100.0) == 0 and

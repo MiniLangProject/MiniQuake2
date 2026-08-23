@@ -20,6 +20,7 @@ import miniquake2.game.ai.combat_profiles as ibaicombat
 import miniquake2.game.ai.attack_sequences as ibattackseq
 import miniquake2.game.ai.reaction_sequences as ibreactionseq
 import miniquake2.game.ai.death_effects as ibdeatheffects
+import miniquake2.game.ai.sounds as ibaisounds
 import miniquake2.game.gameplay.registry as ibitems
 import miniquake2.game.gameplay.item_rules as ibitemrules
 import miniquake2.game.gameplay.precache as ibprecache
@@ -1337,6 +1338,16 @@ function precacheSpawned(runtime, playerContext)
       imports.soundIndex("tank/thud.wav")
       imports.soundIndex("tank/pain.wav")
     end if
+    for each ibPrecacheMonsterSoundName in ibaisounds.stockNames(ibPrecacheActorHolder.className)
+      imports.soundIndex(ibPrecacheMonsterSoundName)
+    end for
+    if ibPrecacheActorHolder.className == "monster_jorg" then
+      // m_boss31.c invokes MakronPrecache because the rider is spawned during
+      // Jorg's death sequence, after configstring setup has completed.
+      for each ibPrecacheMakronSoundName in ibaisounds.stockNames("monster_makron")
+        imports.soundIndex(ibPrecacheMakronSoundName)
+      end for
+    end if
     ibPrecacheMonsterPosition = ibPrecacheMonsterPosition + 1
   end while
   if len(runtime.monsters) > 0 then
@@ -2459,7 +2470,9 @@ end function
 
 function monsterAttackTimelineOffset(actor, attackPlan, now)
   targetOffset = attackPlan.durationFrames - 1
-  if actor.info.nextFrame >= 0 and actor.info.nextFrame < len(attackPlan.frameOffsets) then
+  if attackPlan.name == "infantry-machinegun" and actor.info.nextFrame == -2 then
+    targetOffset = 3
+  else if actor.info.nextFrame >= 0 and actor.info.nextFrame < len(attackPlan.frameOffsets) then
     targetOffset = attackPlan.frameOffsets[actor.info.nextFrame]
   else if actor.info.nextFrame >= len(attackPlan.frameOffsets) then
     refireOffset = monsterRefireDecisionOffset(attackPlan)
@@ -2481,6 +2494,61 @@ function projectMonsterAttackFrame(runtime, actor, attackPlan)
   timelineOffset = monsterAttackTimelineOffset(actor, attackPlan, runtime.aiContext.time)
   actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, timelineOffset)
   return timelineOffset
+end function
+
+function applyMonsterAttackMovement(actor, attackPlan, timelineOffset, context)
+  movement = ibattackseq.movementDistanceAt(attackPlan, timelineOffset) * actor.info.scale
+  movementAi = ibattackseq.movementAiAt(attackPlan, timelineOffset)
+  if movementAi == ibattackseq.ATTACK_AI_CHARGE then
+    return ibgaicore.ai_charge(actor, movement, context)
+  end if
+  if movementAi == ibattackseq.ATTACK_AI_MOVE then
+    return ibgaicore.ai_move(actor, movement, context)
+  end if
+  return true
+end function
+
+function emitMonsterAttackFrameSound(actor, attackPlan, timelineOffset)
+  soundName = ibattackseq.frameSoundAt(attackPlan, timelineOffset)
+  if soundName == "" then return false end if
+  return integratedAISound(actor, soundName,
+    ibattackseq.frameSoundChannelAt(attackPlan, timelineOffset),
+    ibattackseq.frameSoundAttenuationAt(attackPlan, timelineOffset))
+end function
+
+function emitMonsterAttackEventSound(actor, attackPlan, eventIndex, eventFired)
+  soundName = ""
+  soundActor = actor
+  channel = ibgconstants.CHAN_WEAPON
+  name = attackPlan.name
+  if name == "gladiator-cleaver" then
+    channel = ibgconstants.CHAN_AUTO
+    if eventFired then soundName = "gladiator/melee2.wav"
+    else soundName = "gladiator/melee3.wav" end if
+  else if name == "infantry-punch" and eventFired then soundName = "infantry/melee2.wav"
+  else if name == "chick-slash" then soundName = "chick/chkatck3.wav"
+  else if name == "flyer-slashes" then soundName = "flyer/flyatck2.wav"
+  else if name == "brain-claws" and eventFired then soundName = "brain/melee3.wav"
+  else if name == "brain-tentacle" then soundName = "brain/brnatck3.wav"
+  else if name == "brain-tentacle-claws" then
+    if eventIndex == 0 then soundName = "brain/brnatck3.wav"
+    else if eventFired then soundName = "brain/melee3.wav" end if
+  else if name == "floater-wham" then soundName = "floater/fltatck3.wav"
+  else if name == "floater-zap" then soundName = "floater/fltatck2.wav"
+  else if name == "mutant-claws" then
+    if eventFired then
+      if (eventIndex % 2) == 0 then soundName = "mutant/mutatck2.wav"
+      else soundName = "mutant/mutatck3.wav" end if
+    else soundName = "mutant/mutatck1.wav" end if
+  else if name == "parasite-drain" and eventFired then
+    if eventIndex == 0 then
+      soundName = "parasite/paratck2.wav"
+      soundActor = actor.enemy
+      channel = ibgconstants.CHAN_AUTO
+    else if eventIndex == 1 then soundName = "parasite/paratck3.wav" end if
+  end if
+  if soundName == "" or soundActor is void then return false end if
+  return integratedAISound(soundActor, soundName, channel, ibgconstants.ATTN_NORM)
 end function
 
 function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
@@ -2587,6 +2655,7 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
     else
       eventFired = fireMonsterAttack(runtime, actor, attackPlan, eventIndex,
         attackPlan.muzzleFlashes[eventIndex])
+      emitMonsterAttackEventSound(actor, attackPlan, eventIndex, eventFired)
     end if
     if eventFired then fired = true end if
     if attackPlan.name == "brain-tentacle" and eventIndex == 0 and eventFired and
@@ -2617,7 +2686,12 @@ function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
   if ibreactionseq.planByName(actor.className, actor.activity) is not void then return false end if
   activePlan = activeMonsterAttackPlan(actor)
-  if activePlan is not void then return advanceMonsterAttack(runtime, actor, activePlan) end if
+  if activePlan is not void then
+    activeTimelineOffset = monsterAttackTimelineOffset(actor, activePlan, runtime.aiContext.time)
+    applyMonsterAttackMovement(actor, activePlan, activeTimelineOffset, runtime.aiContext)
+    emitMonsterAttackFrameSound(actor, activePlan, activeTimelineOffset)
+    return advanceMonsterAttack(runtime, actor, activePlan)
+  end if
   if actor.enemy.health <= 0 or runtime.aiContext.time < actor.info.attackFinished then return false end if
   if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
   profile = ibaicombat.stockProfile(actor.className)
@@ -2730,6 +2804,8 @@ function runMonsterCombat(runtime, actor)
     actor.info.pauseTime = runtime.aiContext.time + 3.0 * ibattackseq.FRAME_TIME
   end if
   actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, 0)
+  applyMonsterAttackMovement(actor, attackPlan, 0, runtime.aiContext)
+  emitMonsterAttackFrameSound(actor, attackPlan, 0)
   return advanceMonsterAttack(runtime, actor, attackPlan)
 end function
 

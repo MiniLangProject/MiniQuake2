@@ -128,6 +128,13 @@ Release executable again passed all 39 maps and 38 changes with spawn count 39
 in 689 steps and 3,376 processed packets. A matching `base1` input smoke
 completed 64 movement/combat steps, 64 snapshots and 201 accepted packets with
 zero rejects.
+After restoring the exact attack-table movement columns and mechanical sound
+callbacks, plus complete spawned-monster sound precache, the same-date Release
+executable passed the matrix in 753 steps and 3,697 processed packets. The
+matching `base1` input smoke again completed 64 movement/combat steps, 64
+snapshots and 201 accepted packets with zero rejects. The deterministic session
+increase comes from publishing the original class sound configstrings before
+each signon; the map/change/spawn lifecycle outcome is unchanged.
 The matching visible `base1` start reached `CA_ACTIVE` at server frame 14,
 registered 84 models and 45 sounds with zero missing assets, submitted 25
 entities and selected 326 visible versus 6,981 culled world surfaces.
@@ -204,10 +211,15 @@ random seed. Stock death terminals additionally
 carry their class-specific corpse bounds, exact organic/metallic gib-model
 inventories and the eight-step Supertank explosion/final-gib sequence through
 real engine edicts; active gibs round-trip through the same save format. The
-focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
-backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
- as the expected DLight and attack sound. Secondary fidgets and exact per-frame
- movement distances remain open. Gunner, Medic, Chick, Flyer, Hover, Tank,
+ focused multicast gates prove owned/bounded GameImport queuing, ALL/PVS/PHS visibility, reliable
+ backpressure and a real UDP `svc_muzzleflash2` reaching the integrated client
+ as the expected DLight and attack sound. Attack sequences now execute the exact
+ 3.19 movement distances, `ai_charge`/`ai_move` boundaries, held-frame behavior
+ and mechanical sound callbacks without constructing arrays in the live lookup
+ path. Every spawned stock class precaches its complete original sound inventory;
+ a Jorg also precaches its dynamically spawned Makron successor. Remaining
+ reaction/death movement columns, secondary fidgets and sight/search decisions
+ stay open. Gunner, Medic, Chick, Flyer, Hover, Tank,
  Soldier, Supertank, Jorg and Boss2 now make their live stock refire decisions
  from the persisted shared CRT stream. Brain follow-up and Mutant jump decisions
  likewise happen at their original callback frames rather than during plan

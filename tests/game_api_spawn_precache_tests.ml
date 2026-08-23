@@ -65,6 +65,12 @@ assertTrue(gunnerModel > 1, "active gunner model precached")
 assertTrue(jorgRiderModel > 1 and jorgChassisModel > 1, "Jorg rider and chassis models precached")
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + machineModel], "models/weapons/g_machn/tris.md2", "item model configstring")
 assertTrue(findName(server.soundNames, "weapons/blastf1a.wav") > 0, "default player weapon sound precached")
+assertTrue(findName(server.soundNames, "soldier/solatck1.wav") > 0 and
+  findName(server.soundNames, "gunner/gunatck1.wav") > 0,
+  "spawned Soldier and Gunner stock sound inventories precached")
+assertTrue(findName(server.soundNames, "boss3/xfire.wav") > 0 and
+  findName(server.soundNames, "makron/rail_up.wav") > 0,
+  "Jorg spawn also precaches its dynamic Makron successor sounds")
 assertTrue(findName(server.imageNames, "w_machinegun") > 0, "spawned item image precached")
 assertEqual(runtime.items[0].edict.state.modelIndex, machineModel, "item edict model index")
 assertEqual(runtime.monsters[0].edict.state.modelIndex, soldierModel, "soldier edict model index")

@@ -58,17 +58,22 @@ end function
 
 function StockStepSound(actor, context)
   soundName = ""
+  channel = gconstants.CHAN_BODY
   if actor.className == "monster_tank" or actor.className == "monster_tank_commander" then soundName = "tank/step.wav"
-  else if actor.className == "monster_supertank" then soundName = "bosstank/step.wav"
+  else if actor.className == "monster_supertank" then
+    soundName = "bosstank/btkengn1.wav"
+    channel = gconstants.CHAN_VOICE
   else if actor.className == "monster_jorg" then
     if (actor.edict.state.frame % 2) == 0 then soundName = "boss3/step1.wav" else soundName = "boss3/step2.wav" end if
+  else if actor.className == "monster_makron" then
+    if actor.edict.state.frame == 477 then soundName = "makron/step1.wav" else soundName = "makron/step2.wav" end if
   else if actor.className == "monster_mutant" then
     stepVariant = actor.edict.state.frame % 3
     if stepVariant == 0 then soundName = "mutant/step1.wav"
     else if stepVariant == 1 then soundName = "mutant/step2.wav"
     else soundName = "mutant/step3.wav" end if
   end if
-  return EmitStockSound(actor, context, soundName, gconstants.CHAN_BODY, gconstants.ATTN_NORM)
+  return EmitStockSound(actor, context, soundName, channel, gconstants.ATTN_NORM)
 end function
 
 function ConfigureStockMoveCallbacks(actor, move)
@@ -95,9 +100,12 @@ function ConfigureStockMoveCallbacks(actor, move)
   else if moveName == "mutant-run" then
     move.frames[1].thinkFunction = StockStepSound
     move.frames[3].thinkFunction = StockStepSound
-  else if moveName == "jorg-walk" or moveName == "jorg-run" then
+  else if moveName == "jorg-run" then
     move.frames[0].thinkFunction = StockStepSound
     move.frames[7].thinkFunction = StockStepSound
+  else if moveName == "makron-walk" or moveName == "makron-run" then
+    move.frames[0].thinkFunction = StockStepSound
+    move.frames[4].thinkFunction = StockStepSound
   end if
   return move
 end function
