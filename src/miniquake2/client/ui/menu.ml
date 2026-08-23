@@ -4,6 +4,8 @@ package miniquake2.client.ui.menu
 import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
 
+const MAX_MENU_COMMANDS = 16
+
 function action(id, label, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], command, true)
 end function
@@ -26,12 +28,15 @@ end function
 
 function defaultPages()
   main = cuitypes.MenuPage("main", "QUAKE II", "", [
-    action("game", "game", "menu:game"), action("video", "video", "menu:video"),
-    action("options", "options", "menu:options"), action("quit", "quit", "quit")])
+    action("game", "game", "menu:game"),
+    action("multiplayer", "multiplayer", "menu:multiplayer"),
+    action("options", "options", "menu:options"),
+    action("video", "video", "menu:video"),
+    action("quit", "quit", "menu:quit")])
   game = cuitypes.MenuPage("game", "GAME", "main", [
     action("new_easy", "easy", "newgame easy"), action("new_medium", "medium", "newgame medium"),
     action("new_hard", "hard", "newgame hard"), action("load", "load game", "menu:load"),
-    action("save", "save game", "menu:save")])
+    action("save", "save game", "menu:save"), action("credits", "credits", "menu:credits")])
   video = cuitypes.MenuPage("video", "VIDEO", "main", [
     choice("mode", "video mode", 0, ["640x480", "800x600", "1024x768", "1280x720"], "vid_mode"),
     toggle("fullscreen", "fullscreen", 0, "vid_fullscreen"),
@@ -58,11 +63,32 @@ function defaultPages()
     action("use", "bind use", "bindcapture +use"),
     action("inventory", "bind inventory", "bindcapture inven"),
     label("hint", "ENTER, then key; ESC cancels")])
-  return [main, game, video, options, load, save, keys]
+  multiplayer = cuitypes.MenuPage("multiplayer", "MULTIPLAYER", "main", [
+    label("join", "join network server"),
+    label("start", "start network server"),
+    label("player", "player setup"),
+    label("pending", "network setup follows in multiplayer parity")])
+  quit = cuitypes.MenuPage("quit", "QUIT", "main", [
+    action("yes", "yes", "quit"), action("no", "no", "menu:main")])
+  credits = cuitypes.MenuPage("credits", "CREDITS", "game", [
+    label("id", "QUAKE II BY ID SOFTWARE"),
+    label("port", "MINILANG PORT"),
+    label("license", "GPL-2.0-OR-LATER")])
+  // Keep the original seven page slots stable for save/load callers and add
+  // the newly restored branches afterwards.
+  return [main, game, video, options, load, save, keys, multiplayer, quit, credits]
 end function
 
 function create()
-  return cuitypes.MenuState(defaultPages(), "main", 0, false, [])
+  return cuitypes.MenuState(defaultPages(), "main", 0, false,
+    array(MAX_MENU_COMMANDS), 0)
+end function
+
+function queueCommand(menu, command)
+  if menu.commandCount >= len(menu.commands) then return error(8234, "menu command queue full") end if
+  menu.commands[menu.commandCount] = command
+  menu.commandCount = menu.commandCount + 1
+  return true
 end function
 
 function page(menu)
@@ -112,7 +138,7 @@ function adjust(menu, direction)
     if item.value > item.maximum then item.value = item.maximum end if
   else return false
   end if
-  menu.commands = menu.commands + [item.command + " " + item.value]
+  queueCommand(menu, item.command + " " + item.value)
   return true
 end function
 
@@ -124,12 +150,16 @@ function activate(menu)
   data = bytes(item.command)
   if len(data) > 5 and decode(slice(data, 0, 5)) == "menu:" then return open(menu, decode(slice(data, 5, len(data) - 5))) end if
   if item.kind == cuic.MENU_TOGGLE or item.kind == cuic.MENU_SLIDER or item.kind == cuic.MENU_CHOICE then return adjust(menu, 1) end if
-  menu.commands = menu.commands + [item.command]
+  queueCommand(menu, item.command)
   return true
 end function
 
 function handleKey(menu, key)
   if menu.active == false then return false end if
+  if menu.currentPage == "quit" then
+    if key == 121 or key == 89 then return queueCommand(menu, "quit") end if
+    if key == 110 or key == 78 then return open(menu, "main") end if
+  end if
   if key == cuic.K_UPARROW then return move(menu, -1) end if
   if key == cuic.K_DOWNARROW then return move(menu, 1) end if
   if key == cuic.K_LEFTARROW then return adjust(menu, -1) end if
@@ -157,28 +187,85 @@ function drawText(exports, x, y, text)
   end while
 end function
 
-function draw(menu, screenWidth, screenHeight, exports)
+function drawAltText(exports, x, y, text)
+  data = bytes(text)
+  index = 0
+  while index < len(data)
+    exports.DrawChar(x + index * 8, y, data[index] | 128); index = index + 1
+  end while
+end function
+
+function bannerName(pageId)
+  if pageId == "game" then return "m_banner_game" end if
+  if pageId == "multiplayer" then return "m_banner_multiplayer" end if
+  if pageId == "options" then return "m_banner_options" end if
+  if pageId == "video" then return "m_banner_video" end if
+  if pageId == "load" then return "m_banner_load_game" end if
+  if pageId == "save" then return "m_banner_save_game" end if
+  if pageId == "keys" then return "m_banner_customize" end if
+  return ""
+end function
+
+function drawMain(menu, screenWidth, screenHeight, now, exports)
+  names = ["m_main_game", "m_main_multiplayer", "m_main_options",
+    "m_main_video", "m_main_quit"]
+  widest = 0
+  index = 0
+  while index < len(names)
+    size = exports.DrawGetPicSize(names[index])
+    if size.width > widest then widest = size.width end if
+    index = index + 1
+  end while
+  yStart = screenHeight / 2 - 110
+  xOffset = (screenWidth - widest + 70) / 2
+  index = 0
+  while index < len(names)
+    name = names[index]
+    if index == menu.cursor then name = name + "_sel" end if
+    exports.DrawPic(xOffset, yStart + index * 40 + 13, name)
+    index = index + 1
+  end while
+  cursorFrame = (now / 100) % 15
+  exports.DrawPic(xOffset - 25, yStart + menu.cursor * 40 + 11,
+    "m_cursor" + cursorFrame)
+  plaqueSize = exports.DrawGetPicSize("m_main_plaque")
+  plaqueX = xOffset - 30 - plaqueSize.width
+  exports.DrawPic(plaqueX, yStart, "m_main_plaque")
+  exports.DrawPic(plaqueX, yStart + plaqueSize.height + 5, "m_main_logo")
+  return len(names) + 1
+end function
+
+function draw(menu, screenWidth, screenHeight, now, exports)
   if menu.active == false then return 0 end if
   current = page(menu)
   if current is void then return error(8231, "active menu page missing") end if
   exports.DrawFadeScreen()
+  if current.id == "main" then return drawMain(menu, screenWidth, screenHeight, now, exports) end if
+  if current.id == "quit" then
+    quitSize = exports.DrawGetPicSize("quit")
+    exports.DrawPic((screenWidth - quitSize.width) / 2,
+      (screenHeight - quitSize.height) / 2, "quit")
+    return 1
+  end if
   x = screenWidth / 2 - 120
   y = screenHeight / 2 - (len(current.items) + 2) * 8
-  if current.id == "main" then
-    logoSize = exports.DrawGetPicSize("m_main_logo")
-    if logoSize.width > 0 and logoSize.height > 0 then
-      exports.DrawPic(screenWidth / 2 - logoSize.width / 2,
-        y - logoSize.height - 24, "m_main_logo")
-    end if
+  banner = bannerName(current.id)
+  if banner != "" then
+    bannerSize = exports.DrawGetPicSize(banner)
+    exports.DrawPic(screenWidth / 2 - bannerSize.width / 2,
+      screenHeight / 2 - 110, banner)
+  else
+    drawText(exports, screenWidth / 2 - len(bytes(current.title)) * 4, y, current.title)
   end if
-  drawText(exports, screenWidth / 2 - len(bytes(current.title)) * 4, y, current.title)
   y = y + 24
   index = 0
   while index < len(current.items)
     item = current.items[index]
     value = itemValue(item)
-    if index == menu.cursor then drawText(exports, x, y, ">") end if
-    drawText(exports, x + 16, y, item.label)
+    if index == menu.cursor then exports.DrawChar(x, y, 12 + ((now / 250) & 1)) end if
+    if item.enabled then drawText(exports, x + 16, y, item.label)
+    else drawAltText(exports, x + 16, y, item.label)
+    end if
     if value != "" then drawText(exports, x + 168, y, value) end if
     y = y + 16; index = index + 1
   end while
@@ -186,7 +273,22 @@ function draw(menu, screenWidth, screenHeight, exports)
 end function
 
 function drainCommands(menu)
-  output = menu.commands
-  menu.commands = []
+  // Keep the public state record compatible with callers which replace the
+  // historic dynamic command array directly (tests, embedders and restored
+  // state). Product input uses commandCount and the fixed reusable buffer.
+  if menu.commandCount == 0 and len(menu.commands) > 0 and
+      typeof(menu.commands[0]) == "string" then
+    output = menu.commands
+    menu.commands = array(MAX_MENU_COMMANDS)
+    return output
+  end if
+  if menu.commandCount == 0 then return [] end if
+  output = array(menu.commandCount)
+  index = 0
+  while index < menu.commandCount
+    output[index] = menu.commands[index]
+    index = index + 1
+  end while
+  menu.commandCount = 0
   return output
 end function

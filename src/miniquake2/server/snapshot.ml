@@ -32,10 +32,10 @@ struct SnapshotHistory
 end struct
 
 function copyEntities(entities)
-  output = []
+  output = array(len(entities))
   index = 0
   while index < len(entities)
-    output = output + [pt.copyEntityState(entities[index])]
+    output[index] = pt.copyEntityState(entities[index])
     index = index + 1
   end while
   return output
@@ -152,22 +152,32 @@ function applyPacketEntities(buffer, previousEntities, baselines)
   validateEntities(previousEntities, "parse previous")
   opcode = pchecked.readByte(buffer, "packetentities opcode")
   if opcode != qc.SVC_PACKETENTITIES then return error(7506, "expected svc_packetentities") end if
-  output = []
+  output = array(qc.MAX_EDICTS)
+  outputCount = 0
   oldIndex = 0
   previousHeaderNumber = 0
   while true
     header = pedelta.readHeader(buffer)
     if header.endMarker then
       while oldIndex < len(previousEntities)
-        output = output + [pt.copyEntityState(previousEntities[oldIndex])]
+        output[outputCount] = pt.copyEntityState(previousEntities[oldIndex])
+        outputCount = outputCount + 1
         oldIndex = oldIndex + 1
       end while
-      return output
+      if outputCount == 0 then return [] end if
+      compact = array(outputCount)
+      compactIndex = 0
+      while compactIndex < outputCount
+        compact[compactIndex] = output[compactIndex]
+        compactIndex = compactIndex + 1
+      end while
+      return compact
     end if
     if header.number <= previousHeaderNumber then return error(7507, "packet entity headers are not strictly ordered") end if
     previousHeaderNumber = header.number
     while oldIndex < len(previousEntities) and previousEntities[oldIndex].number < header.number
-      output = output + [pt.copyEntityState(previousEntities[oldIndex])]
+      output[outputCount] = pt.copyEntityState(previousEntities[oldIndex])
+      outputCount = outputCount + 1
       oldIndex = oldIndex + 1
     end while
     if header.remove then
@@ -181,7 +191,8 @@ function applyPacketEntities(buffer, previousEntities, baselines)
         base = previousEntities[oldIndex]
         oldIndex = oldIndex + 1
       end if
-      output = output + [pedelta.readDelta(buffer, base, header)]
+      output[outputCount] = pedelta.readDelta(buffer, base, header)
+      outputCount = outputCount + 1
     end if
   end while
 end function

@@ -236,9 +236,12 @@ end function
 function addTrail(state, start, finish, color, count)
   delta = qt.Vec3((finish.x - start.x) / count, (finish.y - start.y) / count, (finish.z - start.z) / count)
   position = cestate.copyVec(start)
+  firstParticle = len(state.particles)
+  count = cestate.reserveParticles(state, count)
   index = 0
   while index < count
-    cestate.addParticle(state, position, qt.zeroVec3(), qt.zeroVec3(), color + (index & 7), 1.0, -1.0)
+    state.particles[firstParticle + index] = cetypes.Particle(cestate.copyVec(position),
+      qt.zeroVec3(), qt.zeroVec3(), color + (index & 7), 1.0, -1.0, state.time)
     position = cestate.add(position, delta)
     index = index + 1
   end while

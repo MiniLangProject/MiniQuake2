@@ -58,7 +58,10 @@ const GL_TEXTURE_MAG_FILTER = 0x2800
 const GL_TEXTURE_MIN_FILTER = 0x2801
 const GL_TEXTURE_WRAP_S = 0x2802
 const GL_TEXTURE_WRAP_T = 0x2803
+const GL_TEXTURE_ENV = 0x2300
+const GL_TEXTURE_ENV_MODE = 0x2200
 const GL_LINEAR = 0x2601
+const GL_MODULATE = 0x2100
 const GL_CLAMP = 0x2900
 const GL_REPEAT = 0x2901
 const GL_VENDOR = 0x1F00
@@ -83,6 +86,7 @@ struct OpenGlState
   particleTextureId
   rawTextureId
   rawPixels
+  batchRecords
 end struct
 
 // The native bridge creates OpenGL 1.1 names on first bind.  Keeping every
@@ -162,6 +166,7 @@ end struct
 // graph; rebinding a package global from a function is not.
 openGlBackendSlot = OpenGlBackendSlot(void)
 openGlFrameSlot = OpenGlFrameSlot(false)
+openGlParticleRecords = bytes(rc.MAX_PARTICLES * 16)
 
 function inline bits(value)
   return native.floatBits(value)
@@ -498,6 +503,28 @@ function drawOpenGlSpriteEntity(backend, modelAsset, entity, axes)
   return true
 end function
 
+function writeOpenGlParticleRecord(buffer, index, packed, alpha, origin)
+  offset = index * 16
+  buffer[offset] = colorByte(packed, 0)
+  buffer[offset + 1] = colorByte(packed, 8)
+  buffer[offset + 2] = colorByte(packed, 16)
+  buffer[offset + 3] = alpha
+  xBits = bits(origin.x); yBits = bits(origin.y); zBits = bits(origin.z)
+  buffer[offset + 4] = xBits & 255
+  buffer[offset + 5] = (xBits >> 8) & 255
+  buffer[offset + 6] = (xBits >> 16) & 255
+  buffer[offset + 7] = (xBits >> 24) & 255
+  buffer[offset + 8] = yBits & 255
+  buffer[offset + 9] = (yBits >> 8) & 255
+  buffer[offset + 10] = (yBits >> 16) & 255
+  buffer[offset + 11] = (yBits >> 24) & 255
+  buffer[offset + 12] = zBits & 255
+  buffer[offset + 13] = (zBits >> 8) & 255
+  buffer[offset + 14] = (zBits >> 16) & 255
+  buffer[offset + 15] = (zBits >> 24) & 255
+  return offset + 16
+end function
+
 function drawParticles(backend, frame, axes)
   if frame.numParticles <= 0 then return void end if
   textureId = ensureOpenGlParticleTexture(backend)
@@ -509,7 +536,7 @@ function drawParticles(backend, frame, axes)
   native.glEnable(GL_BLEND)
   native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
   native.glDepthMask(0)
-  native.glBegin(GL_TRIANGLES)
+  batchCount = 0
   index = 0
   while index < frame.numParticles
     particle = frame.particles[index]
@@ -522,7 +549,38 @@ function drawParticles(backend, frame, axes)
       alpha = ropenglbyteio.truncInt(particleAlpha * 255.0)
       if alpha < 0 then alpha = 0 end if
       if alpha > 255 then alpha = 255 end if
-      native.glColor4ub(colorByte(packed, 0), colorByte(packed, 8), colorByte(packed, 16), alpha)
+      writeOpenGlParticleRecord(openGlParticleRecords, batchCount, packed, alpha,
+        particleOrigin)
+      batchCount = batchCount + 1
+    end if
+    index = index + 1
+  end while
+  submitted = 0
+  if batchCount > 0 then
+    submitted = native.glDrawParticleBatch(openGlParticleRecords, batchCount * 16,
+      bits(viewOrigin.x), bits(viewOrigin.y), bits(viewOrigin.z),
+      bits(axes.forwardX), bits(axes.forwardY), bits(axes.forwardZ),
+      bits(axes.upX), bits(axes.upY), bits(axes.upZ),
+      bits(axes.rightX), bits(axes.rightY), bits(axes.rightZ))
+  end if
+
+  // Older shared native bridges retain the scalar path as a safe fallback.
+  if submitted != batchCount then
+    native.glBegin(GL_TRIANGLES)
+    index = 0
+    while index < frame.numParticles
+      particle = frame.particles[index]
+      particleAlpha = particle.alpha
+      particleColor = particle.color
+      particleOrigin = particle.origin
+      particleX = particleOrigin.x; particleY = particleOrigin.y; particleZ = particleOrigin.z
+      if particleAlpha > 0.0 then
+        packed = openGlPaletteColor(backend.gamePalette, particleColor)
+        alpha = ropenglbyteio.truncInt(particleAlpha * 255.0)
+        if alpha < 0 then alpha = 0 end if
+        if alpha > 255 then alpha = 255 end if
+        native.glColor4ub(colorByte(packed, 0), colorByte(packed, 8),
+          colorByte(packed, 16), alpha)
       distance = (particleX - viewOrigin.x) * axes.forwardX +
         (particleY - viewOrigin.y) * axes.forwardY +
         (particleZ - viewOrigin.z) * axes.forwardZ
@@ -534,10 +592,11 @@ function drawParticles(backend, frame, axes)
       native.glVertex3(bits(particleX + scaledUpX * scale), bits(particleY + scaledUpY * scale), bits(particleZ + scaledUpZ * scale))
       native.glTexcoord2(bits(0.0625), bits(1.0625))
       native.glVertex3(bits(particleX + scaledRightX * scale), bits(particleY + scaledRightY * scale), bits(particleZ + scaledRightZ * scale))
+      end if
+      index = index + 1
+    end while
+    native.glEnd()
     end if
-    index = index + 1
-  end while
-  native.glEnd()
   native.glDepthMask(1)
   native.glDisable(GL_BLEND)
   native.glColor4ub(255, 255, 255, 255)
@@ -1278,7 +1337,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0))
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0))
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1290,7 +1349,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0))
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0))
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1328,6 +1387,13 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
     )
     texture.id = record.id
   end for
+  // One reusable record buffer serves every visible-set submission. The
+  // native call receives the active byte count, so camera movement never
+  // allocates or concatenates a per-surface command array.
+  requiredBatchBytes = len(world.draws) * 16
+  if len(binding.state.batchRecords) < requiredBatchBytes then
+    binding.state.batchRecords = bytes(requiredBatchBytes)
+  end if
   if binding.state.contextActive then precacheOpenGlClassicGeometry(world) end if
   return world
 end function
@@ -1394,6 +1460,25 @@ function prepareOpenGlClassicDraw(draw, pass, lightmap)
   return true
 end function
 
+function prepareOpenGlClassicMultitextureDraw(draw)
+  if not classicDrawCanCache(draw) then return false end if
+  prepared = native.glStaticGeometryPrepare(nativeRawValue(draw), 2)
+  if prepared < 0 then return false end if
+  if prepared == 0 then
+    // Pass 2 preserves the source polygon. The native cache triangulates it
+    // once and retains both texture-coordinate sets for batched replay.
+    native.glBegin(0x0009)
+    for each vertex in draw.surface.vertices
+      native.glMultiTexCoord2(0, bits(vertex.s), bits(vertex.t))
+      native.glMultiTexCoord2(1, bits(vertex.lightS), bits(vertex.lightT))
+      native.glVertex3(bits(vertex.position.x), bits(vertex.position.y),
+        bits(vertex.position.z))
+    end for
+    native.glEnd()
+  end if
+  return true
+end function
+
 function precacheOpenGlClassicGeometry(world)
   preparedCount = 0
   for each draw in world.draws
@@ -1404,8 +1489,61 @@ function precacheOpenGlClassicGeometry(world)
         prepareOpenGlClassicDraw(draw, 1, true) then
       preparedCount = preparedCount + 1
     end if
+    if draw.surface.category == rclassicconstants.MATERIAL_OPAQUE and
+        native.glMultitextureAvailable() != 0 and
+        prepareOpenGlClassicMultitextureDraw(draw) then
+      preparedCount = preparedCount + 1
+    end if
   end for
   return preparedCount
+end function
+
+function inline writeOpenGlBatchU32(buffer, offset, value)
+  buffer[offset] = value & 255
+  buffer[offset + 1] = (value >> 8) & 255
+  buffer[offset + 2] = (value >> 16) & 255
+  buffer[offset + 3] = (value >> 24) & 255
+end function
+
+function writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId,
+    lightmapTextureId)
+  offset = index * 16
+  key = nativeRawValue(draw)
+  writeOpenGlBatchU32(buffer, offset, key & 0xffffffff)
+  writeOpenGlBatchU32(buffer, offset + 4, (key >> 32) & 0xffffffff)
+  writeOpenGlBatchU32(buffer, offset + 8, baseTextureId)
+  writeOpenGlBatchU32(buffer, offset + 12, lightmapTextureId)
+  return offset + 16
+end function
+
+function submitOpenGlClassicMultitexture(binding, draws, time)
+  if len(draws) == 0 or native.glMultitextureAvailable() == 0 then return [false, 0] end if
+  required = len(draws) * 16
+  if len(binding.state.batchRecords) < required then binding.state.batchRecords = bytes(required) end if
+  uploaded = 0
+  index = 0
+  while index < len(draws)
+    draw = draws[index]
+    if not classicDrawCanCache(draw) then return [false, uploaded] end if
+    baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, time)
+    if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
+    if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
+    writeOpenGlMultitextureRecord(binding.state.batchRecords, index, draw,
+      baseTexture.id, draw.lightmapTexture.id)
+    index = index + 1
+  end while
+
+  native.glActiveTexture(0)
+  native.glEnable(GL_TEXTURE_2D)
+  native.glTexEnvI(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+  native.glActiveTexture(1)
+  native.glEnable(GL_TEXTURE_2D)
+  native.glTexEnvI(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
+  submitted = native.glStaticGeometryCallMultitextureBatch(
+    binding.state.batchRecords, required)
+  native.glDisable(GL_TEXTURE_2D)
+  native.glActiveTexture(0)
+  return [submitted == len(draws), uploaded]
 end function
 
 function submitOpenGlClassicDraw(draw, lightmap, time)
@@ -1826,31 +1964,37 @@ function submitClassicWorld(binding, world, frame)
   native.glDisable(GL_BLEND)
   native.glColor4ub(255, 255, 255, 255)
   uploaded = 0
-  lastTexture = -1
-  for each draw in plan.opaqueDraws
-    baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, frame.time)
-    if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
-    if lastTexture != baseTexture.id then
-      native.glBindTexture(GL_TEXTURE_2D, baseTexture.id)
-      lastTexture = baseTexture.id
-    end if
-    submitOpenGlClassicDraw(draw, false, frame.time)
-  end for
+  multitexture = submitOpenGlClassicMultitexture(binding, plan.opaqueDraws,
+    frame.time)
+  usedMultitexture = multitexture[0]
+  uploaded = uploaded + multitexture[1]
+  if not usedMultitexture then
+    lastTexture = -1
+    for each draw in plan.opaqueDraws
+      baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, frame.time)
+      if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
+      if lastTexture != baseTexture.id then
+        native.glBindTexture(GL_TEXTURE_2D, baseTexture.id)
+        lastTexture = baseTexture.id
+      end if
+      submitOpenGlClassicDraw(draw, false, frame.time)
+    end for
 
-  // OpenGL 1.1 fallback for the absent multitexture bridge: destination base
-  // colour is multiplied by the uploaded Quake II lightmap colour.
-  native.glEnable(GL_BLEND)
-  native.glBlendFunc(GL_ZERO, GL_SRC_COLOR)
-  native.glDepthFunc(GL_EQUAL)
-  native.glDepthMask(0)
-  for each draw in plan.opaqueDraws
-    if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
-    native.glBindTexture(GL_TEXTURE_2D, draw.lightmapTexture.id)
-    submitOpenGlClassicDraw(draw, true, frame.time)
-  end for
-  native.glDepthMask(1)
-  native.glDepthFunc(GL_LEQUAL)
-  native.glDisable(GL_BLEND)
+    // OpenGL 1.1 fallback for hardware without multitexture: destination base
+    // colour is multiplied by the uploaded Quake II lightmap colour.
+    native.glEnable(GL_BLEND)
+    native.glBlendFunc(GL_ZERO, GL_SRC_COLOR)
+    native.glDepthFunc(GL_EQUAL)
+    native.glDepthMask(0)
+    for each draw in plan.opaqueDraws
+      if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
+      native.glBindTexture(GL_TEXTURE_2D, draw.lightmapTexture.id)
+      submitOpenGlClassicDraw(draw, true, frame.time)
+    end for
+    native.glDepthMask(1)
+    native.glDepthFunc(GL_LEQUAL)
+    native.glDisable(GL_BLEND)
+  end if
 
   // Turbulent opaque water is fullbright in ref_gl and owns no lightmap.
   lastTexture = -1

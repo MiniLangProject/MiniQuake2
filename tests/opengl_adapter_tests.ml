@@ -76,6 +76,23 @@ function testClassicDrawingHelpers()
   shell.flags = rc.RF_SHELL_DOUBLE
   assertEqual(ogl.openGlMd2Shade(shell, 0.0), 230 | (179 << 8),
     "double-damage shell color")
+
+  batchRecord = bytes(16)
+  assertEqual(ogl.writeOpenGlMultitextureRecord(batchRecord, 0, shell,
+    0x12345678, 0x0a0b0c0d), 16, "multitexture record size")
+  assertEqual(batchRecord[8], 0x78, "multitexture base texture low byte")
+  assertEqual(batchRecord[11], 0x12, "multitexture base texture high byte")
+  assertEqual(batchRecord[12], 0x0d, "multitexture lightmap low byte")
+  assertEqual(batchRecord[15], 0x0a, "multitexture lightmap high byte")
+
+  particleRecord = bytes(16)
+  assertEqual(ogl.writeOpenGlParticleRecord(particleRecord, 0,
+    9 | (8 << 8) | (7 << 16), 123, qt.vec3(1.0, 2.0, 3.0)), 16,
+    "particle record size")
+  assertEqual(particleRecord[0], 9, "particle record red")
+  assertEqual(particleRecord[1], 8, "particle record green")
+  assertEqual(particleRecord[2], 7, "particle record blue")
+  assertEqual(particleRecord[3], 123, "particle record alpha")
 end function
 
 testHeadlessLifecycle()

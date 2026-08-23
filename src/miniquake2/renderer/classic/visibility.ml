@@ -131,7 +131,7 @@ function classicVisibilityAngleAxes(angles)
   return [forward, right, up]
 end function
 
-function classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance)
+function inline classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance)
   centerX = (draw.mins.x + draw.maxs.x) * 0.5
   centerY = (draw.mins.y + draw.maxs.y) * 0.5
   centerZ = (draw.mins.z + draw.maxs.z) * 0.5
@@ -175,7 +175,7 @@ function classicVisibilityFrustum(frame)
   return planes
 end function
 
-function classicVisibilityInsidePreparedFrustum(draw, planes)
+function inline classicVisibilityInsidePreparedFrustum(draw, planes)
   planeIndex = 0
   while planeIndex < len(planes)
     plane = planes[planeIndex]

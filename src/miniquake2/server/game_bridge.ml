@@ -447,9 +447,10 @@ end function
 function boxEdicts(mins, maxs, areaType)
   context = requireActive("BoxEdicts")
   if context.game is void then return [] end if
-  result = []
+  result = array(gc.MAXTOUCH)
+  resultCount = 0
   index = 0
-  while index < context.game.numEdicts and len(result) < gc.MAXTOUCH
+  while index < context.game.numEdicts and resultCount < gc.MAXTOUCH
     entity = context.game.edicts[index]
     include = entity.inUse and entity.solid != gc.SOLID_NOT
     // BaseQ2 AREA_SOLID is 1 and AREA_TRIGGERS is 2.
@@ -464,11 +465,19 @@ function boxEdicts(mins, maxs, areaType)
       entityMaxY = bounds[1].y
       entityMaxZ = bounds[1].z
       overlap = entityMaxX >= mins.x and entityMinX <= maxs.x and entityMaxY >= mins.y and entityMinY <= maxs.y and entityMaxZ >= mins.z and entityMinZ <= maxs.z
-      if overlap then result = result + [entity] end if
+      if overlap then result[resultCount] = entity; resultCount = resultCount + 1 end if
     end if
     index = index + 1
   end while
-  return result
+  if resultCount == 0 then return [] end if
+  if resultCount == len(result) then return result end if
+  output = array(resultCount)
+  index = 0
+  while index < resultCount
+    output[index] = result[index]
+    index = index + 1
+  end while
+  return output
 end function
 
 function pmove(value)

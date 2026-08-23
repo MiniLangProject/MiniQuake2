@@ -15,12 +15,12 @@ function createSilent(randomSeed)
   return create(ceaudio.silent(), randomSeed)
 end function
 
-function random(state)
+function inline random(state)
   state.randomSeed = (state.randomSeed * 1103515245 + 12345) & 0x7fffffff
   return (state.randomSeed >> 16) & 0x7fff
 end function
 
-function copyVec(value)
+function inline copyVec(value)
   return qt.Vec3(value.x, value.y, value.z)
 end function
 
@@ -29,11 +29,11 @@ function vecFromArray(value)
   return qt.Vec3(value[0] * 1.0, value[1] * 1.0, value[2] * 1.0)
 end function
 
-function add(first, second)
+function inline add(first, second)
   return qt.Vec3(first.x + second.x, first.y + second.y, first.z + second.z)
 end function
 
-function scaled(value, amount)
+function inline scaled(value, amount)
   return qt.Vec3(value.x * amount, value.y * amount, value.z * amount)
 end function
 
@@ -78,24 +78,44 @@ function addDLight(state, key, origin, radius, color, duration, decay)
   return light
 end function
 
+function reserveParticles(state, requested)
+  available = ceconstants.MAX_PARTICLES - len(state.particles)
+  count = requested
+  if count > available then count = available end if
+  if count <= 0 then return 0 end if
+  previousCount = len(state.particles)
+  output = array(previousCount + count)
+  index = 0
+  while index < previousCount
+    output[index] = state.particles[index]
+    index = index + 1
+  end while
+  state.particles = output
+  return count
+end function
+
 function addParticle(state, origin, velocity, acceleration, color, alpha, alphaVelocity)
-  if len(state.particles) >= ceconstants.MAX_PARTICLES then return false end if
-  state.particles = state.particles + [cetypes.Particle(copyVec(origin), copyVec(velocity),
-    copyVec(acceleration), color, alpha, alphaVelocity, state.time)]
+  start = len(state.particles)
+  if reserveParticles(state, 1) == 0 then return false end if
+  state.particles[start] = cetypes.Particle(copyVec(origin), copyVec(velocity),
+    copyVec(acceleration), color, alpha, alphaVelocity, state.time)
   return true
 end function
 
 function particleEffect(state, origin, direction, color, count, speed)
   if count < 0 then return error(7312, "negative effect particle count") end if
+  start = len(state.particles)
+  count = reserveParticles(state, count)
   index = 0
-  while index < count and len(state.particles) < ceconstants.MAX_PARTICLES
+  while index < count
     jitter = qt.Vec3((random(state) & 7) - 4.0, (random(state) & 7) - 4.0, (random(state) & 7) - 4.0)
     velocity = qt.Vec3(direction.x * speed + ((random(state) & 31) - 16.0),
       direction.y * speed + ((random(state) & 31) - 16.0),
       direction.z * speed + ((random(state) & 31) - 16.0))
     selectedColor = color + (random(state) & 7)
-    addParticle(state, add(origin, jitter), velocity, qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY),
-      selectedColor, 1.0, -1.0 / (0.5 + (random(state) & 7) * 0.1))
+    state.particles[start + index] = cetypes.Particle(add(origin, jitter), velocity,
+      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), selectedColor, 1.0,
+      -1.0 / (0.5 + (random(state) & 7) * 0.1), state.time)
     index = index + 1
   end while
   return index

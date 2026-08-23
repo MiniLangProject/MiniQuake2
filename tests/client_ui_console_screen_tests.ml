@@ -37,7 +37,8 @@ uiScreenConfig[qc.CS_STATUSBAR] = "xv 0 yb -24 hnum"
 uiScreenStats[1] = 100
 uiScreenRenderer = recording.createRecordingRenderer()
 uiScreenRenderer.exports.Init(void, void)
-uiScreenCount = cuiscreen.draw(uiScreenState, 1200, 640, 480, uiScreenStats, uiScreenConfig, uiScreenRenderer.exports)
+uiScreenCount = cuiscreen.draw(uiScreenState, 1200, 640, 480, uiScreenStats,
+  uiScreenConfig, 12, 0, uiScreenRenderer.exports)
 uiScreenAssertEqual(uiScreenCount > 4, true, "composed draw count")
 uiScreenTrace = recording.commandTrace(uiScreenRenderer)
 uiScreenAssertEqual(len(bytes(uiScreenTrace)) > 0, true, "renderer function-value handoff")
@@ -46,7 +47,8 @@ uiScreenAssertEqual(len(bytes(uiScreenTrace)) > 0, true, "renderer function-valu
 uiScreenState.showInventory = false
 uiScreenState.layoutText = ""
 uiScreenConfig[qc.CS_STATUSBAR] = ""
-uiScreenAssertEqual(cuiscreen.draw(uiScreenState, 5000, 640, 480, uiScreenStats, uiScreenConfig, uiScreenRenderer.exports), 0, "expired overlays")
+uiScreenAssertEqual(cuiscreen.draw(uiScreenState, 5000, 640, 480, uiScreenStats,
+  uiScreenConfig, 50, 0, uiScreenRenderer.exports), 0, "expired overlays")
 uiScreenConsole.visibleFraction = 0.5
 uiScreenAssertEqual(cuiconsole.draw(uiScreenConsole, 640, 480, uiScreenRenderer.exports) > 0, true, "full console draw")
 uiScreenRenderer.exports.Shutdown()

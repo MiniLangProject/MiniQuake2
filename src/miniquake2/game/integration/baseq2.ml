@@ -59,6 +59,18 @@ end struct
 
 activeIntegrationRuntime = void
 
+function compactIntegratedValues(values, count)
+  if count <= 0 then return [] end if
+  if count == len(values) then return values end if
+  output = array(count)
+  index = 0
+  while index < count
+    output[index] = values[index]
+    index = index + 1
+  end while
+  return output
+end function
+
 function copyVector(values)
   return ibqtypes.Vec3(values[0], values[1], values[2])
 end function
@@ -439,19 +451,29 @@ function weaponTargetByNumber(runtime, number)
 end function
 
 function integratedWeaponTargets(runtime)
-  targets = []
+  capacity = len(runtime.monsters) + len(runtime.world.entities)
+  if runtime.playerContext is not void then capacity = capacity + len(runtime.playerContext.players) end if
+  targets = array(capacity)
+  targetCount = 0
   if runtime.playerContext is not void then
     for each player in runtime.playerContext.players
-      if player.edict.inUse and player.health > 0 then targets = targets + [playerWeaponTarget(player, runtime.playerContext.registry)] end if
+      if player.edict.inUse and player.health > 0 then
+        targets[targetCount] = playerWeaponTarget(player, runtime.playerContext.registry)
+        targetCount = targetCount + 1
+      end if
     end for
   end if
   for each actor in runtime.monsters
-    if actor.edict.inUse and actor.health > 0 then targets = targets + [monsterWeaponTarget(actor)] end if
+    if actor.edict.inUse and actor.health > 0 then
+      targets[targetCount] = monsterWeaponTarget(actor); targetCount = targetCount + 1
+    end if
   end for
   for each entity in runtime.world.entities
-    if entity.inUse and entity.takeDamage == ibworldconstants.DAMAGE_YES then targets = targets + [worldWeaponTarget(entity)] end if
+    if entity.inUse and entity.takeDamage == ibworldconstants.DAMAGE_YES then
+      targets[targetCount] = worldWeaponTarget(entity); targetCount = targetCount + 1
+    end if
   end for
-  return targets
+  return compactIntegratedValues(targets, targetCount)
 end function
 
 function clipWeaponAxis(interval, startValue, endValue, minimum, maximum, axis)
@@ -535,11 +557,15 @@ function integratedRadiusTargets(origin, radius)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
   if runtime is void then return [] end if
-  result = []
-  for each target in integratedWeaponTargets(runtime)
-    if ibwpvector.length(ibwpvector.subtract(target.origin, origin)) <= radius then result = result + [target] end if
+  targets = integratedWeaponTargets(runtime)
+  result = array(len(targets))
+  resultCount = 0
+  for each target in targets
+    if ibwpvector.length(ibwpvector.subtract(target.origin, origin)) <= radius then
+      result[resultCount] = target; resultCount = resultCount + 1
+    end if
   end for
-  return result
+  return compactIntegratedValues(result, resultCount)
 end function
 
 function integratedWeaponDamage(combatant, request)
@@ -2097,11 +2123,15 @@ function advanceWeaponProjectiles(runtime)
   // The C game reuses freed edicts. Managed projectiles are private records,
   // so drop inactive entries after all due thinks instead of retaining every
   // projectile ever fired for the lifetime of the level.
-  activeProjectiles = []
+  activeProjectiles = array(len(context.projectiles))
+  activeProjectileCount = 0
   for each retainedProjectile in context.projectiles
-    if retainedProjectile.inUse then activeProjectiles = activeProjectiles + [retainedProjectile] end if
+    if retainedProjectile.inUse then
+      activeProjectiles[activeProjectileCount] = retainedProjectile
+      activeProjectileCount = activeProjectileCount + 1
+    end if
   end for
-  context.projectiles = activeProjectiles
+  context.projectiles = compactIntegratedValues(activeProjectiles, activeProjectileCount)
   return true
 end function
 

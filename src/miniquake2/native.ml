@@ -10,6 +10,9 @@ package miniquake2.native
 
 extern function f32FromRaw(rawValue as u64) from "miniquake_native.dll" symbol "mq_f32_from_ml_raw" returns u32
 extern function f32ToRaw(bits as u32) from "miniquake_native.dll" symbol "mq_f32_to_ml_raw" returns u64
+extern function f32Sin(bits as u32) from "miniquake_native.dll" symbol "mq_f32_sin" returns u32
+extern function f32Cos(bits as u32) from "miniquake_native.dll" symbol "mq_f32_cos" returns u32
+extern function f32Atan2(yBits as u32, xBits as u32) from "miniquake_native.dll" symbol "mq_f32_atan2" returns u32
 
 extern function sysCounter() from "miniquake_native.dll" symbol "mq_sys_counter" returns u64
 extern function sysFrequency() from "miniquake_native.dll" symbol "mq_sys_frequency" returns u64
@@ -88,8 +91,15 @@ extern function glReadPixels(x as i32, y as i32, width as i32, height as i32, fo
 extern function glFinish() from "miniquake_native.dll" symbol "mq_gl_finish" returns void
 extern function glFlush() from "miniquake_native.dll" symbol "mq_gl_flush" returns void
 extern function glStaticGeometryCall(keyValue as u64, passValue as i32) from "miniquake_native.dll" symbol "mq_gl_static_geometry_call" returns i32
+extern function glStaticGeometryCallBatch(keys as bytes, byteCount as u32, passValue as i32) from "miniquake_native.dll" symbol "mq_gl_static_geometry_call_batch" returns i32
+extern function glStaticGeometryCallMultitextureBatch(records as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_gl_static_geometry_call_multitexture_batch" returns i32
 extern function glStaticGeometryPrepare(keyValue as u64, passValue as i32) from "miniquake_native.dll" symbol "mq_gl_static_geometry_prepare" returns i32
 extern function glStaticGeometryClear() from "miniquake_native.dll" symbol "mq_gl_static_geometry_clear" returns void
+extern function glMultitextureAvailable() from "miniquake_native.dll" symbol "mq_gl_multitexture_available" returns i32
+extern function glActiveTexture(unit as i32) from "miniquake_native.dll" symbol "mq_gl_active_texture" returns void
+extern function glMultiTexCoord2(unit as i32, sBits as u32, tBits as u32) from "miniquake_native.dll" symbol "mq_gl_multi_tex_coord2" returns void
+extern function glTexEnvI(target as u32, name as u32, value as i32) from "miniquake_native.dll" symbol "mq_gl_tex_env_i" returns void
+extern function glDrawParticleBatch(data as bytes, byteCount as u32, viewOriginX as u32, viewOriginY as u32, viewOriginZ as u32, viewForwardX as u32, viewForwardY as u32, viewForwardZ as u32, viewUpX as u32, viewUpY as u32, viewUpZ as u32, viewRightX as u32, viewRightY as u32, viewRightZ as u32) from "miniquake_native.dll" symbol "mq_gl_draw_particle_batch" returns i32
 
 function floatBits(value)
   return f32FromRaw(nativeRawValue(value))
@@ -97,6 +107,18 @@ end function
 
 function bitsFloat(bits)
   return nativeValueFromRaw(f32ToRaw(bits))
+end function
+
+function sin(value)
+  return bitsFloat(f32Sin(floatBits(value)))
+end function
+
+function cos(value)
+  return bitsFloat(f32Cos(floatBits(value)))
+end function
+
+function atan2(y, x)
+  return bitsFloat(f32Atan2(floatBits(y), floatBits(x)))
 end function
 
 function textResult(buffer, count)

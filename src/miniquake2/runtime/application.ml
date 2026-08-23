@@ -360,6 +360,7 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, prod
       appuiscreen.draw(applicationCinematicScreenHolder, applicationCinematicNow,
         applicationCinematicWindowHolder.width, applicationCinematicWindowHolder.height,
         applicationCinematicStats, applicationCinematicConfigStrings,
+        0, -1,
         applicationCinematicRendererHolder.exports)
     end if
     applicationCinematicRendererHolder.exports.EndFrame()
@@ -449,6 +450,7 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
     appuiscreen.draw(applicationPictureScreenHolder, applicationPictureNow,
       applicationPictureWindowHolder.width, applicationPictureWindowHolder.height,
       applicationPictureStats, applicationPictureConfigStrings,
+      0, -1,
       applicationPictureRendererHolder.exports)
     applicationPictureRendererHolder.exports.EndFrame()
     applicationPictureFrames = applicationPictureFrames + 1
@@ -481,7 +483,7 @@ function applicationSubmitDemoFrame(renderer, world, frame, screen, now,
   renderer.exports.RenderFrame(frame)
   applicationDemoSubmitStats = appgl.submitClassicWorld(renderer, world, frame)
   appuiscreen.draw(screen, now, window.width, window.height,
-    stats, configStrings, renderer.exports)
+    stats, configStrings, 0, -1, renderer.exports)
   return applicationDemoSubmitStats
 end function
 
@@ -1382,7 +1384,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       applicationPerfHudStart - applicationPerfEntityStart
     appuiscreen.draw(screen, started, window.width, window.height,
       session.client.integrated.client.current.playerState.stats,
-      session.client.integrated.network.configStrings, renderer.exports)
+      session.client.integrated.network.configStrings,
+      session.client.integrated.client.current.number,
+      session.client.integrated.network.playerNumber, renderer.exports)
     applicationPerfHud = applicationPerfHud +
       appsystem.milliseconds(clock) - applicationPerfHudStart
     renderer.exports.EndFrame()

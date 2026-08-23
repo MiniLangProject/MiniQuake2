@@ -96,6 +96,7 @@ struct MenuState
   cursor
   active
   commands
+  commandCount
 end struct
 
 struct ScreenState

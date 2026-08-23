@@ -103,7 +103,8 @@ function drawInventory(screen, screenWidth, screenHeight, exports)
   return count
 end function
 
-function draw(screen, now, screenWidth, screenHeight, stats, configStrings, exports)
+function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
+    serverFrame, playerNumber, exports)
   count = 0
   if screen.showHud then
     statusbar = ""
@@ -117,8 +118,8 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings, expo
       if statusbar != "" then screen.statusbarTokens = clayout.tokenize(statusbar) end if
     end if
     if len(screen.statusbarTokens) > 0 then
-      statusCommands = clayout.parseTokens(screen.statusbarTokens, stats,
-        configStrings, screenWidth, screenHeight)
+      statusCommands = clayout.parseTokensContext(screen.statusbarTokens, stats,
+        configStrings, screenWidth, screenHeight, serverFrame, playerNumber)
       count = count + clayout.draw(statusCommands, exports)
     end if
     if screen.layoutText != screen.layoutTokenText then
@@ -127,8 +128,8 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings, expo
       if screen.layoutText != "" then screen.layoutTokens = clayout.tokenize(screen.layoutText) end if
     end if
     if len(screen.layoutTokens) > 0 then
-      commands = clayout.parseTokens(screen.layoutTokens, stats, configStrings,
-        screenWidth, screenHeight)
+      commands = clayout.parseTokensContext(screen.layoutTokens, stats, configStrings,
+        screenWidth, screenHeight, serverFrame, playerNumber)
       count = count + clayout.draw(commands, exports)
     end if
   end if
@@ -136,7 +137,7 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings, expo
   if screen.centerText != "" and now - screen.centerStart <= screen.centerDuration then
     count = count + drawCenteredLines(exports, screenWidth, screenHeight * 35 / 100, screen.centerText)
   end if
-  if screen.menu.active then count = count + cuimenu.draw(screen.menu, screenWidth, screenHeight, exports)
+  if screen.menu.active then count = count + cuimenu.draw(screen.menu, screenWidth, screenHeight, now, exports)
   else if screen.console.visibleFraction > 0.0 then count = count + cuiconsole.draw(screen.console, screenWidth, screenHeight, exports)
   else count = count + cuiconsole.notify(screen.console, now, exports)
   end if
