@@ -28,6 +28,7 @@ end function
 
 function loadFile(name)
   if name == "sprites/test.sp2" then return spriteBytes() end if
+  if name == "sprites/frame.pcx" then return pcxBytes() end if
   if name == "pics/test.pcx" then return pcxBytes() end if
   return void
 end function
@@ -37,6 +38,8 @@ imports = TestImports(loadFile)
 sprite = rassets.registerModel(registry, imports, "sprites/test.sp2")
 assertEqual(sprite.kind, "sprite", "sprite kind")
 assertEqual(sprite.source.frames[0].width, 32, "sprite width")
+assertEqual(len(sprite.skins), 1, "sprite frame PCX count")
+assertEqual(sprite.skins[0].handle.name, "sprites/frame.pcx", "sprite frame PCX name")
 assertEqual(rassets.registerModel(registry, imports, "sprites/test.sp2").handle.id, sprite.handle.id, "model dedupe")
 picture = rassets.registerPicture(registry, imports, "pics/test.pcx")
 assertEqual(picture.kind, "pcx", "picture kind")

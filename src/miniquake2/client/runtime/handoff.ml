@@ -104,7 +104,8 @@ function copyExplosions(values)
   while index < len(values)
     value = values[index]
     copied = cetypes.Explosion(value.kind, void, void, value.modelName, value.frames,
-      value.light, void, value.startTime, value.baseFrame, value.flags, value.alpha)
+      value.light, void, value.startTime, value.baseFrame, value.flags, value.alpha,
+      value.skinNum)
     copied.origin = copyVec(value.origin)
     copied.angles = copyVec(value.angles)
     copied.lightColor = copyValues(value.lightColor)

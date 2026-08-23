@@ -3,6 +3,7 @@ import miniquake2.format.constants as fc
 import miniquake2.native as md2testnative
 import miniquake2.qcommon.byteio as md2testbyteio
 import miniquake2.renderer.types as rt
+import miniquake2.renderer.geometry as rgeom
 import miniquake2.renderer.opengl as ropengl
 
 function assertEqual(actual, expected, name)
@@ -137,6 +138,11 @@ function testRegistrationInterpolationAndBounds()
   assertNear(plan.mesh.vertices[0].position.x, 2.0, 0.0001, "interpolated first vertex")
   assertNear(plan.mesh.vertices[1].position.x, 10.0, 0.0001, "interpolated second vertex")
   assertNear(plan.mesh.vertices[1].s, 1.0, 0.0001, "normalized skin coordinate")
+  shellScalars = rgeom.md2PowerShellFrameScalars(plan.modelAsset.source, 1, 0, 0.5)
+  assertNear(shellScalars[2], 2.0 - 0.525731 * 4.0, 0.0001,
+    "power-shell normal expansion x")
+  assertNear(shellScalars[4], 0.850651 * 4.0, 0.0001,
+    "power-shell normal expansion z")
   assertNear(plan.bounds.mins.x, 2.0, 0.0001, "interpolated bounds minimum")
   assertNear(plan.bounds.maxs.x, 10.0, 0.0001, "interpolated bounds maximum")
   frameBounds = ropengl.md2ModelFrameBounds(renderer, handle, 1)

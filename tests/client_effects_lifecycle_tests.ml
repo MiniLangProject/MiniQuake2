@@ -2,6 +2,7 @@
 import miniquake2.qcommon.types as qt
 import miniquake2.audio.wav as awav
 import miniquake2.audio.mixer as amixer
+import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.validation as rvalidation
 import miniquake2.client.effects.types as cetypes
@@ -62,7 +63,24 @@ cehandoff.apply(first, frame, 0, resolveModel)
 assertEqual(frame.numDLights, 2, "dlight plus explosion light")
 assertEqual(frame.numParticles, 8, "particle handoff")
 assertEqual(frame.numEntities, 3, "beam laser explosion entities")
+assertEqual(frame.entities[0].flags & rc.RF_BEAM, 0,
+  "model cable uses MD2 segments rather than RF_BEAM geometry")
+assertEqual(frame.entities[2].frame, 2, "classic explosion current frame")
+assertEqual(frame.entities[2].oldFrame, 1, "classic explosion previous frame")
+assertEqual(frame.entities[2].alpha, 0.9375, "classic polygon explosion fade")
+assertEqual(frame.dLights[1].intensity, 140.625, "explosion light follows alpha")
 assertTrue(rvalidation.validateRefDef(frame).valid, "renderer validates effect RefDef")
+
+longBeamState = cestate.createSilent(7)
+cestate.addBeam(longBeamState, 9, 0, "models/monsters/parasite/segment/tris.md2",
+  qt.zeroVec3(), qt.Vec3(100.0, 0.0, 0.0), qt.zeroVec3(), false, 200)
+longBeamFrame = rt.defaultRefDef(640, 480)
+cehandoff.apply(longBeamState, longBeamFrame, 0, resolveModel)
+assertEqual(longBeamFrame.numEntities, 4, "100-unit cable MD2 segment count")
+assertEqual(longBeamFrame.entities[0].angles.x, 0.0, "cable segment pitch")
+assertEqual(longBeamFrame.entities[0].angles.y, 0.0, "cable segment yaw")
+assertEqual(longBeamFrame.entities[3].model.name,
+  "models/monsters/parasite/segment/tris.md2", "cable segment model")
 
 cestate.advance(first, 250)
 assertEqual(len(first.dLights), 0, "dlight expiry")

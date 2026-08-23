@@ -3,6 +3,7 @@ import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.sizebuf as qsz
 import miniquake2.qcommon.message as qmsg
 import miniquake2.protocol.types as pt
+import miniquake2.renderer.constants as rc
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.audio as ceaudio
 import miniquake2.client.effects.state as cestate
@@ -105,6 +106,13 @@ function testTempEntities()
   assertEqual(len(state.explosions), 1, "explosion allocated")
   assertNear(state.explosions[0].origin.z, 3.0, 0.0001, "explosion origin")
 
+  bfgMessage = bytes([ceconstants.TE_BFG_EXPLOSION, 8, 0, 16, 0, 24, 0])
+  ceparser.parseTempEntity(state, reading(bfgMessage))
+  assertEqual(state.explosions[1].modelName, "sprites/s_bfg2.sp2",
+    "BFG sprite model")
+  assertEqual(state.explosions[1].flags & rc.RF_TRANSLUCENT,
+    rc.RF_TRANSLUCENT, "BFG sprite translucency")
+
   rail = bytes([ceconstants.TE_RAILTRAIL, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0])
   ceparser.parseTempEntity(state, reading(rail))
   assertTrue(len(state.particles) >= 16, "rail trail particles")
@@ -138,4 +146,3 @@ testMuzzleFlashes()
 testTempEntities()
 testEntityEvents()
 print "client_effects_parser_tests: PASS"
-

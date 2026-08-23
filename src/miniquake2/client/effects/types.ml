@@ -51,6 +51,7 @@ struct Explosion
   baseFrame
   flags
   alpha
+  skinNum
 end struct
 
 struct Sustain
@@ -95,4 +96,3 @@ struct State
   soundEvents
   audio
 end struct
-

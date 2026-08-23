@@ -3,6 +3,7 @@ package miniquake2.renderer.geometry
 
 import std.math as rgeometrymath
 import miniquake2.format.types as ft
+import miniquake2.qcommon.directions as rgeometrydirections
 
 struct MeshVertex
   position
@@ -174,7 +175,8 @@ end function
 // MeshVertex structs; the live renderer needs only interleaved ST/XYZ scalars.
 // Building those scalars directly avoids a full temporary object graph and a
 // second traversal for every visible alias model on every frame.
-function md2FrameScalars(model, frameIndex, oldFrameIndex, backLerp)
+function md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
+    backLerp, normalOffset)
   if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or
       oldFrameIndex >= len(model.frames) then
     return error(9643, "MD2 scalar frame outside table")
@@ -215,10 +217,31 @@ function md2FrameScalars(model, frameIndex, oldFrameIndex, backLerp)
       scalars[scalarIndex + 2] = currentX * frontLerp + previousX * backLerp
       scalars[scalarIndex + 3] = currentY * frontLerp + previousY * backLerp
       scalars[scalarIndex + 4] = currentZ * frontLerp + previousZ * backLerp
+      if normalOffset != 0.0 then
+        normalIndex = current.normalIndex
+        if normalIndex < 0 or normalIndex >= len(rgeometrydirections.normals) then
+          return error(9647, "MD2 scalar normal outside anorms table")
+        end if
+        normal = rgeometrydirections.normals[normalIndex]
+        scalars[scalarIndex + 2] = scalars[scalarIndex + 2] + normal[0] * normalOffset
+        scalars[scalarIndex + 3] = scalars[scalarIndex + 3] + normal[1] * normalOffset
+        scalars[scalarIndex + 4] = scalars[scalarIndex + 4] + normal[2] * normalOffset
+      end if
       scalarIndex = scalarIndex + 5
       corner = corner + 1
     end while
     triangleIndex = triangleIndex + 1
   end while
   return scalars
+end function
+
+function md2FrameScalars(model, frameIndex, oldFrameIndex, backLerp)
+  return md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
+    backLerp, 0.0)
+end function
+
+function md2PowerShellFrameScalars(model, frameIndex, oldFrameIndex, backLerp)
+  // POWERSUIT_SCALE from ref_gl/gl_mesh.c.
+  return md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
+    backLerp, 4.0)
 end function

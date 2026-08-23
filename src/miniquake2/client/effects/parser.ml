@@ -194,9 +194,19 @@ function explosion(state, type, position)
   model = "models/objects/r_explode/tris.md2"
   frames = 15
   alpha = 1.0
-  if type == ceconstants.TE_BFG_EXPLOSION then color = [0.0, 1.0, 0.0]; model = "sprites/s_bfg2.sp2"; frames = 4; alpha = 0.3 end if
-  if type == ceconstants.TE_BLASTER or type == ceconstants.TE_BLASTER2 or type == ceconstants.TE_FLECHETTE then model = "models/objects/explode/tris.md2"; frames = 4; alpha = 0.7 end if
-  value = cestate.addExplosion(state, type, position, model, frames, 350.0, color, rc.RF_FULLBRIGHT, alpha)
+  light = 350.0; flags = rc.RF_FULLBRIGHT
+  if type == ceconstants.TE_BFG_EXPLOSION then
+    color = [0.0, 1.0, 0.0]; model = "sprites/s_bfg2.sp2"; frames = 4
+    flags = flags | rc.RF_TRANSLUCENT
+  end if
+  if type == ceconstants.TE_BLASTER or type == ceconstants.TE_BLASTER2 or type == ceconstants.TE_FLECHETTE then
+    model = "models/objects/explode/tris.md2"; frames = 4; light = 150.0
+    flags = flags | rc.RF_TRANSLUCENT
+    if type == ceconstants.TE_BLASTER then color = [1.0, 1.0, 0.0] end if
+    if type == ceconstants.TE_BLASTER2 then color = [0.0, 1.0, 0.0] end if
+    if type == ceconstants.TE_FLECHETTE then color = [0.19, 0.41, 0.75] end if
+  end if
+  value = cestate.addExplosion(state, type, position, model, frames, light, color, flags, alpha)
   if type != ceconstants.TE_BFG_EXPLOSION then cestate.particleEffect(state, position, qt.zeroVec3(), 0xe0, 64, 50.0) end if
   return value
 end function
@@ -394,4 +404,3 @@ function parseServiceCommand(state, buffer, opcode, entityResolver)
   if opcode == qc.SVC_TEMP_ENTITY then return parseTempEntity(state, buffer) end if
   return error(7338, "opcode is not a client effect service command")
 end function
-

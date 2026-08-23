@@ -124,9 +124,12 @@ function addLaser(state, start, finish, color)
 end function
 
 function addExplosion(state, kind, origin, modelName, frames, light, lightColor, flags, alpha)
+  skinNum = 0
+  if kind == ceconstants.TE_BLASTER2 then skinNum = 1 end if
+  if kind == ceconstants.TE_FLECHETTE then skinNum = 2 end if
   explosion = cetypes.Explosion(kind, copyVec(origin), qt.Vec3(0.0, (random(state) % 360) * 1.0, 0.0),
     modelName, frames, light, [lightColor[0], lightColor[1], lightColor[2]], state.time - 100,
-    0, flags, alpha)
+    0, flags, alpha, skinNum)
   if len(state.explosions) < ceconstants.MAX_EXPLOSIONS then
     state.explosions = state.explosions + [explosion]
   else
@@ -197,7 +200,7 @@ function advance(state, now)
   activeExplosionCount = 0
   for each explosion in state.explosions
     frame = (now - explosion.startTime) / 100
-    if frame < explosion.frames then
+    if frame < explosion.frames - 1 then
       activeExplosions[activeExplosionCount] = explosion
       activeExplosionCount = activeExplosionCount + 1
     end if

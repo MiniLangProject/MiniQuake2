@@ -114,6 +114,20 @@ function registerMd2Skins(registry, imports, model)
   return skins
 end function
 
+function registerSpriteFrames(registry, imports, model)
+  frames = array(len(model.frames))
+  frameIndex = 0
+  while frameIndex < len(model.frames)
+    imageName = model.frames[frameIndex].imageName
+    if imageName == "" then return error(9659, "SP2 contains an empty frame image name") end if
+    frames[frameIndex] = registerPicture(registry, imports, imageName)
+    if frames[frameIndex].kind != "pcx" then return error(9660, "SP2 frame is not PCX: " + imageName) end if
+    frames[frameIndex].usage = "sprite"
+    frameIndex = frameIndex + 1
+  end while
+  return frames
+end function
+
 function md2FrameBounds(model)
   bounds = array(len(model.frames))
   frameIndex = 0
@@ -181,7 +195,8 @@ function registerModel(registry, imports, name)
       asset = ModelAsset(handle, "md2", source, initialMesh, skins, frameBounds)
     else if endsWith(name, ".sp2") then
       source = fsprite.parse(data, name)
-      asset = ModelAsset(nextHandle(registry, "model", name), "sprite", source, void, array(0), array(0))
+      frames = registerSpriteFrames(registry, imports, source)
+      asset = ModelAsset(nextHandle(registry, "model", name), "sprite", source, void, frames, array(0))
     else
       return error(9652, "unsupported renderer model format: " + name)
     end if

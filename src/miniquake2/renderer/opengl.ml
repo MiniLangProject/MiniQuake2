@@ -16,6 +16,7 @@ import miniquake2.native as native
 import miniquake2.qcommon.byteio as ropenglbyteio
 import miniquake2.qcommon.types as ropenglqtypes
 import miniquake2.format.constants as ropenglformatconstants
+import miniquake2.format.pcx as ropenglpcx
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.recording as recording
@@ -28,20 +29,25 @@ import miniquake2.renderer.classic.world as rclassicworld
 import miniquake2.renderer.classic.visibility as rclassicvisibility
 import miniquake2.renderer.classic.special as rclassicspecial
 import miniquake2.renderer.classic.lightmaps as rclassiclightmaps
+import miniquake2.renderer.classic.sprites as rclassicsprites
 
 const GL_POINTS = 0x0000
 const GL_LINES = 0x0001
 const GL_TRIANGLES = 0x0004
+const GL_TRIANGLE_STRIP = 0x0005
+const GL_TRIANGLE_FAN = 0x0006
 const GL_QUADS = 0x0007
 const GL_DEPTH_BUFFER_BIT = 0x00000100
 const GL_COLOR_BUFFER_BIT = 0x00004000
 const GL_EQUAL = 0x0202
+const GL_GREATER = 0x0204
 const GL_LEQUAL = 0x0203
 const GL_ZERO = 0x0000
 const GL_SRC_COLOR = 0x0300
 const GL_SRC_ALPHA = 0x0302
 const GL_ONE_MINUS_SRC_ALPHA = 0x0303
 const GL_BLEND = 0x0BE2
+const GL_ALPHA_TEST = 0x0BC0
 const GL_DEPTH_TEST = 0x0B71
 const GL_TEXTURE_2D = 0x0DE1
 const GL_MODELVIEW = 0x1700
@@ -73,6 +79,10 @@ struct OpenGlState
   submittedParticles
   nextTextureId
   textureRecords
+  gamePalette
+  particleTextureId
+  rawTextureId
+  rawPixels
 end struct
 
 // The native bridge creates OpenGL 1.1 names on first bind.  Keeping every
@@ -128,6 +138,24 @@ struct Md2DrawState
   textureId
   translucent
   depthHack
+  shell
+end struct
+
+struct OpenGlViewAxes
+  forwardX
+  forwardY
+  forwardZ
+  rightX
+  rightY
+  rightZ
+  upX
+  upY
+  upZ
+end struct
+
+struct OpenGlRawFrame
+  rgba
+  textureT
 end struct
 
 // Mutating a package-owned holder is reliable across the self-hosted full
@@ -180,6 +208,126 @@ function colorByte(value, shift)
   return (value >> shift) & 255
 end function
 
+function inline openGlPaletteColor(palette, index)
+  color = index & 255
+  if typeof(palette) == "bytes" and len(palette) == 768 then
+    return palette[color * 3] | (palette[color * 3 + 1] << 8) | (palette[color * 3 + 2] << 16)
+  end if
+  return (color & 0xE0) | (((color & 0x1C) << 3) << 8) | (((color & 0x03) << 6) << 16)
+end function
+
+function openGlLoadGamePalette(backend)
+  if backend.imports is void then backend.gamePalette = bytes(0); return backend.gamePalette end if
+  data = try(backend.imports.fsLoadFile("pics/colormap.pcx"))
+  if data is error or typeof(data) != "bytes" then backend.gamePalette = bytes(0); return backend.gamePalette end if
+  image = try(ropenglpcx.parse(data))
+  if image is error or len(image.palette) != 768 then backend.gamePalette = bytes(0); return backend.gamePalette end if
+  backend.gamePalette = image.palette
+  return backend.gamePalette
+end function
+
+function openGlViewAxes(viewAngles)
+  pitch = viewAngles.x * DEG_TO_RAD
+  yaw = viewAngles.y * DEG_TO_RAD
+  roll = viewAngles.z * DEG_TO_RAD
+  pitchSine = rmath.sin(pitch); pitchCosine = rmath.cos(pitch)
+  yawSine = rmath.sin(yaw); yawCosine = rmath.cos(yaw)
+  rollSine = rmath.sin(roll); rollCosine = rmath.cos(roll)
+  return OpenGlViewAxes(
+    pitchCosine * yawCosine, pitchCosine * yawSine, -pitchSine,
+    -rollSine * pitchSine * yawCosine + rollCosine * yawSine,
+    -rollSine * pitchSine * yawSine - rollCosine * yawCosine,
+    -rollSine * pitchCosine,
+    rollCosine * pitchSine * yawCosine + rollSine * yawSine,
+    rollCosine * pitchSine * yawSine - rollSine * yawCosine,
+    rollCosine * pitchCosine)
+end function
+
+function openGlParticlePixels()
+  mask = bytes([
+    0,0,0,0,0,0,0,0,
+    0,0,1,1,0,0,0,0,
+    0,1,1,1,1,0,0,0,
+    0,1,1,1,1,0,0,0,
+    0,0,1,1,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0])
+  rgba = bytes(8 * 8 * 4)
+  index = 0
+  while index < 64
+    rgba[index * 4] = 255; rgba[index * 4 + 1] = 255; rgba[index * 4 + 2] = 255
+    rgba[index * 4 + 3] = mask[index] * 255
+    index = index + 1
+  end while
+  return rgba
+end function
+
+function prepareOpenGlRawFrame(columns, rows, data, palette, reusable)
+  if columns <= 0 or rows <= 0 then return error(9630, "raw frame dimensions must be positive") end if
+  rgba = reusable
+  if typeof(rgba) != "bytes" or len(rgba) != 256 * 256 * 4 then rgba = bytes(256 * 256 * 4) end if
+  heightScale = 1.0
+  targetRows = rows
+  if rows > 256 then heightScale = rows / 256.0; targetRows = 256 end if
+  textureT = rows * heightScale / 256.0
+  rowIndex = 0
+  while rowIndex < targetRows
+    sourceRow = ropenglbyteio.truncInt(rowIndex * heightScale)
+    if sourceRow >= rows then sourceRow = rows - 1 end if
+    fractionStep = ropenglbyteio.truncInt(columns * 65536.0 / 256.0)
+    fraction = fractionStep >> 1
+    columnIndex = 0
+    while columnIndex < 256
+      sourceColumn = fraction >> 16
+      if sourceColumn >= columns then sourceColumn = columns - 1 end if
+      color = data[sourceRow * columns + sourceColumn]
+      packed = openGlPaletteColor(palette, color)
+      destination = (rowIndex * 256 + columnIndex) * 4
+      rgba[destination] = colorByte(packed, 0)
+      rgba[destination + 1] = colorByte(packed, 8)
+      rgba[destination + 2] = colorByte(packed, 16)
+      rgba[destination + 3] = 255
+      fraction = fraction + fractionStep
+      columnIndex = columnIndex + 1
+    end while
+    rowIndex = rowIndex + 1
+  end while
+  return OpenGlRawFrame(rgba, textureT)
+end function
+
+function ensureOpenGlParticleTexture(backend)
+  record = void
+  if backend.particleTextureId != 0 then record = findTextureRecord(backend, backend.particleTextureId) end if
+  if record is void or record.released then
+    record = allocateTextureRecord(backend, "***particle***", "particle",
+      backend.assets.generation, 8, 8)
+    backend.particleTextureId = record.id
+  end if
+  if backend.contextActive and not record.uploaded then
+    native.glBindTexture(GL_TEXTURE_2D, record.id)
+    native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP)
+    native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP)
+    native.glTexImage2D(GL_TEXTURE_2D, 0, 4, 8, 8, 0, GL_RGBA,
+      GL_UNSIGNED_BYTE, openGlParticlePixels())
+    record.uploaded = true
+  end if
+  return record.id
+end function
+
+function ensureOpenGlRawTexture(backend)
+  record = void
+  if backend.rawTextureId != 0 then record = findTextureRecord(backend, backend.rawTextureId) end if
+  if record is void or record.released then
+    record = allocateTextureRecord(backend, "***cinematic***", "raw",
+      backend.assets.generation, 256, 256)
+    backend.rawTextureId = record.id
+  end if
+  return record
+end function
+
 function setup3d(frame)
   viewportX = frame.x; viewportY = frame.y; viewportWidth = frame.width; viewportHeight = frame.height
   fovX = frame.fovX; fovY = frame.fovY
@@ -206,31 +354,162 @@ function setup3d(frame)
   native.glTranslate(bits(-originX), bits(-originY), bits(-originZ))
 end function
 
-function drawEntityMarkers(backend, frame)
-  if frame.numEntities <= 0 then return void end if
-  native.glColor4ub(255, 224, 64, 255)
-  native.glBegin(GL_TRIANGLES)
+function drawOpenGlNullEntity(entity)
+  origin = entity.origin; angles = entity.angles
+  native.glPushMatrix()
+  native.glTranslate(bits(origin.x), bits(origin.y), bits(origin.z))
+  native.glRotate(bits(angles.y), bits(0.0), bits(0.0), bits(1.0))
+  native.glRotate(bits(-angles.x), bits(0.0), bits(1.0), bits(0.0))
+  native.glRotate(bits(-angles.z), bits(1.0), bits(0.0), bits(0.0))
+  native.glDisable(GL_TEXTURE_2D)
+  shade = 160
+  if (entity.flags & rc.RF_FULLBRIGHT) != 0 then shade = 255 end if
+  native.glColor4ub(shade, shade, shade, 255)
+  native.glBegin(GL_TRIANGLE_FAN)
+  native.glVertex3(bits(0.0), bits(0.0), bits(-16.0))
   index = 0
-  while index < frame.numEntities
-    entity = frame.entities[index]
-    modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
-    if modelAsset is void or (modelAsset.kind != "md2" and modelAsset.kind != "bsp-inline") then
-      origin = entity.origin
-      originX = origin.x; originY = origin.y; originZ = origin.z
-      native.glVertex3(bits(originX), bits(originY), bits(originZ + 8.0))
-      native.glVertex3(bits(originX - 4.0), bits(originY), bits(originZ))
-      native.glVertex3(bits(originX + 4.0), bits(originY), bits(originZ))
-    end if
+  while index <= 4
+    angle = index * 1.5707963267948966
+    native.glVertex3(bits(16.0 * rmath.cos(angle)), bits(16.0 * rmath.sin(angle)), bits(0.0))
     index = index + 1
   end while
   native.glEnd()
+  native.glBegin(GL_TRIANGLE_FAN)
+  native.glVertex3(bits(0.0), bits(0.0), bits(16.0))
+  index = 4
+  while index >= 0
+    angle = index * 1.5707963267948966
+    native.glVertex3(bits(16.0 * rmath.cos(angle)), bits(16.0 * rmath.sin(angle)), bits(0.0))
+    index = index - 1
+  end while
+  native.glEnd()
+  native.glColor4ub(255, 255, 255, 255)
+  native.glEnable(GL_TEXTURE_2D)
+  native.glPopMatrix()
 end function
 
-function drawParticles(frame)
-  if frame.numParticles <= 0 then return void end if
+function openGlBeamScalars(entity)
+  origin = entity.origin; finish = entity.oldOrigin
+  directionX = finish.x - origin.x; directionY = finish.y - origin.y; directionZ = finish.z - origin.z
+  magnitude = rmath.sqrt(directionX * directionX + directionY * directionY + directionZ * directionZ)
+  if magnitude <= 0.000001 then return [] end if
+  normalX = directionX / magnitude; normalY = directionY / magnitude; normalZ = directionZ / magnitude
+  absoluteX = rmath.abs(normalX); absoluteY = rmath.abs(normalY); absoluteZ = rmath.abs(normalZ)
+  axisX = 0.0; axisY = 0.0; axisZ = 0.0
+  if absoluteX <= absoluteY and absoluteX <= absoluteZ then axisX = 1.0
+  else if absoluteY <= absoluteZ then axisY = 1.0
+  else axisZ = 1.0
+  end if
+  projection = axisX * normalX + axisY * normalY + axisZ * normalZ
+  perpendicularX = axisX - projection * normalX
+  perpendicularY = axisY - projection * normalY
+  perpendicularZ = axisZ - projection * normalZ
+  perpendicularLength = rmath.sqrt(perpendicularX * perpendicularX + perpendicularY * perpendicularY + perpendicularZ * perpendicularZ)
+  perpendicularX = perpendicularX / perpendicularLength
+  perpendicularY = perpendicularY / perpendicularLength
+  perpendicularZ = perpendicularZ / perpendicularLength
+  sideX = normalY * perpendicularZ - normalZ * perpendicularY
+  sideY = normalZ * perpendicularX - normalX * perpendicularZ
+  sideZ = normalX * perpendicularY - normalY * perpendicularX
+  radius = entity.frame * 0.5
+  scalars = array(6 * 4 * 3, 0.0)
+  scalarIndex = 0
+  segment = 0
+  while segment < 6
+    angle0 = segment * 1.0471975511965976
+    angle1 = (segment + 1) * 1.0471975511965976
+    ring0X = radius * (perpendicularX * rmath.cos(angle0) + sideX * rmath.sin(angle0))
+    ring0Y = radius * (perpendicularY * rmath.cos(angle0) + sideY * rmath.sin(angle0))
+    ring0Z = radius * (perpendicularZ * rmath.cos(angle0) + sideZ * rmath.sin(angle0))
+    ring1X = radius * (perpendicularX * rmath.cos(angle1) + sideX * rmath.sin(angle1))
+    ring1Y = radius * (perpendicularY * rmath.cos(angle1) + sideY * rmath.sin(angle1))
+    ring1Z = radius * (perpendicularZ * rmath.cos(angle1) + sideZ * rmath.sin(angle1))
+    scalars[scalarIndex] = origin.x + ring0X; scalars[scalarIndex + 1] = origin.y + ring0Y; scalars[scalarIndex + 2] = origin.z + ring0Z
+    scalars[scalarIndex + 3] = finish.x + ring0X; scalars[scalarIndex + 4] = finish.y + ring0Y; scalars[scalarIndex + 5] = finish.z + ring0Z
+    scalars[scalarIndex + 6] = origin.x + ring1X; scalars[scalarIndex + 7] = origin.y + ring1Y; scalars[scalarIndex + 8] = origin.z + ring1Z
+    scalars[scalarIndex + 9] = finish.x + ring1X; scalars[scalarIndex + 10] = finish.y + ring1Y; scalars[scalarIndex + 11] = finish.z + ring1Z
+    scalarIndex = scalarIndex + 12
+    segment = segment + 1
+  end while
+  return scalars
+end function
+
+function drawOpenGlBeam(backend, entity)
+  scalars = openGlBeamScalars(entity)
+  if len(scalars) == 0 then return false end if
+  packed = openGlPaletteColor(backend.gamePalette, entity.skinNum)
+  alpha = ropenglbyteio.truncInt(entity.alpha * 255.0)
+  if alpha < 0 then alpha = 0 end if
+  if alpha > 255 then alpha = 255 end if
+  native.glDisable(GL_TEXTURE_2D)
   native.glEnable(GL_BLEND)
   native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-  native.glBegin(GL_POINTS)
+  native.glDepthMask(0)
+  native.glColor4ub(colorByte(packed, 0), colorByte(packed, 8), colorByte(packed, 16), alpha)
+  native.glBegin(GL_TRIANGLE_STRIP)
+  index = 0
+  while index < len(scalars)
+    native.glVertex3(bits(scalars[index]), bits(scalars[index + 1]), bits(scalars[index + 2]))
+    index = index + 3
+  end while
+  native.glEnd()
+  native.glColor4ub(255, 255, 255, 255)
+  native.glDepthMask(1)
+  native.glDisable(GL_BLEND)
+  native.glEnable(GL_TEXTURE_2D)
+  return true
+end function
+
+function drawOpenGlSpriteEntity(backend, modelAsset, entity, axes)
+  if len(modelAsset.skins) == 0 then return error(9631, "SP2 entity has no registered PCX frames") end if
+  up = ropenglqtypes.Vec3(axes.upX, axes.upY, axes.upZ)
+  right = ropenglqtypes.Vec3(axes.rightX, axes.rightY, axes.rightZ)
+  draw = rclassicsprites.prepare(modelAsset.source, entity, up, right)
+  if draw.frameIndex < 0 or draw.frameIndex >= len(modelAsset.skins) then return error(9632, "SP2 frame skin is unavailable") end if
+  skinAsset = modelAsset.skins[draw.frameIndex]
+  textureId = uploadPicture(backend, skinAsset)
+  alpha = ropenglbyteio.truncInt(draw.alpha * 255.0)
+  if alpha < 0 then alpha = 0 end if
+  if alpha > 255 then alpha = 255 end if
+  native.glEnable(GL_TEXTURE_2D)
+  native.glBindTexture(GL_TEXTURE_2D, textureId)
+  if draw.blend then
+    native.glDisable(GL_ALPHA_TEST)
+    native.glEnable(GL_BLEND)
+    native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    native.glDepthMask(0)
+  else
+    native.glDisable(GL_BLEND)
+    native.glEnable(GL_ALPHA_TEST)
+    native.glAlphaFunc(GL_GREATER, bits(0.666))
+    native.glDepthMask(1)
+  end if
+  native.glColor4ub(255, 255, 255, alpha)
+  native.glBegin(GL_QUADS)
+  for each vertex in draw.vertices
+    native.glTexcoord2(bits(vertex.s), bits(vertex.t))
+    native.glVertex3(bits(vertex.position.x), bits(vertex.position.y), bits(vertex.position.z))
+  end for
+  native.glEnd()
+  native.glDisable(GL_ALPHA_TEST)
+  native.glDisable(GL_BLEND)
+  native.glDepthMask(1)
+  native.glColor4ub(255, 255, 255, 255)
+  return true
+end function
+
+function drawParticles(backend, frame, axes)
+  if frame.numParticles <= 0 then return void end if
+  textureId = ensureOpenGlParticleTexture(backend)
+  viewOrigin = frame.viewOrigin
+  scaledUpX = axes.upX * 1.5; scaledUpY = axes.upY * 1.5; scaledUpZ = axes.upZ * 1.5
+  scaledRightX = axes.rightX * 1.5; scaledRightY = axes.rightY * 1.5; scaledRightZ = axes.rightZ * 1.5
+  native.glEnable(GL_TEXTURE_2D)
+  native.glBindTexture(GL_TEXTURE_2D, textureId)
+  native.glEnable(GL_BLEND)
+  native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+  native.glDepthMask(0)
+  native.glBegin(GL_TRIANGLES)
   index = 0
   while index < frame.numParticles
     particle = frame.particles[index]
@@ -239,18 +518,29 @@ function drawParticles(frame)
     particleOrigin = particle.origin
     particleX = particleOrigin.x; particleY = particleOrigin.y; particleZ = particleOrigin.z
     if particleAlpha > 0.0 then
-      // The software palette index is expanded to a deterministic RGB cube.
-      palette = particleColor & 255
-      red = (palette & 0xE0)
-      green = (palette & 0x1C) << 3
-      blue = (palette & 0x03) << 6
-      native.glColor4ub(red, green, blue, 255)
+      packed = openGlPaletteColor(backend.gamePalette, particleColor)
+      alpha = ropenglbyteio.truncInt(particleAlpha * 255.0)
+      if alpha < 0 then alpha = 0 end if
+      if alpha > 255 then alpha = 255 end if
+      native.glColor4ub(colorByte(packed, 0), colorByte(packed, 8), colorByte(packed, 16), alpha)
+      distance = (particleX - viewOrigin.x) * axes.forwardX +
+        (particleY - viewOrigin.y) * axes.forwardY +
+        (particleZ - viewOrigin.z) * axes.forwardZ
+      scale = 1.0
+      if distance >= 20.0 then scale = 1.0 + distance * 0.004 end if
+      native.glTexcoord2(bits(0.0625), bits(0.0625))
       native.glVertex3(bits(particleX), bits(particleY), bits(particleZ))
+      native.glTexcoord2(bits(1.0625), bits(0.0625))
+      native.glVertex3(bits(particleX + scaledUpX * scale), bits(particleY + scaledUpY * scale), bits(particleZ + scaledUpZ * scale))
+      native.glTexcoord2(bits(0.0625), bits(1.0625))
+      native.glVertex3(bits(particleX + scaledRightX * scale), bits(particleY + scaledRightY * scale), bits(particleZ + scaledRightZ * scale))
     end if
     index = index + 1
   end while
   native.glEnd()
+  native.glDepthMask(1)
   native.glDisable(GL_BLEND)
+  native.glColor4ub(255, 255, 255, 255)
 end function
 
 function setup2d()
@@ -270,18 +560,20 @@ function setup2d()
   frameState.twoDimensional = true
 end function
 
-function drawSolidRect(x, y, width, height, color)
+function drawSolidRect(backend, x, y, width, height, color)
   setup2d()
-  red = (color & 0xE0)
-  green = (color & 0x1C) << 3
-  blue = (color & 0x03) << 6
-  native.glColor4ub(red, green, blue, 255)
+  packed = openGlPaletteColor(backend.gamePalette, color)
+  native.glDisable(GL_TEXTURE_2D)
+  native.glColor4ub(colorByte(packed, 0), colorByte(packed, 8),
+    colorByte(packed, 16), 255)
   native.glBegin(GL_QUADS)
   native.glVertex2(bits(x * 1.0), bits(y * 1.0))
   native.glVertex2(bits((x + width) * 1.0), bits(y * 1.0))
   native.glVertex2(bits((x + width) * 1.0), bits((y + height) * 1.0))
   native.glVertex2(bits(x * 1.0), bits((y + height) * 1.0))
   native.glEnd()
+  native.glColor4ub(255, 255, 255, 255)
+  native.glEnable(GL_TEXTURE_2D)
 end function
 
 function picturePixels(asset)
@@ -390,6 +682,22 @@ function drawTexturedSubRect(backend, asset, x, y, width, height,
   native.glDisable(GL_BLEND)
 end function
 
+function drawTiledRect(backend, asset, x, y, width, height)
+  setup2d()
+  native.glEnable(GL_TEXTURE_2D)
+  native.glDisable(GL_BLEND)
+  native.glBindTexture(GL_TEXTURE_2D, uploadPicture(backend, asset))
+  native.glColor4ub(255, 255, 255, 255)
+  left = x / 64.0; top = y / 64.0
+  right = (x + width) / 64.0; bottom = (y + height) / 64.0
+  native.glBegin(GL_QUADS)
+  native.glTexcoord2(bits(left), bits(top)); native.glVertex2(bits(x * 1.0), bits(y * 1.0))
+  native.glTexcoord2(bits(right), bits(top)); native.glVertex2(bits((x + width) * 1.0), bits(y * 1.0))
+  native.glTexcoord2(bits(right), bits(bottom)); native.glVertex2(bits((x + width) * 1.0), bits((y + height) * 1.0))
+  native.glTexcoord2(bits(left), bits(bottom)); native.glVertex2(bits(x * 1.0), bits((y + height) * 1.0))
+  native.glEnd()
+end function
+
 function drawFadeRect()
   setup2d()
   width = native.winClientWidth(); height = native.winClientHeight()
@@ -405,6 +713,7 @@ function drawFadeRect()
   native.glEnd()
   native.glDisable(GL_BLEND)
   native.glColor4ub(255, 255, 255, 255)
+  native.glEnable(GL_TEXTURE_2D)
 end function
 
 function resolveOpenGlMd2Skin(backend, modelAsset, entity)
@@ -454,7 +763,38 @@ function prepareOpenGlMd2Entity(backend, entity)
     openGlMd2FrameIndex, openGlMd2OldFrameIndex, entity.backLerp)
 end function
 
-function beginOpenGlMd2Draw(backend, skinAsset, entity)
+function openGlMd2Shade(entity, time)
+  flags = entity.flags
+  red = 255; green = 255; blue = 255
+  shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
+  if (flags & shellMask) != 0 then
+    red = 0; green = 0; blue = 0
+    if (flags & rc.RF_SHELL_RED) != 0 and (flags & rc.RF_SHELL_GREEN) != 0 and (flags & rc.RF_SHELL_BLUE) != 0 then
+      red = 255; green = 255; blue = 255
+    else if (flags & rc.RF_SHELL_RED) != 0 then
+      red = 255
+      if (flags & (rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE)) != 0 then blue = 255 end if
+    else if (flags & rc.RF_SHELL_BLUE) != 0 then
+      blue = 255
+      if (flags & rc.RF_SHELL_DOUBLE) != 0 then green = 255 end if
+    else if (flags & rc.RF_SHELL_DOUBLE) != 0 then
+      red = 230; green = 179
+    else
+      if (flags & rc.RF_SHELL_HALF_DAM) != 0 then red = 143; green = 150; blue = 115 end if
+      if (flags & rc.RF_SHELL_GREEN) != 0 then green = 255 end if
+    end if
+  else if (flags & rc.RF_GLOW) != 0 then
+    pulse = 1.0 + 0.1 * rmath.sin(time * 7.0)
+    if pulse < 0.8 then pulse = 0.8 end if
+    red = ropenglbyteio.truncInt(red * pulse); green = ropenglbyteio.truncInt(green * pulse); blue = ropenglbyteio.truncInt(blue * pulse)
+    if red > 255 then red = 255 end if
+    if green > 255 then green = 255 end if
+    if blue > 255 then blue = 255 end if
+  end if
+  return red | (green << 8) | (blue << 16)
+end function
+
+function beginOpenGlMd2Draw(backend, skinAsset, entity, time)
   entityFlags = entity.flags; entityAlpha = entity.alpha
   entityOrigin = entity.origin; entityAngles = entity.angles
   originX = entityOrigin.x; originY = entityOrigin.y; originZ = entityOrigin.z
@@ -463,7 +803,8 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity)
   alpha = 255
   translucent = (entityFlags & rc.RF_TRANSLUCENT) != 0
   depthHack = (entityFlags & rc.RF_DEPTHHACK) != 0
-  if depthHack then native.glDisable(GL_DEPTH_TEST) end if
+  shell = (entityFlags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
+  if depthHack then native.glDepthRange(bits(0.0), bits(0.3)) end if
   if translucent then
     alphaValue = entityAlpha
     if alphaValue < 0.0 then alphaValue = 0.0 end if
@@ -476,15 +817,17 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity)
     native.glDisable(GL_BLEND)
     native.glDepthMask(1)
   end if
-  native.glEnable(GL_TEXTURE_2D)
-  native.glBindTexture(GL_TEXTURE_2D, textureId)
-  native.glColor4ub(255, 255, 255, alpha)
+  if shell then native.glDisable(GL_TEXTURE_2D)
+  else native.glEnable(GL_TEXTURE_2D); native.glBindTexture(GL_TEXTURE_2D, textureId)
+  end if
+  shade = openGlMd2Shade(entity, time)
+  native.glColor4ub(colorByte(shade, 0), colorByte(shade, 8), colorByte(shade, 16), alpha)
   native.glPushMatrix()
   native.glTranslate(bits(originX), bits(originY), bits(originZ))
-  native.glRotate(bits(angleZ), bits(1.0), bits(0.0), bits(0.0))
-  native.glRotate(bits(-angleX), bits(0.0), bits(1.0), bits(0.0))
   native.glRotate(bits(angleY), bits(0.0), bits(0.0), bits(1.0))
-  return Md2DrawState(textureId, translucent, depthHack)
+  native.glRotate(bits(-angleX), bits(0.0), bits(1.0), bits(0.0))
+  native.glRotate(bits(-angleZ), bits(1.0), bits(0.0), bits(0.0))
+  return Md2DrawState(textureId, translucent, depthHack, shell)
 end function
 
 function emitOpenGlMd2Scalars(glVertices)
@@ -504,7 +847,8 @@ end function
 
 function endOpenGlMd2Draw(drawState)
   native.glPopMatrix()
-  if drawState.depthHack then native.glEnable(GL_DEPTH_TEST) end if
+  if drawState.depthHack then native.glDepthRange(bits(0.0), bits(1.0)) end if
+  if drawState.shell then native.glEnable(GL_TEXTURE_2D) end if
   if drawState.translucent then
     native.glDepthMask(1)
     native.glDisable(GL_BLEND)
@@ -513,10 +857,10 @@ function endOpenGlMd2Draw(drawState)
 end function
 
 function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
-    vertexCount, resultBounds, entity)
+    vertexCount, resultBounds, entity, time)
   // Root every managed value before the first native call. The live path uses
   // one flat scalar array, avoiding the temporary MeshVertex object graph.
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity)
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, time)
   native.glBegin(GL_TRIANGLES)
   emitOpenGlMd2Scalars(glVertices)
   native.glEnd()
@@ -527,10 +871,10 @@ end function
 
 function drawOpenGlMd2Plan(backend, plan, entity)
   return drawOpenGlMd2Scalars(backend, plan.skinAsset, plan.glVertices,
-    plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity)
+    plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity, 0.0)
 end function
 
-function drawOpenGlMd2EntityFast(backend, modelAsset, entity)
+function drawOpenGlMd2EntityFast(backend, modelAsset, entity, time)
   frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
   frameCount = len(modelAsset.source.frames)
   if frameIndex < 0 or frameIndex >= frameCount then
@@ -549,15 +893,24 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity)
   if lerpBucket < 0 then lerpBucket = 0 end if
   if lerpBucket > 8 then lerpBucket = 8 end if
   quantizedBackLerp = lerpBucket / 8.0
+  shell = (entity.flags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN |
+    rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
   cachePass = 2000 + (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity)
+  if shell then cachePass = cachePass + 10000000 end if
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, time)
   if native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
     endOpenGlMd2Draw(drawState)
     return Md2SubmitStats(true, triangleCount, triangleCount * 3,
       drawState.textureId, bounds)
   end if
-  scalars = rgeom.md2FrameScalars(modelAsset.source, frameIndex,
-    oldFrameIndex, quantizedBackLerp)
+  scalars = void
+  if shell then
+    scalars = rgeom.md2PowerShellFrameScalars(modelAsset.source, frameIndex,
+      oldFrameIndex, quantizedBackLerp)
+  else
+    scalars = rgeom.md2FrameScalars(modelAsset.source, frameIndex,
+      oldFrameIndex, quantizedBackLerp)
+  end if
   native.glBegin(GL_TRIANGLES)
   emitOpenGlMd2Scalars(scalars)
   native.glEnd()
@@ -573,11 +926,41 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
     entity = frame.entities[entityIndex]
     modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
     if modelAsset is not void and modelAsset.kind == "md2" then
-      drawOpenGlMd2EntityFast(backend, modelAsset, entity)
+      drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame.time)
       submitted = submitted + 1
     end if
     entityIndex = entityIndex + 1
   end while
+  return submitted
+end function
+
+function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
+  submitted = 0
+  if translucentPass then native.glDepthMask(0) end if
+  entityIndex = 0
+  while entityIndex < frame.numEntities
+    entity = frame.entities[entityIndex]
+    translucent = (entity.flags & rc.RF_TRANSLUCENT) != 0
+    if translucent == translucentPass then
+      if translucentPass then native.glDepthMask(0) end if
+      if (entity.flags & rc.RF_BEAM) != 0 then
+        if drawOpenGlBeam(backend, entity) then submitted = submitted + 1 end if
+      else
+        modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
+        if modelAsset is void then
+          drawOpenGlNullEntity(entity); submitted = submitted + 1
+        else if modelAsset.kind == "md2" then
+          drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame.time); submitted = submitted + 1
+        else if modelAsset.kind == "sprite" then
+          drawOpenGlSpriteEntity(backend, modelAsset, entity, axes); submitted = submitted + 1
+        end if
+        // Inline BSP entities are submitted with the world so they can share
+        // its ordered opaque/lightmap/alpha passes.
+      end if
+    end if
+    entityIndex = entityIndex + 1
+  end while
+  if translucentPass then native.glDepthMask(1) end if
   return submitted
 end function
 
@@ -602,6 +985,7 @@ function openGlRendererInit(hinstance, wndproc)
     backend.renderer = native.glGetString(GL_RENDERER)
     backend.version = native.glGetString(GL_VERSION)
   end if
+  openGlLoadGamePalette(backend)
   return true
 end function
 
@@ -613,6 +997,7 @@ function openGlRendererShutdown()
   end if
   if backend.contextActive then native.glStaticGeometryClear() end if
   releaseOpenGlTextureRecords(backend)
+  backend.particleTextureId = 0; backend.rawTextureId = 0; backend.rawPixels = bytes(0)
   backend.core.state.registrationOpen = false
   backend.core.state.initialized = false
 end function
@@ -628,7 +1013,9 @@ function openGlBeginRegistration(mapName)
   state.lastRefDef = void
   if backend.contextActive then native.glStaticGeometryClear() end if
   releaseOpenGlTextureRecords(backend)
+  backend.particleTextureId = 0; backend.rawTextureId = 0
   rassets.beginRegistration(backend.assets)
+  openGlLoadGamePalette(backend)
 end function
 
 function openGlRegisterModel(name)
@@ -639,7 +1026,7 @@ function openGlRegisterModel(name)
     return recording.registerResource(backend.core.state, "model", name)
   end if
   modelAsset = rassets.registerModel(backend.assets, backend.imports, name)
-  if modelAsset.kind == "md2" then
+  if modelAsset.kind == "md2" or modelAsset.kind == "sprite" then
     for each skinAsset in modelAsset.skins
       ensureOpenGlPictureTexture(backend, skinAsset)
       if backend.contextActive then uploadPicture(backend, skinAsset) end if
@@ -722,9 +1109,10 @@ function openGlRenderFrame(frame)
     native.glEnable(GL_DEPTH_TEST)
     native.glDepthFunc(GL_LEQUAL)
     native.glDepthMask(1)
-    submitOpenGlRefDefMd2Entities(backend, frame)
-    drawEntityMarkers(backend, frame)
-    drawParticles(frame)
+    axes = openGlViewAxes(frame.viewAngles)
+    drawOpenGlEntityPass(backend, frame, axes, false)
+    drawOpenGlEntityPass(backend, frame, axes, true)
+    drawParticles(backend, frame, axes)
     backend.submittedEntities = backend.submittedEntities + frame.numEntities
     backend.submittedParticles = backend.submittedParticles + frame.numParticles
   end if
@@ -783,7 +1171,7 @@ function openGlDrawTileClear(x, y, width, height, name)
   if backend.contextActive and backend.imports is not void then
     asset = rassets.findPicture(backend.assets, name)
     if asset is void then asset = rassets.registerPicture(backend.assets, backend.imports, name) end if
-    drawTexturedRect(backend, asset, x, y, width, height)
+    drawTiledRect(backend, asset, x, y, width, height)
   end if
 end function
 
@@ -792,7 +1180,7 @@ function openGlDrawFill(x, y, width, height, color)
   openGlRequireInitialized(backend, "DrawFill")
   if width < 0 or height < 0 then return error(9607, "DrawFill dimensions must not be negative") end if
   if color < 0 or color > 255 then return error(9608, "DrawFill palette index must be in [0,255]") end if
-  if backend.contextActive then drawSolidRect(x, y, width, height, color) end if
+  if backend.contextActive then drawSolidRect(backend, x, y, width, height, color) end if
 end function
 
 function openGlDrawFadeScreen()
@@ -810,6 +1198,30 @@ function openGlDrawStretchRaw(x, y, width, height, columns, rows, data)
   if typeof(data) != "bytes" or len(data) < columns * rows then
     return error(9610, "DrawStretchRaw source data is truncated")
   end if
+  if not backend.contextActive or columns == 0 or rows == 0 then return void end if
+  palette = backend.core.state.palette
+  if typeof(palette) != "bytes" or len(palette) != 768 then palette = backend.gamePalette end if
+  raw = prepareOpenGlRawFrame(columns, rows, data, palette, backend.rawPixels)
+  backend.rawPixels = raw.rgba
+  record = ensureOpenGlRawTexture(backend)
+  setup2d()
+  native.glEnable(GL_TEXTURE_2D)
+  native.glDisable(GL_BLEND)
+  native.glBindTexture(GL_TEXTURE_2D, record.id)
+  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP)
+  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP)
+  native.glTexImage2D(GL_TEXTURE_2D, 0, 4, 256, 256, 0, GL_RGBA,
+    GL_UNSIGNED_BYTE, raw.rgba)
+  record.uploaded = true
+  native.glColor4ub(255, 255, 255, 255)
+  native.glBegin(GL_QUADS)
+  native.glTexcoord2(bits(0.0), bits(0.0)); native.glVertex2(bits(x * 1.0), bits(y * 1.0))
+  native.glTexcoord2(bits(1.0), bits(0.0)); native.glVertex2(bits((x + width) * 1.0), bits(y * 1.0))
+  native.glTexcoord2(bits(1.0), bits(raw.textureT)); native.glVertex2(bits((x + width) * 1.0), bits((y + height) * 1.0))
+  native.glTexcoord2(bits(0.0), bits(raw.textureT)); native.glVertex2(bits(x * 1.0), bits((y + height) * 1.0))
+  native.glEnd()
 end function
 
 function openGlCinematicSetPalette(palette)
@@ -866,7 +1278,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [])
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0))
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -878,7 +1290,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [])
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0))
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
