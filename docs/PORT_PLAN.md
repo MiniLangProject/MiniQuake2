@@ -5,7 +5,7 @@ necessary but not sufficient where the gate also requires original-binary,
 retail-data, visual, or soak evidence. Retail tests run only against legal,
 user-supplied assets and never archive those assets.
 
-## Implementation snapshot (2026-08-22)
+## Implementation snapshot (2026-08-23)
 
 G01 and G02 are complete. G03-G05 have integrated, deterministic native
 implementations; all classic Steam BSPs pass the retail spawn/asset smoke while
@@ -32,11 +32,11 @@ variants, the original six-family duck/dodge ranges and primary stand/idle/
 walk/run ranges cover all 22 combat entries. Class-specific corpse bounds,
 stock organic/metallic gib inventories and the Supertank's eight-explosion plus
 14-gib terminal sequence are exported through real managed edicts and
-Protocol-34 effects; Private-Save v10 retains in-flight attack/reaction state
-and dynamic gib records. Their MZ2 and Parasite beam events pass through a
+Protocol-34 effects; Private-Save v11 retains in-flight attack/reaction,
+boss-refire/aim, shared Win32-random state and dynamic gib records. Their MZ2
+and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
-handoff. Secondary fidgets and exact movement distances remain an open
-differential gate. The
+handoff. Differential combat decisions and feedback remain open gates. The
 unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
@@ -58,7 +58,7 @@ same-/cross-map save slots. The product
 lifecycle smoke reuses one Protocol-34 UDP session
 across all 39 single-player maps, completing 38 map changes and re-signons;
 the current death-terminal build produces a
-665-step/3,252-packet result. A second campaign gate follows the canonical
+689-step/3,376-packet result. A second campaign gate follows the canonical
 branched route through 51 objective-confirmed changes and all 39 unique BSPs.
 It executes existing key/counter/timer/trigger/monster-death/boss callbacks,
 commits only their selected next map, re-signs on after every transition and

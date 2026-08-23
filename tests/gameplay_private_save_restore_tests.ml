@@ -6,6 +6,7 @@ import miniquake2.game.null_game as privaterestoregame
 import miniquake2.game.integration.baseq2 as privaterestoreintegration
 import miniquake2.game.world.core as privaterestoreworld
 import miniquake2.game.ai.constants as privaterestoreaiconstants
+import miniquake2.qcommon.types as privaterestoreqtypes
 
 function restoreAssert(value, message)
   if value != true then return error(9897, message) end if
@@ -51,6 +52,9 @@ monster = runtime.monsters[0]; monster.health = 41; monster.activity = "soldier-
 monster.attackCount = 7; monster.meleeCount = 2; monster.painCount = 3; monster.dieCount = 1
 monster.info.nextFrame = 0; monster.info.pauseTime = runtime.world.time + 0.2
 monster.info.attackState = privaterestoreaiconstants.AS_MISSILE
+monster.attackAim = privaterestoreqtypes.Vec3(81.0, -12.0, 47.0); monster.attackAimValid = true
+monster.attackCycles = 3
+runtime.randomState.seed = 305419896
 item = runtime.items[0]; item.hidden = true; item.nextThink = 12.5; item.count = 9
 player = context.players[0]; player.health = 73; player.maxHealth = 125; player.gameplay.inventory.counts[2] = 17
 player.powerups.quadFrame = 321; player.persistent.score = 6
@@ -61,6 +65,9 @@ runtime.world.foundSecrets = 0
 monster.health = 1; monster.activity = "mutated"; monster.edict.state.frame = 1
 monster.attackCount = 0; monster.meleeCount = 0; monster.painCount = 0; monster.dieCount = 0
 monster.info.nextFrame = 99; monster.info.pauseTime = 999.0; monster.info.attackState = 0
+monster.attackAim = privaterestoreqtypes.Vec3(0.0, 0.0, 0.0); monster.attackAimValid = false
+monster.attackCycles = 0
+runtime.randomState.seed = 1
 item.hidden = false; item.nextThink = 0.0; item.count = 0
 player.health = 1; player.gameplay.inventory.counts[2] = 0; player.powerups.quadFrame = 0; player.persistent.score = 0
 
@@ -79,12 +86,17 @@ restoreAssert(restoredRuntime.world.totalSecrets == 4 and restoredRuntime.world.
 restoreAssert(restoredRuntime.aiContext.skill == 2 and
   privaterestoregame.configuredGameSkill() == 2,
   "new game skill restored and retained for later maps")
+restoreAssert(restoredRuntime.randomState.seed == 305419896,
+  "shared Win32 random stream restored")
 restoredMonster = restoredRuntime.monsters[0]
 restoreAssert(restoredMonster.health == 41 and restoredMonster.activity == "soldier-shotgun-attack2" and restoredMonster.edict.state.frame == 77, "monster private state restored")
 restoreAssert(restoredMonster.attackCount == 7 and restoredMonster.meleeCount == 2 and
   restoredMonster.painCount == 3 and restoredMonster.dieCount == 1 and
   restoredMonster.info.nextFrame == 0 and restoredMonster.info.pauseTime > 0.29 and restoredMonster.info.pauseTime < 0.31 and
-  restoredMonster.info.attackState == privaterestoreaiconstants.AS_MISSILE,
+  restoredMonster.info.attackState == privaterestoreaiconstants.AS_MISSILE and
+  restoredMonster.attackAimValid and restoredMonster.attackAim.x == 81.0 and
+  restoredMonster.attackAim.y == -12.0 and restoredMonster.attackAim.z == 47.0 and
+  restoredMonster.attackCycles == 3,
   "in-flight monster attack sequence restored")
 restoreAssert(restoredRuntime.items[0].hidden and restoredRuntime.items[0].nextThink == 12.5 and restoredRuntime.items[0].count == 9, "item respawn state restored")
 restoredPlayer = restoredContext.players[0]

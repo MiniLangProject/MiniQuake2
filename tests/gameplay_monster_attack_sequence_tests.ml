@@ -1,13 +1,25 @@
 /* Quake II 3.19 monster attack-frame, muzzle and live burst regression. */
 import miniquake2.game.ai.attack_sequences as attacksequences
+import miniquake2.game.ai.types as attacksequenceaitypes
+import miniquake2.game.integration.baseq2 as attacksequencebaseq2
 import miniquake2.game.null_game as attacksequencegame
 import miniquake2.game.constants as attacksequencegameconstants
 import miniquake2.qcommon.constants as attacksequenceqconstants
 import miniquake2.qcommon.types as attacksequenceqtypes
 import miniquake2.server.game_bridge as attacksequencebridge
+import std.math as attacksequencemath
 
 function sequenceAssert(value, message)
   if value != true then return error(9984, message) end if
+  return true
+end function
+
+function sequenceNear(actual, expected, message)
+  sequenceAssert(attacksequencemath.abs(actual - expected) < 0.001, message)
+  return true
+end function
+
+function sequenceAlwaysVisible(first, second)
   return true
 end function
 
@@ -149,6 +161,12 @@ sequenceAssert(medicPlan.frameOffsets[0] == 8 and medicPlan.frameOffsets[1] == 1
   attacksequences.modelFrameAt(medicPlan, 8) == 185 and
   attacksequences.modelFrameAt(medicPlan, medicPlan.durationFrames - 1) == 206,
   "Medic blaster/hyperblaster frames")
+if len(medicPlan.frameOffsets) > 2 then
+  sequenceAssert(attacksequences.eventUsesHyperblasterEffect(medicPlan, 2) and
+    not attacksequences.eventUsesHyperblasterEffect(medicPlan, 3) and
+    attacksequences.eventUsesHyperblasterEffect(medicPlan, 5),
+    "Medic hyperblaster trail cadence")
+end if
 chickPlan = attacksequences.chickRocketPlan(2, 1)
 sequenceAssert(chickPlan.frameOffsets[0] == 13 and chickPlan.muzzleFlashes[0] == 57 and
   attacksequences.modelFrameAt(chickPlan, 13) == 13 and
@@ -159,14 +177,26 @@ sequenceAssert(flyerPlan.frameOffsets == [3, 4, 5, 6, 7, 8, 9, 10] and
   flyerPlan.muzzleFlashes == [58, 59, 58, 59, 58, 59, 58, 59] and
   attacksequences.modelFrameAt(flyerPlan, 3) == 82,
   "Flyer alternating blaster frames")
+sequenceAssert(attacksequences.eventUsesHyperblasterEffect(flyerPlan, 0) and
+  attacksequences.eventUsesHyperblasterEffect(flyerPlan, 3) and
+  attacksequences.eventUsesHyperblasterEffect(flyerPlan, 6) and
+  not attacksequences.eventUsesHyperblasterEffect(flyerPlan, 7),
+  "Flyer exact hyperblaster trail frames")
 floaterPlan = attacksequences.floaterBlasterPlan()
 sequenceAssert(len(floaterPlan.frameOffsets) == 7 and attacksequences.modelFrameAt(floaterPlan, 3) == 34,
   "Floater blaster burst frames")
+sequenceAssert(attacksequences.eventUsesHyperblasterEffect(floaterPlan, 0) and
+  attacksequences.eventUsesHyperblasterEffect(floaterPlan, 3) and
+  not attacksequences.eventUsesHyperblasterEffect(floaterPlan, 1),
+  "Floater exact hyperblaster trail frames")
 hoverPlan = attacksequences.hoverBlasterPlan(2, 1)
 sequenceAssert(hoverPlan.frameOffsets[0] == 3 and hoverPlan.frameOffsets[1] == 4 and
   attacksequences.modelFrameAt(hoverPlan, 3) == 200 and
   attacksequences.modelFrameAt(hoverPlan, hoverPlan.durationFrames - 1) == 204,
   "Hover blaster refire frames")
+sequenceAssert(attacksequences.eventUsesHyperblasterEffect(hoverPlan, 0) and
+  not attacksequences.eventUsesHyperblasterEffect(hoverPlan, 1),
+  "Hover first bolt of each pair uses hyperblaster trail")
 supertankChain = attacksequences.supertankMachinegunPlan(2, 1)
 supertankRockets = attacksequences.supertankRocketPlan()
 sequenceAssert(supertankChain.muzzleFlashes[0] == 64 and supertankChain.muzzleFlashes[5] == 69 and
@@ -199,20 +229,50 @@ sequenceAssert(attacksequences.modelFrameAt(soldierMachinegun, 0) == 39 and
   attacksequences.modelFrameAt(soldierMachinegun, soldierMachinegun.durationFrames - 1) == 44,
   "soldier held machinegun model frames")
 
-jorgPlan = attacksequences.jorgPlan(7, 1)
-sequenceAssert(len(jorgPlan.muzzleFlashes) % 12 == 0, "Jorg complete six-frame paired cycle")
+jorgAttackPlan = attacksequences.jorgPlan(7, 1)
+sequenceAssert(len(jorgAttackPlan.muzzleFlashes) % 12 == 0, "Jorg complete six-frame paired cycle")
 jorgIndex = 0
-while jorgIndex < len(jorgPlan.muzzleFlashes)
+while jorgIndex < len(jorgAttackPlan.muzzleFlashes)
   expectedJorg = 120
   if jorgIndex % 2 == 1 then expectedJorg = 126 end if
-  sequenceAssert(jorgPlan.muzzleFlashes[jorgIndex] == expectedJorg, "Jorg paired barrels")
+  sequenceAssert(jorgAttackPlan.muzzleFlashes[jorgIndex] == expectedJorg, "Jorg paired barrels")
   jorgIndex = jorgIndex + 1
 end while
-sequenceAssert(attacksequences.modelFrameAt(jorgPlan, 0) == 0 and
-  attacksequences.modelFrameAt(jorgPlan, 8) == 8 and
-  attacksequences.modelFrameAt(jorgPlan, jorgPlan.durationFrames - 1) == 17,
+sequenceAssert(attacksequences.modelFrameAt(jorgAttackPlan, 0) == 0 and
+  attacksequences.modelFrameAt(jorgAttackPlan, 8) == 8 and
+  attacksequences.modelFrameAt(jorgAttackPlan, jorgAttackPlan.durationFrames - 1) == 17,
   "Jorg stock start/fire/end model frames")
+jorgOneCycle = attacksequences.jorgPlanCycles(1)
+jorgTwoCycles = attacksequences.jorgPlanCycles(2)
+sequenceAssert(len(jorgOneCycle.frameOffsets) == 12 and len(jorgTwoCycles.frameOffsets) == 24 and
+  jorgOneCycle.frameOffsets[0] == 8 and jorgOneCycle.frameOffsets[11] == 13 and
+  jorgTwoCycles.frameOffsets[12] == 14 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(jorgOneCycle) == 14 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(jorgTwoCycles) == 20,
+  "Jorg live refire cycle extension points")
 boss2Rockets = attacksequences.boss2RocketPlan()
+boss2Machineguns = attacksequences.boss2MachinegunPlan(7, 1)
+sequenceAssert(len(boss2Machineguns.muzzleFlashes) % 10 == 0,
+  "Boss2 complete five-fire-frame paired cycle")
+boss2Index = 0
+while boss2Index < len(boss2Machineguns.muzzleFlashes)
+  expectedBoss2 = 73
+  if boss2Index % 2 == 1 then expectedBoss2 = 133 end if
+  sequenceAssert(boss2Machineguns.muzzleFlashes[boss2Index] == expectedBoss2,
+    "Boss2 paired barrels")
+  boss2Index = boss2Index + 1
+end while
+sequenceAssert(attacksequences.modelFrameAt(boss2Machineguns, 9) == 79 and
+  attacksequences.modelFrameAt(boss2Machineguns, boss2Machineguns.durationFrames - 1) == 88,
+  "Boss2 stock start/fire/end machinegun frames")
+boss2OneCycle = attacksequences.boss2MachinegunPlanCycles(1)
+boss2TwoCycles = attacksequences.boss2MachinegunPlanCycles(2)
+sequenceAssert(len(boss2OneCycle.frameOffsets) == 10 and len(boss2TwoCycles.frameOffsets) == 20 and
+  boss2OneCycle.frameOffsets[0] == 9 and boss2OneCycle.frameOffsets[9] == 13 and
+  boss2TwoCycles.frameOffsets[10] == 15 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(boss2OneCycle) == 14 and
+  attacksequencebaseq2.monsterRefireDecisionOffset(boss2TwoCycles) == 20,
+  "Boss2 live refire decision and next-cycle separation")
 sequenceAssert(boss2Rockets.frameOffsets == [12, 12, 12, 12], "Boss2 simultaneous rocket frame")
 assertConsecutive(boss2Rockets.muzzleFlashes, 78, 4, "Boss2 rocket muzzles")
 sequenceAssert(attacksequences.modelFrameAt(boss2Rockets, 12) == 101 and
@@ -230,12 +290,101 @@ sequenceAssert(len(makronHyper.frameOffsets) == 17 and makronHyper.frameOffsets[
 for each makronFlash in makronHyper.muzzleFlashes
   sequenceAssert(makronFlash == 102, "Makron 3.19 hyperblaster uses constant wire flash")
 end for
+sequenceAssert(attacksequences.eventSourceFlash(makronHyper, 0) == 102 and
+  attacksequences.eventSourceFlash(makronHyper, 16) == 118,
+  "Makron hyperblaster uses consecutive projectile-source offsets")
 sequenceAssert(makronRail.frameOffsets == [8] and makronRail.muzzleFlashes == [119], "Makron rail frame")
 sequenceAssert(attacksequences.modelFrameAt(makronBfg, 3) == 204 and
   attacksequences.modelFrameAt(makronHyper, 4) == 213 and
   attacksequences.modelFrameAt(makronHyper, 20) == 229 and
   attacksequences.modelFrameAt(makronRail, 8) == 243,
   "Makron stock attack model frames")
+
+sequenceAssert(attacksequences.selectionRandomKind("monster_jorg", 500.0) == 1 and
+  attacksequences.selectionRandomKind("monster_boss2", 100.0) == 0 and
+  attacksequences.selectionRandomKind("monster_berserk", 40.0) == 0,
+  "stock attack selection consumes only the original random draw kind")
+jorgRandomLow = attacksequences.jorgPlanWithRoll(7, 1, 0.75)
+jorgRandomHigh = attacksequences.jorgPlanWithRoll(7, 1, 0.7501)
+sequenceAssert(jorgRandomLow is not void, "Jorg low randomized plan exists")
+sequenceAssert(jorgRandomHigh is not void, "Jorg high randomized plan exists")
+sequenceAssert(jorgRandomLow.name == "jorg-machineguns" and jorgRandomHigh.name == "jorg-bfg",
+  "Jorg exact random boundary")
+boss2RandomNear = attacksequences.boss2PlanWithRoll(7, 1, 100.0, 1.0)
+boss2RandomLow = attacksequences.boss2PlanWithRoll(7, 1, 500.0, 0.6)
+boss2RandomHigh = attacksequences.boss2PlanWithRoll(7, 1, 500.0, 0.6001)
+sequenceAssert(boss2RandomNear is not void and boss2RandomLow is not void and boss2RandomHigh is not void,
+  "Boss2 randomized plans exist")
+sequenceAssert(boss2RandomNear.name == "boss2-machineguns" and
+  boss2RandomLow.name == "boss2-machineguns" and boss2RandomHigh.name == "boss2-rockets",
+  "Boss2 range and exact random boundary")
+makronRandomLow = attacksequences.makronPlanWithRoll(0.3)
+makronRandomMiddle = attacksequences.makronPlanWithRoll(0.6)
+makronRandomHigh = attacksequences.makronPlanWithRoll(0.6001)
+sequenceAssert(makronRandomLow is not void and makronRandomMiddle is not void and makronRandomHigh is not void,
+  "Makron randomized plans exist")
+sequenceAssert(makronRandomLow.name == "makron-bfg" and
+  makronRandomMiddle.name == "makron-hyperblaster" and makronRandomHigh.name == "makron-rail",
+  "Makron exact random boundaries")
+
+// Server and client now consume the same exact m_flash.c table. At yaw zero,
+// G_ProjectSource maps forward to +X and right to -Y.
+muzzleActor = attacksequenceaitypes.createActor(17, "monster_boss2")
+muzzleActor.edict.state.origin = attacksequenceqtypes.Vec3(10.0, 20.0, 30.0)
+muzzleActor.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
+muzzleStart = attacksequencebaseq2.monsterMuzzleStart(muzzleActor, 73)
+sequenceNear(muzzleStart.x, 14.6, "Boss2 exact muzzle X")
+sequenceNear(muzzleStart.y, 18.85, "Boss2 exact muzzle Y")
+sequenceNear(muzzleStart.z, 13.2, "Boss2 exact muzzle Z")
+parasiteStart = attacksequencebaseq2.monsterProjectedStart(muzzleActor,
+  attacksequenceqtypes.Vec3(24.0, 0.0, 6.0))
+sequenceNear(parasiteStart.x, 34.0, "Parasite private muzzle X")
+sequenceNear(parasiteStart.y, 20.0, "Parasite private muzzle Y")
+sequenceNear(parasiteStart.z, 36.0, "Parasite private muzzle Z")
+floaterZapStart = attacksequencebaseq2.monsterProjectedStart(muzzleActor,
+  attacksequenceqtypes.Vec3(18.5, -0.9, 10.0))
+sequenceNear(floaterZapStart.x, 28.5, "Floater zap private muzzle X")
+sequenceNear(floaterZapStart.y, 20.9, "Floater zap private muzzle Y")
+sequenceNear(floaterZapStart.z, 40.0, "Floater zap private muzzle Z")
+sequenceAssert(attacksequencebaseq2.parasiteDrainPointOk(
+    attacksequenceqtypes.Vec3(0.0, 0.0, 0.0), attacksequenceqtypes.Vec3(256.0, 0.0, 0.0)),
+  "Parasite accepts exact 256-unit horizontal drain")
+sequenceAssert(not attacksequencebaseq2.parasiteDrainPointOk(
+    attacksequenceqtypes.Vec3(0.0, 0.0, 0.0), attacksequenceqtypes.Vec3(256.01, 0.0, 0.0)),
+  "Parasite rejects drain beyond 256 units")
+sequenceAssert(not attacksequencebaseq2.parasiteDrainPointOk(
+    attacksequenceqtypes.Vec3(0.0, 0.0, 0.0), attacksequenceqtypes.Vec3(100.0, 0.0, 70.0)),
+  "Parasite rejects drain pitch beyond 30 degrees")
+aimStart = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
+aimDestination = attacksequenceqtypes.Vec3(100.0, 0.0, 0.0)
+gunnerStraight = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  attacksequences.gunnerGrenadePlan(), 0, aimStart, aimDestination, [0.0, 0.0, 0.0])
+sequenceNear(gunnerStraight.x, 1.0, "Gunner grenade straight-forward X")
+sequenceNear(gunnerStraight.y, 0.0, "Gunner grenade straight-forward Y")
+gunnerLead = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  attacksequences.gunnerChainPlan(2, 1), 0, aimStart, aimDestination, [0.0, 10.0, 0.0])
+sequenceAssert(gunnerLead.y < -0.019 and gunnerLead.y > -0.021,
+  "Gunner machinegun leads target back by 0.2 seconds")
+tankSweepFirst = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  tankChain, 0, aimStart, aimDestination, [0.0, 0.0, 0.0])
+tankSweepMiddle = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  tankChain, 9, aimStart, aimDestination, [0.0, 0.0, 0.0])
+tankSweepLast = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  tankChain, 18, aimStart, aimDestination, [0.0, 0.0, 0.0])
+sequenceNear(tankSweepFirst.x, 0.766044, "Tank sweep first X")
+sequenceNear(tankSweepFirst.y, 0.642788, "Tank sweep first +40 yaw")
+sequenceNear(tankSweepMiddle.x, 0.848048, "Tank sweep middle X")
+sequenceNear(tankSweepMiddle.y, -0.529919, "Tank sweep middle -32 yaw")
+sequenceNear(tankSweepLast.y, 0.642788, "Tank sweep returns to +40 yaw")
+makronSweepFirst = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  makronHyper, 0, aimStart, aimDestination, [0.0, 0.0, 0.0])
+makronSweepCenter = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  makronHyper, 8, aimStart, aimDestination, [0.0, 0.0, 0.0])
+makronSweepSecond = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
+  makronHyper, 9, aimStart, aimDestination, [0.0, 0.0, 0.0])
+sequenceNear(makronSweepFirst.y, 0.984808, "Makron sweep starts at +80 yaw")
+sequenceNear(makronSweepCenter.y, 0.0, "Makron sweep reaches center")
+sequenceNear(makronSweepSecond.y, -0.939693, "Makron sweep restarts at -70 yaw")
 
 // Product-shaped GameImport integration: a real Gunner chain must emit all
 // eight svc_muzzleflash2 messages, in order, instead of one approximation.
@@ -251,6 +400,9 @@ sequenceClient = sequenceApi.edicts[1]
 sequenceAssert(sequenceApi.clientConnect(sequenceClient, "\\name\\BurstTarget\\skin\\male/grunt"), "client connect")
 sequenceAssert(sequenceApi.clientBegin(sequenceClient), "client begin")
 sequencePlayer = attacksequencegame.playerContext().players[0]
+sequenceAssert(len(attacksequencegame.baseRuntime().aiPlayers) == 1 and
+  attacksequencegame.baseRuntime().aiPlayers[0].viewHeight == sequencePlayer.viewHeight,
+  "AI target mirrors exact player viewheight")
 sequencePlayer.health = 5000; sequencePlayer.maxHealth = 5000
 sequencePlayer.edict.health = 5000; sequencePlayer.edict.maxHealth = 5000
 sequenceApi.clientThink(sequenceClient, attacksequenceqtypes.UserCmd(0, 0, [0, 0, 0], 0, 0, 0, 0, 64))
@@ -280,6 +432,55 @@ while sequenceFlashIndex < 8
 end while
 sequenceAssert(attacksequencegame.baseRuntime().monsters[0].attackCount == 1,
   "one AI attack callback owns the complete chain")
+
+// Drive the exact live decision boundary without waiting for boss acquisition.
+// The next Win32 CRT value for seed 1 is below both refire thresholds.
+sequenceRuntime = attacksequencegame.baseRuntime()
+sequenceRuntime.aiContext.visible = sequenceAlwaysVisible
+sequenceRuntime.aiContext.time = 10.0
+sequenceRuntime.randomState.seed = 1
+liveEnemy = attacksequenceaitypes.createClientTarget(99)
+liveEnemy.health = 100
+liveEnemy.edict.state.origin = attacksequenceqtypes.Vec3(128.0, 0.0, 0.0)
+liveJorg = attacksequenceaitypes.createActor(98, "monster_jorg")
+liveJorg.enemy = liveEnemy
+liveJorg.activity = "jorg-machineguns"
+liveJorg.attackCycles = 1
+liveJorg.info.nextFrame = 12
+liveJorg.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveJorg,
+  attacksequences.jorgPlanCycles(1))
+sequenceAssert(liveJorg.attackCycles == 2 and liveJorg.info.nextFrame == 14 and
+  liveJorg.info.pauseTime > 10.09 and liveJorg.info.pauseTime < 10.11,
+  "Jorg live visible 90-percent refire extends and fires at decision frame")
+
+// Seed 9521 produces a value above .95, so Jorg must enter its three-frame
+// post-fire tail without consuming or fabricating another cycle.
+sequenceRuntime.randomState.seed = 9521
+liveJorgStop = attacksequenceaitypes.createActor(97, "monster_jorg")
+liveJorgStop.enemy = liveEnemy
+liveJorgStop.activity = "jorg-machineguns"
+liveJorgStop.attackCycles = 1
+liveJorgStop.info.nextFrame = 12
+liveJorgStop.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveJorgStop,
+  attacksequences.jorgPlanCycles(1))
+sequenceAssert(liveJorgStop.attackCycles == 1 and liveJorgStop.info.nextFrame == -1 and
+  liveJorgStop.info.pauseTime > 10.29 and liveJorgStop.info.pauseTime < 10.31,
+  "Jorg failed refire enters exact post-fire tail")
+
+sequenceRuntime.randomState.seed = 1
+liveBoss2 = attacksequenceaitypes.createActor(96, "monster_boss2")
+liveBoss2.enemy = liveEnemy
+liveBoss2.activity = "boss2-machineguns"
+liveBoss2.attackCycles = 1
+liveBoss2.info.nextFrame = 10
+liveBoss2.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveBoss2,
+  attacksequences.boss2MachinegunPlanCycles(1))
+sequenceAssert(liveBoss2.attackCycles == 2 and liveBoss2.info.nextFrame == 10 and
+  liveBoss2.info.pauseTime > 10.09 and liveBoss2.info.pauseTime < 10.11,
+  "Boss2 refire decision waits one frame before next attack10 pair")
 sequenceApi.clientDisconnect(sequenceClient)
 sequenceApi.shutdown()
 

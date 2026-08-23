@@ -12,7 +12,7 @@ import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.types as cetypes
 import miniquake2.client.effects.audio as ceaudio
 import miniquake2.client.effects.state as cestate
-import miniquake2.client.effects.flash_offsets as ceflash
+import miniquake2.qcommon.monster_flash_offsets as ceflash
 
 const SOUND_FLAG_MASK = 31
 

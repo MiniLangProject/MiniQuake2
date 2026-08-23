@@ -43,6 +43,7 @@ import miniquake2.game.weapons.hand_grenade as ibwphandgrenade
 import miniquake2.game.weapons.vector as ibwpvector
 import miniquake2.game.weapons.constants as ibwpconstants
 import miniquake2.qcommon.constants as ibqconstants
+import miniquake2.qcommon.monster_flash_offsets as ibflashoffsets
 import std.math as ibmath
 
 struct IntegratedBaseQ2
@@ -1273,6 +1274,12 @@ function containsItemIndex(indexes, value)
   return false
 end function
 
+function monsterSecondaryModelName(actor)
+  // The rider is entity model 1 and the Jorg chassis is model 2 in m_boss31.c.
+  if actor.className == "monster_jorg" then return "models/monsters/boss3/jorg/tris.md2" end if
+  return ""
+end function
+
 // Keep map startup bounded to the definitions that can actually participate in
 // this level. The default Blaster/player model are the only unconditional
 // player assets; duplicate item and monster instances reuse engine indices.
@@ -1314,6 +1321,17 @@ function precacheSpawned(runtime, playerContext)
       ibPrecacheActorHolder.edict = ibPrecacheEdictHolder
       runtime.monsters[ibPrecacheMonsterPosition] = ibPrecacheActorHolder
       if containsItemIndex(monsterModels, ibPrecacheMonsterModelIndex) != true then monsterModels = monsterModels + [ibPrecacheMonsterModelIndex] end if
+    end if
+    ibPrecacheSecondaryName = monsterSecondaryModelName(ibPrecacheActorHolder)
+    if ibPrecacheSecondaryName != "" then
+      ibPrecacheSecondaryIndex = imports.modelIndex(ibPrecacheSecondaryName)
+      ibPrecacheSecondaryEdict = ibPrecacheActorHolder.edict
+      ibPrecacheSecondaryState = ibPrecacheSecondaryEdict.state
+      ibPrecacheSecondaryState.modelIndex2 = ibPrecacheSecondaryIndex
+      ibPrecacheSecondaryEdict.state = ibPrecacheSecondaryState
+      ibPrecacheActorHolder.edict = ibPrecacheSecondaryEdict
+      runtime.monsters[ibPrecacheMonsterPosition] = ibPrecacheActorHolder
+      if containsItemIndex(monsterModels, ibPrecacheSecondaryIndex) != true then monsterModels = monsterModels + [ibPrecacheSecondaryIndex] end if
     end if
     if ibPrecacheActorHolder.className == "monster_commander_body" then
       imports.soundIndex("tank/thud.wav")
@@ -1509,6 +1527,7 @@ function syncPlayers(runtime, playerContext)
     actor.edict = player.edict
     actor.health = player.health
     actor.maxHealth = player.maxHealth
+    actor.viewHeight = player.viewHeight
     actor.flags = player.flags
     actor.lightLevel = player.lightLevel
     if actor.lightLevel <= 5 then actor.lightLevel = 128 end if
@@ -1938,14 +1957,124 @@ function monsterAttackSupported(actor)
   return ibaicombat.stockProfile(actor.className) is not void
 end function
 
-function monsterMuzzleAndDirection(runtime, actor)
-  start = weaponVector(actor.edict.state.origin)
-  start.z = start.z + actor.viewHeight
+function monsterProjectedStart(actor, offset)
+  basis = ibwpvector.angleVectors(actor.edict.state.angles)
+  origin = actor.edict.state.origin
+  return ibqtypes.Vec3(
+    origin.x + basis[0].x * offset.x + basis[1].x * offset.y,
+    origin.y + basis[0].y * offset.x + basis[1].y * offset.y,
+    origin.z + basis[0].z * offset.x + basis[1].z * offset.y + offset.z
+  )
+end function
+
+function monsterMuzzleStart(actor, muzzleFlash)
+  if muzzleFlash <= 0 then
+    fallback = weaponVector(actor.edict.state.origin)
+    fallback.z = fallback.z + actor.viewHeight
+    return fallback
+  end if
+  offset = ibflashoffsets.get(muzzleFlash)
+  return monsterProjectedStart(actor, offset)
+end function
+
+function monsterEnemyAimPoint(actor, enemy)
+  height = actor.enemy.viewHeight
+  destination = ibqtypes.Vec3(enemy.origin.x, enemy.origin.y, enemy.origin.z + height)
+  return destination
+end function
+
+function monsterAttackDirection(actor, attackPlan, eventIndex, start, destination, velocity)
+  if attackPlan.name == "gunner-grenade" then
+    // The 3.19 FIXME is intentional: all four grenades launch straight along
+    // the Gunner's facing vector rather than aiming at the enemy.
+    return ibwpvector.angleVectors(actor.edict.state.angles)[0]
+  end if
+  if attackPlan.name == "infantry-machinegun" or attackPlan.name == "gunner-chain" or
+      attackPlan.name == "boss2-machineguns" or attackPlan.name == "jorg-machineguns" then
+    destination.x = destination.x - 0.2 * velocity[0]
+    destination.y = destination.y - 0.2 * velocity[1]
+    destination.z = destination.z - 0.2 * velocity[2]
+  end if
+  aim = ibwpvector.subtract(destination, start)
+  if attackPlan.name == "tank-machinegun" then
+    // FRAME_attak406..424 performs the original +40..-32..+40 yaw sweep
+    // while the pitch continues to track the enemy.
+    modelFrame = ibattackseq.modelFrameAt(attackPlan, attackPlan.frameOffsets[eventIndex])
+    aimAngles = ibwpvector.vectorToAngles(aim)
+    sweepYaw = actor.edict.state.angles.y
+    if modelFrame <= 182 then sweepYaw = sweepYaw - 8.0 * (modelFrame - 178)
+    else sweepYaw = sweepYaw + 8.0 * (modelFrame - 186)
+    end if
+    return ibwpvector.angleVectors(ibqtypes.Vec3(aimAngles.x, sweepYaw, 0.0))[0]
+  end if
+  if attackPlan.name == "makron-hyperblaster" then
+    // m_boss32.c retains the stock two-part horizontal sweep while tracking
+    // only the target pitch. Offsets 4..20 are FRAME_attak405..421.
+    modelFrame = ibattackseq.modelFrameAt(attackPlan, attackPlan.frameOffsets[eventIndex])
+    aimAngles = ibwpvector.vectorToAngles(aim)
+    sweepYaw = actor.edict.state.angles.y
+    if modelFrame <= 221 then sweepYaw = sweepYaw - 10.0 * (modelFrame - 221)
+    else sweepYaw = sweepYaw + 10.0 * (modelFrame - 229)
+    end if
+    return ibwpvector.angleVectors(ibqtypes.Vec3(aimAngles.x, sweepYaw, 0.0))[0]
+  end if
+  return ibwpvector.normalized(aim)[0]
+end function
+
+function monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzleFlash)
+  sourceFlash = ibattackseq.eventSourceFlash(attackPlan, eventIndex)
+  start = monsterMuzzleStart(actor, sourceFlash)
+  // These two 3.19 attacks intentionally use private offsets rather than an
+  // MZ2 table entry. Preserve G_ProjectSource's forward/right projection.
+  if attackPlan.name == "parasite-drain" then
+    start = monsterProjectedStart(actor, ibqtypes.Vec3(24.0, 0.0, 6.0))
+  else if attackPlan.name == "floater-zap" then
+    start = monsterProjectedStart(actor, ibqtypes.Vec3(18.5, -0.9, 10.0))
+  end if
   enemy = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
   if enemy is void then return [start, ibqtypes.Vec3(1.0, 0.0, 0.0)] end if
-  destination = ibwpvector.midpoint(enemy)
-  direction = ibwpvector.normalized(ibwpvector.subtract(destination, start))[0]
+  destination = monsterEnemyAimPoint(actor, enemy)
+  if attackPlan.name == "makron-rail" and actor.attackAimValid then
+    destination = ibqtypes.Vec3(actor.attackAim.x, actor.attackAim.y, actor.attackAim.z)
+  end if
+  direction = monsterAttackDirection(actor, attackPlan, eventIndex, start, destination,
+    enemy.combatant.velocity)
+  // Floater zap passes its unnormalised origin-to-origin vector to both the
+  // spark direction encoder and T_Damage. Parasite damage uses the reverse
+  // start-to-end vector from m_parasite.c.
+  if attackPlan.name == "floater-zap" then
+    direction = ibwpvector.subtract(enemy.origin, actor.edict.state.origin)
+  else if attackPlan.name == "parasite-drain" then
+    direction = ibwpvector.subtract(start, enemy.origin)
+  end if
   return [start, direction]
+end function
+
+function parasiteDrainPointOk(start, endPosition)
+  delta = ibwpvector.subtract(start, endPosition)
+  distanceSquared = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z
+  if distanceSquared > 65536.0 then return false end if
+  pitch = ibwpvector.vectorToAngles(delta).x
+  if pitch < -180.0 then pitch = pitch + 360.0 end if
+  return ibmath.abs(pitch) <= 30.0
+end function
+
+function parasiteDrainCanDamage(runtime, shooter, enemyTarget, start)
+  endPosition = ibqtypes.Vec3(enemyTarget.origin.x, enemyTarget.origin.y, enemyTarget.origin.z)
+  if parasiteDrainPointOk(start, endPosition) != true then
+    endPosition.z = enemyTarget.origin.z + enemyTarget.maxs.z - 8.0
+    if parasiteDrainPointOk(start, endPosition) != true then
+      endPosition.z = enemyTarget.origin.z + enemyTarget.mins.z + 8.0
+      if parasiteDrainPointOk(start, endPosition) != true then return false end if
+    end if
+  end if
+
+  // Stock validates the alternate heights but deliberately traces and emits
+  // the beam to the enemy origin again.
+  endPosition = ibqtypes.Vec3(enemyTarget.origin.x, enemyTarget.origin.y, enemyTarget.origin.z)
+  trace = runtime.weaponContext.callbacks.trace(start, ibqtypes.zeroVec3(),
+    ibqtypes.zeroVec3(), endPosition, shooter, ibqconstants.MASK_SHOT)
+  return trace.entity is not void and trace.entity.number == enemyTarget.number
 end function
 
 function integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, origin)
@@ -1970,29 +2099,47 @@ end function
 
 function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   if actor.enemy is void or attackPlan is void then return false end if
-  muzzle = monsterMuzzleAndDirection(runtime, actor)
+  muzzle = monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   start = muzzle[0]
   direction = muzzle[1]
   shooter = monsterWeaponTarget(actor)
   enemyTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
   if enemyTarget is void then return false end if
   distance = ibwpvector.length(ibwpvector.subtract(enemyTarget.origin, shooter.origin))
-  if distance > attackPlan.maximumRange then return false end if
+  // Parasite validates range from its projected proboscis source and may use
+  // the target's top/bottom fallback. All other attacks use origin distance.
+  if distance > attackPlan.maximumRange and attackPlan.name != "parasite-drain" then return false end if
   kind = attackPlan.attackKind
   attackDamage = ibattackseq.eventDamage(attackPlan, eventIndex)
   attackKnockback = ibattackseq.eventKnockback(attackPlan, eventIndex)
+  if attackPlan.name == "floater-wham" or attackPlan.name == "floater-zap" then
+    attackDamage = 5 + (ibrandom.nextInteger(runtime.randomState) % 6)
+  end if
   damageKnockback = attackKnockback
   // Quake II fire_hit accepts a negative special kick and applies it after a
-  // DAMAGE_NO_KNOCKBACK T_Damage call. The shared combat request deliberately
-  // rejects negative magnitudes, so keep that signed move metadata out of it.
-  if damageKnockback < 0 then damageKnockback = 0 end if
+  // DAMAGE_NO_KNOCKBACK T_Damage call, so keep that move metadata out of the
+  // generic melee request. Floater zap is the stock signed T_Damage exception.
+  if damageKnockback < 0 and attackPlan.name != "floater-zap" then damageKnockback = 0 end if
   if kind == "melee" or kind == "drain" then
+    if kind == "drain" and parasiteDrainCanDamage(runtime, shooter, enemyTarget, start) != true then
+      return false
+    end if
+    damageFlags = 0
+    if kind == "drain" then damageFlags = ibgpconstants.DAMAGE_NO_KNOCKBACK end if
+    if attackPlan.name == "floater-zap" then
+      damageFlags = ibgpconstants.DAMAGE_ENERGY
+      ibwpcore.emitEffect(runtime.weaponContext, "splash", start, start, direction, 1, 32)
+    end if
     ibwpcore.applyDamage(runtime.weaponContext, enemyTarget, shooter, shooter, direction,
-      enemyTarget.origin, attackDamage, damageKnockback, 0, ibgpconstants.MOD_UNKNOWN)
+      enemyTarget.origin, attackDamage, damageKnockback, damageFlags, ibgpconstants.MOD_UNKNOWN)
     if kind == "drain" then integratedMonsterDrainBeam(runtime, actor, start, enemyTarget.origin) end if
   else if kind == "blaster" then
+    monsterBlasterEffect = ibwpconstants.EF_BLASTER
+    if ibattackseq.eventUsesHyperblasterEffect(attackPlan, eventIndex) then
+      monsterBlasterEffect = ibwpconstants.EF_HYPERBLASTER
+    end if
     ibwpprojectiles.fireBlaster(runtime.weaponContext, shooter, start, direction,
-      attackDamage, attackPlan.speed, ibwpconstants.EF_BLASTER, false)
+      attackDamage, attackPlan.speed, monsterBlasterEffect, false)
   else if kind == "shotgun" then
     ibwphitscan.fireShotgun(runtime.weaponContext, shooter, start, direction,
       attackDamage, attackKnockback, 500.0, 500.0, attackPlan.count, ibgpconstants.MOD_UNKNOWN)
@@ -2018,14 +2165,40 @@ function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
 end function
 
 function activeMonsterAttackPlan(actor)
-  return ibattackseq.planByName(actor.className, actor.activity,
-    actor.edict.state.number, actor.attackCount)
+  return ibattackseq.planByNameCycles(actor.className, actor.activity,
+    actor.edict.state.number, actor.attackCount, actor.attackCycles)
+end function
+
+function monsterRefireDecisionOffset(attackPlan)
+  if attackPlan.name == "jorg-machineguns" then
+    return 8 + (len(attackPlan.frameOffsets) / 12) * 6
+  end if
+  if attackPlan.name == "boss2-machineguns" then
+    return 8 + (len(attackPlan.frameOffsets) / 10) * 6
+  end if
+  return -1
+end function
+
+function monsterShouldRefire(runtime, actor, attackPlan)
+  if actor.enemy is void or actor.enemy.health <= 0 then return false end if
+  if attackPlan.name == "jorg-machineguns" then
+    if runtime.aiContext.visible(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) < 0.9
+  end if
+  if attackPlan.name == "boss2-machineguns" then
+    if ibgaicore.infront(actor, actor.enemy) != true then return false end if
+    return ibrandom.unit(runtime.randomState) <= 0.7
+  end if
+  return false
 end function
 
 function monsterAttackTimelineOffset(actor, attackPlan, now)
   targetOffset = attackPlan.durationFrames - 1
   if actor.info.nextFrame >= 0 and actor.info.nextFrame < len(attackPlan.frameOffsets) then
     targetOffset = attackPlan.frameOffsets[actor.info.nextFrame]
+  else if actor.info.nextFrame >= len(attackPlan.frameOffsets) then
+    refireOffset = monsterRefireDecisionOffset(attackPlan)
+    if refireOffset >= 0 then targetOffset = refireOffset end if
   end if
   remainingFrames = 0
   remainingTime = actor.info.pauseTime - now
@@ -2053,6 +2226,8 @@ function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   actor.info.pauseTime = 0.0
   actor.info.attackState = ibaiconstants.AS_STRAIGHT
   actor.info.attackFinished = runtime.aiContext.time + remaining
+  actor.attackAimValid = false
+  actor.attackCycles = 0
   // C attack mmoves end in the class-specific run callback. Reinstalling the
   // exact locomotion move here prevents a stand pose from surviving an attack
   // that began while the monster was stationary.
@@ -2065,12 +2240,40 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
     return finishMonsterAttack(runtime, actor, attackPlan, 0)
   end if
   eventIndex = actor.info.nextFrame
-  projectMonsterAttackFrame(runtime, actor, attackPlan)
+  timelineOffset = projectMonsterAttackFrame(runtime, actor, attackPlan)
+  if attackPlan.name == "makron-rail" and timelineOffset == 7 and not actor.attackAimValid then
+    railTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
+    if railTarget is not void then
+      railAim = monsterEnemyAimPoint(actor, railTarget)
+      actor.attackAim = ibqtypes.Vec3(railAim.x, railAim.y, railAim.z)
+      actor.attackAimValid = true
+    end if
+  end if
   if eventIndex < 0 then
+    if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
     return finishMonsterAttack(runtime, actor, attackPlan, attackPlan.durationFrames - 1)
   end if
   if eventIndex >= len(attackPlan.frameOffsets) then
     if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
+    decisionOffset = monsterRefireDecisionOffset(attackPlan)
+    if decisionOffset >= 0 then
+      if monsterShouldRefire(runtime, actor, attackPlan) then
+        previousEventCount = len(attackPlan.frameOffsets)
+        actor.attackCycles = actor.attackCycles + 1
+        extendedPlan = activeMonsterAttackPlan(actor)
+        actor.info.nextFrame = previousEventCount
+        nextAttackOffset = extendedPlan.frameOffsets[previousEventCount]
+        actor.info.pauseTime = actor.info.pauseTime +
+          (nextAttackOffset - decisionOffset) * ibattackseq.FRAME_TIME
+        if runtime.aiContext.time + 0.00001 < actor.info.pauseTime then return false end if
+        return advanceMonsterAttack(runtime, actor, extendedPlan)
+      end if
+      postFrames = attackPlan.durationFrames - 1 - decisionOffset
+      if postFrames <= 0 then return finishMonsterAttack(runtime, actor, attackPlan, decisionOffset) end if
+      actor.info.nextFrame = -1
+      actor.info.pauseTime = actor.info.pauseTime + postFrames * ibattackseq.FRAME_TIME
+      return false
+    end if
     actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, attackPlan.durationFrames - 1)
     return finishMonsterAttack(runtime, actor, attackPlan, attackPlan.durationFrames - 1)
   end if
@@ -2083,7 +2286,9 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
   end while
   actor.info.nextFrame = eventIndex
   if eventIndex >= len(attackPlan.frameOffsets) then
-    tailFrames = attackPlan.durationFrames - 1 - currentFrameOffset
+    tailTargetOffset = monsterRefireDecisionOffset(attackPlan)
+    if tailTargetOffset < 0 then tailTargetOffset = attackPlan.durationFrames - 1 end if
+    tailFrames = tailTargetOffset - currentFrameOffset
     if tailFrames <= 0 then finishMonsterAttack(runtime, actor, attackPlan, currentFrameOffset)
     else actor.info.pauseTime = actor.info.pauseTime + tailFrames * ibattackseq.FRAME_TIME
     end if
@@ -2117,10 +2322,26 @@ function runMonsterCombat(runtime, actor)
     else return false
     end if
   end if
-  attackPlan = ibattackseq.selectPlan(actor.className, actor.edict.state.number,
+  selectionUnit = 0.0
+  selectionKind = ibattackseq.selectionRandomKind(actor.className, distance)
+  if selectionKind == 1 then selectionUnit = ibrandom.unit(runtime.randomState)
+  end if
+  attackPlan = void
+  if actor.className == "monster_jorg" then
+    attackPlan = ibattackseq.jorgPlanWithRoll(actor.edict.state.number, actor.attackCount, selectionUnit)
+  else if actor.className == "monster_boss2" then
+    attackPlan = ibattackseq.boss2PlanWithRoll(actor.edict.state.number, actor.attackCount, distance, selectionUnit)
+  else if actor.className == "monster_makron" then attackPlan = ibattackseq.makronPlanWithRoll(selectionUnit)
+  else attackPlan = ibattackseq.selectPlan(actor.className, actor.edict.state.number,
     actor.attackCount, distance, runtime.aiContext.skill)
+  end if
   ibattackseq.validatePlan(attackPlan)
   actor.activity = attackPlan.name
+  actor.attackAimValid = false
+  actor.attackCycles = 0
+  if attackPlan.name == "jorg-machineguns" or attackPlan.name == "boss2-machineguns" then
+    actor.attackCycles = 1
+  end if
   actor.info.nextFrame = 0
   actor.info.attackState = ibaiconstants.AS_MISSILE
   actor.info.pauseTime = runtime.aiContext.time + attackPlan.frameOffsets[0] * ibattackseq.FRAME_TIME
@@ -2250,6 +2471,12 @@ function syncGameEdicts(runtime, exportTable)
         ibSyncActorStateHolder = actor.edict.state
         ibSyncActorStateHolder.modelIndex = runtime.playerContext.imports.modelIndex(actor.model)
         actor.edict.state = ibSyncActorStateHolder
+      end if
+      ibSyncSecondaryName = monsterSecondaryModelName(actor)
+      if actor.edict.state.modelIndex2 <= 0 and ibSyncSecondaryName != "" and runtime.playerContext is not void then
+        ibSyncSecondaryState = actor.edict.state
+        ibSyncSecondaryState.modelIndex2 = runtime.playerContext.imports.modelIndex(ibSyncSecondaryName)
+        actor.edict.state = ibSyncSecondaryState
       end if
       ibActorEdictHolder = ibgametypes.stabilizeEdict(actor.edict)
       exportTable.edicts[actor.edict.state.number] = ibActorEdictHolder

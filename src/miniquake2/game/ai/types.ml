@@ -96,6 +96,9 @@ struct AIActor
   successorSpawned
   number
   reactionDebounce
+  attackAim
+  attackAimValid
+  attackCycles
 end struct
 
 struct AIContext
@@ -183,6 +186,7 @@ function createActor(number, className)
   mins = [-16.0, -16.0, -24.0]
   maxs = [16.0, 16.0, 32.0]
   info = defaultMonsterInfo()
+  gaiAttackAimHolder = gaiqtypes.Vec3(0.0, 0.0, 0.0)
   actor = AIActor(
     edict, className, "", mins, maxs,
     100, 100, -40, 200, 25.0, 20.0, 0.0,
@@ -190,7 +194,8 @@ function createActor(number, className)
     0.0, 0.0, 128, 0, false, true,
     "", "", "", "", void, void, void, void, void, void, void,
     info, void, void, "created", 0, 0, 0, 0, "none",
-    false, "none", "", 0.0, false, number, 0.0
+    false, "none", "", 0.0, false, number, 0.0,
+    gaiAttackAimHolder, false, 0
   )
   actor.edict = edict
   gtypes.stabilizeEdict(actor.edict)

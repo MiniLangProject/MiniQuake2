@@ -201,6 +201,13 @@ function testDamageFoundations()
   assertEqual(target.velocity[0], 100.0, "knockback momentum")
   assertEqual(target.damageFrom[2], 7.0, "damage source")
 
+  pullTarget = gptypes.createCombatant(44, 100)
+  pullRequest = gptypes.damageRequest([1.0, 0.0, 0.0], [0.0, 0.0, 0.0], 5, -10,
+    gpconstants.DAMAGE_ENERGY, gpconstants.MOD_UNKNOWN)
+  pullResult = gpcombat.T_Damage(pullTarget, pullRequest)
+  assertEqual(pullResult.knockbackApplied, -50.0, "signed Floater-style knockback scale")
+  assertEqual(pullTarget.velocity[0], -50.0, "signed knockback pulls target")
+
   target.flags = target.flags | gpconstants.FL_GODMODE
   protectedRequest = gptypes.damageRequest([0.0, 1.0, 0.0], [0.0, 0.0, 0.0], 20, 0, 0, gpconstants.MOD_BLASTER)
   protected = gpcombat.T_Damage(target, protectedRequest)

@@ -40,7 +40,8 @@ fixture = "{ \"classname\" \"worldspawn\" }\n" +
   "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" }\n" +
   "{ \"classname\" \"weapon_machinegun\" \"origin\" \"48 0 8\" }\n" +
   "{ \"classname\" \"monster_soldier\" \"origin\" \"96 0 8\" }\n" +
-  "{ \"classname\" \"monster_gunner\" \"origin\" \"160 0 8\" }"
+  "{ \"classname\" \"monster_gunner\" \"origin\" \"160 0 8\" }\n" +
+  "{ \"classname\" \"monster_jorg\" \"origin\" \"512 0 8\" }"
 
 server = sppbridge.createRuntime(4)
 api = sppgameapi.GetGameApi(sppbridge.makeImports(server))
@@ -56,15 +57,20 @@ assertEqual(api.edicts[0].state.modelIndex, 1, "world keeps reserved map model i
 machineModel = findName(server.modelNames, "models/weapons/g_machn/tris.md2")
 soldierModel = findName(server.modelNames, "models/monsters/soldier/tris.md2")
 gunnerModel = findName(server.modelNames, "models/monsters/gunner/tris.md2")
+jorgRiderModel = findName(server.modelNames, "models/monsters/boss3/rider/tris.md2")
+jorgChassisModel = findName(server.modelNames, "models/monsters/boss3/jorg/tris.md2")
 assertTrue(machineModel > 1, "spawned item model precached")
 assertTrue(soldierModel > 1, "active soldier model precached")
 assertTrue(gunnerModel > 1, "active gunner model precached")
+assertTrue(jorgRiderModel > 1 and jorgChassisModel > 1, "Jorg rider and chassis models precached")
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + machineModel], "models/weapons/g_machn/tris.md2", "item model configstring")
 assertTrue(findName(server.soundNames, "weapons/blastf1a.wav") > 0, "default player weapon sound precached")
 assertTrue(findName(server.imageNames, "w_machinegun") > 0, "spawned item image precached")
 assertEqual(runtime.items[0].edict.state.modelIndex, machineModel, "item edict model index")
 assertEqual(runtime.monsters[0].edict.state.modelIndex, soldierModel, "soldier edict model index")
 assertEqual(runtime.monsters[1].edict.state.modelIndex, gunnerModel, "gunner edict model index")
+assertEqual(runtime.monsters[2].edict.state.modelIndex, jorgRiderModel, "Jorg rider model index")
+assertEqual(runtime.monsters[2].edict.state.modelIndex2, jorgChassisModel, "Jorg chassis model2 index")
 
 client = sppgameapi.edictAt(1)
 assertTrue(api.clientConnect(client, "\\name\\Ranger\\skin\\male/grunt"), "client connect")
@@ -79,7 +85,8 @@ entities = [
   protocolEntity(player.edict.state),
   protocolEntity(runtime.items[0].edict.state),
   protocolEntity(runtime.monsters[0].edict.state),
-  protocolEntity(runtime.monsters[1].edict.state)
+  protocolEntity(runtime.monsters[1].edict.state),
+  protocolEntity(runtime.monsters[2].edict.state)
 ]
 history = sppsnapshot.createHistory(4)
 frame = sppsnapshot.addFrame(history, 1, bytes([]), sppptypes.zeroPlayerState(), entities)
@@ -87,6 +94,8 @@ assertTrue(frame.entities[0].modelIndex > 0, "snapshot player model index")
 assertEqual(frame.entities[1].modelIndex, machineModel, "snapshot item model index")
 assertEqual(frame.entities[2].modelIndex, soldierModel, "snapshot soldier model index")
 assertEqual(frame.entities[3].modelIndex, gunnerModel, "snapshot gunner model index")
+assertEqual(frame.entities[4].modelIndex, jorgRiderModel, "snapshot Jorg rider model index")
+assertEqual(frame.entities[4].modelIndex2, jorgChassisModel, "snapshot Jorg chassis model2 index")
 
 api.clientDisconnect(client)
 api.shutdown()

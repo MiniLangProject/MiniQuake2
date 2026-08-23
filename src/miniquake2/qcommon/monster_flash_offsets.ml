@@ -1,5 +1,5 @@
-/* Exact monster_flash_offset table from Quake II 3.19 m_flash.c. */
-package miniquake2.client.effects.flash_offsets
+/* Exact shared monster_flash_offset table from Quake II 3.19 m_flash.c. */
+package miniquake2.qcommon.monster_flash_offsets
 
 import miniquake2.qcommon.types as qt
 
@@ -263,4 +263,3 @@ function get(index)
   value = offsets[index]
   return qt.Vec3(value[0], value[1], value[2])
 end function
-

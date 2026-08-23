@@ -37,7 +37,7 @@ function armorSave(target, damage, damageFlags)
 end function
 
 function applyKnockback(target, direction, knockback, selfDamage)
-  if knockback <= 0 then return 0.0 end if
+  if knockback == 0 then return 0.0 end if
   if (target.flags & gpconstants.FL_NO_KNOCKBACK) != 0 then return 0.0 end if
   if target.moveType == gpconstants.MOVETYPE_NONE or target.moveType == gpconstants.MOVETYPE_BOUNCE or target.moveType == gpconstants.MOVETYPE_PUSH or target.moveType == gpconstants.MOVETYPE_STOP then return 0.0 end if
   mass = target.mass
@@ -54,7 +54,9 @@ function T_Damage(target, request)
   if typeof(target) != "struct" or typeof(request) != "struct" then return error(9402, "T_Damage: target and request required") end if
   validateVector(request.point, "damage point")
   if typeof(request.damage) != "int" or request.damage < 0 then return error(9403, "T_Damage: non-negative integer damage required") end if
-  if typeof(request.knockback) != "int" or request.knockback < 0 then return error(9404, "T_Damage: non-negative integer knockback required") end if
+  // Stock T_Damage accepts signed knockback. Floater's electrical zap uses
+  // -10 to pull its victim toward the attacker.
+  if typeof(request.knockback) != "int" then return error(9404, "T_Damage: integer knockback required") end if
   if target.takeDamage != true then return gptypes.DamageResult(false, 0, 0, 0, 0.0, target.dead, request.meansOfDeath) end if
 
   damage = request.damage

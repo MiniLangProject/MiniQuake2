@@ -17,7 +17,7 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 10
+const PRIVATE_VERSION = 11
 
 struct PrivateRestore
   runtime
@@ -112,6 +112,7 @@ function encode(runtime, playerContext, entityString, spawnPoint)
   privatesizebuf.writeBytes(buffer, privateEntityBytes)
   privatemessage.writeString(buffer, spawnPoint)
   privatemessage.writeLong(buffer, runtime.aiContext.skill)
+  privatemessage.writeLong(buffer, runtime.randomState.seed)
   privatemessage.writeFloat(buffer, runtime.world.time)
   privatemessage.writeLong(buffer, runtime.world.serverFlags)
   privatemessage.writeLong(buffer, runtime.world.totalSecrets); privatemessage.writeLong(buffer, runtime.world.foundSecrets)
@@ -180,6 +181,8 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privateWriteBool(buffer, actor.deathUseComplete); privatemessage.writeString(buffer, actor.bossPhase)
     privatemessage.writeString(buffer, actor.successorClassName); privatemessage.writeFloat(buffer, actor.successorDueTime)
     privateWriteBool(buffer, actor.successorSpawned)
+    privateWriteVec(buffer, actor.attackAim); privateWriteBool(buffer, actor.attackAimValid)
+    privatemessage.writeLong(buffer, actor.attackCycles)
     enemyNumber = -1
     if actor.enemy is not void then enemyNumber = actor.enemy.edict.state.number end if
     privatemessage.writeLong(buffer, enemyNumber)
@@ -290,7 +293,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if privatemessage.readString(buffer) != PRIVATE_MAGIC then return error(3872, "private BaseQ2 save magic mismatch") end if
   privateSaveVersion = privatechecked.readLong(buffer, "private save version")
   if privateSaveVersion != 7 and privateSaveVersion != 8 and
-      privateSaveVersion != 9 and
+      privateSaveVersion != 9 and privateSaveVersion != 10 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -315,6 +318,10 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       return error(3888, "private skill outside [0,3]")
     end if
   end if
+  privateSavedRandomSeed = 1
+  if privateSaveVersion >= 11 then
+    privateSavedRandomSeed = privatechecked.readLong(buffer, "private random seed")
+  end if
   spawnResult = privatespawn.SpawnEntities(mapName, entityString, spawnPoint)
   restoredBaseEdicts = spawnResult.edicts
   index = 0
@@ -329,6 +336,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   end while
   runtime = privateintegration.create(spawnResult)
   runtime.aiContext.skill = privateSavedSkill
+  runtime.randomState.seed = privateSavedRandomSeed
   runtime.exportTable = exportTable
   runtime.world.time = privateReadFloat(buffer, "private world time")
   runtime.world.serverFlags = privatechecked.readLong(buffer, "private server flags")
@@ -490,6 +498,14 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     actor.bossPhase = privatemessage.readString(buffer); actor.successorClassName = privatemessage.readString(buffer)
     actor.successorDueTime = privateReadFloat(buffer, "private monster successor time")
     actor.successorSpawned = privateReadBool(buffer, "private monster successor spawned")
+    if privateSaveVersion >= 11 then
+      actor.attackAim = privateReadVec(buffer, "private monster attack aim")
+      actor.attackAimValid = privateReadBool(buffer, "private monster attack aim valid")
+      actor.attackCycles = privatechecked.readLong(buffer, "private monster attack cycles")
+    else
+      actor.attackAimValid = false
+      actor.attackCycles = 0
+    end if
     privatesavegametypes.stabilizeEdict(actor.edict)
     enemyNumber = privatechecked.readLong(buffer, "private monster enemy")
     privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(actor, enemyNumber)]

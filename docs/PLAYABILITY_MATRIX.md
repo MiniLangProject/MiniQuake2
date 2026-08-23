@@ -14,7 +14,7 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
 | P04 | `waste1` brush, water, MD2 and alpha rendering | paired installed-original `ref_gl` gate: 2,303 ppm MAE for world/water/MD2; deterministic Mini replay | PASS (differential) | broaden cameras, GPUs and alpha/inline runtime states |
 | P05 | Stock monster frame sequencing | attack/ranged/melee, 63 pain, 43 death, dodge, primary locomotion, class corpse bounds, stock physical gibs and staged Supertank destruction; live MZ2 and Parasite beam chains | PASS (primary moves and death terminals) | secondary fidgets and exact per-frame movement differential |
-| P06 | Save during an active monster sequence | Private-Save v10 attack/reaction fields, dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
+| P06 | Save during an active monster sequence | Private-Save v11 attack/reaction, boss aim/refire and shared-random fields; dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
 | P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
 | P08 | Multiplayer deathmatch | all 11 stock weapon modes through real UDP UserCmds, projectiles/effects, scoring/respawn, spectator transition, maplist re-signon; additional four-client signon, telefrag recovery, reconnect, live checkpoint, map change and 500-frame tail | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P09 | Two-player cooperative play | shared item/reconnect, skill 0/3, teammate damage, plus 39-BSP/51-goal-transition route with 39 live two-player checkpoints | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
@@ -27,9 +27,11 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 ## Current attack-sequence coverage
 
 The data-driven sequence layer follows the original 0.1-second game frame and
-uses the original MZ2 identifiers. Random choices are deterministic functions
-of edict number and persisted attack count, so save/reload and replay choose the
-same branch. This block schedules weapon callbacks at the original relative
+uses the original MZ2 identifiers. The integrated Jorg, Boss2 and Makron paths
+consume the original shared Win32 CRT stream, whose state is persisted so a
+save/reload resumes the same branch and refire sequence. Other bounded repeat
+families still use deterministic plan construction until their live callback
+conversion. This block schedules weapon callbacks at the original relative
 frames and projects every attack timeline onto its stock MD2 frames. A companion
 reaction/movement layer contains 63 pain variants, 43 normal-death variants,
 the stock duck/dodge ranges for six families, and primary stand, idle, walk and
@@ -52,16 +54,17 @@ remain a separate differential-parity gate.
 | Berserk/Infantry/Flipper/Chick/Flyer/Brain/Floater/Mutant | stock close-combat loops, event damage and MD2 frame projection |
 | Parasite | 18-frame drain move, first/subsequent damage split and ordered `TE_PARASITE_ATTACK` beam handoff |
 
-Private-Save v10 persists attack/melee/pain/death counts, reaction debounce and
+Private-Save v11 persists attack/melee/pain/death counts, reaction debounce,
+boss refire cycles, saved Makron rail aim, the shared Win32 random seed and
 the in-flight `nextFrame`, `pauseTime` and `attackState`. A restored attack or
 reaction therefore resumes at its next event rather than restarting or
 silently collapsing to one shot; dynamic gib entities retain model, physics
 state and expiry across a level save.
 
-The v10 world payload length-prefixes the complete retail entity text instead
+The v10+ world payload length-prefixes the complete retail entity text instead
 of using the network string limit, reconstructs dynamic `DelayedUse` and gib
 edicts, and restores activator/owner/team/target/enemy/ground references by
-stable edict number. Readers remain compatible with the earlier v7/v8 payloads.
+stable edict number. Readers remain compatible with the earlier v7-v10 payloads.
 
 ## Current player-weapon coverage
 
