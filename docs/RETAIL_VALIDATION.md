@@ -217,9 +217,16 @@ real engine edicts; active gibs round-trip through the same save format. The
  3.19 movement distances, `ai_charge`/`ai_move` boundaries, held-frame behavior
  and mechanical sound callbacks without constructing arrays in the live lookup
  path. Every spawned stock class precaches its complete original sound inventory;
- a Jorg also precaches its dynamically spawned Makron successor. Remaining
- reaction/death movement columns, secondary fidgets and sight/search decisions
- stay open. Gunner, Medic, Chick, Flyer, Hover, Tank,
+ a Jorg also precaches its dynamically spawned Makron successor. The stock
+ sight/search callback inventory now preserves the original callback absences,
+ sound channel/attenuation, ordered random branches and silent Makron activation.
+ Soldier additionally executes the exact sight-selected running `attack6` and
+ dodge-selected ducking `attack3` frames, movement, MZ2 events, bounds and
+ Nightmare refire rule; Mutant footstep selection consumes raw CRT `rand` just
+ like 3.19. `gameplay_monster_sight_search_tests` and the extended attack/dodge
+ gates cover those seams. Remaining reaction/death movement columns, secondary
+ fidgets and Medic corpse-search/resurrection behavior stay open. Gunner, Medic,
+ Chick, Flyer, Hover, Tank,
  Soldier, Supertank, Jorg and Boss2 now make their live stock refire decisions
  from the persisted shared CRT stream. Brain follow-up and Mutant jump decisions
  likewise happen at their original callback frames rather than during plan

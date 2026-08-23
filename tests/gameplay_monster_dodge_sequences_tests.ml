@@ -47,6 +47,7 @@ dodgePlayer = dodgePlayerContext.players[0]
 dodgeOwner = dodgeintegration.playerWeaponTarget(dodgePlayer, dodgePlayerContext.registry)
 dodgeActor = dodgeRuntime.monsters[0]
 dodgePlan = dodgesequences.stockDodgePlan(dodgeActor.className)
+dodgeRuntime.randomState.seed = 1
 
 dodgeAssert(dodgeRuntime.weaponContext.callbacks.dodge(dodgeOwner,
   dodgeqtypes.Vec3(0.0, 0.0, 22.0), dodgeqtypes.Vec3(1.0, 0.0, 0.0), 1000.0),
@@ -76,4 +77,54 @@ dodgeAssert(len(dodgeServer.pendingSounds) == 0, "duck move emits no synthetic s
 
 dodgeApi.clientDisconnect(dodgeClient)
 dodgeApi.shutdown()
+
+// On skill 2 the Soldier consumes a second callback draw and selects attack3
+// for values through 0.66. Seed 1 produces a passing dodge draw followed by
+// the attack branch, exercising the real trace-to-combat handoff.
+dodgeSoldierServer = dodgebridge.createRuntime(4)
+dodgeSoldierApi = dodgegame.GetGameApi(dodgebridge.makeImports(dodgeSoldierServer))
+dodgeSoldierServer.game = dodgeSoldierApi
+dodgeSoldierApi.init()
+dodgeSoldierFixture = "{\"classname\" \"worldspawn\"}" +
+  "{\"classname\" \"info_player_start\" \"origin\" \"0 0 0\"}" +
+  "{\"classname\" \"monster_soldier_light\" \"origin\" \"256 0 10\" \"angle\" \"180\"}"
+dodgeSoldierApi.spawnEntities("dodge-soldier-attack", dodgeSoldierFixture, "")
+dodgeSoldierClient = dodgeSoldierApi.edicts[1]
+dodgeAssert(dodgeSoldierApi.clientConnect(dodgeSoldierClient,
+  "\\name\\DodgeAttackShooter\\skin\\male/grunt"), "Soldier dodge client connect")
+dodgeAssert(dodgeSoldierApi.clientBegin(dodgeSoldierClient), "Soldier dodge client begin")
+dodgeSoldierRuntime = dodgegame.baseRuntime()
+dodgeSoldierRuntime.aiContext.skill = 2
+dodgeSoldierRuntime.randomState.seed = 1
+dodgeSoldierPlayerContext = dodgegame.playerContext()
+dodgeSoldierPlayer = dodgeSoldierPlayerContext.players[0]
+dodgeSoldierOwner = dodgeintegration.playerWeaponTarget(dodgeSoldierPlayer,
+  dodgeSoldierPlayerContext.registry)
+dodgeSoldierActor = dodgeSoldierRuntime.monsters[0]
+dodgeAssert(dodgeSoldierRuntime.weaponContext.callbacks.dodge(dodgeSoldierOwner,
+  dodgeqtypes.Vec3(0.0, 0.0, 22.0), dodgeqtypes.Vec3(1.0, 0.0, 0.0), 1000.0) and
+  dodgeSoldierActor.activity == "soldier-duck-shoot-pending" and
+  dodgeSoldierActor.enemy is not void,
+  "skill-2 Soldier exact second draw selects attack3")
+dodgeSoldierApi.runFrame()
+dodgeAssert(dodgeSoldierActor.activity == "soldier-duck-shoot" and
+  dodgeSoldierActor.edict.state.frame == 30, "Soldier attack3 starts at attack301")
+dodgeSoldierSawLoweredBounds = false
+dodgeSoldierSteps = 0
+while dodgeSoldierActor.activity == "soldier-duck-shoot" and dodgeSoldierSteps < 20
+  if (dodgeSoldierActor.info.aiFlags & dodgeconstants.AI_DUCKED) != 0 and
+      dodgeSoldierActor.edict.maxs.z == dodgeSoldierActor.maxs[2] - 32.0 then
+    dodgeSoldierSawLoweredBounds = true
+  end if
+  dodgeSoldierApi.runFrame()
+  dodgeSoldierSteps = dodgeSoldierSteps + 1
+end while
+dodgeAssert(dodgeSoldierSawLoweredBounds and
+  (dodgeSoldierActor.info.aiFlags & dodgeconstants.AI_DUCKED) == 0 and
+  dodgeSoldierActor.edict.maxs.z == dodgeSoldierActor.maxs[2] and
+  dodgeSoldierActor.activity == "run",
+  "integrated Soldier attack3 lowers then restores collision bounds")
+dodgeSoldierApi.clientDisconnect(dodgeSoldierClient)
+dodgeSoldierApi.shutdown()
+
 print "gameplay_monster_dodge_sequences_tests: PASS"

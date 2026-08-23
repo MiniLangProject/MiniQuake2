@@ -1,6 +1,8 @@
 /* Quake II 3.19 SP_monster_* sound precache inventories. */
 package miniquake2.game.ai.sounds
 
+import miniquake2.game.constants as soundconstants
+
 noSounds = []
 berserkSounds = ["berserk/attack.wav", "berserk/berdeth2.wav", "berserk/beridle1.wav",
   "berserk/berpain2.wav", "berserk/bersrch1.wav", "berserk/sight.wav", "misc/udeath.wav"]
@@ -79,6 +81,102 @@ insaneSounds = ["insane/insane1.wav", "insane/insane2.wav", "insane/insane3.wav"
   "insane/insane4.wav", "insane/insane5.wav", "insane/insane6.wav",
   "insane/insane7.wav", "insane/insane8.wav", "insane/insane9.wav",
   "insane/insane10.wav", "insane/insane11.wav", "misc/udeath.wav"]
+
+function inline isSoldier(className)
+  return className == "monster_soldier_light" or className == "monster_soldier" or
+    className == "monster_soldier_ss"
+end function
+
+function inline hasSightCallback(className)
+  return className == "monster_berserk" or className == "monster_gladiator" or
+    className == "monster_gunner" or className == "monster_infantry" or
+    isSoldier(className) or className == "monster_tank" or
+    className == "monster_tank_commander" or className == "monster_medic" or
+    className == "monster_flipper" or className == "monster_chick" or
+    className == "monster_parasite" or className == "monster_flyer" or
+    className == "monster_brain" or className == "monster_floater" or
+    className == "monster_hover" or className == "monster_mutant" or
+    className == "monster_makron"
+end function
+
+function inline hasSearchCallback(className)
+  return className == "monster_berserk" or className == "monster_gladiator" or
+    className == "monster_gunner" or className == "monster_medic" or
+    className == "monster_brain" or className == "monster_hover" or
+    className == "monster_mutant" or className == "monster_supertank" or
+    className == "monster_boss2" or className == "monster_jorg"
+end function
+
+function inline sightUsesRandom(className)
+  return isSoldier(className)
+end function
+
+function inline searchUsesRandom(className)
+  return className == "monster_hover" or className == "monster_supertank" or
+    className == "monster_boss2" or className == "monster_jorg"
+end function
+
+function sightName(className, roll)
+  if className == "monster_berserk" then return "berserk/sight.wav" end if
+  if className == "monster_gladiator" then return "gladiator/sight.wav" end if
+  if className == "monster_gunner" then return "gunner/sight1.wav" end if
+  if className == "monster_infantry" then return "infantry/infsght1.wav" end if
+  if isSoldier(className) then
+    if roll < 0.5 then return "soldier/solsght1.wav" end if
+    return "soldier/solsrch1.wav"
+  end if
+  if className == "monster_tank" or className == "monster_tank_commander" then return "tank/sight1.wav" end if
+  if className == "monster_medic" then return "medic/medsght1.wav" end if
+  if className == "monster_flipper" then return "flipper/flpsght1.wav" end if
+  if className == "monster_chick" then return "chick/chksght1.wav" end if
+  if className == "monster_parasite" then return "parasite/parsght1.wav" end if
+  if className == "monster_flyer" then return "flyer/flysght1.wav" end if
+  if className == "monster_brain" then return "brain/brnsght1.wav" end if
+  if className == "monster_floater" then return "floater/fltsght1.wav" end if
+  if className == "monster_hover" then return "hover/hovsght1.wav" end if
+  if className == "monster_mutant" then return "mutant/mutsght1.wav" end if
+  // Makron's sight callback installs its 13-frame active move without sound.
+  return ""
+end function
+
+function sightChannel(className)
+  if className == "monster_infantry" then return soundconstants.CHAN_BODY end if
+  if className == "monster_parasite" then return soundconstants.CHAN_WEAPON end if
+  return soundconstants.CHAN_VOICE
+end function
+
+function searchName(className, roll)
+  if className == "monster_berserk" then return "berserk/bersrch1.wav" end if
+  if className == "monster_gladiator" then return "gladiator/gldsrch1.wav" end if
+  if className == "monster_gunner" then return "gunner/gunsrch1.wav" end if
+  if className == "monster_medic" then return "medic/medsrch1.wav" end if
+  if className == "monster_brain" then return "brain/brnsrch1.wav" end if
+  if className == "monster_hover" then
+    if roll < 0.5 then return "hover/hovsrch1.wav" end if
+    return "hover/hovsrch2.wav"
+  end if
+  if className == "monster_mutant" then return "mutant/mutsrch1.wav" end if
+  if className == "monster_supertank" then
+    if roll < 0.5 then return "bosstank/btkunqv1.wav" end if
+    return "bosstank/btkunqv2.wav"
+  end if
+  if className == "monster_boss2" then
+    if roll < 0.5 then return "bosshovr/bhvunqv1.wav" end if
+    return ""
+  end if
+  if className == "monster_jorg" then
+    if roll <= 0.3 then return "boss3/bs3srch1.wav" end if
+    if roll <= 0.6 then return "boss3/bs3srch2.wav" end if
+    return "boss3/bs3srch3.wav"
+  end if
+  return ""
+end function
+
+function searchAttenuation(className)
+  if className == "monster_boss2" then return soundconstants.ATTN_NONE end if
+  if className == "monster_medic" then return soundconstants.ATTN_IDLE end if
+  return soundconstants.ATTN_NORM
+end function
 
 function stockNames(className)
   if className == "monster_berserk" then return berserkSounds end if

@@ -281,6 +281,8 @@ function configureAI(context)
   context.playSound = integratedAISound
   context.tempEntity = integratedAITempEntity
   context.deathEffect = integratedAIDeathEffect
+  context.nextRandomUnit = integratedRandomUnit
+  context.nextRandomInteger = integratedRandomInteger
   return context
 end function
 
@@ -962,10 +964,10 @@ function integratedDodge(owner, start, direction, speed)
   global activeIntegrationRuntime
   ibDodgeRuntimeHolder = activeIntegrationRuntime
   if ibDodgeRuntimeHolder is void or speed <= 0.0 then return false end if
-  // g_weapon.c applies a separate easy-skill 25% gate before tracing.  Each
-  // stock dodge callback then applies its own 25% gate on every skill.  Keep
-  // both decisions replay-stable while preserving those original odds.
-  ibDodgeFrameNumber = ibDodgeRuntimeHolder.aiContext.frameNumber
+  // g_weapon.c consumes its separate easy-skill draw before the trace. Every
+  // stock dodge callback then consumes its own 25-percent draw.
+  if ibDodgeRuntimeHolder.aiContext.skill == 0 and
+      ibrandom.unit(ibDodgeRuntimeHolder.randomState) > 0.25 then return false end if
   ibDodgeEndHolder = ibwpvector.multiplyAdd(start, 8192.0, direction)
   ibDodgeTraceHolder = integratedWeaponTrace(start, ibqtypes.zeroVec3(), ibqtypes.zeroVec3(),
     ibDodgeEndHolder, owner, ibqconstants.MASK_SHOT)
@@ -974,17 +976,33 @@ function integratedDodge(owner, start, direction, speed)
   if ibDodgeActorHolder is void or ibDodgeActorHolder.health <= 0 then return false end if
   ibDodgePlanHolder = ibreactionseq.stockDodgePlan(ibDodgeActorHolder.className)
   if ibDodgePlanHolder is void or ibreactionseq.planByName(ibDodgeActorHolder.className, ibDodgeActorHolder.activity) is not void then return false end if
-  if ibDodgeRuntimeHolder.aiContext.skill == 0 and
-      ibreactionseq.deterministicValue(ibDodgeActorHolder.edict.state.number,
-        ibDodgeFrameNumber, 179, 100) >= 25 then return false end if
-  if ibreactionseq.deterministicValue(ibDodgeActorHolder.edict.state.number,
-      ibDodgeFrameNumber, 181, 100) >= 25 then return false end if
   ibDodgeAttackerActorHolder = findAIPlayer(ibDodgeRuntimeHolder, owner.number)
   if ibDodgeAttackerActorHolder is void then
     ibDodgeAttackerActorHolder = integratedMonsterByNumber(ibDodgeRuntimeHolder, owner.number)
   end if
   if ibDodgeAttackerActorHolder is not void and
       ibgaicore.infront(ibDodgeActorHolder, ibDodgeAttackerActorHolder) != true then return false end if
+  if ibrandom.unit(ibDodgeRuntimeHolder.randomState) > 0.25 then return false end if
+  if ibDodgeActorHolder.enemy is void and ibDodgeAttackerActorHolder is not void then
+    ibDodgeActorHolder.enemy = ibDodgeAttackerActorHolder
+  end if
+  if (ibDodgeActorHolder.className == "monster_soldier_light" or
+      ibDodgeActorHolder.className == "monster_soldier" or
+      ibDodgeActorHolder.className == "monster_soldier_ss") and
+      ibDodgeRuntimeHolder.aiContext.skill > 0 then
+    ibDodgeChoiceRoll = ibrandom.unit(ibDodgeRuntimeHolder.randomState)
+    if ibattackseq.soldierDodgeUsesAttack(ibDodgeRuntimeHolder.aiContext.skill,
+        ibDodgeChoiceRoll) then
+      ibDodgeTravelHolder = ibwpvector.subtract(ibDodgeTraceHolder.endPosition, start)
+      ibDodgeEta = (ibwpvector.length(ibDodgeTravelHolder) - ibDodgeActorHolder.maxs[0]) / speed
+      if ibDodgeEta < 0.0 then ibDodgeEta = 0.0 end if
+      ibDodgeActorHolder.info.pauseTime = ibDodgeRuntimeHolder.aiContext.time + ibDodgeEta + 0.3
+      ibDodgeActorHolder.activity = "soldier-duck-shoot-pending"
+      ibDodgeActorHolder.info.nextFrame = 0
+      ibDodgeActorHolder.attackCycles = 0
+      return true
+    end if
+  end if
   return ibmonster.StartReaction(ibDodgeActorHolder, ibDodgePlanHolder, ibDodgeRuntimeHolder.aiContext)
 end function
 
@@ -1000,6 +1018,13 @@ function integratedRandomUnit()
   ibRandomUnitRuntimeHolder = activeIntegrationRuntime
   if ibRandomUnitRuntimeHolder is void then return 0.0 end if
   return ibrandom.unit(ibRandomUnitRuntimeHolder.randomState)
+end function
+
+function integratedRandomInteger()
+  global activeIntegrationRuntime
+  ibRandomIntegerRuntimeHolder = activeIntegrationRuntime
+  if ibRandomIntegerRuntimeHolder is void then return 0 end if
+  return ibrandom.nextInteger(ibRandomIntegerRuntimeHolder.randomState)
 end function
 
 function refreshAiRandom(runtime)
@@ -2064,7 +2089,8 @@ function monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzl
   direction = ibqtypes.Vec3(1.0, 0.0, 0.0)
   if attackPlan.name == "soldier-light-attack1" or attackPlan.name == "soldier-light-attack2" or
       attackPlan.name == "soldier-shotgun-attack1" or attackPlan.name == "soldier-shotgun-attack2" or
-      attackPlan.name == "soldier-ss-machinegun" then
+      attackPlan.name == "soldier-ss-machinegun" or attackPlan.name == "soldier-duck-shoot" or
+      attackPlan.name == "soldier-run-shoot" then
     direction = monsterSoldierAttackDirection(runtime.randomState, start, destination)
   else
     direction = monsterAttackDirection(actor, attackPlan, eventIndex, start, destination,
@@ -2356,6 +2382,9 @@ function activeMonsterAttackPlan(actor)
 end function
 
 function monsterRefireDecisionOffset(attackPlan)
+  if attackPlan.name == "soldier-run-shoot" then
+    return 13 + (len(attackPlan.frameOffsets) - 1) * 12
+  end if
   if attackPlan.name == "soldier-light-attack1" then
     return 5 + (len(attackPlan.frameOffsets) - 1) * 5
   end if
@@ -2409,6 +2438,9 @@ function monsterShouldRefire(runtime, actor, attackPlan)
     actor.enemy.edict.state.origin, actor.edict.state.origin))
   if refireTarget is not void then
     refireDistance = ibwpvector.length(ibwpvector.subtract(refireTarget.origin, refireShooter.origin))
+  end if
+  if attackPlan.name == "soldier-run-shoot" then
+    return runtime.aiContext.skill == 3 and refireDistance >= 500.0
   end if
   if attackPlan.name == "soldier-light-attack1" or
       attackPlan.name == "soldier-light-attack2" or
@@ -2551,6 +2583,22 @@ function emitMonsterAttackEventSound(actor, attackPlan, eventIndex, eventFired)
   return integratedAISound(soundActor, soundName, channel, ibgconstants.ATTN_NORM)
 end function
 
+function setSoldierDuckAttackBounds(runtime, actor, lowered)
+  currentlyLowered = (actor.info.aiFlags & ibaiconstants.AI_DUCKED) != 0
+  if lowered == currentlyLowered then return false end if
+  if lowered then
+    actor.info.aiFlags = actor.info.aiFlags | ibaiconstants.AI_DUCKED
+    actor.edict.maxs = ibqtypes.Vec3(actor.maxs[0], actor.maxs[1], actor.maxs[2] - 32.0)
+    actor.takeDamage = ibplayerconstants.DAMAGE_YES
+  else
+    actor.info.aiFlags = actor.info.aiFlags & ~ibaiconstants.AI_DUCKED
+    actor.edict.maxs = ibqtypes.Vec3(actor.maxs[0], actor.maxs[1], actor.maxs[2])
+    actor.takeDamage = ibplayerconstants.DAMAGE_AIM
+  end if
+  if runtime.playerContext is not void then runtime.playerContext.imports.linkEntity(actor.edict) end if
+  return true
+end function
+
 function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   remaining = attackPlan.cooldown - lastFrameOffset * ibattackseq.FRAME_TIME
   if remaining < runtime.world.frameTime then remaining = runtime.world.frameTime end if
@@ -2561,6 +2609,9 @@ function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   actor.info.attackFinished = runtime.aiContext.time + remaining
   actor.attackAimValid = false
   actor.attackCycles = 0
+  if attackPlan.name == "soldier-duck-shoot" then
+    setSoldierDuckAttackBounds(runtime, actor, false)
+  end if
   // C attack mmoves end in the class-specific run callback. Reinstalling the
   // exact locomotion move here prevents a stand pose from surviving an attack
   // that began while the monster was stationary.
@@ -2589,6 +2640,9 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
     attackPlan = activeMonsterAttackPlan(actor)
   end if
   timelineOffset = projectMonsterAttackFrame(runtime, actor, attackPlan)
+  if attackPlan.name == "soldier-duck-shoot" then
+    setSoldierDuckAttackBounds(runtime, actor, timelineOffset >= 2 and timelineOffset < 10)
+  end if
   if attackPlan.name == "makron-rail" and timelineOffset == 7 and not actor.attackAimValid then
     railTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
     if railTarget is not void then
@@ -2682,9 +2736,55 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
   return fired
 end function
 
+function beginMonsterAttack(runtime, actor, attackPlan)
+  ibattackseq.validatePlan(attackPlan)
+  actor.activity = attackPlan.name
+  actor.attackAimValid = false
+  actor.attackCycles = 0
+  if attackPlan.name == "soldier-light-attack1" or attackPlan.name == "soldier-light-attack2" or
+      attackPlan.name == "soldier-shotgun-attack1" or attackPlan.name == "soldier-shotgun-attack2" or
+      attackPlan.name == "soldier-run-shoot" or
+      attackPlan.name == "tank-blasters-hard" or attackPlan.name == "tank-rockets-hard" or
+      attackPlan.name == "gunner-chain" or attackPlan.name == "chick-rockets" or
+      attackPlan.name == "chick-slash" or attackPlan.name == "flyer-slashes" or
+      attackPlan.name == "hover-blasters" or attackPlan.name == "mutant-claws" or
+      attackPlan.name == "supertank-machinegun" or attackPlan.name == "jorg-machineguns" or
+      attackPlan.name == "boss2-machineguns" then
+    actor.attackCycles = 1
+  end if
+  actor.info.nextFrame = 0
+  actor.info.attackState = ibaiconstants.AS_MISSILE
+  actor.info.pauseTime = runtime.aiContext.time + attackPlan.frameOffsets[0] * ibattackseq.FRAME_TIME
+  if attackPlan.name == "gladiator-rail" then
+    gladiatorTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
+    if gladiatorTarget is not void then
+      gladiatorAim = monsterEnemyAimPoint(actor, gladiatorTarget)
+      actor.attackAim = ibqtypes.Vec3(gladiatorAim.x, gladiatorAim.y, gladiatorAim.z)
+      actor.attackAimValid = true
+    end if
+  end if
+  if attackPlan.name == "infantry-machinegun" then
+    // infantry_cock_gun runs on FRAME_attak104, seven frames before the first
+    // held FRAME_attak111 shot, and consumes the raw rand() shot count there.
+    actor.info.nextFrame = -2
+    actor.info.pauseTime = runtime.aiContext.time + 3.0 * ibattackseq.FRAME_TIME
+  end if
+  actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, 0)
+  applyMonsterAttackMovement(actor, attackPlan, 0, runtime.aiContext)
+  emitMonsterAttackFrameSound(actor, attackPlan, 0)
+  return advanceMonsterAttack(runtime, actor, attackPlan)
+end function
+
 function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
   if ibreactionseq.planByName(actor.className, actor.activity) is not void then return false end if
+  if actor.activity == "soldier-run-shoot-pending" then
+    return beginMonsterAttack(runtime, actor,
+      ibattackseq.soldierRunShootPlanCycles(actor.className, 1))
+  end if
+  if actor.activity == "soldier-duck-shoot-pending" then
+    return beginMonsterAttack(runtime, actor, ibattackseq.soldierDuckShootPlan(actor.className))
+  end if
   activePlan = activeMonsterAttackPlan(actor)
   if activePlan is not void then
     activeTimelineOffset = monsterAttackTimelineOffset(actor, activePlan, runtime.aiContext.time)
@@ -2772,41 +2872,7 @@ function runMonsterCombat(runtime, actor)
   else attackPlan = ibattackseq.selectPlan(actor.className, actor.edict.state.number,
     actor.attackCount, distance, runtime.aiContext.skill)
   end if
-  ibattackseq.validatePlan(attackPlan)
-  actor.activity = attackPlan.name
-  actor.attackAimValid = false
-  actor.attackCycles = 0
-  if attackPlan.name == "soldier-light-attack1" or attackPlan.name == "soldier-light-attack2" or
-      attackPlan.name == "soldier-shotgun-attack1" or attackPlan.name == "soldier-shotgun-attack2" or
-      attackPlan.name == "tank-blasters-hard" or attackPlan.name == "tank-rockets-hard" or
-      attackPlan.name == "gunner-chain" or attackPlan.name == "chick-rockets" or
-      attackPlan.name == "chick-slash" or attackPlan.name == "flyer-slashes" or
-      attackPlan.name == "hover-blasters" or attackPlan.name == "mutant-claws" or
-      attackPlan.name == "supertank-machinegun" or attackPlan.name == "jorg-machineguns" or
-      attackPlan.name == "boss2-machineguns" then
-    actor.attackCycles = 1
-  end if
-  actor.info.nextFrame = 0
-  actor.info.attackState = ibaiconstants.AS_MISSILE
-  actor.info.pauseTime = runtime.aiContext.time + attackPlan.frameOffsets[0] * ibattackseq.FRAME_TIME
-  if attackPlan.name == "gladiator-rail" then
-    gladiatorTarget = weaponTargetByNumber(runtime, actor.enemy.edict.state.number)
-    if gladiatorTarget is not void then
-      gladiatorAim = monsterEnemyAimPoint(actor, gladiatorTarget)
-      actor.attackAim = ibqtypes.Vec3(gladiatorAim.x, gladiatorAim.y, gladiatorAim.z)
-      actor.attackAimValid = true
-    end if
-  end if
-  if attackPlan.name == "infantry-machinegun" then
-    // infantry_cock_gun runs on FRAME_attak104, seven frames before the first
-    // held FRAME_attak111 shot, and consumes the raw rand() shot count there.
-    actor.info.nextFrame = -2
-    actor.info.pauseTime = runtime.aiContext.time + 3.0 * ibattackseq.FRAME_TIME
-  end if
-  actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, 0)
-  applyMonsterAttackMovement(actor, attackPlan, 0, runtime.aiContext)
-  emitMonsterAttackFrameSound(actor, attackPlan, 0)
-  return advanceMonsterAttack(runtime, actor, attackPlan)
+  return beginMonsterAttack(runtime, actor, attackPlan)
 end function
 
 function advanceWeaponProjectiles(runtime)

@@ -105,5 +105,10 @@ function SpawnMonster(registry, className, number, context)
   else if definition.movement == "swim" then gaimonster.SwimMonsterStart(actor, context)
   else gaimonster.WalkMonsterStart(actor, context)
   end if
+  // SP_monster_makron enters makron_move_sight immediately; the same callback
+  // is reused whenever Makron later acquires a new visible enemy.
+  if actor.className == "monster_makron" and typeof(actor.info.sight) == "function" then
+    actor.info.sight(actor, void, context)
+  end if
   return actor
 end function

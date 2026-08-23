@@ -18,7 +18,7 @@ The run completed in 2,139.1 seconds and passed:
 - MiniLang syntax for 341 files;
 - source inventory and exact manifest membership for 384 maintained files;
 - verifier self-tests and source/build hygiene;
-- all 149 native contract, integration, renderer, multiplayer and soak test
+- all 151 native contract, integration, renderer, multiplayer and soak test
   programs, freshly compiled and executed;
 - the Release product build plus version, diagnostics, capabilities and CLI
   smokes.

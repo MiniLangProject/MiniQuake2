@@ -163,6 +163,10 @@ function stockMove(className, moveKind, endFunction)
     return makeStockMove("floater-stand2", 196, 247, locomotioncore.ai_stand, void, 0.0, endFunction)
   end if
 
+  if moveKind == "sight" and className == "monster_makron" then
+    return makeStockMove("makron-sight", 188, 200, locomotioncore.ai_move, void, 0.0, endFunction)
+  end if
+
   if moveKind == "walk-start" then
     if className == "monster_mutant" then return makeStockMove("mutant-walk-start", 126, 129, locomotioncore.ai_walk, mutantWalkStartDistances, 0.0, endFunction) end if
     if className == "monster_parasite" then return makeStockMove("parasite-walk-start", 68, 69, locomotioncore.ai_walk, parasiteStartDistances, 0.0, endFunction) end if

@@ -1,6 +1,7 @@
 /* Quake II 3.19 monster attack-frame, muzzle and live burst regression. */
 import miniquake2.game.ai.attack_sequences as attacksequences
 import miniquake2.game.ai.types as attacksequenceaitypes
+import miniquake2.game.ai.constants as attacksequenceaiconstants
 import miniquake2.game.integration.baseq2 as attacksequencebaseq2
 import miniquake2.game.random as attacksequencerandom
 import miniquake2.game.null_game as attacksequencegame
@@ -329,6 +330,35 @@ sequenceAssert(attacksequences.modelFrameAt(soldierMachinegun, 0) == 39 and
 sequenceAssert(len(attacksequences.soldierMachinegunPlanShots("monster_soldier_ss", 3).frameOffsets) == 3 and
   len(attacksequences.soldierMachinegunPlanShots("monster_soldier_ss", 10).frameOffsets) == 10,
   "machinegun Soldier exact raw-rand shot-count builders")
+soldierDuckLight = attacksequences.soldierDuckShootPlan("monster_soldier_light")
+soldierDuckShotgun = attacksequences.soldierDuckShootPlan("monster_soldier")
+soldierDuckMachinegun = attacksequences.soldierDuckShootPlan("monster_soldier_ss")
+sequenceAssert(soldierDuckLight.frameOffsets == [2, 6] and
+  soldierDuckLight.muzzleFlashes == [83, 83] and
+  soldierDuckShotgun.muzzleFlashes == [84, 84] and soldierDuckShotgun.count == 12 and
+  soldierDuckMachinegun.muzzleFlashes == [85, 85] and
+  attacksequences.modelFrameAt(soldierDuckLight, 0) == 30 and
+  attacksequences.modelFrameAt(soldierDuckLight, 6) == 32 and
+  attacksequences.modelFrameAt(soldierDuckLight, 10) == 36 and
+  attacksequences.modelFrameAt(soldierDuckLight, 12) == 38,
+  "Soldier attack3 exact duck/refire frames and third muzzle set")
+soldierRunShoot = attacksequences.soldierRunShootPlanCycles("monster_soldier_light", 1)
+soldierRunShootTwo = attacksequences.soldierRunShootPlanCycles("monster_soldier_ss", 2)
+sequenceAssert(soldierRunShoot.frameOffsets == [3] and soldierRunShoot.muzzleFlashes == [98] and
+  soldierRunShootTwo.frameOffsets == [3, 15] and soldierRunShootTwo.muzzleFlashes == [100, 100] and
+  attacksequencebaseq2.monsterRefireDecisionOffset(soldierRunShootTwo) == 25 and
+  attacksequences.modelFrameAt(soldierRunShootTwo, 0) == 109 and
+  attacksequences.modelFrameAt(soldierRunShootTwo, 14) == 111 and
+  attacksequences.modelFrameAt(soldierRunShootTwo, 15) == 112 and
+  attacksequences.modelFrameAt(soldierRunShootTwo, 25) == 122 and
+  movementTotal(soldierRunShoot) == 168.0 and movementTotal(soldierRunShootTwo) == 322.0,
+  "Soldier attack6 exact run distances, eighth muzzle set and runs03 loop")
+sequenceAssert(not attacksequences.soldierDodgeUsesAttack(0, 0.0) and
+  attacksequences.soldierDodgeUsesAttack(1, 0.33) and
+  not attacksequences.soldierDodgeUsesAttack(1, 0.3301) and
+  attacksequences.soldierDodgeUsesAttack(2, 0.66) and
+  not attacksequences.soldierDodgeUsesAttack(3, 0.6601),
+  "Soldier skill-specific duck/attack3 random boundaries")
 
 jorgAttackPlan = attacksequences.jorgPlan(7, 1)
 sequenceAssert(len(jorgAttackPlan.muzzleFlashes) % 12 == 0, "Jorg complete six-frame paired cycle")
@@ -843,6 +873,56 @@ attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveShotgunSoldier,
 sequenceAssert(liveShotgunSoldier.attackCycles == 2 and liveShotgunSoldier.info.nextFrame == 1 and
   liveShotgunSoldier.info.pauseTime > 10.19 and liveShotgunSoldier.info.pauseTime < 10.21,
   "nightmare shotgun Soldier performs the exact post-cock attack204 refire jump")
+
+savedSequencePlayerContext = sequenceRuntime.playerContext
+sequenceRuntime.playerContext = void
+sequenceRuntime.aiContext.time = 10.0
+liveRunShootEnemy = attacksequenceaitypes.createClientTarget(78)
+liveRunShootEnemy.health = 100
+liveRunShootEnemy.edict.state.origin = attacksequenceqtypes.Vec3(600.0, 0.0, 0.0)
+liveRunShootSoldier = attacksequenceaitypes.createActor(77, "monster_soldier_light")
+liveRunShootSoldier.enemy = liveRunShootEnemy
+liveRunShootSoldier.activity = "soldier-run-shoot-pending"
+liveRunShootSoldier.edict.state.angles = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
+sequenceAssert(not attacksequencebaseq2.runMonsterCombat(sequenceRuntime, liveRunShootSoldier) and
+  liveRunShootSoldier.activity == "soldier-run-shoot" and liveRunShootSoldier.attackCycles == 1 and
+  liveRunShootSoldier.edict.state.frame == 109 and liveRunShootSoldier.edict.state.origin.x == 10.0 and
+  liveRunShootSoldier.info.pauseTime > 10.29 and liveRunShootSoldier.info.pauseTime < 10.31,
+  "Soldier sight marker starts attack6 at runs01 with its first charge distance")
+liveRunShootSoldier.info.nextFrame = 1
+liveRunShootSoldier.info.pauseTime = 10.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveRunShootSoldier,
+  attacksequences.soldierRunShootPlanCycles("monster_soldier_light", 1))
+sequenceAssert(liveRunShootSoldier.attackCycles == 2 and liveRunShootSoldier.info.nextFrame == 1 and
+  liveRunShootSoldier.info.pauseTime > 10.19 and liveRunShootSoldier.info.pauseTime < 10.21,
+  "nightmare Soldier attack6 loops from runs14 to runs03 without a random draw")
+
+liveDuckShootSoldier = attacksequenceaitypes.createActor(76, "monster_soldier")
+liveDuckShootSoldier.enemy = liveRunShootEnemy
+liveDuckShootSoldier.activity = "soldier-duck-shoot-pending"
+sequenceRuntime.aiContext.time = 10.0
+sequenceAssert(not attacksequencebaseq2.runMonsterCombat(sequenceRuntime, liveDuckShootSoldier) and
+  liveDuckShootSoldier.activity == "soldier-duck-shoot" and
+  liveDuckShootSoldier.edict.state.frame == 30,
+  "Soldier dodge marker starts attack3 at attack301")
+sequenceRuntime.aiContext.time = 10.2
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveDuckShootSoldier,
+  attacksequences.soldierDuckShootPlan("monster_soldier"))
+sequenceAssert((liveDuckShootSoldier.info.aiFlags & attacksequenceaiconstants.AI_DUCKED) != 0 and
+  liveDuckShootSoldier.edict.maxs.z == liveDuckShootSoldier.maxs[2] - 32.0 and
+  liveDuckShootSoldier.takeDamage == 1,
+  "Soldier attack303 lowers collision bounds before firing")
+sequenceRuntime.aiContext.time = 11.0
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveDuckShootSoldier,
+  attacksequences.soldierDuckShootPlan("monster_soldier"))
+attacksequencebaseq2.advanceMonsterAttack(sequenceRuntime, liveDuckShootSoldier,
+  attacksequences.soldierDuckShootPlan("monster_soldier"))
+sequenceAssert((liveDuckShootSoldier.info.aiFlags & attacksequenceaiconstants.AI_DUCKED) == 0 and
+  liveDuckShootSoldier.edict.maxs.z == liveDuckShootSoldier.maxs[2] and
+  liveDuckShootSoldier.takeDamage == 2,
+  "Soldier attack307 restores collision bounds after the second shot")
+sequenceRuntime.playerContext = savedSequencePlayerContext
+sequenceRuntime.aiContext.time = 10.0
 
 sequenceRuntime.aiContext.skill = 2
 sequenceRuntime.randomState.seed = 1

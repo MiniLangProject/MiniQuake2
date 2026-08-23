@@ -38,7 +38,10 @@ and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
 handoff. Attack sequences additionally execute their exact 3.19 movement
 columns, charge/move modes, held frames and mechanical sound callbacks; stock
-sound inventories are registered before signon. Remaining sight/search choices
+sound inventories are registered before signon. Original class-level
+sight/search callback presence, sound/RNG branches and Makron activation are
+covered, as are Soldier's sight-selected running attack and dodge-selected
+ducking attack. Remaining Medic corpse-search/resurrection, secondary animation
 and reaction/death movement differentials remain open gates. The
 unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
@@ -51,7 +54,8 @@ Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
 resetting level state and completing a fresh signon. Exact behavior for the
-remaining secondary monster animation and reaction/death movement, broader save coverage, paired original-renderer
+remaining secondary monster animation, reaction/death movement and Medic
+corpse-search/resurrection behavior, broader save coverage, paired original-renderer
 pixels, and external original-process interoperability remain open. The product
 lifecycle now keeps one window/renderer across CIN, PCX and map steps, performs
 a live mode/fullscreen renderer restart with complete retail resource

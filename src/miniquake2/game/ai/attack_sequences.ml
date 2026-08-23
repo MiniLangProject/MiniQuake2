@@ -32,6 +32,8 @@ const ATTACK_AI_MOVE = 2
 infantryMachinegunDistances = [4.0, -1.0, -1.0, 0.0, -1.0, 1.0, 1.0, 2.0,
   -2.0, -3.0, 1.0, 5.0, -1.0, -2.0, -3.0]
 infantryPunchDistances = [3.0, 6.0, 0.0, 8.0, 5.0, 8.0, 6.0, 3.0]
+soldierRunShootDistances = [10.0, 4.0, 12.0, 11.0, 13.0, 18.0, 15.0,
+  14.0, 11.0, 8.0, 11.0, 12.0, 12.0, 17.0]
 medicBlasterDistances = [0.0, 5.0, 5.0, 3.0, 2.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 chickRocketStartDistances = [0.0, 0.0, 0.0, 4.0, 0.0, -3.0, 3.0, 5.0,
@@ -80,6 +82,10 @@ function movementDistanceAt(plan, timelineOffset)
     return infantryMachinegunDistances[11 + offset - (10 + shots)]
   end if
   if name == "infantry-punch" then return infantryPunchDistances[offset] end if
+  if name == "soldier-run-shoot" then
+    if offset < 14 then return soldierRunShootDistances[offset] end if
+    return soldierRunShootDistances[2 + ((offset - 14) % 12)]
+  end if
   if name == "medic-blaster" and offset < len(medicBlasterDistances) then
     return medicBlasterDistances[offset]
   end if
@@ -700,6 +706,57 @@ function soldierMachinegunPlanShots(className, shotCount)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 6 + shotCount - 1)
 end function
 
+function soldierAttackFlash(className, flashNumber)
+  if flashNumber == 2 then
+    if className == "monster_soldier_light" then return 83 end if
+    if className == "monster_soldier" then return 84 end if
+    return 85
+  end if
+  if className == "monster_soldier_light" then return 98 end if
+  if className == "monster_soldier" then return 99 end if
+  return 100
+end function
+
+function soldierSpecialPlan(className, name, offsets, flashes, duration)
+  if className == "monster_soldier_light" then
+    return attackPlan(className, name, "blaster", 5, 0,
+      600.0, 0.0, 2048.0, 1, offsets, flashes, duration)
+  end if
+  if className == "monster_soldier" then
+    return attackPlan(className, name, "shotgun", 2, 1,
+      0.0, 0.0, 2048.0, 12, offsets, flashes, duration)
+  end if
+  return attackPlan(className, name, "bullet", 2, 4,
+    0.0, 0.0, 2048.0, 1, offsets, flashes, duration)
+end function
+
+function soldierDuckShootPlan(className)
+  flash = soldierAttackFlash(className, 2)
+  return soldierSpecialPlan(className, "soldier-duck-shoot", [2, 6],
+    [flash, flash], 13)
+end function
+
+function soldierRunShootPlanCycles(className, cycles)
+  if cycles < 1 then cycles = 1 end if
+  offsets = array(cycles)
+  flashes = array(cycles)
+  cycle = 0
+  flash = soldierAttackFlash(className, 7)
+  while cycle < cycles
+    offsets[cycle] = 3 + cycle * 12
+    flashes[cycle] = flash
+    cycle = cycle + 1
+  end while
+  return soldierSpecialPlan(className, "soldier-run-shoot", offsets, flashes,
+    14 + (cycles - 1) * 12)
+end function
+
+function inline soldierDodgeUsesAttack(skill, roll)
+  if skill <= 0 then return false end if
+  if skill == 1 then return roll <= 0.33 end if
+  return roll <= 0.66
+end function
+
 function soldierPlan(className, actorNumber, attackCount)
   secondAttack = deterministicValue(actorNumber, attackCount, 41, 2) == 1
   return soldierPlanVariant(className, actorNumber, attackCount, secondAttack)
@@ -967,6 +1024,8 @@ function planByName(className, name, actorNumber, attackCount)
     return soldierShotgunPlanCycles(className, true, 1)
   end if
   if name == "soldier-ss-machinegun" then return soldierPlan(className, actorNumber, attackCount) end if
+  if name == "soldier-duck-shoot" then return soldierDuckShootPlan(className) end if
+  if name == "soldier-run-shoot" then return soldierRunShootPlanCycles(className, 1) end if
   if name == "tank-machinegun" then return tankMachinegunPlan(className) end if
   if name == "tank-blasters" then return tankBlasterPlan(className, actorNumber, attackCount, 1) end if
   if name == "tank-blasters-hard" then return tankBlasterPlan(className, actorNumber, attackCount, 3) end if
@@ -1018,6 +1077,9 @@ function planByNameCycles(className, name, actorNumber, attackCount, cycles)
   end if
   if name == "soldier-shotgun-attack2" and cycles > 0 then
     return soldierShotgunPlanCycles(className, true, cycles)
+  end if
+  if name == "soldier-run-shoot" and cycles > 0 then
+    return soldierRunShootPlanCycles(className, cycles)
   end if
   if name == "tank-blasters-hard" and cycles > 0 then
     return tankBlasterPlanCycles(className, cycles, true)
@@ -1132,6 +1194,15 @@ function modelFrameAt(plan, timelineOffset)
     if offset < 2 then return 39 + offset end if
     if offset < 2 + soldierShots then return 41 end if
     return 42 + offset - (2 + soldierShots)
+  end if
+  if name == "soldier-duck-shoot" then
+    if offset <= 5 then return 30 + offset end if
+    if offset <= 9 then return 32 + offset - 6 end if
+    return 36 + offset - 10
+  end if
+  if name == "soldier-run-shoot" then
+    if offset < 14 then return 109 + offset end if
+    return 111 + ((offset - 14) % 12)
   end if
   if name == "tank-machinegun" then return 168 + offset end if
   if name == "tank-blasters" or name == "tank-blasters-hard" then

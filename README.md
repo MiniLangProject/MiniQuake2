@@ -79,8 +79,13 @@ and metallic gib-model inventories as timed physics edicts, and reproduce the
 Supertank's eight-step explosion sequence before its final 14-part breakup.
  Private-Save v11 resumes attacks and active reactions at their next frame,
  preserves live refire, jump, saved-aim and shared-random state, and round-trips
- live dynamic gib records. Remaining reaction/death movement columns, secondary
- fidgets and sight/search decisions remain explicit differential-parity work.
+ live dynamic gib records. The original class-level sight/search callback
+ inventory, sound channels/attenuation and callback-local random branches are
+ now active as well, including Makron's silent 13-frame activation, Mutant's
+ CRT-driven step choice and Soldier's sight-triggered `attack6` plus
+ dodge-triggered `attack3` timelines. Remaining reaction/death movement
+ columns, secondary fidgets and Medic corpse-search/resurrection behavior remain
+ explicit differential-parity work.
  Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
@@ -161,7 +166,7 @@ remaining release work is concentrated in original-process interoperability
 (the installed 3.20 executable exits before networking on this host), paired
 original player view-model/recoil captures beyond the fixed renderer fixture,
 broader multi-host GPU/device coverage, remaining secondary monster/turret/boss
-fidgets, reaction/death movement and sight/search differentials, and manual device
+fidgets, reaction/death movement, Medic corpse-search/resurrection parity, and manual device
 acceptance. Retail class and stock monster damage-emission coverage are closed,
 but that is deliberately narrower than a full campaign
 playthrough or frame-for-frame AI parity claim.

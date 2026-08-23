@@ -6,6 +6,7 @@ import miniquake2.game.ai.core as gaicore
 import miniquake2.game.ai.reaction_sequences as gaireactions
 import miniquake2.game.ai.death_effects as gaideatheffects
 import miniquake2.game.ai.locomotion_sequences as gailocomotion
+import miniquake2.game.ai.sounds as gaisounds
 import miniquake2.game.ai.props as gaimonsterprops
 import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.constants as qconstants
@@ -21,6 +22,16 @@ function EmitStockSound(actor, context, soundName, channel, attenuation)
     context.playSound(actor, soundName, channel, attenuation)
   end if
   return soundName
+end function
+
+function NextStockRandomUnit(context, fallback)
+  if typeof(context.nextRandomUnit) == "function" then return context.nextRandomUnit() end if
+  return fallback
+end function
+
+function NextStockRandomInteger(context, fallback)
+  if typeof(context.nextRandomInteger) == "function" then return context.nextRandomInteger() end if
+  return fallback
 end function
 
 function StockIdleSoundName(className)
@@ -68,10 +79,11 @@ function StockStepSound(actor, context)
   else if actor.className == "monster_makron" then
     if actor.edict.state.frame == 477 then soundName = "makron/step1.wav" else soundName = "makron/step2.wav" end if
   else if actor.className == "monster_mutant" then
-    stepVariant = actor.edict.state.frame % 3
+    stepVariant = NextStockRandomInteger(context, context.randomFrame) % 3
     if stepVariant == 0 then soundName = "mutant/step1.wav"
     else if stepVariant == 1 then soundName = "mutant/step2.wav"
     else soundName = "mutant/step3.wav" end if
+    channel = gconstants.CHAN_VOICE
   end if
   return EmitStockSound(actor, context, soundName, channel, gconstants.ATTN_NORM)
 end function
@@ -191,6 +203,12 @@ end function
 
 function StateSearch(actor, context)
   actor.activity = "search"
+  searchRoll = 0.0
+  if gaisounds.searchUsesRandom(actor.className) then
+    searchRoll = NextStockRandomUnit(context, context.randomIdle)
+  end if
+  EmitStockSound(actor, context, gaisounds.searchName(actor.className, searchRoll),
+    gconstants.CHAN_VOICE, gaisounds.searchAttenuation(actor.className))
   return true
 end function
 
@@ -246,6 +264,25 @@ end function
 
 function StateSight(actor, enemy, context)
   actor.activity = "sight"
+  sightRoll = 0.0
+  if gaisounds.sightUsesRandom(actor.className) then
+    sightRoll = NextStockRandomUnit(context, context.randomIdle)
+  end if
+  EmitStockSound(actor, context, gaisounds.sightName(actor.className, sightRoll),
+    gaisounds.sightChannel(actor.className), gconstants.ATTN_NORM)
+  if gaisounds.isSoldier(actor.className) and enemy is not void and context.skill > 0 and
+      gaicore.range(actor, enemy) >= gaiconstants.RANGE_MID then
+    if NextStockRandomUnit(context, context.randomAttack) > 0.5 then
+      // soldier_sight swaps directly to soldier_move_attack6. The integrated
+      // combat layer consumes this pending marker and installs its exact table.
+      actor.activity = "soldier-run-shoot-pending"
+      actor.info.nextFrame = 0
+      actor.info.pauseTime = 0.0
+      actor.attackCycles = 0
+    end if
+  else if actor.className == "monster_makron" then
+    SetStockMove(actor, "sight", StateRun)
+  end if
   return true
 end function
 
@@ -298,12 +335,14 @@ function installDefaultCallbacks(actor, hasAttack, hasMelee)
       actor.className == "monster_floater" or actor.className == "monster_mutant" then
     actor.info.idle = StateIdle
   end if
-  actor.info.search = StateSearch
+  if gaisounds.hasSearchCallback(actor.className) then actor.info.search = StateSearch
+  else actor.info.search = void end if
   actor.info.walk = StateWalk
   actor.info.run = StateRun
   if hasAttack then actor.info.attack = StateAttack else actor.info.attack = void end if
   if hasMelee then actor.info.melee = StateMelee else actor.info.melee = void end if
-  actor.info.sight = StateSight
+  if gaisounds.hasSightCallback(actor.className) then actor.info.sight = StateSight
+  else actor.info.sight = void end if
   actor.info.checkAttack = DefaultCheckAttack
   if actor.className == "monster_mutant" then actor.info.checkAttack = MutantCheckAttack end if
   actor.pain = StatePain
