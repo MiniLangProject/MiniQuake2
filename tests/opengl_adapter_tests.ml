@@ -29,6 +29,8 @@ function testHeadlessLifecycle()
   assertEqual(renderer.state.submittedEntities, 0, "headless entity GL submissions")
   assertEqual(renderer.state.submittedParticles, 0, "headless particle GL submissions")
   assertEqual(renderer.state.core.state.frameCount, 1, "validated base frame")
+  assertEqual(len(renderer.state.core.state.commands), 0,
+    "product OpenGL core does not retain a frame trace")
   assertEqual(ogl.backendDescription(renderer), "OpenGL 1.1 (headless contract mode)", "headless description")
   assertEqual(ogl.submitTriangleMesh(renderer, void, origin, origin, 255, 255, 255, 255), 0, "headless mesh submission")
   renderer.exports.Shutdown()

@@ -41,5 +41,8 @@ assertEqual(rassets.registerModel(registry, imports, "sprites/test.sp2").handle.
 picture = rassets.registerPicture(registry, imports, "pics/test.pcx")
 assertEqual(picture.kind, "pcx", "picture kind")
 assertEqual(picture.source.pixels[0], 7, "picture pixels")
+shortPicture = rassets.registerPicture(registry, imports, "test")
+assertEqual(shortPicture.kind, "pcx", "extension-less picture kind")
+assertEqual(shortPicture.handle.name, "test", "public picture name retained")
 assertEqual(typeof(try(rassets.registerModel(registry, imports, "models/missing.md2"))), "error", "missing model rejected")
 print("MiniQuake2 renderer asset tests passed: 1")

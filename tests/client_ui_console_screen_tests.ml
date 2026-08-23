@@ -33,6 +33,8 @@ cuiscreen.centerPrint(uiScreenState, "MISSION\nSTART", 1000, 2500)
 
 uiScreenStats = array(32, 0)
 uiScreenConfig = array(qc.MAX_CONFIGSTRINGS, "")
+uiScreenConfig[qc.CS_STATUSBAR] = "xv 0 yb -24 hnum"
+uiScreenStats[1] = 100
 uiScreenRenderer = recording.createRecordingRenderer()
 uiScreenRenderer.exports.Init(void, void)
 uiScreenCount = cuiscreen.draw(uiScreenState, 1200, 640, 480, uiScreenStats, uiScreenConfig, uiScreenRenderer.exports)
@@ -43,6 +45,7 @@ uiScreenAssertEqual(len(bytes(uiScreenTrace)) > 0, true, "renderer function-valu
 // Notify lines expire deterministically; centerprint disappears at duration.
 uiScreenState.showInventory = false
 uiScreenState.layoutText = ""
+uiScreenConfig[qc.CS_STATUSBAR] = ""
 uiScreenAssertEqual(cuiscreen.draw(uiScreenState, 5000, 640, 480, uiScreenStats, uiScreenConfig, uiScreenRenderer.exports), 0, "expired overlays")
 uiScreenConsole.visibleFraction = 0.5
 uiScreenAssertEqual(cuiconsole.draw(uiScreenConsole, 640, 480, uiScreenRenderer.exports) > 0, true, "full console draw")

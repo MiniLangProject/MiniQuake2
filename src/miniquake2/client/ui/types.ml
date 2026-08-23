@@ -105,6 +105,10 @@ struct ScreenState
   centerStart
   centerDuration
   layoutText
+  statusbarText
+  statusbarTokens
+  layoutTokenText
+  layoutTokens
   inventory
   selectedInventory
   showInventory

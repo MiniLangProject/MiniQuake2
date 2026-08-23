@@ -83,6 +83,9 @@ extern function glGetError() from "miniquake_native.dll" symbol "mq_gl_get_error
 extern function glReadPixels(x as i32, y as i32, width as i32, height as i32, format as u32, type as u32, pixels as bytes) from "miniquake_native.dll" symbol "mq_gl_read_pixels" returns void
 extern function glFinish() from "miniquake_native.dll" symbol "mq_gl_finish" returns void
 extern function glFlush() from "miniquake_native.dll" symbol "mq_gl_flush" returns void
+extern function glStaticGeometryCall(keyValue as u64, passValue as i32) from "miniquake_native.dll" symbol "mq_gl_static_geometry_call" returns i32
+extern function glStaticGeometryPrepare(keyValue as u64, passValue as i32) from "miniquake_native.dll" symbol "mq_gl_static_geometry_prepare" returns i32
+extern function glStaticGeometryClear() from "miniquake_native.dll" symbol "mq_gl_static_geometry_clear" returns void
 
 function floatBits(value)
   return f32FromRaw(nativeRawValue(value))

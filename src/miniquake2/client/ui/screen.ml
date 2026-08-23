@@ -8,7 +8,8 @@ import miniquake2.client.ui.menu as cuimenu
 import miniquake2.client.ui.types as cuitypes
 
 function create(console, menu)
-  return cuitypes.ScreenState(console, menu, "", 0, 0, "", [], 0, false, true)
+  return cuitypes.ScreenState(console, menu, "", 0, 0, "", "", [], "", [],
+    [], 0, false, true)
 end function
 
 function centerPrint(screen, text, now, duration)
@@ -104,9 +105,32 @@ end function
 
 function draw(screen, now, screenWidth, screenHeight, stats, configStrings, exports)
   count = 0
-  if screen.showHud and screen.layoutText != "" then
-    commands = clayout.parse(screen.layoutText, stats, configStrings, screenWidth, screenHeight)
-    count = count + clayout.draw(commands, exports)
+  if screen.showHud then
+    statusbar = ""
+    if len(configStrings) > cuiscreenqc.CS_STATUSBAR and
+        typeof(configStrings[cuiscreenqc.CS_STATUSBAR]) == "string" then
+      statusbar = configStrings[cuiscreenqc.CS_STATUSBAR]
+    end if
+    if statusbar != screen.statusbarText then
+      screen.statusbarText = statusbar
+      screen.statusbarTokens = []
+      if statusbar != "" then screen.statusbarTokens = clayout.tokenize(statusbar) end if
+    end if
+    if len(screen.statusbarTokens) > 0 then
+      statusCommands = clayout.parseTokens(screen.statusbarTokens, stats,
+        configStrings, screenWidth, screenHeight)
+      count = count + clayout.draw(statusCommands, exports)
+    end if
+    if screen.layoutText != screen.layoutTokenText then
+      screen.layoutTokenText = screen.layoutText
+      screen.layoutTokens = []
+      if screen.layoutText != "" then screen.layoutTokens = clayout.tokenize(screen.layoutText) end if
+    end if
+    if len(screen.layoutTokens) > 0 then
+      commands = clayout.parseTokens(screen.layoutTokens, stats, configStrings,
+        screenWidth, screenHeight)
+      count = count + clayout.draw(commands, exports)
+    end if
   end if
   count = count + drawInventory(screen, screenWidth, screenHeight, exports)
   if screen.centerText != "" and now - screen.centerStart <= screen.centerDuration then

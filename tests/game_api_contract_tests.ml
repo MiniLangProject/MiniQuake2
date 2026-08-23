@@ -40,6 +40,10 @@ function stringIndex(name)
   return 1
 end function
 
+function setConfigString(index, value)
+  return true
+end function
+
 function setModel(entity, name)
   entity.state.modelIndex = 1
   return true
@@ -54,7 +58,7 @@ end function
 function makeImports()
   return t.GameImport(
     noop, recordDebug, noop, noop,
-    noop, noop, noop, noop,
+    noop, noop, setConfigString, noop,
     stringIndex, stringIndex, stringIndex, setModel,
     noop, noop, noop, noop, noop, noop,
     entityNoop, entityNoop, noop, noop,

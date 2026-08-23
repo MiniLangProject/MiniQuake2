@@ -169,3 +169,56 @@ function md2FrameMesh(model, frameIndex, oldFrameIndex, backLerp)
   end while
   return TriangleMesh(model.name + "#" + frameIndex, vertices, len(model.triangles))
 end function
+
+// Render-only MD2 expansion. The inspection API above intentionally retains
+// MeshVertex structs; the live renderer needs only interleaved ST/XYZ scalars.
+// Building those scalars directly avoids a full temporary object graph and a
+// second traversal for every visible alias model on every frame.
+function md2FrameScalars(model, frameIndex, oldFrameIndex, backLerp)
+  if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or
+      oldFrameIndex >= len(model.frames) then
+    return error(9643, "MD2 scalar frame outside table")
+  end if
+  if backLerp < 0.0 or backLerp > 1.0 then
+    return error(9644, "MD2 scalar backlerp outside [0,1]")
+  end if
+  currentFrame = model.frames[frameIndex]
+  previousFrame = model.frames[oldFrameIndex]
+  frontLerp = 1.0 - backLerp
+  scalars = array(len(model.triangles) * 15, 0.0)
+  scalarIndex = 0
+  triangleIndex = 0
+  while triangleIndex < len(model.triangles)
+    triangle = model.triangles[triangleIndex]
+    corner = 0
+    while corner < 3
+      vertexIndex = triangle.xyz[corner]
+      texCoordIndex = triangle.st[corner]
+      if vertexIndex < 0 or vertexIndex >= len(currentFrame.vertices) or
+          vertexIndex >= len(previousFrame.vertices) then
+        return error(9645, "MD2 scalar vertex outside frame")
+      end if
+      if texCoordIndex < 0 or texCoordIndex >= len(model.texCoords) then
+        return error(9646, "MD2 scalar texcoord outside table")
+      end if
+      current = currentFrame.vertices[vertexIndex]
+      previous = previousFrame.vertices[vertexIndex]
+      texCoord = model.texCoords[texCoordIndex]
+      scalars[scalarIndex] = texCoord.s / (model.skinWidth * 1.0)
+      scalars[scalarIndex + 1] = texCoord.t / (model.skinHeight * 1.0)
+      currentX = current.x * currentFrame.scale.x + currentFrame.translate.x
+      currentY = current.y * currentFrame.scale.y + currentFrame.translate.y
+      currentZ = current.z * currentFrame.scale.z + currentFrame.translate.z
+      previousX = previous.x * previousFrame.scale.x + previousFrame.translate.x
+      previousY = previous.y * previousFrame.scale.y + previousFrame.translate.y
+      previousZ = previous.z * previousFrame.scale.z + previousFrame.translate.z
+      scalars[scalarIndex + 2] = currentX * frontLerp + previousX * backLerp
+      scalars[scalarIndex + 3] = currentY * frontLerp + previousY * backLerp
+      scalars[scalarIndex + 4] = currentZ * frontLerp + previousZ * backLerp
+      scalarIndex = scalarIndex + 5
+      corner = corner + 1
+    end while
+    triangleIndex = triangleIndex + 1
+  end while
+  return scalars
+end function

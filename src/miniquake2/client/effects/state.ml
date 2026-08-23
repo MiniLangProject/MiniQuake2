@@ -37,6 +37,18 @@ function scaled(value, amount)
   return qt.Vec3(value.x * amount, value.y * amount, value.z * amount)
 end function
 
+function compact(values, count)
+  if count <= 0 then return [] end if
+  if count == len(values) then return values end if
+  output = array(count)
+  index = 0
+  while index < count
+    output[index] = values[index]
+    index = index + 1
+  end while
+  return output
+end function
+
 function allocateDLight(state, key)
   if key != 0 then
     for each light in state.dLights
@@ -126,7 +138,8 @@ end function
 function advance(state, now)
   if typeof(now) != "int" or now < state.time then return error(7313, "effect time must be monotonic integer milliseconds") end if
   seconds = (now - state.time) * 0.001
-  activeSustains = []
+  activeSustains = array(len(state.sustains))
+  activeSustainCount = 0
   for each sustain in state.sustains
     if sustain.endTime >= now then
       if sustain.nextThink <= now then
@@ -135,42 +148,61 @@ function advance(state, now)
         particleEffect(state, sustain.origin, sustain.direction, sustain.color, count, sustain.magnitude * 1.0)
         sustain.nextThink = now + sustain.thinkInterval
       end if
-      activeSustains = activeSustains + [sustain]
+      activeSustains[activeSustainCount] = sustain
+      activeSustainCount = activeSustainCount + 1
     end if
   end for
-  state.sustains = activeSustains
-  activeLights = []
+  state.sustains = compact(activeSustains, activeSustainCount)
+  activeLights = array(len(state.dLights))
+  activeLightCount = 0
   for each light in state.dLights
     if light.radius > 0.0 and light.die >= now then
       light.radius = light.radius - seconds * light.decay
-      if light.radius > 0.0 then activeLights = activeLights + [light] end if
+      if light.radius > 0.0 then
+        activeLights[activeLightCount] = light
+        activeLightCount = activeLightCount + 1
+      end if
     end if
   end for
-  state.dLights = activeLights
-  activeParticles = []
+  state.dLights = compact(activeLights, activeLightCount)
+  activeParticles = array(len(state.particles))
+  activeParticleCount = 0
   for each particle in state.particles
     elapsed = (now - particle.startTime) * 0.001
     if particle.alphaVelocity == ceconstants.INSTANT_PARTICLE or particle.alpha + elapsed * particle.alphaVelocity > 0.0 then
-      activeParticles = activeParticles + [particle]
+      activeParticles[activeParticleCount] = particle
+      activeParticleCount = activeParticleCount + 1
     end if
   end for
-  state.particles = activeParticles
-  activeBeams = []
+  state.particles = compact(activeParticles, activeParticleCount)
+  activeBeams = array(len(state.beams))
+  activeBeamCount = 0
   for each beam in state.beams
-    if beam.endTime >= now then activeBeams = activeBeams + [beam] end if
+    if beam.endTime >= now then
+      activeBeams[activeBeamCount] = beam
+      activeBeamCount = activeBeamCount + 1
+    end if
   end for
-  state.beams = activeBeams
-  activeLasers = []
+  state.beams = compact(activeBeams, activeBeamCount)
+  activeLasers = array(len(state.lasers))
+  activeLaserCount = 0
   for each laser in state.lasers
-    if laser.endTime >= now then activeLasers = activeLasers + [laser] end if
+    if laser.endTime >= now then
+      activeLasers[activeLaserCount] = laser
+      activeLaserCount = activeLaserCount + 1
+    end if
   end for
-  state.lasers = activeLasers
-  activeExplosions = []
+  state.lasers = compact(activeLasers, activeLaserCount)
+  activeExplosions = array(len(state.explosions))
+  activeExplosionCount = 0
   for each explosion in state.explosions
     frame = (now - explosion.startTime) / 100
-    if frame < explosion.frames then activeExplosions = activeExplosions + [explosion] end if
+    if frame < explosion.frames then
+      activeExplosions[activeExplosionCount] = explosion
+      activeExplosionCount = activeExplosionCount + 1
+    end if
   end for
-  state.explosions = activeExplosions
+  state.explosions = compact(activeExplosions, activeExplosionCount)
   state.time = now
   return state
 end function

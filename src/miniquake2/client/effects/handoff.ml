@@ -8,13 +8,34 @@ import miniquake2.renderer.types as rt
 import miniquake2.client.effects.state as cestate
 
 function appendLimited(values, additions, maximum)
-  result = values
-  index = 0
-  while index < len(additions) and len(result) < maximum
-    result = result + [additions[index]]
-    index = index + 1
+  total = len(values) + len(additions)
+  if total > maximum then total = maximum end if
+  if total <= 0 then return [] end if
+  result = array(total)
+  outputIndex = 0
+  while outputIndex < len(values) and outputIndex < total
+    result[outputIndex] = values[outputIndex]
+    outputIndex = outputIndex + 1
+  end while
+  additionIndex = 0
+  while outputIndex < total
+    result[outputIndex] = additions[additionIndex]
+    outputIndex = outputIndex + 1
+    additionIndex = additionIndex + 1
   end while
   return result
+end function
+
+function trim(values, count)
+  if count <= 0 then return [] end if
+  if count == len(values) then return values end if
+  compact = array(count)
+  index = 0
+  while index < count
+    compact[index] = values[index]
+    index = index + 1
+  end while
+  return compact
 end function
 
 function particleOrigin(particle, now)
@@ -27,23 +48,30 @@ function particleOrigin(particle, now)
 end function
 
 function rendererParticles(state, now)
-  output = []
+  output = array(len(state.particles))
+  outputIndex = 0
   for each particle in state.particles
     elapsed = (now - particle.startTime) * 0.001
     alpha = particle.alpha + elapsed * particle.alphaVelocity
     if alpha > 1.0 then alpha = 1.0 end if
-    if alpha > 0.0 then output = output + [rt.particle(particleOrigin(particle, now), particle.color & 255, alpha)] end if
+    if alpha > 0.0 then
+      output[outputIndex] = rt.particle(particleOrigin(particle, now),
+        particle.color & 255, alpha)
+      outputIndex = outputIndex + 1
+    end if
   end for
-  return output
+  return trim(output, outputIndex)
 end function
 
 function rendererDLights(state)
-  output = []
+  output = array(len(state.dLights))
+  outputIndex = 0
   for each light in state.dLights
     color = qt.Vec3(light.color[0], light.color[1], light.color[2])
-    output = output + [rt.dLight(cestate.copyVec(light.origin), color, light.radius)]
+    output[outputIndex] = rt.dLight(cestate.copyVec(light.origin), color, light.radius)
+    outputIndex = outputIndex + 1
   end for
-  return output
+  return trim(output, outputIndex)
 end function
 
 function beamEntity(beam, modelResolver)
@@ -69,23 +97,41 @@ end function
 
 function apply(state, refDef, now, modelResolver)
   cestate.advance(state, now)
-  effectEntities = []
+  effectEntities = array(len(state.beams) + len(state.lasers) + len(state.explosions))
+  effectEntityCount = 0
   for each beam in state.beams
-    effectEntities = effectEntities + [beamEntity(beam, modelResolver)]
+    effectEntities[effectEntityCount] = beamEntity(beam, modelResolver)
+    effectEntityCount = effectEntityCount + 1
   end for
   for each laser in state.lasers
-    effectEntities = effectEntities + [laserEntity(laser)]
+    effectEntities[effectEntityCount] = laserEntity(laser)
+    effectEntityCount = effectEntityCount + 1
   end for
   for each explosion in state.explosions
-    effectEntities = effectEntities + [explosionEntity(explosion, now, modelResolver)]
+    effectEntities[effectEntityCount] = explosionEntity(explosion, now, modelResolver)
+    effectEntityCount = effectEntityCount + 1
   end for
+  effectEntities = trim(effectEntities, effectEntityCount)
   effectLights = rendererDLights(state)
+  extraLightCount = 0
+  for each countedExplosion in state.explosions
+    if countedExplosion.light > 0.0 then extraLightCount = extraLightCount + 1 end if
+  end for
+  combinedLights = array(len(effectLights) + extraLightCount)
+  effectLightCount = 0
+  for each existingLight in effectLights
+    combinedLights[effectLightCount] = existingLight
+    effectLightCount = effectLightCount + 1
+  end for
   for each explosion in state.explosions
     if explosion.light > 0.0 then
-      effectLights = effectLights + [rt.dLight(cestate.copyVec(explosion.origin),
-        qt.Vec3(explosion.lightColor[0], explosion.lightColor[1], explosion.lightColor[2]), explosion.light)]
+      combinedLights[effectLightCount] = rt.dLight(cestate.copyVec(explosion.origin),
+        qt.Vec3(explosion.lightColor[0], explosion.lightColor[1], explosion.lightColor[2]),
+        explosion.light)
+      effectLightCount = effectLightCount + 1
     end if
   end for
+  effectLights = trim(combinedLights, effectLightCount)
   refDef.entities = appendLimited(refDef.entities, effectEntities, rc.MAX_ENTITIES)
   refDef.dLights = appendLimited(refDef.dLights, effectLights, rc.MAX_DLIGHTS)
   refDef.particles = appendLimited(refDef.particles, rendererParticles(state, now), rc.MAX_PARTICLES)
@@ -94,4 +140,3 @@ function apply(state, refDef, now, modelResolver)
   refDef.numParticles = len(refDef.particles)
   return refDef
 end function
-

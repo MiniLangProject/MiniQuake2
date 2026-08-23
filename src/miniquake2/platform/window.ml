@@ -41,6 +41,15 @@ function swap(window)
   return true
 end function
 
+function setTitle(window, title)
+  if window.closed then return false end if
+  if typeof(title) != "string" or title == "" then
+    return error(2922, "window title is required")
+  end if
+  native.winSetTitle(title)
+  return true
+end function
+
 function destroy(window)
   if window.closed == false then native.winDestroy(); window.closed = true end if
   return true

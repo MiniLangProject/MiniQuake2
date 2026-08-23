@@ -20,6 +20,30 @@ const VISIBILITY_NEAR = 4.0
 const VISIBILITY_FAR = 8192.0
 const BACKFACE_EPSILON = 0.01
 
+struct ClassicFrustumPlane
+  normalX
+  normalY
+  normalZ
+  distance
+end struct
+
+struct ClassicPvsSelection
+  draws
+  viewLeaf
+  viewCluster
+  pvsCulled
+  areaCulled
+end struct
+
+struct ClassicVisibilityCacheSlot
+  world
+  cluster
+  draws
+  pvsCulled
+end struct
+
+classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999, [], 0)
+
 function classicVisibilityPointLeaf(map, origin)
   if len(map.leafs) == 0 then return -1 end if
   if len(map.nodes) == 0 then
@@ -50,7 +74,7 @@ function classicVisibilityPointLeaf(map, origin)
   return leafIndex
 end function
 
-function classicVisibilityAreaAllowed(areaBits, area)
+function inline classicVisibilityAreaAllowed(areaBits, area)
   if areaBits is void then return true end if
   if area < 0 then return false end if
   byteIndex = area >> 3
@@ -79,7 +103,7 @@ function classicVisibilityPvsRow(map, cluster)
   return fbsp.decompressVisibility(visibility, cluster, 0)
 end function
 
-function classicVisibilityPvsContains(row, cluster)
+function inline classicVisibilityPvsContains(row, cluster)
   if cluster < 0 then return false end if
   byteIndex = cluster >> 3
   if byteIndex < 0 or byteIndex >= len(row) then return false end if
@@ -122,7 +146,7 @@ function classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, plane
   return distance + radius < 0.0
 end function
 
-function classicVisibilityInsideFrustum(draw, frame)
+function classicVisibilityFrustum(frame)
   axes = classicVisibilityAngleAxes(frame.viewAngles)
   forward = axes[0]; right = axes[1]; up = axes[2]
   halfX = frame.fovX * VISIBILITY_DEG_TO_RAD * 0.5
@@ -130,27 +154,44 @@ function classicVisibilityInsideFrustum(draw, frame)
   tanX = rvisibilitymath.sin(halfX) / rvisibilitymath.cos(halfX)
   tanY = rvisibilitymath.sin(halfY) / rvisibilitymath.cos(halfY)
 
+  planes = array(6)
   normalX = forward.x * tanX + right.x; normalY = forward.y * tanX + right.y; normalZ = forward.z * tanX + right.z
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  if classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance) then return false end if
+  planes[0] = ClassicFrustumPlane(normalX, normalY, normalZ, planeDistance)
   normalX = forward.x * tanX - right.x; normalY = forward.y * tanX - right.y; normalZ = forward.z * tanX - right.z
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  if classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance) then return false end if
+  planes[1] = ClassicFrustumPlane(normalX, normalY, normalZ, planeDistance)
   normalX = forward.x * tanY + up.x; normalY = forward.y * tanY + up.y; normalZ = forward.z * tanY + up.z
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  if classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance) then return false end if
+  planes[2] = ClassicFrustumPlane(normalX, normalY, normalZ, planeDistance)
   normalX = forward.x * tanY - up.x; normalY = forward.y * tanY - up.y; normalZ = forward.z * tanY - up.z
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  if classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance) then return false end if
+  planes[3] = ClassicFrustumPlane(normalX, normalY, normalZ, planeDistance)
   planeDistance = frame.viewOrigin.x * forward.x + frame.viewOrigin.y * forward.y + frame.viewOrigin.z * forward.z + VISIBILITY_NEAR
-  if classicVisibilityBoxOutsidePlane(draw, forward.x, forward.y, forward.z, planeDistance) then return false end if
+  planes[4] = ClassicFrustumPlane(forward.x, forward.y, forward.z, planeDistance)
   normalX = -forward.x; normalY = -forward.y; normalZ = -forward.z
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ - VISIBILITY_FAR
-  if classicVisibilityBoxOutsidePlane(draw, normalX, normalY, normalZ, planeDistance) then return false end if
+  planes[5] = ClassicFrustumPlane(normalX, normalY, normalZ, planeDistance)
+  return planes
+end function
+
+function classicVisibilityInsidePreparedFrustum(draw, planes)
+  planeIndex = 0
+  while planeIndex < len(planes)
+    plane = planes[planeIndex]
+    if classicVisibilityBoxOutsidePlane(draw, plane.normalX, plane.normalY,
+        plane.normalZ, plane.distance) then return false end if
+    planeIndex = planeIndex + 1
+  end while
   return true
 end function
 
-function classicVisibilityFrontFacing(draw, viewOrigin)
+function classicVisibilityInsideFrustum(draw, frame)
+  return classicVisibilityInsidePreparedFrustum(draw,
+    classicVisibilityFrustum(frame))
+end function
+
+function inline classicVisibilityFrontFacing(draw, viewOrigin)
   plane = draw.surface.plane
   distance = viewOrigin.x * plane.normal.x + viewOrigin.y * plane.normal.y + viewOrigin.z * plane.normal.z - plane.distance
   if draw.surface.face.side == 0 then return distance >= -BACKFACE_EPSILON end if
@@ -234,10 +275,22 @@ function selectClassicBrushModel(brushModel, entity, frame)
   return rvisibilityarray.slice(selected, 0, selectedCount)
 end function
 
-function selectClassicWorld(world, frame)
+function compactClassicDraws(values, count)
+  if count <= 0 then return array(0) end if
+  if count == len(values) then return values end if
+  output = array(count)
+  index = 0
+  while index < count
+    output[index] = values[index]
+    index = index + 1
+  end while
+  return output
+end function
+
+function classicVisibilitySelectPvs(world, frame)
   total = len(world.draws)
   if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
-    return rclassictypes.ClassicVisibilitySelection(array(0), -1, -1, total, 0, 0, 0)
+    return ClassicPvsSelection(array(0), -1, -1, total, 0)
   end if
   map = world.map
   pvsMarked = array(len(map.faces), false)
@@ -271,16 +324,31 @@ function selectClassicWorld(world, frame)
     end while
   end if
 
-  selected = array(total)
-  selectedCount = 0
-  pvsCulled = 0; areaCulled = 0; frustumCulled = 0; backfaceCulled = 0
+  candidates = array(total)
+  candidateCount = 0
+  pvsCulled = 0; areaCulled = 0
   for each draw in world.draws
     faceIndex = draw.surface.index
     if not pvsMarked[faceIndex] then
       pvsCulled = pvsCulled + 1
     else if not areaMarked[faceIndex] then
       areaCulled = areaCulled + 1
-    else if not classicVisibilityInsideFrustum(draw, frame) then
+    else
+      candidates[candidateCount] = draw
+      candidateCount = candidateCount + 1
+    end if
+  end for
+  return ClassicPvsSelection(compactClassicDraws(candidates, candidateCount),
+    viewLeaf, viewCluster, pvsCulled, areaCulled)
+end function
+
+function classicVisibilityFinishSelection(pvs, frame)
+  selected = array(len(pvs.draws))
+  selectedCount = 0
+  frustumCulled = 0; backfaceCulled = 0
+  frustum = classicVisibilityFrustum(frame)
+  for each draw in pvs.draws
+    if not classicVisibilityInsidePreparedFrustum(draw, frustum) then
       frustumCulled = frustumCulled + 1
     else if not classicVisibilityFrontFacing(draw, frame.viewOrigin) then
       backfaceCulled = backfaceCulled + 1
@@ -290,9 +358,41 @@ function selectClassicWorld(world, frame)
     end if
   end for
   return rclassictypes.ClassicVisibilitySelection(
-    rvisibilityarray.slice(selected, 0, selectedCount), viewLeaf, viewCluster,
-    pvsCulled, areaCulled, frustumCulled, backfaceCulled
+    compactClassicDraws(selected, selectedCount), pvs.viewLeaf, pvs.viewCluster,
+    pvs.pvsCulled, pvs.areaCulled, frustumCulled, backfaceCulled
   )
+end function
+
+function selectClassicWorld(world, frame)
+  return classicVisibilityFinishSelection(
+    classicVisibilitySelectPvs(world, frame), frame)
+end function
+
+// Product views normally have no area-bit override and remain in one PVS
+// cluster for many frames. Cache the cluster candidate list so leaf marking,
+// PVS decompression and the full 7k-surface scan happen only on cluster
+// changes. The public deterministic selector above remains uncached for tests
+// and explicit area-bit frames.
+function selectClassicWorldCached(world, frame)
+  if frame.areaBits is not void or
+      (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
+    return selectClassicWorld(world, frame)
+  end if
+  viewLeaf = classicVisibilityPointLeaf(world.map, frame.viewOrigin)
+  viewCluster = -1
+  if viewLeaf >= 0 then viewCluster = world.map.leafs[viewLeaf].cluster end if
+  cache = classicVisibilityCacheSlot
+  if cache.world == world and cache.cluster == viewCluster then
+    cached = ClassicPvsSelection(cache.draws, viewLeaf, viewCluster,
+      cache.pvsCulled, 0)
+    return classicVisibilityFinishSelection(cached, frame)
+  end if
+  pvs = classicVisibilitySelectPvs(world, frame)
+  cache.world = world
+  cache.cluster = pvs.viewCluster
+  cache.draws = pvs.draws
+  cache.pvsCulled = pvs.pvsCulled
+  return classicVisibilityFinishSelection(pvs, frame)
 end function
 
 function classicVisibilityCulledCount(selection)

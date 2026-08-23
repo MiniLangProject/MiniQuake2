@@ -144,6 +144,15 @@ function loadBytes(imports, name)
   return data
 end function
 
+// The public Renderer API uses extension-less picture names (for example
+// `i_health` and `m_main_logo`).  Files on disk retain the classic
+// `pics/<name>.pcx` layout.  Model skins and WAL materials already arrive as
+// complete qpaths and must remain unchanged.
+function pictureFileName(name)
+  if endsWith(name, ".pcx") or endsWith(name, ".wal") then return name end if
+  return "pics/" + name + ".pcx"
+end function
+
 function registerModel(registry, imports, name)
   existing = findModel(registry, name)
   if existing is not void then return existing end if
@@ -184,9 +193,10 @@ end function
 function registerPicture(registry, imports, name)
   existing = findPicture(registry, name)
   if existing is not void then return existing end if
-  data = loadBytes(imports, name)
+  fileName = pictureFileName(name)
+  data = loadBytes(imports, fileName)
   asset = void
-  if endsWith(name, ".wal") then
+  if endsWith(fileName, ".wal") then
     source = fwal.parse(data)
     asset = PictureAsset(nextHandle(registry, "pic", name), "wal", source, source.width, source.height, 0, "picture")
   else

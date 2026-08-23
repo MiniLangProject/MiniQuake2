@@ -50,6 +50,8 @@ api.spawnEntities("base1", fixture, "")
 runtime = sppgameapi.baseRuntime()
 
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + 1], "maps/base1.bsp", "reserved map model configstring")
+assertTrue(server.configStrings[sppqconstants.CS_STATUSBAR] != "",
+  "stock statusbar configstring")
 assertEqual(api.edicts[0].state.modelIndex, 1, "world keeps reserved map model index")
 machineModel = findName(server.modelNames, "models/weapons/g_machn/tris.md2")
 soldierModel = findName(server.modelNames, "models/monsters/soldier/tris.md2")

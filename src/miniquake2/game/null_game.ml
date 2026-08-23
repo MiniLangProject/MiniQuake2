@@ -28,6 +28,12 @@ import miniquake2.game.player.frame as ngplayerframe
 import miniquake2.game.player.view as ngplayerview
 import miniquake2.qcommon.types as ngqtypes
 
+// Original BaseQ2 layout programs. Keeping each program in one immutable
+// literal avoids the repeated string concatenation used by the C source while
+// preserving the wire-visible CS_STATUSBAR contract.
+const SINGLE_STATUSBAR = "yb -24 xv 0 hnum xv 50 pic 0 if 2 xv 100 anum xv 150 pic 2 endif if 4 xv 200 rnum xv 250 pic 4 endif if 6 xv 296 pic 6 endif yb -50 if 7 xv 0 pic 7 xv 26 yb -42 stat_string 8 yb -50 endif if 9 xv 262 num 2 10 xv 296 pic 9 endif if 11 xv 148 pic 11 endif"
+const DEATHMATCH_STATUSBAR = "yb -24 xv 0 hnum xv 50 pic 0 if 2 xv 100 anum xv 150 pic 2 endif if 4 xv 200 rnum xv 250 pic 4 endif if 6 xv 296 pic 6 endif yb -50 if 7 xv 0 pic 7 xv 26 yb -42 stat_string 8 yb -50 endif if 9 xv 246 num 2 10 xv 296 pic 9 endif if 11 xv 148 pic 11 endif xr -50 yt 2 num 3 14 if 17 xv 0 yb -58 string2 \"SPECTATOR MODE\" endif if 16 xv 0 yb -68 string \"Chasing\" xv 64 stat_string 16 endif"
+
 activeImports = void
 activeExport = void
 initialized = false
@@ -432,6 +438,11 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   // Protocol 34 reserves model slot one for the map; reserve it before any
   // managed stock entity asks the engine for a model index.
   activeImports.modelIndex("maps/" + mapName + ".bsp")
+  statusBar = SINGLE_STATUSBAR
+  if playerContext.deathmatch then statusBar = DEATHMATCH_STATUSBAR end if
+  activeImports.configString(qc.CS_STATUSBAR, statusBar)
+  activeImports.imageIndex("i_health")
+  activeImports.imageIndex("i_help")
   ngbaseq2.precacheSpawned(activeBaseRuntime, playerContext)
   ngbaseq2.bindEngineModels(activeBaseRuntime, exportTable, activeImports)
   ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)

@@ -164,15 +164,21 @@ function draw(menu, screenWidth, screenHeight, exports)
   exports.DrawFadeScreen()
   x = screenWidth / 2 - 120
   y = screenHeight / 2 - (len(current.items) + 2) * 8
+  if current.id == "main" then
+    logoSize = exports.DrawGetPicSize("m_main_logo")
+    if logoSize.width > 0 and logoSize.height > 0 then
+      exports.DrawPic(screenWidth / 2 - logoSize.width / 2,
+        y - logoSize.height - 24, "m_main_logo")
+    end if
+  end if
   drawText(exports, screenWidth / 2 - len(bytes(current.title)) * 4, y, current.title)
   y = y + 24
   index = 0
   while index < len(current.items)
     item = current.items[index]
-    prefix = "  "
-    if index == menu.cursor then prefix = "> " end if
     value = itemValue(item)
-    drawText(exports, x, y, prefix + item.label)
+    if index == menu.cursor then drawText(exports, x, y, ">") end if
+    drawText(exports, x + 16, y, item.label)
     if value != "" then drawText(exports, x + 168, y, value) end if
     y = y + 16; index = index + 1
   end while

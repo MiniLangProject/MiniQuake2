@@ -30,9 +30,16 @@ function requireToken(tokens, index, operation)
   return tokens[index]
 end function
 
-function parse(layout, stats, configStrings, screenWidth, screenHeight)
-  tokens = lcmd.tokenize(layout)
-  commands = []
+function tokenize(layout)
+  return lcmd.tokenize(layout)
+end function
+
+function parseTokens(tokens, stats, configStrings, screenWidth, screenHeight)
+  // A layout can emit at most one draw command per token. Preallocation keeps
+  // the per-frame HUD pass linear; `commands + [value]` copied the complete
+  // prefix for every emitted icon/number/string.
+  commands = array(len(tokens))
+  commandCount = 0
   x = 0
   y = 0
   index = 0
@@ -68,32 +75,47 @@ function parse(layout, stats, configStrings, screenWidth, screenHeight)
       imageIndex = stat(stats, statIndex)
       configIndex = lqc.CS_IMAGES + imageIndex
       if imageIndex < 0 or configIndex >= len(configStrings) then return error(7754, "layout pic configstring outside table") end if
-      commands = commands + [LayoutCommand("pic", x, y, 0, 0, configStrings[configIndex])]
+      commands[commandCount] = LayoutCommand("pic", x, y, 0, 0, configStrings[configIndex]); commandCount = commandCount + 1
     else if operation == "picn" then
-      commands = commands + [LayoutCommand("pic", x, y, 0, 0, requireToken(tokens, index, operation))]; index = index + 1
+      commands[commandCount] = LayoutCommand("pic", x, y, 0, 0, requireToken(tokens, index, operation)); commandCount = commandCount + 1; index = index + 1
     else if operation == "num" then
       width = integer(requireToken(tokens, index, operation), operation); index = index + 1
       statIndex = integer(requireToken(tokens, index, operation), operation); index = index + 1
-      commands = commands + [LayoutCommand("num", x, y, stat(stats, statIndex), width, "")]
-    else if operation == "hnum" then commands = commands + [LayoutCommand("num", x, y, stat(stats, lgc.STAT_HEALTH), 3, "")]
-    else if operation == "anum" then commands = commands + [LayoutCommand("num", x, y, stat(stats, lgc.STAT_AMMO), 3, "")]
-    else if operation == "rnum" then commands = commands + [LayoutCommand("num", x, y, stat(stats, lgc.STAT_ARMOR), 3, "")]
+      commands[commandCount] = LayoutCommand("num", x, y, stat(stats, statIndex), width, ""); commandCount = commandCount + 1
+    else if operation == "hnum" then commands[commandCount] = LayoutCommand("num", x, y, stat(stats, lgc.STAT_HEALTH), 3, ""); commandCount = commandCount + 1
+    else if operation == "anum" then commands[commandCount] = LayoutCommand("num", x, y, stat(stats, lgc.STAT_AMMO), 3, ""); commandCount = commandCount + 1
+    else if operation == "rnum" then commands[commandCount] = LayoutCommand("num", x, y, stat(stats, lgc.STAT_ARMOR), 3, ""); commandCount = commandCount + 1
     else if operation == "stat_string" then
       statIndex = integer(requireToken(tokens, index, operation), operation); index = index + 1
       configIndex = stat(stats, statIndex)
       if configIndex < 0 or configIndex >= len(configStrings) then return error(7755, "layout stat_string outside configstrings") end if
-      commands = commands + [LayoutCommand("string", x, y, 0, 0, configStrings[configIndex])]
+      commands[commandCount] = LayoutCommand("string", x, y, 0, 0, configStrings[configIndex]); commandCount = commandCount + 1
     else if operation == "string" or operation == "string2" or operation == "cstring" or operation == "cstring2" then
       text = requireToken(tokens, index, operation); index = index + 1
       drawX = x
       if operation == "cstring" or operation == "cstring2" then drawX = screenWidth / 2 - len(bytes(text)) * 4 end if
-      commands = commands + [LayoutCommand("string", drawX, y, 0, 0, text)]
+      commands[commandCount] = LayoutCommand("string", drawX, y, 0, 0, text); commandCount = commandCount + 1
     else
       return error(7756, "unknown layout token " + operation)
     end if
   end while
   if ifDepth != 0 then return error(7757, "layout if without endif") end if
-  return commands
+  if commandCount == 0 then return [] end if
+  if commandCount == len(commands) then return commands end if
+  // Do not expose a slice backed by the larger void-filled work array. The
+  // current native MiniLang runtime may retain the source capacity during a
+  // struct-array foreach, causing the renderer to visit uninitialized slots.
+  compact = array(commandCount)
+  compactIndex = 0
+  while compactIndex < commandCount
+    compact[compactIndex] = commands[compactIndex]
+    compactIndex = compactIndex + 1
+  end while
+  return compact
+end function
+
+function parse(layout, stats, configStrings, screenWidth, screenHeight)
+  return parseTokens(tokenize(layout), stats, configStrings, screenWidth, screenHeight)
 end function
 
 function drawText(exports, x, y, text)

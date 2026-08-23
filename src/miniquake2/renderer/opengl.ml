@@ -15,12 +15,15 @@ import std.math as rmath
 import miniquake2.native as native
 import miniquake2.qcommon.byteio as ropenglbyteio
 import miniquake2.qcommon.types as ropenglqtypes
+import miniquake2.format.constants as ropenglformatconstants
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.recording as recording
+import miniquake2.renderer.validation as validation
 import miniquake2.renderer.assets as rassets
 import miniquake2.renderer.geometry as rgeom
 import miniquake2.renderer.classic.types as rclassictypes
+import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.world as rclassicworld
 import miniquake2.renderer.classic.visibility as rclassicvisibility
 import miniquake2.renderer.classic.special as rclassicspecial
@@ -94,6 +97,10 @@ struct OpenGlBackendSlot
   backend
 end struct
 
+struct OpenGlFrameSlot
+  twoDimensional
+end struct
+
 struct OpenGlFileImports
   fsLoadFile
 end struct
@@ -117,11 +124,18 @@ struct Md2SubmitStats
   bounds
 end struct
 
+struct Md2DrawState
+  textureId
+  translucent
+  depthHack
+end struct
+
 // Mutating a package-owned holder is reliable across the self-hosted full
 // graph; rebinding a package global from a function is not.
 openGlBackendSlot = OpenGlBackendSlot(void)
+openGlFrameSlot = OpenGlFrameSlot(false)
 
-function bits(value)
+function inline bits(value)
   return native.floatBits(value)
 end function
 
@@ -240,6 +254,8 @@ function drawParticles(frame)
 end function
 
 function setup2d()
+  frameState = openGlFrameSlot
+  if frameState.twoDimensional then return void end if
   width = native.winClientWidth()
   height = native.winClientHeight()
   if width < 1 then width = 1 end if
@@ -251,6 +267,7 @@ function setup2d()
   native.glMatrixMode(GL_MODELVIEW)
   native.glLoadIdentity()
   native.glDisable(GL_DEPTH_TEST)
+  frameState.twoDimensional = true
 end function
 
 function drawSolidRect(x, y, width, height, color)
@@ -356,6 +373,40 @@ function drawTexturedRect(backend, asset, x, y, width, height)
   native.glDisable(GL_BLEND)
 end function
 
+function drawTexturedSubRect(backend, asset, x, y, width, height,
+    left, top, right, bottom)
+  setup2d()
+  native.glEnable(GL_TEXTURE_2D)
+  native.glEnable(GL_BLEND)
+  native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+  native.glBindTexture(GL_TEXTURE_2D, uploadPicture(backend, asset))
+  native.glColor4ub(255, 255, 255, 255)
+  native.glBegin(GL_QUADS)
+  native.glTexcoord2(bits(left), bits(top)); native.glVertex2(bits(x * 1.0), bits(y * 1.0))
+  native.glTexcoord2(bits(right), bits(top)); native.glVertex2(bits((x + width) * 1.0), bits(y * 1.0))
+  native.glTexcoord2(bits(right), bits(bottom)); native.glVertex2(bits((x + width) * 1.0), bits((y + height) * 1.0))
+  native.glTexcoord2(bits(left), bits(bottom)); native.glVertex2(bits(x * 1.0), bits((y + height) * 1.0))
+  native.glEnd()
+  native.glDisable(GL_BLEND)
+end function
+
+function drawFadeRect()
+  setup2d()
+  width = native.winClientWidth(); height = native.winClientHeight()
+  native.glDisable(GL_TEXTURE_2D)
+  native.glEnable(GL_BLEND)
+  native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+  native.glColor4ub(0, 0, 0, 190)
+  native.glBegin(GL_QUADS)
+  native.glVertex2(bits(0.0), bits(0.0))
+  native.glVertex2(bits(width * 1.0), bits(0.0))
+  native.glVertex2(bits(width * 1.0), bits(height * 1.0))
+  native.glVertex2(bits(0.0), bits(height * 1.0))
+  native.glEnd()
+  native.glDisable(GL_BLEND)
+  native.glColor4ub(255, 255, 255, 255)
+end function
+
 function resolveOpenGlMd2Skin(backend, modelAsset, entity)
   if entity.skin is not void then return rassets.pictureForHandle(backend.assets, entity.skin) end if
   if len(modelAsset.skins) == 0 then return error(9627, "MD2 entity has no registered PCX skin") end if
@@ -403,16 +454,7 @@ function prepareOpenGlMd2Entity(backend, entity)
     openGlMd2FrameIndex, openGlMd2OldFrameIndex, entity.backLerp)
 end function
 
-function drawOpenGlMd2Plan(backend, plan, entity)
-  // Root every managed/nested value before the first native call. The
-  // self-hosted runtime may otherwise reclaim a loop's nested position struct
-  // across an FFI boundary even while its parent MeshVertex is still live.
-  skinAsset = plan.skinAsset
-  glVertices = plan.glVertices
-  vertexScalarCount = len(glVertices)
-  triangleCount = plan.mesh.triangleCount
-  vertexCount = len(plan.mesh.vertices)
-  resultBounds = plan.bounds
+function beginOpenGlMd2Draw(backend, skinAsset, entity)
   entityFlags = entity.flags; entityAlpha = entity.alpha
   entityOrigin = entity.origin; entityAngles = entity.angles
   originX = entityOrigin.x; originY = entityOrigin.y; originZ = entityOrigin.z
@@ -420,6 +462,8 @@ function drawOpenGlMd2Plan(backend, plan, entity)
   textureId = uploadPicture(backend, skinAsset)
   alpha = 255
   translucent = (entityFlags & rc.RF_TRANSLUCENT) != 0
+  depthHack = (entityFlags & rc.RF_DEPTHHACK) != 0
+  if depthHack then native.glDisable(GL_DEPTH_TEST) end if
   if translucent then
     alphaValue = entityAlpha
     if alphaValue < 0.0 then alphaValue = 0.0 end if
@@ -440,7 +484,11 @@ function drawOpenGlMd2Plan(backend, plan, entity)
   native.glRotate(bits(angleZ), bits(1.0), bits(0.0), bits(0.0))
   native.glRotate(bits(-angleX), bits(0.0), bits(1.0), bits(0.0))
   native.glRotate(bits(angleY), bits(0.0), bits(0.0), bits(1.0))
-  native.glBegin(GL_TRIANGLES)
+  return Md2DrawState(textureId, translucent, depthHack)
+end function
+
+function emitOpenGlMd2Scalars(glVertices)
+  vertexScalarCount = len(glVertices)
   scalarIndex = 0
   while scalarIndex < vertexScalarCount
     textureS = glVertices[scalarIndex]
@@ -452,14 +500,70 @@ function drawOpenGlMd2Plan(backend, plan, entity)
     native.glVertex3(bits(positionX), bits(positionY), bits(positionZ))
     scalarIndex = scalarIndex + 5
   end while
-  native.glEnd()
+end function
+
+function endOpenGlMd2Draw(drawState)
   native.glPopMatrix()
-  if translucent then
+  if drawState.depthHack then native.glEnable(GL_DEPTH_TEST) end if
+  if drawState.translucent then
     native.glDepthMask(1)
     native.glDisable(GL_BLEND)
   end if
   native.glColor4ub(255, 255, 255, 255)
-  return Md2SubmitStats(true, triangleCount, vertexCount, textureId, resultBounds)
+end function
+
+function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
+    vertexCount, resultBounds, entity)
+  // Root every managed value before the first native call. The live path uses
+  // one flat scalar array, avoiding the temporary MeshVertex object graph.
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity)
+  native.glBegin(GL_TRIANGLES)
+  emitOpenGlMd2Scalars(glVertices)
+  native.glEnd()
+  endOpenGlMd2Draw(drawState)
+  return Md2SubmitStats(true, triangleCount, vertexCount,
+    drawState.textureId, resultBounds)
+end function
+
+function drawOpenGlMd2Plan(backend, plan, entity)
+  return drawOpenGlMd2Scalars(backend, plan.skinAsset, plan.glVertices,
+    plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity)
+end function
+
+function drawOpenGlMd2EntityFast(backend, modelAsset, entity)
+  frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
+  frameCount = len(modelAsset.source.frames)
+  if frameIndex < 0 or frameIndex >= frameCount then
+    frameIndex = 0; oldFrameIndex = 0
+  end if
+  if oldFrameIndex < 0 or oldFrameIndex >= frameCount then
+    frameIndex = 0; oldFrameIndex = 0
+  end if
+  skinAsset = resolveOpenGlMd2Skin(backend, modelAsset, entity)
+  bounds = modelAsset.frameBounds[frameIndex]
+  triangleCount = len(modelAsset.source.triangles)
+  // Network snapshots arrive at 10 Hz. Eight sub-frame steps retain smooth
+  // alias animation while making the same geometry reusable across render
+  // frames instead of rebuilding and crossing the FFI per vertex every time.
+  lerpBucket = ropenglbyteio.truncInt(entity.backLerp * 8.0 + 0.5)
+  if lerpBucket < 0 then lerpBucket = 0 end if
+  if lerpBucket > 8 then lerpBucket = 8 end if
+  quantizedBackLerp = lerpBucket / 8.0
+  cachePass = 2000 + (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity)
+  if native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
+    endOpenGlMd2Draw(drawState)
+    return Md2SubmitStats(true, triangleCount, triangleCount * 3,
+      drawState.textureId, bounds)
+  end if
+  scalars = rgeom.md2FrameScalars(modelAsset.source, frameIndex,
+    oldFrameIndex, quantizedBackLerp)
+  native.glBegin(GL_TRIANGLES)
+  emitOpenGlMd2Scalars(scalars)
+  native.glEnd()
+  endOpenGlMd2Draw(drawState)
+  return Md2SubmitStats(true, triangleCount, triangleCount * 3,
+    drawState.textureId, bounds)
 end function
 
 function submitOpenGlRefDefMd2Entities(backend, frame)
@@ -469,8 +573,7 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
     entity = frame.entities[entityIndex]
     modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
     if modelAsset is not void and modelAsset.kind == "md2" then
-      plan = prepareOpenGlMd2Entity(backend, entity)
-      drawOpenGlMd2Plan(backend, plan, entity)
+      drawOpenGlMd2EntityFast(backend, modelAsset, entity)
       submitted = submitted + 1
     end if
     entityIndex = entityIndex + 1
@@ -478,169 +581,291 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
   return submitted
 end function
 
+// The full product graph is large enough to expose a closure-layout bug in the
+// current self-hosted compiler. The production renderer therefore publishes
+// capture-free top-level callbacks and resolves its one active backend through
+// the package-owned slot. This also keeps the deterministic command recorder
+// out of the real-time path.
+function openGlRequireInitialized(backend, operation)
+  if not backend.core.state.initialized then
+    return error(9600, operation + " called before renderer Init")
+  end if
+  return true
+end function
+
+function openGlRendererInit(hinstance, wndproc)
+  backend = openGlBackendSlot.backend
+  if backend.core.state.initialized then return true end if
+  backend.core.state.initialized = true
+  if backend.contextActive then
+    backend.vendor = native.glGetString(GL_VENDOR)
+    backend.renderer = native.glGetString(GL_RENDERER)
+    backend.version = native.glGetString(GL_VERSION)
+  end if
+  return true
+end function
+
+function openGlRendererShutdown()
+  backend = openGlBackendSlot.backend
+  if not backend.core.state.initialized then return void end if
+  if backend.core.state.frameOpen then
+    return error(9601, "Shutdown called inside a frame")
+  end if
+  if backend.contextActive then native.glStaticGeometryClear() end if
+  releaseOpenGlTextureRecords(backend)
+  backend.core.state.registrationOpen = false
+  backend.core.state.initialized = false
+end function
+
+function openGlBeginRegistration(mapName)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "BeginRegistration")
+  if mapName == "" then return error(9602, "BeginRegistration requires a map name") end if
+  state = backend.core.state
+  state.registrationGeneration = state.registrationGeneration + 1
+  state.registrationOpen = true
+  state.models = []; state.skins = []; state.pictures = []
+  state.lastRefDef = void
+  if backend.contextActive then native.glStaticGeometryClear() end if
+  releaseOpenGlTextureRecords(backend)
+  rassets.beginRegistration(backend.assets)
+end function
+
+function openGlRegisterModel(name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "RegisterModel")
+  if name == "" then return void end if
+  if backend.imports is void then
+    return recording.registerResource(backend.core.state, "model", name)
+  end if
+  modelAsset = rassets.registerModel(backend.assets, backend.imports, name)
+  if modelAsset.kind == "md2" then
+    for each skinAsset in modelAsset.skins
+      ensureOpenGlPictureTexture(backend, skinAsset)
+      if backend.contextActive then uploadPicture(backend, skinAsset) end if
+    end for
+  end if
+  return modelAsset.handle
+end function
+
+function openGlRegisterSkin(name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "RegisterSkin")
+  if name == "" then return void end if
+  if backend.imports is void then
+    return recording.registerResource(backend.core.state, "skin", name)
+  end if
+  asset = rassets.registerPicture(backend.assets, backend.imports, name)
+  ensureOpenGlPictureTexture(backend, asset)
+  if backend.contextActive then uploadPicture(backend, asset) end if
+  return asset.handle
+end function
+
+function openGlRegisterPic(name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "RegisterPic")
+  if name == "" then return void end if
+  if backend.imports is void then
+    return recording.registerResource(backend.core.state, "pic", name)
+  end if
+  asset = rassets.registerPicture(backend.assets, backend.imports, name)
+  ensureOpenGlPictureTexture(backend, asset)
+  if backend.contextActive then uploadPicture(backend, asset) end if
+  return asset.handle
+end function
+
+function openGlSetSky(name, rotate, axis)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "SetSky")
+  checked = validation.validateVec3(axis, "sky axis")
+  if not checked.valid then return error(9603, checked.message) end if
+  backend.core.state.skyName = name
+  backend.core.state.skyRotate = rotate
+  backend.core.state.skyAxis = axis
+end function
+
+function openGlEndRegistration()
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "EndRegistration")
+  backend.core.state.registrationOpen = false
+end function
+
+function openGlRenderFrame(frame)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "RenderFrame")
+  // Headless contract mode retains the exhaustive API validator. Product
+  // frames are constructed by the typed client handoff, so a constant-time
+  // shape check avoids allocating hundreds of ValidationResult records for
+  // the 256 light styles on every rendered frame.
+  if backend.contextActive then
+    if frame is void then return error(9604, "product refdef is void") end if
+    if frame.width <= 0 or frame.height <= 0 or
+        frame.numEntities != len(frame.entities) or
+        frame.numDLights != len(frame.dLights) or
+        frame.numParticles != len(frame.particles) or
+        frame.numEntities < 0 or frame.numDLights < 0 or frame.numParticles < 0 or
+        frame.numEntities > rc.MAX_ENTITIES or frame.numDLights > rc.MAX_DLIGHTS or
+        frame.numParticles > rc.MAX_PARTICLES or
+        len(frame.lightStyles) != rc.MAX_LIGHTSTYLES then
+      return error(9604, "invalid product refdef shape")
+    end if
+  else
+    checked = validation.validateRefDef(frame)
+    if not checked.valid then return error(9604, checked.code + ": " + checked.message) end if
+  end if
+  backend.core.state.lastRefDef = frame
+  backend.core.state.frameCount = backend.core.state.frameCount + 1
+  if backend.contextActive then
+    setup3d(frame)
+    frameState = openGlFrameSlot
+    frameState.twoDimensional = false
+    native.glEnable(GL_DEPTH_TEST)
+    native.glDepthFunc(GL_LEQUAL)
+    native.glDepthMask(1)
+    submitOpenGlRefDefMd2Entities(backend, frame)
+    drawEntityMarkers(backend, frame)
+    drawParticles(frame)
+    backend.submittedEntities = backend.submittedEntities + frame.numEntities
+    backend.submittedParticles = backend.submittedParticles + frame.numParticles
+  end if
+  backend.submittedFrames = backend.submittedFrames + 1
+end function
+
+function openGlDrawGetPicSize(name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawGetPicSize")
+  if backend.imports is void then return rt.PicSize(0, 0) end if
+  asset = rassets.findPicture(backend.assets, name)
+  if asset is void then asset = rassets.registerPicture(backend.assets, backend.imports, name) end if
+  return rt.PicSize(asset.width, asset.height)
+end function
+
+function openGlDrawPic(x, y, name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawPic")
+  if backend.contextActive and backend.imports is not void then
+    asset = rassets.findPicture(backend.assets, name)
+    if asset is void then asset = rassets.registerPicture(backend.assets, backend.imports, name) end if
+    drawTexturedRect(backend, asset, x, y, asset.width, asset.height)
+  end if
+end function
+
+function openGlDrawStretchPic(x, y, width, height, name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawStretchPic")
+  if width < 0 or height < 0 then return error(9605, "DrawStretchPic dimensions must not be negative") end if
+  if backend.contextActive and backend.imports is not void then
+    asset = rassets.findPicture(backend.assets, name)
+    if asset is void then asset = rassets.registerPicture(backend.assets, backend.imports, name) end if
+    drawTexturedRect(backend, asset, x, y, width, height)
+  end if
+end function
+
+function openGlDrawChar(x, y, character)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawChar")
+  glyph = character & 255
+  if (glyph & 127) == 32 or y <= -8 or not backend.contextActive or backend.imports is void then
+    return void
+  end if
+  asset = rassets.findPicture(backend.assets, "conchars")
+  if asset is void then asset = rassets.registerPicture(backend.assets, backend.imports, "conchars") end if
+  column = glyph & 15; row = glyph >> 4
+  left = column / 16.0; top = row / 16.0
+  drawTexturedSubRect(backend, asset, x, y, 8, 8,
+    left, top, left + 0.0625, top + 0.0625)
+end function
+
+function openGlDrawTileClear(x, y, width, height, name)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawTileClear")
+  if width < 0 or height < 0 then return error(9606, "DrawTileClear dimensions must not be negative") end if
+  if backend.contextActive and backend.imports is not void then
+    asset = rassets.findPicture(backend.assets, name)
+    if asset is void then asset = rassets.registerPicture(backend.assets, backend.imports, name) end if
+    drawTexturedRect(backend, asset, x, y, width, height)
+  end if
+end function
+
+function openGlDrawFill(x, y, width, height, color)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawFill")
+  if width < 0 or height < 0 then return error(9607, "DrawFill dimensions must not be negative") end if
+  if color < 0 or color > 255 then return error(9608, "DrawFill palette index must be in [0,255]") end if
+  if backend.contextActive then drawSolidRect(x, y, width, height, color) end if
+end function
+
+function openGlDrawFadeScreen()
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawFadeScreen")
+  if backend.contextActive then drawFadeRect() end if
+end function
+
+function openGlDrawStretchRaw(x, y, width, height, columns, rows, data)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "DrawStretchRaw")
+  if width < 0 or height < 0 or columns < 0 or rows < 0 then
+    return error(9609, "DrawStretchRaw dimensions must not be negative")
+  end if
+  if typeof(data) != "bytes" or len(data) < columns * rows then
+    return error(9610, "DrawStretchRaw source data is truncated")
+  end if
+end function
+
+function openGlCinematicSetPalette(palette)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "CinematicSetPalette")
+  if palette is not void and (typeof(palette) != "bytes" or len(palette) != 768) then
+    return error(9611, "cinematic palette must contain 768 bytes or be void")
+  end if
+  backend.core.state.palette = palette
+end function
+
+function openGlBeginFrame(cameraSeparation)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "BeginFrame")
+  if backend.core.state.frameOpen then return error(9612, "BeginFrame called twice") end if
+  backend.core.state.frameOpen = true
+  frameState = openGlFrameSlot
+  frameState.twoDimensional = false
+  if backend.contextActive then
+    native.glClearColor(bits(0.0), bits(0.0), bits(0.0), bits(1.0))
+    native.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+  end if
+end function
+
+function openGlEndFrame()
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "EndFrame")
+  if not backend.core.state.frameOpen then return error(9613, "EndFrame called without BeginFrame") end if
+  backend.core.state.frameOpen = false
+  if backend.contextActive then
+    native.glFlush()
+    native.winSwap()
+  end if
+end function
+
+function openGlAppActivate(activate)
+  backend = openGlBackendSlot.backend
+  openGlRequireInitialized(backend, "AppActivate")
+  backend.core.state.appActive = activate
+end function
+
 function openGlMakeExports()
-  // Extract uncaptured pass-through callbacks before nested closure creation.
-  // The self-hosted compiler can otherwise clear a captured struct parameter
-  // before RefExport evaluates late direct member accesses in large programs.
-  coreSetSky = openGlBackendSlot.backend.core.exports.SetSky
-  coreEndRegistration = openGlBackendSlot.backend.core.exports.EndRegistration
-  coreDrawChar = openGlBackendSlot.backend.core.exports.DrawChar
-  coreDrawTileClear = openGlBackendSlot.backend.core.exports.DrawTileClear
-  coreDrawFadeScreen = openGlBackendSlot.backend.core.exports.DrawFadeScreen
-  coreDrawStretchRaw = openGlBackendSlot.backend.core.exports.DrawStretchRaw
-  coreCinematicSetPalette = openGlBackendSlot.backend.core.exports.CinematicSetPalette
-  coreAppActivate = openGlBackendSlot.backend.core.exports.AppActivate
-
-  function rendererInit(hinstance, wndproc)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.Init(hinstance, wndproc)
-    if openGlCurrentBackend.contextActive then
-      openGlCurrentBackend.vendor = native.glGetString(GL_VENDOR)
-      openGlCurrentBackend.renderer = native.glGetString(GL_RENDERER)
-      openGlCurrentBackend.version = native.glGetString(GL_VERSION)
-    end if
-    return result
-  end function
-
-  function rendererShutdown()
-    openGlCurrentBackend = openGlBackendSlot.backend
-    releaseOpenGlTextureRecords(openGlCurrentBackend)
-    return openGlCurrentBackend.core.exports.Shutdown()
-  end function
-
-  function beginRegistration(mapName)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.BeginRegistration(mapName)
-    releaseOpenGlTextureRecords(openGlCurrentBackend)
-    rassets.beginRegistration(openGlCurrentBackend.assets)
-    return result
-  end function
-
-  function registerModel(name)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    baseHandle = openGlCurrentBackend.core.exports.RegisterModel(name)
-    if openGlCurrentBackend.imports is void then return baseHandle end if
-    modelAsset = rassets.registerModel(openGlCurrentBackend.assets, openGlCurrentBackend.imports, name)
-    if modelAsset.kind == "md2" then
-      for each skinAsset in modelAsset.skins
-        ensureOpenGlPictureTexture(openGlCurrentBackend, skinAsset)
-        if openGlCurrentBackend.contextActive then uploadPicture(openGlCurrentBackend, skinAsset) end if
-      end for
-    end if
-    return modelAsset.handle
-  end function
-
-  function registerSkin(name)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    baseHandle = openGlCurrentBackend.core.exports.RegisterSkin(name)
-    if openGlCurrentBackend.imports is void then return baseHandle end if
-    asset = rassets.registerPicture(openGlCurrentBackend.assets, openGlCurrentBackend.imports, name)
-    ensureOpenGlPictureTexture(openGlCurrentBackend, asset)
-    if openGlCurrentBackend.contextActive then uploadPicture(openGlCurrentBackend, asset) end if
-    return asset.handle
-  end function
-
-  function registerPic(name)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    baseHandle = openGlCurrentBackend.core.exports.RegisterPic(name)
-    if openGlCurrentBackend.imports is void then return baseHandle end if
-    asset = rassets.registerPicture(openGlCurrentBackend.assets, openGlCurrentBackend.imports, name)
-    ensureOpenGlPictureTexture(openGlCurrentBackend, asset)
-    if openGlCurrentBackend.contextActive then uploadPicture(openGlCurrentBackend, asset) end if
-    return asset.handle
-  end function
-
-  function drawGetPicSize(name)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    if openGlCurrentBackend.imports is not void then
-      asset = rassets.findPicture(openGlCurrentBackend.assets, name)
-      if asset is void then asset = rassets.registerPicture(openGlCurrentBackend.assets, openGlCurrentBackend.imports, name) end if
-      return rt.PicSize(asset.width, asset.height)
-    end if
-    return openGlCurrentBackend.core.exports.DrawGetPicSize(name)
-  end function
-
-  function drawStretchPic(x, y, width, height, name)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.DrawStretchPic(x, y, width, height, name)
-    if openGlCurrentBackend.contextActive and openGlCurrentBackend.imports is not void then
-      asset = rassets.findPicture(openGlCurrentBackend.assets, name)
-      if asset is void then asset = rassets.registerPicture(openGlCurrentBackend.assets, openGlCurrentBackend.imports, name) end if
-      drawTexturedRect(openGlCurrentBackend, asset, x, y, width, height)
-    end if
-    return result
-  end function
-
-  function drawPic(x, y, name)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.DrawPic(x, y, name)
-    if openGlCurrentBackend.contextActive and openGlCurrentBackend.imports is not void then
-      asset = rassets.findPicture(openGlCurrentBackend.assets, name)
-      if asset is void then asset = rassets.registerPicture(openGlCurrentBackend.assets, openGlCurrentBackend.imports, name) end if
-      drawTexturedRect(openGlCurrentBackend, asset, x, y, asset.width, asset.height)
-    end if
-    return result
-  end function
-
-  function renderFrame(frame)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.RenderFrame(frame)
-    if openGlCurrentBackend.contextActive then
-      setup3d(frame)
-      native.glEnable(GL_DEPTH_TEST)
-      native.glDepthFunc(GL_LEQUAL)
-      native.glDepthMask(1)
-      submitOpenGlRefDefMd2Entities(openGlCurrentBackend, frame)
-      drawEntityMarkers(openGlCurrentBackend, frame)
-      drawParticles(frame)
-      openGlCurrentBackend.submittedEntities = openGlCurrentBackend.submittedEntities + frame.numEntities
-      openGlCurrentBackend.submittedParticles = openGlCurrentBackend.submittedParticles + frame.numParticles
-    end if
-    openGlCurrentBackend.submittedFrames = openGlCurrentBackend.submittedFrames + 1
-    return result
-  end function
-
-  function drawFill(x, y, width, height, color)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.DrawFill(x, y, width, height, color)
-    if openGlCurrentBackend.contextActive then drawSolidRect(x, y, width, height, color) end if
-    return result
-  end function
-
-  function beginFrame(cameraSeparation)
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.BeginFrame(cameraSeparation)
-    if openGlCurrentBackend.contextActive then
-      native.glClearColor(bits(0.0), bits(0.0), bits(0.0), bits(1.0))
-      native.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    end if
-    return result
-  end function
-
-  function endFrame()
-    openGlCurrentBackend = openGlBackendSlot.backend
-    result = openGlCurrentBackend.core.exports.EndFrame()
-    if openGlCurrentBackend.contextActive then
-      native.glFlush()
-      native.winSwap()
-    end if
-    return result
-  end function
-
   return rt.RefExport(
-    rc.API_VERSION, rendererInit, rendererShutdown,
-    beginRegistration, registerModel,
-    registerSkin, registerPic, coreSetSky,
-    coreEndRegistration, renderFrame, drawGetPicSize,
-    drawPic, drawStretchPic, coreDrawChar,
-    coreDrawTileClear, drawFill, coreDrawFadeScreen,
-    coreDrawStretchRaw, coreCinematicSetPalette, beginFrame,
-    endFrame, coreAppActivate,
+    rc.API_VERSION, openGlRendererInit, openGlRendererShutdown,
+    openGlBeginRegistration, openGlRegisterModel,
+    openGlRegisterSkin, openGlRegisterPic, openGlSetSky,
+    openGlEndRegistration, openGlRenderFrame, openGlDrawGetPicSize,
+    openGlDrawPic, openGlDrawStretchPic, openGlDrawChar,
+    openGlDrawTileClear, openGlDrawFill, openGlDrawFadeScreen,
+    openGlDrawStretchRaw, openGlCinematicSetPalette, openGlBeginFrame,
+    openGlEndFrame, openGlAppActivate,
   )
 end function
 
 function createOpenGlRenderer(contextActive)
-  coreBinding = recording.createRecordingRenderer()
+  coreBinding = rt.RendererBinding(recording.createState("null", void), void)
   glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [])
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
@@ -650,7 +875,9 @@ function createOpenGlRenderer(contextActive)
 end function
 
 function getRefAPI(imports, contextActive)
-  coreBinding = recording.getRefAPI(imports, "recording")
+  checked = validation.validateRefImport(imports)
+  if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
+  coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
   glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [])
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -689,6 +916,7 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
     )
     texture.id = record.id
   end for
+  if binding.state.contextActive then precacheOpenGlClassicGeometry(world) end if
   return world
 end function
 
@@ -734,6 +962,51 @@ function emitClassicDraw(draw, lightmap, time)
     emitClassicVertex(draw, draw.vertices[vertexIndex], lightmap, time)
     vertexIndex = vertexIndex + 1
   end while
+end function
+
+function classicDrawCanCache(draw)
+  flags = draw.surface.texInfo.flags
+  return (flags & (ropenglformatconstants.SURF_WARP |
+    ropenglformatconstants.SURF_FLOWING)) == 0
+end function
+
+function prepareOpenGlClassicDraw(draw, pass, lightmap)
+  if not classicDrawCanCache(draw) then return false end if
+  prepared = native.glStaticGeometryPrepare(nativeRawValue(draw), pass)
+  if prepared < 0 then return false end if
+  if prepared == 0 then
+    native.glBegin(GL_TRIANGLES)
+    emitClassicDraw(draw, lightmap, 0.0)
+    native.glEnd()
+  end if
+  return true
+end function
+
+function precacheOpenGlClassicGeometry(world)
+  preparedCount = 0
+  for each draw in world.draws
+    if prepareOpenGlClassicDraw(draw, 0, false) then
+      preparedCount = preparedCount + 1
+    end if
+    if draw.surface.category == rclassicconstants.MATERIAL_OPAQUE and
+        prepareOpenGlClassicDraw(draw, 1, true) then
+      preparedCount = preparedCount + 1
+    end if
+  end for
+  return preparedCount
+end function
+
+function submitOpenGlClassicDraw(draw, lightmap, time)
+  pass = 0
+  if lightmap then pass = 1 end if
+  if classicDrawCanCache(draw) and
+      native.glStaticGeometryCall(nativeRawValue(draw), pass) != 0 then
+    return true
+  end if
+  native.glBegin(GL_TRIANGLES)
+  emitClassicDraw(draw, lightmap, time)
+  native.glEnd()
+  return false
 end function
 
 function emitOpenGlSkyVertex(s, t, axis, texture)
@@ -829,6 +1102,17 @@ function classicBrushLocalLights(entity, frame)
 end function
 
 function classicBrushDynamicLightmaps(world, entity, plan, frame)
+  if frame.numDLights == 0 then
+    staticLightmaps = array(len(plan.opaqueDraws))
+    staticIndex = 0
+    while staticIndex < len(plan.opaqueDraws)
+      staticDraw = plan.opaqueDraws[staticIndex]
+      staticLightmaps[staticIndex] = rclassictypes.ClassicBrushLightmap(
+        staticDraw, staticDraw.lightmapTexture.rgbaPixels, false)
+      staticIndex = staticIndex + 1
+    end while
+    return [staticLightmaps, 0]
+  end if
   localLights = classicBrushLocalLights(entity, frame)
   lightmaps = array(len(plan.opaqueDraws))
   dirtyCount = 0
@@ -908,9 +1192,7 @@ function drawOpenGlClassicDraws(binding, draws, time, lightmap)
       native.glBindTexture(GL_TEXTURE_2D, textureId)
       lastTexture = textureId
     end if
-    native.glBegin(GL_TRIANGLES)
-    emitClassicDraw(draw, lightmap, time)
-    native.glEnd()
+    submitOpenGlClassicDraw(draw, lightmap, time)
   end for
   return uploaded
 end function
@@ -934,9 +1216,7 @@ function drawOpenGlClassicBrushLightmaps(binding, submission, time)
     if uploadClassicBrushLightmap(binding, brushLightmap) then uploaded = uploaded + 1 end if
     textureId = brushLightmap.draw.lightmapTexture.id
     if lastTexture != textureId then native.glBindTexture(GL_TEXTURE_2D, textureId); lastTexture = textureId end if
-    native.glBegin(GL_TRIANGLES)
-    emitClassicDraw(brushLightmap.draw, true, time)
-    native.glEnd()
+    submitOpenGlClassicDraw(brushLightmap.draw, true, time)
   end for
   return uploaded
 end function
@@ -1079,9 +1359,7 @@ function drawOpenGlClassicTransparentFrame(binding, draws, frame)
     if alphaValue < 0.0 then alphaValue = 0.0 end if
     if alphaValue > 1.0 then alphaValue = 1.0 end if
     native.glColor4ub(128, 128, 128, ropenglbyteio.truncInt(alphaValue * 255.0))
-    native.glBegin(GL_TRIANGLES)
-    emitClassicDraw(draw, false, frame.time)
-    native.glEnd()
+    submitOpenGlClassicDraw(draw, false, frame.time)
     if entity is not void then native.glPopMatrix() end if
   end for
   native.glColor4ub(255, 255, 255, 255)
@@ -1096,11 +1374,22 @@ end function
 function submitClassicWorld(binding, world, frame)
   if world.released then return error(9625, "classic world was released") end if
   if world.generation != binding.state.assets.generation then return error(9626, "classic world belongs to a stale registration generation") end if
-  selection = rclassicvisibility.selectClassicWorld(world, frame)
+  selection = void
+  if binding.state.contextActive then
+    selection = rclassicvisibility.selectClassicWorldCached(world, frame)
+  else
+    selection = rclassicvisibility.selectClassicWorld(world, frame)
+  end if
   visibleSurfaces = len(selection.draws)
   culledSurfaces = rclassicvisibility.classicVisibilityCulledCount(selection)
   plan = rclassicspecial.classicSpecialPassPlan(selection.draws, frame)
-  passOrder = rclassicspecial.classicSpecialPassSignature(plan)
+  // The pass signature is a deterministic diagnostics artifact. Building it
+  // concatenates one string fragment per visible surface, so keep it out of
+  // the product frame loop where it would repeatedly copy the whole prefix.
+  passOrder = ""
+  if not binding.state.contextActive then
+    passOrder = rclassicspecial.classicSpecialPassSignature(plan)
+  end if
   opaqueSurfaces = len(plan.opaqueDraws)
   warpSurfaces = len(plan.warpDraws)
   skySurfaces = len(plan.skyDraws)
@@ -1133,9 +1422,7 @@ function submitClassicWorld(binding, world, frame)
       native.glBindTexture(GL_TEXTURE_2D, baseTexture.id)
       lastTexture = baseTexture.id
     end if
-    native.glBegin(GL_TRIANGLES)
-    emitClassicDraw(draw, false, frame.time)
-    native.glEnd()
+    submitOpenGlClassicDraw(draw, false, frame.time)
   end for
 
   // OpenGL 1.1 fallback for the absent multitexture bridge: destination base
@@ -1147,9 +1434,7 @@ function submitClassicWorld(binding, world, frame)
   for each draw in plan.opaqueDraws
     if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
     native.glBindTexture(GL_TEXTURE_2D, draw.lightmapTexture.id)
-    native.glBegin(GL_TRIANGLES)
-    emitClassicDraw(draw, true, frame.time)
-    native.glEnd()
+    submitOpenGlClassicDraw(draw, true, frame.time)
   end for
   native.glDepthMask(1)
   native.glDepthFunc(GL_LEQUAL)
@@ -1165,9 +1450,7 @@ function submitClassicWorld(binding, world, frame)
       lastTexture = baseTexture.id
     end if
     native.glColor4ub(128, 128, 128, 255)
-    native.glBegin(GL_TRIANGLES)
-    emitClassicDraw(draw, false, frame.time)
-    native.glEnd()
+    submitOpenGlClassicDraw(draw, false, frame.time)
   end for
   native.glColor4ub(255, 255, 255, 255)
 
@@ -1185,9 +1468,7 @@ function submitClassicWorld(binding, world, frame)
         native.glBindTexture(GL_TEXTURE_2D, baseTexture.id)
         lastTexture = baseTexture.id
       end if
-      native.glBegin(GL_TRIANGLES)
-      emitClassicDraw(draw, false, frame.time)
-      native.glEnd()
+      submitOpenGlClassicDraw(draw, false, frame.time)
     end for
   end if
 

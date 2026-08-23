@@ -127,6 +127,10 @@ function runPlay(args)
   print "  models=" + result[3] + " sounds=" + result[4] + " missing-assets=" + result[5] +
     " submitted-entities=" + result[6]
   print "  world-visible=" + result[7] + " world-culled=" + result[8] + " view-cluster=" + result[9]
+  if len(result) >= 14 then
+    print "  timing-ms client=" + result[10] + " world=" + result[11] +
+      " entities=" + result[12] + " hud=" + result[13]
+  end if
   return 0
 end function
 

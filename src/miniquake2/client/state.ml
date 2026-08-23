@@ -16,11 +16,13 @@ struct ClientRuntime
   predictionError
   serverFrame
   serverTime
+  lightStyles
 end struct
 
 function create()
   zero = cqt.zeroVec3()
-  return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void, zero, zero, -1, 0)
+  return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void,
+    zero, zero, -1, 0, crt.defaultLightStyles())
 end function
 
 function setConnectionState(client, state)
@@ -52,13 +54,13 @@ function findEntity(entities, number)
   return void
 end function
 
-function clampFraction(value)
+function inline clampFraction(value)
   if value < 0.0 then return 0.0 end if
   if value > 1.0 then return 1.0 end if
   return value
 end function
 
-function lerp(first, second, fraction)
+function inline lerp(first, second, fraction)
   return first + (second - first) * fraction
 end function
 
@@ -82,8 +84,18 @@ function interpolatedAngles(oldState, currentState, fraction)
   )
 end function
 
-function appendModelEntity(output, state, oldState, modelIndex, fraction, modelResolver)
-  if modelIndex <= 0 then return output end if
+function inline stateModelCount(state)
+  count = 0
+  if state.modelIndex > 0 then count = count + 1 end if
+  if state.modelIndex2 > 0 then count = count + 1 end if
+  if state.modelIndex3 > 0 then count = count + 1 end if
+  if state.modelIndex4 > 0 then count = count + 1 end if
+  return count
+end function
+
+function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
+    fraction, modelResolver)
+  if modelIndex <= 0 then return outputIndex end if
   model = modelResolver(modelIndex)
   origin = interpolatedOrigin(oldState, state, fraction)
   angles = interpolatedAngles(oldState, state, fraction)
@@ -92,26 +104,71 @@ function appendModelEntity(output, state, oldState, modelIndex, fraction, modelR
   if oldState is not void then oldFrame = oldState.frame end if
   alpha = 1.0
   if (state.renderFx & crc.RF_TRANSLUCENT) != 0 then alpha = 0.70 end if
-  return output + [crt.entity(model, angles, origin, state.frame, oldOrigin, oldFrame, 1.0 - fraction, state.skinNum, 0, alpha, void, state.renderFx)]
+  output[outputIndex] = crt.entity(model, angles, origin, state.frame, oldOrigin,
+    oldFrame, 1.0 - fraction, state.skinNum, 0, alpha, void, state.renderFx)
+  return outputIndex + 1
 end function
 
-function buildEntities(client, fraction, modelResolver)
+function appendViewWeapon(output, outputIndex, client, fraction, modelResolver,
+    viewOrigin, viewAngles)
+  player = client.current.playerState
+  if player.gunIndex <= 0 then return outputIndex end if
+  model = modelResolver(player.gunIndex)
+  if model is void then return outputIndex end if
+  previousPlayer = player
+  if client.previous is not void then previousPlayer = client.previous.playerState end if
+  gunOrigin = cqt.vec3(
+    viewOrigin.x + lerp(previousPlayer.gunOffset[0], player.gunOffset[0], fraction),
+    viewOrigin.y + lerp(previousPlayer.gunOffset[1], player.gunOffset[1], fraction),
+    viewOrigin.z + lerp(previousPlayer.gunOffset[2], player.gunOffset[2], fraction))
+  gunAngles = cqt.vec3(
+    viewAngles.x + lerp(previousPlayer.gunAngles[0], player.gunAngles[0], fraction),
+    viewAngles.y + lerp(previousPlayer.gunAngles[1], player.gunAngles[1], fraction),
+    viewAngles.z + lerp(previousPlayer.gunAngles[2], player.gunAngles[2], fraction))
+  output[outputIndex] = crt.entity(model, gunAngles, gunOrigin, player.gunFrame,
+    gunOrigin, previousPlayer.gunFrame, 1.0 - fraction, 0, 0, 1.0, void,
+    crc.RF_MINLIGHT | crc.RF_DEPTHHACK | crc.RF_WEAPONMODEL)
+  return outputIndex + 1
+end function
+
+function buildEntities(client, fraction, modelResolver, viewOrigin, viewAngles)
   if client.current is void then return [] end if
   fraction = clampFraction(fraction)
   oldEntities = []
   if client.previous is not void then oldEntities = client.previous.entities end if
-  output = []
+  capacity = 0
+  for each countedState in client.current.entities
+    capacity = capacity + stateModelCount(countedState)
+  end for
+  if client.current.playerState.gunIndex > 0 then capacity = capacity + 1 end if
+  if capacity == 0 then return [] end if
+  output = array(capacity)
+  outputIndex = 0
   index = 0
   while index < len(client.current.entities)
     state = client.current.entities[index]
     oldState = findEntity(oldEntities, state.number)
-    output = appendModelEntity(output, state, oldState, state.modelIndex, fraction, modelResolver)
-    output = appendModelEntity(output, state, oldState, state.modelIndex2, fraction, modelResolver)
-    output = appendModelEntity(output, state, oldState, state.modelIndex3, fraction, modelResolver)
-    output = appendModelEntity(output, state, oldState, state.modelIndex4, fraction, modelResolver)
+    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+      state.modelIndex, fraction, modelResolver)
+    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+      state.modelIndex2, fraction, modelResolver)
+    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+      state.modelIndex3, fraction, modelResolver)
+    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+      state.modelIndex4, fraction, modelResolver)
     index = index + 1
   end while
-  return output
+  outputIndex = appendViewWeapon(output, outputIndex, client, fraction,
+    modelResolver, viewOrigin, viewAngles)
+  if outputIndex == len(output) then return output end if
+  if outputIndex == 0 then return [] end if
+  compact = array(outputIndex)
+  compactIndex = 0
+  while compactIndex < outputIndex
+    compact[compactIndex] = output[compactIndex]
+    compactIndex = compactIndex + 1
+  end while
+  return compact
 end function
 
 function updatePredictionError(client, predictedFixedOrigin)
@@ -139,5 +196,8 @@ function buildRefDef(client, fraction, width, height, modelResolver)
   if fov <= 0.0 then fov = 90.0 end if
   fovY = 73.7398
   blend = [player.blend[0], player.blend[1], player.blend[2], player.blend[3]]
-  return crt.refDef(0, 0, width, height, fov, fovY, viewOrigin, viewAngles, blend, client.serverTime * 0.001, player.rdFlags, void, crt.defaultLightStyles(), buildEntities(client, fraction, modelResolver), [], [])
+  return crt.refDef(0, 0, width, height, fov, fovY, viewOrigin, viewAngles,
+    blend, client.serverTime * 0.001, player.rdFlags, void,
+    client.lightStyles, buildEntities(client, fraction, modelResolver,
+    viewOrigin, viewAngles), [], [])
 end function

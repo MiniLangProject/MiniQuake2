@@ -302,6 +302,7 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, prod
   if typeof(looping) != "bool" then return error(9924, "cinematic looping flag must be boolean") end if
   applicationCinematicFileSystemHolder = appfs.initialize(baseDirectory, "")
   previewFileSystem = applicationCinematicFileSystemHolder
+  appproducthost.showProductLoading(productHost, "loading " + name)
   applicationCinematicPathHolder = cinematicPath(name)
   applicationCinematicDataHolder = appfs.readFile(applicationCinematicFileSystemHolder, applicationCinematicPathHolder)
 
@@ -387,7 +388,6 @@ end function
 function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   applicationCinematicProductHost = appproducthost.openProductHost(
     "MiniQuake2 Cinematic - " + name, 0, false, applicationRendererImports())
-  appproducthost.showProductLoading(applicationCinematicProductHost, "loading " + name)
   applicationCinematicProductResult = try(runRetailCinematicOnHost(baseDirectory,
     name, frameLimit, looping, applicationCinematicProductHost))
   appproducthost.closeProductHost(applicationCinematicProductHost)
@@ -403,6 +403,7 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9928, "picture frame limit outside [0,36000]") end if
   applicationPictureFileSystemHolder = appfs.initialize(baseDirectory, "")
   previewFileSystem = applicationPictureFileSystemHolder
+  appproducthost.showProductLoading(productHost, "loading " + name)
   applicationPicturePathHolder = picturePath(name)
   applicationPicturePlaybackHolder = appcinpicture.start(appfs.readFile(
     applicationPictureFileSystemHolder, applicationPicturePathHolder))
@@ -468,7 +469,6 @@ end function
 function runRetailPicture(baseDirectory, name, frameLimit)
   applicationPictureProductHost = appproducthost.openProductHost(
     "MiniQuake2 Picture - " + name, 0, false, applicationRendererImports())
-  appproducthost.showProductLoading(applicationPictureProductHost, "loading " + name)
   applicationPictureProductResult = try(runRetailPictureOnHost(baseDirectory,
     name, frameLimit, applicationPictureProductHost))
   appproducthost.closeProductHost(applicationPictureProductHost)
@@ -499,6 +499,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
   end if
   applicationDemoFileSystemHolder = appfs.initialize(baseDirectory, "")
   previewFileSystem = applicationDemoFileSystemHolder
+  appproducthost.showProductLoading(productHost, "loading " + name)
   applicationDemoFilePathHolder = demoPath(name)
   applicationDemoSessionHolder = appdemosession.create(appfs.readFile(
     applicationDemoFileSystemHolder, applicationDemoFilePathHolder), 19)
@@ -671,8 +672,6 @@ end function
 function runRetailDemo(baseDirectory, name, frameLimit)
   applicationDemoProductHost = appproducthost.openProductHost(
     "MiniQuake2 Demo - " + name, 3, false, applicationRendererImports())
-  appproducthost.showProductLoading(applicationDemoProductHost,
-    "loading " + name)
   applicationDemoProductResult = try(runRetailDemoOnHost(baseDirectory,
     name, frameLimit, applicationDemoProductHost))
   appproducthost.closeProductHost(applicationDemoProductHost)
@@ -1114,6 +1113,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
   previewFileSystem = filesystem
+  appproducthost.showProductLoading(productHost, "loading " + mapName)
   applicationCurrentMapName = mapName
   path = mapPath(applicationCurrentMapName)
   window = productHost.window
@@ -1186,10 +1186,24 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     end if
     applicationPersistentSlot = applicationPersistentSlot + 1
   end while
-  appwindow.setMouseCapture(true)
+  // Interactive product runs enter through the Quake II main menu. Bounded
+  // frame runs remain game-directed so automated retail gates need no input.
+  if frameLimit == 0 then
+    appuimenu.open(screen.menu, "main")
+    appuikeys.setDestination(input, appuiconstants.KEY_MENU)
+  end if
+  appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
   clock = appsystem.createClock()
   networkTime = appsystem.milliseconds(clock)
   frames = 0
+  applicationFpsWindowStart = networkTime
+  applicationFpsFrameCount = 0
+  applicationPerfClient = 0
+  applicationPerfWorld = 0
+  applicationPerfEntities = 0
+  applicationPerfHud = 0
+  appwindow.setTitle(window, "MiniQuake2 - " + applicationCurrentMapName +
+    " - FPS --")
   latest = void
   lastWorldStats = void
   applicationPendingMediaSpecification = ""
@@ -1338,6 +1352,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       networkTime = started
     end if
 
+    applicationPerfStart = appsystem.milliseconds(clock)
     fraction = (started - networkTime) / 100.0
     if fraction < 0.0 then fraction = 0.0 end if
     if fraction > 1.0 then fraction = 1.0 end if
@@ -1353,15 +1368,37 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     // clock above intentionally starts only after signon has completed.
     effectNow = appbyteio.truncInt(appsystem.milliseconds(session.client.clock))
     appeffecthandoff.apply(session.client.integrated.effects, frame, effectNow, resolvePlayEffectModel)
+    applicationPerfWorldStart = appsystem.milliseconds(clock)
+    applicationPerfClient = applicationPerfClient +
+      applicationPerfWorldStart - applicationPerfStart
     renderer.exports.BeginFrame(0.0)
-    renderer.exports.RenderFrame(frame)
     lastWorldStats = appgl.submitClassicWorld(renderer, world, frame)
+    applicationPerfEntityStart = appsystem.milliseconds(clock)
+    applicationPerfWorld = applicationPerfWorld +
+      applicationPerfEntityStart - applicationPerfWorldStart
+    renderer.exports.RenderFrame(frame)
+    applicationPerfHudStart = appsystem.milliseconds(clock)
+    applicationPerfEntities = applicationPerfEntities +
+      applicationPerfHudStart - applicationPerfEntityStart
     appuiscreen.draw(screen, started, window.width, window.height,
       session.client.integrated.client.current.playerState.stats,
       session.client.integrated.network.configStrings, renderer.exports)
+    applicationPerfHud = applicationPerfHud +
+      appsystem.milliseconds(clock) - applicationPerfHudStart
     renderer.exports.EndFrame()
     pumpPlayAudio(audioDevice, audioMixer)
     frames = frames + 1
+    applicationFpsFrameCount = applicationFpsFrameCount + 1
+    applicationFpsNow = appsystem.milliseconds(clock)
+    applicationFpsElapsed = applicationFpsNow - applicationFpsWindowStart
+    if applicationFpsElapsed >= 1000 then
+      applicationMeasuredFps = appbyteio.truncInt(
+        applicationFpsFrameCount * 1000 / applicationFpsElapsed)
+      appwindow.setTitle(window, "MiniQuake2 - " + applicationCurrentMapName +
+        " - FPS " + applicationMeasuredFps)
+      applicationFpsWindowStart = applicationFpsNow
+      applicationFpsFrameCount = 0
+    end if
     elapsed = appsystem.milliseconds(clock) - started
     if elapsed < 8 then appsystem.sleep(appbyteio.truncInt(8 - elapsed)) end if
   end while
@@ -1394,13 +1431,14 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   end if
   return [frames, clientState, serverFrame, registeredModels,
     registeredSounds, missingAssets, submittedEntities,
-    visibleSurfaces, culledSurfaces, viewCluster]
+    visibleSurfaces, culledSurfaces, viewCluster,
+    applicationPerfClient, applicationPerfWorld, applicationPerfEntities,
+    applicationPerfHud]
 end function
 
 function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   applicationPlayProductHost = appproducthost.openProductHost("MiniQuake2 - " + mapName,
     3, false, applicationRendererImports())
-  appproducthost.showProductLoading(applicationPlayProductHost, "loading " + mapName)
   applicationPlayProductResult = try(runPlayAtOnHost(baseDirectory, mapName,
     spawnPoint, frameLimit, applicationPlayProductHost, 1))
   appproducthost.closeProductHost(applicationPlayProductHost)
