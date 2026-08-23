@@ -67,6 +67,7 @@ nrroute_collision.setAreaPortalState(collision, 0, true)
 routingAssert(not nrroute_session.soundAudibleToClient(session, ordinary, listener),
   "PHS-excluded listener received a positioned sound")
 collision.map.visibility.data[0] = 3
+nrroute_collision.clearVisibilityRows(collision)
 routingAssert(nrroute_session.soundAudibleToClient(session, ordinary, listener),
   "PHS-visible listener missed a positioned sound")
 
@@ -119,6 +120,26 @@ server.clients[0].state = nrroute_nc.CS_SPAWNED
 server.clients[0].channel = nrroute_netchan.setup(nrroute_pc.NS_SERVER, void, 0, 0)
 runtime = nrroute_nrtypes.createServer(server, 1, "baseq2", "unit", nrroute_adapter.permissive())
 channel = server.clients[0].channel
+
+// Ordinary svc_sound records belong only to the current unreliable datagram.
+// A signon/reliable payload which leaves no packet room drops them instead of
+// retaining idle sounds across frames until the bridge queue overflows.
+channel.reliableLength = nrroute_pc.MAX_MSGLEN - nrroute_pc.PACKET_HEADER_SERVER
+ordinaryDropped = nrroute_dispatch.dispatchRouted(runtime, void,
+  [ordinary], [[ordinary]], 1)
+routingAssert(ordinaryDropped.delivered and ordinaryDropped.sent == 0 and
+  ordinaryDropped.deferred == 0,
+  "ordinary sound was retained behind a full reliable payload")
+
+// A routed empty list means that PHS/area filtering excluded this client.
+// MiniLang's void/false comparison must not turn that intentional no-plan
+// result into reliable backpressure for the global bridge queue.
+inaudibleConsumed = nrroute_dispatch.dispatchRouted(runtime, void,
+  [ordinary], [[]], 1)
+routingAssert(inaudibleConsumed.delivered and inaudibleConsumed.sent == 0 and
+  inaudibleConsumed.deferred == 0,
+  "PHS-filtered no-plan sound was mistaken for backpressure")
+
 channel.reliableLength = 1
 channel.reliableBuffer = bytes([77])
 reliable = positionedEvent(4, nrroute_gc.CHAN_WEAPON | nrroute_gc.CHAN_RELIABLE,

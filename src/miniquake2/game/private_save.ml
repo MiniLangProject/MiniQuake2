@@ -18,7 +18,7 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 13
+const PRIVATE_VERSION = 14
 
 struct PrivateRestore
   runtime
@@ -33,6 +33,8 @@ struct PrivateMonsterReference
   enemyNumber
   oldEnemyNumber
   ownerNumber
+  goalEntityNumber
+  moveTargetNumber
 end struct
 
 struct PrivateWorldReference
@@ -107,7 +109,7 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       inventoryWords = inventoryWords + len(player.gameplay.inventory.counts)
     end for
   end if
-  capacity = 4096 + len(bytes(entityString)) + len(runtime.world.entities) * 512 + len(runtime.monsters) * 512 + len(runtime.items) * 128 + playerCount * 512 + inventoryWords * 4
+  capacity = 4096 + len(bytes(entityString)) + len(runtime.world.entities) * 512 + len(runtime.monsters) * 640 + len(runtime.items) * 128 + playerCount * 512 + inventoryWords * 4
   buffer = privatesizebuf.alloc(capacity)
   privatemessage.writeString(buffer, PRIVATE_MAGIC); privatemessage.writeLong(buffer, PRIVATE_VERSION)
   privateEntityBytes = bytes(entityString)
@@ -196,6 +198,17 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     enemyNumber = -1
     if actor.enemy is not void then enemyNumber = actor.enemy.edict.state.number end if
     privatemessage.writeLong(buffer, enemyNumber)
+    privatemessage.writeFloat(buffer, actor.info.searchTime)
+    privatemessage.writeFloat(buffer, actor.info.idleTime)
+    privateWriteVec(buffer, actor.info.lastSighting)
+    privateWriteVec(buffer, actor.info.savedGoal)
+    privatemessage.writeFloat(buffer, actor.info.trailTime)
+    privatemessage.writeFloat(buffer, actor.idealYaw)
+    privatemessage.writeLong(buffer, actor.info.lefty)
+    privatemessage.writeFloat(buffer, actor.showHostile)
+    privateWriteVec(buffer, actor.velocity)
+    privatemessage.writeLong(buffer, privateReferenceNumber(actor.goalEntity))
+    privatemessage.writeLong(buffer, privateReferenceNumber(actor.moveTarget))
   end for
 
   privatemessage.writeLong(buffer, len(runtime.items))
@@ -297,6 +310,29 @@ function privateRestoreEnemy(runtime, number, maxClients, exportTable)
   return error(3886, "private monster enemy is unavailable")
 end function
 
+function privateRestoreAIReference(runtime, number, maxClients, exportTable)
+  if number < 0 then return void end if
+  privateAIActorHolder = findMonster(runtime, number)
+  if privateAIActorHolder is not void then return privateAIActorHolder end if
+  if number > 0 and number <= maxClients and number < exportTable.numEdicts then
+    privateAIClientHolder = privatesaveaitypes.createClientTarget(number)
+    privateAIClientHolder.edict = exportTable.edicts[number]
+    privatesavegametypes.stabilizeEdict(privateAIClientHolder.edict)
+    return privateAIClientHolder
+  end if
+  privateAIWorldHolder = privateworldcore.findByNumber(runtime.world, number)
+  if privateAIWorldHolder is void then return void end if
+  privateAIGoalHolder = privatesaveaitypes.createActor(number,
+    privateAIWorldHolder.className)
+  privateAIGoalHolder.edict.state.origin = privateAIWorldHolder.origin
+  privateAIGoalHolder.edict.state.angles = privateAIWorldHolder.angles
+  privateAIGoalHolder.edict.inUse = privateAIWorldHolder.inUse
+  privateAIGoalHolder.target = privateAIWorldHolder.target
+  privateAIGoalHolder.targetName = privateAIWorldHolder.targetName
+  privateAIGoalHolder.isMonster = false
+  return privateAIGoalHolder
+end function
+
 function restore(data, mapName, maxClients, exportTable, playerContext)
   if typeof(data) != "bytes" or len(data) == 0 then return error(3871, "private BaseQ2 save payload missing") end if
   buffer = privatesizebuf.alloc(len(data)); privatesizebuf.writeBytes(buffer, data); privatemessage.beginReading(buffer)
@@ -305,6 +341,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if privateSaveVersion != 7 and privateSaveVersion != 8 and
       privateSaveVersion != 9 and privateSaveVersion != 10 and
       privateSaveVersion != 11 and privateSaveVersion != 12 and
+      privateSaveVersion != 13 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -486,6 +523,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       if privateMonsterNumber <= 0 or privateMonsterNumber >= exportTable.numEdicts then return error(3877, "private dynamic monster outside edict table") end if
       if privatesaveaiarchetypes.find(privateMonsterRegistryHolder, privateMonsterClassName) is void then return error(3883, "private dynamic monster class is unavailable") end if
       privateDynamicActorHolder = privatesaveaiarchetypes.SpawnMonster(privateMonsterRegistryHolder, privateMonsterClassName, privateMonsterNumber, runtime.aiContext)
+      privateintegration.prepareMonsterRuntimeState(privateDynamicActorHolder)
       runtime.monsters = runtime.monsters + [privateDynamicActorHolder]
       actor = privateDynamicActorHolder
       if privateMonsterNumber >= runtime.world.nextEntityNumber then runtime.world.nextEntityNumber = privateMonsterNumber + 1 end if
@@ -539,8 +577,41 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     end if
     privatesavegametypes.stabilizeEdict(actor.edict)
     enemyNumber = privatechecked.readLong(buffer, "private monster enemy")
+    // -2 means the legacy record had no serialized reference field; -1 is a
+    // v14 field explicitly containing NULL.
+    privateMonsterGoalEntityNumber = -2
+    privateMonsterMoveTargetNumber = -2
+    if privateSaveVersion >= 14 then
+      actor.info.searchTime = privateReadFloat(buffer,
+        "private monster search time")
+      actor.info.idleTime = privateReadFloat(buffer,
+        "private monster idle time")
+      privateMonsterLastSightingHolder = privateReadVec(buffer,
+        "private monster last sighting")
+      actor.info.lastSighting[0] = privateMonsterLastSightingHolder.x
+      actor.info.lastSighting[1] = privateMonsterLastSightingHolder.y
+      actor.info.lastSighting[2] = privateMonsterLastSightingHolder.z
+      privateMonsterSavedGoalHolder = privateReadVec(buffer,
+        "private monster saved goal")
+      actor.info.savedGoal[0] = privateMonsterSavedGoalHolder.x
+      actor.info.savedGoal[1] = privateMonsterSavedGoalHolder.y
+      actor.info.savedGoal[2] = privateMonsterSavedGoalHolder.z
+      actor.info.trailTime = privateReadFloat(buffer,
+        "private monster trail time")
+      actor.idealYaw = privateReadFloat(buffer, "private monster ideal yaw")
+      actor.info.lefty = privatechecked.readLong(buffer,
+        "private monster strafe side")
+      actor.showHostile = privateReadFloat(buffer,
+        "private monster hostile time")
+      actor.velocity = privateReadVec(buffer, "private monster velocity")
+      privateMonsterGoalEntityNumber = privatechecked.readLong(buffer,
+        "private monster goal entity")
+      privateMonsterMoveTargetNumber = privatechecked.readLong(buffer,
+        "private monster move target")
+    end if
     privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(
-      actor, enemyNumber, privateMonsterOldEnemyNumber, privateMonsterOwnerNumber)]
+      actor, enemyNumber, privateMonsterOldEnemyNumber, privateMonsterOwnerNumber,
+      privateMonsterGoalEntityNumber, privateMonsterMoveTargetNumber)]
     privateMonstersRemaining = privateMonstersRemaining - 1
   end while
   if len(runtime.monsters) != monsterCount then return error(3885, "private restored monster count mismatch") end if
@@ -550,6 +621,24 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateMonsterReference.oldEnemyNumber, maxClients, exportTable)
     privateMonsterReference.actor.owner = privateRestoreEnemy(runtime,
       privateMonsterReference.ownerNumber, maxClients, exportTable)
+    if privateMonsterReference.goalEntityNumber != -2 then
+      if privateMonsterReference.goalEntityNumber ==
+          privateMonsterReference.enemyNumber then
+        privateMonsterReference.actor.goalEntity = privateMonsterReference.actor.enemy
+      else
+        privateMonsterReference.actor.goalEntity = privateRestoreAIReference(runtime,
+          privateMonsterReference.goalEntityNumber, maxClients, exportTable)
+      end if
+    end if
+    if privateMonsterReference.moveTargetNumber != -2 then
+      if privateMonsterReference.moveTargetNumber ==
+          privateMonsterReference.enemyNumber then
+        privateMonsterReference.actor.moveTarget = privateMonsterReference.actor.enemy
+      else
+        privateMonsterReference.actor.moveTarget = privateRestoreAIReference(runtime,
+          privateMonsterReference.moveTargetNumber, maxClients, exportTable)
+      end if
+    end if
   end for
 
   itemCount = privatechecked.readLong(buffer, "private item count")

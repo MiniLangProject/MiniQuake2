@@ -10,6 +10,7 @@ import miniquake2.game.constants as medicgameconstants
 import miniquake2.game.weapons.constants as medicweaponconstants
 import miniquake2.qcommon.constants as medicqconstants
 import miniquake2.server.game_bridge as medicbridge
+import miniquake2.server.sound_events as medicsoundevents
 import std.math as medicmath
 
 function medicAssert(value, message)
@@ -180,7 +181,7 @@ medicHitIndex = findMedicName(medicServer.soundNames, "medic/medatck3.wav")
 medicHealIndex = findMedicName(medicServer.soundNames, "medic/medatck4.wav")
 medicRetractIndex = findMedicName(medicServer.soundNames, "medic/medatck5.wav")
 medicLaunchCount = 0; medicHitCount = 0; medicHealCount = 0; medicRetractCount = 0
-for each medicSound in medicServer.pendingSounds
+for each medicSound in medicsoundevents.pendingSnapshot(medicServer)
   if medicSound.soundIndex == medicLaunchIndex and
       medicSound.entity == medicActor.edict.state.number and
       medicSound.channel == medicgameconstants.CHAN_WEAPON then

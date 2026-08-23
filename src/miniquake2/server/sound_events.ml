@@ -9,7 +9,7 @@ import miniquake2.qcommon.types as sseqtypes
 import miniquake2.protocol.constants as ssepc
 import miniquake2.server.types as ssetypes
 
-const MAX_PENDING_SOUND_EVENTS = 256
+const MAX_PENDING_SOUND_EVENTS = 1024
 const MAX_SOUND_FRAGMENT_BYTES = 14
 
 function numeric(value)
@@ -61,8 +61,66 @@ function validateFields(hasEntity, entityNumber, channel, channelFlags, soundInd
   return true
 end function
 
+function validateAll(events)
+  if typeof(events) != "array" then return error(3919, "pending sound batch is not an array") end if
+  previousSerial = -1
+  for each event in events
+    if typeof(event) != "struct" or typeof(event.serial) != "int" or
+        event.serial <= previousSerial then
+      return error(3919, "pending sound ordering is malformed")
+    end if
+    validateFields(event.hasEntity, event.entity, event.channel,
+      event.channelFlags, event.soundIndex, event.volume, event.attenuation,
+      event.timeOffset, event.position)
+    previousSerial = event.serial
+  end for
+  return true
+end function
+
+// The live bridge owns one fixed-capacity array. Enqueue is O(1); a compact
+// owned view is made only once at the server-frame dispatch boundary.
+function pendingSnapshot(runtime)
+  count = runtime.pendingSoundCount
+  if count < 0 or count > MAX_PENDING_SOUND_EVENTS or
+      count > len(runtime.pendingSounds) then
+    return error(3922, "pending sound count is malformed")
+  end if
+  if count == 0 then return [] end if
+  output = array(count)
+  index = 0
+  while index < count
+    output[index] = runtime.pendingSounds[index]
+    index = index + 1
+  end while
+  return output
+end function
+
+function clearPending(runtime)
+  // Slots are overwritten on the next batch. Keeping the bounded stale
+  // references avoids an illegal void write into the runtime's struct-typed
+  // array and does not grow with session lifetime.
+  runtime.pendingSoundCount = 0
+  return true
+end function
+
+function restorePending(runtime, events)
+  if len(events) > MAX_PENDING_SOUND_EVENTS or len(events) > len(runtime.pendingSounds) then
+    return error(3918, "pending server sound queue is full")
+  end if
+  validateAll(events)
+  clearPending(runtime)
+  index = 0
+  while index < len(events)
+    runtime.pendingSounds[index] = events[index]
+    index = index + 1
+  end while
+  runtime.pendingSoundCount = len(events)
+  return true
+end function
+
 function enqueue(runtime, position, entity, channelFlags, soundIndex, volume, attenuation, timeOffset)
-  if len(runtime.pendingSounds) >= MAX_PENDING_SOUND_EVENTS then
+  if runtime.pendingSoundCount >= MAX_PENDING_SOUND_EVENTS or
+      runtime.pendingSoundCount >= len(runtime.pendingSounds) then
     return error(3918, "pending server sound queue is full")
   end if
   entityInfo = entityFields(entity)
@@ -74,7 +132,8 @@ function enqueue(runtime, position, entity, channelFlags, soundIndex, volume, at
   event = ssetypes.PendingSoundEvent(runtime.nextSoundSerial, entityInfo[0], entityInfo[1],
     channel, channelFlags, soundIndex, volume * 1.0, attenuation * 1.0,
     timeOffset * 1.0, ownedPosition)
-  runtime.pendingSounds = runtime.pendingSounds + [event]
+  runtime.pendingSounds[runtime.pendingSoundCount] = event
+  runtime.pendingSoundCount = runtime.pendingSoundCount + 1
   runtime.nextSoundSerial = runtime.nextSoundSerial + 1
   return event
 end function
@@ -101,15 +160,13 @@ function encode(event)
 end function
 
 function encodeAll(events)
-  fragments = []
-  previousSerial = -1
-  for each event in events
-    if typeof(event.serial) != "int" or event.serial <= previousSerial then
-      return error(3919, "pending sound ordering is malformed")
-    end if
-    fragments = fragments + [encode(event)]
-    previousSerial = event.serial
-  end for
+  validateAll(events)
+  fragments = array(len(events))
+  index = 0
+  while index < len(events)
+    fragments[index] = encode(events[index])
+    index = index + 1
+  end while
   return fragments
 end function
 
@@ -117,18 +174,31 @@ function packetize(fragments, maximumPayload)
   if typeof(maximumPayload) != "int" or maximumPayload < MAX_SOUND_FRAGMENT_BYTES then
     return error(3920, "sound packet payload capacity is too small")
   end if
-  packets = []
+  packets = array(len(fragments), void)
+  packetCount = 0
   buffer = sseqsz.alloc(maximumPayload)
   for each fragment in fragments
     if typeof(fragment) != "bytes" or len(fragment) < 3 or len(fragment) > maximumPayload then
       return error(3921, "malformed encoded sound fragment")
     end if
     if buffer.curSize + len(fragment) > maximumPayload then
-      packets = packets + [sseqsz.dataSlice(buffer)]
+      packets[packetCount] = sseqsz.dataSlice(buffer)
+      packetCount = packetCount + 1
       sseqsz.clear(buffer)
     end if
     sseqsz.writeBytes(buffer, fragment)
   end for
-  if buffer.curSize > 0 then packets = packets + [sseqsz.dataSlice(buffer)] end if
-  return packets
+  if buffer.curSize > 0 then
+    packets[packetCount] = sseqsz.dataSlice(buffer)
+    packetCount = packetCount + 1
+  end if
+  if packetCount == 0 then return [] end if
+  if packetCount == len(packets) then return packets end if
+  output = array(packetCount)
+  index = 0
+  while index < packetCount
+    output[index] = packets[index]
+    index = index + 1
+  end while
+  return output
 end function

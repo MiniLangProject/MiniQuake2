@@ -34,10 +34,13 @@ Reachable secondary fidget/locomotion callbacks, pain/death frame sounds,
 Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg explosion-entry
 frames execute live. Class-specific corpse bounds, stock organic/metallic gib
 inventories and the eight-explosion plus 14-gib terminal sequence are exported
-through real managed edicts and Protocol-34 effects; Private-Save v13 retains
+through real managed edicts and Protocol-34 effects; Private-Save v14 retains
 in-flight attack/reaction, held death-fire state, boss-refire/aim, shared
 Win32-random state, Medic ownership, live turret AI/cooldown state and dynamic
-gib records. Their MZ2
+gib records plus lost-sight/pursuit movement state. The shared monster movement
+path now ports `m_move.c` ground, step, partial-ground, fly/swim, water and
+dynamic-box collision behavior, and the original eight-marker PlayerTrail
+drives lost-sight course correction. Their MZ2
 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
 handoff. Attack sequences additionally execute their exact 3.19 movement
@@ -85,7 +88,7 @@ versioned private save format. Coupled turret rigs carry their bounds, team,
 target references, lost-sight state, reaction cooldown, live difficulty,
 shared-CRT rocket damage, exact rocket speed, positioned muzzle sound, crush
 knockback and Infantry driver-gib lifecycle through the integrated world
-runtime and Private-Save v13. Targeted Game-API `unicast`, `cprintf` and
+runtime and Private-Save v14. Targeted Game-API `unicast`, `cprintf` and
 `centerprintf` messages also
 reach exactly one transactional client UI handoff through bounded reliable or
 sequenced-unreliable queues. In addition, the bounded 2–8-client harness keeps
@@ -93,9 +96,14 @@ the detailed two-player DM/coop cases and adds a four-client signon,
 disconnect/reconnect, channel-preserving checkpoint, map-change and 500-frame
 steady-state gate. G10 includes manifest and asset/source exclusion, native
 Release/Debug gates, diagnostics,
-retail smoke, deterministic packaging, and a 20,000-frame retail session soak
-at 43.89 frames/s with zero packet rejects, a drained engine-command buffer and
-bounded handles/history. The accepted local host additionally passes a real
+retail smoke, deterministic packaging, a historical 20,000-frame retail
+session soak at 43.89 frames/s, a movement-enabled 5,000-frame `base1` soak at
+168.79 frames/s and a dense 500-frame `lab` soak at 48.15 frames/s, with zero
+packet rejects, drained sound/command queues and bounded handles/history. The
+Quake II near-first recursive hull algorithm runs on a fixed MiniLang stack;
+swept cached bounds reject remote inline brushes before transform/trace, and
+fixed sound/visibility storage removes full-array concatenation and repeated
+PVS/PHS decompression from the physical monster path. The accepted local host additionally passes a real
 window-to-fullscreen GL restart and native-device cinematic playback. Retail
 input hashes and results are recorded in
 `docs/RETAIL_VALIDATION.md`; the authoritative machine-readable status and

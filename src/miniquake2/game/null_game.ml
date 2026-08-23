@@ -301,6 +301,7 @@ function validateGameImport(imports)
   requireFunction(imports.args, "args")
   requireFunction(imports.addCommandString, "AddCommandString")
   requireFunction(imports.debugGraph, "DebugGraph")
+  requireFunction(imports.collisionWorldReady, "collisionWorldReady")
   return true
 end function
 
@@ -448,6 +449,8 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
   ngbaseq2.syncPlayers(activeBaseRuntime, playerContext)
   linkManagedEdicts()
+  ngbaseq2.initializeMonsterMovement(activeBaseRuntime, false)
+  ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
   mapLoaded = true
   currentMap = mapName
   currentSpawnPoint = spawnPoint
@@ -516,6 +519,7 @@ function restoreManagedImage(image)
   ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
   ngbaseq2.syncPlayers(activeBaseRuntime, playerContext)
   linkManagedEdicts()
+  ngbaseq2.initializeMonsterMovement(activeBaseRuntime, true)
   return true
 end function
 

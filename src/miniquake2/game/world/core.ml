@@ -284,14 +284,25 @@ function useTargets(world, entity, activator)
   return true
 end function
 
-function integrate(world, duration)
+function inline integrate(world, duration)
   if duration <= 0.0 then return true end if
   for each entity in world.entities
     if entity.inUse then
-      nextOrigin = gwvector.multiplyAdd(entity.origin, duration, entity.velocity)
-      nextAngles = gwvector.multiplyAdd(entity.angles, duration, entity.angularVelocity)
-      entity.origin = nextOrigin
-      entity.angles = nextAngles
+      velocity = entity.velocity
+      if velocity.x != 0.0 or velocity.y != 0.0 or velocity.z != 0.0 then
+        origin = entity.origin
+        origin.x = origin.x + duration * velocity.x
+        origin.y = origin.y + duration * velocity.y
+        origin.z = origin.z + duration * velocity.z
+      end if
+      angularVelocity = entity.angularVelocity
+      if angularVelocity.x != 0.0 or angularVelocity.y != 0.0 or
+          angularVelocity.z != 0.0 then
+        angles = entity.angles
+        angles.x = angles.x + duration * angularVelocity.x
+        angles.y = angles.y + duration * angularVelocity.y
+        angles.z = angles.z + duration * angularVelocity.z
+      end if
     end if
   end for
   return true

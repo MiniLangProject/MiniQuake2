@@ -11,7 +11,6 @@ import miniquake2.qcommon.cmd as commands
 import miniquake2.game.types as gt
 import miniquake2.game.constants as gc
 import miniquake2.collision.model as collision
-import miniquake2.format.bsp as bsp
 import miniquake2.format.constants as sgbformatconstants
 import miniquake2.format.binary as sgbformatbinary
 import miniquake2.server.types as st
@@ -293,16 +292,39 @@ function trace(start, mins, maxs, finish, passEntity, contentMask)
   best = adaptCollisionTraceWithEntity(context, worldResult, worldHit)
 
   // SV_ClipMoveToEntities: inline BSP edicts have their own hull headnode and
-  // are traced in model-local coordinates.  This is the physical collision
-  // boundary needed by doors, plats, walls and rotating brushes.
+  // are traced in model-local coordinates. SV_AreaEdicts first restricts the
+  // candidates to the swept hull bounds; the same scalar broad phase here is
+  // essential on maps with hundreds of doors and plats.
   if context.game is not void then
+    traceMinX = start.x + mins.x; traceMinY = start.y + mins.y
+    traceMinZ = start.z + mins.z
+    finishMinX = finish.x + mins.x; finishMinY = finish.y + mins.y
+    finishMinZ = finish.z + mins.z
+    if finishMinX < traceMinX then traceMinX = finishMinX end if
+    if finishMinY < traceMinY then traceMinY = finishMinY end if
+    if finishMinZ < traceMinZ then traceMinZ = finishMinZ end if
+    traceMaxX = start.x + maxs.x; traceMaxY = start.y + maxs.y
+    traceMaxZ = start.z + maxs.z
+    finishMaxX = finish.x + maxs.x; finishMaxY = finish.y + maxs.y
+    finishMaxZ = finish.z + maxs.z
+    if finishMaxX > traceMaxX then traceMaxX = finishMaxX end if
+    if finishMaxY > traceMaxY then traceMaxY = finishMaxY end if
+    if finishMaxZ > traceMaxZ then traceMaxZ = finishMaxZ end if
+    traceMinX = traceMinX - 1.0; traceMinY = traceMinY - 1.0
+    traceMinZ = traceMinZ - 1.0
+    traceMaxX = traceMaxX + 1.0; traceMaxY = traceMaxY + 1.0
+    traceMaxZ = traceMaxZ + 1.0
     index = 0
     while index < context.inlineBrushCount
       entity = context.inlineBrushes[index]
       eligible = entity.inUse and entity.solid == gc.SOLID_BSP and sameTraceEntity(entity, passEntity) != true
-      modelName = ""
-      if entity.state.modelIndex > 0 and entity.state.modelIndex < len(context.modelNames) then modelName = context.modelNames[entity.state.modelIndex] end if
-      inlineNumber = inlineModelNumber(modelName)
+      if eligible then
+        entityMins = entity.absoluteMins; entityMaxs = entity.absoluteMaxs
+        eligible = entityMaxs.x >= traceMinX and entityMins.x <= traceMaxX and
+          entityMaxs.y >= traceMinY and entityMins.y <= traceMaxY and
+          entityMaxs.z >= traceMinZ and entityMins.z <= traceMaxZ
+      end if
+      inlineNumber = context.inlineBrushModelNumbers[index]
       if eligible and inlineNumber >= 0 and inlineNumber < len(context.collision.map.models) then
         basis = sgbvector.angleVectors(entity.state.angles)
         localStart = traceToModel(start, entity.state.origin, basis)
@@ -336,10 +358,13 @@ function pointContents(point)
     index = 0
     while index < context.inlineBrushCount
       entity = context.inlineBrushes[index]
-      modelName = ""
-      if entity.state.modelIndex > 0 and entity.state.modelIndex < len(context.modelNames) then modelName = context.modelNames[entity.state.modelIndex] end if
-      inlineNumber = inlineModelNumber(modelName)
-      if entity.inUse and entity.solid == gc.SOLID_BSP and inlineNumber >= 0 and inlineNumber < len(context.collision.map.models) then
+      entityMins = entity.absoluteMins; entityMaxs = entity.absoluteMaxs
+      eligible = entity.inUse and entity.solid == gc.SOLID_BSP and
+        point.x >= entityMins.x and point.x <= entityMaxs.x and
+        point.y >= entityMins.y and point.y <= entityMaxs.y and
+        point.z >= entityMins.z and point.z <= entityMaxs.z
+      inlineNumber = context.inlineBrushModelNumbers[index]
+      if eligible and inlineNumber >= 0 and inlineNumber < len(context.collision.map.models) then
         basis = sgbvector.angleVectors(entity.state.angles)
         localPoint = traceToModel(point, entity.state.origin, basis)
         contents = contents | collision.pointContents(context.collision, localPoint, entity.headNode)
@@ -358,7 +383,7 @@ function inPVS(first, second)
   firstCluster = context.collision.map.leafs[firstLeaf].cluster
   secondCluster = context.collision.map.leafs[secondLeaf].cluster
   if firstCluster < 0 or secondCluster < 0 then return false end if
-  row = bsp.decompressVisibility(context.collision.map.visibility, firstCluster, 0)
+  row = collision.visibilityRow(context.collision, firstCluster, 0)
   visible = (row[secondCluster >> 3] & (1 << (secondCluster & 7))) != 0
   return visible and collision.areasConnected(context.collision, context.collision.map.leafs[firstLeaf].area, context.collision.map.leafs[secondLeaf].area)
 end function
@@ -371,7 +396,7 @@ function inPHS(first, second)
   firstCluster = context.collision.map.leafs[firstLeaf].cluster
   secondCluster = context.collision.map.leafs[secondLeaf].cluster
   if firstCluster < 0 or secondCluster < 0 then return false end if
-  row = bsp.decompressVisibility(context.collision.map.visibility, firstCluster, 1)
+  row = collision.visibilityRow(context.collision, firstCluster, 1)
   return (row[secondCluster >> 3] & (1 << (secondCluster & 7))) != 0
 end function
 
@@ -385,6 +410,11 @@ function areasConnected(first, second)
   context = requireActive("AreasConnected")
   if context.collision is void then return true end if
   return collision.areasConnected(context.collision, first, second)
+end function
+
+function collisionWorldReady()
+  context = requireActive("collisionWorldReady")
+  return context.collision is not void
 end function
 
 function transformedEntityBounds(entity)
@@ -432,11 +462,11 @@ function transformedEntityBounds(entity)
 end function
 
 function inlineBrushCacheIndex(context, entity)
-  index = 0
-  while index < context.inlineBrushCount
-    if context.inlineBrushes[index].state.number == entity.state.number then return index end if
-    index = index + 1
-  end while
+  number = entity.state.number
+  if number < 0 or number >= len(context.inlineBrushPositions) then return -1 end if
+  index = context.inlineBrushPositions[number] - 1
+  if index >= 0 and index < context.inlineBrushCount and
+      context.inlineBrushes[index].state.number == number then return index end if
   return -1
 end function
 
@@ -449,22 +479,72 @@ function updateInlineBrushCache(context, entity, linked)
   if entity.state.modelIndex > 0 and entity.state.modelIndex < len(context.modelNames) then
     modelName = context.modelNames[entity.state.modelIndex]
   end if
+  modelNumber = inlineModelNumber(modelName)
   eligible = linked and entity.inUse and entity.state.number > 0 and
-    entity.solid == gc.SOLID_BSP and inlineModelNumber(modelName) >= 0
+    entity.solid == gc.SOLID_BSP and modelNumber >= 0
   if eligible then
     if existing < 0 then
       if context.inlineBrushCount >= len(context.inlineBrushes) then
         return error(3935, "inline brush cache overflow")
       end if
       context.inlineBrushes[context.inlineBrushCount] = entity
+      context.inlineBrushModelNumbers[context.inlineBrushCount] = modelNumber
+      context.inlineBrushPositions[entity.state.number] = context.inlineBrushCount + 1
       context.inlineBrushCount = context.inlineBrushCount + 1
     else
       context.inlineBrushes[existing] = entity
+      context.inlineBrushModelNumbers[existing] = modelNumber
     end if
   else if existing >= 0 then
     last = context.inlineBrushCount - 1
-    if existing != last then context.inlineBrushes[existing] = context.inlineBrushes[last] end if
+    context.inlineBrushPositions[entity.state.number] = 0
+    if existing != last then
+      moved = context.inlineBrushes[last]
+      context.inlineBrushes[existing] = moved
+      context.inlineBrushModelNumbers[existing] = context.inlineBrushModelNumbers[last]
+      context.inlineBrushPositions[moved.state.number] = existing + 1
+    end if
     context.inlineBrushCount = last
+  end if
+  return true
+end function
+
+function triggerCacheIndex(context, entity)
+  number = entity.state.number
+  if number < 0 or number >= len(context.triggerPositions) then return -1 end if
+  index = context.triggerPositions[number] - 1
+  if index >= 0 and index < context.triggerCount and
+      context.triggerEdicts[index].state.number == number then return index end if
+  return -1
+end function
+
+// AREA_TRIGGERS is a linked spatial set in the original server. Keep an
+// allocation-free indexed set here as well so each walking monster does not
+// rescan every retail-map edict merely to touch nearby triggers.
+function updateTriggerCache(context, entity, linked)
+  existing = triggerCacheIndex(context, entity)
+  eligible = linked and entity.inUse and entity.state.number > 0 and
+    entity.solid == gc.SOLID_TRIGGER
+  if eligible then
+    if existing < 0 then
+      if context.triggerCount >= len(context.triggerEdicts) then
+        return error(3938, "trigger cache overflow")
+      end if
+      context.triggerEdicts[context.triggerCount] = entity
+      context.triggerPositions[entity.state.number] = context.triggerCount + 1
+      context.triggerCount = context.triggerCount + 1
+    else
+      context.triggerEdicts[existing] = entity
+    end if
+  else if existing >= 0 then
+    last = context.triggerCount - 1
+    context.triggerPositions[entity.state.number] = 0
+    if existing != last then
+      moved = context.triggerEdicts[last]
+      context.triggerEdicts[existing] = moved
+      context.triggerPositions[moved.state.number] = existing + 1
+    end if
+    context.triggerCount = last
   end if
   return true
 end function
@@ -503,18 +583,39 @@ end function
 
 function linkEntity(entity)
   sgbLinkContextHolder = requireActive("linkentity")
-  sgbLinkEntityHolder = entity
+  if typeof(entity) != "struct" then return error(3930, "transformed bounds require an Edict") end if
+  sgbLinkStateProbe = try(entity.state)
+  if sgbLinkStateProbe is error or typeof(sgbLinkStateProbe) != "struct" then
+    return error(3931, "transformed bounds require an Edict state")
+  end if
+  sgbLinkEntityHolder = gt.stabilizeEdict(entity)
   sgbLinkEntityHolder.linkCount = sgbLinkEntityHolder.linkCount + 1
-  sgbLinkTransformedHolder = transformedEntityBounds(sgbLinkEntityHolder)
-  sgbLinkAbsoluteMinsHolder = sgbLinkTransformedHolder[0]
-  sgbLinkAbsoluteMaxsHolder = sgbLinkTransformedHolder[1]
   sgbLinkMinsHolder = sgbLinkEntityHolder.mins
   sgbLinkMaxsHolder = sgbLinkEntityHolder.maxs
-  sgbLinkSizeHolder = qt.Vec3(sgbLinkMaxsHolder.x - sgbLinkMinsHolder.x,
-    sgbLinkMaxsHolder.y - sgbLinkMinsHolder.y, sgbLinkMaxsHolder.z - sgbLinkMinsHolder.z)
-  sgbLinkEntityHolder.absoluteMins = sgbLinkAbsoluteMinsHolder
-  sgbLinkEntityHolder.absoluteMaxs = sgbLinkAbsoluteMaxsHolder
-  sgbLinkEntityHolder.size = sgbLinkSizeHolder
+  sgbLinkAbsoluteMinsHolder = sgbLinkEntityHolder.absoluteMins
+  sgbLinkAbsoluteMaxsHolder = sgbLinkEntityHolder.absoluteMaxs
+  // Quake II rotates only SOLID_BSP bounds. BBOX monsters and ordinary
+  // triggers use a direct origin-plus-extents path, avoiding sixteen managed
+  // vector allocations on every successful AI step.
+  if sgbLinkEntityHolder.solid == gc.SOLID_BSP then
+    sgbLinkTransformedHolder = transformedEntityBounds(sgbLinkEntityHolder)
+    sgbLinkAbsoluteMinsHolder = sgbLinkTransformedHolder[0]
+    sgbLinkAbsoluteMaxsHolder = sgbLinkTransformedHolder[1]
+    sgbLinkEntityHolder.absoluteMins = sgbLinkAbsoluteMinsHolder
+    sgbLinkEntityHolder.absoluteMaxs = sgbLinkAbsoluteMaxsHolder
+  else
+    sgbLinkOriginHolder = sgbLinkEntityHolder.state.origin
+    sgbLinkAbsoluteMinsHolder.x = sgbLinkOriginHolder.x + sgbLinkMinsHolder.x - 1.0
+    sgbLinkAbsoluteMinsHolder.y = sgbLinkOriginHolder.y + sgbLinkMinsHolder.y - 1.0
+    sgbLinkAbsoluteMinsHolder.z = sgbLinkOriginHolder.z + sgbLinkMinsHolder.z - 1.0
+    sgbLinkAbsoluteMaxsHolder.x = sgbLinkOriginHolder.x + sgbLinkMaxsHolder.x + 1.0
+    sgbLinkAbsoluteMaxsHolder.y = sgbLinkOriginHolder.y + sgbLinkMaxsHolder.y + 1.0
+    sgbLinkAbsoluteMaxsHolder.z = sgbLinkOriginHolder.z + sgbLinkMaxsHolder.z + 1.0
+  end if
+  sgbLinkSizeHolder = sgbLinkEntityHolder.size
+  sgbLinkSizeHolder.x = sgbLinkMaxsHolder.x - sgbLinkMinsHolder.x
+  sgbLinkSizeHolder.y = sgbLinkMaxsHolder.y - sgbLinkMinsHolder.y
+  sgbLinkSizeHolder.z = sgbLinkMaxsHolder.z - sgbLinkMinsHolder.z
   // SV_LinkEdict publishes the BSP areas occupied by the entity. Monster
   // hearing uses these fields to respect closed area portals.
   sgbLinkEntityHolder.areaNumber = 0
@@ -523,13 +624,15 @@ function linkEntity(entity)
     collectLinkedEntityAreas(sgbLinkContextHolder, 0, sgbLinkAbsoluteMinsHolder,
       sgbLinkAbsoluteMaxsHolder, sgbLinkEntityHolder)
   end if
-  gt.stabilizeEdict(sgbLinkEntityHolder)
   updateInlineBrushCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)
+  updateTriggerCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)
   return true
 end function
 
 function unlinkEntity(entity)
-  updateInlineBrushCache(requireActive("unlinkentity"), entity, false)
+  context = requireActive("unlinkentity")
+  updateInlineBrushCache(context, entity, false)
+  updateTriggerCache(context, entity, false)
   entity.area.previous = void
   entity.area.next = void
   return true
@@ -541,20 +644,23 @@ function boxEdicts(mins, maxs, areaType)
   result = array(gc.MAXTOUCH)
   resultCount = 0
   index = 0
-  while index < context.game.numEdicts and resultCount < gc.MAXTOUCH
-    entity = context.game.edicts[index]
-    include = entity.inUse and entity.solid != gc.SOLID_NOT
+  candidateCount = context.game.numEdicts
+  if areaType == 2 then candidateCount = context.triggerCount end if
+  while index < candidateCount and resultCount < gc.MAXTOUCH
+    entity = void
+    if areaType == 2 then entity = context.triggerEdicts[index]
+    else entity = context.game.edicts[index]
+    end if
+    include = entity.inUse and entity.solid != gc.SOLID_NOT and entity.linkCount > 0
     // BaseQ2 AREA_SOLID is 1 and AREA_TRIGGERS is 2.
     if areaType == 1 and entity.solid == gc.SOLID_TRIGGER then include = false end if
-    if areaType == 2 and entity.solid != gc.SOLID_TRIGGER then include = false end if
     if include then
-      bounds = transformedEntityBounds(entity)
-      entityMinX = bounds[0].x
-      entityMinY = bounds[0].y
-      entityMinZ = bounds[0].z
-      entityMaxX = bounds[1].x
-      entityMaxY = bounds[1].y
-      entityMaxZ = bounds[1].z
+      entityMinX = entity.absoluteMins.x
+      entityMinY = entity.absoluteMins.y
+      entityMinZ = entity.absoluteMins.z
+      entityMaxX = entity.absoluteMaxs.x
+      entityMaxY = entity.absoluteMaxs.y
+      entityMaxZ = entity.absoluteMaxs.z
       overlap = entityMaxX >= mins.x and entityMinX <= maxs.x and entityMaxY >= mins.y and entityMinY <= maxs.y and entityMaxZ >= mins.z and entityMinZ <= maxs.z
       if overlap then result[resultCount] = entity; resultCount = resultCount + 1 end if
     end if
@@ -686,8 +792,11 @@ function createRuntime(maxClients)
     clients[i] = st.ClientSlot(0, "", "", 0, 0, 0, void)
     i = i + 1
   end while
-  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, [], 0, [], registry, commandSystem, void, void,
-    array(qc.MAX_EDICTS, void), 0)
+  pendingSoundStorage = array(ssoundevents.MAX_PENDING_SOUND_EVENTS, void)
+  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, pendingSoundStorage, 0, 0, [], registry, commandSystem, void, void,
+    array(qc.MAX_EDICTS, void), 0, array(qc.MAX_EDICTS, 0),
+    array(qc.MAX_EDICTS, -1),
+    array(qc.MAX_EDICTS, void), array(qc.MAX_EDICTS, 0), 0)
 end function
 
 function makeImports(context)
@@ -702,6 +811,6 @@ function makeImports(context)
     writeChar, writeByte, writeShort, writeLong, writeFloat, writeString, writePosition, writeDirection, writeAngle,
     tagMalloc, tagFree, freeTags,
     gameCvar, gameCvarSet, gameCvarForceSet,
-    argc, argv, args, addCommandString, debugGraph,
+    argc, argv, args, addCommandString, debugGraph, collisionWorldReady,
   )
 end function

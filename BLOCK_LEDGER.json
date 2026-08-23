@@ -3,7 +3,7 @@
   "project": "MiniQuake2",
   "baseline": "Quake II 3.19 / Protocol 34 / BSP38 / Game API v3 / Renderer API v3",
   "active_blocker_count": 8,
-  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, one-window CIN/PCX/map/DM2 chains, complete installed release-demo replay, live renderer restart, persistent key/config capture, skill-aware New Game, durable same/cross-map save slots, persistent boss2 and scripted-prop progression, zero explicitly simplified retail classes, 22 stock monster damage-emission profiles, real-command two-client DM/coop, independent bidirectional Protocol-34 wire, deterministic GL capture, and 10000-frame retail soak at 20.91 fps are green; runnable original-process interop, broader visual/event differential, hardware gamma, and manual device acceptance remain",
+  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, one-window CIN/PCX/map/DM2 chains, complete installed release-demo replay, live renderer restart, persistent key/config capture, skill-aware New Game, durable same/cross-map save slots, persistent boss2 and scripted-prop progression, collision-bound stock monster movement and PlayerTrail pursuit, zero explicitly simplified retail classes, 22 stock monster damage-emission profiles, real-command two-client DM/coop, independent bidirectional Protocol-34 wire, deterministic GL capture, historical 20000-frame retail soak at 43.89 fps, movement-enabled 5000-frame base1 soak at 168.79 fps, and dense-lab 500-frame soak at 48.15 fps are green; runnable original-process interop, broader visual/event differential, hardware gamma, and manual device acceptance remain",
   "release_blocking_gates": [
     {
       "id": "G01",
@@ -199,7 +199,7 @@
       "id": "G09",
       "plan_point": 9,
       "title": "complete baseq2 game matrix",
-      "status": "47_map_spawn_zero_simplified_retail_classes_stock_combat_profiles_exact_monster_sensing_player_noise_all_player_weapons_persistent_world_references_bosses_and_39_map_two_client_campaign_passed",
+      "status": "47_map_spawn_zero_simplified_retail_classes_stock_combat_profiles_collision_bound_monster_movement_playertrail_pursuit_exact_sensing_player_noise_all_player_weapons_persistent_world_references_bosses_and_39_map_two_client_campaign_passed",
       "evidence": [
         "src/miniquake2/game/base/",
         "src/miniquake2/game/gameplay/",
@@ -219,10 +219,13 @@
         "src/miniquake2/game/ai/props.ml",
         "src/miniquake2/game/ai/combat_profiles.ml",
         "src/miniquake2/game/ai/attack_sequences.ml",
+        "src/miniquake2/game/ai/move.ml",
+        "src/miniquake2/game/ai/trail.ml",
         "tests/gameplay_ai_boss_props_tests.ml",
         "tests/gameplay_ai_boss_props_persistence_tests.ml",
         "tests/gameplay_monster_combat_profiles_tests.ml",
         "tests/gameplay_monster_attack_sequence_tests.ml",
+        "tests/gameplay_ai_collision_movement_tests.ml",
         "tests/gameplay_player_scenarios.ml",
         "tests/gameplay_player_view_scenarios.ml",
         "tests/gameplay_powerups_stock_tests.ml",
@@ -275,7 +278,7 @@
       "id": "G10",
       "plan_point": 10,
       "title": "release compatibility, soak, performance, license, and asset closure",
-      "status": "retail_soak_and_aggregate_performance_passed_external_closure_pending",
+      "status": "retail_soak_physical_ai_trace_and_aggregate_performance_passed_external_closure_pending",
       "evidence": [
         "build.ps1",
         "scripts/package.ps1",
@@ -299,6 +302,8 @@
         "tests/runtime_campaign_matrix_tests.ml",
         "tests/runtime_campaign_session_reliable_queue_tests.ml",
         "src/miniquake2/runtime/soak.ml",
+        "src/miniquake2/collision/model.ml",
+        "src/miniquake2/server/game_bridge.ml",
         "tests/runtime_session_soak_tests.ml",
         "scripts/session_soak.ps1",
         "docs/RETAIL_VALIDATION.md"

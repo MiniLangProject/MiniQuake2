@@ -78,7 +78,12 @@ while bossPropSaveBody.activity == "commander-drop-wait" and bossPropDropFrames 
 end while
 bossPropSaveAssert(bossPropSaveBody.activity == "commander-idle" and
   bossPropSaveBody.moveType == bosspropsaveconstants.MOVETYPE_TOSS and
-  bossPropSaveBody.edict.state.origin.z == 18.0, "restored commander drop continues")
+  bossPropSaveBody.edict.state.origin.z == 18.0,
+  "restored commander drop continues: activity=" + bossPropSaveBody.activity +
+    " movetype=" + bossPropSaveBody.moveType +
+    " z=" + bossPropSaveBody.edict.state.origin.z +
+    " nextthink=" + bossPropSaveBody.nextThink +
+    " worldtime=" + bossPropSaveRuntime.world.time)
 
 bossPropSaveContext = bossPropSaveRuntime.aiContext
 bossPropSaveAssert(bosspropsavemonster.MonsterUse(bossPropSaveBoss, void, void, bossPropSaveContext),

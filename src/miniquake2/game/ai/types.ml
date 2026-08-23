@@ -29,6 +29,7 @@ struct MonsterInfo
   searchTime
   attackFinished
   lastSighting
+  savedGoal
   trailTime
   attackState
   lefty
@@ -102,6 +103,16 @@ struct AIActor
   teleportTime
   noisePrimary
   noiseSecondary
+  groundEntity
+  groundLinkCount
+  waterLevel
+  waterType
+  velocity
+  movementInitialized
+  pursuitGoal
+  timestamp
+  triggerProxy
+  enemyVisible
 end struct
 
 struct AIContext
@@ -138,6 +149,12 @@ struct AIContext
   playSound
   tempEntity
   deathEffect
+  moveTrace
+  pointContents
+  linkActor
+  touchActorTriggers
+  trailPickFirst
+  trailPickNext
 end struct
 
 struct TargetSelection
@@ -170,9 +187,10 @@ end function
 
 function defaultMonsterInfo()
   lastSighting = [0.0, 0.0, 0.0]
+  savedGoal = [0.0, 0.0, 0.0]
   return MonsterInfo(
     void, 0, 1.0, 0, 0.0, 0.0, 0.0, 0.0,
-    lastSighting, 0.0, gaiconstants.AS_STRAIGHT, 0, 0,
+    lastSighting, savedGoal, 0.0, gaiconstants.AS_STRAIGHT, 0, 0,
     void, void, void, void, void, void, void, void, void, void
   )
 end function
@@ -194,6 +212,7 @@ function createActor(number, className)
   maxs = [16.0, 16.0, 32.0]
   info = defaultMonsterInfo()
   gaiAttackAimHolder = gaiqtypes.Vec3(0.0, 0.0, 0.0)
+  gaiVelocityHolder = gaiqtypes.Vec3(0.0, 0.0, 0.0)
   actor = AIActor(
     edict, className, "", mins, maxs,
     100, 100, -40, 200, 25.0, 20.0, 0.0,
@@ -202,7 +221,8 @@ function createActor(number, className)
     "", "", "", "", void, void, void, void, void, void, void,
     info, void, void, "created", 0, 0, 0, 0, "none",
     false, "none", "", 0.0, false, number, 0.0,
-    gaiAttackAimHolder, false, 0, 0.0, void, void
+    gaiAttackAimHolder, false, 0, 0.0, void, void,
+    void, 0, 0, 0, gaiVelocityHolder, false, void, 0.0, void, false
   )
   actor.edict = edict
   gtypes.stabilizeEdict(actor.edict)
@@ -225,6 +245,7 @@ function defaultContext()
     void, void, -1000, void, -1000, void, -1000,
     0.0, 0.0, 0.0, 0,
     void, void, void, void,
-    void, void, void, void, void, void, void, void, void, void, void, void, void
+    void, void, void, void, void, void, void, void, void, void, void, void, void,
+    void, void, void, void, void, void
   )
 end function

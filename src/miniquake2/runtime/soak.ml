@@ -94,7 +94,7 @@ function runOwned(session, frameLimit, handlesBefore)
         "/" + (session.client.packetsSent + session.server.packetsSent) +
         " bridge-logs=" + len(session.server.bridgeRuntime.logs) +
         " command-log=" + len(session.server.networkRuntime.commandLog) +
-        " pending-sounds=" + len(session.server.bridgeRuntime.pendingSounds) +
+        " pending-sounds=" + session.server.bridgeRuntime.pendingSoundCount +
         " map-commands=" + queuedMapCommands + " load-menus=" + queuedLoadMenus
     end if
   end while

@@ -3,7 +3,11 @@ package miniquake2.game.ai.core
 
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.types as gaitypes
+import miniquake2.qcommon.constants as gaiqconstants
+import miniquake2.qcommon.types as gaiqtypes
 import std.math as gaimath
+
+aiRunCourseScratch = gaiqtypes.Vec3(0.0, 0.0, 0.0)
 
 function vectorX(value)
   if typeof(value) == "struct" then return value.x end if
@@ -41,6 +45,12 @@ function vectorToYaw(value)
   return yaw
 end function
 
+function inline scalarToYaw(x, y)
+  yaw = gaimath.radToDeg(gaimath.atan2(y, x))
+  if yaw < 0.0 then yaw = yaw + 360.0 end if
+  return yaw
+end function
+
 function angleMod(value)
   result = value % 360.0
   if result < 0.0 then result = result + 360.0 end if
@@ -53,6 +63,22 @@ function directionTo(first, second)
     vectorY(second.edict.state.origin) - vectorY(first.edict.state.origin),
     vectorZ(second.edict.state.origin) - vectorZ(first.edict.state.origin)
   ]
+end function
+
+function inline copyOriginToArray(target, origin)
+  target[0] = vectorX(origin)
+  target[1] = vectorY(origin)
+  target[2] = vectorZ(origin)
+  return target
+end function
+
+function pursuitGoal(actor)
+  if actor.pursuitGoal is void then
+    actor.pursuitGoal = gaitypes.createActor(-1, "ai_pursuit_goal")
+    actor.pursuitGoal.isMonster = false
+    actor.pursuitGoal.viewHeight = 0.0
+  end if
+  return actor.pursuitGoal
 end function
 
 function range(first, second)
@@ -194,7 +220,7 @@ function FoundTarget(actor, context)
     actor.lightLevel = 128
   end if
   actor.showHostile = context.time + 1.0
-  actor.info.lastSighting = [vectorX(actor.enemy.edict.state.origin), vectorY(actor.enemy.edict.state.origin), vectorZ(actor.enemy.edict.state.origin)]
+  copyOriginToArray(actor.info.lastSighting, actor.enemy.edict.state.origin)
   actor.info.trailTime = context.time
   if actor.combatTarget == "" then
     HuntTarget(actor, context)
@@ -320,6 +346,7 @@ function DispatchAttackState(actor, context, enemyYaw)
 end function
 
 function ai_checkattack(actor, distance, context)
+  actor.enemyVisible = false
   // Stock g_ai.c hunts a player_noise for at most five seconds.
   if actor.goalEntity is not void then
     if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then return false end if
@@ -361,9 +388,10 @@ function ai_checkattack(actor, distance, context)
   end if
   actor.showHostile = context.time + 1.0
   enemyVisible = visible(actor, actor.enemy, context)
+  actor.enemyVisible = enemyVisible
   if enemyVisible then
     actor.info.searchTime = context.time + 5.0
-    actor.info.lastSighting = [vectorX(actor.enemy.edict.state.origin), vectorY(actor.enemy.edict.state.origin), vectorZ(actor.enemy.edict.state.origin)]
+    copyOriginToArray(actor.info.lastSighting, actor.enemy.edict.state.origin)
   end if
   enemyRange = range(actor, actor.enemy)
   enemyYaw = vectorToYaw(directionTo(actor, actor.enemy))
@@ -385,15 +413,180 @@ function ai_run_slide(actor, distance, context)
 end function
 
 function ai_run(actor, distance, context)
-  if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then return moveToGoal(actor, distance, context) end if
+  if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then
+    return moveToGoal(actor, distance, context)
+  end if
+
+  if (actor.info.aiFlags & gaiconstants.AI_SOUND_TARGET) != 0 and
+      actor.enemy is not void then
+    deltaX = vectorX(actor.edict.state.origin) - vectorX(actor.enemy.edict.state.origin)
+    deltaY = vectorY(actor.edict.state.origin) - vectorY(actor.enemy.edict.state.origin)
+    deltaZ = vectorZ(actor.edict.state.origin) - vectorZ(actor.enemy.edict.state.origin)
+    if gaimath.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) < 64.0 then
+      actor.info.aiFlags = actor.info.aiFlags |
+        gaiconstants.AI_STAND_GROUND | gaiconstants.AI_TEMP_STAND_GROUND
+      if typeof(actor.info.stand) == "function" then actor.info.stand(actor, context) end if
+      return true
+    end if
+    moveToGoal(actor, distance, context)
+    if FindTarget(actor, context) != true then return true end if
+  end if
+
   if ai_checkattack(actor, distance, context) then return true end if
-  if actor.info.attackState == gaiconstants.AS_SLIDING then return ai_run_slide(actor, distance, context) end if
-  if actor.enemy is not void and visible(actor, actor.enemy, context) then
+  // The active player_noise was already approached above. Do not feed that
+  // fake target into lost-sight trail pursuit while it remains valid.
+  if (actor.info.aiFlags & gaiconstants.AI_SOUND_TARGET) != 0 then return true end if
+  if actor.info.attackState == gaiconstants.AS_SLIDING then
+    return ai_run_slide(actor, distance, context)
+  end if
+  if actor.enemyVisible then
     moveToGoal(actor, distance, context)
     actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_LOST_SIGHT
-    actor.info.lastSighting = [vectorX(actor.enemy.edict.state.origin), vectorY(actor.enemy.edict.state.origin), vectorZ(actor.enemy.edict.state.origin)]
+    copyOriginToArray(actor.info.lastSighting, actor.enemy.edict.state.origin)
     actor.info.trailTime = context.time
     return true
   end if
-  return moveToGoal(actor, distance, context)
+
+  if context.cooperative and FindTarget(actor, context) then return true end if
+  if actor.info.searchTime != 0.0 and
+      context.time > actor.info.searchTime + 20.0 then
+    moveToGoal(actor, distance, context)
+    actor.info.searchTime = 0.0
+    return true
+  end if
+
+  savedGoalEntity = actor.goalEntity
+  temporaryGoal = pursuitGoal(actor)
+  actor.goalEntity = temporaryGoal
+  isNewGoal = false
+  if (actor.info.aiFlags & gaiconstants.AI_LOST_SIGHT) == 0 then
+    actor.info.aiFlags = actor.info.aiFlags |
+      gaiconstants.AI_LOST_SIGHT | gaiconstants.AI_PURSUIT_LAST_SEEN
+    actor.info.aiFlags = actor.info.aiFlags &
+      ~(gaiconstants.AI_PURSUE_NEXT | gaiconstants.AI_PURSUE_TEMP)
+    isNewGoal = true
+  end if
+
+  marker = void
+  if (actor.info.aiFlags & gaiconstants.AI_PURSUE_NEXT) != 0 then
+    actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_PURSUE_NEXT
+    actor.info.searchTime = context.time + 5.0
+    if (actor.info.aiFlags & gaiconstants.AI_PURSUE_TEMP) != 0 then
+      actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_PURSUE_TEMP
+      actor.info.lastSighting[0] = actor.info.savedGoal[0]
+      actor.info.lastSighting[1] = actor.info.savedGoal[1]
+      actor.info.lastSighting[2] = actor.info.savedGoal[2]
+      isNewGoal = true
+    else if (actor.info.aiFlags & gaiconstants.AI_PURSUIT_LAST_SEEN) != 0 then
+      actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_PURSUIT_LAST_SEEN
+      if typeof(context.trailPickFirst) == "function" then
+        marker = context.trailPickFirst(actor)
+      end if
+    else if typeof(context.trailPickNext) == "function" then
+      marker = context.trailPickNext(actor)
+    end if
+    if marker is not void then
+      copyOriginToArray(actor.info.lastSighting, marker.edict.state.origin)
+      actor.info.trailTime = marker.timestamp
+      setActorYaw(actor, actorYaw(marker))
+      actor.idealYaw = actorYaw(marker)
+      isNewGoal = true
+    end if
+  end if
+
+  actorX = vectorX(actor.edict.state.origin)
+  actorY = vectorY(actor.edict.state.origin)
+  actorZ = vectorZ(actor.edict.state.origin)
+  sightDeltaX = actorX - actor.info.lastSighting[0]
+  sightDeltaY = actorY - actor.info.lastSighting[1]
+  sightDeltaZ = actorZ - actor.info.lastSighting[2]
+  sightDistance = gaimath.sqrt(sightDeltaX * sightDeltaX +
+    sightDeltaY * sightDeltaY + sightDeltaZ * sightDeltaZ)
+  if sightDistance <= distance then
+    actor.info.aiFlags = actor.info.aiFlags | gaiconstants.AI_PURSUE_NEXT
+    distance = sightDistance
+  end if
+
+  temporaryOrigin = temporaryGoal.edict.state.origin
+  temporaryOrigin.x = actor.info.lastSighting[0]
+  temporaryOrigin.y = actor.info.lastSighting[1]
+  temporaryOrigin.z = actor.info.lastSighting[2]
+
+  if isNewGoal and typeof(context.moveTrace) == "function" then
+    courseTrace = context.moveTrace(actor.edict.state.origin, actor.edict.mins,
+      actor.edict.maxs, temporaryOrigin, actor, gaiqconstants.MASK_PLAYERSOLID)
+    if courseTrace.fraction < 1.0 then
+      goalDeltaX = temporaryOrigin.x - actorX
+      goalDeltaY = temporaryOrigin.y - actorY
+      goalDeltaZ = temporaryOrigin.z - actorZ
+      goalDistance = gaimath.sqrt(goalDeltaX * goalDeltaX +
+        goalDeltaY * goalDeltaY + goalDeltaZ * goalDeltaZ)
+      centerFraction = courseTrace.fraction
+      correctionDistance = goalDistance * ((centerFraction + 1.0) * 0.5)
+      if correctionDistance > 0.0 then
+        yaw = scalarToYaw(goalDeltaX, goalDeltaY)
+        setActorYaw(actor, yaw); actor.idealYaw = yaw
+        yawRadians = gaimath.degToRad(yaw)
+        forwardX = gaimath.cos(yawRadians)
+        forwardY = gaimath.sin(yawRadians)
+        rightX = -forwardY
+        rightY = forwardX
+        courseTarget = aiRunCourseScratch
+        courseTarget.x = actorX + forwardX * correctionDistance - rightX * 16.0
+        courseTarget.y = actorY + forwardY * correctionDistance - rightY * 16.0
+        courseTarget.z = actorZ
+        leftTrace = context.moveTrace(actor.edict.state.origin, actor.edict.mins,
+          actor.edict.maxs, courseTarget, actor, gaiqconstants.MASK_PLAYERSOLID)
+        leftFraction = leftTrace.fraction
+        leftX = courseTarget.x; leftY = courseTarget.y; leftZ = courseTarget.z
+        courseTarget.x = actorX + forwardX * correctionDistance + rightX * 16.0
+        courseTarget.y = actorY + forwardY * correctionDistance + rightY * 16.0
+        courseTarget.z = actorZ
+        rightTrace = context.moveTrace(actor.edict.state.origin, actor.edict.mins,
+          actor.edict.maxs, courseTarget, actor, gaiqconstants.MASK_PLAYERSOLID)
+        rightFraction = rightTrace.fraction
+        rightXTarget = courseTarget.x; rightYTarget = courseTarget.y
+        rightZTarget = courseTarget.z
+        normalizedCenter = (goalDistance * centerFraction) / correctionDistance
+        selectedX = 0.0; selectedY = 0.0; selectedZ = 0.0
+        selected = false
+        if leftFraction >= normalizedCenter and leftFraction > rightFraction then
+          if leftFraction < 1.0 then
+            partialDistance = correctionDistance * leftFraction * 0.5
+            leftX = actorX + forwardX * partialDistance - rightX * 16.0
+            leftY = actorY + forwardY * partialDistance - rightY * 16.0
+            leftZ = actorZ
+          end if
+          selectedX = leftX; selectedY = leftY; selectedZ = leftZ
+          selected = true
+        else if rightFraction >= normalizedCenter and rightFraction > leftFraction then
+          if rightFraction < 1.0 then
+            partialDistance = correctionDistance * rightFraction * 0.5
+            rightXTarget = actorX + forwardX * partialDistance + rightX * 16.0
+            rightYTarget = actorY + forwardY * partialDistance + rightY * 16.0
+            rightZTarget = actorZ
+          end if
+          selectedX = rightXTarget; selectedY = rightYTarget
+          selectedZ = rightZTarget; selected = true
+        end if
+        if selected then
+          actor.info.savedGoal[0] = actor.info.lastSighting[0]
+          actor.info.savedGoal[1] = actor.info.lastSighting[1]
+          actor.info.savedGoal[2] = actor.info.lastSighting[2]
+          actor.info.aiFlags = actor.info.aiFlags | gaiconstants.AI_PURSUE_TEMP
+          temporaryOrigin.x = selectedX; temporaryOrigin.y = selectedY
+          temporaryOrigin.z = selectedZ
+          actor.info.lastSighting[0] = selectedX
+          actor.info.lastSighting[1] = selectedY
+          actor.info.lastSighting[2] = selectedZ
+          selectedYaw = scalarToYaw(selectedX - actorX, selectedY - actorY)
+          setActorYaw(actor, selectedYaw); actor.idealYaw = selectedYaw
+        end if
+      end if
+    end if
+  end if
+
+  result = moveToGoal(actor, distance, context)
+  actor.goalEntity = savedGoalEntity
+  return result
 end function

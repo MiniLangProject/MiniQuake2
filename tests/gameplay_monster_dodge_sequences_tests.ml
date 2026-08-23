@@ -73,7 +73,7 @@ while dodgeFrameIndex < len(dodgeFrames)
 end while
 dodgeAssert((dodgeActor.info.aiFlags & dodgeconstants.AI_DUCKED) == 0 and
   dodgeActor.edict.maxs.z == dodgeActor.maxs[2], "duck exit restores collision bounds")
-dodgeAssert(len(dodgeServer.pendingSounds) == 0, "duck move emits no synthetic sound")
+dodgeAssert(dodgeServer.pendingSoundCount == 0, "duck move emits no synthetic sound")
 
 dodgeApi.clientDisconnect(dodgeClient)
 dodgeApi.shutdown()

@@ -107,8 +107,9 @@ struct Edict
 end struct
 
 // Function-valued form of game_import_t. Variadic C print functions take one
-// already-formatted MiniLang string; that is the only intentional signature
-// adaptation in the managed boundary.
+// already-formatted MiniLang string. collisionWorldReady is the sole appended
+// MiniQuake2 extension: asset-free test/runtime graphs can distinguish their
+// intentional lack of a BSP hull from an ordinary unobstructed trace.
 struct GameImport
   bprintf
   dprintf
@@ -154,6 +155,7 @@ struct GameImport
   args
   addCommandString
   debugGraph
+  collisionWorldReady
 end struct
 
 // Function-valued form of game_export_t. The last four members retain the

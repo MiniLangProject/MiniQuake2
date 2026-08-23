@@ -4,6 +4,70 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-23 collision-bound monster movement and pursuit acceptance run
+
+The Release product and all 153 native test programs were freshly rebuilt and
+executed after porting the remaining shared Quake II 3.19 monster movement and
+lost-sight pursuit machinery:
+
+```powershell
+.\build.ps1 -Configuration Release -SkipPreflight
+.\build.ps1 -Configuration Release -PreflightOnly
+```
+
+Both commands exited with code 0. The strict gate passed MiniLang syntax for
+349 files, exact manifest membership for 392 maintained files and verifier
+self-tests. `ai/move.ml` now supplies the collision-bound `SV_movestep`,
+`SV_StepDirection`, `SV_NewChaseDir`, `M_MoveToGoal`, `M_walkmove`, ground,
+bottom, water and drop-to-floor behavior. Live GameImport traces combine the
+retail BSP and inline-brush hulls with swept dynamic `SOLID_BBOX` edicts, link
+successful moves and touch triggers through indexed inline-brush and trigger
+sets. The BSP collision hot path ports `CM_RecursiveHullCheck` as a near-first,
+fraction-pruned iterative DFS on fixed per-map scalar stacks; only stationary
+position tests retain a fixed leaf scratch table, and an original-style brush
+check generation suppresses duplicate clips. The server mirrors
+`SV_AreaEdicts` by rejecting remote inline brushes against cached swept bounds
+before allocating a basis or entering their hull. The hottest brush clip is
+explicitly inline and ordinary BBOX link bounds are updated in place. An
+explicit engine/game readiness bit keeps the supported asset-free harness
+deterministic while every retail BSP remains on the physical path.
+
+The AI run path now uses the original eight-marker `PlayerTrail`,
+`AI_LOST_SIGHT`, `AI_PURSUIT_LAST_SEEN`, `AI_PURSUE_NEXT` and
+`AI_PURSUE_TEMP` transitions, search timeout, left/right course traces and
+cooperative reacquisition. Private-Save v14 retains v7-v13 readers and restores
+the pursuit timestamps, last sighting, saved goal, temporary goal, yaw,
+partial-ground and velocity state. Focused regressions prove floor/step/drop,
+fly/swim boundaries, dynamic blockers, a closed inline BSP door, trigger touch,
+trail selection and mid-pursuit restore.
+
+Sound delivery now uses fixed 1,024-event storage, indexed counts and
+preallocated per-client plans instead of array concatenation. PHS-filtered
+events are consumed as intentional no-plans, while ordinary unreliable sounds
+behind a full reliable fragment are dropped with Quake II datagram semantics
+rather than retained as false backpressure. The dedicated routing regressions
+and dense `lab` runtime both finish with zero pending sounds.
+
+The two final 5,000-frame synthetic soak passes sustained 3,912.44 and 3,859.94
+fps with 10,027/10,027 packets each, zero pending sounds, zero rejects and
+process-handle deltas of 3/0. The movement-enabled installed-retail `base1`
+gate completed 5,000 frames through server frame 5,015 in 29,621.971 ms
+(168.79 fps), with 10,385/10,385 packets, zero rejects, a drained command
+buffer and zero pending sounds. The dense installed-retail `lab` gate completed
+500 frames in 10,384.3258 ms (48.15 fps), with 1,136/1,136 packets, zero
+rejects and zero pending sounds. This supersedes both the initial 13.48-fps
+physical-movement measurement and the intermediate 6.70-fps all-inline-brush
+trace measurement.
+
+The final product also passed the installed classic retail inventory and
+session gates with 47 maps, 36,404 raw entities, 20,935 live edicts, zero
+skipped classes, a 39/39 physical-input map matrix and this persistent campaign
+result:
+
+```text
+campaign: maps=39 changes=38 client-state=4 spawn-count=39 steps=753 packets=3690
+```
+
 ## 2026-08-23 monster sensing and PlayerNoise acceptance run
 
 The Release product and all 152 native test programs were freshly rebuilt and

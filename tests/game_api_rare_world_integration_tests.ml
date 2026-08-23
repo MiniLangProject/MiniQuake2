@@ -6,6 +6,7 @@ import miniquake2.game.constants as rareintegrationgameconstants
 import miniquake2.game.world.constants as rareintegrationconstants
 import miniquake2.game.world.core as rareintegrationworld
 import miniquake2.server.game_bridge as rareintegrationbridge
+import miniquake2.server.sound_events as rareintegrationsounds
 
 function requireTrue(value, label)
   if value != true then return error(9991, label) end if
@@ -177,7 +178,7 @@ requireTrue(rareTurretRuntime.randomState.seed == 2745024 and
 rareRocketSoundIndex = rareNameIndex(rareTurretServer.soundNames,
   "weapons/rocklf1a.wav")
 rarePositionedLaunches = 0
-for each rareTurretSound in rareTurretServer.pendingSounds
+for each rareTurretSound in rareintegrationsounds.pendingSnapshot(rareTurretServer)
   if rareTurretSound.soundIndex == rareRocketSoundIndex and
       rareTurretSound.entity == rareLiveBreach.number and
       rareTurretSound.channel == rareintegrationgameconstants.CHAN_WEAPON and
@@ -204,7 +205,7 @@ requireTrue(rareWorldClassCount(rareTurretRuntime, "monster_gib") -
   "turret driver death emits the Infantry stock seven-gib inventory")
 rareDeathSoundIndex = rareNameIndex(rareTurretServer.soundNames, "misc/udeath.wav")
 rareDeathSounds = 0
-for each rareTurretDeathSound in rareTurretServer.pendingSounds
+for each rareTurretDeathSound in rareintegrationsounds.pendingSnapshot(rareTurretServer)
   if rareTurretDeathSound.soundIndex == rareDeathSoundIndex and
       rareTurretDeathSound.entity == rareLiveDriver.number and
       rareTurretDeathSound.channel == rareintegrationgameconstants.CHAN_VOICE then

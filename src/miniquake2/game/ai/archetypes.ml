@@ -133,6 +133,16 @@ function ReinitializeMonster(actor, context)
   actor.attackAim = gaiqtypes.Vec3(0.0, 0.0, 0.0)
   actor.attackAimValid = false
   actor.attackCycles = 0
+  actor.groundEntity = void
+  actor.groundLinkCount = 0
+  actor.waterLevel = 0
+  actor.waterType = 0
+  actor.velocity = gaiqtypes.Vec3(0.0, 0.0, 0.0)
+  actor.movementInitialized = false
+  actor.pursuitGoal = void
+  actor.timestamp = 0.0
+  actor.triggerProxy = void
+  actor.enemyVisible = false
 
   actor.edict.inUse = true
   actor.edict.solid = gconstants.SOLID_BBOX

@@ -55,6 +55,10 @@ function recordDebug(text)
   return true
 end function
 
+function collisionUnavailable()
+  return false
+end function
+
 function makeImports()
   return t.GameImport(
     noop, recordDebug, noop, noop,
@@ -67,7 +71,7 @@ function makeImports()
     noop, noop, noop,
     noop, noop, noop,
     noop, noop, noop,
-    noop, noop
+    noop, noop, collisionUnavailable
   )
 end function
 

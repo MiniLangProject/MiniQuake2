@@ -15,6 +15,9 @@ import miniquake2.game.integration.pusher as ibpusher
 import miniquake2.game.ai.archetypes as ibarchetypes
 import miniquake2.game.ai.monster as ibmonster
 import miniquake2.game.ai.core as ibgaicore
+import miniquake2.game.ai.move as ibaimove
+import miniquake2.game.ai.trail as ibaitrail
+import miniquake2.game.ai.props as ibaiprops
 import miniquake2.game.ai.constants as ibaiconstants
 import miniquake2.game.ai.combat_profiles as ibaicombat
 import miniquake2.game.ai.attack_sequences as ibattackseq
@@ -57,6 +60,23 @@ struct IntegratedBaseQ2
   playerContext
   exportTable
   randomState
+  playerTrail
+  collisionWorldReady
+  dynamicSolidEdicts
+  dynamicSolidCount
+  dynamicSolidFrame
+  dynamicSolidNumEdicts
+end struct
+
+struct IntegratedDynamicClip
+  hit
+  fraction
+  enter
+  exit
+  normalAxis
+  normalSign
+  startSolid
+  allSolid
 end struct
 
 activeIntegrationRuntime = void
@@ -80,6 +100,10 @@ infantryDeathAimYaw = [5.0, 15.0, 25.0, 35.0, 40.0, 45.0,
 aiTraceStartScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
 aiTraceEndScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
 aiTraceZeroScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+aiMoveDynamicClip = IntegratedDynamicClip(false, 1.0, 0.0, 1.0, -1,
+  0.0, false, false)
+aiTriggerMinsScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+aiTriggerMaxsScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
 
 function compactIntegratedValues(values, count)
   if count <= 0 then return [] end if
@@ -230,6 +254,280 @@ function aiAreasConnected(first, second)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return true end if
   return activeIntegrationRuntime.playerContext.imports.areasConnected(first, second)
+end function
+
+function aiTrailPickFirst(actor)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void then return void end if
+  return ibaitrail.PickFirst(runtime.playerTrail, actor, aiVisible)
+end function
+
+function aiTrailPickNext(actor)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void then return void end if
+  return ibaitrail.PickNext(runtime.playerTrail, actor)
+end function
+
+function inline clipAIDynamicAxis(clip, startValue, finishValue, minimum,
+    maximum, axis)
+  delta = finishValue - startValue
+  if delta == 0.0 then
+    // A hull travelling exactly along a box face is touching, not entering.
+    return startValue > minimum and startValue < maximum
+  end if
+  near = (minimum - startValue) / delta
+  far = (maximum - startValue) / delta
+  normalSign = -1.0
+  if near > far then
+    swap = near; near = far; far = swap; normalSign = 1.0
+  end if
+  if near > clip.enter then
+    clip.enter = near; clip.normalAxis = axis; clip.normalSign = normalSign
+  end if
+  if far < clip.exit then clip.exit = far end if
+  return clip.enter <= clip.exit
+end function
+
+// Allocation-free swept AABB test used only for non-BSP SOLID_BBOX edicts.
+// The engine import already owns world and inline-brush collision.
+function clipAIDynamicEdict(start, mins, maxs, finish, target, bestFraction)
+  clip = aiMoveDynamicClip
+  clip.hit = false; clip.fraction = 1.0
+  clip.enter = 0.0; clip.exit = 1.0
+  clip.normalAxis = -1; clip.normalSign = 0.0
+  targetOrigin = target.state.origin
+  minimumX = targetOrigin.x + target.mins.x - maxs.x
+  minimumY = targetOrigin.y + target.mins.y - maxs.y
+  minimumZ = targetOrigin.z + target.mins.z - maxs.z
+  maximumX = targetOrigin.x + target.maxs.x - mins.x
+  maximumY = targetOrigin.y + target.maxs.y - mins.y
+  maximumZ = targetOrigin.z + target.maxs.z - mins.z
+  clip.startSolid = start.x > minimumX and start.x < maximumX and
+    start.y > minimumY and start.y < maximumY and
+    start.z > minimumZ and start.z < maximumZ
+  finishInside = finish.x > minimumX and finish.x < maximumX and
+    finish.y > minimumY and finish.y < maximumY and
+    finish.z > minimumZ and finish.z < maximumZ
+  clip.allSolid = clip.startSolid and finishInside
+  if clipAIDynamicAxis(clip, start.x, finish.x, minimumX, maximumX, 0) != true or
+      clipAIDynamicAxis(clip, start.y, finish.y, minimumY, maximumY, 1) != true or
+      clipAIDynamicAxis(clip, start.z, finish.z, minimumZ, maximumZ, 2) != true then
+    return clip
+  end if
+  if clip.startSolid then clip.fraction = 0.0
+  else
+    clip.fraction = clip.enter
+    // Moving away from a face that the hull merely touches is not a hit.
+    if clip.fraction <= 0.0 and clip.exit <= 0.0 then return clip end if
+  end if
+  if clip.fraction < 0.0 or clip.fraction > 1.0 or
+      (not clip.startSolid and clip.fraction >= bestFraction) then return clip end if
+  clip.hit = true
+  return clip
+end function
+
+// Rebuild at most once per server frame. A retail map can expose 800+ edicts,
+// while only players and live monsters normally use SOLID_BBOX. Keeping this
+// fixed-capacity list turns every subsequent monster trace from an all-edict
+// scan into a compact, allocation-free hot loop.
+function refreshAIDynamicSolids(runtime)
+  if runtime is void or runtime.exportTable is void then
+    if runtime is not void then runtime.dynamicSolidCount = 0 end if
+    return 0
+  end if
+  exportTable = runtime.exportTable
+  count = 0
+  index = 1
+  while index < exportTable.numEdicts
+    target = exportTable.edicts[index]
+    if target.inUse and target.solid == ibgconstants.SOLID_BBOX then
+      runtime.dynamicSolidEdicts[count] = target
+      count = count + 1
+    end if
+    index = index + 1
+  end while
+  runtime.dynamicSolidCount = count
+  runtime.dynamicSolidFrame = runtime.aiContext.frameNumber
+  runtime.dynamicSolidNumEdicts = exportTable.numEdicts
+  return count
+end function
+
+function integratedAITrace(start, mins, maxs, finish, ignore, mask)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then
+    return ibwpcore.clearTrace(start, mins, maxs, finish, ignore, mask)
+  end if
+  passEdict = void
+  if ignore is not void then
+    passProbe = try(ignore.edict)
+    if typeof(passProbe) == "struct" then passEdict = passProbe
+    else passEdict = ignore
+    end if
+  end if
+  trace = runtime.playerContext.imports.trace(start, mins, maxs, finish,
+    passEdict, mask)
+  if trace.fraction == 0.0 or (mask & ibqconstants.CONTENTS_MONSTER) == 0 or
+      runtime.exportTable is void then return trace end if
+
+  passNumber = -1
+  passOwnerNumber = -1
+  if passEdict is not void then
+    passNumber = passEdict.state.number
+    passOwnerProbe = try(passEdict.owner.state.number)
+    if typeof(passOwnerProbe) == "int" then passOwnerNumber = passOwnerProbe end if
+  end if
+  exportTable = runtime.exportTable
+  if runtime.dynamicSolidFrame != runtime.aiContext.frameNumber or
+      runtime.dynamicSolidNumEdicts != exportTable.numEdicts then
+    refreshAIDynamicSolids(runtime)
+  end if
+  index = 0
+  while index < runtime.dynamicSolidCount
+    target = runtime.dynamicSolidEdicts[index]
+    eligible = target.inUse and target.solid == ibgconstants.SOLID_BBOX and
+      target.state.number != passNumber
+    if eligible and (target.serverFlags & ibgconstants.SVF_DEADMONSTER) != 0 and
+        (mask & ibqconstants.CONTENTS_DEADMONSTER) == 0 then eligible = false end if
+    if eligible and passEdict is not void then
+      targetOwnerProbe = try(target.owner.state.number)
+      if typeof(targetOwnerProbe) == "int" and targetOwnerProbe == passNumber then
+        eligible = false
+      end if
+      if target.state.number == passOwnerNumber then eligible = false end if
+    end if
+    if eligible then
+      candidate = clipAIDynamicEdict(start, mins, maxs, finish, target,
+        trace.fraction)
+      if candidate.hit then
+        priorStartSolid = trace.startSolid
+        trace.allSolid = candidate.allSolid
+        trace.startSolid = priorStartSolid or candidate.startSolid
+        trace.fraction = candidate.fraction
+        trace.endPosition = ibqtypes.Vec3(
+          start.x + (finish.x - start.x) * candidate.fraction,
+          start.y + (finish.y - start.y) * candidate.fraction,
+          start.z + (finish.z - start.z) * candidate.fraction)
+        normal = ibqtypes.Vec3(0.0, 0.0, 0.0)
+        if candidate.normalAxis == 0 then normal.x = candidate.normalSign
+        else if candidate.normalAxis == 1 then normal.y = candidate.normalSign
+        else if candidate.normalAxis == 2 then normal.z = candidate.normalSign
+        end if
+        trace.plane = ibqtypes.Plane(normal, 0.0, 0, 0)
+        trace.contents = ibqconstants.CONTENTS_MONSTER
+        trace.entity = target
+      end if
+    end if
+    index = index + 1
+  end while
+  return trace
+end function
+
+function integratedAIPointContents(point)
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then
+    return 0
+  end if
+  return activeIntegrationRuntime.playerContext.imports.pointContents(point)
+end function
+
+function integratedAILinkActor(actor)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then return false end if
+  runtime.playerContext.imports.linkEntity(actor.edict)
+  actor.areaNumber = actor.edict.areaNumber
+  return true
+end function
+
+function integratedAITouchTriggers(actor)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void or actor.health <= 0 then
+    return 0
+  end if
+  origin = actor.edict.state.origin
+  minimum = aiTriggerMinsScratch
+  maximum = aiTriggerMaxsScratch
+  minimum.x = origin.x + actor.edict.mins.x
+  minimum.y = origin.y + actor.edict.mins.y
+  minimum.z = origin.z + actor.edict.mins.z
+  maximum.x = origin.x + actor.edict.maxs.x
+  maximum.y = origin.y + actor.edict.maxs.y
+  maximum.z = origin.z + actor.edict.maxs.z
+  candidates = runtime.playerContext.imports.boxEdicts(minimum, maximum, 2)
+  if len(candidates) == 0 then return 0 end if
+  proxy = actor.triggerProxy
+  if proxy is void then
+    proxy = ibwtypes.createEntity(actor.edict.state.number, actor.className)
+    actor.triggerProxy = proxy
+  end if
+  proxy.inUse = actor.edict.inUse
+  proxy.origin = actor.edict.state.origin
+  proxy.angles = actor.edict.state.angles
+  proxy.velocity.x = actor.velocity.x
+  proxy.velocity.y = actor.velocity.y
+  proxy.velocity.z = actor.velocity.z
+  proxy.mins = actor.edict.mins; proxy.maxs = actor.edict.maxs
+  proxy.health = actor.health; proxy.maxHealth = actor.maxHealth
+  proxy.mass = actor.mass; proxy.flags = actor.flags
+  proxy.serverFlags = actor.edict.serverFlags | ibgconstants.SVF_MONSTER
+  proxy.isClient = false
+  touched = 0
+  for each candidateEdict in candidates
+    if candidateEdict.inUse and candidateEdict.state.number != actor.edict.state.number then
+      trigger = ibworld.findByNumber(runtime.world, candidateEdict.state.number)
+      if trigger is not void and ibworld.touchEntity(runtime.world, trigger, proxy) then
+        touched = touched + 1
+      end if
+    end if
+  end for
+  actor.edict.state.origin.x = proxy.origin.x
+  actor.edict.state.origin.y = proxy.origin.y
+  actor.edict.state.origin.z = proxy.origin.z
+  actor.edict.state.angles.x = proxy.angles.x
+  actor.edict.state.angles.y = proxy.angles.y
+  actor.edict.state.angles.z = proxy.angles.z
+  actor.velocity.x = proxy.velocity.x
+  actor.velocity.y = proxy.velocity.y
+  actor.velocity.z = proxy.velocity.z
+  return touched
+end function
+
+function integratedAIWalkMove(actor, yaw, distance)
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void then return false end if
+  if activeIntegrationRuntime.playerContext is void or
+      activeIntegrationRuntime.collisionWorldReady != true then
+    // Component-only tests may deliberately detach GameImport, and supported
+    // asset-free sessions deliberately have no BSP hull. Retain their
+    // deterministic transform boundary; every retail runtime uses m_move.c.
+    radians = ibmath.degToRad(yaw)
+    actor.edict.state.origin.x = actor.edict.state.origin.x +
+      ibmath.cos(radians) * distance
+    actor.edict.state.origin.y = actor.edict.state.origin.y +
+      ibmath.sin(radians) * distance
+    return true
+  end if
+  return ibaimove.WalkMove(actor, yaw, distance,
+    activeIntegrationRuntime.aiContext)
+end function
+
+function integratedAIMoveToGoal(actor, distance)
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void then return false end if
+  if activeIntegrationRuntime.playerContext is void or
+      activeIntegrationRuntime.collisionWorldReady != true then
+    if actor.goalEntity is void then return false end if
+    actor.idealYaw = ibgaicore.vectorToYaw(
+      ibgaicore.directionTo(actor, actor.goalEntity))
+    ibgaicore.ChangeYaw(actor)
+    return integratedAIWalkMove(actor, actor.edict.state.angles.y, distance)
+  end if
+  return ibaimove.MoveToGoal(actor, distance,
+    activeIntegrationRuntime.aiContext)
 end function
 
 function integratedAISound(actor, soundName, channel, attenuation)
@@ -472,6 +770,14 @@ function configureAI(context)
   context.nextRandomInteger = integratedRandomInteger
   context.findDeadMonster = integratedFindDeadMonster
   context.reactionFrameEvent = integratedReactionFrameEvent
+  context.moveTrace = integratedAITrace
+  context.pointContents = integratedAIPointContents
+  context.linkActor = integratedAILinkActor
+  context.touchActorTriggers = integratedAITouchTriggers
+  context.walkMove = integratedAIWalkMove
+  context.moveToGoal = integratedAIMoveToGoal
+  context.trailPickFirst = aiTrailPickFirst
+  context.trailPickNext = aiTrailPickNext
   return context
 end function
 
@@ -533,6 +839,7 @@ function integratedSpawnMonster(className, parent)
   ibBossActorHolder.activity = "boss-successor"
   ibBossActorHolder.nextThink = ibBossRuntimeHolder.aiContext.time + 0.8
   ibgametypes.stabilizeEdict(ibBossActorHolder.edict)
+  prepareMonsterRuntimeState(ibBossActorHolder)
   ibBossRuntimeHolder.monsters = ibBossRuntimeHolder.monsters + [ibBossActorHolder]
   if ibBossNumber >= ibBossRuntimeHolder.world.nextEntityNumber then ibBossRuntimeHolder.world.nextEntityNumber = ibBossNumber + 1 end if
 
@@ -550,6 +857,7 @@ function integratedSpawnMonster(className, parent)
     ibBossImportsHolder = ibBossRuntimeHolder.playerContext.imports
     ibBossImportsHolder.setModel(ibBossActorHolder.edict, ibBossActorHolder.model)
     ibBossImportsHolder.linkEntity(ibBossActorHolder.edict)
+    ibaimove.InitializeActor(ibBossActorHolder, ibBossRuntimeHolder.aiContext)
   end if
   return ibBossActorHolder
 end function
@@ -1526,6 +1834,22 @@ function installWorldSpawn(entity, world)
   return entity
 end function
 
+function prepareMonsterRuntimeState(actor)
+  if actor.pursuitGoal is void then
+    pursuitGoal = ibaitypes.createActor(-2000 - actor.edict.state.number,
+      "ai_pursuit_goal")
+    pursuitGoal.isMonster = false
+    pursuitGoal.isClient = false
+    pursuitGoal.viewHeight = 0.0
+    actor.pursuitGoal = pursuitGoal
+  end if
+  if actor.triggerProxy is void then
+    actor.triggerProxy = ibwtypes.createEntity(actor.edict.state.number,
+      actor.className)
+  end if
+  return actor
+end function
+
 function create(spawnResult)
   global activeIntegrationRuntime
   world = ibworld.createWorld(void)
@@ -1587,10 +1911,15 @@ function create(spawnResult)
   if activeIntegrationRuntime is not void and activeIntegrationRuntime.randomState is not void then
     ibCreateRandomStateHolder = activeIntegrationRuntime.randomState
   end if
+  playerTrail = ibaitrail.create(true)
+  dynamicSolidEdicts = array(ibqconstants.MAX_EDICTS)
   runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void,
-    ibCreateRandomStateHolder)
+    ibCreateRandomStateHolder, playerTrail, false, dynamicSolidEdicts, 0, -1, -1)
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
+  for each preparedActor in runtime.monsters
+    prepareMonsterRuntimeState(preparedActor)
+  end for
   installTurretRigs(runtime)
   installPropTargetProxies(runtime)
   ibpusher.assembleTeams(runtime.world)
@@ -1754,6 +2083,34 @@ function bindRestoredEngineModels(runtime, exportTable, imports)
   return bindEngineModelsWithMode(runtime, exportTable, imports, false)
 end function
 
+// m_move/g_monster startup is delayed until the GameImport collision bridge
+// has the retail BSP and inline models linked. Restores re-establish transient
+// ground/water references without altering the persisted transform.
+function initializeMonsterMovement(runtime, restoring)
+  initializedCount = 0
+  for each actor in runtime.monsters
+    if ibaiprops.isProp(actor) then
+      // boss3_stand and commander_body are scripted model state machines,
+      // not locomoting monsters; their authored origins are authoritative.
+      actor.movementInitialized = true
+    else if actor.edict.inUse and
+        (actor.spawnFlags & ibaiconstants.SPAWNFLAG_TRIGGER_SPAWN) == 0 then
+      if restoring then
+        actor.movementInitialized = true
+        if (actor.flags & (ibaiconstants.FL_FLY | ibaiconstants.FL_SWIM)) == 0 then
+          ibaimove.M_CheckGround(actor, runtime.aiContext)
+        end if
+        ibaimove.M_CategorizePosition(actor, runtime.aiContext)
+      else
+        ibaimove.InitializeActor(actor, runtime.aiContext)
+      end if
+      initializedCount = initializedCount + 1
+    else actor.movementInitialized = true
+    end if
+  end for
+  return initializedCount
+end function
+
 function findWorldByNumber(runtime, number)
   return ibworld.findByNumber(runtime.world, number)
 end function
@@ -1868,7 +2225,9 @@ end function
 
 function syncPlayers(runtime, playerContext)
   runtime.playerContext = playerContext
+  runtime.collisionWorldReady = playerContext.imports.collisionWorldReady()
   runtime.weaponContext.deathmatch = playerContext.deathmatch
+  runtime.playerTrail.active = not playerContext.deathmatch
   sightClient = void
   for each player in playerContext.players
     actor = findAIPlayer(runtime, player.edict.state.number)
@@ -1890,6 +2249,24 @@ function syncPlayers(runtime, playerContext)
   end for
   runtime.aiContext.sightClient = sightClient
   return len(runtime.aiPlayers)
+end function
+
+function updatePlayerTrail(runtime, playerContext)
+  if runtime.playerTrail.active != true then return 0 end if
+  lastSpot = ibaitrail.LastSpot(runtime.playerTrail)
+  if lastSpot is void then return 0 end if
+  added = 0
+  for each player in playerContext.players
+    if player.edict.inUse and player.persistent.connected and player.health > 0 and
+        player.respawn.spectator != true then
+      actor = findAIPlayer(runtime, player.edict.state.number)
+      if actor is not void and aiVisible(actor, lastSpot) != true then
+        if ibaitrail.Add(runtime.playerTrail, player.edict.state.oldOrigin,
+            runtime.world.time) then added = added + 1 end if
+      end if
+    end if
+  end for
+  return added
 end function
 
 function playerForGameplay(runtime, gameplayPlayer)
@@ -3369,6 +3746,7 @@ function runPlayerGameplayFrame(runtime, playerContext)
       end if
     end if
   end for
+  updatePlayerTrail(runtime, playerContext)
   return true
 end function
 

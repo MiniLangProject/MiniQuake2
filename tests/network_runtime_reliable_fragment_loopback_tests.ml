@@ -86,7 +86,7 @@ while receivedSounds < 256 and attempt < 128
 end while
 fragmentLoopAssert(receivedSounds == 256 and
   maximumSoundTail > nrfloop_pc.RELIABLE_BUFFER_SIZE and
-  len(session.server.bridgeRuntime.pendingSounds) == 0,
+  session.server.bridgeRuntime.pendingSoundCount == 0,
   "large reliable sound batch was not delivered over UDP fragments")
 
 // Three download chunks are requested in one reliable client payload.  The

@@ -3,10 +3,12 @@ import miniquake2.game.ai.archetypes as gaiarchetypes
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
 import miniquake2.game.ai.monster as gaimonster
+import miniquake2.game.ai.trail as gaitrail
 import miniquake2.game.ai.types as gaitypes
 import miniquake2.game.base.types as btypes
 import miniquake2.game.constants as gameconstants
 import miniquake2.game.gameplay.types as gptypes
+import miniquake2.qcommon.types as gaiqtypes
 import std.string as gaistring
 
 walkDistances = []
@@ -16,6 +18,7 @@ usedTargetCount = 0
 droppedItemCount = 0
 visibilityEnabled = true
 clearShotEnabled = true
+lostTrailMarker = void
 
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9700, name + ": values differ") end if
@@ -68,6 +71,31 @@ end function
 
 function areasConnected(first, second)
   return true
+end function
+
+function pickLostTrailFirst(actor)
+  global lostTrailMarker
+  return lostTrailMarker
+end function
+
+function pickLostTrailNext(actor)
+  global lostTrailMarker
+  return lostTrailMarker
+end function
+
+function courseCorrectionTrace(start, mins, maxs, finish, actor, mask)
+  fraction = 0.25
+  if finish.y < -0.1 then fraction = 0.9
+  else if finish.y > 0.1 then fraction = 0.2
+  end if
+  plane = gaiqtypes.Plane(gaiqtypes.Vec3(1.0, 0.0, 0.0), 0.0, 0, 0)
+  surface = gaiqtypes.CollisionSurface("course", 0, 0)
+  endPosition = gaiqtypes.Vec3(
+    start.x + (finish.x - start.x) * fraction,
+    start.y + (finish.y - start.y) * fraction,
+    start.z + (finish.z - start.z) * fraction)
+  return gaiqtypes.Trace(false, false, fraction, endPosition, plane, surface,
+    0, void)
 end function
 
 function useTargets(actor, activator)
@@ -353,12 +381,92 @@ function testLifecyclePainDeath(registry)
   return true
 end function
 
+function testPlayerTrailAndLostSight()
+  global visibilityEnabled, lostTrailMarker
+  trail = gaitrail.create(true)
+  gaitrail.Add(trail, gaiqtypes.Vec3(40.0, 0.0, 0.0), 1.0)
+  gaitrail.Add(trail, gaiqtypes.Vec3(80.0, 20.0, 0.0), 2.0)
+  gaitrail.Add(trail, gaiqtypes.Vec3(120.0, 20.0, 0.0), 3.0)
+  picker = gaitypes.createActor(70, "monster_picker")
+  picker.info.trailTime = 1.5
+  marker = gaitrail.PickNext(trail, picker)
+  assertEqual(marker.timestamp, 2.0, "trail next timestamp")
+  assertEqual(marker.edict.state.origin.x, 80.0, "trail next origin")
+  assertTrue(marker.edict.state.angles.y > 0.0, "trail marker heading")
+
+  context = makeContext()
+  context.time = 10.0
+  context.trailPickFirst = pickLostTrailFirst
+  context.trailPickNext = pickLostTrailNext
+  visibilityEnabled = false
+  hunter = gaitypes.createActor(71, "monster_hunter")
+  gaimonster.installDefaultCallbacks(hunter, true, false)
+  enemy = gaitypes.createClientTarget(72)
+  enemy.edict.state.origin = gaiqtypes.Vec3(200.0, 0.0, 0.0)
+  hunter.enemy = enemy
+  hunter.goalEntity = enemy
+  hunter.info.lastSighting[0] = 100.0
+  hunter.info.lastSighting[1] = 0.0
+  hunter.info.lastSighting[2] = 0.0
+  originalGoal = hunter.goalEntity
+  assertTrue(gaicore.ai_run(hunter, 10.0, context), "lost-sight first run")
+  assertTrue((hunter.info.aiFlags & gaiconstants.AI_LOST_SIGHT) != 0,
+    "lost-sight flag")
+  assertTrue((hunter.info.aiFlags & gaiconstants.AI_PURSUIT_LAST_SEEN) != 0,
+    "last-seen pursuit flag")
+  assertTrue(nativeRawValue(hunter.goalEntity) == nativeRawValue(originalGoal),
+    "temporary pursuit goal was not restored")
+
+  lostTrailMarker = marker
+  hunter.info.aiFlags = hunter.info.aiFlags | gaiconstants.AI_PURSUE_NEXT
+  assertTrue(gaicore.ai_run(hunter, 10.0, context), "trail marker pursuit")
+  assertEqual(hunter.info.trailTime, 2.0, "pursuit marker timestamp")
+  assertEqual(hunter.info.lastSighting[0], 80.0, "pursuit marker x")
+  assertTrue((hunter.info.aiFlags & gaiconstants.AI_PURSUIT_LAST_SEEN) == 0,
+    "last-seen pursuit consumed")
+
+  correction = gaitypes.createActor(73, "monster_course")
+  gaimonster.installDefaultCallbacks(correction, true, false)
+  correction.enemy = enemy
+  correction.goalEntity = enemy
+  correction.edict.state.origin = gaiqtypes.Vec3(0.0, 0.0, 0.0)
+  correction.edict.mins = gaiqtypes.Vec3(-16.0, -16.0, -24.0)
+  correction.edict.maxs = gaiqtypes.Vec3(16.0, 16.0, 32.0)
+  correction.info.lastSighting[0] = 100.0
+  correction.info.lastSighting[1] = 0.0
+  correction.info.lastSighting[2] = 0.0
+  courseContext = makeContext()
+  courseContext.time = 10.0
+  courseContext.moveTrace = courseCorrectionTrace
+  visibilityEnabled = false
+  assertTrue(gaicore.ai_run(correction, 10.0, courseContext),
+    "course-corrected pursuit")
+  assertTrue((correction.info.aiFlags & gaiconstants.AI_PURSUE_TEMP) != 0,
+    "temporary course flag")
+  assertEqual(correction.info.savedGoal[0], 100.0, "saved pursuit goal")
+  assertTrue(correction.info.lastSighting[1] < 0.0,
+    "left course correction was not selected")
+
+  timedOut = gaitypes.createActor(74, "monster_timeout")
+  gaimonster.installDefaultCallbacks(timedOut, true, false)
+  timedOut.enemy = enemy
+  timedOut.goalEntity = enemy
+  timedOut.info.searchTime = 1.0
+  courseContext.time = 21.1
+  courseContext.moveTrace = void
+  gaicore.ai_run(timedOut, 4.0, courseContext)
+  assertEqual(timedOut.info.searchTime, 0.0, "pursuit search timeout")
+  visibilityEnabled = true
+  return true
+end function
+
 function main(args)
-  print "MiniQuake2 gameplay AI/monster scenarios starting: 4"
+  print "MiniQuake2 gameplay AI/monster scenarios starting: 5"
   registry = testArchetypesAndSpawn()
   testMoveFrameGolden()
   testSightMovementAndAttack()
   testLifecyclePainDeath(registry)
-  print "MiniQuake2 gameplay AI/monster scenarios passed: 4"
+  testPlayerTrailAndLostSight()
+  print "MiniQuake2 gameplay AI/monster scenarios passed: 5"
   return 0
 end function

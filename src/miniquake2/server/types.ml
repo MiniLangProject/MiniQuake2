@@ -56,6 +56,7 @@ struct ServerRuntime
   pendingUnicasts
   nextUnicastSerial
   pendingSounds
+  pendingSoundCount
   nextSoundSerial
   logs
   cvars
@@ -64,4 +65,9 @@ struct ServerRuntime
   game
   inlineBrushes
   inlineBrushCount
+  inlineBrushPositions
+  inlineBrushModelNumbers
+  triggerEdicts
+  triggerPositions
+  triggerCount
 end struct

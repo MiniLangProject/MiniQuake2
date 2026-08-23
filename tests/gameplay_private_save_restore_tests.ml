@@ -75,8 +75,21 @@ monster.info.attackState = privaterestoreaiconstants.AS_MISSILE
 monster.attackAim = privaterestoreqtypes.Vec3(81.0, -12.0, 47.0); monster.attackAimValid = true
 monster.attackCycles = 3
 monster.info.aiFlags = monster.info.aiFlags | privaterestoreaiconstants.AI_HOLD_FRAME
+monster.info.aiFlags = monster.info.aiFlags |
+  privaterestoreaiconstants.AI_LOST_SIGHT | privaterestoreaiconstants.AI_PURSUE_TEMP
+monster.info.searchTime = 7.25; monster.info.idleTime = 8.5
+monster.info.lastSighting[0] = 301.0; monster.info.lastSighting[1] = -42.0
+monster.info.lastSighting[2] = 19.0
+monster.info.savedGoal[0] = 512.0; monster.info.savedGoal[1] = 16.0
+monster.info.savedGoal[2] = 24.0
+monster.info.trailTime = 6.75; monster.idealYaw = 135.0
+monster.info.lefty = 1; monster.showHostile = 9.25
+monster.velocity = privaterestoreqtypes.Vec3(11.0, 12.0, 13.0)
 saveMedic = findPrivateSaveMonster(runtime, "monster_medic")
 savePatient = findPrivateSaveMonster(runtime, "monster_gunner")
+monster.enemy = runtime.aiPlayers[0]
+monster.goalEntity = monster.enemy
+monster.moveTarget = savePatient
 saveMedic.enemy = savePatient
 saveMedic.oldEnemy = runtime.aiPlayers[0]
 saveMedic.info.aiFlags = saveMedic.info.aiFlags | privaterestoreaiconstants.AI_MEDIC
@@ -148,6 +161,22 @@ restoreAssert(restoredMonster.attackCount == 7 and restoredMonster.meleeCount ==
   restoredMonster.attackCycles == 3 and
   (restoredMonster.info.aiFlags & privaterestoreaiconstants.AI_HOLD_FRAME) != 0,
   "in-flight monster attack/held-frame sequence restored")
+restoreAssert((restoredMonster.info.aiFlags & privaterestoreaiconstants.AI_LOST_SIGHT) != 0 and
+  (restoredMonster.info.aiFlags & privaterestoreaiconstants.AI_PURSUE_TEMP) != 0 and
+  restoredMonster.info.searchTime == 7.25 and restoredMonster.info.idleTime == 8.5 and
+  restoredMonster.info.lastSighting[0] == 301.0 and
+  restoredMonster.info.lastSighting[1] == -42.0 and
+  restoredMonster.info.lastSighting[2] == 19.0 and
+  restoredMonster.info.savedGoal[0] == 512.0 and
+  restoredMonster.info.savedGoal[1] == 16.0 and
+  restoredMonster.info.savedGoal[2] == 24.0 and
+  restoredMonster.info.trailTime == 6.75 and restoredMonster.idealYaw == 135.0 and
+  restoredMonster.info.lefty == 1 and restoredMonster.showHostile == 9.25 and
+  restoredMonster.velocity.x == 11.0 and restoredMonster.velocity.y == 12.0 and
+  restoredMonster.velocity.z == 13.0 and restoredMonster.enemy is not void and
+  nativeRawValue(restoredMonster.goalEntity) == nativeRawValue(restoredMonster.enemy) and
+  restoredMonster.moveTarget is not void and restoredMonster.moveTarget.className == "monster_gunner",
+  "private v14 restores lost-sight pursuit and movement state")
 restoredMedic = findPrivateSaveMonster(restoredRuntime, "monster_medic")
 restoredPatient = findPrivateSaveMonster(restoredRuntime, "monster_gunner")
 restoreAssert(restoredMedic.activity == "medic-cable" and
@@ -158,7 +187,7 @@ restoreAssert(restoredMedic.activity == "medic-cable" and
   restoredMedic.oldEnemy.edict.state.number == 1 and
   nativeRawValue(restoredPatient.owner) == nativeRawValue(restoredMedic) and
   (restoredPatient.info.aiFlags & privaterestoreaiconstants.AI_RESURRECTING) != 0,
-  "private v13 restores Medic cable references and AI flags")
+  "private v14 restores Medic cable references and AI flags")
 restoreAssert(restoredRuntime.items[0].hidden and restoredRuntime.items[0].nextThink == 12.5 and restoredRuntime.items[0].count == 9, "item respawn state restored")
 restoredPlayer = restoredContext.players[0]
 restoreAssert(restoredPlayer.health == 73 and restoredPlayer.maxHealth == 125, "player health restored")

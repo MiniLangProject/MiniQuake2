@@ -87,10 +87,20 @@ Medic corpse scans, Parasite taps/scratch loops, Jorg steps and Tank run start.
 Stock terminal deaths apply the original class-specific corpse bounds, export
 the original organic and metallic gib-model inventories as timed physics
 edicts, and reproduce the eight-step boss explosion sequence before the final
-14-part breakup. Private-Save v13 resumes attacks and active reactions at their
-next frame, preserves held death-fire bursts, live refire, jump, saved-aim,
-shared-random, Medic ownership and live turret sight/reaction state, and
-round-trips live dynamic gib records. The original class-level sight/search callback inventory, sound
+14-part breakup. Ground, step, partial-ground, fly/swim and water-boundary
+movement now follows the original collision-bound `m_move.c` path against BSP,
+inline brushes and dynamic boxes. Lost enemies are pursued through the original
+eight-marker PlayerTrail and left/right course correction rather than a direct
+transform. The physical retail path sustains 168.79 unpaced server frames/s in
+the accepted 5,000-frame `base1` gate and 48.15 frames/s across 500 frames in
+the dense `lab` map. Swept traces use Quake II's near-first BSP hull walk on a
+fixed stack, and inline brushes are rejected by cached swept bounds before any
+model transform or hull trace. Fixed sound storage also avoids array
+concatenation and drains transient/PHS-filtered events without backlog.
+Private-Save v14 resumes attacks and active reactions at their next
+frame, preserves held death-fire bursts, live refire, jump, saved-aim,
+shared-random, Medic ownership, live turret sight/reaction state and all
+lost-sight pursuit fields, and round-trips live dynamic gib records. The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
 Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.
@@ -138,9 +148,10 @@ that evidence across 39 campaign BSPs, 51 goal-confirmed transitions and 39
 two-player checkpoints. v10 introduced length-prefixed retail entity text and
 dynamic world references; v11 added in-flight boss aim/refire plus Win32
 random-stream state; v12 added transient monster AI, old-enemy and owner
-references required to resume a Medic cable safely; v13 retains v7-v12 readers
-and adds the world combat/AI/cooldown fields required to resume a coupled turret
-without resetting its target cadence.
+references required to resume a Medic cable safely; v13 added the world
+combat/AI/cooldown fields required to resume a coupled turret without resetting
+its target cadence; v14 retains v7-v13 readers and adds collision movement,
+velocity, last-sighting, trail and temporary pursuit-goal state.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached

@@ -186,7 +186,7 @@ base/breach/driver turret rigs have coupled transforms, aiming, visibility,
 rocket cadence, collision damage and driver lifecycle. The live Game-API gate
 also proves current-skill reaction/speed, shared-CRT damage, exact muzzle sound,
 crush knockback 10, `DAMAGE_AIM` handling, seven Infantry gibs and the stock
-gib sound; Private Save v13 resumes its references, sight state and cooldown.
+gib sound; Private Save v14 resumes its references, sight state and cooldown.
 The measured matrix is
 now `simplified=0/0`. This closes the retail classname state-machine tail, not
 every animation or AI decision leading to it.
@@ -212,7 +212,7 @@ profile also carries its stock first-shot MZ2 identifier. The
  walk/run ranges for all 22 combat entries. They also prove every reachable
  secondary fidget/locomotion callback, the complete pain/death frame-sound
  inventory, Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg
- explosion-entry offsets. Private Save v13 retains a running attack or
+ explosion-entry offsets. Private Save v14 retains a running attack or
  reaction's event index,
  next-frame time, reaction debounce, live refire/jump/aim state, the shared Win32
 random seed and stable Medic patient/old-enemy/owner state. Stock death terminals additionally
@@ -234,15 +234,48 @@ real engine edicts; active gibs round-trip through the same save format. The
  like 3.19. `gameplay_monster_sight_search_tests` and the extended attack/dodge
  gates cover those seams. Medic corpse search now selects the strongest visible
 unowned patient within 1,024 units and its exact `attack33..60` cable resumes
-through Private Save v13. A held Soldier SS death burst also resumes with its
+through Private Save v14. A held Soldier SS death burst also resumes with its
 remaining shot count. Paired original full-encounter traces remain open, but no
 reachable stock pain/death movement or secondary callback table is known
 missing. Gunner, Medic,
  Chick, Flyer, Hover, Tank,
  Soldier, Supertank, Jorg and Boss2 now make their live stock refire decisions
  from the persisted shared CRT stream. Brain follow-up and Mutant jump decisions
- likewise happen at their original callback frames rather than during plan
- construction.
+likewise happen at their original callback frames rather than during plan
+construction.
+
+The shared live locomotion path now ports the 3.19 `m_move.c` bottom, ground,
+step, partial-ground, drop-to-floor, fly/swim and water-boundary rules. Its
+GameImport trace combines the retail world and inline BSP hulls with swept
+dynamic monster/player boxes; the inline regression proves a monster cannot
+cross a closed door and moves again after the door clears. Lost sight enters
+the original eight-marker PlayerTrail search with left/right course traces and
+search timeout. Private Save v14 retains v7-v13 readers and round-trips the
+last-sighting, saved/temporary goal, trail/search time, yaw, velocity and ground
+state needed to resume that pursuit; transient ground contact is re-established
+against the restored collision world.
+
+The final movement-enabled unpaced retail gate completed 5,000 `base1` frames
+through server frame 5,015 in 29,621.971 ms (168.79 frames/s), processing
+10,385/10,385 packets with zero rejects, zero pending sounds and a drained
+command buffer. A second dense-map gate completed 500 `lab` frames in
+10,384.3258 ms (48.15 frames/s), processing 1,136/1,136 packets with the same
+zero-reject/zero-backlog result. Swept collision traces now run the original
+near-first recursive hull algorithm as an allocation-free fixed-stack DFS;
+stationary tests reuse one leaf scratch table and all paths share a brush
+check-generation table. Server linking uses indexed inline-brush/trigger sets,
+cached absolute bounds and an in-place non-BSP BBOX path. A swept-bounds
+`SV_AreaEdicts` broad phase rejects remote inline brushes before basis creation
+or hull tracing. The transformed-inline-brush regression still proves
+closed-door sight, shot and movement blocking before restoring all three when
+the door moves away, and deliberately poisons a remote hull to prove it is not
+entered.
+
+The installed physical-input matrix passes all 39 campaign BSPs at 48 frames
+each, including `lab`; the persistent one-session chain passes 39 maps and 38
+changes in 753 steps with 3,690 packets. Fixed 1,024-event sound storage,
+preallocated routing plans and explicit PHS no-plan handling leave the queue at
+zero even on the sound-dense `lab` population.
 
 `server_unicast_event_queue_tests`, `network_runtime_unicast_routing_tests` and
 `network_runtime_unicast_loopback_tests` close the targeted half of the same

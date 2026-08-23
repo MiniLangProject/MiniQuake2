@@ -66,17 +66,30 @@ function buildPlan(runtime, slot, events)
       if client.channel.message.curSize > 0 then return false end if
       capacity = nrtsoundpc.MAX_MSGLEN - nrtsoundpc.PACKET_HEADER_SERVER
     end if
-    if capacity < nrtsoundevents.MAX_SOUND_FRAGMENT_BYTES then return false end if
+    if capacity < nrtsoundevents.MAX_SOUND_FRAGMENT_BYTES then
+      // Stock svc_sound events without CHAN_RELIABLE live only in this
+      // frame's datagram. If an outstanding reliable payload leaves no room,
+      // Quake II drops those transient sounds; retaining them behind the ACK
+      // incorrectly accumulates idle/step sounds across server frames.
+      if reliableStart == len(events) then
+        return SoundClientPlan(slot, [], [])
+      end if
+      return false
+    end if
     unreliablePackets = nrtsoundevents.packetize(nrtsoundarray.slice(fragments, 0, reliableStart), capacity)
   end if
 
   reliableFragments = []
   if reliableStart < len(events) then
+    reliableBuffer = array(len(fragments) - reliableStart, void)
+    reliableCount = 0
     index = reliableStart
     while index < len(fragments)
-      reliableFragments = reliableFragments + [fragments[index]]
+      reliableBuffer[reliableCount] = fragments[index]
+      reliableCount = reliableCount + 1
       index = index + 1
     end while
+    reliableFragments = nrtsoundarray.slice(reliableBuffer, 0, reliableCount)
     if not nrtsoundnetchan.canQueueReliableFragments(client.channel,
         reliableFragments) then return false end if
   end if
@@ -93,14 +106,21 @@ function dispatchRouted(runtime, socket, events, routedEvents, now)
   end if
   if len(events) == 0 then return SoundDispatchResult(0, true, 0) end if
   nrtsoundevents.encodeAll(events)
-  plans = []
+  planBuffer = array(runtime.server.maxClients, void)
+  planCount = 0
   slot = 0
   while slot < runtime.server.maxClients
     plan = buildPlan(runtime, slot, routedEvents[slot])
-    if plan == false then return SoundDispatchResult(0, false, len(events)) end if
-    if plan is not void then plans = plans + [plan] end if
+    if typeof(plan) == "bool" and plan == false then
+      return SoundDispatchResult(0, false, len(events))
+    end if
+    if plan is not void then
+      planBuffer[planCount] = plan
+      planCount = planCount + 1
+    end if
     slot = slot + 1
   end while
+  plans = nrtsoundarray.slice(planBuffer, 0, planCount)
 
   // No Netchan state was changed before this point.  All capacity and event
   // validation therefore fails atomically and leaves the bridge queue intact.

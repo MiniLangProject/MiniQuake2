@@ -1,6 +1,7 @@
 /* Inline BSP setmodel bounds and dynamic brush trace regression. */
 import miniquake2.server.game_bridge as inbridge
 import miniquake2.game.null_game as ingameapi
+import miniquake2.game.ai.constants as inaiconstants
 import miniquake2.game.types as ingametypes
 import miniquake2.collision.model as incollision
 import miniquake2.format.constants as informatconstants
@@ -126,6 +127,19 @@ inlineAssert(hit.entity is not void and hit.entity.state.number == 2, "trace hit
 inlineNear(hit.endPosition.x, 11.03125, 0.0001, "translated inline brush hit position")
 inlineAssert(hit.surface.name == "inline/brush", "inline brush surface propagated")
 inlineAssert((imports.pointContents(inqtypes.Vec3(9.5, 0.0, 0.0)) & informatconstants.CONTENTS_SOLID) != 0, "dynamic inline brush contributes point contents")
+inlineAssert(runtime.inlineBrushCount == 1 and runtime.inlineBrushModelNumbers[0] == 1,
+  "linked inline brush publishes its cached model number")
+// A spatially remote trace must never enter this hull. Deliberately poison the
+// headnode to turn the performance broad phase into a behavioral regression:
+// an all-brush scan would fail, while SV_AreaEdicts-style filtering stays clear.
+savedHeadNode = brush.headNode
+brush.headNode = 999999
+remoteTrace = imports.trace(inqtypes.Vec3(-100.0, 0.0, 0.0),
+  inqtypes.zeroVec3(), inqtypes.zeroVec3(),
+  inqtypes.Vec3(-90.0, 0.0, 0.0), void, inqconstants.MASK_SOLID)
+inlineAssert(remoteTrace.fraction == 1.0 and remoteTrace.entity is void,
+  "remote trace was not rejected by inline-brush broadphase")
+brush.headNode = savedHeadNode
 
 brush.mins = inqtypes.Vec3(-4.0, -1.0, -1.0)
 brush.maxs = inqtypes.Vec3(4.0, 1.0, 1.0)
@@ -173,12 +187,25 @@ inlineAssert(aiRuntime.aiContext.visible(aiMonster, aiPlayer) == false,
   "monster visibility crossed a closed inline door")
 inlineAssert(aiRuntime.aiContext.clearShot(aiMonster, aiPlayer) == false,
   "monster clear-shot trace crossed a closed inline door")
+aiMonster.flags = aiMonster.flags | inaiconstants.FL_FLY
+aiMonster.enemy = void
+aiMonster.goalEntity = aiPlayer
+aiMonster.movementInitialized = true
+aiClosedMoveX = aiMonster.edict.state.origin.x
+inlineAssert(aiRuntime.aiContext.walkMove(aiMonster, 180.0, 80.0) == false,
+  "monster hull crossed a closed inline door")
+inlineNear(aiMonster.edict.state.origin.x, aiClosedMoveX, 0.0001,
+  "blocked monster movement changed origin")
 aiDoor.state.origin = inqtypes.Vec3(200.0, 0.0, aiDoor.state.origin.z)
 imports.linkEntity(aiDoor)
 inlineAssert(aiRuntime.aiContext.visible(aiMonster, aiPlayer),
   "monster visibility stayed blocked after door moved away")
 inlineAssert(aiRuntime.aiContext.clearShot(aiMonster, aiPlayer),
   "monster clear-shot trace did not hit the live player target")
+inlineAssert(aiRuntime.aiContext.walkMove(aiMonster, 180.0, 80.0),
+  "monster remained blocked after inline door moved away")
+inlineAssert(aiMonster.edict.state.origin.x < aiClosedMoveX,
+  "unblocked monster hull did not advance")
 game.clientDisconnect(aiClient)
 
 inlineRepeatedBrushLifetime(runtime, imports, game)

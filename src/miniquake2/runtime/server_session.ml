@@ -127,10 +127,9 @@ function packetEntities(gameExport)
   return sssessionarray.slice(ssPacketEntitiesHolder, 0, ssPacketEntityCount)
 end function
 
-function entityVisible(session, viewer, edict)
+function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
   if session.collision is void then return true end if
   if edict.state.number == viewer.state.number then return true end if
-  viewLeaf = sscollision.pointLeafNumber(session.collision, viewer.state.origin, 0)
   entityLeaf = sscollision.pointLeafNumber(session.collision, edict.state.origin, 0)
   view = session.collision.map.leafs[viewLeaf]
   target = session.collision.map.leafs[entityLeaf]
@@ -138,10 +137,16 @@ function entityVisible(session, viewer, edict)
   if not sscollision.areasConnected(session.collision, view.area, target.area) then return false end if
   kind = 0
   if edict.state.sound != 0 then kind = 1 end if
-  row = ssbsp.decompressVisibility(session.collision.map.visibility, view.cluster, kind)
+  row = sscollision.visibilityRow(session.collision, view.cluster, kind)
   byteIndex = target.cluster >> 3
   if byteIndex < 0 or byteIndex >= len(row) then return false end if
   return (row[byteIndex] & (1 << (target.cluster & 7))) != 0
+end function
+
+function entityVisible(session, viewer, edict)
+  if session.collision is void then return true end if
+  viewLeaf = sscollision.pointLeafNumber(session.collision, viewer.state.origin, 0)
+  return entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
 end function
 
 function packetEntitiesForClient(session, viewer)
@@ -149,6 +154,11 @@ function packetEntitiesForClient(session, viewer)
   ssClientPacketViewerHolder = viewer
   ssClientPacketEntitiesHolder = array(ssClientPacketSessionHolder.gameExport.numEdicts)
   ssClientPacketEntityCount = 0
+  ssClientPacketViewLeaf = -1
+  if ssClientPacketSessionHolder.collision is not void then
+    ssClientPacketViewLeaf = sscollision.pointLeafNumber(ssClientPacketSessionHolder.collision,
+      ssClientPacketViewerHolder.state.origin, 0)
+  end if
   ssClientPacketIndex = 1
   while ssClientPacketIndex < ssClientPacketSessionHolder.gameExport.numEdicts and
       ssClientPacketEntityCount < ssnc.MAX_PACKET_ENTITIES
@@ -156,7 +166,14 @@ function packetEntitiesForClient(session, viewer)
     ssClientPacketStateHolder = ssgtypes.stabilizeEntityState(ssClientPacketEdictHolder.state)
     ssClientPacketNetworked = ssClientPacketStateHolder.modelIndex != 0 or ssClientPacketStateHolder.modelIndex2 != 0 or ssClientPacketStateHolder.modelIndex3 != 0 or ssClientPacketStateHolder.modelIndex4 != 0 or
       ssClientPacketStateHolder.effects != 0 or ssClientPacketStateHolder.sound != 0 or ssClientPacketStateHolder.event != 0
-    if ssClientPacketEdictHolder.inUse and (ssClientPacketEdictHolder.serverFlags & ssgc.SVF_NOCLIENT) == 0 and ssClientPacketNetworked and entityVisible(ssClientPacketSessionHolder, ssClientPacketViewerHolder, ssClientPacketEdictHolder) then
+    ssClientPacketVisible = true
+    if ssClientPacketEdictHolder.inUse and
+        (ssClientPacketEdictHolder.serverFlags & ssgc.SVF_NOCLIENT) == 0 and
+        ssClientPacketNetworked and ssClientPacketSessionHolder.collision is not void then
+      ssClientPacketVisible = entityVisibleFromLeaf(ssClientPacketSessionHolder,
+        ssClientPacketViewerHolder, ssClientPacketViewLeaf, ssClientPacketEdictHolder)
+    end if
+    if ssClientPacketEdictHolder.inUse and (ssClientPacketEdictHolder.serverFlags & ssgc.SVF_NOCLIENT) == 0 and ssClientPacketNetworked and ssClientPacketVisible then
       ssClientPacketProtocolStateHolder = protocolEntity(ssClientPacketStateHolder)
       ssClientPacketEntitiesHolder[ssClientPacketEntityCount] = ssClientPacketProtocolStateHolder
       ssClientPacketStoredStateHolder = ssClientPacketEntitiesHolder[ssClientPacketEntityCount]
@@ -184,13 +201,12 @@ function soundEventOrigin(session, event)
   return ssqtypes.Vec3(edict.state.origin.x, edict.state.origin.y, edict.state.origin.z)
 end function
 
-function soundAudibleToClient(session, event, listener)
+function soundAudibleToClientFromLeaf(session, event, listener, listenerLeafNumber)
   if (event.channelFlags & ssgc.CHAN_NO_PHS_ADD) != 0 or event.attenuation == ssgc.ATTN_NONE then return true end if
   if session.collision is void then return true end if
   origin = soundEventOrigin(session, event)
   if origin is void then return true end if
   sourceLeafNumber = sscollision.pointLeafNumber(session.collision, origin, 0)
-  listenerLeafNumber = sscollision.pointLeafNumber(session.collision, listener.state.origin, 0)
   if sourceLeafNumber < 0 or sourceLeafNumber >= len(session.collision.map.leafs) or
       listenerLeafNumber < 0 or listenerLeafNumber >= len(session.collision.map.leafs) then
     return error(9974, "sound PHS leaf outside collision map")
@@ -204,10 +220,18 @@ function soundAudibleToClient(session, event, listener)
   if sourceLeaf.cluster >= visibility.numClusters or listenerLeaf.cluster >= visibility.numClusters then
     return error(9975, "sound PHS cluster outside visibility table")
   end if
-  row = ssbsp.decompressVisibility(visibility, sourceLeaf.cluster, 1)
+  row = sscollision.visibilityRow(session.collision, sourceLeaf.cluster, 1)
   byteIndex = listenerLeaf.cluster >> 3
   if byteIndex < 0 or byteIndex >= len(row) then return error(9976, "sound PHS row is malformed") end if
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
+end function
+
+function soundAudibleToClient(session, event, listener)
+  if session.collision is void then return true end if
+  listenerLeafNumber = sscollision.pointLeafNumber(session.collision,
+    listener.state.origin, 0)
+  return soundAudibleToClientFromLeaf(session, event, listener,
+    listenerLeafNumber)
 end function
 
 function routeSounds(session, events)
@@ -217,17 +241,28 @@ function routeSounds(session, events)
   routed = array(runtime.server.maxClients, void)
   slot = 0
   while slot < runtime.server.maxClients
-    routed[slot] = []
+    audible = array(len(events), void)
+    audibleCount = 0
     client = runtime.server.clients[slot]
     if client.state == ssnc.CS_SPAWNED and client.channel is not void then
       if session.gameExport is void or slot + 1 >= session.gameExport.numEdicts then
         return error(9977, "spawned sound recipient has no client edict")
       end if
       listener = session.gameExport.edicts[slot + 1]
+      listenerLeafNumber = -1
+      if session.collision is not void then
+        listenerLeafNumber = sscollision.pointLeafNumber(session.collision,
+          listener.state.origin, 0)
+      end if
       for each event in events
-        if soundAudibleToClient(session, event, listener) then routed[slot] = routed[slot] + [event] end if
+        if soundAudibleToClientFromLeaf(session, event, listener,
+            listenerLeafNumber) then
+          audible[audibleCount] = event
+          audibleCount = audibleCount + 1
+        end if
       end for
     end if
+    routed[slot] = sssessionarray.slice(audible, 0, audibleCount)
     slot = slot + 1
   end while
   return routed
@@ -253,7 +288,7 @@ function multicastVisibleToClient(session, event, listener)
   end if
   kind = 0
   if destination == ssgc.MULTICAST_PHS then kind = 1 end if
-  row = ssbsp.decompressVisibility(visibility, sourceLeaf.cluster, kind)
+  row = sscollision.visibilityRow(session.collision, sourceLeaf.cluster, kind)
   byteIndex = listenerLeaf.cluster >> 3
   if byteIndex < 0 or byteIndex >= len(row) then return error(9986, "multicast visibility row is malformed") end if
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
@@ -452,10 +487,11 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.nextMulticastSerial = 0
   bridge.pendingUnicasts = []
   bridge.nextUnicastSerial = 0
-  bridge.pendingSounds = []
+  ssoundevents.clearPending(bridge)
   bridge.nextSoundSerial = 0
   bridge.collision = collision
   bridge.inlineBrushCount = 0
+  bridge.triggerCount = 0
   return true
 end function
 
@@ -496,7 +532,8 @@ function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeOldNextMulticastSerial = serverSessionChangeBridgeHolder.nextMulticastSerial
   serverSessionChangeOldPendingUnicastsHolder = serverSessionChangeBridgeHolder.pendingUnicasts
   serverSessionChangeOldNextUnicastSerial = serverSessionChangeBridgeHolder.nextUnicastSerial
-  serverSessionChangeOldPendingSoundsHolder = serverSessionChangeBridgeHolder.pendingSounds
+  serverSessionChangeOldPendingSoundsHolder = ssoundevents.pendingSnapshot(
+    serverSessionChangeBridgeHolder)
   serverSessionChangeOldNextSoundSerial = serverSessionChangeBridgeHolder.nextSoundSerial
   serverSessionChangeOldLogsHolder = serverSessionChangeBridgeHolder.logs
 
@@ -515,6 +552,7 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder.imageNames = serverSessionChangeOldImageNamesHolder
     serverSessionChangeBridgeHolder.collision = serverSessionChangeOldCollisionHolder
     serverSessionChangeBridgeHolder.inlineBrushCount = 0
+    serverSessionChangeBridgeHolder.triggerCount = 0
     ssqsz.clear(serverSessionChangeBridgeHolder.multicastBuffer)
     ssqsz.writeBytes(serverSessionChangeBridgeHolder.multicastBuffer, serverSessionChangeOldMulticastHolder)
     serverSessionChangeRestoredHolder = try(serverSessionChangeSessionHolder.gameExport.spawnEntities(
@@ -523,7 +561,8 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder.nextMulticastSerial = serverSessionChangeOldNextMulticastSerial
     serverSessionChangeBridgeHolder.pendingUnicasts = serverSessionChangeOldPendingUnicastsHolder
     serverSessionChangeBridgeHolder.nextUnicastSerial = serverSessionChangeOldNextUnicastSerial
-    serverSessionChangeBridgeHolder.pendingSounds = serverSessionChangeOldPendingSoundsHolder
+    ssoundevents.restorePending(serverSessionChangeBridgeHolder,
+      serverSessionChangeOldPendingSoundsHolder)
     serverSessionChangeBridgeHolder.nextSoundSerial = serverSessionChangeOldNextSoundSerial
     serverSessionChangeBridgeHolder.logs = serverSessionChangeOldLogsHolder
     if serverSessionChangeRestoredHolder is error then
@@ -645,11 +684,12 @@ function step(session)
     session.bridgeRuntime.pendingMulticasts, routedMulticasts, now)
   session.packetsSent = session.packetsSent + multicastResult.sent
   if multicastResult.delivered then session.bridgeRuntime.pendingMulticasts = [] end if
-  routedSounds = routeSounds(session, session.bridgeRuntime.pendingSounds)
+  pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
+  routedSounds = routeSounds(session, pendingSoundBatch)
   soundResult = ssounddispatch.dispatchRouted(session.networkRuntime, session.socket,
-    session.bridgeRuntime.pendingSounds, routedSounds, now)
+    pendingSoundBatch, routedSounds, now)
   session.packetsSent = session.packetsSent + soundResult.sent
-  if soundResult.delivered then session.bridgeRuntime.pendingSounds = [] end if
+  if soundResult.delivered then ssoundevents.clearPending(session.bridgeRuntime) end if
   session.packetsSent = session.packetsSent + sendSnapshots(session, now)
   if (session.frameNumber % 10) == 0 then sscommands.replenishCommandMsec(session.networkRuntime) end if
   return session.frameNumber

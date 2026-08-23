@@ -73,7 +73,7 @@ soundLoopAssert(len(mixer.channels) == 2 and
   mixer.channels[0].sound.name == "weapons/loop.wav" and
   mixer.channels[1].sound.name == "weapons/loop.wav",
   "integrated sound resolver did not reach mixer callbacks")
-soundLoopAssert(len(session.server.bridgeRuntime.pendingSounds) == 0,
+soundLoopAssert(session.server.bridgeRuntime.pendingSoundCount == 0,
   "delivered server sound queue was not drained")
 serverChannel = session.server.networkRuntime.server.clients[0].channel
 soundLoopAssert(serverChannel.reliableLength > 0 and serverChannel.message.curSize == 0,

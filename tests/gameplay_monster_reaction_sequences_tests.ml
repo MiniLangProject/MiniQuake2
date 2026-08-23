@@ -262,7 +262,7 @@ reactionPainStartX = reactionActor.edict.state.origin.x
 reactionAssert(reactionintegration.damageMonster(reactionRuntime, 0, void, 20), "integrated pain dispatch")
 reactionPain = reactionsequences.planByName(reactionActor.className, reactionActor.activity)
 reactionAssert(reactionPain is not void and reactionPain.reactionKind == "pain", "integrated pain plan selected")
-reactionAssert(len(reactionServer.pendingSounds) == 1, "pain sound queued")
+reactionAssert(reactionServer.pendingSoundCount == 1, "pain sound queued")
 collectIntegratedReaction(reactionApi, reactionActor, reactionPain)
 reactionPainTotal = 0.0
 reactionPainOffset = 0
@@ -281,7 +281,7 @@ reactionDeathStartX = reactionActor.edict.state.origin.x
 reactionAssert(reactionintegration.damageMonster(reactionRuntime, 0, void, 1), "integrated normal death dispatch")
 reactionDeath = reactionsequences.planByName(reactionActor.className, reactionActor.activity)
 reactionAssert(reactionDeath is not void and reactionDeath.reactionKind == "death", "integrated death plan selected")
-reactionAssert(len(reactionServer.pendingSounds) == 2, "death sound queued")
+reactionAssert(reactionServer.pendingSoundCount == 2, "death sound queued")
 reactionDeathFrames = collectIntegratedReaction(reactionApi, reactionActor, reactionDeath)
 reactionAssert(reactionActor.activity == "corpse" and reactionActor.nextThink == 0.0 and
   reactionActor.edict.state.frame == reactionDeath.lastFrame,
@@ -295,6 +295,12 @@ while reactionDeathOffset < reactionsequences.durationFrames(reactionDeath)
 end while
 reactionDeathDeltaError = reactionActor.edict.state.origin.x - reactionDeathStartX +
   reactionDeathTotal
+if reactionDeathDeltaError <= -0.001 or reactionDeathDeltaError >= 0.001 then
+  print "reaction death movement diagnostic: plan=" + reactionDeath.name +
+    " start=" + reactionDeathStartX + " end=" + reactionActor.edict.state.origin.x +
+    " total=" + reactionDeathTotal + " error=" + reactionDeathDeltaError +
+    " yaw=" + reactionActor.edict.state.angles.y
+end if
 reactionAssert(reactionDeathDeltaError > -0.001 and reactionDeathDeltaError < 0.001,
   "integrated death executes every movement column")
 
