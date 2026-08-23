@@ -46,15 +46,23 @@ function StockIdleSoundName(className)
   if className == "monster_chick" then return "chick/chkidle1.wav" end if
   if className == "monster_brain" then return "brain/brnlens1.wav" end if
   if className == "monster_floater" then return "floater/fltidle1.wav" end if
-  if className == "monster_flyer" then return "flyer/flysrch1.wav" end if
+  if className == "monster_flyer" then return "flyer/flyidle1.wav" end if
   if className == "monster_mutant" then return "mutant/mutidle1.wav" end if
   if className == "monster_jorg" then return "boss3/bs3idle1.wav" end if
   return ""
 end function
 
 function StockFidgetFrameSound(actor, context)
-  return EmitStockSound(actor, context, StockIdleSoundName(actor.className),
-    gconstants.CHAN_VOICE, gconstants.ATTN_IDLE)
+  soundName = StockIdleSoundName(actor.className)
+  channel = gconstants.CHAN_VOICE
+  if actor.className == "monster_brain" then channel = gconstants.CHAN_AUTO end if
+  if actor.className == "monster_berserk" then channel = gconstants.CHAN_WEAPON end if
+  if actor.className == "monster_chick" then
+    if NextStockRandomUnit(context, context.randomIdle) < 0.5 then
+      soundName = "chick/chkidle1.wav"
+    else soundName = "chick/chkidle2.wav" end if
+  end if
+  return EmitStockSound(actor, context, soundName, channel, gconstants.ATTN_IDLE)
 end function
 
 function StockScratchSound(actor, context)
@@ -65,6 +73,46 @@ end function
 function StockSoldierCockSound(actor, context)
   return EmitStockSound(actor, context, "infantry/infatck3.wav",
     gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
+end function
+
+function StockSoldierIdleFrameSound(actor, context)
+  if NextStockRandomUnit(context, context.randomIdle) <= 0.8 then return "" end if
+  return EmitStockSound(actor, context, "soldier/solidle1.wav",
+    gconstants.CHAN_VOICE, gconstants.ATTN_IDLE)
+end function
+
+function StockSoldierWalkCycle(actor, context)
+  if NextStockRandomUnit(context, context.randomIdle) > 0.1 then
+    actor.info.nextFrame = 215
+  end if
+  return true
+end function
+
+function StockMedicIdleFrame(actor, context)
+  EmitStockSound(actor, context, "medic/idle.wav",
+    gconstants.CHAN_VOICE, gconstants.ATTN_IDLE)
+  FindMedicPatient(actor, false, context)
+  return true
+end function
+
+function StockParasiteTapSound(actor, context)
+  return EmitStockSound(actor, context, "parasite/paridle1.wav",
+    gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
+end function
+
+function StockJorgIdleSound(actor, context)
+  return EmitStockSound(actor, context, "boss3/bs3idle1.wav",
+    gconstants.CHAN_VOICE, gconstants.ATTN_NORM)
+end function
+
+function StockJorgStepLeft(actor, context)
+  return EmitStockSound(actor, context, "boss3/step1.wav",
+    gconstants.CHAN_BODY, gconstants.ATTN_NORM)
+end function
+
+function StockJorgStepRight(actor, context)
+  return EmitStockSound(actor, context, "boss3/step2.wav",
+    gconstants.CHAN_BODY, gconstants.ATTN_NORM)
 end function
 
 function StockStepSound(actor, context)
@@ -100,6 +148,16 @@ function ConfigureStockMoveCallbacks(actor, move)
   else if moveName == "gunner-stand-fidget" then move.frames[7].thinkFunction = StockFidgetFrameSound
   else if moveName == "chick-stand-fidget" then move.frames[8].thinkFunction = StockFidgetFrameSound
   else if moveName == "soldier-stand-fidget" then move.frames[21].thinkFunction = StockSoldierCockSound
+  else if moveName == "soldier-stand" then move.frames[0].thinkFunction = StockSoldierIdleFrameSound
+  else if moveName == "soldier-walk1" then move.frames[9].thinkFunction = StockSoldierWalkCycle
+  else if moveName == "medic-stand" then move.frames[0].thinkFunction = StockMedicIdleFrame
+  else if moveName == "parasite-stand" then
+    move.frames[2].thinkFunction = StockParasiteTapSound
+    move.frames[4].thinkFunction = StockParasiteTapSound
+    move.frames[8].thinkFunction = StockParasiteTapSound
+    move.frames[10].thinkFunction = StockParasiteTapSound
+    move.frames[14].thinkFunction = StockParasiteTapSound
+    move.frames[16].thinkFunction = StockParasiteTapSound
   else if moveName == "parasite-fidget-loop" then
     move.frames[0].thinkFunction = StockScratchSound
     move.frames[3].thinkFunction = StockScratchSound
@@ -108,13 +166,20 @@ function ConfigureStockMoveCallbacks(actor, move)
   else if moveName == "tank-walk" or moveName == "tank-run" then
     move.frames[7].thinkFunction = StockStepSound
     move.frames[15].thinkFunction = StockStepSound
+  else if moveName == "tank-run-start" then move.frames[3].thinkFunction = StockStepSound
   else if moveName == "supertank-walk" or moveName == "supertank-run" then move.frames[0].thinkFunction = StockStepSound
   else if moveName == "mutant-run" then
     move.frames[1].thinkFunction = StockStepSound
     move.frames[3].thinkFunction = StockStepSound
+  else if moveName == "jorg-stand" then
+    move.frames[0].thinkFunction = StockJorgIdleSound
+    move.frames[34].thinkFunction = StockJorgStepLeft
+    move.frames[38].thinkFunction = StockJorgStepRight
+    move.frames[47].thinkFunction = StockJorgStepLeft
+    move.frames[50].thinkFunction = StockJorgStepRight
   else if moveName == "jorg-run" then
-    move.frames[0].thinkFunction = StockStepSound
-    move.frames[7].thinkFunction = StockStepSound
+    move.frames[0].thinkFunction = StockJorgStepLeft
+    move.frames[7].thinkFunction = StockJorgStepRight
   else if moveName == "makron-walk" or moveName == "makron-run" then
     move.frames[0].thinkFunction = StockStepSound
     move.frames[4].thinkFunction = StockStepSound
@@ -136,7 +201,8 @@ function StockStandFidgetProbe(actor, context)
   if actor.className == "monster_berserk" then threshold = 0.15
   else if actor.className == "monster_gunner" then threshold = 0.05
   else if actor.className == "monster_chick" then threshold = 0.30 end if
-  if threshold < 0.0 or context.randomIdle > threshold then return false end if
+  if threshold < 0.0 or
+      NextStockRandomUnit(context, context.randomIdle) > threshold then return false end if
   actor.activity = "idle"
   SetStockMove(actor, "stand-fidget", StateStand)
   if actor.className == "monster_berserk" then StockFidgetFrameSound(actor, context) end if
@@ -144,7 +210,9 @@ function StockStandFidgetProbe(actor, context)
 end function
 
 function StockMutantIdleLoop(actor, context)
-  if context.randomIdle < 0.75 then actor.info.nextFrame = 116 end if
+  if NextStockRandomUnit(context, context.randomIdle) < 0.75 then
+    actor.info.nextFrame = 116
+  end if
   return true
 end function
 
@@ -185,7 +253,9 @@ end function
 
 function FinishParasiteFidgetLoop(actor, context)
   actor.activity = "idle"
-  if context.randomIdle <= 0.8 then return SetStockMove(actor, "fidget-loop", FinishParasiteFidgetLoop) end if
+  if NextStockRandomUnit(context, context.randomIdle) <= 0.8 then
+    return SetStockMove(actor, "fidget-loop", FinishParasiteFidgetLoop)
+  end if
   return SetStockMove(actor, "fidget-end", StateStand)
 end function
 
@@ -194,10 +264,16 @@ function StateStand(actor, context)
   if not gailocomotion.hasStockMoves(actor.className) then return true end if
   currentName = CurrentMoveName(actor)
   if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or actor.className == "monster_soldier_ss" then
-    if currentName == "soldier-stand-fidget" or context.randomIdle < 0.8 then return SetStockMove(actor, "stand", StateStand) end if
+    if currentName == "soldier-stand-fidget" or
+        NextStockRandomUnit(context, context.randomIdle) < 0.8 then
+      return SetStockMove(actor, "stand", StateStand)
+    end if
     return SetStockMove(actor, "stand-fidget", StateStand)
   end if
-  if actor.className == "monster_floater" and context.randomIdle > 0.5 then return SetStockMove(actor, "stand2", void) end if
+  if actor.className == "monster_floater" and
+      NextStockRandomUnit(context, context.randomIdle) > 0.5 then
+    return SetStockMove(actor, "stand2", void)
+  end if
   if actor.className == "monster_parasite" then return SetStockMove(actor, "stand", StateStand) end if
   return SetStockMove(actor, "stand", void)
 end function
@@ -241,7 +317,9 @@ function StateWalk(actor, context)
     return SetStockMove(actor, "walk-start", FinishWalkStart)
   end if
   if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or actor.className == "monster_soldier_ss" then
-    if context.randomIdle >= 0.5 then return SetStockMove(actor, "soldier-walk2", void) end if
+    if NextStockRandomUnit(context, context.randomIdle) >= 0.5 then
+      return SetStockMove(actor, "soldier-walk2", void)
+    end if
   end if
   return SetStockMove(actor, "walk", void)
 end function
@@ -458,14 +536,41 @@ function ContinueBossDeath(actor, context)
   return true
 end function
 
+function RunReactionFrameCallbacks(actor, plan, timelineOffset, context)
+  gaiReactionFrameRoll = 0.0
+  if gaireactions.frameSoundUsesRandom(plan, timelineOffset) then
+    gaiReactionFrameRoll = NextStockRandomUnit(context, context.randomAttack)
+  end if
+  gaiReactionFrameSound = gaireactions.frameSoundNameAt(
+    plan, timelineOffset, gaiReactionFrameRoll)
+  if gaiReactionFrameSound != "" then
+    EmitStockSound(actor, context, gaiReactionFrameSound,
+      gaireactions.frameSoundChannelAt(plan, timelineOffset),
+      gaireactions.frameSoundAttenuationAt(plan, timelineOffset))
+  end if
+  gaiReactionExternalEvent = gaireactions.externalFrameEventAt(plan, timelineOffset)
+  if gaiReactionExternalEvent != "" and typeof(context.reactionFrameEvent) == "function" then
+    return context.reactionFrameEvent(actor, plan, timelineOffset, gaiReactionExternalEvent)
+  end if
+  return true
+end function
+
 function StartReaction(actor, plan, context)
   gaireactions.validatePlan(plan)
   actor.activity = plan.name
+  // Changing currentmove clears a prior held attack frame in M_MoveFrame.
+  // attackCycles is then reused only by the stock SS death-fire hold and is
+  // persisted together with AI_HOLD_FRAME for a mid-burst level save.
+  actor.info.aiFlags = actor.info.aiFlags & ~gaiconstants.AI_HOLD_FRAME
+  actor.attackCycles = 0
   // The first pose becomes visible in the damage frame itself. The next
   // scheduled think therefore advances to offset one without duplicating it.
   actor.info.nextFrame = 1
   actor.info.pauseTime = context.time + gaiconstants.FRAMETIME
   actor.edict.state.frame = plan.firstFrame
+  gaicore.ai_move(actor, gaireactions.movementDistanceAt(plan, 0) * actor.info.scale, context)
+  gaiReactionStartCallbackResult = RunReactionFrameCallbacks(actor, plan, 0, context)
+  if gaiReactionStartCallbackResult is error then return gaiReactionStartCallbackResult end if
   actor.nextThink = context.time + gaiconstants.FRAMETIME
   if plan.reactionKind == "dodge" then
     actor.info.aiFlags = actor.info.aiFlags | gaiconstants.AI_DUCKED
@@ -539,8 +644,19 @@ function AdvanceBossExplosion(actor, context)
   actor.edict.inUse = false
   actor.activity = "gib"
   actor.bossPhase = "supertank-complete"
+  if actor.className == "monster_boss2" then actor.bossPhase = "boss2-complete"
+  else if actor.className == "monster_jorg" then actor.bossPhase = "jorg-complete" end if
   actor.nextThink = 0.0
   return true
+end function
+
+function BeginBossExplosion(actor, context)
+  actor.activity = "boss-explode"
+  actor.bossPhase = "supertank-explode"
+  if actor.className == "monster_boss2" then actor.bossPhase = "boss2-explode"
+  else if actor.className == "monster_jorg" then actor.bossPhase = "jorg-explode" end if
+  actor.info.nextFrame = 0
+  return AdvanceBossExplosion(actor, context)
 end function
 
 function AdvanceReaction(actor, plan, context)
@@ -550,9 +666,23 @@ function AdvanceReaction(actor, plan, context)
   if timelineOffset < 0 then timelineOffset = 0 end if
   if timelineOffset >= duration then return FinishReaction(actor, plan, context) end if
   actor.edict.state.frame = gaireactions.modelFrameAt(plan, timelineOffset)
+  gaicore.ai_move(actor,
+    gaireactions.movementDistanceAt(plan, timelineOffset) * actor.info.scale,
+    context)
+  gaiReactionAdvanceCallbackResult = RunReactionFrameCallbacks(
+    actor, plan, timelineOffset, context)
+  if gaiReactionAdvanceCallbackResult is error then return gaiReactionAdvanceCallbackResult end if
+  if (actor.info.aiFlags & gaiconstants.AI_HOLD_FRAME) != 0 then
+    actor.info.pauseTime = actor.info.pauseTime + gaiconstants.FRAMETIME
+    actor.nextThink = context.time + gaiconstants.FRAMETIME
+    return true
+  end if
   if plan.terminalKind == "jorg" and timelineOffset == duration - 2 and not actor.successorSpawned then
     actor.successorDueTime = context.time
     ContinueBossDeath(actor, context)
+  end if
+  if gaireactions.startsBossExplosionAt(plan, timelineOffset) then
+    return BeginBossExplosion(actor, context)
   end if
   actor.info.nextFrame = timelineOffset + 1
   actor.info.pauseTime = actor.info.pauseTime + gaiconstants.FRAMETIME

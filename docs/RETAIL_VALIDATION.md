@@ -202,10 +202,14 @@ profile also carries its stock first-shot MZ2 identifier. The
  stock MD2 projection, live stock refire callbacks, ordered MZ2 sequences, the
  conditional Brain tentacle chain, Mutant jump and the Parasite damage/beam
  chain. The product-shaped Gunner gate observes the ordered MZ2 45–52 events
- and its live 50% refire decision from one AI attack. The reaction and locomotion suites inventory
-63 original pain variants, 43 normal-death variants, six stock duck/dodge
-ranges and primary stand/idle/walk/run ranges for all 22 combat entries.
-Private Save v12 retains a running attack or reaction's event index,
+ and its live 50% refire decision from one AI attack. The reaction and locomotion
+ suites inventory 63 original pain variants, 43 normal-death variants, all 1,813
+ corresponding movement frames, six stock duck/dodge ranges and stand/idle/
+ walk/run ranges for all 22 combat entries. They also prove every reachable
+ secondary fidget/locomotion callback, the complete pain/death frame-sound
+ inventory, Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg
+ explosion-entry offsets. Private Save v12 retains a running attack or
+ reaction's event index,
  next-frame time, reaction debounce, live refire/jump/aim state, the shared Win32
 random seed and stable Medic patient/old-enemy/owner state. Stock death terminals additionally
 carry their class-specific corpse bounds, exact organic/metallic gib-model
@@ -226,8 +230,10 @@ real engine edicts; active gibs round-trip through the same save format. The
  like 3.19. `gameplay_monster_sight_search_tests` and the extended attack/dodge
  gates cover those seams. Medic corpse search now selects the strongest visible
 unowned patient within 1,024 units and its exact `attack33..60` cable resumes
-through Private Save v12. Remaining reaction/death movement columns and secondary
- fidgets stay open. Gunner, Medic,
+through Private Save v12. A held Soldier SS death burst also resumes with its
+remaining shot count. Paired original full-encounter traces remain open, but no
+reachable stock pain/death movement or secondary callback table is known
+missing. Gunner, Medic,
  Chick, Flyer, Hover, Tank,
  Soldier, Supertank, Jorg and Boss2 now make their live stock refire decisions
  from the persisted shared CRT stream. Brain follow-up and Mutant jump decisions

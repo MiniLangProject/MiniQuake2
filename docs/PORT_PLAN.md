@@ -28,12 +28,15 @@ damage/speed/range profiles to real melee, hitscan, rail, blaster and rocket
 paths. All 22 combat-capable stock entries now use data-driven frame-relative
 attack, melee or drain schedules with projected MD2 frames and ordered
 muzzle/beam events. In addition, 63 stock pain variants, 43 normal-death
-variants, the original six-family duck/dodge ranges and primary stand/idle/
-walk/run ranges cover all 22 combat entries. Class-specific corpse bounds,
-stock organic/metallic gib inventories and the Supertank's eight-explosion plus
-14-gib terminal sequence are exported through real managed edicts and
-Protocol-34 effects; Private-Save v12 retains in-flight attack/reaction,
-boss-refire/aim, shared Win32-random state, Medic ownership and dynamic gib records. Their MZ2
+variants, all 1,813 corresponding movement frames, the original six-family
+duck/dodge ranges and stand/idle/walk/run ranges cover all 22 combat entries.
+Reachable secondary fidget/locomotion callbacks, pain/death frame sounds,
+Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg explosion-entry
+frames execute live. Class-specific corpse bounds, stock organic/metallic gib
+inventories and the eight-explosion plus 14-gib terminal sequence are exported
+through real managed edicts and Protocol-34 effects; Private-Save v12 retains
+in-flight attack/reaction, held death-fire state, boss-refire/aim, shared
+Win32-random state, Medic ownership and dynamic gib records. Their MZ2
 and Parasite beam events pass through a
 bounded Game-API multicast queue, PVS/PHS routing and real UDP client-effect
 handoff. Attack sequences additionally execute their exact 3.19 movement
@@ -43,9 +46,9 @@ sight/search callback presence, sound/RNG branches and Makron activation are
 covered, as are Soldier's sight-selected running attack and dodge-selected
 ducking attack. Medic now claims the strongest visible unowned corpse, executes
 the exact 28-frame cable with nine Protocol-34 beams, and rebuilds the patient
-in-place. Remaining secondary animation and reaction/death movement
-differentials remain open gates. The
-unmasked 39-map product graph passes with those profiles
+in-place. A paired original full-encounter trace remains an acceptance gate,
+but no reachable stock pain/death movement or secondary callback table is known
+missing. The unmasked 39-map product graph passes with those profiles
 active. The player path now closes all stock weapon families, including cooked
 hand grenades, original special fire-frame loops, mode-specific damage, handed
 muzzle projection, recoil, PlayerNoise and Protocol-34 muzzle/impact feedback.
@@ -55,10 +58,9 @@ impulse, automatic-weapon recoil, BFG roll and Rocket damage variance.
 Managed projectiles are exported as reusable snapshot edicts with stock
 render/audio state; paired original view-model/recoil evidence remains open. A real
 UDP map-change test retains Netchan sequence state while
-resetting level state and completing a fresh signon. Exact behavior for the
-remaining secondary monster animation and reaction/death movement, broader
-save coverage, paired original-renderer
-pixels, and external original-process interoperability remain open. The product
+resetting level state and completing a fresh signon. Broader full-encounter
+monster/turret/boss traces, save coverage, paired original-renderer pixels, and
+external original-process interoperability remain open. The product
 lifecycle now keeps one window/renderer across CIN, PCX and map steps, performs
 a live mode/fullscreen renderer restart with complete retail resource
 registration, captures control bindings, reconstructs New Game at the selected

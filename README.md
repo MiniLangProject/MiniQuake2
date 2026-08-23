@@ -72,22 +72,27 @@ classes present in those BSPs, plus the dynamically spawned Makron, now route
  callbacks; every spawned stock monster publishes its original sound inventory
  before signon, including the Makron assets needed by a dying Jorg. The same stock
 layer now covers 63 pain variants, 43 normal-death variants, the original
-duck/dodge ranges for the six supporting families, and primary stand, idle,
-walk and run MD2 ranges for all 22 combat entries. Stock terminal deaths now
-apply the original class-specific corpse bounds, export the original organic
-and metallic gib-model inventories as timed physics edicts, and reproduce the
-Supertank's eight-step explosion sequence before its final 14-part breakup.
- Private-Save v12 resumes attacks and active reactions at their next frame,
- preserves live refire, jump, saved-aim, shared-random and Medic ownership state,
- and round-trips live dynamic gib records. The original class-level sight/search callback
- inventory, sound channels/attenuation and callback-local random branches are
- now active as well, including Makron's silent 13-frame activation, Mutant's
- CRT-driven step choice and Soldier's sight-triggered `attack6` plus
- dodge-triggered `attack3` timelines. Medic corpse selection now follows the
- original 1,024-unit visible/unowned strongest-patient rule and runs the full
- `attack33..60` cable, sound, Protocol-34 beam and in-place resurrection path.
- Remaining reaction/death movement columns and secondary fidgets remain
- explicit differential-parity work.
+duck/dodge ranges for the six supporting families, and stand, idle, walk and run
+MD2 ranges for all 22 combat entries. All 1,813 pain/death frames execute their
+original movement columns. Their live callbacks reproduce the Tank, Jorg and
+Makron step/thud/taunt/terminal sounds, Infantry's twelve-frame death machinegun
+sweep, the three Soldier death-weapon families and the exact Supertank, Boss2
+and Jorg explosion-entry frames. All reachable secondary stock locomotion/
+fidget callbacks are active as well, including Soldier idle/walk branches,
+Medic corpse scans, Parasite taps/scratch loops, Jorg steps and Tank run start.
+Stock terminal deaths apply the original class-specific corpse bounds, export
+the original organic and metallic gib-model inventories as timed physics
+edicts, and reproduce the eight-step boss explosion sequence before the final
+14-part breakup. Private-Save v12 resumes attacks and active reactions at their
+next frame, preserves held death-fire bursts, live refire, jump, saved-aim,
+shared-random and Medic ownership state, and round-trips live dynamic gib
+records. The original class-level sight/search callback inventory, sound
+channels/attenuation and callback-local random branches are active, including
+Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
+Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.
+Medic corpse selection follows the original 1,024-unit visible/unowned
+strongest-patient rule and runs the full `attack33..60` cable, sound,
+Protocol-34 beam and in-place resurrection path.
  Muzzle and beam events travel through the typed
 Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
 DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
@@ -167,12 +172,12 @@ These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 executable exits before networking on this host), paired
-original player view-model/recoil captures beyond the fixed renderer fixture,
-broader multi-host GPU/device coverage, remaining secondary monster/turret/boss
-fidgets, reaction/death movement, and manual device
-acceptance. Retail class and stock monster damage-emission coverage are closed,
-but that is deliberately narrower than a full campaign
-playthrough or frame-for-frame AI parity claim.
+original player view-model/recoil and full encounter traces beyond the fixed
+renderer/sequence fixtures, broader multi-host GPU/device coverage, exhaustive
+turret/boss interaction playthroughs, and manual device acceptance. Retail
+class, stock monster damage-emission, pain/death movement and reachable
+secondary callback coverage are closed, but that is deliberately narrower than
+a full campaign playthrough or frame-for-frame whole-session AI parity claim.
 
 The canonical local reference remains commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. Its 4,525 C definitions remain in

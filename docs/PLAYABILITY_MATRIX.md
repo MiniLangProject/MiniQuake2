@@ -13,9 +13,9 @@ only legal, user-supplied Quake II data and never copy it into the repository.
 | P02 | Player move, look and all stock weapons | `gameplay_player_weapon_protocol_tests.ml`, `runtime_multiplayer_deathmatch_tests.ml`, ballistics goldens | PASS (mechanics) | paired original view-model/recoil capture |
 | P03 | Dense `bunk1` snapshot | 39-map session smoke; 64-entity packet cap and adaptive packet budget | PASS | paired original snapshot/delta trace |
 | P04 | `waste1` brush, water, MD2 and alpha rendering | paired installed-original `ref_gl` gate: 2,303 ppm MAE for world/water/MD2; deterministic Mini replay | PASS (differential) | broaden cameras, GPUs and alpha/inline runtime states |
-| P05 | Stock monster frame sequencing | attack/ranged/melee with exact attack movement and mechanical sounds, Soldier sight `attack6`/dodge `attack3`, original sight/search callback sound/RNG inventory, Makron activation, exact Medic corpse selection/cable/resurrection, 63 pain, 43 death, dodge, primary locomotion, complete stock sound precache, class corpse bounds, physical gibs and staged Supertank destruction; live MZ2, Medic and Parasite beam chains | PASS (attacks, primary moves and death terminals) | secondary fidgets and reaction/death movement differential |
-| P06 | Save during an active monster sequence | Private-Save v12 attack/reaction, boss aim/refire, shared-random and Medic owner/old-enemy fields; dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
-| P07 | `boss2` endgame | Jorg staging, Makron successor, counter and changelevel with persistence | PASS | frame/weapon/audio parity for both bosses |
+| P05 | Stock monster frame sequencing | attack/ranged/melee with exact attack movement and mechanical sounds; 63 pain/43 death plans covering all 1,813 movement frames; stock frame sounds, Infantry/Soldier death fire, boss explosion entry, sight/search and all reachable secondary locomotion/fidget callbacks; exact Medic resurrection; live MZ2 and beam chains; corpse bounds and physical gibs | PASS (stock tables/callbacks) | paired original full-encounter trace |
+| P06 | Save during an active monster sequence | Private-Save v12 attack/reaction, held death-fire frame, boss aim/refire, shared-random and Medic owner/old-enemy fields; dynamic World references, boss persistence and live-gib round trip | PASS | original-save import policy |
+| P07 | `boss2` endgame | Jorg staging, exact Jorg/Boss2 death-explosion entry, Makron successor, counter and changelevel with persistence | PASS | paired full-encounter weapon/audio trace for both bosses |
 | P08 | Multiplayer deathmatch | all 11 stock weapon modes through real UDP UserCmds, projectiles/effects, scoring/respawn, spectator transition, maplist re-signon; additional four-client signon, telefrag recovery, reconnect, live checkpoint, map change and 500-frame tail | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P09 | Two-player cooperative play | shared item/reconnect, skill 0/3, teammate damage, plus 39-BSP/51-goal-transition route with 39 live two-player checkpoints | PASS | functional local gate complete; remote-host/device soak belongs to P12 |
 | P10 | Complete single-player map lifecycle | direct 39-map transport smoke, 39-map physical input/PMove/weapon/snapshot entry matrix, plus 39-unique-BSP/51-change goal route through keys, counters, timers, triggers, deaths, bosses and `victory.pcx` | PASS (physical entry + goal graph) | full corridor navigation, combat clearing and item-resource playthrough |
@@ -34,12 +34,15 @@ cover Gunner, Medic, Chick, Flyer, Hover, Tank, Soldier, Supertank, Jorg and
 Boss2, plus the Brain follow-up and Mutant jump decisions. This block schedules weapon callbacks at the original relative
 frames and projects every attack timeline onto its stock MD2 frames. A companion
 reaction/movement layer contains 63 pain variants, 43 normal-death variants,
-the stock duck/dodge ranges for six families, and primary stand, idle, walk and
-run ranges for all 22 combat entries. Death terminals apply per-class corpse
-bounds, exact per-family gib model/count inventories, timed exported gib
-edicts, immediate flying-monster explosions and the Supertank's eight-stage
-explosion/final-gib chain. Secondary fidgets and exact movement distances
-remain a separate differential-parity gate.
+all 1,813 corresponding movement frames, the stock duck/dodge ranges for six
+families, and stand, idle, walk and run ranges for all 22 combat entries. Live
+frame callbacks cover the complete reachable secondary fidget/locomotion
+inventory, reaction/death sounds, Infantry/Soldier death fire and the exact
+Supertank/Boss2/Jorg explosion-entry frames. Death terminals apply per-class
+corpse bounds, exact per-family gib model/count inventories, timed exported gib
+edicts, immediate flying-monster explosions and the eight-stage boss
+explosion/final-gib chain. The remaining gate is a paired original full-
+encounter trace rather than a known missing stock movement or callback table.
 
 | Family | Implemented sequence |
 |---|---|

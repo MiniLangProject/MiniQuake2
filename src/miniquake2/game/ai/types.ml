@@ -121,6 +121,7 @@ struct AIContext
   nextRandomUnit
   nextRandomInteger
   findDeadMonster
+  reactionFrameEvent
   walkMove
   moveToGoal
   visible
@@ -220,7 +221,7 @@ function defaultContext()
     0.0, 0, 1, false, false,
     void, void, -1000, void, -1000, void, -1000,
     0.0, 0.0, 0.0, 0,
-    void, void, void,
+    void, void, void, void,
     void, void, void, void, void, void, void, void, void, void, void, void, void
   )
 end function

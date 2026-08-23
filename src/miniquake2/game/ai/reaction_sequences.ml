@@ -1,6 +1,8 @@
 /* Deterministic Quake II 3.19 pain/death MD2 ranges for stock monsters. */
 package miniquake2.game.ai.reaction_sequences
 
+import miniquake2.game.constants as gaireactionconstants
+
 struct MonsterReactionPlan
   className
   name
@@ -11,6 +13,82 @@ struct MonsterReactionPlan
   attenuation
   terminalKind
 end struct
+
+// Non-zero mframe_t movement columns from the stock 3.19 pain/death tables.
+// Zero-only tables fall through to 0.0 in movementDistanceAt. Keeping these
+// arrays package-rooted avoids rebuilding or concatenating them per AI frame.
+gaiReactionMoveGunnerPain1 = [2.0, 0.0, -5.0, 3.0, -1.0, 0.0, 0.0, 0.0,
+  0.0, 1.0, 1.0, 2.0, 1.0, 0.0, -2.0, -2.0, 0.0, 0.0]
+gaiReactionMoveGunnerPain2 = [-2.0, 11.0, 6.0, 2.0, -1.0, -7.0, -2.0, -7.0]
+gaiReactionMoveGunnerPain3 = [-3.0, 1.0, 1.0, 0.0, 1.0]
+gaiReactionMoveInfantryPain1 = [-3.0, -2.0, -1.0, -2.0, -1.0, 1.0, -1.0, 1.0, 6.0, 2.0]
+gaiReactionMoveInfantryPain2 = [-3.0, -3.0, 0.0, -1.0, -2.0, 0.0, 0.0, 2.0, 5.0, 2.0]
+gaiReactionMoveSoldierPain1 = [-3.0, 4.0, 1.0, 1.0, 0.0]
+gaiReactionMoveSoldierPain2 = [-13.0, -1.0, 2.0, 4.0, 2.0, 3.0, 2.0]
+gaiReactionMoveSoldierPain3 = [-8.0, 10.0, -4.0, -1.0, -3.0, 0.0, 3.0, 0.0,
+  0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 2.0, 4.0, 3.0, 2.0]
+gaiReactionMoveSoldierPain4 = [0.0, 0.0, 0.0, -10.0, -6.0, 8.0, 4.0, 1.0,
+  0.0, 2.0, 5.0, 2.0, -1.0, -1.0, 3.0, 2.0, 0.0]
+gaiReactionMoveTankPain3 = [-7.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 3.0,
+  0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+gaiReactionMoveChickPain3 = [0.0, 0.0, -6.0, 3.0, 11.0, 3.0, 0.0, 0.0,
+  4.0, 1.0, 0.0, -3.0, -4.0, 5.0, 7.0, -2.0, 3.0, -5.0, -2.0, -8.0, 2.0]
+gaiReactionMoveParasitePain = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.0, 16.0, -6.0, -7.0, 0.0]
+gaiReactionMoveBrainPain1 = [-6.0, -2.0, -6.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 2.0, 1.0, 7.0, 0.0, 3.0, -1.0]
+gaiReactionMoveBrainPain2 = [-2.0, 0.0, 0.0, 0.0, 0.0, 3.0, 1.0, -2.0]
+gaiReactionMoveBrainPain3 = [-2.0, 2.0, 1.0, 3.0, 0.0, -4.0]
+gaiReactionMoveHoverPain1 = [0.0, 0.0, 2.0, -8.0, -4.0, -6.0, -4.0, -3.0,
+  1.0, 0.0, 0.0, 0.0, 3.0, 1.0, 0.0, 2.0, 3.0, 2.0, 7.0, 1.0,
+  0.0, 0.0, 2.0, 0.0, 0.0, 5.0, 3.0, 4.0]
+gaiReactionMoveMutantPain1 = [4.0, -3.0, -8.0, 2.0, 5.0]
+gaiReactionMoveMutantPain2 = [-24.0, 11.0, 5.0, -2.0, 6.0, 4.0]
+gaiReactionMoveMutantPain3 = [-22.0, 3.0, 3.0, 2.0, 1.0, 1.0, 6.0, 3.0, 2.0, 0.0, 1.0]
+gaiReactionMoveJorgPain3 = [-28.0, -6.0, -3.0, -9.0, 0.0, 0.0, 0.0, 0.0,
+  -7.0, 1.0, -11.0, -4.0, 0.0, 0.0, 10.0, 11.0, 0.0, 10.0, 3.0, 10.0,
+  7.0, 17.0, 0.0, 0.0, 0.0]
+
+gaiReactionMoveGunnerDeath = [0.0, 0.0, 0.0, -7.0, -3.0, -5.0, 8.0, 6.0, 0.0, 0.0, 0.0]
+gaiReactionMoveInfantryDeath1 = [-4.0, 0.0, 0.0, -1.0, -4.0, 0.0, 0.0, 0.0,
+  -1.0, 3.0, 1.0, 1.0, -2.0, 2.0, 2.0, 9.0, 9.0, 5.0, -3.0, -3.0]
+gaiReactionMoveInfantryDeath2 = [0.0, 1.0, 5.0, -1.0, 0.0, 1.0, 1.0, 4.0,
+  3.0, 0.0, -2.0, -2.0, -3.0, -1.0, -2.0, 0.0, 2.0, 2.0, 3.0, -10.0,
+  -7.0, -8.0, -6.0, 4.0, 0.0]
+gaiReactionMoveInfantryDeath3 = [0.0, 0.0, 0.0, -6.0, -11.0, -3.0, -11.0, 0.0, 0.0]
+gaiReactionMoveSoldierDeath1 = [0.0, -10.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0]
+gaiReactionMoveSoldierDeath2 = [-5.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0]
+gaiReactionMoveSoldierDeath3 = [-5.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+gaiReactionMoveSoldierDeath5 = [-5.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0]
+gaiReactionMoveTankDeath = [-7.0, -2.0, -2.0, 1.0, 3.0, 6.0, 1.0, 1.0,
+  2.0, 0.0, 0.0, 0.0, -2.0, 0.0, 0.0, -3.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, -4.0, -6.0, -4.0, -5.0, -7.0, -15.0, -5.0, 0.0, 0.0, 0.0]
+gaiReactionMoveChickDeath1 = [0.0, 0.0, -7.0, 4.0, 11.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+gaiReactionMoveChickDeath2 = [-6.0, 0.0, -1.0, -5.0, 0.0, -1.0, -2.0, 1.0,
+  10.0, 2.0, 3.0, 1.0, 2.0, 0.0, 3.0, 3.0, 1.0, -3.0, -5.0, 4.0, 15.0, 14.0, 1.0]
+gaiReactionMoveBrainDeath1 = [0.0, 0.0, -2.0, 9.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+gaiReactionMoveBrainDeath2 = [0.0, 0.0, 0.0, 9.0, 0.0]
+gaiReactionMoveHoverDeath = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -10.0, 3.0, 5.0, 4.0, 7.0]
+gaiReactionMoveMakronDeath = [-15.0, 3.0, -12.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 11.0, 12.0, 11.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 5.0, 7.0, 6.0, 0.0, 0.0, -1.0, 2.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -6.0, -4.0, -6.0,
+  -4.0, -4.0, 0.0, 0.0, 0.0, 0.0, -2.0, -5.0, -3.0, -8.0, -3.0, -7.0,
+  -4.0, -4.0, -6.0, -7.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+  0.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0, 0.0, 2.0, 0.0, 27.0, 26.0,
+  0.0, 0.0, 0.0]
 
 function reactionPlan(className, suffix, reactionKind, firstFrame, lastFrame,
     soundName, attenuation, terminalKind)
@@ -323,6 +401,168 @@ end function
 
 function durationFrames(plan)
   return plan.lastFrame - plan.firstFrame + 1
+end function
+
+function inline movementDistanceAt(plan, timelineOffset)
+  offset = timelineOffset
+  duration = durationFrames(plan)
+  if offset < 0 then offset = 0 end if
+  if offset >= duration then offset = duration - 1 end if
+  className = plan.className
+  firstFrame = plan.firstFrame
+
+  if className == "monster_gunner" then
+    if firstFrame == 159 then return gaiReactionMoveGunnerPain1[offset] end if
+    if firstFrame == 177 then return gaiReactionMoveGunnerPain2[offset] end if
+    if firstFrame == 185 then return gaiReactionMoveGunnerPain3[offset] end if
+    if firstFrame == 190 then return gaiReactionMoveGunnerDeath[offset] end if
+  end if
+  if className == "monster_infantry" then
+    if firstFrame == 100 then return gaiReactionMoveInfantryPain1[offset] end if
+    if firstFrame == 110 then return gaiReactionMoveInfantryPain2[offset] end if
+    if firstFrame == 125 then return gaiReactionMoveInfantryDeath1[offset] end if
+    if firstFrame == 145 then return gaiReactionMoveInfantryDeath2[offset] end if
+    if firstFrame == 170 then return gaiReactionMoveInfantryDeath3[offset] end if
+  end if
+  if className == "monster_soldier_light" or className == "monster_soldier" or
+      className == "monster_soldier_ss" then
+    if firstFrame == 50 then return gaiReactionMoveSoldierPain1[offset] end if
+    if firstFrame == 55 then return gaiReactionMoveSoldierPain2[offset] end if
+    if firstFrame == 62 then return gaiReactionMoveSoldierPain3[offset] end if
+    if firstFrame == 80 then return gaiReactionMoveSoldierPain4[offset] end if
+    if firstFrame == 272 then return gaiReactionMoveSoldierDeath1[offset] end if
+    if firstFrame == 308 then return gaiReactionMoveSoldierDeath2[offset] end if
+    if firstFrame == 343 then return gaiReactionMoveSoldierDeath3[offset] end if
+    if firstFrame == 441 then return gaiReactionMoveSoldierDeath5[offset] end if
+  end if
+  if className == "monster_tank" or className == "monster_tank_commander" then
+    if firstFrame == 206 then return gaiReactionMoveTankPain3[offset] end if
+    if firstFrame == 222 then return gaiReactionMoveTankDeath[offset] end if
+  end if
+  if className == "monster_chick" then
+    if firstFrame == 100 then return gaiReactionMoveChickPain3[offset] end if
+    if firstFrame == 48 then return gaiReactionMoveChickDeath1[offset] end if
+    if firstFrame == 60 then return gaiReactionMoveChickDeath2[offset] end if
+  end if
+  if className == "monster_parasite" and firstFrame == 57 then
+    return gaiReactionMoveParasitePain[offset]
+  end if
+  if className == "monster_brain" then
+    if firstFrame == 88 then return gaiReactionMoveBrainPain1[offset] end if
+    if firstFrame == 109 then return gaiReactionMoveBrainPain2[offset] end if
+    if firstFrame == 117 then return gaiReactionMoveBrainPain3[offset] end if
+    if firstFrame == 123 then return gaiReactionMoveBrainDeath1[offset] end if
+    if firstFrame == 141 then return gaiReactionMoveBrainDeath2[offset] end if
+  end if
+  if className == "monster_hover" then
+    if firstFrame == 113 then return gaiReactionMoveHoverPain1[offset] end if
+    if firstFrame == 162 then return gaiReactionMoveHoverDeath[offset] end if
+  end if
+  if className == "monster_mutant" then
+    if firstFrame == 34 then return gaiReactionMoveMutantPain1[offset] end if
+    if firstFrame == 39 then return gaiReactionMoveMutantPain2[offset] end if
+    if firstFrame == 45 then return gaiReactionMoveMutantPain3[offset] end if
+  end if
+  if className == "monster_jorg" and firstFrame == 87 then
+    return gaiReactionMoveJorgPain3[offset]
+  end if
+  if className == "monster_makron" and firstFrame == 251 then
+    return gaiReactionMoveMakronDeath[offset]
+  end if
+  return 0.0
+end function
+
+// Frame callbacks retained by the stock pain/death mframe_t tables.  Keep the
+// routing scalar and literal-only: these functions run inside MonsterThink and
+// must not concatenate strings or allocate callback tables per frame.
+function inline frameSoundUsesRandom(plan, timelineOffset)
+  return plan.className == "monster_makron" and plan.firstFrame == 387 and
+    timelineOffset == 23
+end function
+
+function inline frameSoundNameAt(plan, timelineOffset, randomRoll)
+  className = plan.className
+  firstFrame = plan.firstFrame
+  if (className == "monster_tank" or className == "monster_tank_commander") then
+    if firstFrame == 206 and timelineOffset == 15 then return "tank/step.wav" end if
+    if firstFrame == 222 and timelineOffset == 27 then return "tank/thud.wav" end if
+  end if
+  if className == "monster_jorg" and firstFrame == 87 then
+    if timelineOffset == 2 or timelineOffset == 20 then return "boss3/step1.wav" end if
+    if timelineOffset == 4 or timelineOffset == 24 then return "boss3/step2.wav" end if
+  end if
+  if className == "monster_makron" then
+    if firstFrame == 387 then
+      if timelineOffset == 15 then return "makron/popup.wav" end if
+      if timelineOffset == 23 then
+        if randomRoll <= 0.3 then return "makron/voice4.wav" end if
+        if randomRoll <= 0.6 then return "makron/voice3.wav" end if
+        return "makron/voice.wav"
+      end if
+    end if
+    if firstFrame == 251 then
+      if timelineOffset == 3 or timelineOffset == 35 or timelineOffset == 57 or
+          timelineOffset == 66 or timelineOffset == 72 then return "makron/step1.wav" end if
+      if timelineOffset == 17 or timelineOffset == 55 or timelineOffset == 64 or
+          timelineOffset == 69 then return "makron/step2.wav" end if
+      if timelineOffset == 90 then return "makron/bhit.wav" end if
+      if timelineOffset == 92 then return "makron/brain1.wav" end if
+    end if
+  end if
+  return ""
+end function
+
+function inline frameSoundChannelAt(plan, timelineOffset)
+  if plan.className == "monster_makron" then
+    if plan.firstFrame == 387 and timelineOffset == 23 then
+      return gaireactionconstants.CHAN_AUTO
+    end if
+    if plan.firstFrame == 251 and timelineOffset == 90 then
+      return gaireactionconstants.CHAN_AUTO
+    end if
+    if plan.firstFrame == 251 and timelineOffset == 92 then
+      return gaireactionconstants.CHAN_VOICE
+    end if
+  end if
+  return gaireactionconstants.CHAN_BODY
+end function
+
+function inline frameSoundAttenuationAt(plan, timelineOffset)
+  if plan.className == "monster_makron" then
+    if plan.firstFrame == 387 and (timelineOffset == 15 or timelineOffset == 23) then
+      return gaireactionconstants.ATTN_NONE
+    end if
+    if plan.firstFrame == 251 and timelineOffset == 90 then
+      return gaireactionconstants.ATTN_NONE
+    end if
+  end if
+  return gaireactionconstants.ATTN_NORM
+end function
+
+function inline externalFrameEventAt(plan, timelineOffset)
+  if plan.className == "monster_infantry" and plan.firstFrame == 145 and
+      timelineOffset >= 10 and timelineOffset <= 21 then
+    return "infantry-death-machinegun"
+  end if
+  if (plan.className == "monster_soldier_light" or plan.className == "monster_soldier" or
+      plan.className == "monster_soldier_ss") and plan.firstFrame == 272 and
+      (timelineOffset == 21 or timelineOffset == 24) then
+    return "soldier-death-fire"
+  end if
+  return ""
+end function
+
+function inline startsBossExplosionAt(plan, timelineOffset)
+  if plan.className == "monster_supertank" and plan.firstFrame == 98 then
+    return timelineOffset == 23
+  end if
+  if plan.className == "monster_boss2" and plan.firstFrame == 132 then
+    return timelineOffset == 48
+  end if
+  if plan.className == "monster_jorg" and plan.firstFrame == 31 then
+    return timelineOffset == 49
+  end if
+  return false
 end function
 
 function modelFrameAt(plan, timelineOffset)

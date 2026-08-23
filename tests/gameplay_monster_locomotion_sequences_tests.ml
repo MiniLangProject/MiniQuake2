@@ -3,6 +3,7 @@ import miniquake2.game.ai.locomotion_sequences as locomotionsequences
 import miniquake2.game.ai.archetypes as locomotionarchetypes
 import miniquake2.game.ai.monster as locomotionmonster
 import miniquake2.game.ai.types as locomotiontypes
+import miniquake2.game.constants as locomotiongameconstants
 import miniquake2.qcommon.types as locomotionqtypes
 import miniquake2.game.null_game as locomotiongame
 import miniquake2.server.game_bridge as locomotionbridge
@@ -19,6 +20,40 @@ function locomotionNear(actual, expected, message)
 end function
 
 function locomotionVisible(first, second)
+  return true
+end function
+
+locomotionCallbackSoundNames = array(32)
+locomotionCallbackSoundChannels = array(32)
+locomotionCallbackSoundAttenuations = array(32)
+locomotionCallbackSoundCount = 0
+locomotionCallbackRolls = array(16)
+locomotionCallbackRollCount = 0
+locomotionCallbackRollPosition = 0
+
+function locomotionCaptureCallbackSound(actor, soundName, channel, attenuation)
+  global locomotionCallbackSoundCount
+  locomotionCallbackSoundNames[locomotionCallbackSoundCount] = soundName
+  locomotionCallbackSoundChannels[locomotionCallbackSoundCount] = channel
+  locomotionCallbackSoundAttenuations[locomotionCallbackSoundCount] = attenuation
+  locomotionCallbackSoundCount = locomotionCallbackSoundCount + 1
+  return true
+end function
+
+function locomotionNextCallbackRoll()
+  global locomotionCallbackRollPosition
+  if locomotionCallbackRollPosition >= locomotionCallbackRollCount then return 0.0 end if
+  locomotionCallbackRoll = locomotionCallbackRolls[locomotionCallbackRollPosition]
+  locomotionCallbackRollPosition = locomotionCallbackRollPosition + 1
+  return locomotionCallbackRoll
+end function
+
+function locomotionSetCallbackRoll(value)
+  global locomotionCallbackRollCount, locomotionCallbackRollPosition, locomotionCallbackSoundCount
+  locomotionCallbackRolls[0] = value
+  locomotionCallbackRollCount = 1
+  locomotionCallbackRollPosition = 0
+  locomotionCallbackSoundCount = 0
   return true
 end function
 
@@ -176,6 +211,136 @@ supertankCallbackActor.goalEntity = transitionTarget; supertankCallbackActor.mov
 supertankCallbackActor.info.run(supertankCallbackActor, transitionContext)
 locomotionAssert(typeof(supertankCallbackActor.info.currentMove.frames[0].thinkFunction) == "function",
   "Supertank tread callback remains on the first movement frame")
+
+// Reachable secondary stand/walk callbacks from the original mframe_t tables.
+// Disabled (#if 0) and unreferenced moves are deliberately not invented here.
+callbackContext = locomotiontypes.defaultContext()
+callbackContext.playSound = locomotionCaptureCallbackSound
+callbackContext.nextRandomUnit = locomotionNextCallbackRoll
+
+callbackSoldier = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_soldier", 97, callbackContext)
+locomotionAssert(callbackSoldier.info.currentMove.name == "soldier-stand" and
+  typeof(callbackSoldier.info.currentMove.frames[0].thinkFunction) == "function",
+  "Soldier stand1 owns its random idle callback")
+callbackSoldier.info.walk(callbackSoldier, callbackContext)
+if callbackSoldier.info.currentMove.name != "soldier-walk1" then
+  locomotionmonster.SetStockMove(callbackSoldier, "walk", void)
+end if
+locomotionAssert(typeof(callbackSoldier.info.currentMove.frames[9].thinkFunction) == "function",
+  "Soldier walk1 owns its exact cycle callback")
+
+callbackMedic = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_medic", 98, callbackContext)
+locomotionAssert(typeof(callbackMedic.info.currentMove.frames[0].thinkFunction) == "function",
+  "Medic wait1 owns the idle/corpse-search callback")
+
+callbackParasite = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_parasite", 99, callbackContext)
+callbackParasiteTapCount = 0
+callbackParasiteFrame = 0
+while callbackParasiteFrame < len(callbackParasite.info.currentMove.frames)
+  if typeof(callbackParasite.info.currentMove.frames[callbackParasiteFrame].thinkFunction) ==
+      "function" then
+    callbackParasiteTapCount = callbackParasiteTapCount + 1
+  end if
+  callbackParasiteFrame = callbackParasiteFrame + 1
+end while
+locomotionAssert(callbackParasiteTapCount == 6,
+  "Parasite stand owns all six tap callbacks")
+
+callbackJorg = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_jorg", 100, callbackContext)
+locomotionAssert(typeof(callbackJorg.info.currentMove.frames[0].thinkFunction) == "function" and
+  typeof(callbackJorg.info.currentMove.frames[34].thinkFunction) == "function" and
+  typeof(callbackJorg.info.currentMove.frames[38].thinkFunction) == "function" and
+  typeof(callbackJorg.info.currentMove.frames[47].thinkFunction) == "function" and
+  typeof(callbackJorg.info.currentMove.frames[50].thinkFunction) == "function",
+  "Jorg stand owns idle and four exact left/right steps")
+
+callbackTank = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_tank", 101, callbackContext)
+callbackTank.info.run(callbackTank, callbackContext)
+locomotionAssert(callbackTank.info.currentMove.name == "tank-run-start" and
+  typeof(callbackTank.info.currentMove.frames[3].thinkFunction) == "function",
+  "Tank start-run owns its fourth-frame footstep")
+
+locomotionSetCallbackRoll(0.8)
+locomotionmonster.StockSoldierIdleFrameSound(callbackSoldier, callbackContext)
+locomotionAssert(locomotionCallbackRollPosition == 1 and
+  locomotionCallbackSoundCount == 0,
+  "Soldier idle uses strict greater-than 0.8 boundary")
+locomotionSetCallbackRoll(0.8001)
+locomotionmonster.StockSoldierIdleFrameSound(callbackSoldier, callbackContext)
+locomotionAssert(locomotionCallbackSoundCount == 1 and
+  locomotionCallbackSoundNames[0] == "soldier/solidle1.wav" and
+  locomotionCallbackSoundChannels[0] == locomotiongameconstants.CHAN_VOICE and
+  locomotionCallbackSoundAttenuations[0] == locomotiongameconstants.ATTN_IDLE,
+  "Soldier stand callback consumes one local random and emits idle voice")
+
+callbackChick = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_chick", 102, callbackContext)
+locomotionSetCallbackRoll(0.5)
+locomotionmonster.StockFidgetFrameSound(callbackChick, callbackContext)
+locomotionAssert(locomotionCallbackSoundCount == 1 and
+  locomotionCallbackSoundNames[0] == "chick/chkidle2.wav" and
+  locomotionCallbackRollPosition == 1,
+  "ChickMoan exact strict 0.5 branch and local random consumption")
+
+callbackBrain = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_brain", 103, callbackContext)
+locomotionSetCallbackRoll(0.0)
+callbackBrain.info.idle(callbackBrain, callbackContext)
+locomotionAssert(locomotionCallbackSoundCount == 1 and
+  locomotionCallbackSoundNames[0] == "brain/brnlens1.wav" and
+  locomotionCallbackSoundChannels[0] == locomotiongameconstants.CHAN_AUTO,
+  "Brain idle uses the stock auto channel")
+
+callbackFlyer = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_flyer", 104, callbackContext)
+locomotionSetCallbackRoll(0.0)
+callbackFlyer.info.idle(callbackFlyer, callbackContext)
+locomotionAssert(locomotionCallbackSoundCount == 1 and
+  locomotionCallbackSoundNames[0] == "flyer/flyidle1.wav" and
+  locomotionCallbackSoundChannels[0] == locomotiongameconstants.CHAN_VOICE,
+  "Flyer idle uses flyidle rather than its distinct search asset")
+
+callbackBerserk = locomotionarchetypes.SpawnMonster(moveRegistry,
+  "monster_berserk", 105, callbackContext)
+locomotionSetCallbackRoll(0.0)
+locomotionmonster.StockFidgetFrameSound(callbackBerserk, callbackContext)
+locomotionAssert(locomotionCallbackSoundCount == 1 and
+  locomotionCallbackSoundNames[0] == "berserk/beridle1.wav" and
+  locomotionCallbackSoundChannels[0] == locomotiongameconstants.CHAN_WEAPON,
+  "Berserk fidget idle uses the stock weapon channel")
+
+locomotionSetCallbackRoll(0.0)
+locomotionmonster.StockParasiteTapSound(callbackParasite, callbackContext)
+locomotionAssert(locomotionCallbackSoundNames[0] == "parasite/paridle1.wav" and
+  locomotionCallbackSoundChannels[0] == locomotiongameconstants.CHAN_WEAPON and
+  locomotionCallbackSoundAttenuations[0] == locomotiongameconstants.ATTN_IDLE,
+  "Parasite stand tap uses weapon/idle sound routing")
+
+locomotionSetCallbackRoll(0.1)
+callbackSoldier.info.nextFrame = 0
+locomotionmonster.StockSoldierWalkCycle(callbackSoldier, callbackContext)
+locomotionAssert(callbackSoldier.info.nextFrame == 0,
+  "Soldier walk exact 0.1 boundary keeps long tail")
+locomotionSetCallbackRoll(0.1001)
+locomotionmonster.StockSoldierWalkCycle(callbackSoldier, callbackContext)
+locomotionAssert(callbackSoldier.info.nextFrame == 215,
+  "Soldier walk callback loops to FRAME_walk101 above 0.1")
+
+locomotionSetCallbackRoll(0.0)
+locomotionmonster.StockJorgIdleSound(callbackJorg, callbackContext)
+locomotionmonster.StockJorgStepLeft(callbackJorg, callbackContext)
+locomotionmonster.StockJorgStepRight(callbackJorg, callbackContext)
+locomotionAssert(locomotionCallbackSoundCount == 3 and
+  locomotionCallbackSoundNames[0] == "boss3/bs3idle1.wav" and
+  locomotionCallbackSoundNames[1] == "boss3/step1.wav" and
+  locomotionCallbackSoundNames[2] == "boss3/step2.wav" and
+  locomotionCallbackSoundAttenuations[0] == locomotiongameconstants.ATTN_NORM,
+  "Jorg stand idle and explicit left/right callbacks")
 
 locomotionServer = locomotionbridge.createRuntime(4)
 locomotionApi = locomotiongame.GetGameApi(locomotionbridge.makeImports(locomotionServer))

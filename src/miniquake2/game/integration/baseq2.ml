@@ -67,6 +67,13 @@ medicCableOffsetX = [45.0, 48.4, 47.8, 47.3, 45.4, 41.9, 37.8, 34.3, 32.7, 32.7]
 medicCableOffsetY = [-9.2, -9.7, -9.8, -9.3, -10.1, -12.7, -15.8, -18.4, -19.7, -19.7]
 medicCableOffsetZ = [15.5, 15.2, 15.8, 14.3, 13.1, 12.0, 11.2, 10.7, 10.4, 10.4]
 
+// m_infantry.c's fixed death211..death222 spray. Scalar package tables avoid
+// constructing twelve nested angle vectors every time an Infantry dies.
+infantryDeathAimPitch = [0.0, 10.0, 20.0, 25.0, 30.0, 30.0,
+  25.0, 20.0, 15.0, 40.0, 70.0, 90.0]
+infantryDeathAimYaw = [5.0, 15.0, 25.0, 35.0, 40.0, 45.0,
+  50.0, 40.0, 35.0, 35.0, 35.0, 35.0]
+
 function compactIntegratedValues(values, count)
   if count <= 0 then return [] end if
   if count == len(values) then return values end if
@@ -330,6 +337,80 @@ function integratedFindDeadMonster(medic)
   return ibMedicBestHolder
 end function
 
+function integratedInfantryDeathFire(runtime, actor, timelineOffset)
+  ibInfantryDeathIndex = timelineOffset - 10
+  if ibInfantryDeathIndex < 0 or ibInfantryDeathIndex >= 12 then return false end if
+  ibInfantryDeathFlash = 27 + ibInfantryDeathIndex
+  ibInfantryDeathStartHolder = monsterMuzzleStart(actor, ibInfantryDeathFlash)
+  ibInfantryDeathAnglesHolder = ibqtypes.Vec3(
+    actor.edict.state.angles.x - infantryDeathAimPitch[ibInfantryDeathIndex],
+    actor.edict.state.angles.y - infantryDeathAimYaw[ibInfantryDeathIndex],
+    actor.edict.state.angles.z)
+  ibInfantryDeathDirectionHolder = ibwpvector.angleVectors(
+    ibInfantryDeathAnglesHolder)[0]
+  ibInfantryDeathShooterHolder = monsterWeaponTarget(actor)
+  ibwphitscan.fireBullet(runtime.weaponContext, ibInfantryDeathShooterHolder,
+    ibInfantryDeathStartHolder, ibInfantryDeathDirectionHolder, 3, 4,
+    300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
+  integratedMonsterMuzzleFlash(runtime, actor, ibInfantryDeathFlash,
+    ibInfantryDeathStartHolder)
+  return true
+end function
+
+function integratedSoldierDeathFire(runtime, actor, timelineOffset)
+  ibSoldierDeathShot = 0
+  if timelineOffset == 24 then ibSoldierDeathShot = 1
+  else if timelineOffset != 21 then return false end if
+  ibSoldierDeathStartFlash = 92
+  if actor.className == "monster_soldier" then ibSoldierDeathStartFlash = 93
+  else if actor.className == "monster_soldier_ss" then ibSoldierDeathStartFlash = 94 end if
+  ibSoldierDeathFlash = ibSoldierDeathStartFlash + ibSoldierDeathShot * 3
+  ibSoldierDeathStartHolder = monsterMuzzleStart(actor, ibSoldierDeathFlash)
+  ibSoldierDeathDirectionHolder = ibwpvector.angleVectors(
+    actor.edict.state.angles)[0]
+  ibSoldierDeathShooterHolder = monsterWeaponTarget(actor)
+  if actor.className == "monster_soldier_light" then
+    ibwpprojectiles.fireBlaster(runtime.weaponContext, ibSoldierDeathShooterHolder,
+      ibSoldierDeathStartHolder, ibSoldierDeathDirectionHolder, 5, 600.0,
+      ibwpconstants.EF_BLASTER, false)
+  else if actor.className == "monster_soldier" then
+    ibwphitscan.fireShotgun(runtime.weaponContext, ibSoldierDeathShooterHolder,
+      ibSoldierDeathStartHolder, ibSoldierDeathDirectionHolder, 2, 1,
+      500.0, 500.0, 12, ibgpconstants.MOD_UNKNOWN)
+  else
+    if actor.attackCycles <= 0 then
+      actor.attackCycles = 3 + (ibrandom.nextInteger(runtime.randomState) % 8)
+    end if
+    ibwphitscan.fireBullet(runtime.weaponContext, ibSoldierDeathShooterHolder,
+      ibSoldierDeathStartHolder, ibSoldierDeathDirectionHolder, 2, 4,
+      300.0, 500.0, ibgpconstants.MOD_UNKNOWN)
+    actor.attackCycles = actor.attackCycles - 1
+    if actor.attackCycles > 0 then
+      actor.info.aiFlags = actor.info.aiFlags | ibaiconstants.AI_HOLD_FRAME
+    else
+      actor.info.aiFlags = actor.info.aiFlags & ~ibaiconstants.AI_HOLD_FRAME
+    end if
+  end if
+  integratedMonsterMuzzleFlash(runtime, actor, ibSoldierDeathFlash,
+    ibSoldierDeathStartHolder)
+  return true
+end function
+
+function integratedReactionFrameEvent(actor, plan, timelineOffset, eventKind)
+  global activeIntegrationRuntime
+  ibReactionEventRuntimeHolder = activeIntegrationRuntime
+  if ibReactionEventRuntimeHolder is void then return false end if
+  if eventKind == "infantry-death-machinegun" then
+    return integratedInfantryDeathFire(ibReactionEventRuntimeHolder, actor,
+      timelineOffset)
+  end if
+  if eventKind == "soldier-death-fire" then
+    return integratedSoldierDeathFire(ibReactionEventRuntimeHolder, actor,
+      timelineOffset)
+  end if
+  return error(9712, "unsupported stock reaction frame event " + eventKind)
+end function
+
 function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
@@ -344,6 +425,7 @@ function configureAI(context)
   context.nextRandomUnit = integratedRandomUnit
   context.nextRandomInteger = integratedRandomInteger
   context.findDeadMonster = integratedFindDeadMonster
+  context.reactionFrameEvent = integratedReactionFrameEvent
   return context
 end function
 

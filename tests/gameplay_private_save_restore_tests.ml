@@ -63,6 +63,7 @@ monster.info.nextFrame = 0; monster.info.pauseTime = runtime.world.time + 0.2
 monster.info.attackState = privaterestoreaiconstants.AS_MISSILE
 monster.attackAim = privaterestoreqtypes.Vec3(81.0, -12.0, 47.0); monster.attackAimValid = true
 monster.attackCycles = 3
+monster.info.aiFlags = monster.info.aiFlags | privaterestoreaiconstants.AI_HOLD_FRAME
 saveMedic = findPrivateSaveMonster(runtime, "monster_medic")
 savePatient = findPrivateSaveMonster(runtime, "monster_gunner")
 saveMedic.enemy = savePatient
@@ -90,6 +91,7 @@ monster.attackCount = 0; monster.meleeCount = 0; monster.painCount = 0; monster.
 monster.info.nextFrame = 99; monster.info.pauseTime = 999.0; monster.info.attackState = 0
 monster.attackAim = privaterestoreqtypes.Vec3(0.0, 0.0, 0.0); monster.attackAimValid = false
 monster.attackCycles = 0
+monster.info.aiFlags = monster.info.aiFlags & ~privaterestoreaiconstants.AI_HOLD_FRAME
 runtime.randomState.seed = 1
 item.hidden = false; item.nextThink = 0.0; item.count = 0
 player.health = 1; player.gameplay.inventory.counts[2] = 0; player.powerups.quadFrame = 0; player.persistent.score = 0
@@ -119,8 +121,9 @@ restoreAssert(restoredMonster.attackCount == 7 and restoredMonster.meleeCount ==
   restoredMonster.info.attackState == privaterestoreaiconstants.AS_MISSILE and
   restoredMonster.attackAimValid and restoredMonster.attackAim.x == 81.0 and
   restoredMonster.attackAim.y == -12.0 and restoredMonster.attackAim.z == 47.0 and
-  restoredMonster.attackCycles == 3,
-  "in-flight monster attack sequence restored")
+  restoredMonster.attackCycles == 3 and
+  (restoredMonster.info.aiFlags & privaterestoreaiconstants.AI_HOLD_FRAME) != 0,
+  "in-flight monster attack/held-frame sequence restored")
 restoredMedic = findPrivateSaveMonster(restoredRuntime, "monster_medic")
 restoredPatient = findPrivateSaveMonster(restoredRuntime, "monster_gunner")
 restoreAssert(restoredMedic.activity == "medic-cable" and

@@ -4,6 +4,34 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-23 reaction/death parity acceptance run
+
+The Release product and all 152 native test programs were freshly rebuilt and
+executed after completing the stock pain/death movement and secondary callback
+layer:
+
+```powershell
+.\build.ps1 -Configuration Release -SkipPreflight
+```
+
+The run exited with code 0. Product diagnostics, capabilities, CLI smoke and the
+post-build source inventory also passed with 346 MiniLang files and 389
+maintained files. The expanded reaction gate fingerprints all 1,813 frames from
+63 pain and 43 death plans, inventories 21 frame-sound callbacks, one
+callback-local random branch, 18 death-weapon events and three boss explosion
+entries, and drives the real GameImport/Protocol-34 boundary. It observes every
+Infantry death flash MZ2 27–38, all Soldier death flashes MZ2 92–97 and both held
+3–10-shot SS bursts. The locomotion gate covers all reachable stock secondary
+callbacks, and Private-Save v12 restores `AI_HOLD_FRAME` plus the remaining
+burst count.
+
+The accepted executable then passed both installed Steam retail product gates:
+
+```text
+base1: maps=1 steps=64 snapshots=64 fire=1 items=9 health=100 packets=202 rejected=0
+campaign: maps=39 changes=38 client-state=4 spawn-count=39 steps=753 packets=3697
+```
+
 ## 2026-08-23 Medic parity acceptance run
 
 The release gate was rerun after the exact Medic corpse-search, cable,
