@@ -116,6 +116,13 @@ table, while BFG/Plasma/sphere translucency follows the original effect bits.
 Color-Shell/Powerscreen overlays, isolated linked-model flags, automatic
 animation/rotation and the BFG/Fly/Trap/persistent-Teleporter/spinning-light
 tail are also active without per-frame particle-array concatenation. The
+player renderer now consumes live player configstrings for custom MD2/PCX
+model/skin pairs, resolves the stock `#w_*.md2` visible-weapon table from the
+packed snapshot skin word, uses original packed `RF_BEAM` color selection and
+applies the Rogue male/female/cyborg disguise override. It hides the local
+third-person player plus linked weapon while retaining the
+first-person view weapon. A two-client UDP arsenal gate proves the visible
+weapon index for every stock weapon in both reconstructed snapshots. The
 original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and

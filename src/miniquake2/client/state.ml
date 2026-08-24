@@ -5,6 +5,7 @@ import std.math as cstatemath
 import miniquake2.native as cstatenative
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as cqt
+import miniquake2.qcommon.text as cstatetext
 import miniquake2.protocol.types as pt
 import miniquake2.renderer.constants as crc
 import miniquake2.renderer.types as crt
@@ -179,8 +180,18 @@ function renderAngles(oldState, state, effects, fraction, renderTime)
   return interpolatedAngles(oldState, state, fraction)
 end function
 
+function inline disguiseFamily(skin)
+  if skin is void or typeof(skin) != "struct" or
+      typeof(skin.name) != "string" then return "" end if
+  name = cstatetext.lower(skin.name)
+  if cstatetext.startsWith(name, "players/male") then return "male" end if
+  if cstatetext.startsWith(name, "players/female") then return "female" end if
+  if cstatetext.startsWith(name, "players/cyborg") then return "cyborg" end if
+  return ""
+end function
+
 function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
-    part, fraction, renderTime, modelResolver)
+    part, fraction, renderTime, assetResolvers, randomResolver)
   if modelIndex <= 0 then return outputIndex end if
   effects = effectiveEffects(state)
   renderFx = effectiveRenderFx(state)
@@ -188,7 +199,23 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
   if part == 1 and modelIndex != 255 and (modelIndex & 0x80) != 0 then
     resolvedIndex = modelIndex & 0x7f
   end if
-  model = modelResolver(resolvedIndex)
+  playerIndex = state.skinNum & 0xff
+  model = void; skin = void
+  if part == 0 and modelIndex == 255 then
+    model = assetResolvers.playerModel(playerIndex)
+    skin = assetResolvers.playerSkin(playerIndex)
+    if (renderFx & crc.RF_USE_DISGUISE) != 0 then
+      family = disguiseFamily(skin)
+      if family != "" then
+        model = assetResolvers.modelName("players/" + family + "/tris.md2")
+        skin = assetResolvers.skinName("players/" + family + "/disguise.pcx")
+      end if
+    end if
+  else if part == 1 and modelIndex == 255 then
+    model = assetResolvers.playerWeapon(playerIndex, state.skinNum >> 8)
+  else
+    model = assetResolvers.modelIndex(resolvedIndex)
+  end if
   origin = interpolatedOrigin(oldState, state, fraction)
   oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
   if (renderFx & (crc.RF_FRAMELERP | crc.RF_BEAM)) != 0 then
@@ -203,7 +230,7 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
   flags = 0
   alpha = 1.0
   if part == 0 then
-    skinNum = state.skinNum
+    if modelIndex != 255 then skinNum = state.skinNum end if
     flags = renderFx
     if (effects & cseconstants.EF_COLOR_SHELL) != 0 then flags = 0 end if
     if renderFx == crc.RF_TRANSLUCENT then alpha = 0.70 end if
@@ -217,24 +244,41 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
       flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
       if (effects & cseconstants.EF_TRACKERTRAIL) != 0 then alpha = 0.60 end if
     end if
+    if (renderFx & crc.RF_BEAM) != 0 then
+      selectedByte = randomResolver() % 4
+      skinNum = (state.skinNum >> (selectedByte * 8)) & 0xff
+      model = void; skin = void; alpha = 0.30
+    end if
   else if part == 1 and modelIndex != 255 and (modelIndex & 0x80) != 0 then
     flags = crc.RF_TRANSLUCENT; alpha = 0.32
   end if
   output[outputIndex] = crt.entity(model, angles, origin, frame, oldOrigin,
-    oldFrame, 1.0 - fraction, skinNum, 0, alpha, void, flags)
+    oldFrame, 1.0 - fraction, skinNum, 0, alpha, skin, flags)
   return outputIndex + 1
 end function
 
 function appendColorShell(output, outputIndex, state, oldState, fraction,
-    renderTime, modelResolver)
+    renderTime, assetResolvers)
   effects = effectiveEffects(state)
   if state.modelIndex <= 0 or (effects & cseconstants.EF_COLOR_SHELL) == 0 then
     return outputIndex
   end if
-  model = modelResolver(state.modelIndex)
+  renderFx = effectiveRenderFx(state)
+  model = assetResolvers.modelIndex(state.modelIndex); skin = void; skinNum = state.skinNum
+  if state.modelIndex == 255 then
+    skinNum = 0
+    model = assetResolvers.playerModel(state.skinNum & 0xff)
+    skin = assetResolvers.playerSkin(state.skinNum & 0xff)
+    if (renderFx & crc.RF_USE_DISGUISE) != 0 then
+      family = disguiseFamily(skin)
+      if family != "" then
+        model = assetResolvers.modelName("players/" + family + "/tris.md2")
+        skin = assetResolvers.skinName("players/" + family + "/disguise.pcx")
+      end if
+    end if
+  end if
   origin = interpolatedOrigin(oldState, state, fraction)
   oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
-  renderFx = effectiveRenderFx(state)
   if (renderFx & (crc.RF_FRAMELERP | crc.RF_BEAM)) != 0 then
     origin = cqt.vec3(state.origin[0], state.origin[1], state.origin[2])
     oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
@@ -244,18 +288,18 @@ function appendColorShell(output, outputIndex, state, oldState, fraction,
   output[outputIndex] = crt.entity(model,
     renderAngles(oldState, state, effects, fraction, renderTime), origin,
     animatedFrame(state, effects, renderTime), oldOrigin, oldFrame,
-    1.0 - fraction, state.skinNum, 0, 0.30, void,
+    1.0 - fraction, skinNum, 0, 0.30, skin,
     renderFx | crc.RF_TRANSLUCENT)
   return outputIndex + 1
 end function
 
 function appendPowerScreen(output, outputIndex, state, oldState, fraction,
-    renderTime, namedModelResolver)
+    renderTime, assetResolvers)
   effects = effectiveEffects(state)
   if state.modelIndex <= 0 or (effects & cseconstants.EF_POWERSCREEN) == 0 then
     return outputIndex
   end if
-  model = namedModelResolver("models/items/armor/effect/tris.md2")
+  model = assetResolvers.modelName("models/items/armor/effect/tris.md2")
   if model is void then return outputIndex end if
   origin = interpolatedOrigin(oldState, state, fraction)
   oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
@@ -266,11 +310,11 @@ function appendPowerScreen(output, outputIndex, state, oldState, fraction,
   return outputIndex + 1
 end function
 
-function appendViewWeapon(output, outputIndex, client, fraction, modelResolver,
+function appendViewWeapon(output, outputIndex, client, fraction, assetResolvers,
     viewOrigin, viewAngles)
   player = client.current.playerState
   if player.gunIndex <= 0 or player.fov > 90.0 then return outputIndex end if
-  model = modelResolver(player.gunIndex)
+  model = assetResolvers.modelIndex(player.gunIndex)
   if model is void then return outputIndex end if
   previousPlayer = interpolationPlayer(client)
   gunOrigin = cqt.vec3(
@@ -289,15 +333,17 @@ function appendViewWeapon(output, outputIndex, client, fraction, modelResolver,
   return outputIndex + 1
 end function
 
-function buildEntities(client, fraction, modelResolver, namedModelResolver,
-    viewOrigin, viewAngles)
+function buildEntities(client, fraction, assetResolvers, localEntityNumber,
+    randomResolver, viewOrigin, viewAngles)
   if client.current is void then return [] end if
   fraction = clampFraction(fraction)
   oldEntities = []
   if client.previous is not void then oldEntities = client.previous.entities end if
   capacity = 0
   for each countedState in client.current.entities
-    capacity = capacity + stateModelCount(countedState)
+    if countedState.number != localEntityNumber then
+      capacity = capacity + stateModelCount(countedState)
+    end if
   end for
   if client.current.playerState.gunIndex > 0 then capacity = capacity + 1 end if
   if capacity == 0 then return [] end if
@@ -306,23 +352,29 @@ function buildEntities(client, fraction, modelResolver, namedModelResolver,
   index = 0
   while index < len(client.current.entities)
     state = client.current.entities[index]
-    oldState = findEntity(oldEntities, state.number)
-    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex, 0, fraction, client.serverTime, modelResolver)
-    outputIndex = appendColorShell(output, outputIndex, state, oldState,
-      fraction, client.serverTime, modelResolver)
-    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex2, 1, fraction, client.serverTime, modelResolver)
-    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex3, 2, fraction, client.serverTime, modelResolver)
-    outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex4, 3, fraction, client.serverTime, modelResolver)
-    outputIndex = appendPowerScreen(output, outputIndex, state, oldState,
-      fraction, client.serverTime, namedModelResolver)
+    if state.number != localEntityNumber then
+      oldState = findEntity(oldEntities, state.number)
+      outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+        state.modelIndex, 0, fraction, client.serverTime, assetResolvers,
+        randomResolver)
+      outputIndex = appendColorShell(output, outputIndex, state, oldState,
+        fraction, client.serverTime, assetResolvers)
+      outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+        state.modelIndex2, 1, fraction, client.serverTime, assetResolvers,
+        randomResolver)
+      outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+        state.modelIndex3, 2, fraction, client.serverTime, assetResolvers,
+        randomResolver)
+      outputIndex = appendModelEntity(output, outputIndex, state, oldState,
+        state.modelIndex4, 3, fraction, client.serverTime, assetResolvers,
+        randomResolver)
+      outputIndex = appendPowerScreen(output, outputIndex, state, oldState,
+        fraction, client.serverTime, assetResolvers)
+    end if
     index = index + 1
   end while
   outputIndex = appendViewWeapon(output, outputIndex, client, fraction,
-    modelResolver, viewOrigin, viewAngles)
+    assetResolvers, viewOrigin, viewAngles)
   if outputIndex == len(output) then return output end if
   if outputIndex == 0 then return [] end if
   compact = array(outputIndex)
@@ -369,8 +421,8 @@ function clearPrediction(client)
   return true
 end function
 
-function buildRefDefInternal(client, fraction, width, height, modelResolver,
-    namedModelResolver, usePrediction)
+function buildRefDefInternal(client, fraction, width, height, assetResolvers,
+    localEntityNumber, randomResolver, usePrediction)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
   fraction = clampFraction(fraction)
   player = client.current.playerState
@@ -415,19 +467,20 @@ function buildRefDefInternal(client, fraction, width, height, modelResolver,
   blend = [player.blend[0], player.blend[1], player.blend[2], player.blend[3]]
   return crt.refDef(0, 0, width, height, fov, fovY, viewOrigin, viewAngles,
     blend, client.serverTime * 0.001, player.rdFlags, void,
-    client.lightStyles, buildEntities(client, fraction, modelResolver, namedModelResolver,
-    viewOrigin, viewAngles), [], [])
+    client.lightStyles, buildEntities(client, fraction, assetResolvers,
+    localEntityNumber, randomResolver, viewOrigin, viewAngles), [], [])
 end function
 
 // Demos and deterministic renderer captures intentionally retain pure server
 // interpolation.  The live product uses the explicit predicted entry point.
-function buildRefDef(client, fraction, width, height, modelResolver, namedModelResolver)
-  return buildRefDefInternal(client, fraction, width, height, modelResolver,
-    namedModelResolver, false)
+function buildRefDef(client, fraction, width, height, assetResolvers,
+    localEntityNumber, randomResolver)
+  return buildRefDefInternal(client, fraction, width, height, assetResolvers,
+    localEntityNumber, randomResolver, false)
 end function
 
-function buildPredictedRefDef(client, fraction, width, height, modelResolver,
-    namedModelResolver)
-  return buildRefDefInternal(client, fraction, width, height, modelResolver,
-    namedModelResolver, true)
+function buildPredictedRefDef(client, fraction, width, height, assetResolvers,
+    localEntityNumber, randomResolver)
+  return buildRefDefInternal(client, fraction, width, height, assetResolvers,
+    localEntityNumber, randomResolver, true)
 end function

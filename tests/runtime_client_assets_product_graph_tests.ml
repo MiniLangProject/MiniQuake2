@@ -32,7 +32,9 @@ assets = asset_graph_runtime.createForRenderer(renderer.exports,
 configStrings = array(asset_graph_qc.MAX_CONFIGSTRINGS, "")
 configStrings[asset_graph_qc.CS_MODELS + 1] = "maps/asset_graph.bsp"
 configStrings[asset_graph_qc.CS_MODELS + 2] = "models/asset_graph.md2"
+configStrings[asset_graph_qc.CS_MODELS + 3] = "#w_blaster.md2"
 configStrings[asset_graph_qc.CS_SOUNDS + 3] = "weapons/asset_graph.wav"
+configStrings[asset_graph_qc.CS_PLAYERSKINS] = "Graph\\female/athena"
 asset_graph_runtime.registerConfigStrings(assets, configStrings, "asset_graph")
 resolver = asset_graph_runtime.bindings(assets)
 
@@ -42,6 +44,11 @@ assetGraphAssert(resolver.soundIndex(3).name == "weapons/asset_graph.wav",
   "sound binding lost package-owned state")
 assetGraphAssert(resolver.modelName("models/objects/asset_graph.md2") is not void,
   "named effect model binding lost state")
+assetGraphAssert(resolver.playerModel(0).name == "players/female/tris.md2" and
+  resolver.playerSkin(0).name == "players/female/athena.pcx",
+  "player model/skin binding lost state")
+assetGraphAssert(resolver.playerWeapon(0, 1).name == "players/female/w_blaster.md2",
+  "visible player weapon binding lost state")
 
 asset_graph_runtime.reset(assets, "asset_graph_reset")
 assetGraphAssert(resolver.modelIndex(2) is void and resolver.soundIndex(3) is void,

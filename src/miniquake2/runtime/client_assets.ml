@@ -4,19 +4,22 @@ package miniquake2.runtime.client_assets
 import miniquake2.client.assets.registry as caregistry
 import miniquake2.client.effects.mixer_adapter as cameffects
 
-function create(modelLoader, soundLoader, missingCallback)
-  return caregistry.create(caregistry.callbacks(modelLoader, soundLoader, missingCallback))
+function create(modelLoader, skinLoader, soundLoader, missingCallback)
+  return caregistry.create(caregistry.callbacks(modelLoader, skinLoader,
+    soundLoader, missingCallback))
 end function
 
-function createLenient(modelLoader, soundLoader)
-  return caregistry.createLenient(modelLoader, soundLoader)
+function createLenient(modelLoader, skinLoader, soundLoader)
+  return caregistry.createLenient(modelLoader, skinLoader, soundLoader)
 end function
 
 function createForRenderer(rendererExports, soundLoader, missingCallback)
-  if rendererExports is void or typeof(rendererExports.RegisterModel) != "function" then
-    return error(8410, "client assets require Renderer RegisterModel")
+  if rendererExports is void or typeof(rendererExports.RegisterModel) != "function" or
+      typeof(rendererExports.RegisterSkin) != "function" then
+    return error(8410, "client assets require Renderer RegisterModel/RegisterSkin")
   end if
-  return create(rendererExports.RegisterModel, soundLoader, missingCallback)
+  return create(rendererExports.RegisterModel, rendererExports.RegisterSkin,
+    soundLoader, missingCallback)
 end function
 
 function registerConfigStrings(state, configStrings, mapName)
@@ -25,6 +28,10 @@ end function
 
 function reset(state, mapName)
   return caregistry.reset(state, mapName)
+end function
+
+function refreshClientInfos(state, configStrings)
+  return caregistry.refreshClientInfos(state, configStrings)
 end function
 
 function bindings(state)

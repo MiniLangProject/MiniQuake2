@@ -131,6 +131,9 @@ function runPlay(args)
     print "  timing-ms client=" + result[10] + " world=" + result[11] +
       " entities=" + result[12] + " hud=" + result[13]
   end if
+  if len(result) >= 15 and result[14] != "" then
+    print "  missing-detail=" + result[14]
+  end if
   return 0
 end function
 

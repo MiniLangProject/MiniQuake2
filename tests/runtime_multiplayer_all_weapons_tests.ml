@@ -4,6 +4,7 @@ import miniquake2.qcommon.types as mpweaponqtypes
 import miniquake2.game.constants as mpweapongameconstants
 import miniquake2.game.gameplay.constants as mpweapongameplayconstants
 import miniquake2.game.gameplay.item_rules as mpweaponitems
+import miniquake2.game.gameplay.weapons as mpweaponrules
 import miniquake2.game.player.constants as mpweaponplayerconstants
 import miniquake2.game.null_game as mpweapongame
 import miniquake2.runtime.multiplayer_session as mpweaponsession
@@ -17,15 +18,14 @@ function mpweaponEquip(player, registry, className, ammunition)
   mpweaponEquipped = mpweaponitems.findByClassName(registry, className)
   if mpweaponEquipped is void then return error(8425, "missing stock weapon " + className) end if
   player.gameplay.inventory.counts[mpweaponEquipped.index] = 1
-  player.gameplay.currentWeapon = mpweaponEquipped
-  player.gameplay.newWeapon = void
+  player.gameplay.newWeapon = mpweaponEquipped
+  mpweaponrules.ChangeWeapon(player.gameplay, registry)
   player.gameplay.weaponState = mpweapongameplayconstants.WEAPON_READY
   player.gameplay.gunFrame = 16
   if mpweaponEquipped.weaponFrames is not void then
     player.gameplay.gunFrame = mpweaponEquipped.weaponFrames.fireLast + 1
   end if
   player.edict.client.playerState.gunFrame = player.gameplay.gunFrame
-  player.gameplay.ammoIndex = 0
   if mpweaponEquipped.ammo != "" then
     mpweaponAmmo = mpweaponitems.findByPickupName(registry,
       mpweaponEquipped.ammo)
@@ -42,6 +42,15 @@ function mpweaponEquip(player, registry, className, ammunition)
   player.gameplay.buttons = 0
   player.gameplay.latchedButtons = 0
   return mpweaponEquipped
+end function
+
+function mpweaponSnapshotSkin(session, clientIndex, entityNumber)
+  mpweaponFrame = session.clients[clientIndex].integrated.network.client.currentFrame
+  if mpweaponFrame is void then return -1 end if
+  for each mpweaponEntity in mpweaponFrame.entities
+    if mpweaponEntity.number == entityNumber then return mpweaponEntity.skinNum end if
+  end for
+  return -1
 end function
 
 function mpweaponSawMuzzle(session, clientIndex, entityNumber)
@@ -117,6 +126,13 @@ while mpweaponIndex < len(mpweaponClasses)
   end if
   mpweaponAssert(mpweaponSession.clients[0].integrated.network.client.channel.outgoingSequence >
     mpweaponClientSequenceBefore, "weapon command did not advance client Netchan: " + mpweaponClass)
+  mpweaponExpectedSkin = (mpweaponAttacker.edict.state.number - 1) |
+    ((mpweaponItem.weaponModel & 0xff) << 8)
+  mpweaponAssert(mpweaponSnapshotSkin(mpweaponSession, 0,
+    mpweaponAttacker.edict.state.number) == mpweaponExpectedSkin and
+    mpweaponSnapshotSkin(mpweaponSession, 1,
+      mpweaponAttacker.edict.state.number) == mpweaponExpectedSkin,
+    "visible player weapon did not reach both snapshots: " + mpweaponClass)
   if mpweaponAttacker.gameplay.ammoIndex != 0 then
     mpweaponAmmoAfter = mpweaponAttacker.gameplay.inventory.counts[
       mpweaponAttacker.gameplay.ammoIndex]

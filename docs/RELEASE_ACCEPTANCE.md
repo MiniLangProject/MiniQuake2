@@ -4,6 +4,32 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 player entity-rendering parity acceptance run
+
+The player snapshot path now follows the Quake II 3.19 `cl_ents.c` contracts
+for custom clients and visible weapons. Player configstrings are parsed into
+bounded client-info records, their model and PCX skin are registered with the
+renderer, `male/grunt` is retained as the stock failure fallback, and the
+configstring `#w_*.md2` table resolves the high byte of `skinNum` for
+`modelIndex2 == 255`. Live configstring changes refresh only the affected
+client record. The game-side `ChangeWeapon` path publishes that packed visible
+weapon index in every subsequent Protocol-34 snapshot.
+
+The renderer now resolves `modelIndex == 255` through the player model/skin,
+renders the selected third-person weapon, chooses packed `RF_BEAM` colors with
+the shared client random stream, applies the Rogue male/female/cyborg disguise
+model/skin override and omits the local player plus linked weapon
+from the first-person scene while retaining the view weapon. Focused asset,
+client-state, gameplay, runtime-handoff, product-graph and Product Host gates
+passed, followed by a clean rebuild and execution of all 153 native test
+programs plus the product CLI smokes. A real two-client UDP arsenal gate fired
+all 11 stock weapon entries and verified the visible weapon skin word in both
+clients' snapshots. The final Release product completed installed-retail `base1` for
+100 frames with 84 models, 68 sounds, zero missing assets and 2,400 submitted
+entity instances. The intentional reduction from 2,600 is the two hidden local
+third-person entities per rendered frame; measured client/world/entity/HUD
+phases were 90.63/1,767.82/504.32/79.44 ms.
+
 ## 2026-08-24 visible entity-effect parity acceptance run
 
 The follow-up visible-entity parity pass adds the stock duplicate Color-Shell

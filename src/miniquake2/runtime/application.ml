@@ -36,6 +36,7 @@ import miniquake2.client.state as appclientstate
 import miniquake2.client.prediction as appprediction
 import miniquake2.client.effects.handoff as appeffecthandoff
 import miniquake2.client.effects.entity as appentityeffects
+import miniquake2.client.effects.state as appeffectstate
 import miniquake2.client.cinematic.audio as appcinaudio
 import miniquake2.client.cinematic.player as appcinplayer
 import miniquake2.client.cinematic.picture as appcinpicture
@@ -62,7 +63,9 @@ end struct
 
 previewFileSystem = void
 playAssetState = void
+playAssetBindings = void
 playClientRuntime = void
+playEffectState = void
 
 function loadPreviewFile(path)
   global previewFileSystem
@@ -136,6 +139,15 @@ function noteMissingPlayAsset(value)
   return true
 end function
 
+function missingPlayAssetSummary(state)
+  output = ""
+  for each missing in appclientassets.missingAssets(state)
+    if output != "" then output = output + ";" end if
+    output = output + missing.kind + ":" + missing.name + "(" + missing.reason + ")"
+  end for
+  return output
+end function
+
 function resolvePlayModelIndex(index)
   global playAssetState
   if playAssetState is void then return void end if
@@ -146,6 +158,12 @@ function resolvePlayEffectModel(name)
   global playAssetState
   if playAssetState is void then return void end if
   return appassetregistry.resolveModelName(playAssetState, name)
+end function
+
+function randomPlayClientEffect()
+  global playEffectState
+  if playEffectState is void then return 0 end if
+  return appeffectstate.random(playEffectState)
 end function
 
 function resolvePlayEntityPosition(number)
@@ -494,7 +512,7 @@ end function
 // Configstrings drive the same BSP/model/sound registration and frame/effect
 // handoff used by a connected game.
 function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
-  global previewFileSystem, playAssetState, playClientRuntime
+  global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9949, "demo requires the Quake II install root")
   end if
@@ -514,6 +532,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
   applicationDemoMapPathHolder = ""
   applicationDemoAssetStateHolder = void
   playClientRuntime = applicationDemoSessionHolder.runtime.client
+  playEffectState = applicationDemoSessionHolder.runtime.effects
 
   applicationDemoMixerHolder = appaudiomixer.create(44100)
   appaudiomixer.setMasterVolume(applicationDemoMixerHolder, 0.7)
@@ -577,6 +596,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
         appclientassets.registerConfigStrings(applicationDemoAssetStateHolder,
           applicationDemoSessionHolder.runtime.network.configStrings,
           applicationDemoMapPathHolder)
+        playAssetBindings = appclientassets.bindings(applicationDemoAssetStateHolder)
         applicationDemoRendererHolder.exports.EndRegistration()
       end if
 
@@ -585,10 +605,14 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
             applicationDemoAssetStateHolder is void then
           return error(9951, "demo snapshot arrived before map registration")
         end if
+        appclientassets.refreshClientInfos(applicationDemoAssetStateHolder,
+          applicationDemoSessionHolder.runtime.network.configStrings)
         applicationDemoFrameHolder = appclientstate.buildRefDef(
           applicationDemoSessionHolder.runtime.client, 1.0,
           applicationDemoWindowHolder.width, applicationDemoWindowHolder.height,
-          resolvePlayModelIndex, resolvePlayEffectModel)
+          playAssetBindings,
+          applicationDemoSessionHolder.runtime.network.playerNumber + 1,
+          randomPlayClientEffect)
         applicationDemoAxesHolder = appphysicsvector.angleVectors(
           applicationDemoFrameHolder.viewAngles)
         appclientassets.attachMixer(applicationDemoAssetStateHolder,
@@ -671,7 +695,9 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
   applicationDemoFileSystemHolder = void
   previewFileSystem = void
   playAssetState = void
+  playAssetBindings = void
   playClientRuntime = void
+  playEffectState = void
   return [applicationDemoRenderedFrames,
     applicationDemoPacketsRead, applicationDemoStatus,
     applicationDemoMapPathHolder, applicationDemoRegisteredModels,
@@ -1119,7 +1145,7 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
 end function
 
 function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, productHost, skill)
-  global previewFileSystem, playAssetState, playClientRuntime
+  global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
   previewFileSystem = filesystem
@@ -1143,8 +1169,10 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   assetState = appclientassets.createForRenderer(renderer.exports, loadPlaySound, noteMissingPlayAsset)
   playAssetState = assetState
   playClientRuntime = session.client.integrated.client
+  playEffectState = session.client.integrated.effects
   appclientassets.registerConfigStrings(assetState,
     session.client.integrated.network.configStrings, applicationCurrentMapName)
+  playAssetBindings = appclientassets.bindings(assetState)
   renderer.exports.EndRegistration()
 
   audioMixer = appaudiomixer.create(44100)
@@ -1304,6 +1332,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
             appclientassets.registerConfigStrings(assetState,
               session.client.integrated.network.configStrings,
               applicationCurrentMapName)
+            playAssetBindings = appclientassets.bindings(assetState)
             renderer.exports.EndRegistration()
             applicationRestoredPlayerState = session.client.integrated.client.current.playerState
             input.viewAngles = appprediction.localInputAngles(
@@ -1343,6 +1372,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       playAssetState = assetState
       appclientassets.registerConfigStrings(assetState,
         session.client.integrated.network.configStrings, applicationCurrentMapName)
+      playAssetBindings = appclientassets.bindings(assetState)
       renderer.exports.EndRegistration()
       appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
       appuiconsole.appendLine(screen.console,
@@ -1359,6 +1389,8 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       stepResult = appplay.step(session)
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
+      appclientassets.refreshClientInfos(assetState,
+        session.client.integrated.network.configStrings)
       if appmediaseq.takeQueuedLoadMenu(session.server.bridgeRuntime.commands) then
         appuimenu.open(screen.menu, "load")
         appuikeys.setDestination(input, appuiconstants.KEY_MENU)
@@ -1383,7 +1415,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     end if
     frame = appclientstate.buildPredictedRefDef(
       session.client.integrated.client, fraction,
-      window.width, window.height, resolvePlayModelIndex, resolvePlayEffectModel)
+      window.width, window.height, playAssetBindings,
+      session.client.integrated.network.playerNumber + 1,
+      randomPlayClientEffect)
     if audioDevice is not void then
       viewAxes = appphysicsvector.angleVectors(frame.viewAngles)
       appclientassets.attachMixer(assetState, session.client.integrated.effects,
@@ -1444,6 +1478,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   registeredModels = countAvailableAssets(assetState.modelEntries)
   registeredSounds = countAvailableAssets(assetState.soundEntries)
   missingAssets = len(appclientassets.missingAssets(assetState))
+  missingAssetSummary = missingPlayAssetSummary(assetState)
   submittedEntities = renderer.state.submittedEntities
   visibleSurfaces = 0
   culledSurfaces = 0
@@ -1456,7 +1491,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   appplay.shutdown(session)
   previewFileSystem = void
   playAssetState = void
+  playAssetBindings = void
   playClientRuntime = void
+  playEffectState = void
   if applicationPendingMediaSpecification != "" then
     runRetailMediaSequenceOnHost(baseDirectory, applicationPendingMediaSpecification,
       frameLimit, productHost, applicationNextSkill)
@@ -1465,7 +1502,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     registeredSounds, missingAssets, submittedEntities,
     visibleSurfaces, culledSurfaces, viewCluster,
     applicationPerfClient, applicationPerfWorld, applicationPerfEntities,
-    applicationPerfHud]
+    applicationPerfHud, missingAssetSummary]
 end function
 
 function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)

@@ -37,6 +37,13 @@ function ChangeWeapon(player, registry)
   player.lastWeapon = player.currentWeapon
   player.currentWeapon = player.newWeapon
   player.newWeapon = void
+  if player.edict.state.modelIndex == 255 then
+    visibleWeapon = 0
+    if player.currentWeapon is not void then
+      visibleWeapon = (player.currentWeapon.weaponModel & 0xff) << 8
+    end if
+    player.edict.state.skinNumber = (player.edict.state.number - 1) | visibleWeapon
+  end if
   player.ammoIndex = 0
   if player.currentWeapon is not void and player.currentWeapon.ammo != "" then
     ammo = findByPickupName(registry, player.currentWeapon.ammo)

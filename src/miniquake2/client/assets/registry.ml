@@ -7,6 +7,7 @@ import miniquake2.client.assets.types as cartypes
 
 const MAX_NAMED_ASSETS = 256
 const MAX_MISSING_ASSETS = 512
+const MAX_CLIENT_WEAPON_MODELS = 20
 
 // The product has one active Quake client. A package-owned mutable holder is
 // used instead of nested functions capturing a factory parameter; the latter
@@ -21,22 +22,24 @@ function ignoreMissing(value)
   return true
 end function
 
-function callbacks(loadModel, loadSound, onMissing)
-  if typeof(loadModel) != "function" or typeof(loadSound) != "function" or
+function callbacks(loadModel, loadSkin, loadSound, onMissing)
+  if typeof(loadModel) != "function" or typeof(loadSkin) != "function" or
+      typeof(loadSound) != "function" or
       typeof(onMissing) != "function" then
     return error(8400, "client asset loaders must be function values")
   end if
-  return cartypes.LoaderCallbacks(loadModel, loadSound, onMissing)
+  return cartypes.LoaderCallbacks(loadModel, loadSkin, loadSound, onMissing)
 end function
 
 function create(loaders)
   if loaders is void then return error(8401, "client asset loader table is missing") end if
   return cartypes.Registry(loaders, 0, "", array(carqc.MAX_MODELS, void),
-    array(carqc.MAX_SOUNDS, void), [], [], [])
+    array(carqc.MAX_SOUNDS, void), [], [], [], array(carqc.MAX_CLIENTS, void),
+    array(carqc.MAX_CLIENTS, ""), void, array(MAX_CLIENT_WEAPON_MODELS, ""), 0, [])
 end function
 
-function createLenient(loadModel, loadSound)
-  return create(callbacks(loadModel, loadSound, ignoreMissing))
+function createLenient(loadModel, loadSkin, loadSound)
+  return create(callbacks(loadModel, loadSkin, loadSound, ignoreMissing))
 end function
 
 function containsTraversal(value)
@@ -103,6 +106,13 @@ function validSound(value)
   return len(value.pcm) == value.sampleCount * value.channels * value.width
 end function
 
+function validSkin(value)
+  if typeof(value) != "struct" then return false end if
+  return (value.kind == "skin" or value.kind == "pic") and
+    typeof(value.id) == "int" and value.id > 0 and
+    typeof(value.name) == "string" and typeof(value.generation) == "int"
+end function
+
 function appendBounded(values, value, maximum)
   output = []
   start = 0
@@ -138,9 +148,13 @@ end function
 function cacheNamed(state, kind, entry)
   values = state.namedModels
   if kind == "sound" then values = state.namedSounds end if
+  if kind == "skin" then values = state.namedSkins end if
   if len(values) >= MAX_NAMED_ASSETS then return false end if
   values = values + [entry]
-  if kind == "model" then state.namedModels = values else state.namedSounds = values end if
+  if kind == "model" then state.namedModels = values
+  else if kind == "skin" then state.namedSkins = values
+  else state.namedSounds = values
+  end if
   return true
 end function
 
@@ -186,6 +200,147 @@ function loadSoundAsset(state, index, name)
   return entry
 end function
 
+function loadSkinAsset(state, name)
+  if typeof(name) != "string" or name == "" or not safeRegularName(name) then
+    return noteMissing(state, "skin", -1, name, "unsafe-name")
+  end if
+  existing = cached(state.namedSkins, name, state.generation)
+  if existing is not void then return existing end if
+  loaded = try(state.loaders.loadSkin(name))
+  if loaded is error then return missingNamed(state, "skin", -1, name, "loader-error") end if
+  if loaded is void then return missingNamed(state, "skin", -1, name, "not-found") end if
+  if not validSkin(loaded) then return missingNamed(state, "skin", -1, name,
+    "invalid-loader-result") end if
+  entry = cartypes.AssetEntry("skin", -1, name, loaded, state.generation, true, "")
+  ignored = cacheNamed(state, "skin", entry)
+  return entry
+end function
+
+function inline textSlice(value, start, count)
+  if count <= 0 then return "" end if
+  return decode(slice(bytes(value), start, count))
+end function
+
+function clientIdentity(value)
+  name = "unnamed"; modelName = "male"; skinName = "grunt"
+  if typeof(value) != "string" or value == "" then return [name, modelName, skinName] end if
+  source = bytes(value)
+  separator = -1; index = 0
+  while index < len(source) and separator < 0
+    if source[index] == 92 then separator = index end if
+    index = index + 1
+  end while
+  if separator < 0 then return [name, modelName, skinName] end if
+  if separator > 0 then name = textSlice(value, 0, separator) end if
+  identityStart = separator + 1
+  modelSeparator = -1; index = identityStart
+  while index < len(source) and modelSeparator < 0
+    if source[index] == 47 or source[index] == 92 then modelSeparator = index end if
+    index = index + 1
+  end while
+  if modelSeparator <= identityStart or modelSeparator + 1 >= len(source) then
+    return [name, modelName, skinName]
+  end if
+  candidateModel = textSlice(value, identityStart, modelSeparator - identityStart)
+  candidateSkin = textSlice(value, modelSeparator + 1, len(source) - modelSeparator - 1)
+  candidateModelPath = "players/" + candidateModel + "/tris.md2"
+  candidateSkinPath = "players/" + candidateModel + "/" + candidateSkin + ".pcx"
+  if safeRegularName(candidateModelPath) and safeRegularName(candidateSkinPath) then
+    modelName = candidateModel; skinName = candidateSkin
+  end if
+  return [name, modelName, skinName]
+end function
+
+function loadClientInfo(state, value)
+  identity = clientIdentity(value)
+  name = identity[0]; modelName = identity[1]; skinName = identity[2]
+  modelEntry = loadModelAsset(state, -1, "players/" + modelName + "/tris.md2")
+  if not modelEntry.available then
+    modelName = "male"
+    modelEntry = loadModelAsset(state, -1, "players/male/tris.md2")
+  end if
+  skinEntry = loadSkinAsset(state, "players/" + modelName + "/" + skinName + ".pcx")
+  if not skinEntry.available and not cartext.equalInsensitive(modelName, "male") then
+    modelName = "male"
+    modelEntry = loadModelAsset(state, -1, "players/male/tris.md2")
+    skinEntry = loadSkinAsset(state, "players/male/" + skinName + ".pcx")
+  end if
+  if not skinEntry.available then
+    skinEntry = loadSkinAsset(state, "players/" + modelName + "/grunt.pcx")
+  end if
+  weapons = array(MAX_CLIENT_WEAPON_MODELS, void)
+  index = 0
+  while index < state.weaponModelCount
+    weaponEntry = loadModelAsset(state, -1,
+      "players/" + modelName + "/" + state.weaponModelNames[index])
+    if not weaponEntry.available and cartext.equalInsensitive(modelName, "cyborg") then
+      weaponEntry = loadModelAsset(state, -1,
+        "players/male/" + state.weaponModelNames[index])
+    end if
+    if weaponEntry.available then weapons[index] = weaponEntry.value end if
+    index = index + 1
+  end while
+  available = modelEntry.available and skinEntry.available and weapons[0] is not void
+  model = void; skin = void
+  if modelEntry.available then model = modelEntry.value end if
+  if skinEntry.available then skin = skinEntry.value end if
+  return cartypes.ClientInfo(name, value, model, skin, weapons, available)
+end function
+
+function refreshClientInfos(state, configStrings)
+  if typeof(configStrings) != "array" or len(configStrings) < carqc.MAX_CONFIGSTRINGS then
+    return error(8406, "client info configstring table is truncated")
+  end if
+  index = 0; changed = 0
+  while index < carqc.MAX_CLIENTS
+    value = configStrings[carqc.CS_PLAYERSKINS + index]
+    if typeof(value) != "string" then return error(8407, "player skin configstring is not text") end if
+    if value != state.clientConfigStrings[index] then
+      state.clientConfigStrings[index] = value
+      if value == "" then state.clientInfos[index] = void
+      else state.clientInfos[index] = loadClientInfo(state, value)
+      end if
+      changed = changed + 1
+    end if
+    index = index + 1
+  end while
+  return changed
+end function
+
+function clientInfo(state, index)
+  value = void
+  if typeof(index) == "int" and index >= 0 and index < carqc.MAX_CLIENTS then
+    value = state.clientInfos[index]
+  end if
+  if value is void or not value.available then value = state.baseClientInfo end if
+  return value
+end function
+
+function resolvePlayerModel(state, index)
+  value = clientInfo(state, index)
+  if value is void then return void end if
+  return value.model
+end function
+
+function resolvePlayerSkin(state, index)
+  value = clientInfo(state, index)
+  if value is void then return void end if
+  return value.skin
+end function
+
+function resolvePlayerWeapon(state, index, weaponIndex)
+  value = clientInfo(state, index)
+  if value is void then return void end if
+  if typeof(weaponIndex) != "int" or weaponIndex < 0 or
+      weaponIndex >= state.weaponModelCount then weaponIndex = 0 end if
+  weapon = value.weaponModels[weaponIndex]
+  if weapon is void then weapon = value.weaponModels[0] end if
+  if weapon is void and state.baseClientInfo is not void then
+    weapon = state.baseClientInfo.weaponModels[0]
+  end if
+  return weapon
+end function
+
 function reset(state, mapName)
   if typeof(mapName) != "string" or mapName == "" or len(bytes(mapName)) >= carqc.MAX_QPATH then
     return error(8402, "client asset map name is invalid")
@@ -195,7 +350,13 @@ function reset(state, mapName)
   state.modelEntries = array(carqc.MAX_MODELS, void)
   state.soundEntries = array(carqc.MAX_SOUNDS, void)
   state.namedModels = []
+  state.namedSkins = []
   state.namedSounds = []
+  state.clientInfos = array(carqc.MAX_CLIENTS, void)
+  state.clientConfigStrings = array(carqc.MAX_CLIENTS, "")
+  state.baseClientInfo = void
+  state.weaponModelNames = array(MAX_CLIENT_WEAPON_MODELS, "")
+  state.weaponModelCount = 0
   state.missing = []
   return state.generation
 end function
@@ -219,14 +380,27 @@ function registerConfigStrings(state, configStrings, mapName)
     end if
     index = index + 1
   end while
+  index = 0
+  while index < carqc.MAX_CLIENTS
+    if typeof(configStrings[carqc.CS_PLAYERSKINS + index]) != "string" then
+      return error(8407, "player skin configstring is not text")
+    end if
+    index = index + 1
+  end while
   reset(state, mapName)
+  state.weaponModelNames[0] = "weapon.md2"
+  state.weaponModelCount = 1
   index = 1
   while index < carqc.MAX_MODELS
     name = configStrings[carqc.CS_MODELS + index]
     if typeof(name) != "string" then return error(8404, "model configstring is not text") end if
     if name != "" then
       if bytes(name)[0] == 35 then
-        state.modelEntries[index] = noteMissing(state, "model", index, name, "weapon-model-deferred")
+        if state.weaponModelCount < MAX_CLIENT_WEAPON_MODELS and len(bytes(name)) > 1 then
+          state.weaponModelNames[state.weaponModelCount] = textSlice(name, 1,
+            len(bytes(name)) - 1)
+          state.weaponModelCount = state.weaponModelCount + 1
+        end if
       else
         state.modelEntries[index] = loadModelAsset(state, index, name)
       end if
@@ -240,6 +414,8 @@ function registerConfigStrings(state, configStrings, mapName)
     if name != "" then state.soundEntries[index] = loadSoundAsset(state, index, name) end if
     index = index + 1
   end while
+  state.baseClientInfo = loadClientInfo(state, "unnamed\\male/grunt")
+  refreshClientInfos(state, configStrings)
   return state.generation
 end function
 
@@ -265,6 +441,12 @@ function resolveModelName(state, name)
   return entry.value
 end function
 
+function resolveSkinName(state, name)
+  entry = loadSkinAsset(state, name)
+  if not entry.available then return void end if
+  return entry.value
+end function
+
 function resolveSoundName(state, name)
   entry = loadSoundAsset(state, -1, name)
   if not entry.available then return void end if
@@ -283,6 +465,12 @@ function clientAssetBoundModelName(name)
   return resolveModelName(state, name)
 end function
 
+function clientAssetBoundSkinName(name)
+  state = clientAssetBindingSlot.registry
+  if state is void then return void end if
+  return resolveSkinName(state, name)
+end function
+
 function clientAssetBoundSoundIndex(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
@@ -295,11 +483,31 @@ function clientAssetBoundSoundName(name)
   return resolveSoundName(state, name)
 end function
 
+function clientAssetBoundPlayerModel(index)
+  state = clientAssetBindingSlot.registry
+  if state is void then return void end if
+  return resolvePlayerModel(state, index)
+end function
+
+function clientAssetBoundPlayerSkin(index)
+  state = clientAssetBindingSlot.registry
+  if state is void then return void end if
+  return resolvePlayerSkin(state, index)
+end function
+
+function clientAssetBoundPlayerWeapon(index, weaponIndex)
+  state = clientAssetBindingSlot.registry
+  if state is void then return void end if
+  return resolvePlayerWeapon(state, index, weaponIndex)
+end function
+
 function bindings(state)
   holder = clientAssetBindingSlot
   holder.registry = state
   return cartypes.ResolverBindings(clientAssetBoundModelIndex, clientAssetBoundModelName,
-    clientAssetBoundSoundIndex, clientAssetBoundSoundName)
+    clientAssetBoundSkinName, clientAssetBoundSoundIndex, clientAssetBoundSoundName,
+    clientAssetBoundPlayerModel, clientAssetBoundPlayerSkin,
+    clientAssetBoundPlayerWeapon)
 end function
 
 function releaseBindings()

@@ -6,6 +6,7 @@ import miniquake2.renderer.validation as rval
 import miniquake2.server.snapshot as ssnap
 import miniquake2.client.state as cstate
 import miniquake2.client.effects.constants as ceconstants
+import miniquake2.client.assets.types as catypes
 import miniquake2.qcommon.constants as qc
 
 function assertEqual(actual, expected, name)
@@ -26,6 +27,39 @@ function resolveNamedModel(name)
   return rt.ResourceHandle("model", len(bytes(name)), name, 1)
 end function
 
+function resolveNamedSkin(name)
+  return rt.ResourceHandle("skin", len(bytes(name)), name, 1)
+end function
+
+function resolveNothing(value)
+  return void
+end function
+
+function resolvePlayerModel(index)
+  return rt.ResourceHandle("model", 1000 + index, "players/custom/tris.md2", 1)
+end function
+
+function resolvePlayerSkin(index)
+  return rt.ResourceHandle("skin", 2000 + index, "players/male/grunt.pcx", 1)
+end function
+
+function resolvePlayerWeapon(index, weaponIndex)
+  return rt.ResourceHandle("model", 3000 + weaponIndex,
+    "players/custom/weapon" + weaponIndex + ".md2", 1)
+end function
+
+testRandomValue = 0
+function testRandom()
+  global testRandomValue
+  value = testRandomValue
+  testRandomValue = testRandomValue + 1
+  return value
+end function
+
+testResolvers = catypes.ResolverBindings(resolveModel, resolveNamedModel,
+  resolveNamedSkin, resolveNothing, resolveNothing, resolvePlayerModel,
+  resolvePlayerSkin, resolvePlayerWeapon)
+
 function makeEntity(x, secondModel)
   entity = pt.zeroEntityState()
   entity.number = 1
@@ -37,6 +71,7 @@ function makeEntity(x, secondModel)
 end function
 
 function testSnapshotsAndRefDef()
+  global testRandomValue
   client = cstate.create()
   cstate.setConnectionState(client, "connected")
   firstPlayer = pt.zeroPlayerState()
@@ -59,7 +94,7 @@ function testSnapshotsAndRefDef()
   second = ssnap.SnapshotFrame(11, 10, 0, bytes([]), secondPlayer, [makeEntity(8.0, 5)])
   assertEqual(cstate.acceptSnapshot(client, second), true, "second snapshot")
   assertEqual(cstate.acceptSnapshot(client, second), false, "duplicate snapshot ignored")
-  frame = cstate.buildRefDef(client, 0.5, 640, 480, resolveModel, resolveNamedModel)
+  frame = cstate.buildRefDef(client, 0.5, 640, 480, testResolvers, 0, testRandom)
   assertEqual(rval.validateRefDef(frame).valid, true, "generated refdef valid")
   assertEqual(frame.viewOrigin.x, 10.5, "view origin interpolation")
   assertEqual(frame.viewAngles.x, 6.0, "view and kick angle interpolation")
@@ -79,8 +114,8 @@ function testSnapshotsAndRefDef()
   bfgEntity.effects = ceconstants.EF_BFG
   cstate.acceptSnapshot(bfgClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
     firstPlayer, [bfgEntity]))
-  bfgFrame = cstate.buildRefDef(bfgClient, 1.0, 640, 480, resolveModel,
-    resolveNamedModel)
+  bfgFrame = cstate.buildRefDef(bfgClient, 1.0, 640, 480, testResolvers, 0,
+    testRandom)
   assertEqual(bfgFrame.entities[0].flags & rc.RF_TRANSLUCENT, rc.RF_TRANSLUCENT,
     "BFG entity translucency")
   assertNear(bfgFrame.entities[0].alpha, 0.30, 0.0001, "BFG entity source alpha")
@@ -92,8 +127,8 @@ function testSnapshotsAndRefDef()
   shellEntity.effects = ceconstants.EF_QUAD
   cstate.acceptSnapshot(shellClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
     effectPlayer, [shellEntity]))
-  shellFrame = cstate.buildRefDef(shellClient, 1.0, 640, 480, resolveModel,
-    resolveNamedModel)
+  shellFrame = cstate.buildRefDef(shellClient, 1.0, 640, 480, testResolvers, 0,
+    testRandom)
   assertEqual(len(shellFrame.entities), 2, "quad duplicates main model for color shell")
   assertEqual(shellFrame.entities[0].flags, 0, "color shell keeps base model unmodified")
   assertEqual(shellFrame.entities[1].flags & rc.RF_SHELL_BLUE, rc.RF_SHELL_BLUE,
@@ -105,8 +140,8 @@ function testSnapshotsAndRefDef()
   linkedEntity.effects = ceconstants.EF_BFG
   cstate.acceptSnapshot(linkedClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
     effectPlayer, [linkedEntity]))
-  linkedFrame = cstate.buildRefDef(linkedClient, 1.0, 640, 480, resolveModel,
-    resolveNamedModel)
+  linkedFrame = cstate.buildRefDef(linkedClient, 1.0, 640, 480, testResolvers, 0,
+    testRandom)
   assertEqual(linkedFrame.entities[1].model.id, 5, "linked translucent model index mask")
   assertEqual(linkedFrame.entities[1].flags, rc.RF_TRANSLUCENT,
     "linked model owns only its translucent flag")
@@ -118,8 +153,8 @@ function testSnapshotsAndRefDef()
   powerEntity.effects = ceconstants.EF_POWERSCREEN
   cstate.acceptSnapshot(powerClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
     effectPlayer, [powerEntity]))
-  powerFrame = cstate.buildRefDef(powerClient, 1.0, 640, 480, resolveModel,
-    resolveNamedModel)
+  powerFrame = cstate.buildRefDef(powerClient, 1.0, 640, 480, testResolvers, 0,
+    testRandom)
   assertEqual(len(powerFrame.entities), 2, "powerscreen adds linked armor model")
   assertEqual(powerFrame.entities[1].model.name,
     "models/items/armor/effect/tris.md2", "powerscreen stock model")
@@ -127,9 +162,63 @@ function testSnapshotsAndRefDef()
     rc.RF_TRANSLUCENT | rc.RF_SHELL_GREEN, "powerscreen render flags")
   assertNear(powerFrame.entities[1].alpha, 0.30, 0.0001, "powerscreen alpha")
 
+  customClient = cstate.create()
+  customEntity = makeEntity(0.0, 255)
+  customEntity.modelIndex = 255
+  customEntity.skinNum = (2 << 8) | 3
+  cstate.acceptSnapshot(customClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [customEntity]))
+  customFrame = cstate.buildRefDef(customClient, 1.0, 640, 480, testResolvers,
+    0, testRandom)
+  assertEqual(customFrame.entities[0].model.id, 1003,
+    "custom player model selected from client index")
+  assertEqual(customFrame.entities[0].skin.id, 2003,
+    "custom player skin selected from client index")
+  assertEqual(customFrame.entities[1].model.id, 3002,
+    "custom visible weapon selected from upper skin byte")
+
+  disguiseClient = cstate.create()
+  disguiseEntity = makeEntity(0.0, 0)
+  disguiseEntity.modelIndex = 255
+  disguiseEntity.skinNum = 3
+  disguiseEntity.renderFx = rc.RF_USE_DISGUISE
+  disguiseEntity.effects = ceconstants.EF_QUAD
+  cstate.acceptSnapshot(disguiseClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [disguiseEntity]))
+  disguiseFrame = cstate.buildRefDef(disguiseClient, 1.0, 640, 480,
+    testResolvers, 0, testRandom)
+  assertEqual(disguiseFrame.entities[0].model.name, "players/male/tris.md2",
+    "disguised player model")
+  assertEqual(disguiseFrame.entities[0].skin.name, "players/male/disguise.pcx",
+    "disguised player skin")
+  assertEqual(disguiseFrame.entities[1].skin.name, "players/male/disguise.pcx",
+    "disguised player color shell skin")
+
+  localClient = cstate.create()
+  localEntityState = makeEntity(0.0, 0)
+  cstate.acceptSnapshot(localClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [localEntityState]))
+  localRenderFrame = cstate.buildRefDef(localClient, 1.0, 640, 480,
+    testResolvers, 1, testRandom)
+  assertEqual(len(localRenderFrame.entities), 0,
+    "local player third-person entity omitted outside mirrors")
+
+  beamClient = cstate.create()
+  beamEntity = makeEntity(0.0, 0)
+  beamEntity.renderFx = rc.RF_BEAM
+  beamEntity.skinNum = 0x44332211
+  cstate.acceptSnapshot(beamClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [beamEntity]))
+  testRandomValue = 2
+  beamFrame = cstate.buildRefDef(beamClient, 1.0, 640, 480, testResolvers, 0,
+    testRandom)
+  assertEqual(beamFrame.entities[0].model, void, "beam uses procedural model")
+  assertEqual(beamFrame.entities[0].skinNum, 0x33, "beam selects packed skin byte")
+  assertNear(beamFrame.entities[0].alpha, 0.30, 0.0001, "beam stock alpha")
+
   cstate.acceptPrediction(client, [160, 80, 32], [40.0, 50.0, 60.0])
   predictedFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
-    resolveModel, resolveNamedModel)
+    testResolvers, 0, testRandom)
   assertEqual(predictedFrame.viewOrigin.x, 20.5, "predicted view origin")
   assertEqual(predictedFrame.viewOrigin.y, 11.0, "predicted view offset")
   assertEqual(predictedFrame.viewAngles.x, 41.0, "predicted view plus kick")
@@ -139,7 +228,7 @@ function testSnapshotsAndRefDef()
   // Dead cameras and demos remain locked to authoritative interpolation.
   secondPlayer.pmove.moveType = qc.PM_DEAD
   deadFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
-    resolveModel, resolveNamedModel)
+    testResolvers, 0, testRandom)
   assertEqual(deadFrame.viewOrigin.x, 10.5, "dead camera server origin")
   assertEqual(deadFrame.viewAngles.x, 6.0, "dead camera server angles")
   secondPlayer.pmove.moveType = qc.PM_NORMAL
@@ -153,8 +242,8 @@ function testSnapshotsAndRefDef()
     firstPlayer, [makeEntity(0.0, 0)]))
   cstate.acceptSnapshot(wrappedClient, ssnap.SnapshotFrame(2, 1, 0, bytes([]),
     secondPlayer, [makeEntity(0.0, 0)]))
-  wrappedFrame = cstate.buildRefDef(wrappedClient, 0.5, 640, 480, resolveModel,
-    resolveNamedModel)
+  wrappedFrame = cstate.buildRefDef(wrappedClient, 0.5, 640, 480, testResolvers,
+    0, testRandom)
   assertEqual(wrappedFrame.viewAngles.y, 360.0, "wrapped view angle interpolation")
 
   number = 12

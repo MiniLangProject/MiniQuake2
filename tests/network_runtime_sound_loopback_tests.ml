@@ -23,6 +23,10 @@ function loopbackModelLoader(name)
   return handle
 end function
 
+function loopbackSkinLoader(name)
+  return nrsl_rt.ResourceHandle("skin", 1, name, 1)
+end function
+
 function loopbackSoundLoader(name)
   return nrsl_wav.WavSound(name, 8000, 1, 1, 2, -1, bytes([128, 129]))
 end function
@@ -45,7 +49,8 @@ imports = nrsl_bridge.makeImports(session.server.bridgeRuntime)
 loopbackSoundIndexValue = imports.soundIndex("weapons/loop.wav")
 assetConfig = array(nrsl_qc.MAX_CONFIGSTRINGS, "")
 assetConfig[nrsl_qc.CS_SOUNDS + loopbackSoundIndexValue] = "weapons/loop.wav"
-assets = nrsl_assets.create(loopbackModelLoader, loopbackSoundLoader, loopbackMissing)
+assets = nrsl_assets.create(loopbackModelLoader, loopbackSkinLoader,
+  loopbackSoundLoader, loopbackMissing)
 nrsl_assets.registerConfigStrings(assets, assetConfig, "sound_loop")
 mixer = nrsl_mixer.create(8000)
 nrsl_assets.attachMixer(assets, session.client.integrated.effects, mixer,

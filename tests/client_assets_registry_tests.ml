@@ -5,6 +5,7 @@ import miniquake2.audio.wav as car_test_wav
 import miniquake2.client.assets.registry as car_test_registry
 
 modelCalls = []
+skinCalls = []
 soundCalls = []
 missingCalls = []
 loaderGeneration = 1
@@ -21,6 +22,14 @@ function fakeLoadModel(name)
   if name == "models/missing.md2" then return void end if
   if name == "models/bad.md2" then return car_test_rt.ResourceHandle("pic", 999, name, loaderGeneration) end if
   value = car_test_rt.ResourceHandle("model", nextModelId, name, loaderGeneration)
+  nextModelId = nextModelId + 1
+  return value
+end function
+
+function fakeLoadSkin(name)
+  global skinCalls, loaderGeneration, nextModelId
+  skinCalls = skinCalls + [name]
+  value = car_test_rt.ResourceHandle("skin", nextModelId, name, loaderGeneration)
   nextModelId = nextModelId + 1
   return value
 end function
@@ -43,15 +52,17 @@ configStrings = array(car_test_qc.MAX_CONFIGSTRINGS, "")
 configStrings[car_test_qc.CS_MODELS + 1] = "maps/unit.bsp"
 configStrings[car_test_qc.CS_MODELS + 2] = "models/unit.md2"
 configStrings[car_test_qc.CS_MODELS + 3] = "*1"
-configStrings[car_test_qc.CS_MODELS + 4] = "#models/weapons/v_unit.md2"
+configStrings[car_test_qc.CS_MODELS + 4] = "#w_unit.md2"
 configStrings[car_test_qc.CS_MODELS + 5] = "../escape.md2"
 configStrings[car_test_qc.CS_MODELS + 6] = "models/bad.md2"
 configStrings[car_test_qc.CS_SOUNDS + 1] = "weapons/unit.wav"
 configStrings[car_test_qc.CS_SOUNDS + 2] = "weapons/missing.wav"
 configStrings[car_test_qc.CS_SOUNDS + 3] = "*pain100_1.wav"
 configStrings[car_test_qc.CS_SOUNDS + 4] = "weapons/bad.wav"
+configStrings[car_test_qc.CS_PLAYERSKINS] = "Unit\\female/athena"
 
-state = car_test_registry.create(car_test_registry.callbacks(fakeLoadModel, fakeLoadSound, fakeOnMissing))
+state = car_test_registry.create(car_test_registry.callbacks(fakeLoadModel,
+  fakeLoadSkin, fakeLoadSound, fakeOnMissing))
 registryAssert(car_test_registry.registerConfigStrings(state, configStrings, "unit") == 1,
   "initial registration generation mismatch")
 registryAssert(car_test_registry.resolveModelIndex(state, 1).name == "maps/unit.bsp",
@@ -66,12 +77,23 @@ registryAssert(car_test_registry.resolveSoundIndex(state, 1).name == "weapons/un
   "indexed mixer sound missing")
 registryAssert(car_test_registry.resolveSoundIndex(state, 2) is void and
   car_test_registry.resolveSoundIndex(state, 3) is void, "missing/deferred sound resolved")
-registryAssert(len(modelCalls) == 4, "unsafe or weapon model reached loader")
+registryAssert(len(modelCalls) == 10, "indexed/player model registration mismatch")
+registryAssert(len(skinCalls) == 2, "base and configured player skins not registered")
 registryAssert(len(soundCalls) == 3, "deferred player sound reached loader")
-registryAssert(len(car_test_registry.missingAssets(state)) == 6 and len(missingCalls) == 6,
+registryAssert(len(car_test_registry.missingAssets(state)) == 5 and len(missingCalls) == 5,
   "missing asset diagnostics mismatch")
 
 bindings = car_test_registry.bindings(state)
+registryAssert(bindings.playerModel(0).name == "players/female/tris.md2",
+  "configured player model resolver failed")
+registryAssert(bindings.playerSkin(0).name == "players/female/athena.pcx",
+  "configured player skin resolver failed")
+registryAssert(bindings.playerWeapon(0, 1).name == "players/female/w_unit.md2",
+  "configured visible weapon resolver failed")
+configStrings[car_test_qc.CS_PLAYERSKINS] = "Unit\\male/grunt"
+registryAssert(car_test_registry.refreshClientInfos(state, configStrings) == 1 and
+  bindings.playerModel(0).name == "players/male/tris.md2",
+  "live player configstring refresh failed")
 effectModel = bindings.modelName("models/objects/unit.md2")
 registryAssert(effectModel is not void and effectModel.name == "models/objects/unit.md2",
   "effect model name resolver failed")

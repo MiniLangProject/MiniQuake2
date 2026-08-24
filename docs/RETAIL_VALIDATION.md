@@ -8,6 +8,17 @@ copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
 
+The final same-date player-rendering pass repeated installed-retail `base1`
+for 100 product frames after enabling configstring-driven custom player
+models/skins, third-person visible weapons, packed beam colors and original
+local-player hiding. The final rebuilt binary reached client state 4 through
+server frame 39, registered 84 indexed models and 68 sounds with zero missing
+assets, selected 292 world surfaces, culled 7,015 and submitted 2,400 entity
+instances. Its client/world/entity/HUD
+phases measured 90.6254/1,767.8208/504.3197/79.4439 ms.
+The earlier 2,600 submission count included the local player and linked weapon;
+their removal from the first-person scene accounts exactly for the difference.
+
 The 2026-08-24 client-effect acceptance repeated the movement-enabled retail
 performance and campaign gates after porting stock temp-entity, explosion,
 muzzleflash, monster-flash and impact-audio semantics and replacing per-effect

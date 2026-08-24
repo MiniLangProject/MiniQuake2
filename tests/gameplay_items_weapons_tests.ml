@@ -141,6 +141,8 @@ function testWeaponStateMachine(registry)
   bullets = gprules.findByPickupName(registry, "Bullets")
   player.inventory.counts[blaster.index] = 1
   player.currentWeapon = blaster
+  player.edict.state.modelIndex = 255
+  player.edict.state.skinNumber = player.edict.state.number - 1
   player.weaponState = gpconstants.WEAPON_ACTIVATING
   player.gunFrame = 0
   count = 0
@@ -182,6 +184,11 @@ function testWeaponStateMachine(registry)
     shotgun.weaponThink(player, shotgun, registry, 0)
   end while
   assertEqual(player.currentWeapon.index, machinegun.index, "change weapon after drop")
+  assertEqual(player.edict.state.skinNumber,
+    (machinegun.weaponModel << 8) | (player.edict.state.number - 1),
+    "visible player weapon encoded in upper skin byte: actual=" +
+      player.edict.state.skinNumber + " expected=" +
+      ((machinegun.weaponModel << 8) | (player.edict.state.number - 1)))
   assertEqual(player.weaponState, gpconstants.WEAPON_ACTIVATING, "new weapon activates")
   assertEqual(player.ammoIndex, bullets.index, "new weapon ammo index")
   return true
