@@ -62,8 +62,17 @@ uiMenuAssertEqual(cuimenu.mainCursorName(1499.99), "m_cursor14",
   "cursor animation last frame")
 uiMenuAssertEqual(cuimenu.mainCursorName(1500.0), "m_cursor0",
   "cursor animation wraps")
+uiMenuAssertEqual(cuimenu.menuCursorGlyph(249.99), 12,
+  "submenu cursor accepts fractional runtime clock")
+uiMenuAssertEqual(cuimenu.menuCursorGlyph(250.0), 13,
+  "submenu cursor advances")
+uiMenuAssertEqual(cuimenu.menuCursorGlyph(500.0), 12,
+  "submenu cursor wraps")
 uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 1400,
   uiMenuRenderer.exports), 6, "main menu draw count")
+cuimenu.open(uiMenuState, "game")
+uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 135.51,
+  uiMenuRenderer.exports), 7, "game menu fractional-clock draw count")
 uiMenuAssertEqual(len(bytes(recording.commandTrace(uiMenuRenderer))) > 0, true, "menu renderer callback trace")
 uiMenuRenderer.exports.Shutdown()
 uiMenuAssertEqual(typeof(try(cuimenu.open(uiMenuState, "missing"))), "error", "unknown page rejected")

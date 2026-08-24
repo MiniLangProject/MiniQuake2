@@ -240,6 +240,11 @@ function mainCursorName(now)
   return "m_cursor" + cursorFrame
 end function
 
+function menuCursorGlyph(now)
+  cursorFrame = cuimenubyteio.truncInt(now / 250.0) % 2
+  return 12 + cursorFrame
+end function
+
 function drawMain(menu, screenWidth, screenHeight, now, exports)
   names = ["m_main_game", "m_main_multiplayer", "m_main_options",
     "m_main_video", "m_main_quit"]
@@ -295,7 +300,7 @@ function draw(menu, screenWidth, screenHeight, now, exports)
   while index < len(current.items)
     item = current.items[index]
     value = itemValue(item)
-    if index == menu.cursor then exports.DrawChar(x, y, 12 + ((now / 250) & 1)) end if
+    if index == menu.cursor then exports.DrawChar(x, y, menuCursorGlyph(now)) end if
     if item.enabled then drawText(exports, x + 16, y, item.label)
     else drawAltText(exports, x + 16, y, item.label)
     end if
