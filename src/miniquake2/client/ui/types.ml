@@ -114,5 +114,6 @@ struct ScreenState
   inventory
   selectedInventory
   showInventory
+  crosshair
   showHud
 end struct

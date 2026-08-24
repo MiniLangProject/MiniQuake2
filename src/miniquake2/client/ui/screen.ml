@@ -9,7 +9,22 @@ import miniquake2.client.ui.types as cuitypes
 
 function create(console, menu)
   return cuitypes.ScreenState(console, menu, "", 0, 0, "", "", [], "", [],
-    [], 0, false, true)
+    [], 0, false, 1, true)
+end function
+
+function crosshairPosition(screenWidth, screenHeight, pictureWidth, pictureHeight)
+  return [(screenWidth - pictureWidth) / 2, (screenHeight - pictureHeight) / 2]
+end function
+
+function drawCrosshair(screen, screenWidth, screenHeight, exports)
+  if not screen.showHud or screen.crosshair <= 0 or screen.menu.active or
+      screen.console.visibleFraction > 0.0 then return 0 end if
+  name = "ch" + screen.crosshair
+  size = exports.DrawGetPicSize(name)
+  if size.width <= 0 or size.height <= 0 then return 0 end if
+  position = crosshairPosition(screenWidth, screenHeight, size.width, size.height)
+  exports.DrawPic(position[0], position[1], name)
+  return 1
 end function
 
 function centerPrint(screen, text, now, duration)
@@ -106,6 +121,7 @@ end function
 function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
     serverFrame, playerNumber, exports)
   count = 0
+  count = count + drawCrosshair(screen, screenWidth, screenHeight, exports)
   if screen.showHud then
     statusbar = ""
     if len(configStrings) > cuiscreenqc.CS_STATUSBAR and

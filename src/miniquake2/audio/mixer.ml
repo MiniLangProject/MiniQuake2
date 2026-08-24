@@ -35,13 +35,13 @@ function setMasterVolume(mixer, value)
   return mixer.masterVolume
 end function
 
-function clamp16(value)
+function inline clamp16(value)
   if value > 32767 then return 32767 end if
   if value < -32768 then return -32768 end if
   return value
 end function
 
-function sampleAt(sound, frame, channel)
+function inline sampleAt(sound, frame, channel)
   if sound.channels == 1 then channel = 0 end if
   sampleIndex = frame * sound.channels + channel
   if sound.width == 1 then return (sound.pcm[sampleIndex] - 128) << 8 end if
@@ -56,6 +56,17 @@ function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, right
     end for
   end if
   channel = Channel(sound, entityNumber, entityChannel, 0.0, leftVolume, rightVolume, true)
+  // Reuse a finished slot. Sound events are frequent during combat and an
+  // append-only channel array would otherwise retain and scan every expired
+  // sound for the rest of the map.
+  channelIndex = 0
+  while channelIndex < len(mixer.channels)
+    if not mixer.channels[channelIndex].active then
+      mixer.channels[channelIndex] = channel
+      return channel
+    end if
+    channelIndex = channelIndex + 1
+  end while
   mixer.channels = mixer.channels + [channel]
   return channel
 end function
@@ -81,6 +92,17 @@ end function
 function mix(mixer, frameCount)
   if frameCount < 0 then return error(2957, "negative mix frame count") end if
   output = bytes(frameCount * 4)
+  // Fresh byte buffers are already zero-filled. Avoid 2,048 interpreted
+  // sample writes per 1,024-frame block while no sound is active; this is the
+  // common state while traversing quiet parts of a map or using the menus.
+  hasActiveChannel = false
+  for each activeChannel in mixer.channels
+    if activeChannel.active then hasActiveChannel = true; break end if
+  end for
+  if not hasActiveChannel then
+    mixer.paintedFrames = mixer.paintedFrames + frameCount
+    return output
+  end if
   frameIndex = 0
   while frameIndex < frameCount
     mixedLeft = 0

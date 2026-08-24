@@ -24,6 +24,7 @@ uiconfigtestkeys.bind(uiConfigInput, 200, "+attack")
 uiConfigInputSettings = uiConfigInput.config
 uiConfigInputSettings.sensitivity = 6.5
 uiConfigInputSettings.alwaysRun = true
+uiConfigInputSettings.mousePitch = -0.022
 uiConfigInputSettings.hand = 1
 uiConfigState = uiconfigtestcommands.create()
 uiConfigState.videoMode = 2
@@ -31,26 +32,33 @@ uiConfigState.fullScreen = true
 uiConfigState.brightness = 1.2
 uiConfigMixer = uiconfigtestmixer.create(8000)
 uiconfigtestmixer.setMasterVolume(uiConfigMixer, 0.4)
+uiConfigScreen = uiconfigtestscreen.create(uiconfigtestconsole.create(40),
+  uiconfigtestmenu.create())
+uiConfigScreen.crosshair = 3
 
 uiConfigCaptured = uiconfigtestconfig.captureProductConfig(uiConfigInput,
-  uiConfigState, uiConfigMixer)
+  uiConfigState, uiConfigMixer, uiConfigScreen)
 uiconfigtestconfig.saveProductConfig(uiConfigPath, uiConfigCaptured)
 uiConfigLoaded = uiconfigtestconfig.loadProductConfig(uiConfigPath)
 uiConfigAssert(uiConfigLoaded.videoMode == 2 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.brightness == 1.2 and uiConfigLoaded.sensitivity == 6.5 and
-  uiConfigLoaded.alwaysRun and uiConfigLoaded.hand == 1 and
+  uiConfigLoaded.alwaysRun and uiConfigLoaded.invertMouse and
+  uiConfigLoaded.hand == 1 and uiConfigLoaded.crosshair == 3 and
   uiConfigLoaded.volume == 0.4 and
   len(uiConfigLoaded.bindings) == 2, "config disk round trip")
 
 uiConfigApplyInput = uiconfigtestkeys.createInputState()
 uiConfigApplyState = uiconfigtestcommands.create()
 uiConfigApplyMixer = uiconfigtestmixer.create(8000)
+uiConfigApplyScreen = uiconfigtestscreen.create(uiconfigtestconsole.create(40),
+  uiconfigtestmenu.create())
 uiconfigtestconfig.applyProductConfig(uiConfigLoaded, uiConfigApplyInput,
-  uiConfigApplyState, uiConfigApplyMixer)
+  uiConfigApplyState, uiConfigApplyMixer, uiConfigApplyScreen)
 uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward" and
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, 200) == "+attack" and
-  uiConfigApplyInput.config.hand == 1 and uiConfigApplyState.videoMode == 2 and
-  uiConfigApplyMixer.masterVolume == 0.4,
+  uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
+  uiConfigApplyState.videoMode == 2 and uiConfigApplyMixer.masterVolume == 0.4 and
+  uiConfigApplyScreen.crosshair == 3,
   "config applied to live product state")
 
 uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
@@ -64,7 +72,9 @@ uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
   "invalid handedness rejected")
 uiConfigLegacy = uiconfigtestconfig.decodeProductConfig(
   "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\n")
-uiConfigAssert(uiConfigLegacy.hand == 0, "legacy config defaults to right hand")
+uiConfigAssert(uiConfigLegacy.hand == 0 and not uiConfigLegacy.invertMouse and
+  uiConfigLegacy.crosshair == 1,
+  "legacy config defaults to right hand, normal pitch and crosshair one")
 uiconfigtestfs.delete(uiConfigPath)
 return true
 end function

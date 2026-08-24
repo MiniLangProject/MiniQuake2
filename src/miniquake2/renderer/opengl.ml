@@ -990,6 +990,13 @@ function openGlMd2NormalVectors(backend)
   return result
 end function
 
+// R_DrawAliasModel negates PITCH before calling R_RotateForEntity (the
+// original source's "sigh" workaround). R_RotateForEntity negates it again,
+// so alias models use a positive pitch rotation while brush models do not.
+function inline openGlMd2ModelPitch(angle)
+  return angle
+end function
+
 function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   entityFlags = entity.flags; entityAlpha = entity.alpha
   entityOrigin = entity.origin; entityAngles = entity.angles
@@ -1034,7 +1041,7 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   native.glPushMatrix()
   native.glTranslate(bits(originX), bits(originY), bits(originZ))
   native.glRotate(bits(angleY), bits(0.0), bits(0.0), bits(1.0))
-  native.glRotate(bits(-angleX), bits(0.0), bits(1.0), bits(0.0))
+  native.glRotate(bits(openGlMd2ModelPitch(angleX)), bits(0.0), bits(1.0), bits(0.0))
   native.glRotate(bits(-angleZ), bits(1.0), bits(0.0), bits(0.0))
   return Md2DrawState(textureId, translucent, depthHack, shell, mirrored,
     shadeColor.red, shadeColor.green, shadeColor.blue, alpha)
@@ -1698,6 +1705,10 @@ function md2EntityVisible(binding, entity)
   return openGlMd2EntityVisible(binding.state, entity)
 end function
 
+function md2ModelPitch(angle)
+  return openGlMd2ModelPitch(angle)
+end function
+
 function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, modulate)
   world = rclassicworld.build(map, loadFile, lightStyles, entityFrame, modulate, binding.state.assets.generation)
   skyName = binding.state.core.state.skyName
@@ -1729,8 +1740,13 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
 end function
 
 function uploadClassicTexture(binding, texture)
+  if texture.released then return error(9623, "classic texture handle is not active") end if
+  // Texture objects mirror the native record's upload bit. Checking the local
+  // hot flag first avoids a linear texture-record lookup for every visible BSP
+  // base/lightmap surface on every frame.
+  if texture.uploaded then return false end if
   record = findTextureRecord(binding.state, texture.id)
-  if record is void or record.released or texture.released then return error(9623, "classic texture handle is not active") end if
+  if record is void or record.released then return error(9623, "classic texture handle is not active") end if
   if record.uploaded then
     texture.uploaded = true
     return false

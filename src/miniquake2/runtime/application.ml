@@ -1211,7 +1211,8 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     appuiconsole.appendLine(screen.console,
       "Config ignored: " + applicationConfigLoad.message, 0)
   else if applicationConfigLoad is not void then
-    appuiconfig.applyProductConfig(applicationConfigLoad, input, commandState, audioMixer)
+    appuiconfig.applyProductConfig(applicationConfigLoad, input, commandState,
+      audioMixer, screen)
     if commandState.videoMode != productHost.videoMode or
         commandState.fullScreen != productHost.fullScreen then
       commandState.videoRestartRequested = true
@@ -1221,12 +1222,17 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   applicationPublishedHand = 0
   appuimenu.setItemValue(screen.menu, "options", "sensitivity",
     input.config.sensitivity)
+  applicationInvertMouseValue = 0
+  if input.config.mousePitch < 0.0 then applicationInvertMouseValue = 1 end if
+  appuimenu.setItemValue(screen.menu, "options", "invertmouse",
+    applicationInvertMouseValue)
   applicationAlwaysRunValue = 0
   if input.config.alwaysRun then applicationAlwaysRunValue = 1 end if
   appuimenu.setItemValue(screen.menu, "options", "alwaysrun",
     applicationAlwaysRunValue)
   appuimenu.setItemValue(screen.menu, "options", "volume",
     audioMixer.masterVolume)
+  appuimenu.setItemValue(screen.menu, "options", "crosshair", screen.crosshair)
   appuimenu.setItemValue(screen.menu, "video", "mode", commandState.videoMode)
   applicationFullscreenValue = 0
   if commandState.fullScreen then applicationFullscreenValue = 1 end if
@@ -1267,6 +1273,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   applicationPerfWorld = 0
   applicationPerfEntities = 0
   applicationPerfHud = 0
+  applicationPerfPresent = 0
+  applicationPerfAudio = 0
+  applicationPerfFrame = 0
   appwindow.setTitle(window, "MiniQuake2 - " + applicationCurrentMapName +
     " - FPS --")
   latest = void
@@ -1296,7 +1305,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       input.capturedKey >= 0
     if applicationConfigChanged then
       applicationConfigSave = try(appuiconfig.saveProductConfig(applicationConfigPath,
-        appuiconfig.captureProductConfig(input, commandState, audioMixer)))
+        appuiconfig.captureProductConfig(input, commandState, audioMixer, screen)))
       if applicationConfigSave is error then
         appuiconsole.appendLine(screen.console,
           "Config save failed: " + applicationConfigSave.message,
@@ -1485,8 +1494,14 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       session.client.integrated.network.playerNumber, renderer.exports)
     applicationPerfHud = applicationPerfHud +
       appsystem.milliseconds(clock) - applicationPerfHudStart
+    applicationPerfPresentStart = appsystem.milliseconds(clock)
     renderer.exports.EndFrame()
+    applicationPerfAudioStart = appsystem.milliseconds(clock)
+    applicationPerfPresent = applicationPerfPresent +
+      applicationPerfAudioStart - applicationPerfPresentStart
     pumpPlayAudio(audioDevice, audioMixer)
+    applicationPerfAudio = applicationPerfAudio +
+      appsystem.milliseconds(clock) - applicationPerfAudioStart
     frames = frames + 1
     applicationFpsFrameCount = applicationFpsFrameCount + 1
     applicationFpsNow = appsystem.milliseconds(clock)
@@ -1500,7 +1515,13 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       applicationFpsFrameCount = 0
     end if
     elapsed = appsystem.milliseconds(clock) - started
-    if elapsed < 8 then appsystem.sleep(appbyteio.truncInt(8 - elapsed)) end if
+    applicationPerfFrame = applicationPerfFrame + elapsed
+    // Win32 Sleep(1..7) can round up to a full scheduler tick when no
+    // high-resolution timer period is active. That turned an intended
+    // 125-fps ceiling into roughly 50 fps on otherwise fast frames. Yield
+    // without adding a coarse delay; the 10-Hz game/network cadence remains
+    // governed by networkTime above.
+    if elapsed < 8 then appsystem.sleep(0) end if
   end while
 
   appwindow.setMouseCapture(false)
@@ -1536,7 +1557,8 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     registeredSounds, missingAssets, submittedEntities,
     visibleSurfaces, culledSurfaces, viewCluster,
     applicationPerfClient, applicationPerfWorld, applicationPerfEntities,
-    applicationPerfHud, missingAssetSummary]
+    applicationPerfHud, missingAssetSummary, applicationPerfPresent,
+    applicationPerfAudio, applicationPerfFrame]
 end function
 
 function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)

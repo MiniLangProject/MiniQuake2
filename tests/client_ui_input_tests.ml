@@ -97,6 +97,14 @@ uiPredictionSent = cuiinput.createSampledUserCmd(uiPredictionInput, 40)
 uiInputAssertEqual(uiPredictionSent.angles[1], uiPredictionPreview.angles[1],
   "sampled command preserves immediate view")
 
+// A negative m_pitch is the original Quake II convention for inverted mouse.
+uiInvertedInput = cuikeys.createInputState()
+uiInvertedInput.config.mousePitch = -uiInvertedInput.config.mousePitch
+cuiinput.addMouseDelta(uiInvertedInput, 0.0, -5.0)
+cuiinput.sampleView(uiInvertedInput, 16)
+uiInputAssertNear(uiInvertedInput.viewAngles[0], 0.33, 0.0001,
+  "negative mouse pitch inverts vertical look")
+
 // Destination router edits the console, opens/closes the menu and submits chat.
 uiInputScreen = cuiscreen.create(cuiconsole.create(40), cuimenu.create())
 cuicontroller.handleEvent(uiInputState, uiInputScreen, pwindow.InputEvent(cuic.EVENT_KEY, 96, 1), 1300)

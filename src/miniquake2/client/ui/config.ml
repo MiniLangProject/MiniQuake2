@@ -17,11 +17,13 @@ const CONFIG_MAX_BINDINGS = 256
 struct ProductConfig
   sensitivity
   alwaysRun
+  invertMouse
   hand
   volume
   videoMode
   fullScreen
   brightness
+  crosshair
   bindings
 end struct
 
@@ -40,6 +42,7 @@ function productConfigValidate(config)
       (typeof(config.sensitivity) != "int" and typeof(config.sensitivity) != "float") or
       config.sensitivity < 1.0 or config.sensitivity > 20.0 or
       typeof(config.alwaysRun) != "bool" or
+      typeof(config.invertMouse) != "bool" or
       typeof(config.hand) != "int" or config.hand < 0 or config.hand > 2 or
       (typeof(config.volume) != "int" and typeof(config.volume) != "float") or
       config.volume < 0.0 or config.volume > 1.0 or
@@ -47,6 +50,8 @@ function productConfigValidate(config)
       typeof(config.fullScreen) != "bool" or
       (typeof(config.brightness) != "int" and typeof(config.brightness) != "float") or
       config.brightness < 0.5 or config.brightness > 2.0 or
+      typeof(config.crosshair) != "int" or config.crosshair < 0 or
+      config.crosshair > 3 or
       typeof(config.bindings) != "array" or len(config.bindings) > CONFIG_MAX_BINDINGS then
     return error(8290, "product config fields are invalid")
   end if
@@ -63,16 +68,18 @@ function productConfigValidate(config)
   return config
 end function
 
-function captureProductConfig(input, commandState, mixer)
+function captureProductConfig(input, commandState, mixer, screen)
   productConfigBindings = []
   for each productConfigInputBinding in input.bindings
     productConfigBindings = productConfigBindings + [
       miniquake2.client.ui.types.Binding(productConfigInputBinding.key,
         productConfigInputBinding.command)]
   end for
+  productConfigInvertMouse = input.config.mousePitch < 0.0
   productConfigCaptured = ProductConfig(input.config.sensitivity,
-    input.config.alwaysRun, input.config.hand, mixer.masterVolume, commandState.videoMode,
-    commandState.fullScreen, commandState.brightness, productConfigBindings)
+    input.config.alwaysRun, productConfigInvertMouse, input.config.hand,
+    mixer.masterVolume, commandState.videoMode, commandState.fullScreen,
+    commandState.brightness, screen.crosshair, productConfigBindings)
   return productConfigValidate(productConfigCaptured)
 end function
 
@@ -80,16 +87,20 @@ function encodeProductConfig(config)
   productConfigValue = productConfigValidate(config)
   productConfigRunValue = 0
   if productConfigValue.alwaysRun then productConfigRunValue = 1 end if
+  productConfigInvertValue = 0
+  if productConfigValue.invertMouse then productConfigInvertValue = 1 end if
   productConfigFullscreenValue = 0
   if productConfigValue.fullScreen then productConfigFullscreenValue = 1 end if
   productConfigText = CONFIG_HEADER + "\n" +
     "sensitivity " + productConfigValue.sensitivity + "\n" +
     "cl_run " + productConfigRunValue + "\n" +
+    "m_invert " + productConfigInvertValue + "\n" +
     "hand " + productConfigValue.hand + "\n" +
     "s_volume " + productConfigValue.volume + "\n" +
     "vid_mode " + productConfigValue.videoMode + "\n" +
     "vid_fullscreen " + productConfigFullscreenValue + "\n" +
-    "vid_gamma " + productConfigValue.brightness + "\n"
+    "vid_gamma " + productConfigValue.brightness + "\n" +
+    "crosshair " + productConfigValue.crosshair + "\n"
   for each productConfigWriteBinding in productConfigValue.bindings
     productConfigText = productConfigText + "bind " + productConfigWriteBinding.key +
       " \"" + productConfigWriteBinding.command + "\"\n"
@@ -124,11 +135,13 @@ function decodeProductConfig(text)
   end if
   productConfigSensitivity = void
   productConfigRun = void
+  productConfigInvert = void
   productConfigHand = void
   productConfigVolume = void
   productConfigMode = void
   productConfigFullscreen = void
   productConfigGamma = void
+  productConfigCrosshair = void
   productConfigBindings = []
   productConfigLineIndex = 1
   while productConfigLineIndex < len(productConfigLines)
@@ -157,6 +170,9 @@ function decodeProductConfig(text)
       else if productConfigName == "cl_run" and productConfigRun is void and
           (productConfigSetting == 0 or productConfigSetting == 1) then
         productConfigRun = productConfigSetting != 0
+      else if productConfigName == "m_invert" and productConfigInvert is void and
+          (productConfigSetting == 0 or productConfigSetting == 1) then
+        productConfigInvert = productConfigSetting != 0
       else if productConfigName == "hand" and productConfigHand is void then
         productConfigHand = uiconfigbyteio.truncInt(productConfigSetting)
         if productConfigSetting != productConfigHand or productConfigHand < 0 or
@@ -171,6 +187,12 @@ function decodeProductConfig(text)
         productConfigFullscreen = productConfigSetting != 0
       else if productConfigName == "vid_gamma" and productConfigGamma is void then
         productConfigGamma = productConfigSetting * 1.0
+      else if productConfigName == "crosshair" and productConfigCrosshair is void then
+        productConfigCrosshair = uiconfigbyteio.truncInt(productConfigSetting)
+        if productConfigSetting != productConfigCrosshair or productConfigCrosshair < 0 or
+            productConfigCrosshair > 3 then
+          return error(8297, "crosshair must be an integer from 0 to 3")
+        end if
       else return error(8298, "unknown, duplicate or invalid product config setting") end if
     end if
   end while
@@ -179,22 +201,31 @@ function decodeProductConfig(text)
       productConfigFullscreen is void or productConfigGamma is void then
     return error(8299, "product config is missing required settings")
   end if
-  // Config v1 predates persisted handedness. Preserve those files as the
-  // original right-handed default instead of rejecting a safe old config.
+  // Config v1 predates persisted handedness, mouse inversion and crosshair.
+  // Preserve those files with the product defaults instead of rejecting them.
   if productConfigHand is void then productConfigHand = 0 end if
+  if productConfigInvert is void then productConfigInvert = false end if
+  if productConfigCrosshair is void then productConfigCrosshair = 1 end if
   return productConfigValidate(ProductConfig(productConfigSensitivity,
-    productConfigRun, productConfigHand, productConfigVolume, productConfigMode,
-    productConfigFullscreen, productConfigGamma, productConfigBindings))
+    productConfigRun, productConfigInvert, productConfigHand, productConfigVolume,
+    productConfigMode, productConfigFullscreen, productConfigGamma,
+    productConfigCrosshair, productConfigBindings))
 end function
 
-function applyProductConfig(config, input, commandState, mixer)
+function applyProductConfig(config, input, commandState, mixer, screen)
   productConfigApply = productConfigValidate(config)
   input.config.sensitivity = productConfigApply.sensitivity
   input.config.alwaysRun = productConfigApply.alwaysRun
+  productConfigPitch = input.config.mousePitch
+  if productConfigPitch < 0.0 then productConfigPitch = -productConfigPitch end if
+  if productConfigApply.invertMouse then input.config.mousePitch = -productConfigPitch
+  else input.config.mousePitch = productConfigPitch
+  end if
   input.config.hand = productConfigApply.hand
   commandState.videoMode = productConfigApply.videoMode
   commandState.fullScreen = productConfigApply.fullScreen
   commandState.brightness = productConfigApply.brightness
+  screen.crosshair = productConfigApply.crosshair
   uiconfigmixer.setMasterVolume(mixer, productConfigApply.volume)
   input.bindings = []
   for each productConfigApplyBinding in productConfigApply.bindings

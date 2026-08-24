@@ -77,6 +77,8 @@ function testClassicDrawingHelpers()
   shell.flags = rc.RF_SHELL_DOUBLE
   assertEqual(ogl.openGlMd2Shade(shell, 0.0), 230 | (179 << 8),
     "double-damage shell color")
+  assertNear(ogl.md2ModelPitch(17.5), 17.5, 0.000001,
+    "Quake II alias-model pitch sign workaround")
 
   renderer = ogl.createOpenGlRenderer(false)
   shadeRow0 = ogl.md2ShadeRow(renderer, 0.0)

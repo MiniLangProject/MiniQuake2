@@ -45,8 +45,11 @@ function defaultPages()
     action("apply", "apply", "vid_restart")])
   options = cuitypes.MenuPage("options", "OPTIONS", "main", [
     slider("sensitivity", "mouse speed", 3.0, 1.0, 20.0, 0.5, "sensitivity"),
+    toggle("invertmouse", "invert mouse", 0, "m_invert"),
     toggle("alwaysrun", "always run", 0, "cl_run"),
     slider("volume", "sound volume", 0.7, 0.0, 1.0, 0.1, "s_volume"),
+    choice("crosshair", "crosshair", 1,
+      ["off", "crosshair 1", "crosshair 2", "crosshair 3"], "crosshair"),
     action("keys", "customize controls", "menu:keys")])
   load = cuitypes.MenuPage("load", "LOAD GAME", "game", [
     action("load0", "slot 1", "load 0"), action("load1", "slot 2", "load 1"),

@@ -17,18 +17,21 @@ uiCommandScreen = uicmdtestscreen.create(uicmdtestconsole.create(40), uicmdtestm
 uiCommandMixer = uicmdtestmixer.create(8000)
 uiCommandState = uicmdtestcommands.create()
 
-uiCommandInput.commands = ["+forward 119 10", "sensitivity 4.5", "cl_run 1",
-  "hand 1", "inven", "say hello"]
+uiCommandInput.commands = ["+forward 119 10", "sensitivity 4.5", "m_invert 1",
+  "cl_run 1", "hand 1", "inven", "say hello"]
 uiCommandScreen.console.commands = ["s_volume 0.5", "save 2"]
-uiCommandScreen.menu.commands = ["quit", "vid_mode 3", "vid_fullscreen 1", "vid_gamma 1.3", "vid_restart"]
+uiCommandScreen.menu.commands = ["quit", "vid_mode 3", "vid_fullscreen 1",
+  "vid_gamma 1.3", "crosshair 3", "vid_restart"]
 uiCommandAssert(uicmdtestcommands.drain(uiCommandState, uiCommandInput,
-  uiCommandScreen, uiCommandMixer) == 13, "all command sources drained")
+  uiCommandScreen, uiCommandMixer) == 15, "all command sources drained")
 uiCommandAssert(uiCommandInput.config.sensitivity == 4.5 and
-  uiCommandInput.config.alwaysRun and uiCommandInput.config.hand == 1,
+  uiCommandInput.config.alwaysRun and uiCommandInput.config.hand == 1 and
+  uiCommandInput.config.mousePitch < 0.0,
   "input settings applied")
 uiCommandAssert(uiCommandScreen.showInventory and uiCommandMixer.masterVolume == 0.5,
   "inventory and volume settings applied")
-uiCommandAssert(uiCommandState.quitRequested and uiCommandState.executed == 13 and
+uiCommandAssert(uiCommandScreen.crosshair == 3, "crosshair setting applied")
+uiCommandAssert(uiCommandState.quitRequested and uiCommandState.executed == 15 and
   uiCommandState.rejected == 0, "command counters and quit state")
 uiCommandAssert(uiCommandState.videoRestartRequested and uiCommandState.videoMode == 3 and
   uiCommandState.fullScreen and uiCommandState.brightness == 1.3,
@@ -70,6 +73,9 @@ uiCommandAssert(uiCommandInput.config.sensitivity == uiCommandOldSensitivity and
 uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "hand 7")) is error and
   uiCommandInput.config.hand == 1, "invalid handedness rejected atomically")
+uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "m_invert 2")) is error and
+  uiCommandInput.config.mousePitch < 0.0, "invalid mouse inversion rejected atomically")
 
 uiCommandInventoryValues = array(uicmdtestqc.MAX_ITEMS, 0)
 uiCommandInventoryValues[2] = 17

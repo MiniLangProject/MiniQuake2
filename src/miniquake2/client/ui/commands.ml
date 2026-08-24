@@ -61,6 +61,20 @@ function localAction(commandState, input, screen, mixer, command)
     commandState.configDirty = true
     return true
   end if
+  if cuicmdName == "m_invert" then
+    cuicmdInvert = numericArgument(cuicmdArguments, cuicmdName)
+    if cuicmdInvert != 0 and cuicmdInvert != 1 and
+        cuicmdInvert != 0.0 and cuicmdInvert != 1.0 then
+      return error(8283, "m_invert expects 0 or 1")
+    end if
+    cuicmdPitch = input.config.mousePitch
+    if cuicmdPitch < 0.0 then cuicmdPitch = -cuicmdPitch end if
+    if cuicmdInvert != 0 then input.config.mousePitch = -cuicmdPitch
+    else input.config.mousePitch = cuicmdPitch
+    end if
+    commandState.configDirty = true
+    return true
+  end if
   if cuicmdName == "cl_run" then
     cuicmdAlwaysRun = numericArgument(cuicmdArguments, cuicmdName)
     if cuicmdAlwaysRun != 0 and cuicmdAlwaysRun != 1 and
@@ -113,6 +127,17 @@ function localAction(commandState, input, screen, mixer, command)
       return error(8286, "vid_gamma outside [0.5,2]")
     end if
     commandState.brightness = cuicmdBrightness * 1.0
+    commandState.configDirty = true
+    return true
+  end if
+  if cuicmdName == "crosshair" then
+    cuicmdCrosshairValue = numericArgument(cuicmdArguments, cuicmdName)
+    cuicmdCrosshair = cuicmdbyteio.truncInt(cuicmdCrosshairValue)
+    if cuicmdCrosshairValue != cuicmdCrosshair or cuicmdCrosshair < 0 or
+        cuicmdCrosshair > 3 then
+      return error(8286, "crosshair outside [0,3]")
+    end if
+    screen.crosshair = cuicmdCrosshair
     commandState.configDirty = true
     return true
   end if
