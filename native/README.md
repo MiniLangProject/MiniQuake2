@@ -8,7 +8,7 @@ composition, and file-format policy remain in MiniLang.
 
 | Binary | SHA-256 |
 | --- | --- |
-| `miniquake_native.dll` | `57f7a867c7d509b6651662a70ba2c4e37e6913e2e4a1859b111dabcf098876d0` |
+| `miniquake_native.dll` | `e743a52e7d503f6811cfeec48bba83912487623f155a273aeb480829c39b9d97` |
 | `miniquake_text.dll` | `b1d7ec43b116c694ea03a0f1a0c2cc58a5fdcb5d009968cb79b157034ad9f16f` |
 
 Corresponding source and deterministic build scripts are retained in the same

@@ -4,6 +4,33 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 planar MD2 shadow acceptance run
+
+The renderer now ports the Quake II 3.19 `GL_DrawAliasShadow` projection for
+ordinary MD2 entities. The existing near-first BSP light query retains its
+receiver `lightspot`; entity yaw and origin height form the classic planar
+projection at `lightspot + 1`, rendered black at alpha 0.5. Translucent aliases
+and `RF_WEAPONMODEL` are excluded exactly as in the reference. The pass runs
+after opaque world and brush geometry but before transparent world surfaces,
+and reuses the bounded interpolated MD2 VBO cache without constructing another
+MiniLang vertex array. The modern port enables shadows by default while keeping
+an explicit on/off renderer control; classic 3.19 itself registered the option
+disabled by default.
+
+The shared bridge compiled twice byte-identically at SHA-256
+`E743A52E7D503F6811CFEEC48BBA83912487623F155A273AEB480829C39B9D97`
+(200,192 bytes), passed all 31 native renderer invariants, and the sibling
+MiniQuake product rebuilt against it. The Release product and all 153 native
+programs passed. A final grounded `base1` shadow-on/off capture retained 324
+visible surfaces, 6,983 culled surfaces, nine brush entities and one MD2 in
+both runs; `shadowEntities` changed from zero to one at light height 32. The
+isolated effect changed 2,058 of 230,400 pixels, 5,990 RGB channels, with
+29,396 absolute error, maximum channel delta 17 and 167-ppm mean absolute
+error. The final installed-retail 100-frame product run reached server frame 34
+with 84 models, 68 sounds, zero missing assets and 2,400 entity submissions;
+client/world/entity/HUD phases measured
+82.5237/1,941.6179/91.3086/51.3970 ms.
+
 ## 2026-08-24 per-vertex MD2 shadedot and hotpath acceptance run
 
 The alias-lighting path now completes the Quake II 3.19 vertex-lighting step.

@@ -8,6 +8,27 @@ copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
 
+The final same-date renderer pass added the classic 3.19 planar alias shadow.
+It retains the receiver point from the existing BSP light traversal, projects
+cached interpolated MD2 geometry from entity yaw and height, and draws black
+alpha-0.5 geometry after the opaque world/brush pass and before alpha surfaces.
+Translucent and first-person weapon aliases are excluded. Shadows are enabled
+by default in this modern port but remain independently switchable; the
+original registered `gl_shadows` disabled by default. The bridge rebuilt twice
+byte-identically at SHA-256
+`E743A52E7D503F6811CFEEC48BBA83912487623F155A273AEB480829C39B9D97`
+and passed all 31 native safety invariants.
+
+The Release product and all 153 asset-free programs passed. Grounded `base1`
+captures with only the shadow toggle changed retained identical counts of 324
+visible/6,983 culled surfaces, nine brush entities and one MD2. The enabled run
+reported one shadow at light height 32 versus zero when disabled, with 2,058
+differing pixels, 5,990 differing RGB channels, 29,396 absolute error, maximum
+channel delta 17 and 167-ppm mean absolute error. The final installed-retail
+product completed 100 frames through server frame 34 with 84 models, 68 sounds,
+zero missing assets and 2,400 entity submissions. Client/world/entity/HUD
+phases measured 82.5237/1,941.6179/91.3086/51.3970 ms.
+
 The same-date MD2 shadedot and render-hotpath pass completed the alias-lighting
 port at vertex granularity. The validated original MD2 bytes are retained by
 the model asset and passed once per entity to the native bridge; strict native

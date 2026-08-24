@@ -50,6 +50,8 @@ struct RetailCaptureResult
   skySurfaces
   inlineBrushEntities
   md2Entities
+  shadowEntities
+  shadowLightHeight
 end struct
 
 retailCaptureFileSystemSlot = RetailCaptureFileSystemSlot(void)
@@ -154,7 +156,8 @@ end function
 // cameraOrigin/cameraAngles may be void to select the first info_player_start.
 // Capture occurs before EndFrame's swap, after the final deterministic time.
 function captureRetailScene(baseDirectory, mapName, outputPath, width, height,
-    renderedFrames, modelName, includeInlineBrushModels, cameraOrigin, cameraAngles)
+    renderedFrames, modelName, includeInlineBrushModels, cameraOrigin,
+    cameraAngles, shadowsEnabled)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9942, "retail capture root required") end if
   if typeof(outputPath) != "string" or outputPath == "" then return error(9943, "retail capture output path required") end if
   if typeof(width) != "int" or typeof(height) != "int" or width < 64 or height < 64 or width > 4096 or height > 4096 then
@@ -182,6 +185,7 @@ function captureRetailScene(baseDirectory, mapName, outputPath, width, height,
 
   window = retailcapturewindow.create("MiniQuake2 visual capture - " + mapName, width, height, false)
   renderer = retailcapturegl.createOpenGlRenderer(true)
+  retailcapturegl.setShadows(renderer, shadowsEnabled)
   renderer.exports.Init(void, void)
   renderer.exports.BeginRegistration(path)
   retailcapturegl.adoptClassicMapModel(renderer, map, path)
@@ -228,6 +232,11 @@ function captureRetailScene(baseDirectory, mapName, outputPath, width, height,
   end while
 
   checksum = retailcaptureimage.rgbaChecksum(captured)
+  shadowLightHeight = 0.0
+  if md2Count > 0 and renderer.state.md2ShadowValid[0] != 0 then
+    shadowLightHeight = frame.entities[0].origin.z -
+      renderer.state.md2ShadowSpotZ[0]
+  end if
   writeResult = try(retailcaptureimage.writeTga(outputPath, captured))
   retailcapturegl.releaseClassicWorld(renderer, world)
   renderer.exports.Shutdown()
@@ -238,5 +247,6 @@ function captureRetailScene(baseDirectory, mapName, outputPath, width, height,
     renderedFrames, (renderedFrames - 1) * 0.1, cameraOrigin, cameraAngles,
     checksum, lastStats.visibleSurfaces, lastStats.culledSurfaces,
     lastStats.viewCluster, lastStats.warpSurfaces, lastStats.transparentSurfaces,
-    lastStats.skySurfaces, lastStats.brushEntities, md2Count)
+    lastStats.skySurfaces, lastStats.brushEntities, md2Count,
+    retailcapturegl.lastShadowEntities(renderer), shadowLightHeight)
 end function

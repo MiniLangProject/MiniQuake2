@@ -30,10 +30,15 @@ end function
 // post-node surface check and far segment. ClassicWorld owns the fixed stacks,
 // so every alias-light query remains allocation-free until its three-float
 // result record is returned.
-function staticPointLight(world, lightStyles, origin)
+function inline emptyPointSample(red, green, blue)
+  return rpointtypes.ClassicPointLight(
+    red, green, blue, 0.0, 0.0, 0.0, false)
+end function
+
+function staticPointLightSample(world, lightStyles, origin)
   map = world.map
   if len(map.nodes) == 0 or len(map.models) == 0 then
-    return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+    return emptyPointSample(0.0, 0.0, 0.0)
   end if
 
   nodeStack = world.pointNodeStack
@@ -50,16 +55,16 @@ function staticPointLight(world, lightStyles, origin)
   while true
     guard = guard + 1
     if guard > len(map.nodes) * 4 + 4 then
-      return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+      return emptyPointSample(0.0, 0.0, 0.0)
     end if
 
     if nodeNumber >= 0 then
       if nodeNumber >= len(map.nodes) then
-        return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+        return emptyPointSample(0.0, 0.0, 0.0)
       end if
       node = map.nodes[nodeNumber]
       if node.planeIndex < 0 or node.planeIndex >= len(map.planes) then
-        return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+        return emptyPointSample(0.0, 0.0, 0.0)
       end if
       plane = map.planes[node.planeIndex]
       front = pointPlaneDistance(startX, startY, startZ, plane)
@@ -79,7 +84,7 @@ function staticPointLight(world, lightStyles, origin)
       midY = startY + (endY - startY) * fraction
       midZ = startZ + (endZ - startZ) * fraction
       if stackCount >= len(nodeStack) then
-        return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+        return emptyPointSample(0.0, 0.0, 0.0)
       end if
       nodeStack[stackCount] = nodeNumber
       if side == 0 then
@@ -98,7 +103,7 @@ function staticPointLight(world, lightStyles, origin)
     end if
 
     if stackCount == 0 then
-      return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+      return emptyPointSample(0.0, 0.0, 0.0)
     end if
     stackCount = stackCount - 1
     postNode = map.nodes[nodeStack[stackCount]]
@@ -122,7 +127,8 @@ function staticPointLight(world, lightStyles, origin)
             dt = textureT - surface.textureMins[1]
             if ds <= surface.extents[0] and dt <= surface.extents[1] then
               if surface.samples is void then
-                return rpointtypes.ClassicPointLight(0.0, 0.0, 0.0)
+                return rpointtypes.ClassicPointLight(
+                  0.0, 0.0, 0.0, midX, midY, midZ, true)
               end if
               ds = ds >> 4; dt = dt >> 4
               sampleCount = surface.lightWidth * surface.lightHeight
@@ -138,7 +144,8 @@ function staticPointLight(world, lightStyles, origin)
                 sampleOffset = sampleOffset + sampleCount * 3
                 mapIndex = mapIndex + 1
               end while
-              return rpointtypes.ClassicPointLight(red, green, blue)
+              return rpointtypes.ClassicPointLight(
+                red, green, blue, midX, midY, midZ, true)
             end if
           end if
         end if
@@ -153,12 +160,17 @@ function staticPointLight(world, lightStyles, origin)
   end while
 end function
 
-function pointLight(world, frame, origin)
+function staticPointLight(world, lightStyles, origin)
+  return staticPointLightSample(world, lightStyles, origin)
+end function
+
+function pointLightSample(world, frame, origin)
   if world is void or world.released or world.map is void or
       len(world.map.lighting) == 0 then
-    return rpointtypes.ClassicPointLight(1.0, 1.0, 1.0)
+    return emptyPointSample(1.0, 1.0, 1.0)
   end if
-  color = staticPointLight(world, frame.lightStyles, origin)
+  sample = staticPointLightSample(world, frame.lightStyles, origin)
+  color = sample
 
   lightIndex = 0
   while lightIndex < frame.numDLights
@@ -177,5 +189,9 @@ function pointLight(world, frame, origin)
   color.red = color.red * world.modulate
   color.green = color.green * world.modulate
   color.blue = color.blue * world.modulate
-  return color
+  return sample
+end function
+
+function pointLight(world, frame, origin)
+  return pointLightSample(world, frame, origin)
 end function

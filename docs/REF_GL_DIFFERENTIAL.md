@@ -57,6 +57,20 @@ the original inverse-intensity color for warp and alpha passes. The remaining
 small differences are concentrated at filtered texture/lightmap edges and the
 MD2 silhouette; exact pixels are not claimed.
 
+## Planar alias-shadow isolation
+
+The capture entry point also accepts a final `SHADOWS(0|1)` argument. This is a
+MiniQuake2 on/off isolation check rather than a new paired-original claim:
+classic `ref_gl` registers `gl_shadows` disabled by default, and the established
+three-scene differential remains unchanged. A one-frame, 640x360 grounded
+Soldier capture at the default `base1` spawn retains 324 visible surfaces,
+6,983 culled surfaces, nine brush entities, one MD2 and light height 32 in both
+runs. Enabling the shadow changes only `shadowEntities` from zero to one and
+produces 2,058 differing pixels, 5,990 differing RGB channels, 29,396 absolute
+error, maximum channel delta 17 and 167-ppm mean absolute error. This proves a
+visible black alpha-0.5 projection without conflating it with camera, world or
+entity-count changes.
+
 The same command captures four independent MiniQuake2 runs twice and requires
 zero differing pixels. These scenes enable inline BSP models whose live mover
 transforms cannot be reconstructed authoritatively by a static original host:

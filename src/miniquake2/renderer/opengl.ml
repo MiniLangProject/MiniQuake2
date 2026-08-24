@@ -82,6 +82,8 @@ struct OpenGlState
   submittedFrames
   submittedEntities
   submittedParticles
+  submittedShadows
+  lastShadowEntities
   nextTextureId
   textureRecords
   gamePalette
@@ -91,6 +93,11 @@ struct OpenGlState
   batchRecords
   md2ShadeRows
   md2NormalVectors
+  md2ShadowSpotZ
+  md2ShadowValid
+  md2LightSpotZ
+  md2LightSpotValid
+  shadows
   handedness
   activeWorld
   lightLevel
@@ -880,7 +887,8 @@ function openGlMd2ShadeComponents(entity, time, rdFlags, baseColor)
   if (rdFlags & rc.RDF_IRGOGGLES) != 0 and (flags & rc.RF_IR_VISIBLE) != 0 then
     red = 1.0; green = 0.0; blue = 0.0
   end if
-  return rclassictypes.ClassicPointLight(red, green, blue)
+  return rclassictypes.ClassicPointLight(
+    red, green, blue, 0.0, 0.0, 0.0, false)
 end function
 
 function inline openGlPackMd2Shade(color)
@@ -895,17 +903,21 @@ end function
 
 function openGlMd2Shade(entity, time)
   return openGlMd2ShadeColor(entity, time, 0,
-    rclassictypes.ClassicPointLight(1.0, 1.0, 1.0))
+    rclassictypes.ClassicPointLight(1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false))
 end function
 
 function openGlMd2FrameShadeComponents(backend, frame, entity)
   shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE |
     rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
-  baseColor = rclassictypes.ClassicPointLight(1.0, 1.0, 1.0)
+  baseColor = rclassictypes.ClassicPointLight(
+    1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false)
+  sample = rclassicpointlighting.pointLightSample(backend.activeWorld, frame,
+    entity.origin)
+  backend.md2LightSpotZ = sample.spotZ
+  backend.md2LightSpotValid = sample.validSpot
   if (entity.flags & shellMask) == 0 and
       (entity.flags & rc.RF_FULLBRIGHT) == 0 then
-    baseColor = rclassicpointlighting.pointLight(backend.activeWorld, frame,
-      entity.origin)
+    baseColor = sample
     if (entity.flags & rc.RF_WEAPONMODEL) != 0 then
       maximum = baseColor.red
       if baseColor.green > maximum then maximum = baseColor.green end if
@@ -1006,7 +1018,8 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   else native.glEnable(GL_TEXTURE_2D); native.glBindTexture(GL_TEXTURE_2D, textureId)
   end if
   shadeColor = openGlMd2ShadeComponents(entity, 0.0, 0,
-    rclassictypes.ClassicPointLight(1.0, 1.0, 1.0))
+    rclassictypes.ClassicPointLight(
+      1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false))
   if frame is not void then
     shadeColor = openGlMd2FrameShadeComponents(backend, frame, entity)
   end if
@@ -1080,7 +1093,7 @@ function drawOpenGlMd2Plan(backend, plan, entity)
     plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity, void)
 end function
 
-function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame)
+function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex)
   frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
   frameCount = len(modelAsset.source.frames)
   if frameIndex < 0 or frameIndex >= frameCount then
@@ -1102,6 +1115,12 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame)
   shell = (entity.flags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN |
     rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
   drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
+  if entityIndex >= 0 and entityIndex < rc.MAX_ENTITIES then
+    backend.md2ShadowSpotZ[entityIndex] = backend.md2LightSpotZ
+    if backend.md2LightSpotValid then backend.md2ShadowValid[entityIndex] = 1
+    else backend.md2ShadowValid[entityIndex] = 0
+    end if
+  end if
   if not shell then
     shadeDots = openGlMd2ShadeRow(backend, entity.angles.y)
     normalVectors = openGlMd2NormalVectors(backend)
@@ -1152,7 +1171,7 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
     modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
     if modelAsset is not void and modelAsset.kind == "md2" and
         openGlMd2EntityVisible(backend, entity) then
-      drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame)
+      drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex)
       submitted = submitted + 1
     end if
     entityIndex = entityIndex + 1
@@ -1179,7 +1198,8 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
           native.glDrawAliasRgbEnd()
           drawOpenGlNullEntity(entity); submitted = submitted + 1
         else if modelAsset.kind == "md2" and openGlMd2EntityVisible(backend, entity) then
-          drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame); submitted = submitted + 1
+          drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame,
+            entityIndex); submitted = submitted + 1
         else if modelAsset.kind == "sprite" then
           native.glDrawAliasRgbEnd()
           drawOpenGlSpriteEntity(backend, modelAsset, entity, axes); submitted = submitted + 1
@@ -1192,6 +1212,82 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
   end while
   native.glDrawAliasRgbEnd()
   if translucentPass then native.glDepthMask(1) end if
+  return submitted
+end function
+
+function inline openGlMd2ShadowEligible(backend, entity)
+  return backend.shadows and
+    (entity.flags & (rc.RF_TRANSLUCENT | rc.RF_WEAPONMODEL)) == 0
+end function
+
+function inline openGlMd2ShadowVectorX(yaw)
+  return rmath.cos(-yaw * DEG_TO_RAD) / rmath.sqrt(2.0)
+end function
+
+function inline openGlMd2ShadowVectorY(yaw)
+  return rmath.sin(-yaw * DEG_TO_RAD) / rmath.sqrt(2.0)
+end function
+
+function inline openGlMd2ShadowLightHeight(entity, spotZ)
+  return entity.origin.z - spotZ
+end function
+
+// Keep alias lighting in one shader run, then submit the original optional
+// GL_DrawAliasShadow behavior as a separate blended pass over cached MD2 VBOs.
+function drawOpenGlMd2ShadowPass(backend, frame)
+  if not backend.shadows then return 0 end if
+  native.glDrawAliasRgbEnd()
+  native.glDisable(GL_TEXTURE_2D)
+  native.glEnable(GL_BLEND)
+  native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+  native.glColor4ub(0, 0, 0, 128)
+  submitted = 0
+  entityIndex = 0
+  while entityIndex < frame.numEntities
+    entity = frame.entities[entityIndex]
+    if backend.md2ShadowValid[entityIndex] != 0 and
+        openGlMd2ShadowEligible(backend, entity) then
+      modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
+      if modelAsset is not void and modelAsset.kind == "md2" then
+        frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
+        frameCount = len(modelAsset.source.frames)
+        if frameIndex < 0 or frameIndex >= frameCount then
+          frameIndex = 0; oldFrameIndex = 0
+        end if
+        if oldFrameIndex < 0 or oldFrameIndex >= frameCount then
+          frameIndex = 0; oldFrameIndex = 0
+        end if
+        lerpBucket = ropenglbyteio.truncInt(entity.backLerp * 8.0 + 0.5)
+        if lerpBucket < 0 then lerpBucket = 0 end if
+        if lerpBucket > 8 then lerpBucket = 8 end if
+        geometryState = (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
+        modelData = modelAsset.source.rawData
+        normalVectors = openGlMd2NormalVectors(backend)
+        native.glPushMatrix()
+        native.glTranslate(bits(entity.origin.x), bits(entity.origin.y),
+          bits(entity.origin.z))
+        native.glRotate(bits(entity.angles.y), bits(0.0), bits(0.0), bits(1.0))
+        native.glRotate(bits(-entity.angles.x), bits(0.0), bits(1.0), bits(0.0))
+        native.glRotate(bits(-entity.angles.z), bits(1.0), bits(0.0), bits(0.0))
+        drawn = native.glDrawMd2Shadow(modelData, len(modelData), frameIndex,
+          oldFrameIndex, bits(lerpBucket / 8.0), normalVectors,
+          len(ropengldirections.normals), nativeRawValue(modelAsset),
+          geometryState, len(modelAsset.source.triangles),
+          bits(openGlMd2ShadowVectorX(entity.angles.y)),
+          bits(openGlMd2ShadowVectorY(entity.angles.y)),
+          bits(openGlMd2ShadowLightHeight(entity,
+            backend.md2ShadowSpotZ[entityIndex])))
+        native.glPopMatrix()
+        if drawn == len(modelAsset.source.triangles) then
+          submitted = submitted + 1
+        end if
+      end if
+    end if
+    entityIndex = entityIndex + 1
+  end while
+  native.glColor4ub(255, 255, 255, 255)
+  native.glDisable(GL_BLEND)
+  native.glEnable(GL_TEXTURE_2D)
   return submitted
 end function
 
@@ -1342,6 +1438,7 @@ function openGlRenderFrame(frame)
     native.glDepthMask(1)
     axes = openGlViewAxes(frame.viewAngles)
     drawOpenGlEntityPass(backend, frame, axes, false)
+    backend.lastShadowEntities = 0
     drawOpenGlEntityPass(backend, frame, axes, true)
     drawParticles(backend, frame, axes)
     backend.submittedEntities = backend.submittedEntities + frame.numEntities
@@ -1509,7 +1606,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1521,7 +1618,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1551,6 +1648,38 @@ end function
 
 function handedness(binding)
   return binding.state.handedness
+end function
+
+function setShadows(binding, enabled)
+  if typeof(enabled) != "bool" then
+    return error(9638, "renderer shadows setting must be bool")
+  end if
+  binding.state.shadows = enabled
+  return enabled
+end function
+
+function shadows(binding)
+  return binding.state.shadows
+end function
+
+function lastShadowEntities(binding)
+  return binding.state.lastShadowEntities
+end function
+
+function md2ShadowEligible(binding, entity)
+  return openGlMd2ShadowEligible(binding.state, entity)
+end function
+
+function md2ShadowVectorX(yaw)
+  return openGlMd2ShadowVectorX(yaw)
+end function
+
+function md2ShadowVectorY(yaw)
+  return openGlMd2ShadowVectorY(yaw)
+end function
+
+function md2ShadowLightHeight(entity, spotZ)
+  return openGlMd2ShadowLightHeight(entity, spotZ)
 end function
 
 function lightLevel(binding)
@@ -2235,6 +2364,14 @@ function submitClassicWorld(binding, world, frame)
   for each brushSubmission in brushFrame.submissions
     uploaded = uploaded + drawOpenGlClassicBrushOpaque(binding, brushSubmission, frame)
   end for
+
+  // MiniQuake2's BSP submission is intentionally split from RenderFrame.
+  // Project aliases only after opaque world depth exists, matching ref_gl's
+  // world-before-entity ordering and preventing GL_LEQUAL from replacing the
+  // coplanar +1 shadow when the camera is horizontal.
+  shadowEntities = drawOpenGlMd2ShadowPass(binding.state, frame)
+  binding.state.lastShadowEntities = shadowEntities
+  binding.state.submittedShadows = binding.state.submittedShadows + shadowEntities
 
   // One polygon-wide list combines world alpha, special brush alpha and
   // RF_TRANSLUCENT brush surfaces in true world-space back-to-front order.

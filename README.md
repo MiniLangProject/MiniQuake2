@@ -140,6 +140,14 @@ bounded VBO cache, so the render loop no longer constructs or concatenates
 expanded MiniLang arrays. The accepted 100-frame retail `base1` run submitted
 2,400 entities in 376.70 ms of measured entity-renderer time, 38.7 percent
 below the preceding 614.28-ms flat-lighting acceptance result.
+Classic 3.19 planar alias shadows now reuse that interpolated MD2 cache. The
+same BSP light sample supplies the receiver `lightspot`, the projection follows
+entity yaw and height, and translucent or view-weapon models are excluded in a
+separate post-opaque-world pass. Shadows are enabled by default for the modern
+port and remain independently switchable. A grounded `base1` on/off capture
+changes 2,058 pixels while preserving identical world, brush and MD2 counts;
+the final 100-frame retail run completed with zero missing assets and measured
+82.52/1,941.62/91.31/51.40 ms for client/world/entities/HUD.
 The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and

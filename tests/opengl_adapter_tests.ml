@@ -105,6 +105,33 @@ function testClassicDrawingHelpers()
   assertEqual(shadedotHash, 869851233,
     "all 2,592 Quake II MD2 shadedots exact")
 
+  shadow = rt.emptyEntity()
+  shadow.origin = qt.vec3(4.0, 8.0, 64.0)
+  assertEqual(ogl.shadows(renderer), true, "modern MD2 shadows default enabled")
+  assertEqual(ogl.md2ShadowEligible(renderer, shadow), true,
+    "opaque world alias casts shadow")
+  shadow.flags = rc.RF_TRANSLUCENT
+  assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
+    "translucent alias does not cast shadow")
+  shadow.flags = rc.RF_WEAPONMODEL
+  assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
+    "view weapon does not cast shadow")
+  shadow.flags = 0
+  assertNear(ogl.md2ShadowVectorX(0.0), 0.7071067812, 0.000001,
+    "classic shadow yaw-zero x vector")
+  assertNear(ogl.md2ShadowVectorX(90.0), 0.0, 0.0001,
+    "classic shadow yaw-quarter x vector")
+  assertNear(ogl.md2ShadowVectorY(90.0), -0.7071067812, 0.00001,
+    "classic shadow yaw-quarter y vector")
+  assertNear(ogl.md2ShadowLightHeight(shadow, 16.0), 48.0, 0.000001,
+    "classic shadow light height")
+  assertEqual(ogl.setShadows(renderer, false), false, "disable MD2 shadows")
+  assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
+    "disabled aliases do not cast shadows")
+  assertEqual(typeof(try(ogl.setShadows(renderer, 1))), "error",
+    "shadow setting rejects non-bool")
+  ogl.setShadows(renderer, true)
+
   batchRecord = bytes(16)
   assertEqual(ogl.writeOpenGlMultitextureRecord(batchRecord, 0, shell,
     0x12345678, 0x0a0b0c0d), 16, "multitexture record size")

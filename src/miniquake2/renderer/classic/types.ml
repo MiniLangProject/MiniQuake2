@@ -47,6 +47,10 @@ struct ClassicPointLight
   red
   green
   blue
+  spotX
+  spotY
+  spotZ
+  validSpot
 end struct
 
 struct TextureChain

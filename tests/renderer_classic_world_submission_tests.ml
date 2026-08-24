@@ -149,6 +149,10 @@ function testAliasPointLighting()
   entity.flags = rc.RF_WEAPONMODEL
   assertEqual(ropengl.md2EntityShade(renderer, frame, entity),
     100 | (80 << 8) | (60 << 16), "BSP point-lit alias color")
+  assertEqual(renderer.state.md2LightSpotValid, true,
+    "alias light query retains BSP shadow spot")
+  assertEqual(renderer.state.md2LightSpotZ, 0.0,
+    "alias shadow spot lies on synthetic floor")
   assertEqual(ropengl.lightLevel(renderer), 58,
     "view weapon publishes sampled light level")
   frame.lightStyles[0] = rt.lightStyle(0.5, 1.0, 0.25)

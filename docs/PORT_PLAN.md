@@ -5,7 +5,7 @@ necessary but not sufficient where the gate also requires original-binary,
 retail-data, visual, or soak evidence. Retail tests run only against legal,
 user-supplied assets and never archive those assets.
 
-## Implementation snapshot (2026-08-23)
+## Implementation snapshot (2026-08-24)
 
 G01 and G02 are complete. G03-G05 have integrated, deterministic native
 implementations; all classic Steam BSPs pass the retail spawn/asset smoke while
@@ -17,6 +17,9 @@ an independent bidirectional Protocol-34 peer, deterministic OpenGL capture and
 pixel diff, and an executable endgame transition slice. The product entry point
 reaches `CA_ACTIVE` and renders retail BSPs through WAL textures, lightmaps,
 special surfaces, transformed brush models, BSP visibility and interpolated MD2.
+The alias path also carries colored per-vertex shadedot lighting and the classic
+planar MD2 shadow projection, using one BSP light traversal and bounded native
+geometry caches rather than render-loop string or array concatenation.
 
 All 47 classic retail BSPs now pass the read-only matrix: 36,404 source
 entities, 20,935 live edicts, all 138 stock class names, and no unknown or

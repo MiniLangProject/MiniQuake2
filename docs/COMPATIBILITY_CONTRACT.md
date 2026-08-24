@@ -37,8 +37,8 @@ The following behavior is release scope:
    original 3.19 server and the original 3.19 client against MiniQuake2.
 5. BSP38 collision, visibility, areas/portals, inline brush models, and the
    Quake II PAK, MD2, SP2, WAL, PCX, WAV, and CIN formats.
-6. Classic OpenGL rendering of worlds, lightmaps, dynamic lights, MD2 models,
-   brush models, sprites, beams, particles, sky, transparent/animated
+6. Classic OpenGL rendering of worlds, lightmaps, dynamic lights, lit MD2 models
+   and planar alias shadows, brush models, sprites, beams, particles, sky, transparent/animated
    surfaces, 2D UI, console, HUD, and cinematics.
 7. Keyboard, mouse, controller, UDP/loopback, audio mixing, configuration,
    console, menus, inventory, saves, and map transitions.
