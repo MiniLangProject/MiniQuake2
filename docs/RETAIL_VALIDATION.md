@@ -1,12 +1,22 @@
 # Retail validation evidence
 
-Validation date: 2026-08-21 (Europe/Berlin)
+Validation date: 2026-08-24 (Europe/Berlin)
 
 The tests below used the user-owned classic Steam installation at
 `C:\Program Files (x86)\Steam\steamapps\common\Quake 2`. No game data was
 copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
+
+The 2026-08-24 client-effect acceptance repeated the movement-enabled retail
+performance and campaign gates after porting stock temp-entity, explosion,
+muzzleflash, monster-flash and impact-audio semantics and replacing per-effect
+particle-array growth with a reusable fixed pool. `base1` completed 5,000
+frames in 26,288.5704 ms (190.20 fps) with 10,385/10,385 packets; `lab`
+completed 500 frames in 7,319.3864 ms (68.31 fps) with 1,136/1,136 packets.
+Both runs reported zero rejects, zero pending sounds and zero command bytes.
+The 39-map physical-input matrix remained 39/39 and the persistent chain
+remained 39 maps/38 changes/753 steps/3,690 packets.
 
 The classic installation contains `3.20_Changes.txt`. It is therefore suitable
 for retail-data validation, but it is not evidence of strict interoperability

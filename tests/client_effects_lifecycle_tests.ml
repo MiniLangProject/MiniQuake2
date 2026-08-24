@@ -88,7 +88,7 @@ assertEqual(len(first.lasers), 0, "laser expiry")
 assertEqual(len(first.beams), 0, "beam expiry")
 cestate.advance(first, 2000)
 assertEqual(len(first.explosions), 0, "explosion expiry")
-assertEqual(len(first.particles), 0, "particle fade expiry")
+assertEqual(first.particleCount, 0, "particle fade expiry")
 cestate.clear(first)
 assertEqual(len(first.soundEvents), 0, "clear effects")
 

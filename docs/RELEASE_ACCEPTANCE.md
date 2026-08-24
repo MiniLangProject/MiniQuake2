@@ -4,6 +4,34 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 client impact parity and fixed-pool acceptance run
+
+The Release product and all 153 native test programs were rebuilt and executed
+after the client temp-entity and muzzleflash audit against the Quake II 3.19
+`cl_tent.c` and `cl_fx.c` switches. Protocol-34 goldens now cover wall-impact
+smoke/flash pairs, ricochet and spark sounds, direction-derived blaster angles,
+the exact stock explosion models/frame counts/base frames/alpha, water and
+Rogue sounds, player Chaingun layering, weapon reload tails, monster-family
+sounds, global attenuation and the Rogue green/negative/plasmabeam flashes.
+The monster heatbeam also uses its stock Widow beam model.
+
+The client particle hot path now owns one reusable 4,096-slot backing array and
+an explicit logical count. Appending an impact or explosion no longer copies
+every live particle; expiry compacts the same buffer in place, while renderer
+and transactional frame handoffs still copy only active entries. Per-impact
+temporary type and splash-color arrays were replaced with inline branch
+classifiers, and stock directional/blaster/explosion particle generators retain
+their distinct color, velocity and gravity behavior.
+
+The final synthetic soaks sustained 4,143.92 and 4,048.28 fps over 5,000 frames
+and 10,027/10,027 packets each. Installed-retail `base1` completed 5,000 frames
+through server frame 5,015 in 26,288.5704 ms (190.20 fps), with
+10,385/10,385 packets. Dense `lab` completed 500 frames in 7,319.3864 ms
+(68.31 fps), with 1,136/1,136 packets. Both retail runs had zero rejects, zero
+pending sounds and an empty command buffer. Physical input passed 39/39 maps;
+the persistent campaign passed 39 maps, 38 changes and 753 steps with 3,690
+packets.
+
 ## 2026-08-23 collision-bound monster movement and pursuit acceptance run
 
 The Release product and all 153 native test programs were freshly rebuilt and

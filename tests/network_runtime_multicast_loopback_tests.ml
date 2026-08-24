@@ -33,7 +33,7 @@ multicastLoopAssert(handoff is not void and len(handoff.dLights) == 1,
 multicastLoopAssert(handoff.dLights[0].key == 1 and handoff.dLights[0].radius >= 200.0,
   "monster muzzle flash light fields mismatch")
 multicastLoopAssert(len(handoff.sounds) == 1 and handoff.sounds[0].entity == 1 and
-  handoff.sounds[0].soundName == "tank/rocket.wav",
+  handoff.sounds[0].soundName == "chick/chkatck2.wav",
   "monster muzzle flash sound handoff mismatch")
 multicastLoopAssert(len(session.server.bridgeRuntime.pendingMulticasts) == 0,
   "delivered multicast queue was not drained")

@@ -57,7 +57,9 @@ clientRuntimeAssertEqual(clientRuntime.network.configStrings[qc.CS_NAME], "Runti
 clientRuntimeAssertEqual(clientRuntime.network.baselines[1].modelIndex, 2, "baseline routed")
 clientRuntimeAssertEqual(clientRuntime.network.downloadData, bytes([8, 9, 10]), "download routed")
 clientRuntimeAssertEqual(crdispatcher.pendingStuffText(clientRuntime)[0], "echo server-controlled\n", "stufftext only queued")
-clientRuntimeAssertEqual(len(clientRuntime.effects.soundEvents), 2, "sound and muzzle sound routed")
+clientRuntimeAssertEqual(len(clientRuntime.effects.soundEvents), 3, "sound, muzzle and explosion sounds routed")
+clientRuntimeAssertEqual(clientRuntime.effects.soundEvents[2].soundName,
+  "weapons/rocklx1a.wav", "temp explosion sound routed")
 clientRuntimeAssertEqual(len(clientRuntime.effects.dLights), 1, "muzzleflash routed")
 clientRuntimeAssertEqual(len(clientRuntime.effects.explosions), 1, "temp entity routed")
 clientRuntimeAssertEqual(len(clientRuntimeDemo.packets), 1, "accepted packet handed to demo")
@@ -81,4 +83,3 @@ clientRuntimeAssertEqual(clientRuntimePlayback.network.levelName, "Runtime Unit"
 clientRuntimeAssertEqual(len(clientRuntimePlayback.effects.explosions), 1, "demo effect replayed")
 clientRuntimeAssertEqual(crdispatcher.nextDemo(clientRuntimePlayback, clientRuntimePlayer, 3100), void, "demo completion")
 print("MiniQuake2 client runtime dispatch tests passed: 1")
-

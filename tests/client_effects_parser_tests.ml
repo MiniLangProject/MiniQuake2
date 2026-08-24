@@ -89,11 +89,32 @@ function testMuzzleFlashes()
   assertEqual(light.color[0], 1.0, "rocket light red")
   assertEqual(light.color[1], 0.5, "rocket light green")
   assertEqual(played[0][1], "weapons/rocklf1a.wav", "rocket sound handoff")
+  assertEqual(played[1][1], "weapons/rocklr1b.wav", "rocket reload sound handoff")
+  assertNear(played[1][0].timeOffset, 0.1, 0.0001, "rocket reload delay")
 
   monster = ceparser.parseMuzzleFlash2(state, reading(bytes([1, 0, 1])), resolveEntity)
   assertNear(monster.origin.x, 30.7, 0.0001, "monster muzzle forward offset")
   assertNear(monster.origin.y, 38.5, 0.0001, "monster muzzle right offset")
   assertNear(monster.origin.z, 58.7, 0.0001, "monster muzzle vertical offset")
+  assertEqual(state.soundEvents[2].soundName, "tank/tnkatck3.wav", "tank blaster sound")
+
+  soldierState = cestate.createSilent(9)
+  ceparser.parseMuzzleFlash2(soldierState, reading(bytes([1, 0, 43])), resolveEntity)
+  assertEqual(soldierState.particleCount, 40, "soldier machinegun particles")
+  assertEqual(len(soldierState.explosions), 2, "soldier machinegun smoke and flash")
+  assertEqual(soldierState.soundEvents[0].soundName, "soldier/solatck3.wav",
+    "soldier machinegun sound")
+
+  bossState = cestate.createSilent(13)
+  ceparser.parseMuzzleFlash2(bossState, reading(bytes([1, 0, 73])), resolveEntity)
+  assertNear(bossState.soundEvents[0].attenuation, 0.0, 0.0001,
+    "boss machinegun global attenuation")
+
+  chainState = cestate.createSilent(17)
+  ceparser.parseMuzzleFlash(chainState, reading(bytes([1, 0, ceconstants.MZ_CHAINGUN3])), resolveEntity)
+  assertEqual(len(chainState.soundEvents), 3, "chaingun three layered shots")
+  assertNear(chainState.soundEvents[1].timeOffset, 0.033, 0.0001, "chaingun second delay")
+  assertNear(chainState.soundEvents[2].timeOffset, 0.066, 0.0001, "chaingun third delay")
   assertTrue(try(ceparser.parseMuzzleFlash2(state, reading(bytes([1, 0, 0])), resolveEntity)) is error,
     "unused monster flash zero rejected")
   return true
@@ -105,6 +126,9 @@ function testTempEntities()
   ceparser.parseTempEntity(state, reading(explosionMessage))
   assertEqual(len(state.explosions), 1, "explosion allocated")
   assertNear(state.explosions[0].origin.z, 3.0, 0.0001, "explosion origin")
+  assertEqual(state.explosions[0].frames, 15, "rocket explosion frame count")
+  assertEqual(state.particleCount, 256, "rocket explosion particle count")
+  assertEqual(state.soundEvents[0].soundName, "weapons/rocklx1a.wav", "rocket explosion sound")
 
   bfgMessage = bytes([ceconstants.TE_BFG_EXPLOSION, 8, 0, 16, 0, 24, 0])
   ceparser.parseTempEntity(state, reading(bfgMessage))
@@ -112,11 +136,13 @@ function testTempEntities()
     "BFG sprite model")
   assertEqual(state.explosions[1].flags & rc.RF_TRANSLUCENT,
     rc.RF_TRANSLUCENT, "BFG sprite translucency")
+  assertNear(state.explosions[1].alpha, 0.30, 0.0001, "BFG sprite source alpha")
 
   rail = bytes([ceconstants.TE_RAILTRAIL, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0])
   ceparser.parseTempEntity(state, reading(rail))
-  assertTrue(len(state.particles) >= 16, "rail trail particles")
-  assertEqual(len(state.soundEvents), 1, "rail sound event")
+  assertTrue(state.particleCount >= 16, "rail trail particles")
+  assertEqual(len(state.soundEvents), 2, "explosion and rail sound events")
+  assertEqual(state.soundEvents[1].soundName, "weapons/railgf1a.wav", "rail sound event")
 
   beam = bytes([ceconstants.TE_PARASITE_ATTACK, 5, 0,
     0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0])
@@ -130,6 +156,85 @@ function testTempEntities()
   return true
 end function
 
+function testStockImpactParity()
+  gunshotState = cestate.createSilent(3)
+  gunshot = bytes([ceconstants.TE_GUNSHOT, 0, 0, 0, 0, 0, 0, 52])
+  ceparser.parseTempEntity(gunshotState, reading(gunshot))
+  assertEqual(gunshotState.particleCount, 40, "gunshot particle count")
+  assertEqual(len(gunshotState.explosions), 2, "gunshot smoke and flash")
+  assertEqual(gunshotState.explosions[0].modelName, "models/objects/smoke/tris.md2",
+    "gunshot smoke model")
+  assertEqual(gunshotState.explosions[1].modelName, "models/objects/flash/tris.md2",
+    "gunshot flash model")
+
+  blasterState = cestate.createSilent(5)
+  blaster = bytes([ceconstants.TE_BLASTER, 0, 0, 0, 0, 0, 0, 52])
+  ceparser.parseTempEntity(blasterState, reading(blaster))
+  assertEqual(blasterState.particleCount, 40, "blaster does not add generic explosion particles")
+  assertEqual(len(blasterState.explosions), 1, "blaster impact model")
+  assertNear(blasterState.explosions[0].angles.x, 90.0, 0.001, "blaster impact pitch")
+  assertNear(blasterState.explosions[0].angles.y, 0.0, 0.001, "blaster impact yaw")
+  assertEqual(blasterState.soundEvents[0].soundName, "weapons/lashit.wav", "blaster impact sound")
+
+  screenState = cestate.createSilent(7)
+  screen = bytes([ceconstants.TE_SCREEN_SPARKS, 0, 0, 0, 0, 0, 0, 5])
+  ceparser.parseTempEntity(screenState, reading(screen))
+  assertEqual(screenState.soundEvents[0].soundName, "weapons/lashit.wav", "screen sparks sound")
+
+  grenadeState = cestate.createSilent(11)
+  grenade = bytes([ceconstants.TE_GRENADE_EXPLOSION_WATER, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(grenadeState, reading(grenade))
+  assertEqual(grenadeState.explosions[0].frames, 19, "grenade explosion frame count")
+  assertEqual(grenadeState.explosions[0].baseFrame, 30, "grenade explosion base frame")
+  assertEqual(grenadeState.particleCount, 256, "grenade explosion particles")
+  assertEqual(grenadeState.soundEvents[0].soundName, "weapons/xpld_wat.wav",
+    "underwater explosion sound")
+
+  bigState = cestate.createSilent(13)
+  big = bytes([ceconstants.TE_EXPLOSION1_BIG, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(bigState, reading(big))
+  assertEqual(bigState.explosions[0].modelName, "models/objects/r_explode2/tris.md2",
+    "large explosion model")
+  assertEqual(bigState.particleCount, 0, "large explosion omits stock particles")
+
+  trackerState = cestate.createSilent(15)
+  tracker = bytes([ceconstants.TE_TRACKER_EXPLOSION, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(trackerState, reading(tracker))
+  assertEqual(trackerState.particleCount, 128, "tracker particle count")
+  assertEqual(trackerState.soundEvents[0].soundName, "weapons/disrupthit.wav",
+    "tracker explosion sound")
+
+  tunnelState = cestate.createSilent(17)
+  tunnel = bytes([ceconstants.TE_TUNNEL_SPARKS, 1, 0, 0, 0, 0, 0, 0, 5, 0x74])
+  ceparser.parseTempEntity(tunnelState, reading(tunnel))
+  assertNear(tunnelState.particles[0].acceleration.z, 40.0, 0.0001,
+    "tunnel sparks rise with stock positive gravity")
+
+  splashState = cestate.createSilent(19)
+  splash = bytes([ceconstants.TE_SPLASH, 1, 0, 0, 0, 0, 0, 0, 5, 1])
+  ceparser.parseTempEntity(splashState, reading(splash))
+  assertEqual(len(splashState.soundEvents), 1, "spark splash sound")
+  assertNear(splashState.soundEvents[0].attenuation, 3.0, 0.0001,
+    "spark splash static attenuation")
+
+  heatState = cestate.createSilent(21)
+  heat = bytes([ceconstants.TE_MONSTER_HEATBEAM, 5, 0,
+    0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(heatState, reading(heat))
+  assertEqual(heatState.beams[0].modelName, "models/proj/widowbeam/tris.md2",
+    "monster heatbeam model")
+
+  bossTeleportState = cestate.createSilent(23)
+  bossTeleport = bytes([ceconstants.TE_BOSSTPORT, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(bossTeleportState, reading(bossTeleport))
+  assertEqual(bossTeleportState.particleCount, 4096, "boss teleport fills stock particle pool")
+  assertEqual(bossTeleportState.soundEvents[0].soundName, "misc/bigtele.wav",
+    "boss teleport sound")
+  assertNear(bossTeleportState.soundEvents[0].attenuation, 0.0, 0.0001,
+    "boss teleport global attenuation")
+  return true
+end function
+
 function testEntityEvents()
   global entities
   state = cestate.createSilent(5)
@@ -137,12 +242,13 @@ function testEntityEvents()
   entity.number = 2; entity.origin = [1.0, 2.0, 3.0]; entity.event = ceconstants.EV_ITEM_RESPAWN
   ceparser.handleEntityEvent(state, entity)
   assertEqual(state.soundEvents[0].soundName, "items/respawn1.wav", "respawn event sound")
-  assertEqual(len(state.particles), 64, "respawn event particles")
+  assertEqual(state.particleCount, 64, "respawn event particles")
   return true
 end function
 
 testSoundGolden()
 testMuzzleFlashes()
 testTempEntities()
+testStockImpactParity()
 testEntityEvents()
 print "client_effects_parser_tests: PASS"

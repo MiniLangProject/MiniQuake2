@@ -53,10 +53,10 @@ function copyLights(values)
   return output
 end function
 
-function copyParticles(values)
-  output = array(len(values))
+function copyParticles(values, count)
+  output = array(count)
   index = 0
-  while index < len(values)
+  while index < count
     value = values[index]
     copied = cetypes.Particle(void, void, void, value.color, value.alpha, value.alphaVelocity, value.startTime)
     copied.origin = copyVec(value.origin)
@@ -219,7 +219,7 @@ function commit(runtime, now)
   value.previousSnapshot = copySnapshot(runtime.client.previous)
   value.configStrings = copyValues(runtime.network.configStrings)
   value.dLights = copyLights(runtime.effects.dLights)
-  value.particles = copyParticles(runtime.effects.particles)
+  value.particles = copyParticles(runtime.effects.particles, runtime.effects.particleCount)
   value.beams = copyBeams(runtime.effects.beams)
   value.lasers = copyLasers(runtime.effects.lasers)
   value.explosions = copyExplosions(runtime.effects.explosions)

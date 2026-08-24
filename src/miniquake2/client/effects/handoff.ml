@@ -50,9 +50,11 @@ function particleOrigin(particle, now)
 end function
 
 function rendererParticles(state, now)
-  output = array(len(state.particles))
+  output = array(state.particleCount)
   outputIndex = 0
-  for each particle in state.particles
+  particleIndex = 0
+  while particleIndex < state.particleCount
+    particle = state.particles[particleIndex]
     elapsed = (now - particle.startTime) * 0.001
     alpha = particle.alpha + elapsed * particle.alphaVelocity
     if alpha > 1.0 then alpha = 1.0 end if
@@ -61,7 +63,8 @@ function rendererParticles(state, now)
         particle.color & 255, alpha)
       outputIndex = outputIndex + 1
     end if
-  end for
+    particleIndex = particleIndex + 1
+  end while
   return trim(output, outputIndex)
 end function
 
@@ -176,7 +179,7 @@ function explosionAlpha(explosion, now)
   frame = qbio.truncInt(fraction)
   misc = explosion.kind == ceconstants.TE_BLASTER or
     explosion.kind == ceconstants.TE_BLASTER2 or
-    explosion.kind == ceconstants.TE_FLECHETTE
+    explosion.kind == ceconstants.TE_FLECHETTE or explosion.kind == "misc"
   alpha = (16.0 - frame) / 16.0
   if misc then alpha = 1.0 - fraction / (explosion.frames - 1) end if
   if alpha < 0.0 then alpha = 0.0 end if

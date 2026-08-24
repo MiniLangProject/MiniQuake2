@@ -96,7 +96,8 @@ playAssert(delivered.prints[0].text == "Loopback ready", "console handoff mismat
 playAssert(delivered.centerPrints[0].text == "Vertical Slice", "centerprint handoff mismatch")
 playAssert(delivered.layouts[0].text == "xv 8 yv 8 string vertical", "layout handoff mismatch")
 playAssert(delivered.inventories[0].values[5] == 23, "inventory handoff mismatch")
-playAssert(len(delivered.sounds) == 1 and delivered.sounds[0].soundIndex == 7,
+playAssert(len(delivered.sounds) == 2 and delivered.sounds[0].soundIndex == 7 and
+  delivered.sounds[1].soundName == "weapons/rocklx1a.wav",
   "audio handoff mismatch")
 playAssert(delivered.explosions[0].origin.x == 16.0 and
   delivered.explosions[0].origin.y == 24.0 and delivered.explosions[0].origin.z == 32.0,

@@ -91,8 +91,8 @@ edicts, and reproduce the eight-step boss explosion sequence before the final
 movement now follows the original collision-bound `m_move.c` path against BSP,
 inline brushes and dynamic boxes. Lost enemies are pursued through the original
 eight-marker PlayerTrail and left/right course correction rather than a direct
-transform. The physical retail path sustains 168.79 unpaced server frames/s in
-the accepted 5,000-frame `base1` gate and 48.15 frames/s across 500 frames in
+transform. The physical retail path sustains 190.20 unpaced server frames/s in
+the accepted 5,000-frame `base1` gate and 68.31 frames/s across 500 frames in
 the dense `lab` map. Swept traces use Quake II's near-first BSP hull walk on a
 fixed stack, and inline brushes are rejected by cached swept bounds before any
 model transform or hull trace. Fixed sound storage also avoids array
@@ -100,7 +100,13 @@ concatenation and drains transient/PHS-filtered events without backlog.
 Private-Save v14 resumes attacks and active reactions at their next
 frame, preserves held death-fire bursts, live refire, jump, saved-aim,
 shared-random, Medic ownership, live turret sight/reaction state and all
-lost-sight pursuit fields, and round-trips live dynamic gib records. The original class-level sight/search callback inventory, sound
+lost-sight pursuit fields, and round-trips live dynamic gib records. Client
+impact feedback follows the Quake II 3.19 temp-entity and muzzleflash switches:
+smoke/flash pairs, directional blaster models, explosion model/frame/base
+variants, layered player-weapon sounds, monster-family sounds, attenuation and
+Rogue effects are covered by Protocol-34 goldens. Transient particles append
+into one reusable 4,096-slot pool instead of copying the live array for every
+effect. The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
 Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.

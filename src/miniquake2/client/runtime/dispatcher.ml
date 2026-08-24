@@ -68,6 +68,7 @@ function resetClientState(runtime)
   runtime.client.serverTime = clean.serverTime
   runtime.effects.dLights = []
   runtime.effects.particles = []
+  runtime.effects.particleCount = 0
   runtime.effects.beams = []
   runtime.effects.lasers = []
   runtime.effects.explosions = []

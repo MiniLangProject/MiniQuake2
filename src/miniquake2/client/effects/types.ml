@@ -89,6 +89,7 @@ struct State
   randomSeed
   dLights
   particles
+  particleCount
   beams
   lasers
   explosions

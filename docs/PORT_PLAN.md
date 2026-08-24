@@ -98,7 +98,7 @@ steady-state gate. G10 includes manifest and asset/source exclusion, native
 Release/Debug gates, diagnostics,
 retail smoke, deterministic packaging, a historical 20,000-frame retail
 session soak at 43.89 frames/s, a movement-enabled 5,000-frame `base1` soak at
-168.79 frames/s and a dense 500-frame `lab` soak at 48.15 frames/s, with zero
+190.20 frames/s and a dense 500-frame `lab` soak at 68.31 frames/s, with zero
 packet rejects, drained sound/command queues and bounded handles/history. The
 Quake II near-first recursive hull algorithm runs on a fixed MiniLang stack;
 swept cached bounds reject remote inline brushes before transform/trace, and

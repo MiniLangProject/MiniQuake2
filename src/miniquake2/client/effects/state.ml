@@ -8,7 +8,7 @@ import miniquake2.client.effects.audio as ceaudio
 
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
-  return cetypes.State(0, randomSeed & 0x7fffffff, [], [], [], [], [], [], [], audioCallbacks)
+  return cetypes.State(0, randomSeed & 0x7fffffff, [], [], 0, [], [], [], [], [], audioCallbacks)
 end function
 
 function createSilent(randomSeed)
@@ -79,23 +79,25 @@ function addDLight(state, key, origin, radius, color, duration, decay)
 end function
 
 function reserveParticles(state, requested)
-  available = ceconstants.MAX_PARTICLES - len(state.particles)
+  available = ceconstants.MAX_PARTICLES - state.particleCount
   count = requested
   if count > available then count = available end if
   if count <= 0 then return 0 end if
-  previousCount = len(state.particles)
-  output = array(previousCount + count)
-  index = 0
-  while index < previousCount
-    output[index] = state.particles[index]
-    index = index + 1
-  end while
-  state.particles = output
+  if len(state.particles) != ceconstants.MAX_PARTICLES then
+    output = array(ceconstants.MAX_PARTICLES)
+    index = 0
+    while index < state.particleCount
+      output[index] = state.particles[index]
+      index = index + 1
+    end while
+    state.particles = output
+  end if
+  state.particleCount = state.particleCount + count
   return count
 end function
 
 function addParticle(state, origin, velocity, acceleration, color, alpha, alphaVelocity)
-  start = len(state.particles)
+  start = state.particleCount
   if reserveParticles(state, 1) == 0 then return false end if
   state.particles[start] = cetypes.Particle(copyVec(origin), copyVec(velocity),
     copyVec(acceleration), color, alpha, alphaVelocity, state.time)
@@ -104,7 +106,7 @@ end function
 
 function particleEffect(state, origin, direction, color, count, speed)
   if count < 0 then return error(7312, "negative effect particle count") end if
-  start = len(state.particles)
+  start = state.particleCount
   count = reserveParticles(state, count)
   index = 0
   while index < count
@@ -116,6 +118,95 @@ function particleEffect(state, origin, direction, color, count, speed)
     state.particles[start + index] = cetypes.Particle(add(origin, jitter), velocity,
       qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), selectedColor, 1.0,
       -1.0 / (0.5 + (random(state) & 7) * 0.1), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function inline unitRandom(state)
+  return random(state) / 32768.0
+end function
+
+function inline centeredRandom(state)
+  return unitRandom(state) * 2.0 - 1.0
+end function
+
+function stockDirectionalParticles(state, origin, direction, color, count, fixedColor, positiveGravity)
+  if count < 0 then return error(7314, "negative stock particle count") end if
+  start = state.particleCount
+  count = reserveParticles(state, count)
+  index = 0
+  while index < count
+    selectedColor = color
+    distanceMask = 31
+    if fixedColor then distanceMask = 7 else selectedColor = color + (random(state) & 7) end if
+    distance = random(state) & distanceMask
+    originX = origin.x + ((random(state) & 7) - 4.0) + distance * direction.x
+    velocityX = centeredRandom(state) * 20.0
+    originY = origin.y + ((random(state) & 7) - 4.0) + distance * direction.y
+    velocityY = centeredRandom(state) * 20.0
+    originZ = origin.z + ((random(state) & 7) - 4.0) + distance * direction.z
+    velocityZ = centeredRandom(state) * 20.0
+    particleOrigin = qt.Vec3(originX, originY, originZ)
+    velocity = qt.Vec3(velocityX, velocityY, velocityZ)
+    gravity = -ceconstants.PARTICLE_GRAVITY
+    if positiveGravity then gravity = ceconstants.PARTICLE_GRAVITY end if
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, gravity), selectedColor, 1.0,
+      -1.0 / (0.5 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function wallParticles(state, origin, direction, color, count)
+  return stockDirectionalParticles(state, origin, direction, color, count, false, false)
+end function
+
+function fixedColorParticles(state, origin, direction, color, count, positiveGravity)
+  return stockDirectionalParticles(state, origin, direction, color, count, true, positiveGravity)
+end function
+
+function blasterParticles(state, origin, direction, color)
+  start = state.particleCount
+  count = reserveParticles(state, 40)
+  index = 0
+  while index < count
+    selectedColor = color + (random(state) & 7)
+    distance = random(state) & 15
+    originX = origin.x + ((random(state) & 7) - 4.0) + distance * direction.x
+    velocityX = direction.x * 30.0 + centeredRandom(state) * 40.0
+    originY = origin.y + ((random(state) & 7) - 4.0) + distance * direction.y
+    velocityY = direction.y * 30.0 + centeredRandom(state) * 40.0
+    originZ = origin.z + ((random(state) & 7) - 4.0) + distance * direction.z
+    velocityZ = direction.z * 30.0 + centeredRandom(state) * 40.0
+    particleOrigin = qt.Vec3(originX, originY, originZ)
+    velocity = qt.Vec3(velocityX, velocityY, velocityZ)
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), selectedColor, 1.0,
+      -1.0 / (0.5 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function explosionParticles(state, origin, color, colorRun, count, velocityRange)
+  start = state.particleCount
+  count = reserveParticles(state, count)
+  index = 0
+  while index < count
+    selectedColor = color + (random(state) % colorRun)
+    originX = origin.x + (random(state) % 32) - 16.0
+    velocityX = (random(state) % velocityRange) - velocityRange / 2.0
+    originY = origin.y + (random(state) % 32) - 16.0
+    velocityY = (random(state) % velocityRange) - velocityRange / 2.0
+    originZ = origin.z + (random(state) % 32) - 16.0
+    velocityZ = (random(state) % velocityRange) - velocityRange / 2.0
+    particleOrigin = qt.Vec3(originX, originY, originZ)
+    velocity = qt.Vec3(velocityX, velocityY, velocityZ)
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), selectedColor, 1.0,
+      -0.8 / (0.5 + unitRandom(state) * 0.3), state.time)
     index = index + 1
   end while
   return index
@@ -143,19 +234,26 @@ function addLaser(state, start, finish, color)
   return laser
 end function
 
-function addExplosion(state, kind, origin, modelName, frames, light, lightColor, flags, alpha)
-  skinNum = 0
-  if kind == ceconstants.TE_BLASTER2 then skinNum = 1 end if
-  if kind == ceconstants.TE_FLECHETTE then skinNum = 2 end if
-  explosion = cetypes.Explosion(kind, copyVec(origin), qt.Vec3(0.0, (random(state) % 360) * 1.0, 0.0),
-    modelName, frames, light, [lightColor[0], lightColor[1], lightColor[2]], state.time - 100,
-    0, flags, alpha, skinNum)
+function addExplosionExact(state, kind, origin, angles, modelName, frames, light, lightColor,
+    startTime, baseFrame, flags, alpha, skinNum)
+  explosion = cetypes.Explosion(kind, copyVec(origin), copyVec(angles),
+    modelName, frames, light, [lightColor[0], lightColor[1], lightColor[2]], startTime,
+    baseFrame, flags, alpha, skinNum)
   if len(state.explosions) < ceconstants.MAX_EXPLOSIONS then
     state.explosions = state.explosions + [explosion]
   else
     state.explosions[0] = explosion
   end if
   return explosion
+end function
+
+function addExplosion(state, kind, origin, modelName, frames, light, lightColor, flags, alpha)
+  skinNum = 0
+  if kind == ceconstants.TE_BLASTER2 then skinNum = 1 end if
+  if kind == ceconstants.TE_FLECHETTE then skinNum = 2 end if
+  return addExplosionExact(state, kind, origin,
+    qt.Vec3(0.0, (random(state) % 360) * 1.0, 0.0), modelName, frames,
+    light, lightColor, state.time - 100, 0, flags, alpha, skinNum)
 end function
 
 function advance(state, now)
@@ -188,16 +286,19 @@ function advance(state, now)
     end if
   end for
   state.dLights = compact(activeLights, activeLightCount)
-  activeParticles = array(len(state.particles))
+  oldParticleCount = state.particleCount
   activeParticleCount = 0
-  for each particle in state.particles
+  particleIndex = 0
+  while particleIndex < oldParticleCount
+    particle = state.particles[particleIndex]
     elapsed = (now - particle.startTime) * 0.001
     if particle.alphaVelocity == ceconstants.INSTANT_PARTICLE or particle.alpha + elapsed * particle.alphaVelocity > 0.0 then
-      activeParticles[activeParticleCount] = particle
+      state.particles[activeParticleCount] = particle
       activeParticleCount = activeParticleCount + 1
     end if
-  end for
-  state.particles = compact(activeParticles, activeParticleCount)
+    particleIndex = particleIndex + 1
+  end while
+  state.particleCount = activeParticleCount
   activeBeams = array(len(state.beams))
   activeBeamCount = 0
   for each beam in state.beams
@@ -231,7 +332,8 @@ function advance(state, now)
 end function
 
 function clear(state)
-  state.dLights = []; state.particles = []; state.beams = []; state.lasers = []
+  state.particleCount = 0
+  state.dLights = []; state.beams = []; state.lasers = []
   state.explosions = []; state.sustains = []; state.soundEvents = []
   return state
 end function

@@ -42,7 +42,7 @@ clientFrameAssertEqual(clientFrameResult.frames, 1, "frame accepted")
 clientFrameAssertEqual(clientFrameRuntime.client.current.number, 1, "client.state current snapshot")
 clientFrameAssertEqual(clientFrameRuntime.client.state, "active", "client.state activated")
 clientFrameAssertEqual(clientFrameRuntime.network.client.currentFrame.serverFrame, 1, "network frame retained")
-clientFrameAssertEqual(len(clientFrameRuntime.effects.particles), 64, "entity event particles")
+clientFrameAssertEqual(clientFrameRuntime.effects.particleCount, 64, "entity event particles")
 clientFrameAssertEqual(len(clientFrameRuntime.effects.soundEvents), 1, "entity event sound")
 
 // Malformed packets do not consume their sequence; a repaired packet with the
