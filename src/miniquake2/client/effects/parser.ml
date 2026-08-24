@@ -177,7 +177,7 @@ function parseMuzzleFlash(state, buffer, entityResolver)
     color = 0xe0
     if weapon == ceconstants.MZ_LOGIN then color = 0xd0 end if
     if weapon == ceconstants.MZ_LOGOUT then color = 0x40 end if
-    cestate.particleEffect(state, entityOrigin(entityState), qt.zeroVec3(), color, 500, 32.0)
+    cestate.logoutParticles(state, entityOrigin(entityState), color)
   end if
   return light
 end function
@@ -377,21 +377,6 @@ function parseLightning(state, buffer)
   return beam
 end function
 
-function addTrail(state, start, finish, color, count)
-  delta = qt.Vec3((finish.x - start.x) / count, (finish.y - start.y) / count, (finish.z - start.z) / count)
-  position = cestate.copyVec(start)
-  firstParticle = state.particleCount
-  count = cestate.reserveParticles(state, count)
-  index = 0
-  while index < count
-    state.particles[firstParticle + index] = cetypes.Particle(cestate.copyVec(position),
-      qt.zeroVec3(), qt.zeroVec3(), color + (index & 7), 1.0, -1.0, state.time)
-    position = cestate.add(position, delta)
-    index = index + 1
-  end while
-  return count
-end function
-
 function inline splashColor(splash)
   if splash == 1 then return 0xe0 end if
   if splash == 2 then return 0xb0 end if
@@ -409,7 +394,7 @@ function parseSteam(state, buffer)
   direction = readDirection(buffer, "steam direction")
   color = pchecked.readByte(buffer, "steam color")
   magnitude = pchecked.readShort(buffer, "steam magnitude")
-  if id == -1 then return cestate.particleEffect(state, position, direction, color, count, magnitude * 1.0) end if
+  if id == -1 then return cestate.steamParticles(state, position, direction, color, count, magnitude * 1.0, false) end if
   duration = pchecked.readLong(buffer, "steam duration")
   sustain = cetypes.Sustain(id, ceconstants.TE_STEAM, position, direction, color, count, magnitude,
     state.time + duration, state.time, 100)
@@ -492,15 +477,17 @@ function parseTempEntity(state, buffer)
   if type == ceconstants.TE_FORCEWALL then
     start = readPosition(buffer, "forcewall start"); finish = readPosition(buffer, "forcewall end")
     color = pchecked.readByte(buffer, "forcewall color")
-    return addTrail(state, start, finish, color, 16)
+    return cestate.forceWallParticles(state, start, finish, color)
   end if
 
   if type == ceconstants.TE_RAILTRAIL or type == ceconstants.TE_RAILTRAIL2 or type == ceconstants.TE_DEBUGTRAIL or
       type == ceconstants.TE_BUBBLETRAIL or type == ceconstants.TE_BUBBLETRAIL2 then
     start = readPosition(buffer, "trail start"); finish = readPosition(buffer, "trail end")
-    color = 0x74
-    if type == ceconstants.TE_BUBBLETRAIL or type == ceconstants.TE_BUBBLETRAIL2 then color = 4 end if
-    result = addTrail(state, start, finish, color, 16)
+    result = 0
+    if type == ceconstants.TE_RAILTRAIL or type == ceconstants.TE_RAILTRAIL2 then result = cestate.railTrail(state, start, finish) end if
+    if type == ceconstants.TE_DEBUGTRAIL then result = cestate.debugTrail(state, start, finish) end if
+    if type == ceconstants.TE_BUBBLETRAIL then result = cestate.bubbleTrail(state, start, finish, 32, 6.0) end if
+    if type == ceconstants.TE_BUBBLETRAIL2 then result = cestate.bubbleTrail(state, start, finish, 8, 20.0) end if
     if type == ceconstants.TE_RAILTRAIL or type == ceconstants.TE_RAILTRAIL2 then namedSound(state, finish, 0, 0, "weapons/railgf1a.wav", 1.0, 1.0, 0.0) end if
     if type == ceconstants.TE_BUBBLETRAIL2 then namedSound(state, start, 0, 0, "weapons/lashit.wav", 1.0, 1.0, 0.0) end if
     return result
@@ -547,7 +534,7 @@ function parseTempEntity(state, buffer)
     else if fixedColorType then
       result = cestate.fixedColorParticles(state, position, direction, color, count, false)
     else if steamType then
-      result = cestate.particleEffect(state, position, direction, color, count, speed)
+      result = cestate.steamParticles(state, position, direction, color, count, speed, false)
     else
       result = cestate.wallParticles(state, position, direction, color, count)
     end if
@@ -571,7 +558,7 @@ function parseTempEntity(state, buffer)
 
   if type == ceconstants.TE_CHAINFIST_SMOKE then
     position = readPosition(buffer, "chainfist smoke origin")
-    return cestate.particleEffect(state, position, qt.Vec3(0.0, 0.0, 1.0), 0, 20, 20.0)
+    return cestate.steamParticles(state, position, qt.Vec3(0.0, 0.0, 1.0), 0, 20, 20.0, true)
   end if
 
   position = readPosition(buffer, "temp entity origin")
@@ -579,15 +566,15 @@ function parseTempEntity(state, buffer)
     return cestate.explosionParticles(state, position, 0xd0, 8, 256, 384)
   end if
   if type == ceconstants.TE_BOSSTPORT then
-    result = cestate.particleEffect(state, position, qt.zeroVec3(), 0xd0, 4096, 60.0)
+    result = cestate.bigTeleportParticles(state, position)
     namedSound(state, position, 0, 0, "misc/bigtele.wav", 1.0, 0.0, 0.0)
     return result
   end if
   if type == ceconstants.TE_TELEPORT_EFFECT or type == ceconstants.TE_DBALL_GOAL then
-    return cestate.particleEffect(state, position, qt.zeroVec3(), 7, 1053, 113.0)
+    return cestate.teleportParticles(state, position)
   end if
   if type == ceconstants.TE_WIDOWSPLASH then
-    return cestate.particleEffect(state, position, qt.zeroVec3(), 16, 256, 45.0)
+    return cestate.widowSplashParticles(state, position)
   end if
   if type == ceconstants.TE_TRACKER_EXPLOSION then
     cestate.addDLight(state, 0, position, 150.0, [-1.0, -1.0, -1.0], 100.0, 0.0)
@@ -609,13 +596,20 @@ function handleEntityEvent(state, entityState)
   position = entityOrigin(entityState)
   if event == ceconstants.EV_ITEM_RESPAWN then
     namedSound(state, void, entityState.number, 1, "items/respawn1.wav", 1.0, 2.0, 0.0)
-    return cestate.particleEffect(state, position, qt.zeroVec3(), 0xd4, 64, 30.0)
+    return cestate.itemRespawnParticles(state, position)
   end if
   if event == ceconstants.EV_PLAYER_TELEPORT then
     namedSound(state, void, entityState.number, 1, "misc/tele1.wav", 1.0, 2.0, 0.0)
-    return cestate.particleEffect(state, position, qt.zeroVec3(), 0xd0, 128, 50.0)
+    return cestate.teleportParticles(state, position)
   end if
-  if event == ceconstants.EV_FOOTSTEP then return namedSound(state, void, entityState.number, 4, "player/step1.wav", 1.0, 1.0, 0.0) end if
+  if event == ceconstants.EV_FOOTSTEP then
+    step = 1 + (cestate.random(state) & 3)
+    sound = "player/step1.wav"
+    if step == 2 then sound = "player/step2.wav" end if
+    if step == 3 then sound = "player/step3.wav" end if
+    if step == 4 then sound = "player/step4.wav" end if
+    return namedSound(state, void, entityState.number, 4, sound, 1.0, 1.0, 0.0)
+  end if
   if event == ceconstants.EV_FALLSHORT then return namedSound(state, void, entityState.number, 0, "player/land1.wav", 1.0, 1.0, 0.0) end if
   if event == ceconstants.EV_FALL then return namedSound(state, void, entityState.number, 0, "*fall2.wav", 1.0, 1.0, 0.0) end if
   if event == ceconstants.EV_FALLFAR then return namedSound(state, void, entityState.number, 0, "*fall1.wav", 1.0, 1.0, 0.0) end if

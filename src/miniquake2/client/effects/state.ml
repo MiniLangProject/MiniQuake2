@@ -1,6 +1,7 @@
 /* cl_fx.c-style allocation, deterministic particles and lifecycle. */
 package miniquake2.client.effects.state
 
+import std.math as cemath
 import miniquake2.qcommon.types as qt
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.types as cetypes
@@ -8,7 +9,7 @@ import miniquake2.client.effects.audio as ceaudio
 
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
-  return cetypes.State(0, randomSeed & 0x7fffffff, [], [], 0, [], [], [], [], [], audioCallbacks)
+  return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [], audioCallbacks)
 end function
 
 function createSilent(randomSeed)
@@ -16,7 +17,7 @@ function createSilent(randomSeed)
 end function
 
 function inline random(state)
-  state.randomSeed = (state.randomSeed * 1103515245 + 12345) & 0x7fffffff
+  state.randomSeed = (state.randomSeed * 214013 + 2531011) & 0xffffffff
   return (state.randomSeed >> 16) & 0x7fff
 end function
 
@@ -104,31 +105,35 @@ function addParticle(state, origin, velocity, acceleration, color, alpha, alphaV
   return true
 end function
 
-function particleEffect(state, origin, direction, color, count, speed)
-  if count < 0 then return error(7312, "negative effect particle count") end if
-  start = state.particleCount
-  count = reserveParticles(state, count)
-  index = 0
-  while index < count
-    jitter = qt.Vec3((random(state) & 7) - 4.0, (random(state) & 7) - 4.0, (random(state) & 7) - 4.0)
-    velocity = qt.Vec3(direction.x * speed + ((random(state) & 31) - 16.0),
-      direction.y * speed + ((random(state) & 31) - 16.0),
-      direction.z * speed + ((random(state) & 31) - 16.0))
-    selectedColor = color + (random(state) & 7)
-    state.particles[start + index] = cetypes.Particle(add(origin, jitter), velocity,
-      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), selectedColor, 1.0,
-      -1.0 / (0.5 + (random(state) & 7) * 0.1), state.time)
-    index = index + 1
-  end while
-  return index
-end function
-
 function inline unitRandom(state)
-  return random(state) / 32768.0
+  return random(state) / 32767.0
 end function
 
 function inline centeredRandom(state)
   return unitRandom(state) * 2.0 - 1.0
+end function
+
+function inline vectorLength(value)
+  return cemath.sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
+end function
+
+function inline normalized(value)
+  length = vectorLength(value)
+  if length <= 0.000001 then return qt.zeroVec3() end if
+  return qt.Vec3(value.x / length, value.y / length, value.z / length)
+end function
+
+function inline normalRight(forward)
+  right = qt.Vec3(forward.z, -forward.x, forward.y)
+  projection = right.x * forward.x + right.y * forward.y + right.z * forward.z
+  return normalized(qt.Vec3(right.x - projection * forward.x,
+    right.y - projection * forward.y, right.z - projection * forward.z))
+end function
+
+function inline cross(first, second)
+  return qt.Vec3(first.y * second.z - first.z * second.y,
+    first.z * second.x - first.x * second.z,
+    first.x * second.y - first.y * second.x)
 end function
 
 function stockDirectionalParticles(state, origin, direction, color, count, fixedColor, positiveGravity)
@@ -212,6 +217,306 @@ function explosionParticles(state, origin, color, colorRun, count, velocityRange
   return index
 end function
 
+function steamParticles(state, origin, direction, color, count, magnitude, noGravity)
+  forward = copyVec(direction)
+  right = normalRight(forward)
+  up = cross(right, forward)
+  start = state.particleCount
+  count = reserveParticles(state, count)
+  index = 0
+  while index < count
+    selectedColor = color + (random(state) & 7)
+    particleOrigin = qt.Vec3(origin.x + magnitude * 0.1 * centeredRandom(state),
+      origin.y + magnitude * 0.1 * centeredRandom(state),
+      origin.z + magnitude * 0.1 * centeredRandom(state))
+    rightAmount = centeredRandom(state) * magnitude / 3.0
+    upAmount = centeredRandom(state) * magnitude / 3.0
+    velocity = qt.Vec3(forward.x * magnitude + right.x * rightAmount + up.x * upAmount,
+      forward.y * magnitude + right.y * rightAmount + up.y * upAmount,
+      forward.z * magnitude + right.z * rightAmount + up.z * upAmount)
+    gravity = -ceconstants.PARTICLE_GRAVITY / 2.0
+    if noGravity then gravity = 0.0 end if
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, gravity), selectedColor, 1.0,
+      -1.0 / (0.5 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function logoutParticles(state, origin, color)
+  start = state.particleCount
+  count = reserveParticles(state, 500)
+  index = 0
+  while index < count
+    selectedColor = color + (random(state) & 7)
+    particleOrigin = qt.Vec3(origin.x - 16.0 + unitRandom(state) * 32.0,
+      origin.y - 16.0 + unitRandom(state) * 32.0,
+      origin.z - 24.0 + unitRandom(state) * 56.0)
+    velocity = qt.Vec3(centeredRandom(state) * 20.0,
+      centeredRandom(state) * 20.0, centeredRandom(state) * 20.0)
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), selectedColor,
+      1.0, -1.0 / (1.0 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function itemRespawnParticles(state, origin)
+  start = state.particleCount
+  count = reserveParticles(state, 64)
+  index = 0
+  while index < count
+    selectedColor = 0xd4 + (random(state) & 3)
+    particleOrigin = qt.Vec3(origin.x + centeredRandom(state) * 8.0,
+      origin.y + centeredRandom(state) * 8.0, origin.z + centeredRandom(state) * 8.0)
+    velocity = qt.Vec3(centeredRandom(state) * 8.0,
+      centeredRandom(state) * 8.0, centeredRandom(state) * 8.0)
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY * 0.2), selectedColor,
+      1.0, -1.0 / (1.0 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function bigTeleportParticles(state, origin)
+  start = state.particleCount
+  count = reserveParticles(state, ceconstants.MAX_PARTICLES)
+  index = 0
+  while index < count
+    colorChoice = random(state) & 3
+    color = 16
+    if colorChoice == 1 then color = 104 end if
+    if colorChoice == 2 then color = 168 end if
+    if colorChoice == 3 then color = 144 end if
+    angle = 6.283185307179586 * (random(state) & 1023) / 1023.0
+    distance = random(state) & 31
+    cosine = cemath.cos(angle); sine = cemath.sin(angle)
+    originX = origin.x + cosine * distance
+    velocityX = cosine * (70.0 + (random(state) & 63))
+    originY = origin.y + sine * distance
+    velocityY = sine * (70.0 + (random(state) & 63))
+    originZ = origin.z + 8.0 + (random(state) % 90)
+    velocityZ = -100.0 + (random(state) & 31)
+    particleOrigin = qt.Vec3(originX, originY, originZ)
+    velocity = qt.Vec3(velocityX, velocityY, velocityZ)
+    acceleration = qt.Vec3(-cosine * 100.0, -sine * 100.0,
+      ceconstants.PARTICLE_GRAVITY * 4.0)
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      acceleration, color, 1.0, -0.3 / (0.5 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function teleportParticles(state, origin)
+  start = state.particleCount
+  count = reserveParticles(state, 1053)
+  index = 0; x = -16
+  while x <= 16 and index < count
+    y = -16
+    while y <= 16 and index < count
+      z = -16
+      while z <= 32 and index < count
+        color = 7 + (random(state) & 7)
+        alphaVelocity = -1.0 / (0.3 + (random(state) & 7) * 0.02)
+        particleOrigin = qt.Vec3(origin.x + x + (random(state) & 3),
+          origin.y + y + (random(state) & 3), origin.z + z + (random(state) & 3))
+        direction = normalized(qt.Vec3(y * 8.0, x * 8.0, z * 8.0))
+        speed = 50.0 + (random(state) & 63)
+        velocity = scaled(direction, speed)
+        state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+          qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), color, 1.0,
+          alphaVelocity, state.time)
+        index = index + 1; z = z + 4
+      end while
+      y = y + 4
+    end while
+    x = x + 4
+  end while
+  return index
+end function
+
+function widowSplashParticles(state, origin)
+  start = state.particleCount
+  count = reserveParticles(state, 256)
+  index = 0
+  while index < count
+    colorChoice = random(state) & 3
+    color = 16
+    if colorChoice == 1 then color = 104 end if
+    if colorChoice == 2 then color = 168 end if
+    if colorChoice == 3 then color = 144 end if
+    directionX = centeredRandom(state); directionY = centeredRandom(state)
+    directionZ = centeredRandom(state)
+    direction = normalized(qt.Vec3(directionX, directionY, directionZ))
+    state.particles[start + index] = cetypes.Particle(
+      add(origin, scaled(direction, 45.0)), scaled(direction, 40.0), qt.zeroVec3(),
+      color, 1.0, -0.8 / (0.5 + unitRandom(state) * 0.3), state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function sustainRadialParticles(state, sustain, now, nuke)
+  duration = 2100.0; count = 300; distance = 45.0
+  if nuke then duration = 1000.0; count = 700; distance = 200.0 end if
+  ratio = 1.0 - (sustain.endTime - now) / duration
+  start = state.particleCount
+  count = reserveParticles(state, count)
+  index = 0
+  while index < count
+    colorChoice = random(state) & 3
+    color = 16
+    if nuke then
+      color = 110 + colorChoice * 2
+    else
+      if colorChoice == 1 then color = 104 end if
+      if colorChoice == 2 then color = 168 end if
+      if colorChoice == 3 then color = 144 end if
+    end if
+    directionX = centeredRandom(state); directionY = centeredRandom(state)
+    directionZ = centeredRandom(state)
+    direction = normalized(qt.Vec3(directionX, directionY, directionZ))
+    state.particles[start + index] = cetypes.Particle(
+      add(sustain.origin, scaled(direction, distance * ratio)), qt.zeroVec3(),
+      qt.zeroVec3(), color, 1.0, ceconstants.INSTANT_PARTICLE, now)
+    index = index + 1
+  end while
+  return index
+end function
+
+function debugTrail(state, startPosition, endPosition)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  direction = normalized(delta)
+  step = scaled(direction, 3.0)
+  move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0
+  while length > 0.0 and written < reserved
+    length = length - 3.0
+    color = 0x74 + (random(state) & 7)
+    particleOrigin = qt.Vec3(move.x + centeredRandom(state) * 3.0,
+      move.y + centeredRandom(state) * 3.0, move.z + centeredRandom(state) * 3.0)
+    velocity = qt.Vec3(0.0, 0.0, 20.0 + centeredRandom(state) * 5.0)
+    state.particles[start + written] = cetypes.Particle(particleOrigin, velocity,
+      qt.zeroVec3(), color, 1.0, -0.1, state.time)
+    move = add(move, step); written = written + 1
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function bubbleTrail(state, startPosition, endPosition, spacing, rise)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  direction = normalized(delta)
+  step = scaled(direction, spacing * 1.0)
+  move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0; distance = 0
+  while distance < length and written < reserved
+    alphaVelocity = 0.0
+    if spacing == 32 then
+      alphaVelocity = -1.0 / (1.0 + unitRandom(state) * 0.2)
+    else
+      alphaVelocity = -1.0 / (1.0 + unitRandom(state) * 0.1)
+    end if
+    color = 4 + (random(state) & 7)
+    originX = move.x + centeredRandom(state) * 2.0
+    velocityX = centeredRandom(state) * 10.0
+    originY = move.y + centeredRandom(state) * 2.0
+    velocityY = centeredRandom(state) * 10.0
+    originZ = move.z + centeredRandom(state) * 2.0
+    velocityZ = centeredRandom(state) * 10.0
+    if spacing == 32 then
+      velocityX = velocityX * 0.5; velocityY = velocityY * 0.5
+      velocityZ = velocityZ * 0.5 + rise
+    else
+      originZ = originZ - 4.0; velocityZ = velocityZ + rise
+    end if
+    state.particles[start + written] = cetypes.Particle(qt.Vec3(originX, originY, originZ),
+      qt.Vec3(velocityX, velocityY, velocityZ), qt.zeroVec3(), color, 1.0,
+      alphaVelocity, state.time)
+    move = add(move, step); written = written + 1; distance = distance + spacing
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function forceWallParticles(state, startPosition, endPosition, color)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  step = scaled(normalized(delta), 4.0)
+  move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0
+  while length > 0.0 and written < reserved
+    length = length - 4.0
+    if unitRandom(state) > 0.3 then
+      alphaVelocity = -1.0 / (3.0 + unitRandom(state) * 0.5)
+      particleOrigin = qt.Vec3(move.x + centeredRandom(state) * 3.0,
+        move.y + centeredRandom(state) * 3.0, move.z + centeredRandom(state) * 3.0)
+      velocity = qt.Vec3(0.0, 0.0, -40.0 - centeredRandom(state) * 10.0)
+      state.particles[start + written] = cetypes.Particle(particleOrigin, velocity,
+        qt.zeroVec3(), color, 1.0, alphaVelocity, state.time)
+      written = written + 1
+    end if
+    move = add(move, step)
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function railTrail(state, startPosition, endPosition)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  direction = normalized(delta)
+  right = normalRight(direction); up = cross(right, direction)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0; distance = 0; move = copyVec(startPosition)
+  while distance < length and written < reserved
+    angle = distance * 0.1
+    cosine = cemath.cos(angle); sine = cemath.sin(angle)
+    ring = qt.Vec3(right.x * cosine + up.x * sine,
+      right.y * cosine + up.y * sine, right.z * cosine + up.z * sine)
+    alphaVelocity = -1.0 / (1.0 + unitRandom(state) * 0.2)
+    color = 0x74 + (random(state) & 7)
+    state.particles[start + written] = cetypes.Particle(add(move, scaled(ring, 3.0)),
+      scaled(ring, 6.0), qt.zeroVec3(), color, 1.0, alphaVelocity, state.time)
+    move = add(move, direction); written = written + 1; distance = distance + 1
+  end while
+  remaining = length; move = copyVec(startPosition); step = scaled(direction, 0.75)
+  while remaining > 0.0 and written < reserved
+    remaining = remaining - 0.75
+    alphaVelocity = -1.0 / (0.6 + unitRandom(state) * 0.2)
+    color = random(state) & 15
+    originX = move.x + centeredRandom(state) * 3.0
+    velocityX = centeredRandom(state) * 3.0
+    originY = move.y + centeredRandom(state) * 3.0
+    velocityY = centeredRandom(state) * 3.0
+    originZ = move.z + centeredRandom(state) * 3.0
+    velocityZ = centeredRandom(state) * 3.0
+    state.particles[start + written] = cetypes.Particle(qt.Vec3(originX, originY, originZ),
+      qt.Vec3(velocityX, velocityY, velocityZ), qt.zeroVec3(), color, 1.0,
+      alphaVelocity, state.time)
+    move = add(move, step); written = written + 1
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
 function addBeam(state, entity, destinationEntity, modelName, start, finish, offset, playerLinked, duration)
   for each beam in state.beams
     if beam.entity == entity and (not playerLinked or beam.playerLinked) and
@@ -259,15 +564,21 @@ end function
 function advance(state, now)
   if typeof(now) != "int" or now < state.time then return error(7313, "effect time must be monotonic integer milliseconds") end if
   seconds = (now - state.time) * 0.001
+  state.time = now
   activeSustains = array(len(state.sustains))
   activeSustainCount = 0
   for each sustain in state.sustains
     if sustain.endTime >= now then
       if sustain.nextThink <= now then
-        count = sustain.count
-        if count <= 0 then count = 8 end if
-        particleEffect(state, sustain.origin, sustain.direction, sustain.color, count, sustain.magnitude * 1.0)
-        sustain.nextThink = now + sustain.thinkInterval
+        if sustain.kind == ceconstants.TE_WIDOWBEAMOUT then
+          sustainRadialParticles(state, sustain, now, false)
+        else if sustain.kind == ceconstants.TE_NUKEBLAST then
+          sustainRadialParticles(state, sustain, now, true)
+        else
+          steamParticles(state, sustain.origin, sustain.direction, sustain.color,
+            sustain.count, sustain.magnitude * 1.0, false)
+        end if
+        sustain.nextThink = sustain.nextThink + sustain.thinkInterval
       end if
       activeSustains[activeSustainCount] = sustain
       activeSustainCount = activeSustainCount + 1
@@ -327,7 +638,6 @@ function advance(state, now)
     end if
   end for
   state.explosions = compact(activeExplosions, activeExplosionCount)
-  state.time = now
   return state
 end function
 

@@ -18,6 +18,14 @@ Both runs reported zero rejects, zero pending sounds and zero command bytes.
 The 39-map physical-input matrix remained 39/39 and the persistent chain
 remained 39 maps/38 changes/753 steps/3,690 packets.
 
+A follow-up asset-free Release matrix completed the remaining stock client
+particle families without changing the legal retail-data boundary. Rail,
+Debug, Forcewall, both Bubble trails, Steam/Smoke, login/logout/item respawn,
+teleports, Widow splash and the Widow/Nuke sustained radial effects now follow
+their 3.19 algorithms and Visual C random stream. All 153 native programs and
+the 10,027-packet synthetic soaks passed; the installed-retail performance and
+campaign evidence above remains the most recent retail-data run.
+
 The classic installation contains `3.20_Changes.txt`. It is therefore suitable
 for retail-data validation, but it is not evidence of strict interoperability
 with the contracted unmodified 3.19 binary baseline.

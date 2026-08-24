@@ -115,6 +115,14 @@ function testMuzzleFlashes()
   assertEqual(len(chainState.soundEvents), 3, "chaingun three layered shots")
   assertNear(chainState.soundEvents[1].timeOffset, 0.033, 0.0001, "chaingun second delay")
   assertNear(chainState.soundEvents[2].timeOffset, 0.066, 0.0001, "chaingun third delay")
+
+  loginState = cestate.createSilent(19)
+  ceparser.parseMuzzleFlash(loginState, reading(bytes([1, 0, ceconstants.MZ_LOGIN])), resolveEntity)
+  assertEqual(loginState.particleCount, 500, "login effect stock particle count")
+  assertNear(loginState.particles[0].acceleration.z, -40.0, 0.0001,
+    "login effect stock gravity")
+  assertTrue(loginState.particles[0].color >= 0xd0 and loginState.particles[0].color <= 0xd7,
+    "login effect stock color range")
   assertTrue(try(ceparser.parseMuzzleFlash2(state, reading(bytes([1, 0, 0])), resolveEntity)) is error,
     "unused monster flash zero rejected")
   return true
@@ -139,8 +147,9 @@ function testTempEntities()
   assertNear(state.explosions[1].alpha, 0.30, 0.0001, "BFG sprite source alpha")
 
   rail = bytes([ceconstants.TE_RAILTRAIL, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0])
+  railStart = state.particleCount
   ceparser.parseTempEntity(state, reading(rail))
-  assertTrue(state.particleCount >= 16, "rail trail particles")
+  assertEqual(state.particleCount - railStart, 38, "rail trail ring and spray particles")
   assertEqual(len(state.soundEvents), 2, "explosion and rail sound events")
   assertEqual(state.soundEvents[1].soundName, "weapons/railgf1a.wav", "rail sound event")
 
@@ -232,6 +241,79 @@ function testStockImpactParity()
     "boss teleport sound")
   assertNear(bossTeleportState.soundEvents[0].attenuation, 0.0, 0.0001,
     "boss teleport global attenuation")
+  assertNear(bossTeleportState.particles[0].acceleration.z, 160.0, 0.0001,
+    "boss teleport stock upward acceleration")
+  return true
+end function
+
+function testStockParticleFamilies()
+  randomState = cestate.createSilent(1)
+  assertEqual(cestate.random(randomState), 41, "client effects Visual C rand first value")
+  assertEqual(cestate.random(randomState), 18467, "client effects Visual C rand second value")
+
+  steamState = cestate.createSilent(29)
+  steam = bytes([ceconstants.TE_STEAM, 255, 255, 3,
+    0, 0, 0, 0, 0, 0, 5, 0xe0, 60, 0])
+  ceparser.parseTempEntity(steamState, reading(steam))
+  assertEqual(steamState.particleCount, 3, "instant steam particle count")
+  assertNear(steamState.particles[0].acceleration.z, -20.0, 0.0001,
+    "instant steam half gravity")
+  assertTrue(steamState.particles[0].color >= 0xe0 and steamState.particles[0].color <= 0xe7,
+    "instant steam color range")
+
+  smokeState = cestate.createSilent(31)
+  smoke = bytes([ceconstants.TE_CHAINFIST_SMOKE, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(smokeState, reading(smoke))
+  assertEqual(smokeState.particleCount, 20, "chainfist smoke particle count")
+  assertNear(smokeState.particles[0].acceleration.z, 0.0, 0.0001,
+    "chainfist smoke ignores gravity")
+
+  teleportState = cestate.createSilent(37)
+  teleport = bytes([ceconstants.TE_TELEPORT_EFFECT, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(teleportState, reading(teleport))
+  assertEqual(teleportState.particleCount, 1053, "teleport lattice particle count")
+  assertNear(teleportState.particles[0].acceleration.z, -40.0, 0.0001,
+    "teleport lattice gravity")
+
+  debugState = cestate.createSilent(41)
+  debugTrail = bytes([ceconstants.TE_DEBUGTRAIL,
+    0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(debugState, reading(debugTrail))
+  assertEqual(debugState.particleCount, 4, "debug trail stock spacing")
+  assertTrue(debugState.particles[0].velocity.z >= 15.0 and
+    debugState.particles[0].velocity.z <= 25.0, "debug trail stock upward impulse")
+
+  bubbleState = cestate.createSilent(43)
+  bubble = bytes([ceconstants.TE_BUBBLETRAIL,
+    0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0])
+  ceparser.parseTempEntity(bubbleState, reading(bubble))
+  assertEqual(bubbleState.particleCount, 2, "classic bubble trail stock spacing")
+
+  bubble2State = cestate.createSilent(47)
+  bubble2 = bytes([ceconstants.TE_BUBBLETRAIL2,
+    0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0])
+  ceparser.parseTempEntity(bubble2State, reading(bubble2))
+  assertEqual(bubble2State.particleCount, 8, "Rogue bubble trail stock spacing")
+  assertTrue(bubble2State.particles[0].velocity.z >= 10.0,
+    "Rogue bubble trail stock upward impulse")
+  assertEqual(bubble2State.soundEvents[0].soundName, "weapons/lashit.wav",
+    "Rogue bubble trail sound")
+
+  widowState = cestate.createSilent(53)
+  widow = bytes([ceconstants.TE_WIDOWBEAMOUT, 7, 0, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(widowState, reading(widow))
+  cestate.advance(widowState, 1)
+  assertEqual(widowState.particleCount, 300, "widow beamout stock radial count")
+  assertEqual(widowState.particles[0].alphaVelocity, ceconstants.INSTANT_PARTICLE,
+    "widow beamout instant lifetime")
+
+  nukeState = cestate.createSilent(59)
+  nuke = bytes([ceconstants.TE_NUKEBLAST, 0, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(nukeState, reading(nuke))
+  cestate.advance(nukeState, 1)
+  assertEqual(nukeState.particleCount, 700, "nuke blast stock radial count")
+  assertTrue(nukeState.particles[0].color >= 110 and nukeState.particles[0].color <= 116,
+    "nuke blast stock color table")
   return true
 end function
 
@@ -243,6 +325,21 @@ function testEntityEvents()
   ceparser.handleEntityEvent(state, entity)
   assertEqual(state.soundEvents[0].soundName, "items/respawn1.wav", "respawn event sound")
   assertEqual(state.particleCount, 64, "respawn event particles")
+  assertNear(state.particles[0].acceleration.z, -8.0, 0.0001,
+    "respawn event stock gravity")
+
+  teleporter = pt.zeroEntityState()
+  teleporter.number = 3; teleporter.origin = [4.0, 5.0, 6.0]
+  teleporter.event = ceconstants.EV_PLAYER_TELEPORT
+  ceparser.handleEntityEvent(state, teleporter)
+  assertEqual(state.particleCount, 1117, "player teleport uses stock lattice")
+
+  footstepState = cestate.createSilent(1)
+  footstep = pt.zeroEntityState()
+  footstep.number = 4; footstep.event = ceconstants.EV_FOOTSTEP
+  ceparser.handleEntityEvent(footstepState, footstep)
+  assertEqual(footstepState.soundEvents[0].soundName, "player/step2.wav",
+    "footstep selects from stock Visual C random sequence")
   return true
 end function
 
@@ -250,5 +347,6 @@ testSoundGolden()
 testMuzzleFlashes()
 testTempEntities()
 testStockImpactParity()
+testStockParticleFamilies()
 testEntityEvents()
 print "client_effects_parser_tests: PASS"

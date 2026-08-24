@@ -56,13 +56,17 @@ function rendererParticles(state, now)
   while particleIndex < state.particleCount
     particle = state.particles[particleIndex]
     elapsed = (now - particle.startTime) * 0.001
+    instant = particle.alphaVelocity == ceconstants.INSTANT_PARTICLE
     alpha = particle.alpha + elapsed * particle.alphaVelocity
+    if instant then alpha = particle.alpha end if
     if alpha > 1.0 then alpha = 1.0 end if
     if alpha > 0.0 then
-      output[outputIndex] = rt.particle(particleOrigin(particle, now),
-        particle.color & 255, alpha)
+      origin = particleOrigin(particle, now)
+      if instant then origin = cestate.copyVec(particle.origin) end if
+      output[outputIndex] = rt.particle(origin, particle.color & 255, alpha)
       outputIndex = outputIndex + 1
     end if
+    if instant then particle.alpha = 0.0; particle.alphaVelocity = 0.0 end if
     particleIndex = particleIndex + 1
   end while
   return trim(output, outputIndex)

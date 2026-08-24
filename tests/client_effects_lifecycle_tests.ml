@@ -6,6 +6,7 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.validation as rvalidation
 import miniquake2.client.effects.types as cetypes
+import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.audio as ceaudio
 import miniquake2.client.effects.state as cestate
 import miniquake2.client.effects.handoff as cehandoff
@@ -45,7 +46,7 @@ function buildState(seed)
   state = cestate.createSilent(seed)
   origin = qt.Vec3(1.0, 2.0, 3.0)
   cestate.addDLight(state, 4, origin, 200.0, [1.0, 0.5, 0.25], 100.0, 50.0)
-  cestate.particleEffect(state, origin, qt.Vec3(1.0, 0.0, 0.0), 0x20, 8, 10.0)
+  cestate.wallParticles(state, origin, qt.Vec3(1.0, 0.0, 0.0), 0x20, 8)
   cestate.addBeam(state, 2, 0, "models/beam.md2", origin, qt.Vec3(10.0, 2.0, 3.0), qt.zeroVec3(), false, 200)
   cestate.addLaser(state, origin, qt.Vec3(1.0, 8.0, 3.0), 0xd0)
   cestate.addExplosion(state, 5, origin, "models/explosion.md2", 4, 150.0,
@@ -81,6 +82,18 @@ assertEqual(longBeamFrame.entities[0].angles.x, 0.0, "cable segment pitch")
 assertEqual(longBeamFrame.entities[0].angles.y, 0.0, "cable segment yaw")
 assertEqual(longBeamFrame.entities[3].model.name,
   "models/monsters/parasite/segment/tris.md2", "cable segment model")
+
+instantState = cestate.createSilent(11)
+cestate.addParticle(instantState, qt.Vec3(4.0, 5.0, 6.0), qt.zeroVec3(),
+  qt.zeroVec3(), 16, 1.0, ceconstants.INSTANT_PARTICLE)
+instantFrame = rt.defaultRefDef(640, 480)
+cehandoff.apply(instantState, instantFrame, 0, resolveModel)
+assertEqual(instantFrame.numParticles, 1, "instant particle renders once")
+instantSecondFrame = rt.defaultRefDef(640, 480)
+cehandoff.apply(instantState, instantSecondFrame, 1, resolveModel)
+assertEqual(instantSecondFrame.numParticles, 0, "instant particle is consumed after handoff")
+cestate.advance(instantState, 1)
+assertEqual(instantState.particleCount, 0, "consumed instant particle returns to pool")
 
 cestate.advance(first, 250)
 assertEqual(len(first.dLights), 0, "dlight expiry")

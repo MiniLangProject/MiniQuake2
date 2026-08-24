@@ -106,7 +106,11 @@ smoke/flash pairs, directional blaster models, explosion model/frame/base
 variants, layered player-weapon sounds, monster-family sounds, attenuation and
 Rogue effects are covered by Protocol-34 goldens. Transient particles append
 into one reusable 4,096-slot pool instead of copying the live array for every
-effect. The original class-level sight/search callback inventory, sound
+effect. Rail/Debug/Forcewall/Bubble trails, Steam/Smoke, login/logout/item
+respawn, teleports, Widow splash and Widow/Nuke sustained effects now use their
+stock spatial, gravity, color and alpha algorithms on the original Win32 CRT
+random sequence; one-frame particles are consumed after renderer handoff. The
+original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
 Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.

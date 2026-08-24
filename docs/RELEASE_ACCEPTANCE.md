@@ -4,6 +4,27 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 stock particle-family and sustain acceptance run
+
+The Release product and all 153 native test programs were rebuilt and executed
+after completing the Quake II 3.19 `cl_fx.c`, `cl_newfx.c` and `cl_tent.c`
+particle-family audit. Protocol-34 goldens now cover the exact Rail ring/spray,
+Debug, Forcewall and both Bubble trail spacings; Steam and gravity-free Smoke;
+Login/Logout/Respawn, item respawn, the 1,053-particle teleport lattice, the
+4,096-particle boss teleport and Widow splash; and the 300/700-particle
+Widow-beamout/Nuke sustains. The latter use the original single-frame particle
+lifetime instead of persisting or disappearing before renderer handoff.
+
+Client effects now consume the Visual C `rand()` sequence used by the original
+Win32 client, including the original `frand`/`crand` divisor and call ordering.
+The remaining generic temp-entity particle fallback was removed; every parsed
+stock family routes to its own velocity, acceleration, color and alpha law.
+Footsteps likewise select all four stock samples from that deterministic stream.
+The affected parser, lifecycle, dispatcher, multiplayer arsenal, deathmatch,
+renderer-product and UDP routing gates all passed. The final synthetic soaks
+completed 10,027/10,027 packets at 3,990.50 and 4,020.79 fps with zero pending
+sounds.
+
 ## 2026-08-24 client impact parity and fixed-pool acceptance run
 
 The Release product and all 153 native test programs were rebuilt and executed
