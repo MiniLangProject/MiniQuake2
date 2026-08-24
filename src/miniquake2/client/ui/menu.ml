@@ -3,6 +3,7 @@ package miniquake2.client.ui.menu
 
 import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
+import miniquake2.qcommon.byteio as cuimenubyteio
 
 const MAX_MENU_COMMANDS = 16
 
@@ -234,6 +235,11 @@ function bannerName(pageId)
   return ""
 end function
 
+function mainCursorName(now)
+  cursorFrame = cuimenubyteio.truncInt(now / 100.0) % 15
+  return "m_cursor" + cursorFrame
+end function
+
 function drawMain(menu, screenWidth, screenHeight, now, exports)
   names = ["m_main_game", "m_main_multiplayer", "m_main_options",
     "m_main_video", "m_main_quit"]
@@ -253,9 +259,8 @@ function drawMain(menu, screenWidth, screenHeight, now, exports)
     exports.DrawPic(xOffset, yStart + index * 40 + 13, name)
     index = index + 1
   end while
-  cursorFrame = (now / 100) % 15
   exports.DrawPic(xOffset - 25, yStart + menu.cursor * 40 + 11,
-    "m_cursor" + cursorFrame)
+    mainCursorName(now))
   plaqueSize = exports.DrawGetPicSize("m_main_plaque")
   plaqueX = xOffset - 30 - plaqueSize.width
   exports.DrawPic(plaqueX, yStart, "m_main_plaque")

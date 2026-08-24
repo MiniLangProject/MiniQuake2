@@ -1544,8 +1544,18 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
     3, false, applicationRendererImports())
   applicationPlayProductResult = try(runPlayAtOnHost(baseDirectory, mapName,
     spawnPoint, frameLimit, applicationPlayProductHost, 1))
-  appproducthost.closeProductHost(applicationPlayProductHost)
+  // Preserve the primary render error while still unwinding the concrete GL
+  // lifecycle. An error between BeginFrame and EndFrame otherwise makes
+  // Shutdown replace the useful failure with "Shutdown called inside a frame".
+  if applicationPlayProductResult is error and
+      applicationPlayProductHost.renderer.state.core.state.frameOpen then
+    applicationPlayEndFrameResult = try(
+      applicationPlayProductHost.renderer.exports.EndFrame())
+  end if
+  applicationPlayCloseResult = try(
+    appproducthost.closeProductHost(applicationPlayProductHost))
   if applicationPlayProductResult is error then return applicationPlayProductResult end if
+  if applicationPlayCloseResult is error then return applicationPlayCloseResult end if
   return applicationPlayProductResult
 end function
 

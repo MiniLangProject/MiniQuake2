@@ -56,6 +56,12 @@ cuimenu.open(uiMenuState, "main")
 
 uiMenuRenderer = recording.createRecordingRenderer()
 uiMenuRenderer.exports.Init(void, void)
+uiMenuAssertEqual(cuimenu.mainCursorName(135.51), "m_cursor1",
+  "fractional runtime clock uses integer cursor frame")
+uiMenuAssertEqual(cuimenu.mainCursorName(1499.99), "m_cursor14",
+  "cursor animation last frame")
+uiMenuAssertEqual(cuimenu.mainCursorName(1500.0), "m_cursor0",
+  "cursor animation wraps")
 uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 1400,
   uiMenuRenderer.exports), 6, "main menu draw count")
 uiMenuAssertEqual(len(bytes(recording.commandTrace(uiMenuRenderer))) > 0, true, "menu renderer callback trace")
