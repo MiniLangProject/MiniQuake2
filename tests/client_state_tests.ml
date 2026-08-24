@@ -22,6 +22,10 @@ function resolveModel(index)
   return rt.ResourceHandle("model", index, "model" + index, 1)
 end function
 
+function resolveNamedModel(name)
+  return rt.ResourceHandle("model", len(bytes(name)), name, 1)
+end function
+
 function makeEntity(x, secondModel)
   entity = pt.zeroEntityState()
   entity.number = 1
@@ -55,7 +59,7 @@ function testSnapshotsAndRefDef()
   second = ssnap.SnapshotFrame(11, 10, 0, bytes([]), secondPlayer, [makeEntity(8.0, 5)])
   assertEqual(cstate.acceptSnapshot(client, second), true, "second snapshot")
   assertEqual(cstate.acceptSnapshot(client, second), false, "duplicate snapshot ignored")
-  frame = cstate.buildRefDef(client, 0.5, 640, 480, resolveModel)
+  frame = cstate.buildRefDef(client, 0.5, 640, 480, resolveModel, resolveNamedModel)
   assertEqual(rval.validateRefDef(frame).valid, true, "generated refdef valid")
   assertEqual(frame.viewOrigin.x, 10.5, "view origin interpolation")
   assertEqual(frame.viewAngles.x, 6.0, "view and kick angle interpolation")
@@ -75,14 +79,57 @@ function testSnapshotsAndRefDef()
   bfgEntity.effects = ceconstants.EF_BFG
   cstate.acceptSnapshot(bfgClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
     firstPlayer, [bfgEntity]))
-  bfgFrame = cstate.buildRefDef(bfgClient, 1.0, 640, 480, resolveModel)
+  bfgFrame = cstate.buildRefDef(bfgClient, 1.0, 640, 480, resolveModel,
+    resolveNamedModel)
   assertEqual(bfgFrame.entities[0].flags & rc.RF_TRANSLUCENT, rc.RF_TRANSLUCENT,
     "BFG entity translucency")
   assertNear(bfgFrame.entities[0].alpha, 0.30, 0.0001, "BFG entity source alpha")
 
+  effectPlayer = pt.zeroPlayerState()
+  effectPlayer.fov = 90.0
+  shellClient = cstate.create()
+  shellEntity = makeEntity(0.0, 0)
+  shellEntity.effects = ceconstants.EF_QUAD
+  cstate.acceptSnapshot(shellClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [shellEntity]))
+  shellFrame = cstate.buildRefDef(shellClient, 1.0, 640, 480, resolveModel,
+    resolveNamedModel)
+  assertEqual(len(shellFrame.entities), 2, "quad duplicates main model for color shell")
+  assertEqual(shellFrame.entities[0].flags, 0, "color shell keeps base model unmodified")
+  assertEqual(shellFrame.entities[1].flags & rc.RF_SHELL_BLUE, rc.RF_SHELL_BLUE,
+    "quad derives blue shell flag")
+  assertNear(shellFrame.entities[1].alpha, 0.30, 0.0001, "color shell alpha")
+
+  linkedClient = cstate.create()
+  linkedEntity = makeEntity(0.0, 0x80 | 5)
+  linkedEntity.effects = ceconstants.EF_BFG
+  cstate.acceptSnapshot(linkedClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [linkedEntity]))
+  linkedFrame = cstate.buildRefDef(linkedClient, 1.0, 640, 480, resolveModel,
+    resolveNamedModel)
+  assertEqual(linkedFrame.entities[1].model.id, 5, "linked translucent model index mask")
+  assertEqual(linkedFrame.entities[1].flags, rc.RF_TRANSLUCENT,
+    "linked model owns only its translucent flag")
+  assertNear(linkedFrame.entities[1].alpha, 0.32, 0.0001,
+    "linked translucent model stock alpha")
+
+  powerClient = cstate.create()
+  powerEntity = makeEntity(0.0, 0)
+  powerEntity.effects = ceconstants.EF_POWERSCREEN
+  cstate.acceptSnapshot(powerClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, [powerEntity]))
+  powerFrame = cstate.buildRefDef(powerClient, 1.0, 640, 480, resolveModel,
+    resolveNamedModel)
+  assertEqual(len(powerFrame.entities), 2, "powerscreen adds linked armor model")
+  assertEqual(powerFrame.entities[1].model.name,
+    "models/items/armor/effect/tris.md2", "powerscreen stock model")
+  assertEqual(powerFrame.entities[1].flags,
+    rc.RF_TRANSLUCENT | rc.RF_SHELL_GREEN, "powerscreen render flags")
+  assertNear(powerFrame.entities[1].alpha, 0.30, 0.0001, "powerscreen alpha")
+
   cstate.acceptPrediction(client, [160, 80, 32], [40.0, 50.0, 60.0])
   predictedFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
-    resolveModel)
+    resolveModel, resolveNamedModel)
   assertEqual(predictedFrame.viewOrigin.x, 20.5, "predicted view origin")
   assertEqual(predictedFrame.viewOrigin.y, 11.0, "predicted view offset")
   assertEqual(predictedFrame.viewAngles.x, 41.0, "predicted view plus kick")
@@ -92,7 +139,7 @@ function testSnapshotsAndRefDef()
   // Dead cameras and demos remain locked to authoritative interpolation.
   secondPlayer.pmove.moveType = qc.PM_DEAD
   deadFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
-    resolveModel)
+    resolveModel, resolveNamedModel)
   assertEqual(deadFrame.viewOrigin.x, 10.5, "dead camera server origin")
   assertEqual(deadFrame.viewAngles.x, 6.0, "dead camera server angles")
   secondPlayer.pmove.moveType = qc.PM_NORMAL
@@ -106,7 +153,8 @@ function testSnapshotsAndRefDef()
     firstPlayer, [makeEntity(0.0, 0)]))
   cstate.acceptSnapshot(wrappedClient, ssnap.SnapshotFrame(2, 1, 0, bytes([]),
     secondPlayer, [makeEntity(0.0, 0)]))
-  wrappedFrame = cstate.buildRefDef(wrappedClient, 0.5, 640, 480, resolveModel)
+  wrappedFrame = cstate.buildRefDef(wrappedClient, 0.5, 640, 480, resolveModel,
+    resolveNamedModel)
   assertEqual(wrappedFrame.viewAngles.y, 360.0, "wrapped view angle interpolation")
 
   number = 12

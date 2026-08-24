@@ -29,6 +29,7 @@ clientFrameEntity.number = 1
 clientFrameEntity.modelIndex = 1
 clientFrameEntity.origin = [4.0, 5.0, 6.0]
 clientFrameEntity.event = ceconstants.EV_ITEM_RESPAWN
+clientFrameEntity.effects = ceconstants.EF_TELEPORTER
 clientFramePlayer = pt.zeroPlayerState()
 clientFramePlayer.fov = 90.0
 clientFrameValue = nsnapshot.createFrame(1, bytes([3]), clientFramePlayer, [clientFrameEntity])
@@ -42,7 +43,8 @@ clientFrameAssertEqual(clientFrameResult.frames, 1, "frame accepted")
 clientFrameAssertEqual(clientFrameRuntime.client.current.number, 1, "client.state current snapshot")
 clientFrameAssertEqual(clientFrameRuntime.client.state, "active", "client.state activated")
 clientFrameAssertEqual(clientFrameRuntime.network.client.currentFrame.serverFrame, 1, "network frame retained")
-clientFrameAssertEqual(clientFrameRuntime.effects.particleCount, 64, "entity event particles")
+clientFrameAssertEqual(clientFrameRuntime.effects.particleCount, 72,
+  "entity event plus persistent teleporter particles")
 clientFrameAssertEqual(len(clientFrameRuntime.effects.soundEvents), 1, "entity event sound")
 
 // Malformed packets do not consume their sequence; a repaired packet with the

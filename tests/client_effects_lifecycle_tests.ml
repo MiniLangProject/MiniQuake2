@@ -136,6 +136,57 @@ bfgFrame = rt.defaultRefDef(640, 480)
 ceentity.emit(bfgState, bfgSnapshot, void, 1.0, 0, 0, bfgFrame)
 assertEqual(bfgFrame.dLights[0].intensity, 600.0, "BFG stock frame light ramp")
 
+bfgAuraState = cestate.createSilent(29)
+bfgAuraEntity = pt.zeroEntityState()
+bfgAuraEntity.number = 11; bfgAuraEntity.modelIndex = 1
+bfgAuraEntity.effects = ceconstants.EF_BFG | ceconstants.EF_ANIM_ALLFAST
+bfgAuraSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [bfgAuraEntity])
+bfgAuraFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(bfgAuraState, bfgAuraSnapshot, void, 1.0, 1000, 0, bfgAuraFrame)
+assertEqual(bfgAuraState.particleCount, 162, "fast BFG emits stock orbiting aura")
+assertEqual(bfgAuraFrame.dLights[0].intensity, 200.0, "fast BFG stock light")
+
+trapState = cestate.createSilent(31)
+trapEntity = pt.zeroEntityState()
+trapEntity.number = 12; trapEntity.modelIndex = 1
+trapEntity.origin = [10.0, 20.0, 30.0]; trapEntity.oldOrigin = [10.0, 20.0, 30.0]
+trapEntity.effects = ceconstants.EF_TRAP
+trapSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [trapEntity])
+trapFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(trapState, trapSnapshot, void, 1.0, 100, 0, trapFrame)
+assertEqual(trapState.particleCount, 21, "trap emits stock column and burst")
+assertEqual(trapFrame.dLights[0].origin.z, 62.0, "trap light shifts up 32 units")
+assertTrue(trapFrame.dLights[0].intensity >= 100.0 and
+  trapFrame.dLights[0].intensity <= 199.0, "trap randomized stock light range")
+
+flyState = cestate.createSilent(37)
+flyEntity = pt.zeroEntityState()
+flyEntity.number = 13; flyEntity.modelIndex = 1; flyEntity.effects = ceconstants.EF_FLIES
+flySnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [flyEntity])
+flyFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(flyState, flySnapshot, void, 1.0, 100, 0, flyFrame)
+assertEqual(flyState.particleCount, 0, "fly swarm starts at zero density")
+ceentity.emit(flyState, flySnapshot, void, 1.0, 10100, 0, flyFrame)
+assertEqual(flyState.particleCount, 41, "fly swarm ramps to half density")
+
+teleporterState = cestate.createSilent(41)
+cestate.teleporterEntityParticles(teleporterState, qt.Vec3(1.0, 2.0, 3.0))
+assertEqual(teleporterState.particleCount, 8, "persistent teleporter emits eight particles")
+assertEqual(teleporterState.particles[0].color, 0xdb, "persistent teleporter color")
+assertEqual(teleporterState.particles[0].acceleration.z, -40.0,
+  "persistent teleporter gravity")
+
+spinningState = cestate.createSilent(43)
+spinningEntity = pt.zeroEntityState()
+spinningEntity.number = 14; spinningEntity.modelIndex = 1
+spinningEntity.effects = ceconstants.EF_SPINNINGLIGHTS
+spinningSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [spinningEntity])
+spinningFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(spinningState, spinningSnapshot, void, 1.0, 0, 0, spinningFrame)
+assertEqual(spinningFrame.dLights[0].origin.x, 64.0,
+  "spinning light projects 64 units forward")
+assertEqual(spinningFrame.dLights[0].intensity, 100.0, "spinning light intensity")
+
 localState = cestate.createSilent(23)
 localEntity = pt.zeroEntityState()
 localEntity.number = 1; localEntity.modelIndex = 1

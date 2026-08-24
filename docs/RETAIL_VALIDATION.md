@@ -29,7 +29,11 @@ campaign evidence above remains the most recent retail-data run.
 The subsequent moving-entity effects pass completed a real 100-frame `base1`
 product run with 84 models, 68 sounds, zero missing assets and 2,600 submitted
 entity instances after enabling snapshot-driven projectile trails, lights and
-BFG/Plasma/sphere translucency.
+BFG/Plasma/sphere translucency. The next visible-entity parity build repeated
+that 100-frame gate with the same asset and submission counts after adding
+Color-Shell/Powerscreen rendering, linked-model isolation, automatic animation
+and the BFG/Fly/Trap/Teleporter particle tail. Its measured client/entity phases
+were 55.26/497.32 ms for the run.
 
 The classic installation contains `3.20_Changes.txt`. It is therefore suitable
 for retail-data validation, but it is not evidence of strict interoperability

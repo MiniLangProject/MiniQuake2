@@ -588,7 +588,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
         applicationDemoFrameHolder = appclientstate.buildRefDef(
           applicationDemoSessionHolder.runtime.client, 1.0,
           applicationDemoWindowHolder.width, applicationDemoWindowHolder.height,
-          resolvePlayModelIndex)
+          resolvePlayModelIndex, resolvePlayEffectModel)
         applicationDemoAxesHolder = appphysicsvector.angleVectors(
           applicationDemoFrameHolder.viewAngles)
         appclientassets.attachMixer(applicationDemoAssetStateHolder,
@@ -1383,7 +1383,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     end if
     frame = appclientstate.buildPredictedRefDef(
       session.client.integrated.client, fraction,
-      window.width, window.height, resolvePlayModelIndex)
+      window.width, window.height, resolvePlayModelIndex, resolvePlayEffectModel)
     if audioDevice is not void then
       viewAxes = appphysicsvector.angleVectors(frame.viewAngles)
       appclientassets.attachMixer(assetState, session.client.integrated.effects,

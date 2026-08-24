@@ -220,7 +220,11 @@ if (-not $SkipTests) {
       "-I", $StdImportRoot,
       "--keep-going", "--max-errors", "50",
       "--heap-reserve", "256m",
-      "--heap-commit", "16m",
+      # Several independent native graphs cross the 16-MiB growth guard while
+      # constructing their fixtures. Tests are sequential, so a 64-MiB initial
+      # commit removes that nondeterministic access violation without raising
+      # the 256-MiB address-space reserve.
+      "--heap-commit", "64m",
       "--heap-grow", "4m",
       "--gc-limit", "32m"
     )

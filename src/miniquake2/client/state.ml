@@ -112,39 +112,157 @@ function interpolatedAngles(oldState, currentState, fraction)
   )
 end function
 
+function inline effectiveEffects(state)
+  effects = state.effects
+  if (effects & cseconstants.EF_PENT) != 0 then
+    effects = (effects & ~cseconstants.EF_PENT) | cseconstants.EF_COLOR_SHELL
+  end if
+  if (effects & cseconstants.EF_QUAD) != 0 then
+    effects = (effects & ~cseconstants.EF_QUAD) | cseconstants.EF_COLOR_SHELL
+  end if
+  if (effects & cseconstants.EF_DOUBLE) != 0 then
+    effects = (effects & ~cseconstants.EF_DOUBLE) | cseconstants.EF_COLOR_SHELL
+  end if
+  if (effects & cseconstants.EF_HALF_DAMAGE) != 0 then
+    effects = (effects & ~cseconstants.EF_HALF_DAMAGE) | cseconstants.EF_COLOR_SHELL
+  end if
+  return effects
+end function
+
+function inline effectiveRenderFx(state)
+  flags = state.renderFx
+  if (state.effects & cseconstants.EF_PENT) != 0 then flags = flags | crc.RF_SHELL_RED end if
+  if (state.effects & cseconstants.EF_QUAD) != 0 then flags = flags | crc.RF_SHELL_BLUE end if
+  if (state.effects & cseconstants.EF_DOUBLE) != 0 then flags = flags | crc.RF_SHELL_DOUBLE end if
+  if (state.effects & cseconstants.EF_HALF_DAMAGE) != 0 then flags = flags | crc.RF_SHELL_HALF_DAM end if
+  return flags
+end function
+
 function inline stateModelCount(state)
   count = 0
   if state.modelIndex > 0 then count = count + 1 end if
   if state.modelIndex2 > 0 then count = count + 1 end if
   if state.modelIndex3 > 0 then count = count + 1 end if
   if state.modelIndex4 > 0 then count = count + 1 end if
+  effects = effectiveEffects(state)
+  if state.modelIndex > 0 and (effects & cseconstants.EF_COLOR_SHELL) != 0 then
+    count = count + 1
+  end if
+  if state.modelIndex > 0 and (effects & cseconstants.EF_POWERSCREEN) != 0 then
+    count = count + 1
+  end if
   return count
 end function
 
+function inline animatedFrame(state, effects, renderTime)
+  autoAnimation = cstatemath.floor(2.0 * renderTime / 1000.0)
+  if (effects & cseconstants.EF_ANIM01) != 0 then return autoAnimation & 1 end if
+  if (effects & cseconstants.EF_ANIM23) != 0 then return 2 + (autoAnimation & 1) end if
+  if (effects & cseconstants.EF_ANIM_ALL) != 0 then return autoAnimation end if
+  if (effects & cseconstants.EF_ANIM_ALLFAST) != 0 then
+    return cstatemath.floor(renderTime / 100.0)
+  end if
+  return state.frame
+end function
+
+function renderAngles(oldState, state, effects, fraction, renderTime)
+  if (effects & cseconstants.EF_ROTATE) != 0 then
+    yaw = renderTime / 10.0
+    yaw = yaw - cstatemath.floor(yaw / 360.0) * 360.0
+    return cqt.vec3(0.0, yaw, 0.0)
+  end if
+  if (effects & cseconstants.EF_SPINNINGLIGHTS) != 0 then
+    yaw = renderTime / 2.0
+    yaw = yaw - cstatemath.floor(yaw / 360.0) * 360.0
+    return cqt.vec3(0.0, yaw + state.angles[1], 180.0)
+  end if
+  return interpolatedAngles(oldState, state, fraction)
+end function
+
 function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
-    fraction, modelResolver)
+    part, fraction, renderTime, modelResolver)
   if modelIndex <= 0 then return outputIndex end if
-  model = modelResolver(modelIndex)
+  effects = effectiveEffects(state)
+  renderFx = effectiveRenderFx(state)
+  resolvedIndex = modelIndex
+  if part == 1 and modelIndex != 255 and (modelIndex & 0x80) != 0 then
+    resolvedIndex = modelIndex & 0x7f
+  end if
+  model = modelResolver(resolvedIndex)
   origin = interpolatedOrigin(oldState, state, fraction)
-  angles = interpolatedAngles(oldState, state, fraction)
-  oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
+  oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
+  if (renderFx & (crc.RF_FRAMELERP | crc.RF_BEAM)) != 0 then
+    origin = cqt.vec3(state.origin[0], state.origin[1], state.origin[2])
+    oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
+  end if
+  angles = renderAngles(oldState, state, effects, fraction, renderTime)
   oldFrame = state.frame
   if oldState is not void then oldFrame = oldState.frame end if
-  flags = state.renderFx
+  frame = animatedFrame(state, effects, renderTime)
+  skinNum = 0
+  flags = 0
   alpha = 1.0
-  if (flags & crc.RF_TRANSLUCENT) != 0 then alpha = 0.70 end if
-  if (state.effects & cseconstants.EF_BFG) != 0 then
-    flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
+  if part == 0 then
+    skinNum = state.skinNum
+    flags = renderFx
+    if (effects & cseconstants.EF_COLOR_SHELL) != 0 then flags = 0 end if
+    if renderFx == crc.RF_TRANSLUCENT then alpha = 0.70 end if
+    if (effects & cseconstants.EF_BFG) != 0 then
+      flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
+    end if
+    if (effects & cseconstants.EF_PLASMA) != 0 then
+      flags = flags | crc.RF_TRANSLUCENT; alpha = 0.60
+    end if
+    if (effects & cseconstants.EF_SPHERETRANS) != 0 then
+      flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
+      if (effects & cseconstants.EF_TRACKERTRAIL) != 0 then alpha = 0.60 end if
+    end if
+  else if part == 1 and modelIndex != 255 and (modelIndex & 0x80) != 0 then
+    flags = crc.RF_TRANSLUCENT; alpha = 0.32
   end if
-  if (state.effects & cseconstants.EF_PLASMA) != 0 then
-    flags = flags | crc.RF_TRANSLUCENT; alpha = 0.60
+  output[outputIndex] = crt.entity(model, angles, origin, frame, oldOrigin,
+    oldFrame, 1.0 - fraction, skinNum, 0, alpha, void, flags)
+  return outputIndex + 1
+end function
+
+function appendColorShell(output, outputIndex, state, oldState, fraction,
+    renderTime, modelResolver)
+  effects = effectiveEffects(state)
+  if state.modelIndex <= 0 or (effects & cseconstants.EF_COLOR_SHELL) == 0 then
+    return outputIndex
   end if
-  if (state.effects & cseconstants.EF_SPHERETRANS) != 0 then
-    flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
-    if (state.effects & cseconstants.EF_TRACKERTRAIL) != 0 then alpha = 0.60 end if
+  model = modelResolver(state.modelIndex)
+  origin = interpolatedOrigin(oldState, state, fraction)
+  oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
+  renderFx = effectiveRenderFx(state)
+  if (renderFx & (crc.RF_FRAMELERP | crc.RF_BEAM)) != 0 then
+    origin = cqt.vec3(state.origin[0], state.origin[1], state.origin[2])
+    oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
   end if
-  output[outputIndex] = crt.entity(model, angles, origin, state.frame, oldOrigin,
-    oldFrame, 1.0 - fraction, state.skinNum, 0, alpha, void, flags)
+  oldFrame = state.frame
+  if oldState is not void then oldFrame = oldState.frame end if
+  output[outputIndex] = crt.entity(model,
+    renderAngles(oldState, state, effects, fraction, renderTime), origin,
+    animatedFrame(state, effects, renderTime), oldOrigin, oldFrame,
+    1.0 - fraction, state.skinNum, 0, 0.30, void,
+    renderFx | crc.RF_TRANSLUCENT)
+  return outputIndex + 1
+end function
+
+function appendPowerScreen(output, outputIndex, state, oldState, fraction,
+    renderTime, namedModelResolver)
+  effects = effectiveEffects(state)
+  if state.modelIndex <= 0 or (effects & cseconstants.EF_POWERSCREEN) == 0 then
+    return outputIndex
+  end if
+  model = namedModelResolver("models/items/armor/effect/tris.md2")
+  if model is void then return outputIndex end if
+  origin = interpolatedOrigin(oldState, state, fraction)
+  oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
+  output[outputIndex] = crt.entity(model,
+    renderAngles(oldState, state, effects, fraction, renderTime), origin,
+    0, oldOrigin, 0, 1.0 - fraction, 0, 0, 0.30, void,
+    crc.RF_TRANSLUCENT | crc.RF_SHELL_GREEN)
   return outputIndex + 1
 end function
 
@@ -171,7 +289,8 @@ function appendViewWeapon(output, outputIndex, client, fraction, modelResolver,
   return outputIndex + 1
 end function
 
-function buildEntities(client, fraction, modelResolver, viewOrigin, viewAngles)
+function buildEntities(client, fraction, modelResolver, namedModelResolver,
+    viewOrigin, viewAngles)
   if client.current is void then return [] end if
   fraction = clampFraction(fraction)
   oldEntities = []
@@ -189,13 +308,17 @@ function buildEntities(client, fraction, modelResolver, viewOrigin, viewAngles)
     state = client.current.entities[index]
     oldState = findEntity(oldEntities, state.number)
     outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex, fraction, modelResolver)
+      state.modelIndex, 0, fraction, client.serverTime, modelResolver)
+    outputIndex = appendColorShell(output, outputIndex, state, oldState,
+      fraction, client.serverTime, modelResolver)
     outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex2, fraction, modelResolver)
+      state.modelIndex2, 1, fraction, client.serverTime, modelResolver)
     outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex3, fraction, modelResolver)
+      state.modelIndex3, 2, fraction, client.serverTime, modelResolver)
     outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-      state.modelIndex4, fraction, modelResolver)
+      state.modelIndex4, 3, fraction, client.serverTime, modelResolver)
+    outputIndex = appendPowerScreen(output, outputIndex, state, oldState,
+      fraction, client.serverTime, namedModelResolver)
     index = index + 1
   end while
   outputIndex = appendViewWeapon(output, outputIndex, client, fraction,
@@ -247,7 +370,7 @@ function clearPrediction(client)
 end function
 
 function buildRefDefInternal(client, fraction, width, height, modelResolver,
-    usePrediction)
+    namedModelResolver, usePrediction)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
   fraction = clampFraction(fraction)
   player = client.current.playerState
@@ -292,16 +415,19 @@ function buildRefDefInternal(client, fraction, width, height, modelResolver,
   blend = [player.blend[0], player.blend[1], player.blend[2], player.blend[3]]
   return crt.refDef(0, 0, width, height, fov, fovY, viewOrigin, viewAngles,
     blend, client.serverTime * 0.001, player.rdFlags, void,
-    client.lightStyles, buildEntities(client, fraction, modelResolver,
+    client.lightStyles, buildEntities(client, fraction, modelResolver, namedModelResolver,
     viewOrigin, viewAngles), [], [])
 end function
 
 // Demos and deterministic renderer captures intentionally retain pure server
 // interpolation.  The live product uses the explicit predicted entry point.
-function buildRefDef(client, fraction, width, height, modelResolver)
-  return buildRefDefInternal(client, fraction, width, height, modelResolver, false)
+function buildRefDef(client, fraction, width, height, modelResolver, namedModelResolver)
+  return buildRefDefInternal(client, fraction, width, height, modelResolver,
+    namedModelResolver, false)
 end function
 
-function buildPredictedRefDef(client, fraction, width, height, modelResolver)
-  return buildRefDefInternal(client, fraction, width, height, modelResolver, true)
+function buildPredictedRefDef(client, fraction, width, height, modelResolver,
+    namedModelResolver)
+  return buildRefDefInternal(client, fraction, width, height, modelResolver,
+    namedModelResolver, true)
 end function

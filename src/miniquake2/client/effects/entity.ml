@@ -73,6 +73,16 @@ function emitLocalLight(lights, lightCount, effects, origin, now)
   return lightCount
 end function
 
+function emitSpinningLight(lights, lightCount, entity, origin, now)
+  if (entity.effects & constants.EF_SPINNINGLIGHTS) == 0 then return lightCount end if
+  yaw = now / 2.0 + entity.angles[1]
+  yaw = yaw - eemath.floor(yaw / 360.0) * 360.0
+  radians = yaw * 0.017453292519943295
+  lightOrigin = qt.Vec3(origin.x + eemath.cos(radians) * 64.0,
+    origin.y + eemath.sin(radians) * 64.0, origin.z)
+  return appendLight(lights, lightCount, lightOrigin, 100.0, 1.0, 0.0, 0.0)
+end function
+
 function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
     lights, lightCount)
   effects = entity.effects
@@ -100,6 +110,10 @@ function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
     statefx.diminishingTrail(state, startPosition, endPosition, trail, effects)
     return lightCount
   end if
+  if (effects & constants.EF_FLIES) != 0 then
+    statefx.flyEffect(state, trail, endPosition)
+    return lightCount
+  end if
   if (effects & constants.EF_BFG) != 0 then
     intensity = 300.0
     if entity.frame == 1 then intensity = 400.0 end if
@@ -107,11 +121,15 @@ function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
     if entity.frame == 3 then intensity = 300.0 end if
     if entity.frame == 4 then intensity = 150.0 end if
     if entity.frame == 5 then intensity = 75.0 end if
-    if (effects & constants.EF_ANIM_ALLFAST) != 0 then intensity = 200.0 end if
+    if (effects & constants.EF_ANIM_ALLFAST) != 0 then
+      statefx.bfgParticles(state, endPosition)
+      intensity = 200.0
+    end if
     return appendLight(lights, lightCount, endPosition, intensity, 0.0, 1.0, 0.0)
   end if
   if (effects & constants.EF_TRAP) != 0 then
     trapOrigin = qt.Vec3(endPosition.x, endPosition.y, endPosition.z + 32.0)
+    statefx.trapParticles(state, trapOrigin)
     intensity = 100.0 + (statefx.random(state) % 100)
     return appendLight(lights, lightCount, trapOrigin, intensity, 1.0, 0.8, 0.1)
   end if
@@ -195,7 +213,7 @@ function emit(state, currentSnapshot, previousSnapshot, fraction, now,
       if typeof(trail) != "struct" then
         initialOrigin = arrayOrigin(entity.oldOrigin)
         if entity.event == constants.EV_OTHER_TELEPORT then initialOrigin = arrayOrigin(entity.origin) end if
-        trail = types.EntityTrail(initialOrigin, 1024, currentSnapshot.number)
+        trail = types.EntityTrail(initialOrigin, 1024, currentSnapshot.number, 0)
         state.entityTrails[entity.number] = trail
       else if trail.serverFrame != currentSnapshot.number then
         if trail.serverFrame != currentSnapshot.number - 1 or reset then
@@ -207,6 +225,7 @@ function emit(state, currentSnapshot, previousSnapshot, fraction, now,
       end if
       target = interpolatedOrigin(previous, entity, fraction, reset)
       effects = entity.effects
+      lightCount = emitSpinningLight(lights, lightCount, entity, target, now)
       if entity.number == localEntityNumber then
         lightCount = emitLocalLight(lights, lightCount, effects, target, now)
       else if entity.modelIndex > 0 and (effects & ~constants.EF_ROTATE) != 0 then

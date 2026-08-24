@@ -3,6 +3,7 @@ package miniquake2.client.effects.state
 
 import std.math as cemath
 import miniquake2.qcommon.types as qt
+import miniquake2.qcommon.directions as cedirections
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.types as cetypes
 import miniquake2.client.effects.audio as ceaudio
@@ -10,7 +11,7 @@ import miniquake2.client.effects.audio as ceaudio
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
   return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [],
-    array(ceconstants.MAX_ENTITY_TRAILS, false), audioCallbacks)
+    array(486, 0.0), array(ceconstants.MAX_ENTITY_TRAILS, false), audioCallbacks)
 end function
 
 function createSilent(randomSeed)
@@ -336,6 +337,30 @@ function teleportParticles(state, origin)
       y = y + 4
     end while
     x = x + 4
+  end while
+  return index
+end function
+
+// EF_TELEPORTER is a persistent entity flag fired once for every accepted
+// server frame. It is deliberately separate from the 1,053-particle player
+// teleport event above.
+function teleporterEntityParticles(state, origin)
+  start = state.particleCount
+  count = reserveParticles(state, 8)
+  index = 0
+  while index < count
+    originX = origin.x - 16.0 + (random(state) & 31)
+    velocityX = centeredRandom(state) * 14.0
+    originY = origin.y - 16.0 + (random(state) & 31)
+    velocityY = centeredRandom(state) * 14.0
+    originZ = origin.z - 8.0 + (random(state) & 7)
+    velocityZ = 80.0 + (random(state) & 7)
+    particleOrigin = qt.Vec3(originX, originY, originZ)
+    velocity = qt.Vec3(velocityX, velocityY, velocityZ)
+    state.particles[start + index] = cetypes.Particle(particleOrigin, velocity,
+      qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), 0xdb, 1.0, -0.5,
+      state.time)
+    index = index + 1
   end while
   return index
 end function
@@ -701,6 +726,145 @@ function instantShellParticles(state, origin, color, count, radius)
     index = index + 1
   end while
   return index
+end function
+
+function ensureAngularVelocities(state)
+  // The original client owns one static 162x3 table and lazily fills it from
+  // the same Visual C random stream used by all other client effects.
+  if state.angularVelocities[0] != 0.0 then return true end if
+  index = 0
+  while index < len(state.angularVelocities)
+    state.angularVelocities[index] = (random(state) & 255) * 0.01
+    index = index + 1
+  end while
+  return true
+end function
+
+function flyParticles(state, origin, count)
+  if count > 162 then count = 162 end if
+  if count <= 0 then return 0 end if
+  ensureAngularVelocities(state)
+  requested = (count + 1) / 2
+  start = state.particleCount
+  available = reserveParticles(state, requested)
+  written = 0; directionIndex = 0
+  ltime = state.time / 1000.0
+  while directionIndex < count and written < available
+    velocityIndex = directionIndex * 3
+    yaw = ltime * state.angularVelocities[velocityIndex]
+    pitch = ltime * state.angularVelocities[velocityIndex + 1]
+    cosinePitch = cemath.cos(pitch)
+    forward = qt.Vec3(cosinePitch * cemath.cos(yaw),
+      cosinePitch * cemath.sin(yaw), -cemath.sin(pitch))
+    distance = cemath.sin(ltime + directionIndex) * 64.0
+    normal = cedirections.normals[directionIndex]
+    particleOrigin = qt.Vec3(origin.x + normal[0] * distance + forward.x * 16.0,
+      origin.y + normal[1] * distance + forward.y * 16.0,
+      origin.z + normal[2] * distance + forward.z * 16.0)
+    state.particles[start + written] = cetypes.Particle(particleOrigin,
+      qt.zeroVec3(), qt.zeroVec3(), 0, 1.0, -100.0, state.time)
+    directionIndex = directionIndex + 2; written = written + 1
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function flyEffect(state, trail, origin)
+  startTime = state.time
+  if trail.flyStopTime < state.time then
+    startTime = state.time
+    trail.flyStopTime = state.time + 60000
+  else
+    startTime = trail.flyStopTime - 60000
+  end if
+  elapsed = state.time - startTime
+  count = 0
+  if elapsed < 20000 then
+    count = cemath.floor(elapsed * 162.0 / 20000.0)
+  else
+    remaining = trail.flyStopTime - state.time
+    if remaining < 20000 then count = cemath.floor(remaining * 162.0 / 20000.0)
+    else count = 162
+    end if
+  end if
+  return flyParticles(state, origin, count)
+end function
+
+function bfgParticles(state, origin)
+  ensureAngularVelocities(state)
+  start = state.particleCount
+  count = reserveParticles(state, 162)
+  index = 0
+  ltime = state.time / 1000.0
+  while index < count
+    velocityIndex = index * 3
+    yaw = ltime * state.angularVelocities[velocityIndex]
+    pitch = ltime * state.angularVelocities[velocityIndex + 1]
+    cosinePitch = cemath.cos(pitch)
+    forward = qt.Vec3(cosinePitch * cemath.cos(yaw),
+      cosinePitch * cemath.sin(yaw), -cemath.sin(pitch))
+    orbit = cemath.sin(ltime + index) * 64.0
+    normal = cedirections.normals[index]
+    particleOrigin = qt.Vec3(origin.x + normal[0] * orbit + forward.x * 16.0,
+      origin.y + normal[1] * orbit + forward.y * 16.0,
+      origin.z + normal[2] * orbit + forward.z * 16.0)
+    distance = vectorLength(qt.Vec3(particleOrigin.x - origin.x,
+      particleOrigin.y - origin.y, particleOrigin.z - origin.z)) / 90.0
+    state.particles[start + index] = cetypes.Particle(particleOrigin,
+      qt.zeroVec3(), qt.zeroVec3(), cemath.floor(0xd0 + distance * 7.0),
+      1.0 - distance, -100.0, state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function trapParticles(state, shiftedOrigin)
+  start = state.particleCount
+  count = reserveParticles(state, 21)
+  written = 0
+  move = qt.Vec3(shiftedOrigin.x, shiftedOrigin.y, shiftedOrigin.z - 14.0)
+  remaining = 64.0
+  while remaining > 0.0 and written < count
+    remaining = remaining - 5.0
+    alphaVelocity = -1.0 / (0.3 + unitRandom(state) * 0.2)
+    originX = move.x + centeredRandom(state)
+    velocityX = centeredRandom(state) * 15.0
+    originY = move.y + centeredRandom(state)
+    velocityY = centeredRandom(state) * 15.0
+    originZ = move.z + centeredRandom(state)
+    velocityZ = centeredRandom(state) * 15.0
+    state.particles[start + written] = cetypes.Particle(
+      qt.Vec3(originX, originY, originZ),
+      qt.Vec3(velocityX, velocityY, velocityZ),
+      qt.Vec3(0.0, 0.0, ceconstants.PARTICLE_GRAVITY), 0xe0, 1.0,
+      alphaVelocity, state.time)
+    move.z = move.z + 5.0; written = written + 1
+  end while
+  i = -2
+  while i <= 2 and written < count
+    j = -2
+    while j <= 2 and written < count
+      k = -2
+      while k <= 4 and written < count
+        color = 0xe0 + (random(state) & 3)
+        alphaVelocity = -1.0 / (0.3 + (random(state) & 7) * 0.02)
+        originX = shiftedOrigin.x + i + (random(state) & 23) * centeredRandom(state)
+        originY = shiftedOrigin.y + j + (random(state) & 23) * centeredRandom(state)
+        originZ = shiftedOrigin.z + k + (random(state) & 23) * centeredRandom(state)
+        direction = normalized(qt.Vec3(j * 8.0, i * 8.0, k * 8.0))
+        speed = ((50 + random(state)) & 63) * 1.0
+        state.particles[start + written] = cetypes.Particle(
+          qt.Vec3(originX, originY, originZ), scaled(direction, speed),
+          qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), color, 1.0,
+          alphaVelocity, state.time)
+        k = k + 4; written = written + 1
+      end while
+      j = j + 4
+    end while
+    i = i + 4
+  end while
+  state.particleCount = start + written
+  return written
 end function
 
 function resetEntityTrails(state)

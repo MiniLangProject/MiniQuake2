@@ -4,6 +4,23 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 visible entity-effect parity acceptance run
+
+The follow-up visible-entity parity pass adds the stock duplicate Color-Shell
+entity, derives Quad/Pent/Double/Half-Damage shell colors, renders the armor
+Powerscreen model and restores the high-bit translucent linked-model rule.
+Linked models no longer inherit the main entity's BFG, Plasma, sphere or shell
+flags. Automatic snapshot animation, item rotation and spinning red lights now
+follow `cl_ents.c`; BFG aura, Fly, Trap and persistent EF_TELEPORTER particles
+follow `cl_fx.c`, including the shared lazy 162x3 angular-velocity table and
+Visual C random-call ordering. The Release product and all 153 native programs,
+including state, lifecycle, frame-dispatch, renderer-product and Product Host
+gates, were rebuilt and passed. The test executables now commit 64 MiB inside
+their unchanged 256-MiB reserve; this removes native guard-page failures seen
+in multiple independent high-water fixture graphs. The rebuilt product
+completed installed-retail `base1` for 100 frames with 84 models, 68 sounds,
+zero missing assets and 2,600 submitted entity instances.
+
 ## 2026-08-24 snapshot entity trail and light acceptance run
 
 Normal snapshot entities now consume the stock `effects` bits in addition to

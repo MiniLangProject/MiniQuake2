@@ -15,6 +15,7 @@ import miniquake2.network.runtime.lifecycle as nrlifecycle
 import miniquake2.client.demo as cdemo
 import miniquake2.client.effects.parser as ceparser
 import miniquake2.client.effects.state as cestate
+import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.runtime.types as crtypes
 import miniquake2.client.state as cstate
 
@@ -246,6 +247,10 @@ function acceptFrame(runtime, buffer)
     runtime.effects.time = frame.serverTime
     for each entityState in frame.entities
       if entityState.event != 0 then ceparser.handleEntityEvent(runtime.effects, entityState) end if
+      if (entityState.effects & ceconstants.EF_TELEPORTER) != 0 then
+        cestate.teleporterEntityParticles(runtime.effects,
+          cestate.vecFromArray(entityState.origin))
+      end if
     end for
     return 1
   end if

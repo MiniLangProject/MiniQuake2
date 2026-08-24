@@ -88,6 +88,7 @@ struct EntityTrail
   origin
   trailCount
   serverFrame
+  flyStopTime
 end struct
 
 struct State
@@ -101,6 +102,7 @@ struct State
   explosions
   sustains
   soundEvents
+  angularVelocities
   entityTrails
   audio
 end struct
