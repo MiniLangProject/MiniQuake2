@@ -162,6 +162,7 @@ struct Md2Model
   triangles
   frames
   glCommands
+  rawData
 end struct
 
 struct SpriteFrame

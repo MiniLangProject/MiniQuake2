@@ -100,6 +100,8 @@ extern function glActiveTexture(unit as i32) from "miniquake_native.dll" symbol 
 extern function glMultiTexCoord2(unit as i32, sBits as u32, tBits as u32) from "miniquake_native.dll" symbol "mq_gl_multi_tex_coord2" returns void
 extern function glTexEnvI(target as u32, name as u32, value as i32) from "miniquake_native.dll" symbol "mq_gl_tex_env_i" returns void
 extern function glDrawParticleBatch(data as bytes, byteCount as u32, viewOriginX as u32, viewOriginY as u32, viewOriginZ as u32, viewForwardX as u32, viewForwardY as u32, viewForwardZ as u32, viewUpX as u32, viewUpY as u32, viewUpZ as u32, viewRightX as u32, viewRightY as u32, viewRightZ as u32) from "miniquake_native.dll" symbol "mq_gl_draw_particle_batch" returns i32
+extern function glDrawMd2Rgb(data as bytes, byteCount as u32, frameIndex as u32, oldFrameIndex as u32, backLerp as u32, shadeDots as bytes, shadeDotCount as u32, normalVectors as bytes, normalCount as u32, geometryKey as u64, geometryState as u32, shadeState as u32, shadeRed as u32, shadeGreen as u32, shadeBlue as u32, alpha as u32) from "miniquake_native.dll" symbol "mq_gl_draw_md2_rgb" returns i32
+extern function glDrawAliasRgbEnd() from "miniquake_native.dll" symbol "mq_gl_draw_alias_rgb_end" returns void
 
 function floatBits(value)
   return f32FromRaw(nativeRawValue(value))

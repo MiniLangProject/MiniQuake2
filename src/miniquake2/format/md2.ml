@@ -93,5 +93,6 @@ function parse(data, name)
     glCommands[i] = fbio.u32(data, ofsGlCommands + i * 4)
     i = i + 1
   end while
-  return ft.Md2Model(name, skinWidth, skinHeight, skins, texCoords, triangles, frames, glCommands)
+  return ft.Md2Model(name, skinWidth, skinHeight, skins, texCoords, triangles,
+    frames, glCommands, data)
 end function

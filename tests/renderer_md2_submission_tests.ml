@@ -31,8 +31,8 @@ function putFrame(data, offset, name, xOffset)
   md2testbyteio.putF32(data, offset + 20, 0.0)
   putText(data, offset + 24, name)
   data[offset + 40] = xOffset; data[offset + 41] = 0; data[offset + 42] = 0; data[offset + 43] = 0
-  data[offset + 44] = xOffset + 8; data[offset + 45] = 0; data[offset + 46] = 0; data[offset + 47] = 0
-  data[offset + 48] = xOffset; data[offset + 49] = 8; data[offset + 50] = 0; data[offset + 51] = 0
+  data[offset + 44] = xOffset + 8; data[offset + 45] = 0; data[offset + 46] = 0; data[offset + 47] = 11
+  data[offset + 48] = xOffset; data[offset + 49] = 8; data[offset + 50] = 0; data[offset + 51] = 5
 end function
 
 function md2Bytes()
@@ -133,6 +133,8 @@ function testRegistrationInterpolationAndBounds()
   assertEqual(plan.skinAsset.handle.name, "models/test/skin.pcx", "MD2 default PCX skin")
   assertEqual(len(plan.modelAsset.source.frames), 2, "registered MD2 frames")
   assertEqual(plan.modelAsset.source.frames[1].name, "idle02", "registered frame name")
+  assertEqual(plan.modelAsset.source.rawData, md2Bytes(),
+    "registered MD2 retains validated source bytes")
   assertEqual(ropengl.picturePixels(plan.skinAsset), bytes([20, 40, 60, 255, 80, 100, 120, 255, 80, 100, 120, 255, 20, 40, 60, 255]), "PCX skin palette expansion")
   assertEqual(ropengl.pictureUploadPixels(plan.skinAsset), bytes([40, 80, 120, 255, 160, 200, 240, 255, 160, 200, 240, 255, 40, 80, 120, 255]), "ref_gl intensity-scaled PCX skin upload")
   assertEqual(plan.mesh.triangleCount, 1, "MD2 triangle count")

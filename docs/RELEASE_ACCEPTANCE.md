@@ -4,6 +4,35 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 per-vertex MD2 shadedot and hotpath acceptance run
+
+The alias-lighting path now completes the Quake II 3.19 vertex-lighting step.
+Every ordinary MD2 uses its current-frame normal index, one of 16
+yaw-quantized rows derived from the canonical 162 `bytedirs`, the original
+negative-dot attenuation and hundredth rounding, and the already sampled
+colored shadelight. Shell geometry remains on its expanded fixed-function
+path. The GLSL 1.20 fast path keeps the lighting state per entity while sharing
+bounded VBOs for quantized frame/old-frame/backlerp geometry; D3D9, Vulkan and
+compatibility OpenGL use the equivalent CPU-colored fallback.
+
+The loader retains each already validated compact MD2 byte stream. The native
+entry point independently validates its header, counts, frame indices and
+64-bit offset bounds, then decompresses and interpolates a cache miss directly.
+No expanded triangle bytearray, string concatenation or array concatenation is
+performed in the MiniLang render loop. The 1,024-slot cache is cleared with the
+renderer lifecycle. The shared bridge built twice byte-identically at SHA-256
+`57F7A867C7D509B6651662A70BA2C4E37E6913E2E4A1859B111DABCF098876D0`,
+and the sibling MiniQuake product rebuilt successfully.
+
+The current Release product and all 153 native programs passed, including the
+OpenGL shadedot-row, MD2 registration/submission, renderer product-graph,
+Product Host, multiplayer and 5,000-frame synthetic soak gates. The final
+installed-retail `base1` run completed 100 frames through server frame 35 with
+84 models, 68 sounds, zero missing assets, 2,400 submitted entities, 292
+visible world surfaces and 7,015 culled surfaces. Measured client/world/entity/
+HUD phases were 167.38/1,842.63/376.70/59.78 ms; entity rendering is 61.3
+percent of the preceding 614.28-ms acceptance result, a 38.7-percent reduction.
+
 ## 2026-08-24 alias-lighting acceptance run
 
 The OpenGL MD2 path now follows Quake II 3.19 alias lighting rather than

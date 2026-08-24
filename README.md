@@ -133,6 +133,13 @@ MD2 aliases now sample BSP light data with Quake II's near-first
 Fullbright, Minlight, Glow, shell and IR-goggle policies. Fixed world-owned
 trace stacks avoid MiniLang recursion and per-query array growth; the sampled
 view-weapon maximum reaches the next Protocol-34 UserCmd as `lightLevel`.
+Ordinary aliases retain their validated compact MD2 bytes and apply the
+original 162 vertex normals against 16 yaw-quantized shadedot rows. Native
+frame interpolation expands only missing quantized animation states into a
+bounded VBO cache, so the render loop no longer constructs or concatenates
+expanded MiniLang arrays. The accepted 100-frame retail `base1` run submitted
+2,400 entities in 376.70 ms of measured entity-renderer time, 38.7 percent
+below the preceding 614.28-ms flat-lighting acceptance result.
 The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and

@@ -1,5 +1,6 @@
 /* Asset-free contract test for the real OpenGL refexport adapter. */
 import miniquake2.qcommon.types as qt
+import miniquake2.qcommon.byteio as oglbyteio
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.opengl as ogl
@@ -76,6 +77,33 @@ function testClassicDrawingHelpers()
   shell.flags = rc.RF_SHELL_DOUBLE
   assertEqual(ogl.openGlMd2Shade(shell, 0.0), 230 | (179 << 8),
     "double-damage shell color")
+
+  renderer = ogl.createOpenGlRenderer(false)
+  shadeRow0 = ogl.md2ShadeRow(renderer, 0.0)
+  shadeRow1 = ogl.md2ShadeRow(renderer, 22.5)
+  assertEqual(len(shadeRow0), 162 * 4, "MD2 shadedot row size")
+  assertNear(oglbyteio.f32(shadeRow0, 0), 1.23, 0.0001,
+    "MD2 yaw row zero first shadedot")
+  assertNear(oglbyteio.f32(shadeRow0, 18 * 4), 0.82, 0.0001,
+    "MD2 negative shadedot attenuation")
+  assertNear(oglbyteio.f32(shadeRow1, 0), 1.26, 0.0001,
+    "MD2 yaw row one first shadedot")
+  assertEqual(nativeRawValue(ogl.md2ShadeRow(renderer, 0.0)),
+    nativeRawValue(shadeRow0), "MD2 shadedot row cache reuse")
+  shadedotHash = 2166136261
+  shadedotRow = 0
+  while shadedotRow < 16
+    shadedotBytes = ogl.md2ShadeRow(renderer, shadedotRow * 22.5)
+    shadedotByte = 0
+    while shadedotByte < len(shadedotBytes)
+      shadedotHash = ((shadedotHash ^ shadedotBytes[shadedotByte]) *
+        16777619) & 0xffffffff
+      shadedotByte = shadedotByte + 1
+    end while
+    shadedotRow = shadedotRow + 1
+  end while
+  assertEqual(shadedotHash, 869851233,
+    "all 2,592 Quake II MD2 shadedots exact")
 
   batchRecord = bytes(16)
   assertEqual(ogl.writeOpenGlMultitextureRecord(batchRecord, 0, shell,

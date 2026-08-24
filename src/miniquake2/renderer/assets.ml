@@ -147,7 +147,8 @@ function adoptBspModel(registry, map, name)
   if typeof(map) != "struct" or len(map.models) == 0 then return error(9658, "adopted BSP map has no world model") end if
   // ClassicWorld owns the world polygons, so do not duplicate them as an
   // expanded debug mesh. Inline *n models remain lazily expandable below.
-  asset = ModelAsset(nextHandle(registry, "model", name), "bsp", map, void, array(0), array(0))
+  asset = ModelAsset(nextHandle(registry, "model", name), "bsp", map, void,
+    array(0), array(0))
   registry.models = registry.models + [asset]
   return asset
 end function
@@ -180,12 +181,14 @@ function registerModel(registry, imports, name)
     indexText = decode(slice(bytes(name), 1, len(bytes(name)) - 1))
     modelIndex = toNumber(indexText)
     mesh = rgeom.bspModelMesh(world.source, modelIndex)
-    asset = ModelAsset(nextHandle(registry, "model", name), "bsp-inline", world.source, mesh, array(0), array(0))
+    asset = ModelAsset(nextHandle(registry, "model", name), "bsp-inline",
+      world.source, mesh, array(0), array(0))
   else
     data = loadBytes(imports, name)
     if endsWith(name, ".bsp") then
       source = fbsp.parse(data, name)
-      asset = ModelAsset(nextHandle(registry, "model", name), "bsp", source, rgeom.bspModelMesh(source, 0), array(0), array(0))
+      asset = ModelAsset(nextHandle(registry, "model", name), "bsp", source,
+        rgeom.bspModelMesh(source, 0), array(0), array(0))
     else if endsWith(name, ".md2") then
       source = fmd2.parse(data, name)
       skins = registerMd2Skins(registry, imports, source)
@@ -196,7 +199,8 @@ function registerModel(registry, imports, name)
     else if endsWith(name, ".sp2") then
       source = fsprite.parse(data, name)
       frames = registerSpriteFrames(registry, imports, source)
-      asset = ModelAsset(nextHandle(registry, "model", name), "sprite", source, void, frames, array(0))
+      asset = ModelAsset(nextHandle(registry, "model", name), "sprite", source,
+        void, frames, array(0))
     else
       return error(9652, "unsupported renderer model format: " + name)
     end if

@@ -14,6 +14,7 @@ package miniquake2.renderer.opengl
 import std.math as rmath
 import miniquake2.native as native
 import miniquake2.qcommon.byteio as ropenglbyteio
+import miniquake2.qcommon.directions as ropengldirections
 import miniquake2.qcommon.types as ropenglqtypes
 import miniquake2.format.constants as ropenglformatconstants
 import miniquake2.format.pcx as ropenglpcx
@@ -88,6 +89,8 @@ struct OpenGlState
   rawTextureId
   rawPixels
   batchRecords
+  md2ShadeRows
+  md2NormalVectors
   handedness
   activeWorld
   lightLevel
@@ -148,6 +151,10 @@ struct Md2DrawState
   depthHack
   shell
   mirrored
+  shadeRed
+  shadeGreen
+  shadeBlue
+  alpha
 end struct
 
 struct OpenGlViewAxes
@@ -834,7 +841,7 @@ function inline openGlShadeByte(component)
   return value
 end function
 
-function openGlMd2ShadeColor(entity, time, rdFlags, baseColor)
+function openGlMd2ShadeComponents(entity, time, rdFlags, baseColor)
   flags = entity.flags
   red = baseColor.red; green = baseColor.green; blue = baseColor.blue
   shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
@@ -873,8 +880,17 @@ function openGlMd2ShadeColor(entity, time, rdFlags, baseColor)
   if (rdFlags & rc.RDF_IRGOGGLES) != 0 and (flags & rc.RF_IR_VISIBLE) != 0 then
     red = 1.0; green = 0.0; blue = 0.0
   end if
-  return openGlShadeByte(red) | (openGlShadeByte(green) << 8) |
-    (openGlShadeByte(blue) << 16)
+  return rclassictypes.ClassicPointLight(red, green, blue)
+end function
+
+function inline openGlPackMd2Shade(color)
+  return openGlShadeByte(color.red) | (openGlShadeByte(color.green) << 8) |
+    (openGlShadeByte(color.blue) << 16)
+end function
+
+function openGlMd2ShadeColor(entity, time, rdFlags, baseColor)
+  return openGlPackMd2Shade(
+    openGlMd2ShadeComponents(entity, time, rdFlags, baseColor))
 end function
 
 function openGlMd2Shade(entity, time)
@@ -882,7 +898,7 @@ function openGlMd2Shade(entity, time)
     rclassictypes.ClassicPointLight(1.0, 1.0, 1.0))
 end function
 
-function openGlMd2FrameShade(backend, frame, entity)
+function openGlMd2FrameShadeComponents(backend, frame, entity)
   shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE |
     rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
   baseColor = rclassictypes.ClassicPointLight(1.0, 1.0, 1.0)
@@ -897,7 +913,69 @@ function openGlMd2FrameShade(backend, frame, entity)
       backend.lightLevel = ropenglbyteio.truncInt(150.0 * maximum) & 255
     end if
   end if
-  return openGlMd2ShadeColor(entity, frame.time, frame.rdFlags, baseColor)
+  return openGlMd2ShadeComponents(entity, frame.time, frame.rdFlags, baseColor)
+end function
+
+function openGlMd2FrameShade(backend, frame, entity)
+  return openGlPackMd2Shade(
+    openGlMd2FrameShadeComponents(backend, frame, entity))
+end function
+
+function inline openGlMd2ShadeRowIndex(yaw)
+  return ropenglbyteio.truncInt(yaw * (16.0 / 360.0)) & 15
+end function
+
+// anormtab.h is generated from Quake II's 162 bytedirs. Keep the compact
+// source normals as the single truth and lazily materialize only the sixteen
+// 648-byte rows. Values are rounded to the original table's hundredths.
+function buildOpenGlMd2ShadeRow(rowIndex)
+  normals = ropengldirections.normals
+  result = bytes(len(normals) * 4)
+  angle = rowIndex * (360.0 / 16.0) * DEG_TO_RAD
+  inverseRootTwo = 1.0 / rmath.sqrt(2.0)
+  shadeX = rmath.cos(-angle) * inverseRootTwo
+  shadeY = rmath.sin(-angle) * inverseRootTwo
+  shadeZ = inverseRootTwo
+  normalIndex = 0
+  while normalIndex < len(normals)
+    normal = normals[normalIndex]
+    dot = normal[0] * shadeX + normal[1] * shadeY + normal[2] * shadeZ
+    if dot < 0.0 then dot = dot * 0.3 end if
+    value = ropenglbyteio.truncInt((1.0 + dot) * 100.0 + 0.5) / 100.0
+    ropenglbyteio.putF32(result, normalIndex * 4, value)
+    normalIndex = normalIndex + 1
+  end while
+  return result
+end function
+
+function openGlMd2ShadeRow(backend, yaw)
+  rowIndex = openGlMd2ShadeRowIndex(yaw)
+  result = backend.md2ShadeRows[rowIndex]
+  if result is void then
+    result = buildOpenGlMd2ShadeRow(rowIndex)
+    backend.md2ShadeRows[rowIndex] = result
+  end if
+  return result
+end function
+
+function openGlMd2NormalVectors(backend)
+  normals = ropengldirections.normals
+  expected = len(normals) * 12
+  if len(backend.md2NormalVectors) == expected then
+    return backend.md2NormalVectors
+  end if
+  result = bytes(expected)
+  normalIndex = 0
+  while normalIndex < len(normals)
+    normal = normals[normalIndex]
+    offset = normalIndex * 12
+    ropenglbyteio.putF32(result, offset, normal[0])
+    ropenglbyteio.putF32(result, offset + 4, normal[1])
+    ropenglbyteio.putF32(result, offset + 8, normal[2])
+    normalIndex = normalIndex + 1
+  end while
+  backend.md2NormalVectors = result
+  return result
 end function
 
 function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
@@ -927,8 +1005,12 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   if shell then native.glDisable(GL_TEXTURE_2D)
   else native.glEnable(GL_TEXTURE_2D); native.glBindTexture(GL_TEXTURE_2D, textureId)
   end if
-  shade = openGlMd2Shade(entity, 0.0)
-  if frame is not void then shade = openGlMd2FrameShade(backend, frame, entity) end if
+  shadeColor = openGlMd2ShadeComponents(entity, 0.0, 0,
+    rclassictypes.ClassicPointLight(1.0, 1.0, 1.0))
+  if frame is not void then
+    shadeColor = openGlMd2FrameShadeComponents(backend, frame, entity)
+  end if
+  shade = openGlPackMd2Shade(shadeColor)
   native.glColor4ub(colorByte(shade, 0), colorByte(shade, 8), colorByte(shade, 16), alpha)
   if mirrored then
     native.glMatrixMode(GL_PROJECTION)
@@ -941,7 +1023,8 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   native.glRotate(bits(angleY), bits(0.0), bits(0.0), bits(1.0))
   native.glRotate(bits(-angleX), bits(0.0), bits(1.0), bits(0.0))
   native.glRotate(bits(-angleZ), bits(1.0), bits(0.0), bits(0.0))
-  return Md2DrawState(textureId, translucent, depthHack, shell, mirrored)
+  return Md2DrawState(textureId, translucent, depthHack, shell, mirrored,
+    shadeColor.red, shadeColor.green, shadeColor.blue, alpha)
 end function
 
 function emitOpenGlMd2Scalars(glVertices)
@@ -1018,9 +1101,28 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame)
   quantizedBackLerp = lerpBucket / 8.0
   shell = (entity.flags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN |
     rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
+  if not shell then
+    shadeDots = openGlMd2ShadeRow(backend, entity.angles.y)
+    normalVectors = openGlMd2NormalVectors(backend)
+    modelData = modelAsset.source.rawData
+    drawnTriangles = native.glDrawMd2Rgb(modelData, len(modelData), frameIndex,
+      oldFrameIndex, bits(quantizedBackLerp), shadeDots,
+      len(ropengldirections.normals), normalVectors,
+      len(ropengldirections.normals), nativeRawValue(modelAsset),
+      (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket,
+      openGlMd2ShadeRowIndex(entity.angles.y),
+      bits(drawState.shadeRed), bits(drawState.shadeGreen),
+      bits(drawState.shadeBlue), drawState.alpha)
+    if drawnTriangles == triangleCount then
+      endOpenGlMd2Draw(drawState)
+      return Md2SubmitStats(true, triangleCount, triangleCount * 3,
+        drawState.textureId, bounds)
+    end if
+  end if
+  native.glDrawAliasRgbEnd()
   cachePass = 2000 + (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
   if shell then cachePass = cachePass + 10000000 end if
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   if native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
     endOpenGlMd2Draw(drawState)
     return Md2SubmitStats(true, triangleCount, triangleCount * 3,
@@ -1055,6 +1157,7 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
     end if
     entityIndex = entityIndex + 1
   end while
+  native.glDrawAliasRgbEnd()
   return submitted
 end function
 
@@ -1068,14 +1171,17 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
     if translucent == translucentPass then
       if translucentPass then native.glDepthMask(0) end if
       if (entity.flags & rc.RF_BEAM) != 0 then
+        native.glDrawAliasRgbEnd()
         if drawOpenGlBeam(backend, entity) then submitted = submitted + 1 end if
       else
         modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
         if modelAsset is void then
+          native.glDrawAliasRgbEnd()
           drawOpenGlNullEntity(entity); submitted = submitted + 1
         else if modelAsset.kind == "md2" and openGlMd2EntityVisible(backend, entity) then
           drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame); submitted = submitted + 1
         else if modelAsset.kind == "sprite" then
+          native.glDrawAliasRgbEnd()
           drawOpenGlSpriteEntity(backend, modelAsset, entity, axes); submitted = submitted + 1
         end if
         // Inline BSP entities are submitted with the world so they can share
@@ -1084,6 +1190,7 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
     end if
     entityIndex = entityIndex + 1
   end while
+  native.glDrawAliasRgbEnd()
   if translucentPass then native.glDepthMask(1) end if
   return submitted
 end function
@@ -1402,7 +1509,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1414,7 +1521,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1452,6 +1559,10 @@ end function
 
 function md2EntityShade(binding, frame, entity)
   return openGlMd2FrameShade(binding.state, frame, entity)
+end function
+
+function md2ShadeRow(binding, yaw)
+  return openGlMd2ShadeRow(binding.state, yaw)
 end function
 
 function md2EntityVisible(binding, entity)

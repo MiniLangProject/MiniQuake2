@@ -8,6 +8,29 @@ copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
 
+The same-date MD2 shadedot and render-hotpath pass completed the alias-lighting
+port at vertex granularity. The validated original MD2 bytes are retained by
+the model asset and passed once per entity to the native bridge; strict native
+header, count, frame and offset checks guard frame interpolation. Missing
+quantized animation states are expanded into a bounded 1,024-slot VBO cache,
+while a GLSL 1.20 path applies the original 162 normals, 16 yaw rows,
+negative-dot attenuation and hundredth rounding to the colored shadelight.
+D3D9, Vulkan and compatibility OpenGL retain an equivalent CPU-colored
+fallback. This removes the render-loop string/array concatenation and complete
+byte-buffer copies from the earlier attempts. The native DLL rebuilt twice to
+the identical SHA-256
+`57F7A867C7D509B6651662A70BA2C4E37E6913E2E4A1859B111DABCF098876D0`;
+MiniQuake 1 also rebuilt successfully against the extended bridge.
+
+The Release product and all 153 asset-free programs then passed. The final
+installed-retail `base1` run completed 100 frames through server frame 35 with
+84 models, 68 sounds, zero missing assets, 2,400 submitted entities, 292
+selected world surfaces and 7,015 culled surfaces. Client/world/entity/HUD
+phases measured 167.3803/1,842.6336/376.6989/59.7771 ms. The entity phase is
+61.3 percent of the preceding 614.2806-ms flat-alias-lighting acceptance, a
+38.7-percent reduction, and avoids the multi-second regressions of managed
+expanded-triangle batches.
+
 The same-date first-person weapon follow-up retained the exact snapshot
 offset/angle/frame handoff and added persistent right/left/center Player Setup,
 left-only projection mirroring, center-weapon suppression and live reliable
