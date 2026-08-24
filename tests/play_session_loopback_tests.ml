@@ -27,6 +27,31 @@ playAssert(session.server.networkRuntime.server.clients[0].state == nc.CS_SPAWNE
 playAssert(active.handoff is not void, "first server snapshot had no frame handoff")
 playAssert(active.handoff.snapshot.number == active.handoff.frameNumber,
   "snapshot commit was not atomic")
+
+// BaseQ2 registers several projectile assets lazily from g_weapon.c. Active
+// clients must receive both additions and removals as reliable configstrings.
+dynamicModelName = "models/objects/runtime_dynamic/tris.md2"
+dynamicModelIndex = playgame.playerContext().imports.modelIndex(dynamicModelName)
+playAssert(session.client.integrated.network.configStrings[qc.CS_MODELS + dynamicModelIndex] == "",
+  "dynamic model unexpectedly existed before server synchronization")
+dynamicAttempts = 0
+while session.client.integrated.network.configStrings[qc.CS_MODELS + dynamicModelIndex] !=
+    dynamicModelName and dynamicAttempts < 100
+  playsession.step(session)
+  dynamicAttempts = dynamicAttempts + 1
+end while
+playAssert(session.client.integrated.network.configStrings[qc.CS_MODELS + dynamicModelIndex] ==
+  dynamicModelName, "live model configstring did not reach the spawned client")
+playgame.playerContext().imports.configString(qc.CS_MODELS + dynamicModelIndex, "")
+dynamicAttempts = 0
+while session.client.integrated.network.configStrings[qc.CS_MODELS + dynamicModelIndex] != "" and
+    dynamicAttempts < 100
+  playsession.step(session)
+  dynamicAttempts = dynamicAttempts + 1
+end while
+playAssert(session.client.integrated.network.configStrings[qc.CS_MODELS + dynamicModelIndex] == "",
+  "cleared live model configstring did not reach the spawned client")
+
 playAssert(playsession.setUserInfo(session,
   "\\name\\Lefty\\skin\\female/athena\\hand\\1\\rate\\25000"),
   "live player userinfo was not queued")

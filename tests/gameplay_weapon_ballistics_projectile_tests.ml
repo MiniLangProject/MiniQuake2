@@ -185,6 +185,10 @@ function testBfgLaserTouchEffectFrames()
   global radiusTargets, traceMode, traceTarget
   radiusTargets = [laserVictim]; traceMode = "bfg-laser"; traceTarget = laserVictim
   bfg = wbprojectiles.fireBfg(context, owner, qt.zeroVec3(), qt.Vec3(1.0, 0.0, 0.0), 200, 400.0, 100.0)
+  assertEqual(bfg.modelName, "sprites/s_bfg1.sp2", "BFG flight sprite")
+  assertEqual(bfg.soundName, "weapons/bfg__l1a.wav", "BFG flight loop sound")
+  assertEqual((bfg.effects & wbconstants.EF_ANIM_ALLFAST) != 0, true,
+    "BFG fast flight animation effect")
   wbcore.advance(context, 0.1)
   assertEqual(laserVictim.combatant.health, 490, "BFG scanning laser damage")
   assertEqual(damageMeans[0], gpconstants.MOD_BFG_LASER, "BFG laser MOD")
@@ -196,6 +200,10 @@ function testBfgLaserTouchEffectFrames()
   wbcore.touchProjectile(context, bfg, direct, makeTrace(0.2, direct.origin, direct, 0))
   assertEqual(direct.combatant.health, 300, "BFG direct blast")
   assertEqual(bfg.solid, wbconstants.SOLID_NOT, "BFG becomes non-solid")
+  assertEqual(bfg.modelName, "sprites/s_bfg3.sp2", "BFG explosion sprite")
+  assertEqual(bfg.soundName, "", "BFG flight loop stops on impact")
+  assertEqual((bfg.effects & wbconstants.EF_ANIM_ALLFAST) == 0, true,
+    "BFG explosion clears fast flight animation")
   wbcore.advance(context, 0.1)
   assertEqual(damageMeans[3], gpconstants.MOD_BFG_EFFECT, "BFG effect MOD")
   wbcore.advance(context, 0.1); wbcore.advance(context, 0.1); wbcore.advance(context, 0.1); wbcore.advance(context, 0.1); wbcore.advance(context, 0.1)

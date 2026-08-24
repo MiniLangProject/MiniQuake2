@@ -234,15 +234,19 @@ native-device `idlog.cin` playback; see
 [`docs/HARDWARE_ACCEPTANCE.md`](docs/HARDWARE_ACCEPTANCE.md).
 
 These results are strong vertical-slice and compatibility evidence, not a claim
-that every original campaign behavior or pixel is already identical. The
-remaining release work is concentrated in original-process interoperability
-(the installed 3.20 executable exits before networking on this host), paired
-original player view-model/recoil pixel captures and full encounter traces beyond the fixed
-renderer/sequence fixtures, broader multi-host GPU/device coverage, exhaustive
-turret/boss interaction playthroughs, and manual device acceptance. Retail
-class, stock monster damage-emission, pain/death movement and reachable
-secondary callback coverage are closed, but that is deliberately narrower than
-a full campaign playthrough or frame-for-frame whole-session AI parity claim.
+that every original product function, campaign behavior or pixel is already
+identical. The current code audit also identifies concrete remaining product
+work: the Game API client-command surface, menu-first startup and full
+multiplayer/player-setup UI, integrated client downloads, server administration
+and discovery, level music, single-player pause, demo recording/screenshots and
+hardware gamma/controller completion. Separate evidence remains open for
+original-process interoperability (the installed 3.20 executable exits before
+networking on this host), paired player view-model/recoil captures, full
+encounter traces, broader multi-host GPU/device coverage and manual device
+acceptance. Retail class, stock monster damage-emission, pain/death movement
+and reachable secondary callback coverage are closed, but that is deliberately
+narrower than a full campaign playthrough or frame-for-frame whole-session AI
+parity claim. See [`docs/PARITY_AUDIT.md`](docs/PARITY_AUDIT.md).
 
 The canonical local reference remains commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. Its 4,525 C definitions remain in
@@ -327,6 +331,7 @@ without treating an expected combat/environment death as a transport failure.
 - [Ten-point implementation and acceptance plan](docs/PORT_PLAN.md)
 - [Release, Debug and deterministic package acceptance](docs/RELEASE_ACCEPTANCE.md)
 - [Player-facing playability and parity matrix](docs/PLAYABILITY_MATRIX.md)
+- [Current functional and evidence parity audit](docs/PARITY_AUDIT.md)
 - [Reference inventory method and counts](docs/reference/README.md)
 - [Known risks and release-blocking gates](BLOCK_LEDGER.json)
 - [License terms](LICENSE.md) and [retained notices](NOTICE.md)

@@ -1,5 +1,6 @@
 /* Real two-client UDP deathmatch session: signon, kill, score, respawn, snapshots. */
 import miniquake2.network.constants as mpdtestnetworkconstants
+import miniquake2.qcommon.constants as mpdtestqconstants
 import miniquake2.qcommon.types as mpdtestqtypes
 import miniquake2.game.constants as mpdtestgameconstants
 import miniquake2.game.player.constants as mpdtestplayerconstants
@@ -69,6 +70,19 @@ mpdAssert(mpdProbe.engineNumber >= 0 and
   mpdtestsession.snapshotHasEntity(mpdSession, 0, mpdProbe.engineNumber) and
   mpdtestsession.snapshotHasEntity(mpdSession, 1, mpdProbe.engineNumber),
   "live Blaster projectile was absent from two-client snapshots")
+mpdAssert(mpdProbe.modelIndex > 0 and mpdProbe.soundIndex > 0 and
+  mpdSession.server.gameExport.edicts[mpdProbe.engineNumber].state.modelIndex ==
+    mpdProbe.modelIndex,
+  "live Blaster projectile did not publish its model/sound indexes")
+mpdAssert(mpdSession.clients[0].integrated.network.configStrings[
+    mpdtestqconstants.CS_MODELS + mpdProbe.modelIndex] == mpdProbe.modelName and
+  mpdSession.clients[1].integrated.network.configStrings[
+    mpdtestqconstants.CS_MODELS + mpdProbe.modelIndex] == mpdProbe.modelName and
+  mpdSession.clients[0].integrated.network.configStrings[
+    mpdtestqconstants.CS_SOUNDS + mpdProbe.soundIndex] == mpdProbe.soundName and
+  mpdSession.clients[1].integrated.network.configStrings[
+    mpdtestqconstants.CS_SOUNDS + mpdProbe.soundIndex] == mpdProbe.soundName,
+  "live Blaster model/sound configstrings did not reach both clients")
 mpdtestweaponcore.freeProjectile(mpdProbeRuntime.weaponContext, mpdProbe)
 
 // Let initial blaster activation finish, then establish an unobstructed

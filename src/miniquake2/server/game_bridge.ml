@@ -118,7 +118,10 @@ end function
 function configString(index, value)
   context = requireActive("configstring")
   if index < 0 or index >= len(context.configStrings) then return error(3901, "configstring index outside table") end if
-  context.configStrings[index] = value
+  if context.configStrings[index] != value then
+    context.configStrings[index] = value
+    context.configStringDirty[index] = true
+  end if
   return true
 end function
 
@@ -145,21 +148,21 @@ end function
 function bridgeModelIndex(name)
   context = requireActive("modelindex")
   index = findIndex(context.modelNames, name, true)
-  if index > 0 then context.configStrings[qc.CS_MODELS + index] = name end if
+  if index > 0 then configString(qc.CS_MODELS + index, name) end if
   return index
 end function
 
 function bridgeSoundIndex(name)
   context = requireActive("soundindex")
   index = findIndex(context.soundNames, name, true)
-  if index > 0 then context.configStrings[qc.CS_SOUNDS + index] = name end if
+  if index > 0 then configString(qc.CS_SOUNDS + index, name) end if
   return index
 end function
 
 function bridgeImageIndex(name)
   context = requireActive("imageindex")
   index = findIndex(context.imageNames, name, true)
-  if index > 0 then context.configStrings[qc.CS_IMAGES + index] = name end if
+  if index > 0 then configString(qc.CS_IMAGES + index, name) end if
   return index
 end function
 
@@ -793,7 +796,11 @@ function createRuntime(maxClients)
     i = i + 1
   end while
   pendingSoundStorage = array(ssoundevents.MAX_PENDING_SOUND_EVENTS, void)
-  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients, array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""), sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, pendingSoundStorage, 0, 0, [], registry, commandSystem, void, void,
+  return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients,
+    array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_CONFIGSTRINGS, false),
+    array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""),
+    sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, pendingSoundStorage, 0, 0,
+    [], registry, commandSystem, void, void,
     array(qc.MAX_EDICTS, void), 0, array(qc.MAX_EDICTS, 0),
     array(qc.MAX_EDICTS, -1),
     array(qc.MAX_EDICTS, void), array(qc.MAX_EDICTS, 0), 0)

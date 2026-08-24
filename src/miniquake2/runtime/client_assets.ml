@@ -34,6 +34,10 @@ function refreshClientInfos(state, configStrings)
   return caregistry.refreshClientInfos(state, configStrings)
 end function
 
+function refreshConfigStrings(state, configStrings)
+  return caregistry.refreshConfigStrings(state, configStrings)
+end function
+
 function bindings(state)
   return caregistry.bindings(state)
 end function

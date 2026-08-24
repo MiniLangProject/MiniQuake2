@@ -297,7 +297,7 @@ function refreshClientInfos(state, configStrings)
     if typeof(value) != "string" then return error(8407, "player skin configstring is not text") end if
     if value != state.clientConfigStrings[index] then
       state.clientConfigStrings[index] = value
-      if value == "" then state.clientInfos[index] = void
+      if value == "" then state.clientInfos[index] = state.baseClientInfo
       else state.clientInfos[index] = loadClientInfo(state, value)
       end if
       changed = changed + 1
@@ -305,6 +305,107 @@ function refreshClientInfos(state, configStrings)
     index = index + 1
   end while
   return changed
+end function
+
+// Quake II may allocate model, sound and image configstrings after sign-on.
+// Weapon projectiles are the common case: g_weapon.c calls modelindex when a
+// shot is spawned, so an active client must register the new indexed asset
+// without restarting the whole map registration generation.
+function refreshConfigStrings(state, configStrings)
+  if typeof(configStrings) != "array" or len(configStrings) < carqc.MAX_CONFIGSTRINGS then
+    return error(8403, "client asset configstring table is truncated")
+  end if
+  index = 1
+  while index < carqc.MAX_MODELS
+    if typeof(configStrings[carqc.CS_MODELS + index]) != "string" then
+      return error(8404, "model configstring is not text")
+    end if
+    index = index + 1
+  end while
+  index = 1
+  while index < carqc.MAX_SOUNDS
+    if typeof(configStrings[carqc.CS_SOUNDS + index]) != "string" then
+      return error(8405, "sound configstring is not text")
+    end if
+    index = index + 1
+  end while
+  index = 0
+  while index < carqc.MAX_CLIENTS
+    if typeof(configStrings[carqc.CS_PLAYERSKINS + index]) != "string" then
+      return error(8407, "player skin configstring is not text")
+    end if
+    index = index + 1
+  end while
+
+  changed = 0
+  weaponModelsChanged = false
+  index = 1
+  while index < carqc.MAX_MODELS
+    name = configStrings[carqc.CS_MODELS + index]
+    entry = state.modelEntries[index]
+    if name == "" then
+      if entry is not void and entry.name != "" then
+        state.modelEntries[index] = cartypes.AssetEntry("model", index, "", void,
+          state.generation, false, "cleared")
+        changed = changed + 1
+      end if
+    else if bytes(name)[0] == 35 then
+      if entry is not void and entry.name != "" then
+        state.modelEntries[index] = cartypes.AssetEntry("model", index, "", void,
+          state.generation, false, "deferred-player-weapon")
+        changed = changed + 1
+      end if
+      if len(bytes(name)) > 1 then
+        weaponName = textSlice(name, 1, len(bytes(name)) - 1)
+        known = false; weaponIndex = 0
+        while weaponIndex < state.weaponModelCount and not known
+          if state.weaponModelNames[weaponIndex] == weaponName then known = true end if
+          weaponIndex = weaponIndex + 1
+        end while
+        if not known and state.weaponModelCount < MAX_CLIENT_WEAPON_MODELS then
+          state.weaponModelNames[state.weaponModelCount] = weaponName
+          state.weaponModelCount = state.weaponModelCount + 1
+          weaponModelsChanged = true
+          changed = changed + 1
+        end if
+      end if
+    else if entry is void or entry.name != name then
+      state.modelEntries[index] = loadModelAsset(state, index, name)
+      changed = changed + 1
+    end if
+    index = index + 1
+  end while
+
+  index = 1
+  while index < carqc.MAX_SOUNDS
+    name = configStrings[carqc.CS_SOUNDS + index]
+    entry = state.soundEntries[index]
+    if name == "" then
+      if entry is not void and entry.name != "" then
+        state.soundEntries[index] = cartypes.AssetEntry("sound", index, "", void,
+          state.generation, false, "cleared")
+        changed = changed + 1
+      end if
+    else if entry is void or entry.name != name then
+      state.soundEntries[index] = loadSoundAsset(state, index, name)
+      changed = changed + 1
+    end if
+    index = index + 1
+  end while
+
+  if weaponModelsChanged then
+    state.baseClientInfo = loadClientInfo(state, "unnamed\\male/grunt")
+    index = 0
+    while index < carqc.MAX_CLIENTS
+      value = configStrings[carqc.CS_PLAYERSKINS + index]
+      state.clientConfigStrings[index] = value
+      if value == "" then state.clientInfos[index] = state.baseClientInfo
+      else state.clientInfos[index] = loadClientInfo(state, value)
+      end if
+      index = index + 1
+    end while
+  end if
+  return changed + refreshClientInfos(state, configStrings)
 end function
 
 function clientInfo(state, index)

@@ -107,6 +107,23 @@ soundCallCount = len(soundCalls)
 registryAssert(bindings.soundName("WEAPONS/UNIT2.WAV").name == "weapons/unit2.wav" and
   len(soundCalls) == soundCallCount, "case-insensitive sound cache failed")
 
+configStrings[car_test_qc.CS_MODELS + 7] = "models/objects/laser/tris.md2"
+configStrings[car_test_qc.CS_SOUNDS + 5] = "misc/lasfly.wav"
+registryAssert(car_test_registry.refreshConfigStrings(state, configStrings) == 2,
+  "live indexed asset refresh count mismatch")
+registryAssert(bindings.modelIndex(7).name == "models/objects/laser/tris.md2" and
+  bindings.soundIndex(5).name == "misc/lasfly.wav",
+  "live projectile model/sound configstrings were not registered")
+configStrings[car_test_qc.CS_MODELS + 8] = "#w_dynamic.md2"
+registryAssert(car_test_registry.refreshConfigStrings(state, configStrings) == 1 and
+  bindings.playerWeapon(0, 2).name == "players/male/w_dynamic.md2",
+  "live player weapon model configstring was not registered")
+configStrings[car_test_qc.CS_MODELS + 7] = ""
+configStrings[car_test_qc.CS_SOUNDS + 5] = ""
+registryAssert(car_test_registry.refreshConfigStrings(state, configStrings) == 2 and
+  bindings.modelIndex(7) is void and bindings.soundIndex(5) is void,
+  "cleared live indexed assets remained bound")
+
 registryAssert(bindings.modelName("models/missing.md2") is void, "missing model resolved")
 missingModelCallCount = len(modelCalls)
 registryAssert(bindings.modelName("models/missing.md2") is void and

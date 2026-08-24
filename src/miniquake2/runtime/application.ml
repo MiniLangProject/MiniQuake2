@@ -612,7 +612,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
             applicationDemoAssetStateHolder is void then
           return error(9951, "demo snapshot arrived before map registration")
         end if
-        appclientassets.refreshClientInfos(applicationDemoAssetStateHolder,
+        appclientassets.refreshConfigStrings(applicationDemoAssetStateHolder,
           applicationDemoSessionHolder.runtime.network.configStrings)
         applicationDemoFrameHolder = appclientstate.buildRefDef(
           applicationDemoSessionHolder.runtime.client, 1.0,
@@ -1431,7 +1431,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       stepResult = appplay.step(session)
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
-      appclientassets.refreshClientInfos(assetState,
+      appclientassets.refreshConfigStrings(assetState,
         session.client.integrated.network.configStrings)
       if appmediaseq.takeQueuedLoadMenu(session.server.bridgeRuntime.commands) then
         appuimenu.open(screen.menu, "load")

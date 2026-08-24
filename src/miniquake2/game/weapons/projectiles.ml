@@ -46,6 +46,8 @@ function fireBlaster(context, owner, start, direction, damage, speed, effect, hy
   projectile.clipMask = qc.MASK_SHOT
   projectile.solid = wbconstants.SOLID_BBOX
   projectile.effects = effect
+  projectile.modelName = "models/objects/laser/tris.md2"
+  projectile.soundName = "misc/lasfly.wav"
   projectile.owner = owner
   projectile.touch = blasterTouch
   projectile.nextThink = context.time + 2.0
@@ -126,6 +128,11 @@ function configureGrenade(context, owner, start, direction, damage, speed, timer
   projectile.clipMask = qc.MASK_SHOT
   projectile.solid = wbconstants.SOLID_BBOX
   projectile.effects = wbconstants.EF_GRENADE
+  projectile.modelName = "models/objects/grenade/tris.md2"
+  if hand then
+    projectile.modelName = "models/objects/grenade2/tris.md2"
+    projectile.soundName = "weapons/hgrenc1b.wav"
+  end if
   projectile.owner = owner
   projectile.touch = grenadeTouch
   projectile.think = grenadeExplode
@@ -178,6 +185,8 @@ function fireRocket(context, owner, start, direction, damage, speed, damageRadiu
   projectile.clipMask = qc.MASK_SHOT
   projectile.solid = wbconstants.SOLID_BBOX
   projectile.effects = wbconstants.EF_ROCKET
+  projectile.modelName = "models/objects/rocket/tris.md2"
+  projectile.soundName = "weapons/rockfly.wav"
   projectile.owner = owner
   projectile.touch = rocketTouch
   projectile.damage = damage
@@ -266,6 +275,11 @@ function bfgTouch(projectile, other, trace, context)
   projectile.think = bfgExplode
   projectile.nextThink = context.time + context.frameTime
   projectile.frame = 0
+  projectile.modelName = "sprites/s_bfg3.sp2"
+  projectile.soundName = ""
+  projectile.modelIndex = 0
+  projectile.soundIndex = 0
+  projectile.effects = projectile.effects & ~wbconstants.EF_ANIM_ALLFAST
   context.callbacks.sound(projectile, "weapons/bfg__x1b.wav")
   wbcore.emitEffect(context, "bfg-big-explosion", projectile.origin, projectile.origin, qt.Vec3(0.0, 0.0, 1.0), 0, 1)
   return true
@@ -280,7 +294,9 @@ function fireBfg(context, owner, start, direction, damage, speed, damageRadius)
   projectile.moveType = wbconstants.MOVETYPE_FLYMISSILE
   projectile.clipMask = qc.MASK_SHOT
   projectile.solid = wbconstants.SOLID_BBOX
-  projectile.effects = wbconstants.EF_BFG
+  projectile.effects = wbconstants.EF_BFG | wbconstants.EF_ANIM_ALLFAST
+  projectile.modelName = "sprites/s_bfg1.sp2"
+  projectile.soundName = "weapons/bfg__l1a.wav"
   projectile.owner = owner
   projectile.touch = bfgTouch
   projectile.think = bfgThink

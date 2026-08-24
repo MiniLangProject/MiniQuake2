@@ -60,9 +60,12 @@ emitting one JSON acceptance report below `build/`.
 
 ## Remaining boundary
 
-`vid_gamma` is persisted but does not yet drive a hardware gamma ramp. Save
-slots intentionally show map names only; classic screenshots/timestamps are a
-presentation enhancement, not a restore gap. The current host passes real
-fullscreen GL restart and default-device cinematic audio; additional GPUs,
-explicit endpoint selection, hot-unplug and manual latency remain external as
-listed in [`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md).
+`vid_gamma` is persisted but does not yet drive a hardware gamma ramp. Level
+music/CD-track semantics are also not connected to the gameplay product.
+Save slots intentionally show map names only; classic screenshots/timestamps
+are a presentation enhancement, not a restore gap. The current host passes
+real fullscreen GL restart and default-device cinematic audio; additional
+GPUs, explicit endpoint selection, hot-unplug and manual latency remain
+external as listed in [`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md). The
+remaining functional product surface is tracked in
+[`PARITY_AUDIT.md`](PARITY_AUDIT.md).

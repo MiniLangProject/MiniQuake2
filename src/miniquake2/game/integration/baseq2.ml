@@ -1407,24 +1407,14 @@ function integratedWeaponLink(entity)
   ibProjectileEdictHolder.state.effects = entity.effects
   ibProjectileEdictHolder.state.frame = entity.frame
   ibProjectileImportsHolder = ibProjectileRuntimeHolder.playerContext.imports
-  ibProjectileModelName = ""
-  ibProjectileSoundName = ""
-  if entity.className == "bolt" then
-    ibProjectileModelName = "models/objects/laser/tris.md2"
-    ibProjectileSoundName = "misc/lasfly.wav"
-  else if entity.className == "grenade" then ibProjectileModelName = "models/objects/grenade/tris.md2"
-  else if entity.className == "hgrenade" then
-    ibProjectileModelName = "models/objects/grenade2/tris.md2"
-    ibProjectileSoundName = "weapons/hgrenc1b.wav"
-  else if entity.className == "rocket" then
-    ibProjectileModelName = "models/objects/rocket/tris.md2"
-    ibProjectileSoundName = "weapons/rockfly.wav"
-  else if entity.className == "bfg blast" then
-    ibProjectileModelName = "sprites/s_bfg1.sp2"
-    ibProjectileSoundName = "weapons/bfg__l1a.wav"
+  if entity.modelName != "" and entity.modelIndex == 0 then
+    entity.modelIndex = ibProjectileImportsHolder.modelIndex(entity.modelName)
   end if
-  if ibProjectileModelName != "" then ibProjectileEdictHolder.state.modelIndex = ibProjectileImportsHolder.modelIndex(ibProjectileModelName) end if
-  if ibProjectileSoundName != "" then ibProjectileEdictHolder.state.sound = ibProjectileImportsHolder.soundIndex(ibProjectileSoundName) end if
+  if entity.soundName != "" and entity.soundIndex == 0 then
+    entity.soundIndex = ibProjectileImportsHolder.soundIndex(entity.soundName)
+  end if
+  ibProjectileEdictHolder.state.modelIndex = entity.modelIndex
+  ibProjectileEdictHolder.state.sound = entity.soundIndex
   ibProjectileExportHolder.edicts[ibProjectileEngineNumber] = ibProjectileEdictHolder
   ibProjectileStoredEdictHolder = ibProjectileExportHolder.edicts[ibProjectileEngineNumber]
   ibgametypes.stabilizeEdict(ibProjectileStoredEdictHolder)
@@ -3842,6 +3832,18 @@ function syncGameEdicts(runtime, exportTable)
       ibSyncProjectileEdictHolder.state.angles = weaponVector(ibSyncProjectileHolder.angles)
       ibSyncProjectileEdictHolder.state.effects = ibSyncProjectileHolder.effects
       ibSyncProjectileEdictHolder.state.frame = ibSyncProjectileHolder.frame
+      if runtime.playerContext is not void then
+        if ibSyncProjectileHolder.modelName != "" and ibSyncProjectileHolder.modelIndex == 0 then
+          ibSyncProjectileHolder.modelIndex = runtime.playerContext.imports.modelIndex(
+            ibSyncProjectileHolder.modelName)
+        end if
+        if ibSyncProjectileHolder.soundName != "" and ibSyncProjectileHolder.soundIndex == 0 then
+          ibSyncProjectileHolder.soundIndex = runtime.playerContext.imports.soundIndex(
+            ibSyncProjectileHolder.soundName)
+        end if
+      end if
+      ibSyncProjectileEdictHolder.state.modelIndex = ibSyncProjectileHolder.modelIndex
+      ibSyncProjectileEdictHolder.state.sound = ibSyncProjectileHolder.soundIndex
       ibSyncProjectileEdictHolder.mins = weaponVector(ibSyncProjectileHolder.mins)
       ibSyncProjectileEdictHolder.maxs = weaponVector(ibSyncProjectileHolder.maxs)
       exportTable.edicts[ibSyncProjectileHolder.engineNumber] = ibSyncProjectileEdictHolder

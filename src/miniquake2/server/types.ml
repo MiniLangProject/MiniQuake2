@@ -47,6 +47,7 @@ struct ServerRuntime
   maxClients
   clients
   configStrings
+  configStringDirty
   modelNames
   soundNames
   imageNames

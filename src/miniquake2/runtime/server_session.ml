@@ -22,11 +22,13 @@ import miniquake2.game.null_game as ssgame
 import miniquake2.game.base.spawn as ssbasespawn
 import miniquake2.protocol.constants as sspc
 import miniquake2.protocol.types as sspt
+import miniquake2.protocol.netchan as ssnetchan
 import miniquake2.network.constants as ssnc
 import miniquake2.network.server as ssserver
 import miniquake2.network.snapshot as sssnapshot
 import miniquake2.network.runtime.types as ssnrtypes
 import miniquake2.network.runtime.game_adapter as ssgameadapter
+import miniquake2.network.runtime.messages as ssmessages
 import miniquake2.network.runtime.commands as sscommands
 import miniquake2.network.runtime.pump as sspump
 import miniquake2.network.runtime.sound_dispatch as ssounddispatch
@@ -339,7 +341,27 @@ function synchronizeConfigStrings(session)
   bridge = session.bridgeRuntime
   index = 0
   while index < len(bridge.configStrings)
-    if bridge.configStrings[index] != "" then runtime.configStrings[index] = bridge.configStrings[index] end if
+    if bridge.configStringDirty[index] then
+      value = bridge.configStrings[index]
+      if runtime.configStrings[index] != value then
+        slot = 0
+        while slot < runtime.server.maxClients
+          client = runtime.server.clients[slot]
+          if client.state == ssnc.CS_SPAWNED and client.channel is not void then
+            buffer = ssqsz.alloc(ssqc.MAX_STRING_CHARS + 4)
+            ssmessages.writeConfigString(buffer, index, value)
+            // Stage on the recipient's ordinary reliable message exactly like
+            // SV_Configstring. The following unicast/multicast/sound dispatch
+            // can then coalesce same-frame commands into one ordered reliable
+            // payload instead of forcing the sound queue behind a new ACK.
+            ssnetchan.queueReliable(client.channel, ssqsz.dataSlice(buffer))
+          end if
+          slot = slot + 1
+        end while
+        runtime.configStrings[index] = value
+      end if
+      bridge.configStringDirty[index] = false
+    end if
     index = index + 1
   end while
   runtime.configStrings[ssqc.CS_NAME] = session.mapName
@@ -479,6 +501,7 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.timeMilliseconds = 0
   bridge.frameNumber = 0
   bridge.configStrings = array(ssqc.MAX_CONFIGSTRINGS, "")
+  bridge.configStringDirty = array(ssqc.MAX_CONFIGSTRINGS, false)
   bridge.modelNames = array(ssqc.MAX_MODELS, "")
   bridge.soundNames = array(ssqc.MAX_SOUNDS, "")
   bridge.imageNames = array(ssqc.MAX_IMAGES, "")
@@ -524,6 +547,7 @@ function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeOldBridgeTime = serverSessionChangeBridgeHolder.timeMilliseconds
   serverSessionChangeOldBridgeFrame = serverSessionChangeBridgeHolder.frameNumber
   serverSessionChangeOldConfigStringsHolder = serverSessionChangeBridgeHolder.configStrings
+  serverSessionChangeOldConfigStringDirtyHolder = serverSessionChangeBridgeHolder.configStringDirty
   serverSessionChangeOldModelNamesHolder = serverSessionChangeBridgeHolder.modelNames
   serverSessionChangeOldSoundNamesHolder = serverSessionChangeBridgeHolder.soundNames
   serverSessionChangeOldImageNamesHolder = serverSessionChangeBridgeHolder.imageNames
@@ -547,6 +571,7 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder.timeMilliseconds = serverSessionChangeOldBridgeTime
     serverSessionChangeBridgeHolder.frameNumber = serverSessionChangeOldBridgeFrame
     serverSessionChangeBridgeHolder.configStrings = serverSessionChangeOldConfigStringsHolder
+    serverSessionChangeBridgeHolder.configStringDirty = serverSessionChangeOldConfigStringDirtyHolder
     serverSessionChangeBridgeHolder.modelNames = serverSessionChangeOldModelNamesHolder
     serverSessionChangeBridgeHolder.soundNames = serverSessionChangeOldSoundNamesHolder
     serverSessionChangeBridgeHolder.imageNames = serverSessionChangeOldImageNamesHolder
