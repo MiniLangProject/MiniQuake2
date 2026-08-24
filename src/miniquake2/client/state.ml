@@ -8,6 +8,7 @@ import miniquake2.qcommon.types as cqt
 import miniquake2.protocol.types as pt
 import miniquake2.renderer.constants as crc
 import miniquake2.renderer.types as crt
+import miniquake2.client.effects.constants as cseconstants
 
 struct ClientRuntime
   state
@@ -129,10 +130,21 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
   oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
   oldFrame = state.frame
   if oldState is not void then oldFrame = oldState.frame end if
+  flags = state.renderFx
   alpha = 1.0
-  if (state.renderFx & crc.RF_TRANSLUCENT) != 0 then alpha = 0.70 end if
+  if (flags & crc.RF_TRANSLUCENT) != 0 then alpha = 0.70 end if
+  if (state.effects & cseconstants.EF_BFG) != 0 then
+    flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
+  end if
+  if (state.effects & cseconstants.EF_PLASMA) != 0 then
+    flags = flags | crc.RF_TRANSLUCENT; alpha = 0.60
+  end if
+  if (state.effects & cseconstants.EF_SPHERETRANS) != 0 then
+    flags = flags | crc.RF_TRANSLUCENT; alpha = 0.30
+    if (state.effects & cseconstants.EF_TRACKERTRAIL) != 0 then alpha = 0.60 end if
+  end if
   output[outputIndex] = crt.entity(model, angles, origin, state.frame, oldOrigin,
-    oldFrame, 1.0 - fraction, state.skinNum, 0, alpha, void, state.renderFx)
+    oldFrame, 1.0 - fraction, state.skinNum, 0, alpha, void, flags)
   return outputIndex + 1
 end function
 

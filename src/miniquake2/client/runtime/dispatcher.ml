@@ -75,6 +75,7 @@ function resetClientState(runtime)
   runtime.effects.sustains = []
   runtime.effects.soundEvents = []
   runtime.effects.time = 0
+  cestate.resetEntityTrails(runtime.effects)
   runtime.prints = []
   runtime.centerPrints = []
   runtime.layouts = []

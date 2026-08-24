@@ -35,6 +35,7 @@ import miniquake2.client.ui.config as appuiconfig
 import miniquake2.client.state as appclientstate
 import miniquake2.client.prediction as appprediction
 import miniquake2.client.effects.handoff as appeffecthandoff
+import miniquake2.client.effects.entity as appentityeffects
 import miniquake2.client.cinematic.audio as appcinaudio
 import miniquake2.client.cinematic.player as appcinplayer
 import miniquake2.client.cinematic.picture as appcinpicture
@@ -594,6 +595,12 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
           applicationDemoSessionHolder.runtime.effects,
           applicationDemoMixerHolder, resolvePlayEntityPosition,
           applicationDemoFrameHolder.viewOrigin, applicationDemoAxesHolder[1])
+        appentityeffects.emit(applicationDemoSessionHolder.runtime.effects,
+          applicationDemoSessionHolder.runtime.client.current,
+          applicationDemoSessionHolder.runtime.client.previous, 1.0,
+          applicationDemoSessionHolder.runtime.client.serverTime,
+          applicationDemoSessionHolder.runtime.network.playerNumber + 1,
+          applicationDemoFrameHolder)
         appeffecthandoff.apply(applicationDemoSessionHolder.runtime.effects,
           applicationDemoFrameHolder,
           applicationDemoSessionHolder.runtime.client.serverTime,
@@ -1386,6 +1393,10 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     // dispatched.  Keep advances on that same monotonic epoch; the render
     // clock above intentionally starts only after signon has completed.
     effectNow = appbyteio.truncInt(appsystem.milliseconds(session.client.clock))
+    appentityeffects.emit(session.client.integrated.effects,
+      session.client.integrated.client.current,
+      session.client.integrated.client.previous, fraction, effectNow,
+      session.client.integrated.network.playerNumber + 1, frame)
     appeffecthandoff.apply(session.client.integrated.effects, frame, effectNow, resolvePlayEffectModel)
     applicationPerfWorldStart = appsystem.milliseconds(clock)
     applicationPerfClient = applicationPerfClient +

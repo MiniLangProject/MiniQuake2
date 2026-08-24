@@ -84,6 +84,12 @@ struct AudioCallbacks
   play
 end struct
 
+struct EntityTrail
+  origin
+  trailCount
+  serverFrame
+end struct
+
 struct State
   time
   randomSeed
@@ -95,5 +101,6 @@ struct State
   explosions
   sustains
   soundEvents
+  entityTrails
   audio
 end struct

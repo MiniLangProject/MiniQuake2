@@ -5,6 +5,7 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.validation as rval
 import miniquake2.server.snapshot as ssnap
 import miniquake2.client.state as cstate
+import miniquake2.client.effects.constants as ceconstants
 import miniquake2.qcommon.constants as qc
 
 function assertEqual(actual, expected, name)
@@ -68,6 +69,16 @@ function testSnapshotsAndRefDef()
   assertEqual(frame.entities[2].origin.x, 11.5, "view weapon offset interpolation")
   assertEqual(frame.entities[2].flags & rc.RF_WEAPONMODEL, rc.RF_WEAPONMODEL,
     "view weapon render flags")
+
+  bfgClient = cstate.create()
+  bfgEntity = makeEntity(0.0, 0)
+  bfgEntity.effects = ceconstants.EF_BFG
+  cstate.acceptSnapshot(bfgClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    firstPlayer, [bfgEntity]))
+  bfgFrame = cstate.buildRefDef(bfgClient, 1.0, 640, 480, resolveModel)
+  assertEqual(bfgFrame.entities[0].flags & rc.RF_TRANSLUCENT, rc.RF_TRANSLUCENT,
+    "BFG entity translucency")
+  assertNear(bfgFrame.entities[0].alpha, 0.30, 0.0001, "BFG entity source alpha")
 
   cstate.acceptPrediction(client, [160, 80, 32], [40.0, 50.0, 60.0])
   predictedFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,

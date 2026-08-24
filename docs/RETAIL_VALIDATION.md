@@ -26,6 +26,11 @@ their 3.19 algorithms and Visual C random stream. All 153 native programs and
 the 10,027-packet synthetic soaks passed; the installed-retail performance and
 campaign evidence above remains the most recent retail-data run.
 
+The subsequent moving-entity effects pass completed a real 100-frame `base1`
+product run with 84 models, 68 sounds, zero missing assets and 2,600 submitted
+entity instances after enabling snapshot-driven projectile trails, lights and
+BFG/Plasma/sphere translucency.
+
 The classic installation contains `3.20_Changes.txt`. It is therefore suitable
 for retail-data validation, but it is not evidence of strict interoperability
 with the contracted unmodified 3.19 binary baseline.

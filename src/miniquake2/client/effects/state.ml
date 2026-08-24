@@ -9,7 +9,8 @@ import miniquake2.client.effects.audio as ceaudio
 
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
-  return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [], audioCallbacks)
+  return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [],
+    array(ceconstants.MAX_ENTITY_TRAILS, false), audioCallbacks)
 end function
 
 function createSilent(randomSeed)
@@ -517,6 +518,200 @@ function railTrail(state, startPosition, endPosition)
   return written
 end function
 
+function simpleEntityTrail(state, startPosition, endPosition, color, originSpread,
+    velocitySpread, alpha, alphaBase, alphaRange, inclusive)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  step = scaled(normalized(delta), 5.0)
+  move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0
+  while (length > 0.0 or (inclusive and length >= 0.0)) and written < reserved
+    length = length - 5.0
+    alphaVelocity = -1.0 / (alphaBase + unitRandom(state) * alphaRange)
+    originX = move.x + centeredRandom(state) * originSpread
+    velocityX = centeredRandom(state) * velocitySpread
+    originY = move.y + centeredRandom(state) * originSpread
+    velocityY = centeredRandom(state) * velocitySpread
+    originZ = move.z + centeredRandom(state) * originSpread
+    velocityZ = centeredRandom(state) * velocitySpread
+    state.particles[start + written] = cetypes.Particle(qt.Vec3(originX, originY, originZ),
+      qt.Vec3(velocityX, velocityY, velocityZ), qt.zeroVec3(), color, alpha,
+      alphaVelocity, state.time)
+    move = add(move, step); written = written + 1
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function blasterTrail(state, startPosition, endPosition, green)
+  color = 0xe0
+  if green then color = 0xd0 end if
+  return simpleEntityTrail(state, startPosition, endPosition, color, 1.0, 5.0,
+    1.0, 0.3, 0.2, false)
+end function
+
+function flagTrail(state, startPosition, endPosition, color, inclusive)
+  return simpleEntityTrail(state, startPosition, endPosition, color, 16.0, 5.0,
+    1.0, 0.8, 0.2, inclusive)
+end function
+
+function ionRipperTrail(state, startPosition, endPosition)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  step = scaled(normalized(delta), 5.0)
+  move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0; left = false
+  while length > 0.0 and written < reserved
+    length = length - 5.0
+    alphaVelocity = -1.0 / (0.3 + unitRandom(state) * 0.2)
+    color = 0xe4 + (random(state) & 3)
+    velocityX = -10.0
+    if left then velocityX = 10.0 end if
+    left = not left
+    state.particles[start + written] = cetypes.Particle(copyVec(move),
+      qt.Vec3(velocityX, 0.0, 0.0), qt.zeroVec3(), color, 0.5,
+      alphaVelocity, state.time)
+    move = add(move, step); written = written + 1
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function diminishingTrail(state, startPosition, endPosition, trail, flags)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  step = scaled(normalized(delta), 0.5)
+  move = copyVec(startPosition)
+  originScale = 1.0; velocityScale = 5.0
+  if trail.trailCount > 900 then
+    originScale = 4.0; velocityScale = 15.0
+  else if trail.trailCount > 800 then
+    originScale = 2.0; velocityScale = 10.0
+  end if
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0
+  while length > 0.0 and written < reserved
+    length = length - 0.5
+    if (random(state) & 1023) < trail.trailCount then
+      gib = (flags & ceconstants.EF_GIB) != 0
+      greenGib = (flags & ceconstants.EF_GREENGIB) != 0
+      alphaRange = 0.2
+      if gib or greenGib then alphaRange = 0.4 end if
+      alphaVelocity = -1.0 / (1.0 + unitRandom(state) * alphaRange)
+      color = 4 + (random(state) & 7)
+      if gib then color = 0xe8 + (color - 4) end if
+      if greenGib then color = 0xdb + (color - 4) end if
+      originX = move.x + centeredRandom(state) * originScale
+      velocityX = centeredRandom(state) * velocityScale
+      originY = move.y + centeredRandom(state) * originScale
+      velocityY = centeredRandom(state) * velocityScale
+      originZ = move.z + centeredRandom(state) * originScale
+      velocityZ = centeredRandom(state) * velocityScale
+      accelerationZ = 20.0
+      if gib or greenGib then
+        accelerationZ = 0.0; velocityZ = velocityZ - ceconstants.PARTICLE_GRAVITY
+      end if
+      state.particles[start + written] = cetypes.Particle(
+        qt.Vec3(originX, originY, originZ), qt.Vec3(velocityX, velocityY, velocityZ),
+        qt.Vec3(0.0, 0.0, accelerationZ), color, 1.0, alphaVelocity, state.time)
+      written = written + 1
+    end if
+    trail.trailCount = trail.trailCount - 5
+    if trail.trailCount < 100 then trail.trailCount = 100 end if
+    move = add(move, step)
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function rocketTrail(state, startPosition, endPosition, trail)
+  written = diminishingTrail(state, startPosition, endPosition, trail,
+    ceconstants.EF_ROCKET)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  step = normalized(delta); move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  fireCount = 0
+  while length > 0.0 and fireCount < reserved
+    length = length - 1.0
+    if (random(state) & 7) == 0 then
+      alphaVelocity = -1.0 / (1.0 + unitRandom(state) * 0.2)
+      color = 0xdc + (random(state) & 3)
+      originX = move.x + centeredRandom(state) * 5.0
+      velocityX = centeredRandom(state) * 20.0
+      originY = move.y + centeredRandom(state) * 5.0
+      velocityY = centeredRandom(state) * 20.0
+      originZ = move.z + centeredRandom(state) * 5.0
+      velocityZ = centeredRandom(state) * 20.0
+      state.particles[start + fireCount] = cetypes.Particle(
+        qt.Vec3(originX, originY, originZ), qt.Vec3(velocityX, velocityY, velocityZ),
+        qt.Vec3(0.0, 0.0, -ceconstants.PARTICLE_GRAVITY), color, 1.0,
+        alphaVelocity, state.time)
+      fireCount = fireCount + 1
+    end if
+    move = add(move, step)
+  end while
+  state.particleCount = start + fireCount
+  return written + fireCount
+end function
+
+function trackerTrail(state, startPosition, endPosition, color)
+  delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
+    endPosition.z - startPosition.z)
+  length = vectorLength(delta)
+  forward = normalized(delta); right = normalRight(forward)
+  up = cross(right, forward); step = scaled(forward, 3.0)
+  move = copyVec(startPosition)
+  start = state.particleCount
+  reserved = reserveParticles(state, ceconstants.MAX_PARTICLES - state.particleCount)
+  written = 0
+  while length > 0.0 and written < reserved
+    length = length - 3.0
+    distance = move.x * forward.x + move.y * forward.y + move.z * forward.z
+    particleOrigin = add(move, scaled(up, 8.0 * cemath.cos(distance)))
+    state.particles[start + written] = cetypes.Particle(particleOrigin,
+      qt.Vec3(0.0, 0.0, 5.0), qt.zeroVec3(), color, 1.0, -2.0, state.time)
+    move = add(move, step); written = written + 1
+  end while
+  state.particleCount = start + written
+  return written
+end function
+
+function instantShellParticles(state, origin, color, count, radius)
+  start = state.particleCount
+  count = reserveParticles(state, count)
+  index = 0
+  while index < count
+    directionX = centeredRandom(state); directionY = centeredRandom(state)
+    directionZ = centeredRandom(state)
+    direction = normalized(qt.Vec3(directionX, directionY, directionZ))
+    state.particles[start + index] = cetypes.Particle(
+      add(origin, scaled(direction, radius)), qt.zeroVec3(), qt.zeroVec3(),
+      color, 1.0, ceconstants.INSTANT_PARTICLE, state.time)
+    index = index + 1
+  end while
+  return index
+end function
+
+function resetEntityTrails(state)
+  index = 0
+  while index < len(state.entityTrails)
+    state.entityTrails[index] = false
+    index = index + 1
+  end while
+  return state
+end function
+
 function addBeam(state, entity, destinationEntity, modelName, start, finish, offset, playerLinked, duration)
   for each beam in state.beams
     if beam.entity == entity and (not playerLinked or beam.playerLinked) and
@@ -645,5 +840,6 @@ function clear(state)
   state.particleCount = 0
   state.dLights = []; state.beams = []; state.lasers = []
   state.explosions = []; state.sustains = []; state.soundEvents = []
+  resetEntityTrails(state)
   return state
 end function

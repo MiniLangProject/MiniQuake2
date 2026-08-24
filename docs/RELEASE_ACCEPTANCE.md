@@ -4,6 +4,24 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 snapshot entity trail and light acceptance run
+
+Normal snapshot entities now consume the stock `effects` bits in addition to
+one-shot temp entities. A fixed 1,024-slot per-client trail table retains the
+last rendered origin and diminishing-trail count without array growth. The
+renderer path ports Rocket smoke/fire, Blaster/green-Blaster, grenade/gib,
+Flag/Tag, Tracker and Ionripper trails plus the stock Rocket, Blaster,
+Hyperblaster, BFG, Trap, flag, Tracker, Ionripper, blue-Hyperblaster and Plasma
+lights. Sorted current/previous snapshot entities are merged in one linear pass.
+BFG, Plasma and sphere entities also receive their original translucent alpha.
+
+Focused lifecycle, client-state, renderer-product, multiplayer-all-weapons and
+Product Host gates passed after a fresh Release product build. A real 100-frame
+`base1` product run registered 84 models and 68 sounds with zero missing assets,
+submitted 2,600 entity instances and exited successfully. Goldens verify stock
+five-unit Blaster spacing, Rocket trail de-duplication, the BFG light ramp and
+local-player flag-light behavior.
+
 ## 2026-08-24 stock particle-family and sustain acceptance run
 
 The Release product and all 153 native test programs were rebuilt and executed

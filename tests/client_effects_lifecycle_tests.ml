@@ -5,11 +5,14 @@ import miniquake2.audio.mixer as amixer
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.validation as rvalidation
+import miniquake2.protocol.types as pt
+import miniquake2.client.runtime.types as crtypes
 import miniquake2.client.effects.types as cetypes
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.audio as ceaudio
 import miniquake2.client.effects.state as cestate
 import miniquake2.client.effects.handoff as cehandoff
+import miniquake2.client.effects.entity as ceentity
 import miniquake2.client.effects.mixer_adapter as cemixer
 
 testSound = void
@@ -94,6 +97,54 @@ cehandoff.apply(instantState, instantSecondFrame, 1, resolveModel)
 assertEqual(instantSecondFrame.numParticles, 0, "instant particle is consumed after handoff")
 cestate.advance(instantState, 1)
 assertEqual(instantState.particleCount, 0, "consumed instant particle returns to pool")
+
+rocketState = cestate.createSilent(13)
+rocketEntity = pt.zeroEntityState()
+rocketEntity.number = 8; rocketEntity.modelIndex = 1
+rocketEntity.oldOrigin = [0.0, 0.0, 0.0]; rocketEntity.origin = [10.0, 0.0, 0.0]
+rocketEntity.effects = ceconstants.EF_ROCKET
+rocketSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [rocketEntity])
+rocketFrame = rt.defaultRefDef(640, 480)
+rocketParticles = ceentity.emit(rocketState, rocketSnapshot, void, 1.0, 0, 0,
+  rocketFrame)
+assertTrue(rocketParticles >= 1, "rocket snapshot emits stock smoke/fire trail")
+assertEqual(rocketFrame.numDLights, 1, "rocket snapshot emits dynamic light")
+assertEqual(rocketFrame.dLights[0].color.x, 1.0, "rocket light red")
+rocketCount = rocketState.particleCount
+rocketRepeatFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(rocketState, rocketSnapshot, void, 1.0, 0, 0, rocketRepeatFrame)
+assertEqual(rocketState.particleCount, rocketCount,
+  "unchanged interpolated rocket position does not duplicate trail")
+
+blasterState = cestate.createSilent(17)
+blasterEntity = pt.zeroEntityState()
+blasterEntity.number = 9; blasterEntity.modelIndex = 1
+blasterEntity.oldOrigin = [0.0, 0.0, 0.0]; blasterEntity.origin = [10.0, 0.0, 0.0]
+blasterEntity.effects = ceconstants.EF_BLASTER
+blasterSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [blasterEntity])
+blasterFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(blasterState, blasterSnapshot, void, 1.0, 0, 0, blasterFrame)
+assertEqual(blasterState.particleCount, 2, "blaster trail stock five-unit spacing")
+assertEqual(blasterFrame.dLights[0].color.y, 1.0, "blaster light green")
+
+bfgState = cestate.createSilent(19)
+bfgEntity = pt.zeroEntityState()
+bfgEntity.number = 10; bfgEntity.modelIndex = 1; bfgEntity.frame = 2
+bfgEntity.effects = ceconstants.EF_BFG
+bfgSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [bfgEntity])
+bfgFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(bfgState, bfgSnapshot, void, 1.0, 0, 0, bfgFrame)
+assertEqual(bfgFrame.dLights[0].intensity, 600.0, "BFG stock frame light ramp")
+
+localState = cestate.createSilent(23)
+localEntity = pt.zeroEntityState()
+localEntity.number = 1; localEntity.modelIndex = 1
+localEntity.effects = ceconstants.EF_FLAG1
+localSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [localEntity])
+localFrame = rt.defaultRefDef(640, 480)
+ceentity.emit(localState, localSnapshot, void, 1.0, 0, 1, localFrame)
+assertEqual(localState.particleCount, 0, "local player flag omits third-person trail")
+assertEqual(localFrame.dLights[0].intensity, 225.0, "local player flag light")
 
 cestate.advance(first, 250)
 assertEqual(len(first.dLights), 0, "dlight expiry")

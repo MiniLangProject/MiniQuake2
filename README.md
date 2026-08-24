@@ -109,7 +109,10 @@ into one reusable 4,096-slot pool instead of copying the live array for every
 effect. Rail/Debug/Forcewall/Bubble trails, Steam/Smoke, login/logout/item
 respawn, teleports, Widow splash and Widow/Nuke sustained effects now use their
 stock spatial, gravity, color and alpha algorithms on the original Win32 CRT
-random sequence; one-frame particles are consumed after renderer handoff. The
+random sequence; one-frame particles are consumed after renderer handoff.
+Moving snapshot entities now add their stock Rocket/Blaster/grenade/gib/flag/
+Tag/Tracker/Ion trails and projectile lights from a fixed per-client trail
+table, while BFG/Plasma/sphere translucency follows the original effect bits. The
 original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
