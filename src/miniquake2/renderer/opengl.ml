@@ -29,6 +29,7 @@ import miniquake2.renderer.classic.world as rclassicworld
 import miniquake2.renderer.classic.visibility as rclassicvisibility
 import miniquake2.renderer.classic.special as rclassicspecial
 import miniquake2.renderer.classic.lightmaps as rclassiclightmaps
+import miniquake2.renderer.classic.point_lighting as rclassicpointlighting
 import miniquake2.renderer.classic.sprites as rclassicsprites
 
 const GL_POINTS = 0x0000
@@ -88,6 +89,8 @@ struct OpenGlState
   rawPixels
   batchRecords
   handedness
+  activeWorld
+  lightLevel
 end struct
 
 // The native bridge creates OpenGL 1.1 names on first bind.  Keeping every
@@ -824,38 +827,80 @@ function prepareOpenGlMd2Entity(backend, entity)
     openGlMd2FrameIndex, openGlMd2OldFrameIndex, entity.backLerp)
 end function
 
-function openGlMd2Shade(entity, time)
-  flags = entity.flags
-  red = 255; green = 255; blue = 255
-  shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
-  if (flags & shellMask) != 0 then
-    red = 0; green = 0; blue = 0
-    if (flags & rc.RF_SHELL_RED) != 0 and (flags & rc.RF_SHELL_GREEN) != 0 and (flags & rc.RF_SHELL_BLUE) != 0 then
-      red = 255; green = 255; blue = 255
-    else if (flags & rc.RF_SHELL_RED) != 0 then
-      red = 255
-      if (flags & (rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE)) != 0 then blue = 255 end if
-    else if (flags & rc.RF_SHELL_BLUE) != 0 then
-      blue = 255
-      if (flags & rc.RF_SHELL_DOUBLE) != 0 then green = 255 end if
-    else if (flags & rc.RF_SHELL_DOUBLE) != 0 then
-      red = 230; green = 179
-    else
-      if (flags & rc.RF_SHELL_HALF_DAM) != 0 then red = 143; green = 150; blue = 115 end if
-      if (flags & rc.RF_SHELL_GREEN) != 0 then green = 255 end if
-    end if
-  else if (flags & rc.RF_GLOW) != 0 then
-    pulse = 1.0 + 0.1 * rmath.sin(time * 7.0)
-    if pulse < 0.8 then pulse = 0.8 end if
-    red = ropenglbyteio.truncInt(red * pulse); green = ropenglbyteio.truncInt(green * pulse); blue = ropenglbyteio.truncInt(blue * pulse)
-    if red > 255 then red = 255 end if
-    if green > 255 then green = 255 end if
-    if blue > 255 then blue = 255 end if
-  end if
-  return red | (green << 8) | (blue << 16)
+function inline openGlShadeByte(component)
+  value = ropenglbyteio.truncInt(component * 255.0 + 0.5)
+  if value < 0 then return 0 end if
+  if value > 255 then return 255 end if
+  return value
 end function
 
-function beginOpenGlMd2Draw(backend, skinAsset, entity, time)
+function openGlMd2ShadeColor(entity, time, rdFlags, baseColor)
+  flags = entity.flags
+  red = baseColor.red; green = baseColor.green; blue = baseColor.blue
+  shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
+  if (flags & shellMask) != 0 then
+    red = 0.0; green = 0.0; blue = 0.0
+    if (flags & rc.RF_SHELL_RED) != 0 and (flags & rc.RF_SHELL_GREEN) != 0 and (flags & rc.RF_SHELL_BLUE) != 0 then
+      red = 1.0; green = 1.0; blue = 1.0
+    else if (flags & rc.RF_SHELL_RED) != 0 then
+      red = 1.0
+      if (flags & (rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE)) != 0 then blue = 1.0 end if
+    else if (flags & rc.RF_SHELL_BLUE) != 0 then
+      blue = 1.0
+      if (flags & rc.RF_SHELL_DOUBLE) != 0 then green = 1.0 end if
+    else if (flags & rc.RF_SHELL_DOUBLE) != 0 then
+      red = 0.9; green = 0.7
+    else
+      if (flags & rc.RF_SHELL_HALF_DAM) != 0 then red = 0.56; green = 0.59; blue = 0.45 end if
+      if (flags & rc.RF_SHELL_GREEN) != 0 then green = 1.0 end if
+    end if
+  else if (flags & rc.RF_FULLBRIGHT) != 0 then
+    red = 1.0; green = 1.0; blue = 1.0
+  end if
+
+  if (flags & rc.RF_MINLIGHT) != 0 and red <= 0.1 and green <= 0.1 and blue <= 0.1 then
+    red = 0.1; green = 0.1; blue = 0.1
+  end if
+  if (flags & rc.RF_GLOW) != 0 then
+    scale = 0.1 * rmath.sin(time * 7.0)
+    minimum = red * 0.8; red = red + scale
+    if red < minimum then red = minimum end if
+    minimum = green * 0.8; green = green + scale
+    if green < minimum then green = minimum end if
+    minimum = blue * 0.8; blue = blue + scale
+    if blue < minimum then blue = minimum end if
+  end if
+  if (rdFlags & rc.RDF_IRGOGGLES) != 0 and (flags & rc.RF_IR_VISIBLE) != 0 then
+    red = 1.0; green = 0.0; blue = 0.0
+  end if
+  return openGlShadeByte(red) | (openGlShadeByte(green) << 8) |
+    (openGlShadeByte(blue) << 16)
+end function
+
+function openGlMd2Shade(entity, time)
+  return openGlMd2ShadeColor(entity, time, 0,
+    rclassictypes.ClassicPointLight(1.0, 1.0, 1.0))
+end function
+
+function openGlMd2FrameShade(backend, frame, entity)
+  shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE |
+    rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
+  baseColor = rclassictypes.ClassicPointLight(1.0, 1.0, 1.0)
+  if (entity.flags & shellMask) == 0 and
+      (entity.flags & rc.RF_FULLBRIGHT) == 0 then
+    baseColor = rclassicpointlighting.pointLight(backend.activeWorld, frame,
+      entity.origin)
+    if (entity.flags & rc.RF_WEAPONMODEL) != 0 then
+      maximum = baseColor.red
+      if baseColor.green > maximum then maximum = baseColor.green end if
+      if baseColor.blue > maximum then maximum = baseColor.blue end if
+      backend.lightLevel = ropenglbyteio.truncInt(150.0 * maximum) & 255
+    end if
+  end if
+  return openGlMd2ShadeColor(entity, frame.time, frame.rdFlags, baseColor)
+end function
+
+function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   entityFlags = entity.flags; entityAlpha = entity.alpha
   entityOrigin = entity.origin; entityAngles = entity.angles
   originX = entityOrigin.x; originY = entityOrigin.y; originZ = entityOrigin.z
@@ -882,7 +927,8 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, time)
   if shell then native.glDisable(GL_TEXTURE_2D)
   else native.glEnable(GL_TEXTURE_2D); native.glBindTexture(GL_TEXTURE_2D, textureId)
   end if
-  shade = openGlMd2Shade(entity, time)
+  shade = openGlMd2Shade(entity, 0.0)
+  if frame is not void then shade = openGlMd2FrameShade(backend, frame, entity) end if
   native.glColor4ub(colorByte(shade, 0), colorByte(shade, 8), colorByte(shade, 16), alpha)
   if mirrored then
     native.glMatrixMode(GL_PROJECTION)
@@ -934,10 +980,10 @@ function inline openGlMd2EntityVisible(backend, entity)
 end function
 
 function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
-    vertexCount, resultBounds, entity, time)
+    vertexCount, resultBounds, entity, frame)
   // Root every managed value before the first native call. The live path uses
   // one flat scalar array, avoiding the temporary MeshVertex object graph.
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, time)
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   native.glBegin(GL_TRIANGLES)
   emitOpenGlMd2Scalars(glVertices)
   native.glEnd()
@@ -948,10 +994,10 @@ end function
 
 function drawOpenGlMd2Plan(backend, plan, entity)
   return drawOpenGlMd2Scalars(backend, plan.skinAsset, plan.glVertices,
-    plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity, 0.0)
+    plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity, void)
 end function
 
-function drawOpenGlMd2EntityFast(backend, modelAsset, entity, time)
+function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame)
   frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
   frameCount = len(modelAsset.source.frames)
   if frameIndex < 0 or frameIndex >= frameCount then
@@ -974,7 +1020,7 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, time)
     rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
   cachePass = 2000 + (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
   if shell then cachePass = cachePass + 10000000 end if
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, time)
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   if native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
     endOpenGlMd2Draw(drawState)
     return Md2SubmitStats(true, triangleCount, triangleCount * 3,
@@ -1004,7 +1050,7 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
     modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
     if modelAsset is not void and modelAsset.kind == "md2" and
         openGlMd2EntityVisible(backend, entity) then
-      drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame.time)
+      drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame)
       submitted = submitted + 1
     end if
     entityIndex = entityIndex + 1
@@ -1028,7 +1074,7 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
         if modelAsset is void then
           drawOpenGlNullEntity(entity); submitted = submitted + 1
         else if modelAsset.kind == "md2" and openGlMd2EntityVisible(backend, entity) then
-          drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame.time); submitted = submitted + 1
+          drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame); submitted = submitted + 1
         else if modelAsset.kind == "sprite" then
           drawOpenGlSpriteEntity(backend, modelAsset, entity, axes); submitted = submitted + 1
         end if
@@ -1356,7 +1402,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1368,7 +1414,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1398,6 +1444,14 @@ end function
 
 function handedness(binding)
   return binding.state.handedness
+end function
+
+function lightLevel(binding)
+  return binding.state.lightLevel
+end function
+
+function md2EntityShade(binding, frame, entity)
+  return openGlMd2FrameShade(binding.state, frame, entity)
 end function
 
 function md2EntityVisible(binding, entity)
@@ -1430,6 +1484,7 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
     binding.state.batchRecords = bytes(requiredBatchBytes)
   end if
   if binding.state.contextActive then precacheOpenGlClassicGeometry(world) end if
+  binding.state.activeWorld = world
   return world
 end function
 
@@ -2100,6 +2155,7 @@ function releaseClassicWorld(binding, world)
     if releaseOpenGlTextureRecord(binding.state, record) then released = released + 1 end if
   end for
   world.released = true
+  if binding.state.activeWorld == world then binding.state.activeWorld = void end if
   // A released handle may remain reachable through product/UI state. Detach
   // all heavyweight CPU ownership so the next BSP can be expanded without
   // retaining the previous map, scene, lightmaps and triangle arrays.

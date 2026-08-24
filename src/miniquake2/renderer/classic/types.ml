@@ -43,6 +43,12 @@ struct ClassicSurface
   cachedLight
 end struct
 
+struct ClassicPointLight
+  red
+  green
+  blue
+end struct
+
 struct TextureChain
   imageName
   surfaces
@@ -155,6 +161,14 @@ struct ClassicWorld
   skyBox
   modulate
   released
+  pointNodeStack
+  pointFarChildStack
+  pointMidXStack
+  pointMidYStack
+  pointMidZStack
+  pointEndXStack
+  pointEndYStack
+  pointEndZStack
 end struct
 
 struct ClassicVisibilitySelection

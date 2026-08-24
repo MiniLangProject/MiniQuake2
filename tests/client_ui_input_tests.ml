@@ -27,10 +27,12 @@ cuikeys.bind(uiInputState, cuic.K_MWHEELUP, "weapnext")
 
 // Set-1 scan 17 is W. Holding it yields the stock 200 u/s move.
 cuikeys.handleEvent(uiInputState, pwindow.InputEvent(cuic.EVENT_SCAN_KEY, 17, 1), 1000)
+uiInputState.lightLevel = 58
 uiInputCmd1 = cuiinput.createUserCmd(uiInputState, 50)
 uiInputAssertEqual(uiInputCmd1.msec, 50, "command msec")
 uiInputAssertEqual(uiInputCmd1.forwardMove, 200.0, "forward move")
 uiInputAssertEqual(uiInputCmd1.buttons & cuic.BUTTON_ANY, cuic.BUTTON_ANY, "any-key bit")
+uiInputAssertEqual(uiInputCmd1.lightLevel, 58, "renderer light level copied to UserCmd")
 
 cuikeys.handleEvent(uiInputState, pwindow.InputEvent(cuic.EVENT_MOUSE_BUTTON, 0, 1), 1050)
 cuiinput.setImpulse(uiInputState, 7)

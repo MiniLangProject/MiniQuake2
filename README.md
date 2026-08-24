@@ -128,6 +128,11 @@ old-frame reset, wide-FOV suppression and depth-hack flags. Player Setup now
 persists right/left/center handedness, mirrors only the left-hand weapon
 projection, hides the center-hand weapon and publishes changes through live
 `clc_userinfo` to the Game API.
+MD2 aliases now sample BSP light data with Quake II's near-first
+`R_LightPoint` traversal, add frame dynamic lights and apply the original
+Fullbright, Minlight, Glow, shell and IR-goggle policies. Fixed world-owned
+trace stacks avoid MiniLang recursion and per-query array growth; the sampled
+view-weapon maximum reaches the next Protocol-34 UserCmd as `lightLevel`.
 The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and

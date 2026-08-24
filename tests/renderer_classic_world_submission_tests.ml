@@ -1,5 +1,6 @@
 /* Synthetic WAL/palette/BSP test for the productive classic world handoff. */
 import miniquake2.format.types as ft
+import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.opengl as ropengl
 import miniquake2.renderer.classic.world as rclassicworld
@@ -71,8 +72,12 @@ function makeMap()
     40, 60, 80, 40, 60, 80, 40, 60, 80, 40, 60, 80
   ])
   plane = ft.BspPlane(ft.Vec3(0.0, 0.0, 1.0), 0.0, 2)
+  node = ft.BspNode(0, -1, -2, ft.Vec3(0.0, 0.0, -2048.0),
+    ft.Vec3(16.0, 16.0, 2048.0), 0, 2)
   model = ft.BspModel(ft.Vec3(0.0, 0.0, 0.0), ft.Vec3(16.0, 16.0, 0.0), ft.Vec3(0.0, 0.0, 0.0), 0, 0, 2)
-  return ft.BspMap("synthetic", bytes(0), [], "", [plane], vertices, void, [], texInfo, faces, lighting, [], [], [], edges, [0, 1, 2, 3], [model], [], [], [], [])
+  return ft.BspMap("synthetic", bytes(0), [], "", [plane], vertices, void,
+    [node], texInfo, faces, lighting, [], [], [], edges, [0, 1, 2, 3],
+    [model], [], [], [], [])
 end function
 
 function testWorldPlanAndPalette()
@@ -131,7 +136,49 @@ function testContextModeFactories()
   assertEqual(context.state.contextActive, true, "context factory mode")
 end function
 
+function testAliasPointLighting()
+  renderer = ropengl.createOpenGlRenderer(false)
+  renderer.exports.Init(void, void)
+  renderer.exports.BeginRegistration("maps/synthetic.bsp")
+  renderer.exports.EndRegistration()
+  world = ropengl.prepareClassicWorld(renderer, makeMap(), loadClassicFile,
+    rt.defaultLightStyles(), 0, 1.0)
+  frame = rt.defaultRefDef(640, 480)
+  entity = rt.emptyEntity()
+  entity.origin = ft.Vec3(8.0, 8.0, 64.0)
+  entity.flags = rc.RF_WEAPONMODEL
+  assertEqual(ropengl.md2EntityShade(renderer, frame, entity),
+    100 | (80 << 8) | (60 << 16), "BSP point-lit alias color")
+  assertEqual(ropengl.lightLevel(renderer), 58,
+    "view weapon publishes sampled light level")
+  frame.lightStyles[0] = rt.lightStyle(0.5, 1.0, 0.25)
+  entity.flags = 0
+  assertEqual(ropengl.md2EntityShade(renderer, frame, entity),
+    50 | (80 << 8) | (15 << 16), "colored alias light style")
+  frame.lightStyles[0] = rt.lightStyle(1.0, 1.0, 1.0)
+
+  entity.origin = ft.Vec3(32.0, 8.0, 64.0)
+  entity.flags = rc.RF_MINLIGHT
+  assertEqual(ropengl.md2EntityShade(renderer, frame, entity),
+    26 | (26 << 8) | (26 << 16), "alias minimum light")
+  frame.dLights = [rt.dLight(entity.origin, ft.Vec3(1.0, 0.5, 0.25), 128.0)]
+  frame.numDLights = 1
+  entity.flags = 0
+  assertEqual(ropengl.md2EntityShade(renderer, frame, entity),
+    128 | (64 << 8) | (32 << 16), "alias dynamic point light")
+
+  frame.rdFlags = rc.RDF_IRGOGGLES
+  entity.flags = rc.RF_FULLBRIGHT | rc.RF_IR_VISIBLE
+  assertEqual(ropengl.md2EntityShade(renderer, frame, entity), 255,
+    "IR goggles alias override")
+  ropengl.releaseClassicWorld(renderer, world)
+  assertEqual(renderer.state.activeWorld is void, true,
+    "released point-light world detached")
+  renderer.exports.Shutdown()
+end function
+
 testWorldPlanAndPalette()
 testBackendLifecycle()
 testContextModeFactories()
+testAliasPointLighting()
 print("renderer classic world submission tests passed")

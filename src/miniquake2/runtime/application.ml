@@ -1474,6 +1474,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     applicationPerfWorld = applicationPerfWorld +
       applicationPerfEntityStart - applicationPerfWorldStart
     renderer.exports.RenderFrame(frame)
+    input.lightLevel = appgl.lightLevel(renderer)
     applicationPerfHudStart = appsystem.milliseconds(clock)
     applicationPerfEntities = applicationPerfEntities +
       applicationPerfHudStart - applicationPerfEntityStart

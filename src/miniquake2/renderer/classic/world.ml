@@ -248,7 +248,13 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
     modelIndex = modelIndex + 1
   end while
   skyBox = rclassictypes.ClassicSkyBox("", 0.0, ft.Vec3(0.0, 0.0, 1.0), array(0), false)
-  return rclassictypes.ClassicWorld(map.name, generation, map, scene, textures, draws, brushModels, skyBox, modulate, false)
+  pointStackSize = len(map.nodes) + 1
+  return rclassictypes.ClassicWorld(map.name, generation, map, scene, textures,
+    draws, brushModels, skyBox, modulate, false,
+    array(pointStackSize, 0), array(pointStackSize, 0),
+    array(pointStackSize, 0.0), array(pointStackSize, 0.0),
+    array(pointStackSize, 0.0), array(pointStackSize, 0.0),
+    array(pointStackSize, 0.0), array(pointStackSize, 0.0))
 end function
 
 function triangleCount(world)

@@ -17,6 +17,16 @@ server frame 36 with 84 models, 68 sounds, zero missing assets, 2,400 submitted
 entities and client/world/entity/HUD phases of
 116.56/1,599.0575/511.5168/44.5719 ms.
 
+The subsequent same-date alias-lighting pass ported the 3.19
+`RecursiveLightPoint`/`R_LightPoint` behavior to a fixed, world-owned MiniLang
+stack, including colored light styles, dynamic lights, shell/Fullbright/
+Minlight/Glow/IR policies and view-weapon lightlevel feedback into the next
+UserCmd. The full 153-program Release matrix passed. The final installed-retail
+`base1` product run completed 100 frames through server frame 36 with 84
+models, 68 sounds, zero missing assets, 2,400 submitted entities, 292 selected
+world surfaces and 7,015 culled surfaces. Client/world/entity/HUD phases were
+85.9467/1,507.1547/614.2806/72.3144 ms.
+
 The final same-date player-rendering pass repeated installed-retail `base1`
 for 100 product frames after enabling configstring-driven custom player
 models/skins, third-person visible weapons, packed beam colors and original

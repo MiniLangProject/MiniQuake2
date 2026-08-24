@@ -4,6 +4,22 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 alias-lighting acceptance run
+
+The OpenGL MD2 path now follows Quake II 3.19 alias lighting rather than
+rendering ordinary models at constant white. A fixed world-owned stack performs
+the original near-first BSP light ray without MiniLang recursion or per-query
+array concatenation, combines colored light styles and dynamic lights, then
+applies shell, Fullbright, Minlight, Glow and IR-goggle overrides in reference
+order. View-weapon sampling also publishes `150 * max(rgb)` through the next
+Protocol-34 UserCmd lightlevel byte.
+
+The complete Release product and all 153 native programs passed. The final
+installed-retail `base1` run completed 100 frames through server frame 36 with
+84 models, 68 sounds, zero missing assets, 2,400 submitted entities, 292
+visible world surfaces and 7,015 culled surfaces. Measured client/world/entity/
+HUD phases were 85.95/1,507.15/614.28/72.31 ms.
+
 ## 2026-08-24 first-person weapon handedness acceptance run
 
 The already exact `CL_AddViewWeapon` interpolation path now reaches the last
