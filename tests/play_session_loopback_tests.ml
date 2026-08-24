@@ -9,6 +9,7 @@ import miniquake2.network.constants as nc
 import miniquake2.runtime.client_session as plclienttest
 import miniquake2.runtime.server_session as plservertest
 import miniquake2.runtime.play_session as playsession
+import miniquake2.game.null_game as playgame
 
 function playAssert(value, name)
   if not value then return error(8396, name) end if
@@ -26,6 +27,21 @@ playAssert(session.server.networkRuntime.server.clients[0].state == nc.CS_SPAWNE
 playAssert(active.handoff is not void, "first server snapshot had no frame handoff")
 playAssert(active.handoff.snapshot.number == active.handoff.frameNumber,
   "snapshot commit was not atomic")
+playAssert(playsession.setUserInfo(session,
+  "\\name\\Lefty\\skin\\female/athena\\hand\\1\\rate\\25000"),
+  "live player userinfo was not queued")
+userinfoAttempts = 0
+while session.server.networkRuntime.server.clients[0].name != "Lefty" and
+    userinfoAttempts < 100
+  playsession.step(session)
+  userinfoAttempts = userinfoAttempts + 1
+end while
+playAssert(session.server.networkRuntime.server.clients[0].name == "Lefty" and
+  session.server.networkRuntime.server.clients[0].userInfo ==
+    "\\name\\Lefty\\skin\\female/athena\\hand\\1\\rate\\25000",
+  "live clc_userinfo did not reach the server slot")
+playAssert(playgame.playerContext().players[0].persistent.hand == 1,
+  "live handedness did not reach ClientUserinfoChanged")
 
 // Empty any snapshots accumulated during the asynchronous signon before the
 // one-shot reliable UI/FX packet is staged.

@@ -139,6 +139,13 @@ function noteMissingPlayAsset(value)
   return true
 end function
 
+function playUserInfo(hand)
+  if typeof(hand) != "int" or hand < 0 or hand > 2 then
+    return error(9954, "play handedness must be 0, 1 or 2")
+  end if
+  return "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000\\hand\\" + hand
+end function
+
 function missingPlayAssetSummary(state)
   output = ""
   for each missing in appclientassets.missingAssets(state)
@@ -1161,7 +1168,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   collision = appcollision.create(map)
   session = appplay.createCoreAtSkill(applicationCurrentMapName, map.entityText,
     collision,
-    spawnPoint, "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000", skill)
+    spawnPoint, playUserInfo(0), skill)
   appplay.runUntilActive(session, 256)
 
   appgl.adoptClassicMapModel(renderer, map, path)
@@ -1210,6 +1217,24 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       commandState.videoRestartRequested = true
     end if
   end if
+  appgl.setHandedness(renderer, input.config.hand)
+  applicationPublishedHand = 0
+  appuimenu.setItemValue(screen.menu, "options", "sensitivity",
+    input.config.sensitivity)
+  applicationAlwaysRunValue = 0
+  if input.config.alwaysRun then applicationAlwaysRunValue = 1 end if
+  appuimenu.setItemValue(screen.menu, "options", "alwaysrun",
+    applicationAlwaysRunValue)
+  appuimenu.setItemValue(screen.menu, "options", "volume",
+    audioMixer.masterVolume)
+  appuimenu.setItemValue(screen.menu, "video", "mode", commandState.videoMode)
+  applicationFullscreenValue = 0
+  if commandState.fullScreen then applicationFullscreenValue = 1 end if
+  appuimenu.setItemValue(screen.menu, "video", "fullscreen",
+    applicationFullscreenValue)
+  appuimenu.setItemValue(screen.menu, "video", "brightness",
+    commandState.brightness)
+  appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
   saveCheckpoints = array(3)
   applicationPersistentSlot = 0
   while applicationPersistentSlot < len(saveCheckpoints)
@@ -1260,6 +1285,13 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     appuiinput.sampleView(input, appbyteio.truncInt(applicationInputMsec))
     appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
     appuicommands.drain(commandState, input, screen, audioMixer)
+    if input.config.hand != applicationPublishedHand then
+      appgl.setHandedness(renderer, input.config.hand)
+      appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
+      if appplay.setUserInfo(session, playUserInfo(input.config.hand)) then
+        applicationPublishedHand = input.config.hand
+      end if
+    end if
     applicationConfigChanged = appuicommands.takeConfigDirty(commandState) or
       input.capturedKey >= 0
     if applicationConfigChanged then
@@ -1361,6 +1393,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       end if
       window = productHost.window
       renderer = productHost.renderer
+      appgl.setHandedness(renderer, input.config.hand)
       appproducthost.showProductLoading(productHost,
         "loading " + applicationCurrentMapName)
       renderer.exports.BeginRegistration(path)

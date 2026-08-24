@@ -111,6 +111,12 @@ function pendingUserCmds(session)
   return plclient.pendingUserCmds(session.client)
 end function
 
+function setUserInfo(session, userInfo)
+  if session.closed then return error(8392, "play session is closed") end if
+  now = plbyteio.truncInt(plsystem.milliseconds(session.client.clock))
+  return plclient.sendUserInfo(session.client, userInfo, now)
+end function
+
 // Replay the original 64-entry command ring plus a side-effect-free command
 // for the unsent portion of the current render interval. The listen product
 // uses the authoritative collision bridge, including moving inline brushes.

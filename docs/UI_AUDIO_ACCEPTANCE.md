@@ -9,6 +9,9 @@ Protocol-34 `clc_stringcmd` messages.
 ## Product behavior
 
 - `sensitivity` and `cl_run` update live `UserCmd` generation;
+- Player Setup persists right/left/center handedness, applies it live to the
+  view-weapon renderer and sends the same value through reliable
+  `clc_userinfo` to the Game API;
 - `s_volume` changes a true mixer-wide gain and therefore affects channels
   that are already playing as well as future sounds;
 - `I` toggles the inventory assembled from the exact 256-short
@@ -22,7 +25,7 @@ Protocol-34 `clc_stringcmd` messages.
   the live network/Game session;
 - New Game Easy/Medium/Hard constructs a fresh `base1` Game API at skill 0/1/2
   in the existing product host;
-- sensitivity, always-run, volume, video choices and the complete binding table
+- sensitivity, always-run, handedness, volume, video choices and the complete binding table
   round-trip through the bounded, strictly parsed `miniquake2.cfg` format;
 - three save slots call the failure-atomic `WriteGame` + `WriteLevel` session
   adapter. Existing pairs are validated after process start, labelled with
@@ -40,7 +43,7 @@ difficulty; v7 images remain readable and default to Medium.
   fixed FNV-1a checksum `630146404` under a 4-MB GC limit;
 - `client_ui_command_tests.ml`: three-source drain, local/forward policy,
   settings, save request, quit and compact inventory conversion;
-- `client_ui_menu_tests.ml`: seven-page navigation and slot commands;
+- `client_ui_menu_tests.ml`: eleven-page navigation, Player Setup and slot commands;
 - `client_ui_input_tests.ml`: key destinations, release safety and UserCmd;
 - `client_ui_config_tests.ml`: disk roundtrip, live apply and malformed config;
 - `runtime_product_host_tests.ml`: one shared lifecycle, loading frames and
@@ -48,6 +51,8 @@ difficulty; v7 images remain readable and default to Medium.
 - `runtime_new_game_skill_tests.ml`: fresh Easy/Hard session construction;
 - `client_runtime_ui_messages_tests.ml`: strict Protocol-34 UI framing;
 - `runtime_active_session_persistence_tests.ml`: atomic live save/restore.
+- `play_session_loopback_tests.ml`: live handedness userinfo reaches both the
+  server slot and `ClientUserinfoChanged`.
 
 `scripts/renderer_audio_acceptance.ps1` combines the PCM gate with three
 installed-original renderer pairs and four exact MiniQuake2 renderer replays,

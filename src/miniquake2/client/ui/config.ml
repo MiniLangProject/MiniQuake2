@@ -17,6 +17,7 @@ const CONFIG_MAX_BINDINGS = 256
 struct ProductConfig
   sensitivity
   alwaysRun
+  hand
   volume
   videoMode
   fullScreen
@@ -39,6 +40,7 @@ function productConfigValidate(config)
       (typeof(config.sensitivity) != "int" and typeof(config.sensitivity) != "float") or
       config.sensitivity < 1.0 or config.sensitivity > 20.0 or
       typeof(config.alwaysRun) != "bool" or
+      typeof(config.hand) != "int" or config.hand < 0 or config.hand > 2 or
       (typeof(config.volume) != "int" and typeof(config.volume) != "float") or
       config.volume < 0.0 or config.volume > 1.0 or
       typeof(config.videoMode) != "int" or config.videoMode < 0 or config.videoMode > 3 or
@@ -69,7 +71,7 @@ function captureProductConfig(input, commandState, mixer)
         productConfigInputBinding.command)]
   end for
   productConfigCaptured = ProductConfig(input.config.sensitivity,
-    input.config.alwaysRun, mixer.masterVolume, commandState.videoMode,
+    input.config.alwaysRun, input.config.hand, mixer.masterVolume, commandState.videoMode,
     commandState.fullScreen, commandState.brightness, productConfigBindings)
   return productConfigValidate(productConfigCaptured)
 end function
@@ -83,6 +85,7 @@ function encodeProductConfig(config)
   productConfigText = CONFIG_HEADER + "\n" +
     "sensitivity " + productConfigValue.sensitivity + "\n" +
     "cl_run " + productConfigRunValue + "\n" +
+    "hand " + productConfigValue.hand + "\n" +
     "s_volume " + productConfigValue.volume + "\n" +
     "vid_mode " + productConfigValue.videoMode + "\n" +
     "vid_fullscreen " + productConfigFullscreenValue + "\n" +
@@ -121,6 +124,7 @@ function decodeProductConfig(text)
   end if
   productConfigSensitivity = void
   productConfigRun = void
+  productConfigHand = void
   productConfigVolume = void
   productConfigMode = void
   productConfigFullscreen = void
@@ -153,6 +157,10 @@ function decodeProductConfig(text)
       else if productConfigName == "cl_run" and productConfigRun is void and
           (productConfigSetting == 0 or productConfigSetting == 1) then
         productConfigRun = productConfigSetting != 0
+      else if productConfigName == "hand" and productConfigHand is void then
+        productConfigHand = uiconfigbyteio.truncInt(productConfigSetting)
+        if productConfigSetting != productConfigHand or productConfigHand < 0 or
+            productConfigHand > 2 then return error(8297, "hand must be 0, 1 or 2") end if
       else if productConfigName == "s_volume" and productConfigVolume is void then
         productConfigVolume = productConfigSetting * 1.0
       else if productConfigName == "vid_mode" and productConfigMode is void then
@@ -171,8 +179,11 @@ function decodeProductConfig(text)
       productConfigFullscreen is void or productConfigGamma is void then
     return error(8299, "product config is missing required settings")
   end if
+  // Config v1 predates persisted handedness. Preserve those files as the
+  // original right-handed default instead of rejecting a safe old config.
+  if productConfigHand is void then productConfigHand = 0 end if
   return productConfigValidate(ProductConfig(productConfigSensitivity,
-    productConfigRun, productConfigVolume, productConfigMode,
+    productConfigRun, productConfigHand, productConfigVolume, productConfigMode,
     productConfigFullscreen, productConfigGamma, productConfigBindings))
 end function
 
@@ -180,6 +191,7 @@ function applyProductConfig(config, input, commandState, mixer)
   productConfigApply = productConfigValidate(config)
   input.config.sensitivity = productConfigApply.sensitivity
   input.config.alwaysRun = productConfigApply.alwaysRun
+  input.config.hand = productConfigApply.hand
   commandState.videoMode = productConfigApply.videoMode
   commandState.fullScreen = productConfigApply.fullScreen
   commandState.brightness = productConfigApply.brightness

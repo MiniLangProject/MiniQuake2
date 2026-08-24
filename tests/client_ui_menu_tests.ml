@@ -9,12 +9,26 @@ function uiMenuAssertEqual(actual, expected, name)
 end function
 
 uiMenuState = cuimenu.create()
-uiMenuAssertEqual(len(uiMenuState.pages), 10, "default page count")
+uiMenuAssertEqual(len(uiMenuState.pages), 11, "default page count")
 cuimenu.open(uiMenuState, "main")
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 uiMenuAssertEqual(uiMenuState.cursor, 1, "cursor movement")
 cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
 uiMenuAssertEqual(uiMenuState.currentPage, "multiplayer", "multiplayer submenu activation")
+cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
+cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
+cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
+uiMenuAssertEqual(uiMenuState.currentPage, "player", "player setup submenu activation")
+cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "hand 1",
+  "handedness choice command")
+uiMenuAssertEqual(cuimenu.setItemValue(uiMenuState, "player", "hand", 2),
+  true, "player setup value synchronization")
+uiMenuAssertEqual(uiMenuState.pages[10].items[0].value, 2,
+  "player setup value retained")
+cuimenu.handleKey(uiMenuState, cuic.K_ESCAPE)
+uiMenuAssertEqual(uiMenuState.currentPage, "multiplayer",
+  "player setup parent navigation")
 cuimenu.handleKey(uiMenuState, cuic.K_ESCAPE)
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)

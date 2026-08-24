@@ -4,6 +4,28 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-24 first-person weapon handedness acceptance run
+
+The already exact `CL_AddViewWeapon` interpolation path now reaches the last
+stock handedness behavior across the product boundary. Gun offset, wrapped gun
+angles, current/old frame reset, FOV suppression and the
+`RF_MINLIGHT|RF_DEPTHHACK|RF_WEAPONMODEL` flags remain snapshot-driven. The
+OpenGL alias renderer mirrors the projection only while drawing a left-handed
+view weapon and suppresses the weapon for center-handed players, matching the
+3.19 `r_lefthand` policy without transforming world entities.
+
+`hand 0/1/2` is available from a real Player Setup menu, persists in the
+bounded product config with safe right-handed fallback for older v1 files,
+survives renderer restart and is transmitted live as reliable
+`clc_userinfo`. The loopback gate proves the update reaches both the server
+slot and Game API `ClientUserinfoChanged` state. Focused UI config/command/menu,
+client-state, MD2 renderer, live play-session and Product Host tests passed,
+followed by a clean rebuild and execution of all 153 native programs and the
+product CLI smokes. The final default-right Release product completed
+installed-retail `base1` for 100 frames through server frame 36 with 84 models,
+68 sounds, zero missing assets and 2,400 submitted entities. Its measured
+client/world/entity/HUD phases were 116.56/1,599.06/511.52/44.57 ms.
+
 ## 2026-08-24 player entity-rendering parity acceptance run
 
 The player snapshot path now follows the Quake II 3.19 `cl_ents.c` contracts

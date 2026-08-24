@@ -24,6 +24,7 @@ uiconfigtestkeys.bind(uiConfigInput, 200, "+attack")
 uiConfigInputSettings = uiConfigInput.config
 uiConfigInputSettings.sensitivity = 6.5
 uiConfigInputSettings.alwaysRun = true
+uiConfigInputSettings.hand = 1
 uiConfigState = uiconfigtestcommands.create()
 uiConfigState.videoMode = 2
 uiConfigState.fullScreen = true
@@ -37,7 +38,8 @@ uiconfigtestconfig.saveProductConfig(uiConfigPath, uiConfigCaptured)
 uiConfigLoaded = uiconfigtestconfig.loadProductConfig(uiConfigPath)
 uiConfigAssert(uiConfigLoaded.videoMode == 2 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.brightness == 1.2 and uiConfigLoaded.sensitivity == 6.5 and
-  uiConfigLoaded.alwaysRun and uiConfigLoaded.volume == 0.4 and
+  uiConfigLoaded.alwaysRun and uiConfigLoaded.hand == 1 and
+  uiConfigLoaded.volume == 0.4 and
   len(uiConfigLoaded.bindings) == 2, "config disk round trip")
 
 uiConfigApplyInput = uiconfigtestkeys.createInputState()
@@ -47,7 +49,8 @@ uiconfigtestconfig.applyProductConfig(uiConfigLoaded, uiConfigApplyInput,
   uiConfigApplyState, uiConfigApplyMixer)
 uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward" and
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, 200) == "+attack" and
-  uiConfigApplyState.videoMode == 2 and uiConfigApplyMixer.masterVolume == 0.4,
+  uiConfigApplyInput.config.hand == 1 and uiConfigApplyState.videoMode == 2 and
+  uiConfigApplyMixer.masterVolume == 0.4,
   "config applied to live product state")
 
 uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
@@ -56,6 +59,12 @@ uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
 uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
   "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\nbind 119 \"+forward\"\nbind 119 \"+back\"\n")) is error,
   "duplicate binding rejected")
+uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
+  "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\nhand 3\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\n")) is error,
+  "invalid handedness rejected")
+uiConfigLegacy = uiconfigtestconfig.decodeProductConfig(
+  "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\n")
+uiConfigAssert(uiConfigLegacy.hand == 0, "legacy config defaults to right hand")
 uiconfigtestfs.delete(uiConfigPath)
 return true
 end function

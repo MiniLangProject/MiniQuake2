@@ -13,7 +13,7 @@ end function
 
 function defaultConfig()
   return cuitypes.InputConfig(200.0, 200.0, 200.0, 140.0, 150.0, 1.5,
-    false, 3.0, 0.022, 0.022, 1.0, 1.0)
+    false, 0, 3.0, 0.022, 0.022, 1.0, 1.0)
 end function
 
 function createInputState()

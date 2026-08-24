@@ -87,6 +87,7 @@ struct OpenGlState
   rawTextureId
   rawPixels
   batchRecords
+  handedness
 end struct
 
 // The native bridge creates OpenGL 1.1 names on first bind.  Keeping every
@@ -143,6 +144,7 @@ struct Md2DrawState
   translucent
   depthHack
   shell
+  mirrored
 end struct
 
 struct OpenGlViewAxes
@@ -863,6 +865,7 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, time)
   translucent = (entityFlags & rc.RF_TRANSLUCENT) != 0
   depthHack = (entityFlags & rc.RF_DEPTHHACK) != 0
   shell = (entityFlags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
+  mirrored = (entityFlags & rc.RF_WEAPONMODEL) != 0 and backend.handedness == 1
   if depthHack then native.glDepthRange(bits(0.0), bits(0.3)) end if
   if translucent then
     alphaValue = entityAlpha
@@ -881,12 +884,18 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, time)
   end if
   shade = openGlMd2Shade(entity, time)
   native.glColor4ub(colorByte(shade, 0), colorByte(shade, 8), colorByte(shade, 16), alpha)
+  if mirrored then
+    native.glMatrixMode(GL_PROJECTION)
+    native.glPushMatrix()
+    native.glScale(bits(-1.0), bits(1.0), bits(1.0))
+    native.glMatrixMode(GL_MODELVIEW)
+  end if
   native.glPushMatrix()
   native.glTranslate(bits(originX), bits(originY), bits(originZ))
   native.glRotate(bits(angleY), bits(0.0), bits(0.0), bits(1.0))
   native.glRotate(bits(-angleX), bits(0.0), bits(1.0), bits(0.0))
   native.glRotate(bits(-angleZ), bits(1.0), bits(0.0), bits(0.0))
-  return Md2DrawState(textureId, translucent, depthHack, shell)
+  return Md2DrawState(textureId, translucent, depthHack, shell, mirrored)
 end function
 
 function emitOpenGlMd2Scalars(glVertices)
@@ -906,6 +915,11 @@ end function
 
 function endOpenGlMd2Draw(drawState)
   native.glPopMatrix()
+  if drawState.mirrored then
+    native.glMatrixMode(GL_PROJECTION)
+    native.glPopMatrix()
+    native.glMatrixMode(GL_MODELVIEW)
+  end if
   if drawState.depthHack then native.glDepthRange(bits(0.0), bits(1.0)) end if
   if drawState.shell then native.glEnable(GL_TEXTURE_2D) end if
   if drawState.translucent then
@@ -913,6 +927,10 @@ function endOpenGlMd2Draw(drawState)
     native.glDisable(GL_BLEND)
   end if
   native.glColor4ub(255, 255, 255, 255)
+end function
+
+function inline openGlMd2EntityVisible(backend, entity)
+  return (entity.flags & rc.RF_WEAPONMODEL) == 0 or backend.handedness != 2
 end function
 
 function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
@@ -984,7 +1002,8 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
   while entityIndex < frame.numEntities
     entity = frame.entities[entityIndex]
     modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
-    if modelAsset is not void and modelAsset.kind == "md2" then
+    if modelAsset is not void and modelAsset.kind == "md2" and
+        openGlMd2EntityVisible(backend, entity) then
       drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame.time)
       submitted = submitted + 1
     end if
@@ -1008,7 +1027,7 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
         modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
         if modelAsset is void then
           drawOpenGlNullEntity(entity); submitted = submitted + 1
-        else if modelAsset.kind == "md2" then
+        else if modelAsset.kind == "md2" and openGlMd2EntityVisible(backend, entity) then
           drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame.time); submitted = submitted + 1
         else if modelAsset.kind == "sprite" then
           drawOpenGlSpriteEntity(backend, modelAsset, entity, axes); submitted = submitted + 1
@@ -1337,7 +1356,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0))
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1349,7 +1368,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0))
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1367,6 +1386,22 @@ function setContextActive(binding, active)
     binding.state.renderer = native.glGetString(GL_RENDERER)
     binding.state.version = native.glGetString(GL_VERSION)
   end if
+end function
+
+function setHandedness(binding, hand)
+  if typeof(hand) != "int" or hand < 0 or hand > 2 then
+    return error(9637, "renderer handedness must be 0, 1 or 2")
+  end if
+  binding.state.handedness = hand
+  return hand
+end function
+
+function handedness(binding)
+  return binding.state.handedness
+end function
+
+function md2EntityVisible(binding, entity)
+  return openGlMd2EntityVisible(binding.state, entity)
 end function
 
 function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, modulate)
@@ -2114,6 +2149,9 @@ end function
 // automatically by RenderFrame when entity.model is a current MD2 handle.
 function submitMd2Entity(binding, entity)
   plan = prepareOpenGlMd2Entity(binding.state, entity)
+  if not openGlMd2EntityVisible(binding.state, entity) then
+    return Md2SubmitStats(false, 0, 0, 0, plan.bounds)
+  end if
   if not binding.state.contextActive then
     return Md2SubmitStats(false, plan.mesh.triangleCount, len(plan.mesh.vertices), 0, plan.bounds)
   end if

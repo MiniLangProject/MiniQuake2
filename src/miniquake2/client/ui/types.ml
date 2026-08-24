@@ -20,6 +20,7 @@ struct InputConfig
   pitchSpeed
   angleSpeedKey
   alwaysRun
+  hand
   sensitivity
   mouseYaw
   mousePitch

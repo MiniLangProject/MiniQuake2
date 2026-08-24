@@ -88,9 +88,11 @@ function testSnapshotsAndRefDef()
   firstPlayer.gunIndex = 7
   firstPlayer.gunFrame = 2
   firstPlayer.gunOffset = [0.0, 0.0, 0.0]
+  firstPlayer.gunAngles = [0.0, 358.0, -2.0]
   secondPlayer.gunIndex = 7
   secondPlayer.gunFrame = 4
   secondPlayer.gunOffset = [2.0, 4.0, 6.0]
+  secondPlayer.gunAngles = [4.0, 2.0, 2.0]
   second = ssnap.SnapshotFrame(11, 10, 0, bytes([]), secondPlayer, [makeEntity(8.0, 5)])
   assertEqual(cstate.acceptSnapshot(client, second), true, "second snapshot")
   assertEqual(cstate.acceptSnapshot(client, second), false, "duplicate snapshot ignored")
@@ -106,6 +108,10 @@ function testSnapshotsAndRefDef()
   assertEqual(frame.entities[2].frame, 4, "view weapon frame")
   assertEqual(frame.entities[2].oldFrame, 2, "view weapon old frame")
   assertEqual(frame.entities[2].origin.x, 11.5, "view weapon offset interpolation")
+  assertEqual(frame.entities[2].angles.x, 8.0,
+    "view weapon pitch plus interpolated gun recoil")
+  assertEqual(frame.entities[2].angles.y, 372.0,
+    "view weapon wrapped yaw recoil interpolation")
   assertEqual(frame.entities[2].flags & rc.RF_WEAPONMODEL, rc.RF_WEAPONMODEL,
     "view weapon render flags")
 
@@ -222,7 +228,7 @@ function testSnapshotsAndRefDef()
   assertEqual(predictedFrame.viewOrigin.x, 20.5, "predicted view origin")
   assertEqual(predictedFrame.viewOrigin.y, 11.0, "predicted view offset")
   assertEqual(predictedFrame.viewAngles.x, 41.0, "predicted view plus kick")
-  assertEqual(predictedFrame.entities[2].angles.x, 41.0,
+  assertEqual(predictedFrame.entities[2].angles.x, 43.0,
     "predicted view weapon angle")
 
   // Dead cameras and demos remain locked to authoritative interpolation.

@@ -8,6 +8,15 @@ copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
 
+The same-date first-person weapon follow-up retained the exact snapshot
+offset/angle/frame handoff and added persistent right/left/center Player Setup,
+left-only projection mirroring, center-weapon suppression and live reliable
+userinfo publication to the Game API. All 153 native programs passed before
+the final default-right `base1` product run. It completed 100 frames through
+server frame 36 with 84 models, 68 sounds, zero missing assets, 2,400 submitted
+entities and client/world/entity/HUD phases of
+116.56/1,599.0575/511.5168/44.5719 ms.
+
 The final same-date player-rendering pass repeated installed-retail `base1`
 for 100 product frames after enabling configstring-driven custom player
 models/skins, third-person visible weapons, packed beam colors and original

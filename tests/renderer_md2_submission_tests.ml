@@ -3,6 +3,7 @@ import miniquake2.format.constants as fc
 import miniquake2.native as md2testnative
 import miniquake2.qcommon.byteio as md2testbyteio
 import miniquake2.renderer.types as rt
+import miniquake2.renderer.constants as rc
 import miniquake2.renderer.geometry as rgeom
 import miniquake2.renderer.opengl as ropengl
 
@@ -135,6 +136,18 @@ function testRegistrationInterpolationAndBounds()
   assertEqual(ropengl.picturePixels(plan.skinAsset), bytes([20, 40, 60, 255, 80, 100, 120, 255, 80, 100, 120, 255, 20, 40, 60, 255]), "PCX skin palette expansion")
   assertEqual(ropengl.pictureUploadPixels(plan.skinAsset), bytes([40, 80, 120, 255, 160, 200, 240, 255, 160, 200, 240, 255, 40, 80, 120, 255]), "ref_gl intensity-scaled PCX skin upload")
   assertEqual(plan.mesh.triangleCount, 1, "MD2 triangle count")
+  entity.flags = rc.RF_WEAPONMODEL
+  assertEqual(ropengl.setHandedness(renderer, 1), 1, "left-hand renderer state")
+  assertEqual(ropengl.handedness(renderer), 1, "left-hand state retained")
+  assertEqual(ropengl.md2EntityVisible(renderer, entity), true,
+    "left-hand view weapon remains visible")
+  ropengl.setHandedness(renderer, 2)
+  assertEqual(ropengl.md2EntityVisible(renderer, entity), false,
+    "center-hand view weapon hidden by renderer")
+  hiddenStats = ropengl.submitMd2Entity(renderer, entity)
+  assertEqual(hiddenStats.triangles, 0, "center-hand view weapon not submitted")
+  ropengl.setHandedness(renderer, 0)
+  entity.flags = 0
   assertNear(plan.mesh.vertices[0].position.x, 2.0, 0.0001, "interpolated first vertex")
   assertNear(plan.mesh.vertices[1].position.x, 10.0, 0.0001, "interpolated second vertex")
   assertNear(plan.mesh.vertices[1].s, 1.0, 0.0001, "normalized skin coordinate")

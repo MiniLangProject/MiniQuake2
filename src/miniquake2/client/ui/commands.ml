@@ -71,6 +71,16 @@ function localAction(commandState, input, screen, mixer, command)
     commandState.configDirty = true
     return true
   end if
+  if cuicmdName == "hand" then
+    cuicmdHandValue = numericArgument(cuicmdArguments, cuicmdName)
+    cuicmdHand = cuicmdbyteio.truncInt(cuicmdHandValue)
+    if cuicmdHandValue != cuicmdHand or cuicmdHand < 0 or cuicmdHand > 2 then
+      return error(8283, "hand expects 0, 1 or 2")
+    end if
+    input.config.hand = cuicmdHand
+    commandState.configDirty = true
+    return true
+  end if
   if cuicmdName == "s_volume" then
     cuicmdVolume = numericArgument(cuicmdArguments, cuicmdName)
     cuicmdmixer.setMasterVolume(mixer, cuicmdVolume)

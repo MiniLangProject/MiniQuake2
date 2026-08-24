@@ -123,7 +123,12 @@ applies the Rogue male/female/cyborg disguise override. It hides the local
 third-person player plus linked weapon while retaining the
 first-person view weapon. A two-client UDP arsenal gate proves the visible
 weapon index for every stock weapon in both reconstructed snapshots. The
-original class-level sight/search callback inventory, sound
+first-person weapon retains the exact snapshot offset, wrapped-angle recoil,
+old-frame reset, wide-FOV suppression and depth-hack flags. Player Setup now
+persists right/left/center handedness, mirrors only the left-hand weapon
+projection, hides the center-hand weapon and publishes changes through live
+`clc_userinfo` to the Game API.
+The original class-level sight/search callback inventory, sound
 channels/attenuation and callback-local random branches are active, including
 Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
 Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.
@@ -212,7 +217,7 @@ These results are strong vertical-slice and compatibility evidence, not a claim
 that every original campaign behavior or pixel is already identical. The
 remaining release work is concentrated in original-process interoperability
 (the installed 3.20 executable exits before networking on this host), paired
-original player view-model/recoil and full encounter traces beyond the fixed
+original player view-model/recoil pixel captures and full encounter traces beyond the fixed
 renderer/sequence fixtures, broader multi-host GPU/device coverage, exhaustive
 turret/boss interaction playthroughs, and manual device acceptance. Retail
 class, stock monster damage-emission, pain/death movement and reachable

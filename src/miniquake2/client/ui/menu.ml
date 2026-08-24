@@ -66,8 +66,10 @@ function defaultPages()
   multiplayer = cuitypes.MenuPage("multiplayer", "MULTIPLAYER", "main", [
     label("join", "join network server"),
     label("start", "start network server"),
-    label("player", "player setup"),
+    action("player", "player setup", "menu:player"),
     label("pending", "network setup follows in multiplayer parity")])
+  player = cuitypes.MenuPage("player", "PLAYER SETUP", "multiplayer", [
+    choice("hand", "handedness", 0, ["right", "left", "center"], "hand")])
   quit = cuitypes.MenuPage("quit", "QUIT", "main", [
     action("yes", "yes", "quit"), action("no", "no", "menu:main")])
   credits = cuitypes.MenuPage("credits", "CREDITS", "game", [
@@ -76,7 +78,8 @@ function defaultPages()
     label("license", "GPL-2.0-OR-LATER")])
   // Keep the original seven page slots stable for save/load callers and add
   // the newly restored branches afterwards.
-  return [main, game, video, options, load, save, keys, multiplayer, quit, credits]
+  return [main, game, video, options, load, save, keys, multiplayer, quit, credits,
+    player]
 end function
 
 function create()
@@ -116,6 +119,31 @@ function setItemLabel(menu, pageId, itemId, text)
     end if
   end for
   return error(8230, "unknown menu page")
+end function
+
+function setItemValue(menu, pageId, itemId, value)
+  if (typeof(value) != "int" and typeof(value) != "float") or
+      value != value then return error(8232, "menu value must be finite") end if
+  for each menuValuePage in menu.pages
+    if menuValuePage.id == pageId then
+      for each menuValueItem in menuValuePage.items
+        if menuValueItem.id == itemId then
+          if menuValueItem.kind != cuic.MENU_TOGGLE and
+              menuValueItem.kind != cuic.MENU_SLIDER and
+              menuValueItem.kind != cuic.MENU_CHOICE then
+            return error(8233, "menu item has no adjustable value")
+          end if
+          if value < menuValueItem.minimum or value > menuValueItem.maximum then
+            return error(8233, "menu item value is outside its range")
+          end if
+          menuValueItem.value = value
+          return true
+        end if
+      end for
+      return error(8233, "menu item is unavailable")
+    end if
+  end for
+  return error(8230, "unknown page")
 end function
 
 function move(menu, direction)
