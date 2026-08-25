@@ -1,5 +1,7 @@
 /* Asset-free dedicated-session lifecycle over a real ephemeral UDP socket. */
 import miniquake2.runtime.server_session as tsession
+import miniquake2.qcommon.constants as tqc
+import miniquake2.qcommon.checksum as tchecksum
 
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9980, name + ": values differ") end if
@@ -22,6 +24,13 @@ function main(args)
   assertEqual(session.frameNumber, 2, "server frame count")
   assertEqual(session.gameExport.numEdicts, 5, "client-slot-aware map edicts")
   assertEqual(session.gameExport.edicts[4].state.number, 4, "monster edict mapping")
+  checksumBytes = bytes([1, 2, 3, 4, 5, 6, 7, 8])
+  expectedChecksum = tchecksum.blockChecksum(checksumBytes, 0,
+    len(checksumBytes)) + ""
+  assertEqual(tsession.setMapChecksum(session, checksumBytes), expectedChecksum,
+    "map checksum return")
+  assertEqual(session.networkRuntime.configStrings[tqc.CS_MAPCHECKSUM],
+    expectedChecksum, "protocol map checksum")
   assertTrue(tsession.shutdown(session), "first shutdown")
   assertEqual(tsession.shutdown(session), false, "idempotent shutdown")
   print "MiniQuake2 dedicated session tests passed: 1"

@@ -123,7 +123,17 @@ function testPvsDedupeAreasAndTransitions()
   assertEqual(areaHidden.visibleSurfaces, 0, "area one hidden")
   assertEqual(areaHidden.culledSurfaces, 2, "area and PVS culls accounted")
   assertEqual(rclassicvisibility.selectClassicWorld(world, south).areaCulled, 1, "area cull reason")
+  cachedAreaHidden = rclassicvisibility.selectClassicWorldCached(world, south)
+  assertEqual(len(cachedAreaHidden.draws), 0,
+    "cached selector honors closed area")
+  // New arrays with the same contents must hit the semantic cache, while an
+  // actual portal-bit change must invalidate it.
+  south.areaBits = bytes([1])
+  assertEqual(len(rclassicvisibility.selectClassicWorldCached(world,
+    south).draws), 0, "cached selector compares area-bit contents")
   south.areaBits = bytes([2])
+  assertEqual(len(rclassicvisibility.selectClassicWorldCached(world,
+    south).draws), 1, "area-bit change invalidates cached candidates")
   assertEqual(ropengl.submitClassicWorld(renderer, world, south).visibleSurfaces, 1, "area one enabled")
 
   map.leafs[0].cluster = -1

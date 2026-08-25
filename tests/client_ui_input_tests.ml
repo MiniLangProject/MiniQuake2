@@ -87,6 +87,20 @@ cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
 uiInputAssertEqual(uiInputState.capturedKey, -2, "capture escape cancellation")
 uiInputAssertEqual(uiInputState.captureCommand, "", "capture cancellation cleared")
 
+// Controller movement is additive and must not be overwritten by the
+// keyboard branch when klook is inactive.
+uiControllerInput = cuikeys.createInputState()
+uiControllerInput.controllerForward = 0.5
+uiControllerInput.controllerSide = -0.25
+uiControllerInput.controllerButtons = 1
+uiControllerCommand = cuiinput.createSampledUserCmd(uiControllerInput, 16)
+uiInputAssertEqual(uiControllerCommand.forwardMove, 100.0,
+  "controller forward movement")
+uiInputAssertEqual(uiControllerCommand.sideMove, -50.0,
+  "controller side movement")
+uiInputAssertEqual(uiControllerCommand.buttons & cuic.BUTTON_ATTACK,
+  cuic.BUTTON_ATTACK, "controller attack button")
+
 // The rendered view samples mouse input immediately while the prediction
 // preview remains side-effect free until the network command consumes it.
 uiPredictionInput = cuikeys.createInputState()

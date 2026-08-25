@@ -123,6 +123,8 @@ end function
 function predictLocal(session, previewCommand)
   global playPredictionSession
   if session.closed or session.client.integrated.client.current is void then return false end if
+  if not plprediction.predictionEnabled(
+      session.client.integrated.client.current.playerState) then return false end if
   commands = plclient.predictionCommands(session.client, previewCommand)
   if len(commands) == 0 then return false end if
   airAcceleration = 0.0

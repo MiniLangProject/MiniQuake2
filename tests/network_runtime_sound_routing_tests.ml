@@ -43,7 +43,7 @@ end function
 
 function routingSession(collision)
   return nrroute_session.ServerSession(void, void, void, void, void, collision,
-    "sound-routing", "", 0, 0, 0, 0, void, "", false)
+    "sound-routing", "", 0, 0, 0, 0, void, "", false, false)
 end function
 
 function routingGameExport(edicts)

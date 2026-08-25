@@ -13,6 +13,7 @@ import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt
 import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
+import miniquake2.server.administration as nradmin
 
 struct GameCallbacks
   clientConnect
@@ -74,6 +75,7 @@ struct ServerRuntime
   ackPending
   commandLog
   deferredReliable
+  administration
 end struct
 
 struct PumpStats
@@ -140,7 +142,7 @@ function createServer(server, spawnCount, gameDir, levelName, callbacks)
   return ServerRuntime(server, spawnCount, gameDir, levelName,
     array(qc.MAX_CONFIGSTRINGS, ""), makeBaselines(), [], makeTransfers(count),
     makeCommands(count), array(count, 1800), callbacks, array(count, false), [],
-    makeDeferredReliable(count))
+    makeDeferredReliable(count), nradmin.create())
 end function
 
 function stats()

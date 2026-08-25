@@ -9,6 +9,7 @@ pulls every completed port layer into one native MiniLang linker closure.
 import miniquake2.runtime.diagnostics as runtimeDiagnostics
 import miniquake2.runtime.application as runtimeApplication
 import miniquake2.qcommon.byteio as mainByteio
+import miniquake2.runtime.product_startup as productStartup
 
 const MINIQUAKE2_VERSION = "0.5.0-foundation"
 const QUAKE2_REFERENCE_VERSION = "3.19"
@@ -18,9 +19,12 @@ const PORT_STAGE = "integrated-runtime-foundation"
 // Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
-  print "usage: MiniQuake2.exe [--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
+  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
   print ""
   print "  --version             print the port and compatibility target"
+  print "  --data-root ROOT      remember retail data root and launch the menu-first product"
+  print "  --product-smoke ROOT [FRAMES] render the menu-first product without creating a map"
+  print "  --remote-product-smoke ROOT IPV4 [PORT] [FRAMES] verify rendered Protocol-34 Join Server"
   print "  --diagnostics         print the current bootstrap contract"
   print "  --capabilities        list linked Quake II port subsystems"
   print "  --asset-smoke ROOT [MAP] validate retail PAK/BSP/MD2/WAV and one server frame"
@@ -37,6 +41,52 @@ function printUsage()
   print "  --connect IPV4 [PORT] [FRAMES] run a headless Protocol-34 interoperability client"
   print "  --cli-smoke [TOKEN]   verify argument handling without game data"
   print "  --help                print this help"
+end function
+
+function runDefaultProduct(root)
+  result = runtimeApplication.runProduct(root, 0)
+  print "MiniQuake2 product: PASS"
+  print "  sessions=" + result[0] + " menu-frames=" + result[1] +
+    " gameplay-frames=" + result[2]
+  return 0
+end function
+
+function discoverDefaultProductRoot()
+  return productStartup.discoverRetailRoot("miniquake2_data_root.txt",
+    productStartup.standardRetailCandidates())
+end function
+
+function runDataRoot(args)
+  if len(args) != 2 then return error(9967, "--data-root expects one Quake II install root") end if
+  productStartup.persistSelectedRoot("miniquake2_data_root.txt", args[1])
+  return runDefaultProduct(args[1])
+end function
+
+function runProductSmoke(args)
+  if len(args) < 2 or len(args) > 3 then return error(9968, "--product-smoke expects install root and optional frames") end if
+  productFrames = 2
+  if len(args) == 3 then productFrames = mainByteio.truncInt(toNumber(args[2])) end if
+  productResult = runtimeApplication.runProduct(args[1], productFrames)
+  if productResult[0] != 0 or productResult[2] != 0 then
+    return error(9969, "menu-first smoke created a gameplay session")
+  end if
+  print "MiniQuake2 menu-first product smoke: PASS"
+  print "  menu-frames=" + productResult[1] + " sessions=" + productResult[0]
+  return 0
+end function
+
+function runRemoteProductSmoke(args)
+  if len(args) < 3 or len(args) > 5 then return error(9977, "--remote-product-smoke expects root, IPv4, optional port and frames") end if
+  remotePort = 27910
+  remoteFrames = 4000
+  if len(args) >= 4 then remotePort = mainByteio.truncInt(toNumber(args[3])) end if
+  if len(args) == 5 then remoteFrames = mainByteio.truncInt(toNumber(args[4])) end if
+  remoteResult = runtimeApplication.runRemoteProductSmoke(args[1],
+    args[2] + ":" + remotePort, remoteFrames)
+  if remoteResult[3] == "" then return error(9978, "remote product did not register a BSP") end if
+  print "MiniQuake2 remote product smoke: PASS"
+  print "  frames=" + remoteResult[0] + " map=" + remoteResult[3]
+  return 0
 end function
 
 // Print stable build and compatibility identifiers for scripts and humans.
@@ -254,12 +304,20 @@ end function
 // Dispatch the asset-free bootstrap commands.
 function main(args)
   if len(args) == 0 then
-    printUsage()
-    return 0
+    productRoot = try(discoverDefaultProductRoot())
+    if productRoot is error then
+      print "MiniQuake2: " + productRoot.message
+      print "Run MiniQuake2.exe --data-root \"C:\\path\\to\\Quake 2\" once."
+      return 2
+    end if
+    return runDefaultProduct(productRoot)
   end if
 
   command = args[0]
   if command == "--help" and len(args) == 1 then printUsage(); return 0 end if
+  if command == "--data-root" then return runDataRoot(args) end if
+  if command == "--product-smoke" then return runProductSmoke(args) end if
+  if command == "--remote-product-smoke" then return runRemoteProductSmoke(args) end if
   if command == "--version" and len(args) == 1 then printVersion(); return 0 end if
   if command == "--diagnostics" and len(args) == 1 then printDiagnostics(); return 0 end if
   if command == "--capabilities" and len(args) == 1 then printCapabilities(); return 0 end if

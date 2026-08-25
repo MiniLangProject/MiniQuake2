@@ -8,6 +8,7 @@ import miniquake2.qcommon.message as qmsg
 import miniquake2.qcommon.sizebuf as qsz
 import miniquake2.qcommon.info as qinfo
 import miniquake2.qcommon.cmd as qcmd
+import miniquake2.qcommon.text as qtext
 import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
@@ -19,6 +20,7 @@ import miniquake2.network.address as naddress
 import miniquake2.network.connectionless as nconnectionless
 import miniquake2.network.server as nserver
 import miniquake2.network.runtime.types as nrtypes
+import miniquake2.server.administration as nsadmin
 
 const MAX_NETWORK_COMMAND_LOG = 1024
 
@@ -453,7 +455,115 @@ function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
   return true
 end function
 
+function joinedArguments(arguments, startIndex)
+  output = ""
+  index = startIndex
+  while index < len(arguments)
+    if output != "" then output = output + " " end if
+    output = output + arguments[index]
+    index = index + 1
+  end while
+  return output
+end function
+
+function operatorStatus(runtime)
+  return "map              : " + runtime.server.mapName + "\n" +
+    nserver.statusString(runtime.server)
+end function
+
+// A deliberately bounded operator surface.  These are the stock commands
+// needed to administer the Protocol-34 endpoint; it never delegates RCON text
+// to the host shell or filesystem command parser.
+function executeOperator(runtime, text)
+  arguments = qcmd.tokenize(text)
+  if len(arguments) == 0 then return "" end if
+  command = arguments[0]
+  if qtext.equalInsensitive(command, "sv") then
+    return nsadmin.serverCommand(runtime.administration, arguments)
+  end if
+  if qtext.equalInsensitive(command, "status") then return operatorStatus(runtime) end if
+  if qtext.equalInsensitive(command, "serverinfo") then
+    return "Server info settings:\n" + runtime.server.serverInfo + "\n"
+  end if
+  if qtext.equalInsensitive(command, "heartbeat") then
+    runtime.server.lastHeartbeat = runtime.server.realTime - nc.HEARTBEAT_MSEC
+    return "Heartbeat forced.\n"
+  end if
+  if qtext.equalInsensitive(command, "setmaster") then
+    if not runtime.server.dedicated then return "Only dedicated servers use masters.\n" end if
+    configured = try(nsadmin.configureMasters(runtime.administration, arguments, 1))
+    if configured is error then return "Bad master address.\n" end if
+    runtime.server.publicServer = len(runtime.administration.masters) > 0
+    runtime.server.lastHeartbeat = runtime.server.realTime - nc.HEARTBEAT_MSEC
+    return configured
+  end if
+  if qtext.equalInsensitive(command, "set") and len(arguments) >= 3 then
+    variable = arguments[1]
+    if qtext.equalInsensitive(variable, "filterban") then
+      changed = try(nsadmin.setFilterBan(runtime.administration, arguments[2]))
+      if changed is error then return "filterban must be 0 or 1.\n" end if
+      return "filterban set.\n"
+    end if
+    if qtext.equalInsensitive(variable, "rcon_password") then
+      changed = try(nsadmin.setRconPassword(runtime.administration, arguments[2]))
+      if changed is error then return "rcon_password rejected by policy.\n" end if
+      return "rcon_password updated.\n"
+    end if
+  end if
+  if qtext.equalInsensitive(command, "filterban") then
+    if len(arguments) == 1 then
+      value = 0
+      if runtime.administration.filterBan then value = 1 end if
+      return "filterban is " + value + "\n"
+    end if
+    changed = try(nsadmin.setFilterBan(runtime.administration, arguments[1]))
+    if changed is error then return "filterban must be 0 or 1.\n" end if
+    return "filterban set.\n"
+  end if
+  if qtext.equalInsensitive(command, "rcon_password") then
+    if len(arguments) == 1 then
+      if runtime.administration.rconPassword == "" then return "rcon_password is disabled.\n" end if
+      return "rcon_password is configured.\n"
+    end if
+    changed = try(nsadmin.setRconPassword(runtime.administration, arguments[1]))
+    if changed is error then return "rcon_password rejected by policy.\n" end if
+    return "rcon_password updated.\n"
+  end if
+  return "Unknown command \"" + command + "\"\n"
+end function
+
+function handleRcon(runtime, address, request)
+  supplied = ""
+  if len(request.arguments) >= 2 then supplied = request.arguments[1] end if
+  valid = nsadmin.rconValid(runtime.administration, supplied)
+  if not valid then
+    runtime.administration.rconRejected = runtime.administration.rconRejected + 1
+    output = "Bad rcon_password.\n"
+    action = nt.action("print", naddress.copy(address),
+      nconnectionless.printReply(output), -1, "rcon-rejected")
+    return nt.result(false, -1, [action], "rcon-rejected", void)
+  end if
+  runtime.administration.rconAccepted = runtime.administration.rconAccepted + 1
+  commandText = joinedArguments(request.arguments, 2)
+  output = executeOperator(runtime, commandText)
+  // SV_OUTPUTBUF_LENGTH is 1024 in the original.  Retaining that boundary
+  // also prevents a small spoofed request from producing a large UDP reply.
+  output = nconnectionless.truncateText(output, 1024)
+  action = nt.action("print", naddress.copy(address),
+    nconnectionless.printReply(output), -1, "rcon")
+  return nt.result(true, -1, [action], "rcon", void)
+end function
+
 function handleConnectionless(runtime, address, datagram, now)
+  request = nconnectionless.parsePacket(datagram)
+  runtime.server.realTime = now
+  if request.command == "rcon" then return handleRcon(runtime, address, request) end if
+  if request.command == "connect" and
+      nsadmin.filterPacket(runtime.administration, address) then
+    action = nt.action("print", naddress.copy(address),
+      nconnectionless.printReply("Connection refused.\n"), -1, "ip-filter")
+    return nt.result(false, -1, [action], "ip-filter", void)
+  end if
   result = nserver.handleConnectionless(runtime.server, address, datagram, now)
   if not result.accepted or result.message != "connected" or result.slot < 0 then return result end if
   slot = result.slot

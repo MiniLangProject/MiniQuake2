@@ -6,6 +6,16 @@ import miniquake2.qcommon.byteio as demobio
 
 struct Demo
   packets
+  waitingForFullFrame
+  streaming
+  streamHead
+  streamTail
+  streamCount
+end struct
+
+struct DemoPacketNode
+  packet
+  next
 end struct
 
 struct DemoPlayer
@@ -15,7 +25,48 @@ struct DemoPlayer
 end struct
 
 function create()
-  return Demo([])
+  return Demo([], false, false, void, void, 0)
+end function
+
+function beginLiveRecording(demo)
+  if demo is void then return error(7706, "demo recorder is missing") end if
+  demo.waitingForFullFrame = true
+  demo.streaming = true
+  return true
+end function
+
+function appendStreaming(demo, packet)
+  if typeof(packet) != "bytes" or len(packet) <= 0 or len(packet) > qc.MAX_MSGLEN then
+    return error(7700, "demo packet outside protocol message limit")
+  end if
+  node = DemoPacketNode(bytes(packet), void)
+  if demo.streamTail is void then demo.streamHead = node
+  else demo.streamTail.next = node
+  end if
+  demo.streamTail = node
+  demo.streamCount = demo.streamCount + 1
+  return true
+end function
+
+function packetCount(demo)
+  if demo is void then return 0 end if
+  return len(demo.packets) + demo.streamCount
+end function
+
+// CL_Record_f writes setup state immediately, then waits for a non-delta
+// snapshot so the first recorded gameplay frame never references history from
+// before recording began. Pure config/sound messages remain safe meanwhile.
+function appendLive(demo, packet, frameCount, deltaNumber)
+  if not demo.waitingForFullFrame then
+    if demo.streaming then return appendStreaming(demo, packet) end if
+    return append(demo, packet)
+  end if
+  if frameCount == 0 then return appendStreaming(demo, packet) end if
+  if deltaNumber <= 0 then
+    demo.waitingForFullFrame = false
+    return appendStreaming(demo, packet)
+  end if
+  return false
 end function
 
 function append(demo, packet)
@@ -28,12 +79,24 @@ function encodeDemo(demo)
   for each packet in demo.packets
     total = total + 4 + len(packet)
   end for
+  node = demo.streamHead
+  while node is not void
+    total = total + 4 + len(node.packet)
+    node = node.next
+  end while
   output = bytes(total)
   offset = 0
   for each packet in demo.packets
     demobio.putI32(output, offset, len(packet)); offset = offset + 4
     demobio.copyInto(output, offset, packet, 0, len(packet)); offset = offset + len(packet)
   end for
+  node = demo.streamHead
+  while node is not void
+    packet = node.packet
+    demobio.putI32(output, offset, len(packet)); offset = offset + 4
+    demobio.copyInto(output, offset, packet, 0, len(packet)); offset = offset + len(packet)
+    node = node.next
+  end while
   demobio.putI32(output, offset, -1)
   return output
 end function
@@ -52,10 +115,34 @@ function decodeDemo(data)
   end while
   if not terminated then return error(7704, "demo end marker missing") end if
   if offset != len(data) then return error(7705, "trailing data after demo end marker") end if
+  demo.waitingForFullFrame = false
   return demo
 end function
 
+function materialize(demo)
+  if demo.streamCount == 0 then return demo.packets end if
+  output = array(packetCount(demo), void)
+  index = 0
+  for each packet in demo.packets
+    output[index] = packet
+    index = index + 1
+  end for
+  node = demo.streamHead
+  while node is not void
+    output[index] = node.packet
+    index = index + 1
+    node = node.next
+  end while
+  demo.packets = output
+  demo.streamHead = void
+  demo.streamTail = void
+  demo.streamCount = 0
+  demo.streaming = false
+  return output
+end function
+
 function player(demo)
+  materialize(demo)
   return DemoPlayer(demo, 0, len(demo.packets) == 0)
 end function
 

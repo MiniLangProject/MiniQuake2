@@ -14,6 +14,7 @@ import miniquake2.network.runtime.types as nrtypes
 import miniquake2.network.runtime.messages as rmessages
 import miniquake2.network.runtime.commands as rcommands
 import miniquake2.network.runtime.transport as rtransport
+import miniquake2.server.administration as rpumpadmin
 import miniquake2.client.runtime.dispatcher as crdispatcher
 import miniquake2.client.runtime.handoff as crhandoff
 
@@ -195,8 +196,9 @@ function calculatePings(runtime)
   return true
 end function
 
-function pumpServer(runtime, socket, now, maximumPackets)
+function pumpServerPaused(runtime, socket, now, maximumPackets, paused)
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7281, "server pump packet limit must be positive") end if
+  if typeof(paused) != "bool" then return error(7284, "server paused state must be boolean") end if
   stats = nrtypes.stats()
   count = 0
   while count < maximumPackets and pudp.pending(socket)
@@ -217,7 +219,7 @@ function pumpServer(runtime, socket, now, maximumPackets)
         if len(result.payload) > 0 then
           channel = runtime.server.clients[slot].channel
           rcommands.parseClientPayload(runtime, slot, result.payload,
-            channel.incomingSequence, channel.dropped, false)
+            channel.incomingSequence, channel.dropped, paused)
         end if
       else
         stats.rejected = stats.rejected + 1
@@ -236,7 +238,16 @@ function pumpServer(runtime, socket, now, maximumPackets)
     flushServerClient(runtime, socket, slot, now, stats)
     slot = slot + 1
   end while
+  if rpumpadmin.takeMasterPing(runtime.administration) then
+    sendActions(socket, nserver.masterPingActions(runtime.administration.masters), stats)
+  end if
+  sendActions(socket, nserver.heartbeatActions(runtime.server,
+    runtime.administration.masters, now), stats)
   return stats
+end function
+
+function pumpServer(runtime, socket, now, maximumPackets)
+  return pumpServerPaused(runtime, socket, now, maximumPackets, false)
 end function
 
 function pumpPair(clientRuntime, serverRuntime, clientSocket, serverSocket, now, maximumPackets)
@@ -253,5 +264,12 @@ end function
 function pumpHeartbeats(serverRuntime, serverSocket, masters, now)
   stats = nrtypes.stats()
   sendActions(serverSocket, nserver.heartbeatActions(serverRuntime.server, masters, now), stats)
+  return stats
+end function
+
+function shutdownServer(serverRuntime, serverSocket)
+  stats = nrtypes.stats()
+  sendActions(serverSocket, nserver.shutdownActions(serverRuntime.server,
+    serverRuntime.administration.masters), stats)
   return stats
 end function

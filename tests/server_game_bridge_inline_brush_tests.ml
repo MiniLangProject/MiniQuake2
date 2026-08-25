@@ -181,7 +181,7 @@ visibilityViewer = ingametypes.zeroEdict(1)
 visibilityViewer.inUse = true
 visibilityViewer.state.origin = inqtypes.Vec3(10.0, 0.0, 0.0)
 visibilitySession = inserversession.ServerSession(void, void, void, void, void,
-  runtime.collision, "inline-fixture", "", 0, 0, 0, 0, void, "", false)
+  runtime.collision, "inline-fixture", "", 0, 0, 0, 0, void, "", false, false)
 inlineAssert(inserversession.entityVisibleFromLeaf(visibilitySession,
   visibilityViewer, 0, visibilityBrush),
   "snapshot PVS rejected door whose bounds touch the viewer cluster")

@@ -33,10 +33,20 @@ extern function winMouseDy() from "miniquake_native.dll" symbol "mq_win_mouse_dy
 extern function winMouseButtons() from "miniquake_native.dll" symbol "mq_win_mouse_buttons" returns i32
 extern function winMouseWheel() from "miniquake_native.dll" symbol "mq_win_mouse_wheel" returns i32
 extern function winInputEventPop() from "miniquake_native.dll" symbol "mq_win_input_event_pop" returns u32
+extern function winGetGammaRamp(ramp as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_win_get_gamma_ramp" returns i32
+extern function winSetGammaRamp(ramp as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_win_set_gamma_ramp" returns i32
+extern function winJoyStartup() from "miniquake_native.dll" symbol "mq_win_joy_startup" returns i32
+extern function winJoyRead() from "miniquake_native.dll" symbol "mq_win_joy_read" returns i32
+extern function winJoyAxis(axis as u32) from "miniquake_native.dll" symbol "mq_win_joy_axis" returns u32
+extern function winJoyButtons() from "miniquake_native.dll" symbol "mq_win_joy_buttons" returns u32
+extern function winJoyPov() from "miniquake_native.dll" symbol "mq_win_joy_pov" returns u32
+extern function winJoyButtonCount() from "miniquake_native.dll" symbol "mq_win_joy_button_count" returns u32
+extern function winJoyHasPov() from "miniquake_native.dll" symbol "mq_win_joy_has_pov" returns i32
 
 extern function udpOpenBound(port as u32, address as cstr) from "miniquake_native.dll" symbol "mq_udp_open_bound" returns u64
 extern function udpClose(handle as u64) from "miniquake_native.dll" symbol "mq_udp_close" returns void
 extern function udpBoundPort(handle as u64) from "miniquake_native.dll" symbol "mq_udp_bound_port" returns u32
+extern function udpEnableBroadcast(handle as u64) from "miniquake_native.dll" symbol "mq_udp_enable_broadcast" returns i32
 extern function udpPeek(handle as u64) from "miniquake_native.dll" symbol "mq_udp_peek" returns i32
 extern function udpSend(handle as u64, address as cstr, port as u32, data as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_udp_send" returns i32
 extern function udpReceive(handle as u64, data as bytes, capacity as u32) from "miniquake_native.dll" symbol "mq_udp_receive" returns i32
@@ -51,6 +61,14 @@ extern function audioClose() from "miniquake_native.dll" symbol "mq_audio_close"
 extern function audioQueued() from "miniquake_native.dll" symbol "mq_audio_queued" returns u32
 extern function audioReset() from "miniquake_native.dll" symbol "mq_audio_reset" returns i32
 extern function audioIsOpen() from "miniquake_native.dll" symbol "mq_audio_is_open" returns i32
+extern function oggOpen(data as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_ogg_open" returns u32
+extern function oggOpenFile(filename as wstr) from "miniquake_native.dll" symbol "mq_ogg_open_file" returns u32
+extern function oggRate() from "miniquake_native.dll" symbol "mq_ogg_rate" returns u32
+extern function oggChannels() from "miniquake_native.dll" symbol "mq_ogg_channels" returns u32
+extern function oggFrames() from "miniquake_native.dll" symbol "mq_ogg_frames" returns u32
+extern function oggDecode(output as bytes, frameCapacity as u32) from "miniquake_native.dll" symbol "mq_ogg_decode" returns u32
+extern function oggSeekStart() from "miniquake_native.dll" symbol "mq_ogg_seek_start" returns i32
+extern function oggClose() from "miniquake_native.dll" symbol "mq_ogg_close" returns void
 
 // Fixed-function OpenGL 1.1 bridge used by the Quake II refexport adapter.
 // Floats cross the ABI as their exact IEEE-754 bit pattern; this is the same

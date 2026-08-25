@@ -1,6 +1,7 @@
 # Generated MiniQuake2 build products and verification reports.
 /build/
 /build_debug/
+/miniquake2_data_root.txt
 
 # Read-only local checkout used to generate the reference ledger. The pinned
 # commit/hash inventory is tracked; the upstream repository itself is not

@@ -155,3 +155,39 @@ function fileExists(system, name)
   result = try(readFile(system, name))
   return result is not error
 end function
+
+function musicTrackName(track)
+  if typeof(track) != "int" or track < 1 or track > 99 then
+    return error(3238, "music track outside [1,99]")
+  end if
+  number = "" + track
+  if track < 10 then number = "0" + number end if
+  return "track" + number + ".ogg"
+end function
+
+// Prefer loose files so the native Vorbis bridge owns compressed retail data
+// without retaining a multi-megabyte MiniLang byte array for the whole level.
+// The 2023 Steam release stores the original soundtrack below
+// rerelease/baseq2/music while classic source ports commonly use
+// baseq2/music. PAK-contained replacements remain available through readFile.
+function musicTrackPath(system, track)
+  filename = musicTrackName(track)
+  gameDirectory = system.gameDirectory
+  if gameDirectory == "" then gameDirectory = BASE_DIRECTORY_NAME end if
+  classic = fs.joinPath(fs.joinPath(fs.joinPath(system.baseDirectory,
+    gameDirectory), "music"), filename)
+  if fs.isFile(classic) then return classic end if
+  rerelease = fs.joinPath(fs.joinPath(fs.joinPath(fs.joinPath(
+    system.baseDirectory, "rerelease"), gameDirectory), "music"), filename)
+  if fs.isFile(rerelease) then return rerelease end if
+  return ""
+end function
+
+function readMusicTrack(system, track)
+  filename = musicTrackName(track)
+  packed = try(readFile(system, "music/" + filename))
+  if packed is not error then return packed end if
+  path = musicTrackPath(system, track)
+  if path != "" then return fs.readAllBytes(path) end if
+  return error(3239, "music/" + filename + " not found below baseq2 or rerelease/baseq2")
+end function

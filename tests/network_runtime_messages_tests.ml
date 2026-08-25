@@ -131,6 +131,9 @@ function testCommandsAndMove()
   assertEqual(commandCalls, 1, "game command callback")
   assertEqual(thinkCalls, 3, "dropped command recovery callbacks")
   assertEqual(runtime.lastCommands[0].forwardMove, 120, "last command retained")
+  pausedThinkCalls = thinkCalls
+  rcommands.parseClientPayload(runtime, 0, qsz.dataSlice(goldenMove), 19, 0, true)
+  assertEqual(thinkCalls, pausedThinkCalls, "paused move suppresses ClientThink")
   corruptMove = qsz.dataSlice(goldenMove)
   corruptMove[len(corruptMove) - 1] = corruptMove[len(corruptMove) - 1] ^ 1
   assertTrue(try(rcommands.parseClientPayload(runtime, 0, corruptMove, 19, 0, false)) is error,

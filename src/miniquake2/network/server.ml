@@ -371,6 +371,19 @@ function heartbeatActions(server, masters, now)
   return actions
 end function
 
+function masterPingActions(masters)
+  actions = []
+  index = 0
+  while index < len(masters) and index < nc.MAX_MASTERS
+    if masters[index] is not void and masters[index].port != 0 then
+      actions = actions + [reply("master-ping", masters[index],
+        nconnectionless.ping(), -1, "master-ping")]
+    end if
+    index = index + 1
+  end while
+  return actions
+end function
+
 function shutdownActions(server, masters)
   if not server.dedicated or not server.publicServer then return [] end if
   payload = nconnectionless.shutdown()

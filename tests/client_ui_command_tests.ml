@@ -64,6 +64,55 @@ uiCommandAssert(uicmdtestcommands.takeNewGameSkill(uiCommandState) == 2 and
 uiCommandAssert(len(uicmdtestcommands.takeForwarded(uiCommandState)) == 0,
   "new game not forwarded as inert server text")
 
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "name Ranger") and
+  uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "model 1") and
+  uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "skin 2"), "player setup commands handled")
+uiCommandProfile = uicmdtestcommands.playerProfile(uiCommandState, uiCommandInput)
+uiCommandAssert(uiCommandProfile.name == "Ranger" and
+  uiCommandProfile.model == "female" and uiCommandProfile.skin == "cobalt" and
+  uicmdtestcommands.takePlayerDirty(uiCommandState),
+  "player profile retained and dirtiness drained")
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "connect 127.0.0.1:27910") and
+  uicmdtestcommands.takeConnectAddress(uiCommandState) == "127.0.0.1:27910",
+  "join endpoint retained atomically")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "sv_map 3")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "sv_rules 1")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "sv_maxclients 4")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "dm_falling 0")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "startserver")
+uiCommandServerOptions = uicmdtestcommands.serverOptions(uiCommandState)
+uiCommandAssert(uiCommandServerOptions.mapName == "q2dm3" and
+  uiCommandServerOptions.cooperative and uiCommandServerOptions.maxClients == 4 and
+  uiCommandServerOptions.dmFlags != 0 and
+  uicmdtestcommands.takeStartServer(uiCommandState),
+  "start-server and deathmatch options retained")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "allow_download_sounds 0")
+uiCommandAssert(not uicmdtestcommands.downloadPolicy(uiCommandState).sounds,
+  "download policy retained")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "record parity_test")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "stop")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "screenshot")
+uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
+  uiCommandMixer, "in_joystick 0")
+uiCommandAssert(uicmdtestcommands.takeRecordName(uiCommandState) == "parity_test" and
+  uicmdtestcommands.takeStopRecording(uiCommandState) and
+  uicmdtestcommands.takeScreenshot(uiCommandState) and
+  not uiCommandState.joystickEnabled,
+  "recording, screenshot and controller intents retained")
+
 uiCommandOldSensitivity = uiCommandInput.config.sensitivity
 uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "sensitivity 99")) is error,

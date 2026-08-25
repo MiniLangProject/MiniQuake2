@@ -11,6 +11,7 @@ package miniquake2.runtime.client_session
 
 import miniquake2.qcommon.cmd as csqcmd
 import miniquake2.qcommon.byteio as csqbyteio
+import miniquake2.qcommon.constants as csqconstants
 import miniquake2.qcommon.sizebuf as csqsz
 import miniquake2.qcommon.types as csqtypes
 import miniquake2.protocol.constants as cspc
@@ -25,6 +26,9 @@ import miniquake2.network.runtime.pump as cspump
 import miniquake2.client.effects.state as cseffects
 import miniquake2.client.runtime.dispatcher as csdispatcher
 import miniquake2.client.state as csstate
+import miniquake2.client.prediction as csprediction
+import miniquake2.client.prediction_world as cspredictionworld
+import miniquake2.client.downloads as csdownloads
 import miniquake2.platform.system as cssystem
 import miniquake2.platform.udp as csudp
 
@@ -207,6 +211,34 @@ function reconcilePrediction(session)
   return true
 end function
 
+// CL_PredictMovement for a real remote client: replay the unacknowledged
+// command ring against the locally loaded BSP plus the current packet-entity
+// solids. Listen play may keep using its authoritative Game-API bridge.
+function predictRemote(session, previewCommand, collision)
+  clientState = session.integrated.client
+  if session.closed or clientState.current is void then return false end if
+  if not csprediction.predictionEnabled(
+      clientState.current.playerState) then return false end if
+  commands = predictionCommands(session, previewCommand)
+  if len(commands) == 0 then return false end if
+  airAcceleration = 0.0
+  configStrings = session.integrated.network.configStrings
+  if csqconstants.CS_AIRACCEL < len(configStrings) and
+      configStrings[csqconstants.CS_AIRACCEL] != "" then
+    parsed = try(toNumber(configStrings[csqconstants.CS_AIRACCEL]))
+    if parsed is not error then airAcceleration = parsed end if
+  end if
+  localEntityNumber = session.integrated.network.playerNumber + 1
+  result = cspredictionworld.predict(clientState.current.playerState, commands,
+    collision, configStrings, clientState.current, localEntityNumber,
+    airAcceleration)
+  csstate.acceptPrediction(clientState, result.state.origin, result.viewAngles)
+  csstate.notePredictionStep(clientState, result.previousOrigin,
+    result.state.origin, result.state.flags, commands[len(commands) - 1].msec)
+  storePredictedOrigin(session, predictionSequence(session), result.state.origin)
+  return result
+end function
+
 function sendStringCommand(session, command, now)
   network = session.integrated.network
   if network.client.state < csnc.CA_CONNECTED or network.client.channel is void then return false end if
@@ -234,6 +266,10 @@ function sendUserInfo(session, userInfo, now)
   cspump.flushClient(network, session.socket, now, bytes(), stats)
   session.packetsSent = session.packetsSent + stats.sent
   return true
+end function
+
+function configureDownloads(session, manager)
+  return csdispatcher.setDownloadManager(session.integrated, manager)
 end function
 
 function signonCommand(text)
@@ -289,11 +325,41 @@ function processSignon(session, now)
       resetMapInput(session)
       if sendStringCommand(session, "new", now) then count = count + 1 end if
     else
-      command = signonCommand(text)
-      if command != "" then sendStringCommand(session, command, now); count = count + 1 end if
+      arguments = csqcmd.tokenize(text)
+      if len(arguments) == 2 and arguments[0] == "precache" and
+          session.integrated.downloads is not void then
+        spawnCount = try(toNumber(arguments[1]))
+        if spawnCount is error or typeof(spawnCount) != "int" or spawnCount < 0 then
+          return error(9991, "precache spawn count is invalid")
+        end if
+        selectedGameDirectory = try(csdownloads.setGameDirectory(
+          session.integrated.downloads,
+          session.integrated.network.gameDir))
+        if selectedGameDirectory is error then return selectedGameDirectory end if
+        startedDownload = try(csdownloads.beginPrecache(
+          session.integrated.downloads,
+          session.integrated.network.configStrings, spawnCount))
+        if startedDownload is error then return startedDownload end if
+      else
+        command = signonCommand(text)
+        if command != "" then sendStringCommand(session, command, now); count = count + 1 end if
+      end if
     end if
   end while
   return count
+end function
+
+function processDownloads(session, now)
+  manager = session.integrated.downloads
+  if manager is void then return 0 end if
+  commands = csdownloads.takeCommands(manager)
+  sent = 0
+  for each command in commands
+    if sendStringCommand(session, command, now) then sent = sent + 1
+    else csdownloads.queueCommand(manager, command)
+    end if
+  end for
+  return sent
 end function
 
 function sendMove(session, now)
@@ -325,6 +391,7 @@ function pump(session, sendMovement)
   session.packetsSent = session.packetsSent + stats.sent
   session.packetsRejected = session.packetsRejected + stats.rejected
   processSignon(session, now)
+  processDownloads(session, now)
   reconcilePrediction(session)
   if sendMovement then sendMove(session, now) end if
   return session.integrated.network.client.state

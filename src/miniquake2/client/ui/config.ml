@@ -24,6 +24,7 @@ struct ProductConfig
   fullScreen
   brightness
   crosshair
+  joystick
   bindings
 end struct
 
@@ -52,6 +53,7 @@ function productConfigValidate(config)
       config.brightness < 0.5 or config.brightness > 2.0 or
       typeof(config.crosshair) != "int" or config.crosshair < 0 or
       config.crosshair > 3 or
+      typeof(config.joystick) != "bool" or
       typeof(config.bindings) != "array" or len(config.bindings) > CONFIG_MAX_BINDINGS then
     return error(8290, "product config fields are invalid")
   end if
@@ -79,7 +81,8 @@ function captureProductConfig(input, commandState, mixer, screen)
   productConfigCaptured = ProductConfig(input.config.sensitivity,
     input.config.alwaysRun, productConfigInvertMouse, input.config.hand,
     mixer.masterVolume, commandState.videoMode, commandState.fullScreen,
-    commandState.brightness, screen.crosshair, productConfigBindings)
+    commandState.brightness, screen.crosshair, commandState.joystickEnabled,
+    productConfigBindings)
   return productConfigValidate(productConfigCaptured)
 end function
 
@@ -91,6 +94,8 @@ function encodeProductConfig(config)
   if productConfigValue.invertMouse then productConfigInvertValue = 1 end if
   productConfigFullscreenValue = 0
   if productConfigValue.fullScreen then productConfigFullscreenValue = 1 end if
+  productConfigJoystickValue = 0
+  if productConfigValue.joystick then productConfigJoystickValue = 1 end if
   productConfigText = CONFIG_HEADER + "\n" +
     "sensitivity " + productConfigValue.sensitivity + "\n" +
     "cl_run " + productConfigRunValue + "\n" +
@@ -101,6 +106,8 @@ function encodeProductConfig(config)
     "vid_fullscreen " + productConfigFullscreenValue + "\n" +
     "vid_gamma " + productConfigValue.brightness + "\n" +
     "crosshair " + productConfigValue.crosshair + "\n"
+  productConfigText = productConfigText + "in_joystick " +
+    productConfigJoystickValue + "\n"
   for each productConfigWriteBinding in productConfigValue.bindings
     productConfigText = productConfigText + "bind " + productConfigWriteBinding.key +
       " \"" + productConfigWriteBinding.command + "\"\n"
@@ -142,6 +149,7 @@ function decodeProductConfig(text)
   productConfigFullscreen = void
   productConfigGamma = void
   productConfigCrosshair = void
+  productConfigJoystick = void
   productConfigBindings = []
   productConfigLineIndex = 1
   while productConfigLineIndex < len(productConfigLines)
@@ -193,6 +201,9 @@ function decodeProductConfig(text)
             productConfigCrosshair > 3 then
           return error(8297, "crosshair must be an integer from 0 to 3")
         end if
+      else if productConfigName == "in_joystick" and productConfigJoystick is void and
+          (productConfigSetting == 0 or productConfigSetting == 1) then
+        productConfigJoystick = productConfigSetting != 0
       else return error(8298, "unknown, duplicate or invalid product config setting") end if
     end if
   end while
@@ -206,10 +217,11 @@ function decodeProductConfig(text)
   if productConfigHand is void then productConfigHand = 0 end if
   if productConfigInvert is void then productConfigInvert = false end if
   if productConfigCrosshair is void then productConfigCrosshair = 1 end if
+  if productConfigJoystick is void then productConfigJoystick = true end if
   return productConfigValidate(ProductConfig(productConfigSensitivity,
     productConfigRun, productConfigInvert, productConfigHand, productConfigVolume,
     productConfigMode, productConfigFullscreen, productConfigGamma,
-    productConfigCrosshair, productConfigBindings))
+    productConfigCrosshair, productConfigJoystick, productConfigBindings))
 end function
 
 function applyProductConfig(config, input, commandState, mixer, screen)
@@ -225,6 +237,7 @@ function applyProductConfig(config, input, commandState, mixer, screen)
   commandState.videoMode = productConfigApply.videoMode
   commandState.fullScreen = productConfigApply.fullScreen
   commandState.brightness = productConfigApply.brightness
+  commandState.joystickEnabled = productConfigApply.joystick
   screen.crosshair = productConfigApply.crosshair
   uiconfigmixer.setMasterVolume(mixer, productConfigApply.volume)
   // Apply persisted entries as overrides.  Product defaults may gain new

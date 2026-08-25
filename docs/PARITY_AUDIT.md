@@ -93,22 +93,48 @@ uses the bundled Quake II 3.19 source at commit
   `SV_RateDrop` accounting, including loopback exemption, `suppressCount` and
   snapshot-size history.
 
-## Confirmed missing product functionality
+- No-argument startup now discovers Quake II data roots, remembers an explicit
+  `--data-root`, opens the main menu before creating a gameplay session and
+  performs clean local/remote connect and disconnect transitions.
+- Multiplayer pages now provide Join Server, Start Server, LAN discovery,
+  address-book entries, player setup, download policy, server options and the
+  stock deathmatch flags. Preferences are persisted independently of gameplay
+  saves.
+- Remote clients execute the staged Protocol-34 precache/download workflow for
+  maps, models and their skins, sounds, images, skies and player assets. Paths
+  are traversal-safe, partial files resume, completed files install atomically,
+  and map checksum plus registration gates prevent premature `begin`.
+- Remote prediction clips against world and packet-entity solids, including
+  translated and rotated inline BSP movers. Ground flags, the world sentinel
+  and `PMF_NO_PREDICTION` match the server contract.
+- Server administration now includes IP filtering and persistence, bounded
+  RCON command execution, master heartbeat/shutdown packets, dedicated command
+  routing and authoritative single-player pause behavior.
+- `CS_CDTRACK` drives streamed OGG level/intermission music with focus, pause,
+  map-transition and shutdown lifecycle. Track lookup supports retail and
+  rerelease filesystem layouts without per-frame buffer concatenation.
+- The product command surface now records DM2 files incrementally, stops them
+  atomically and writes collision-free TGA screenshots from the rendered
+  framebuffer.
+- Hardware gamma is applied/restored where supported, while controller input
+  supplies persistent enablement, analog movement/look and menu navigation.
+- Save slots reject unsupported foreign native formats explicitly and carry
+  map, frame, timestamp and screenshot metadata with verified atomic writes.
+- BSP PVS submission now caches by cluster and area-bit contents. This removes
+  the prior full retail-world surface walk on every frame while preserving
+  door/area visibility invalidation.
 
-These are code gaps, not merely missing comparison captures.
+## Remaining product limitations
 
-| Priority | Area | Evidence in MiniQuake2 | Quake II 3.19 behavior still required |
-|---|---|---|---|
-| P0 | Product startup | running the executable without CLI arguments prints usage and exits; `--play ROOT MAP` creates the session before showing the main menu | persistent application startup, data-directory selection/discovery, menu-before-map lifecycle and clean connect/disconnect transitions |
-| P0 | Multiplayer UI | the Multiplayer page contains disabled labels and an explicit parity placeholder; Player Setup exposes handedness only | Join Server, Start Server, address book/server discovery, deathmatch options, downloads, player name/model/skin selection and preview |
-| P1 | Client downloads | Protocol-34 chunks are validated and accumulated in memory, but the retail product does not request missing precache assets, install them safely or retry registration | original staged map/model/sound/image/player download workflow with policy toggles and traversal-safe persistence |
-| P1 | Server administration | Userinfo rate clamping and `SV_RateDrop`/`suppressCount` are live, but `null_game.ServerCommand` still logs that the admin set is pending | `sv test/addip/removeip/listip/writeip`, connect filtering, RCON execution and configured master heartbeat/shutdown lifecycle |
-| P1 | Music | `CS_CDTRACK` exists but no gameplay music/CD-track backend consumes it | level/intermission track playback and stop/resume lifecycle; a modern legal-file backend can be additive but must preserve track semantics |
-| P1 | Single-player pause | opening the gameplay menu does not pause the authoritative listen server | original single-player pause semantics while menus/console remain responsive |
-| P1 | Remote-client solid prediction | the listen product predicts through its authoritative collision bridge, but a standalone remote-client path does not yet clip against dynamic solid packet entities | `CL_ClipMoveToEntities`-equivalent prediction against moving doors, platforms, trains, players and monsters using Protocol-34 `solid` state |
-| P2 | Original client utilities | playback and deterministic test capture exist, but the product command surface has no demo recording or screenshot command | record/stop DM2 lifecycle and user screenshot output |
-| P2 | Video/input completion | `vid_gamma` is persisted but not applied; no product controller path is present | hardware gamma where supported, original fallback behavior and joystick/controller input mapping |
-| P2 | Save interoperability/presentation | versioned MiniLang saves and three durable slots work | an explicit original-save import policy plus classic slot screenshot/timestamp presentation if compatibility scope requires it |
+The audited stock gameplay and Protocol-34 blocks above are implemented. Three
+front-end differences remain visible but do not block campaign or network play:
+
+- data-root selection is automatic or CLI-driven rather than a native Windows
+  folder-picker dialog;
+- Player Setup shows the selected skin as a 2D icon instead of the original
+  rotating 3D player preview;
+- the Join page supports LAN broadcast, address-book and numeric IPv4 targets,
+  but not DNS-name resolution or an internet master-browser UI.
 
 ## Implemented behavior with evidence still open
 
@@ -130,16 +156,11 @@ renderer, non-Windows targets and additional modern render backends remain
 outside the baseq2 compatibility release. They must not be counted as gaps in
 the scoped Quake II 3.19 base-game port.
 
-## Closure order
+## Remaining closure order
 
-1. Close remote-client dynamic-solid prediction.
-2. Introduce the persistent menu-first application lifecycle and complete the
-   Join/Start/Player Setup pages.
-3. Connect precache downloads, safe client persistence, server administration,
-   filtering, RCON and master discovery.
-4. Add level music and correct single-player pause behavior.
-5. Close demo recording, screenshots, gamma/controller and save-import policy.
-6. Run the external-process, full-campaign, visual and hardware evidence gates.
+1. Run the external-process, full-campaign, visual and hardware evidence gates.
+2. Replace the three front-end limitations above if strict UI parity is made a
+   release requirement.
 
 Every functional block must retain the full MiniLang build, asset-free suite,
 relevant retail smoke and source-integrity manifest before it is marked closed.

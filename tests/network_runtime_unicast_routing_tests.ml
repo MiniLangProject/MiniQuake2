@@ -25,7 +25,7 @@ while slot < 2
 end while
 runtime = nrur_nrtypes.createServer(server, 1, "baseq2", "unit", nrur_adapter.permissive())
 session = nrur_session.ServerSession(void, void, runtime, void, void, void,
-  "unicast-routing", "", 0, 0, 0, 0, void, "", false)
+  "unicast-routing", "", 0, 0, 0, 0, void, "", false, false)
 first = nrur_stypes.PendingUnicastEvent(0, 1, false, bytes([nrur_qc.SVC_NOP]))
 second = nrur_stypes.PendingUnicastEvent(1, 2, true, bytes([nrur_qc.SVC_NOP]))
 routed = nrur_session.routeUnicasts(session, [first, second])

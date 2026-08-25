@@ -18,6 +18,20 @@ import miniquake2.game.types as gt
 const SAVE_MAGIC = "MQ2SAVE1"
 const SAVE_VERSION = 2
 
+function saveFormat(data)
+  if typeof(data) != "bytes" or len(data) < len(bytes(SAVE_MAGIC)) + 1 then
+    return "truncated"
+  end if
+  expected = bytes(SAVE_MAGIC)
+  index = 0
+  while index < len(expected)
+    if data[index] != expected[index] then return "native-or-foreign" end if
+    index = index + 1
+  end while
+  if data[len(expected)] != 0 then return "native-or-foreign" end if
+  return "miniquake2"
+end function
+
 struct SaveImage
   kind
   mapName
@@ -184,9 +198,12 @@ end function
 
 function decodeSaveImage(data, maxEdicts)
   if typeof(data) != "bytes" or len(data) < 20 then return error(3853, "save image is truncated") end if
+  if saveFormat(data) != "miniquake2" then
+    return error(3854, "original Quake II native saves are machine-layout dumps and cannot be imported safely; use a MiniQuake2 save slot")
+  end if
   buffer = qsz.alloc(len(data)); qsz.writeBytes(buffer, data); qmsg.beginReading(buffer)
   pchecked.require(buffer, len(bytes(SAVE_MAGIC)) + 1, "save magic")
-  if qmsg.readString(buffer) != SAVE_MAGIC then return error(3854, "save magic mismatch") end if
+  if qmsg.readString(buffer) != SAVE_MAGIC then return error(3854, "MiniQuake2 save magic mismatch") end if
   version = pchecked.readLong(buffer, "save version")
   if version != 1 and version != SAVE_VERSION then return error(3855, "unsupported save version") end if
   pchecked.require(buffer, 1, "save kind"); kind = qmsg.readString(buffer)

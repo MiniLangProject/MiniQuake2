@@ -23,7 +23,7 @@ function createInputState()
   end for
   return cuitypes.InputState(cuic.KEY_GAME, true, [], array(cuic.MAX_KEYS, false),
     actions, [0.0, 0.0, 0.0], 0.0, 0.0, 0, 0, [], "", false,
-    defaultConfig(), "", -1)
+    defaultConfig(), "", -1, 0.0, 0.0, 0)
 end function
 
 // Product defaults retain the classic Quake II weapon keys and add the mouse

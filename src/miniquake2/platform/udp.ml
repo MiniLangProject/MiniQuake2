@@ -28,6 +28,14 @@ function close(socket)
   return true
 end function
 
+function enableBroadcast(socket)
+  if socket.closed then return error(2912, "UDP socket is closed") end if
+  if native.udpEnableBroadcast(socket.handle) == 0 then
+    return error(2917, "could not enable UDP broadcast")
+  end if
+  return true
+end function
+
 function send(socket, address, port, data)
   if socket.closed then return error(2912, "UDP socket is closed") end if
   if typeof(data) != "bytes" then return error(2913, "UDP payload must be bytes") end if

@@ -6,8 +6,67 @@ import miniquake2.client.ui.console as cuiconsole
 import miniquake2.client.ui.input as cuiinput
 import miniquake2.client.ui.keys as cuikeys
 import miniquake2.client.ui.menu as cuimenu
+import miniquake2.client.ui.gamepad as cuigamepad
 import miniquake2.native as native
 import miniquake2.platform.window as pwindow
+
+controllerGamepadState = void
+
+function configureGamepad(enabled)
+  global controllerGamepadState
+  if controllerGamepadState is not void and
+      controllerGamepadState.enabled == enabled then
+    return controllerGamepadState.available
+  end if
+  controllerGamepadState = cuigamepad.create(enabled)
+  return controllerGamepadState.available
+end function
+
+function gamepadState()
+  global controllerGamepadState
+  if controllerGamepadState is void then controllerGamepadState = cuigamepad.create(true) end if
+  return controllerGamepadState
+end function
+
+function gamepadKeyEvent(key)
+  return pwindow.InputEvent(cuic.EVENT_KEY, key, 1)
+end function
+
+function pollGamepad(input, screen, time)
+  state = gamepadState()
+  sample = cuigamepad.poll(state)
+  input.controllerForward = 0.0
+  input.controllerSide = 0.0
+  input.controllerButtons = 0
+  if not sample.connected or not input.focused then return 0 end if
+  if input.destination == cuic.KEY_GAME then
+    input.controllerForward = sample.forward
+    input.controllerSide = sample.side
+    if sample.pov == 0 then input.controllerForward = 1.0
+    else if sample.pov == 9000 then input.controllerSide = 1.0
+    else if sample.pov == 18000 then input.controllerForward = -1.0
+    else if sample.pov == 27000 then input.controllerSide = -1.0
+    end if
+    input.controllerButtons = sample.buttons
+    cuiinput.addMouseDelta(input, sample.lookX, sample.lookY)
+    return 1
+  end if
+  count = 0
+  if (sample.pressed & 1) != 0 then handleEvent(input, screen,
+    gamepadKeyEvent(cuic.K_ENTER), time); count = count + 1 end if
+  if (sample.pressed & 2) != 0 then handleEvent(input, screen,
+    gamepadKeyEvent(cuic.K_ESCAPE), time); count = count + 1 end if
+  if sample.povPressed == 1 then handleEvent(input, screen,
+    gamepadKeyEvent(cuic.K_UPARROW), time); count = count + 1
+  else if sample.povPressed == 2 then handleEvent(input, screen,
+    gamepadKeyEvent(cuic.K_RIGHTARROW), time); count = count + 1
+  else if sample.povPressed == 4 then handleEvent(input, screen,
+    gamepadKeyEvent(cuic.K_DOWNARROW), time); count = count + 1
+  else if sample.povPressed == 8 then handleEvent(input, screen,
+    gamepadKeyEvent(cuic.K_LEFTARROW), time); count = count + 1
+  end if
+  return count
+end function
 
 function beginMessage(input, team)
   input.message = ""
@@ -98,5 +157,6 @@ function poll(input, screen, time)
     count = count + 1
     event = pwindow.popInputEvent()
   end while
+  count = count + pollGamepad(input, screen, time)
   return count
 end function

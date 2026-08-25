@@ -45,6 +45,9 @@ struct InputState
   config
   captureCommand
   capturedKey
+  controllerForward
+  controllerSide
+  controllerButtons
 end struct
 
 struct ConsoleLine

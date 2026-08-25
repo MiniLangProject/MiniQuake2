@@ -38,11 +38,36 @@ end struct
 struct ClassicVisibilityCacheSlot
   world
   cluster
+  areaBits
   draws
   pvsCulled
+  areaCulled
 end struct
 
-classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999, [], 0)
+classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999, void,
+  [], 0, 0)
+
+function inline classicVisibilityAreaBitsEqual(first, second)
+  if first is void or second is void then return first is void and second is void end if
+  if len(first) != len(second) then return false end if
+  index = 0
+  while index < len(first)
+    if first[index] != second[index] then return false end if
+    index = index + 1
+  end while
+  return true
+end function
+
+function classicVisibilityCopyAreaBits(value)
+  if value is void then return void end if
+  copy = bytes(len(value))
+  index = 0
+  while index < len(value)
+    copy[index] = value[index]
+    index = index + 1
+  end while
+  return copy
+end function
 
 function classicVisibilityPointLeaf(map, origin)
   if len(map.leafs) == 0 then return -1 end if
@@ -368,30 +393,31 @@ function selectClassicWorld(world, frame)
     classicVisibilitySelectPvs(world, frame), frame)
 end function
 
-// Product views normally have no area-bit override and remain in one PVS
-// cluster for many frames. Cache the cluster candidate list so leaf marking,
-// PVS decompression and the full 7k-surface scan happen only on cluster
-// changes. The public deterministic selector above remains uncached for tests
-// and explicit area-bit frames.
+// Product snapshots carry an area-bit array on every frame even when no door
+// changed. Key the cached candidate list by its contents as well as cluster;
+// treating every non-void array as an override forced a full BSP/PVS scan of
+// roughly 7k surfaces every rendered frame.
 function selectClassicWorldCached(world, frame)
-  if frame.areaBits is not void or
-      (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
+  if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
     return selectClassicWorld(world, frame)
   end if
   viewLeaf = classicVisibilityPointLeaf(world.map, frame.viewOrigin)
   viewCluster = -1
   if viewLeaf >= 0 then viewCluster = world.map.leafs[viewLeaf].cluster end if
   cache = classicVisibilityCacheSlot
-  if cache.world == world and cache.cluster == viewCluster then
+  if cache.world == world and cache.cluster == viewCluster and
+      classicVisibilityAreaBitsEqual(cache.areaBits, frame.areaBits) then
     cached = ClassicPvsSelection(cache.draws, viewLeaf, viewCluster,
-      cache.pvsCulled, 0)
+      cache.pvsCulled, cache.areaCulled)
     return classicVisibilityFinishSelection(cached, frame)
   end if
   pvs = classicVisibilitySelectPvs(world, frame)
   cache.world = world
   cache.cluster = pvs.viewCluster
+  cache.areaBits = classicVisibilityCopyAreaBits(frame.areaBits)
   cache.draws = pvs.draws
   cache.pvsCulled = pvs.pvsCulled
+  cache.areaCulled = pvs.areaCulled
   return classicVisibilityFinishSelection(pvs, frame)
 end function
 

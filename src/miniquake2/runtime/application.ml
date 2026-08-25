@@ -18,6 +18,8 @@ import miniquake2.platform.window as appwindow
 import miniquake2.renderer.opengl as appgl
 import miniquake2.renderer.types as apprtypes
 import miniquake2.qcommon.types as appqtypes
+import miniquake2.qcommon.constants as appqconstants
+import miniquake2.qcommon.info as appinfo
 import miniquake2.runtime.server_session as appsession
 import miniquake2.runtime.client_session as appclientsession
 import miniquake2.platform.system as appsystem
@@ -49,6 +51,14 @@ import miniquake2.runtime.demo_session as appdemosession
 import miniquake2.runtime.client_assets as appclientassets
 import miniquake2.client.assets.registry as appassetregistry
 import miniquake2.physics.vector as appphysicsvector
+import miniquake2.runtime.product_startup as appstartup
+import miniquake2.client.runtime.handoff as appruntimehandoff
+import miniquake2.client.downloads as appdownloads
+import miniquake2.client.demo_recording as appdemorecording
+import miniquake2.client.screenshot as appscreenshot
+import miniquake2.runtime.pause_policy as apppause
+import miniquake2.runtime.save_metadata as appsavemetadata
+import miniquake2.native as appnative
 
 struct AssetSmokeResult
   mapPath
@@ -61,11 +71,30 @@ struct AssetSmokeResult
   pakCount
 end struct
 
+struct ProductMenuSelection
+  action
+  mapName
+  skill
+  endpoint
+  serverOptions
+  playerProfile
+  downloadPolicy
+  frames
+end struct
+
 previewFileSystem = void
 playAssetState = void
 playAssetBindings = void
 playClientRuntime = void
 playEffectState = void
+applicationRemoteRegistrationSession = void
+applicationRemoteRegistrationFileSystem = void
+applicationRemoteRegistrationRenderer = void
+applicationRemoteRegistrationWorld = void
+applicationRemoteRegistrationMap = void
+applicationRemoteRegistrationCollision = void
+applicationRemoteRegistrationMapPath = ""
+applicationRemoteRegistrationAssets = void
 
 function loadPreviewFile(path)
   global previewFileSystem
@@ -139,11 +168,29 @@ function noteMissingPlayAsset(value)
   return true
 end function
 
+function applicationRemoteFileExists(name)
+  global previewFileSystem
+  if previewFileSystem is void then return false end if
+  return appfs.fileExists(previewFileSystem, name)
+end function
+
+function applicationRemoteRegisterDownload(kind, name)
+  // Never send `begin` until the fully downloaded precache generation has
+  // successfully entered the renderer/collision registry.
+  if kind == "precache" then return applicationRegisterRemoteWorld() end if
+  return true
+end function
+
 function playUserInfo(hand)
   if typeof(hand) != "int" or hand < 0 or hand > 2 then
     return error(9954, "play handedness must be 0, 1 or 2")
   end if
   return "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000\\hand\\" + hand
+end function
+
+function playProfileUserInfo(profile)
+  if profile is void then return playUserInfo(0) end if
+  return appstartup.playerUserInfo(profile)
 end function
 
 function missingPlayAssetSummary(state)
@@ -194,6 +241,7 @@ end function
 
 function closePlayAudio(device, mixer)
   if mixer is not void then
+    appaudiomixer.stopMusic(mixer)
     appaudiomixer.stopAll(mixer)
     mixer.channels = []
   end if
@@ -246,6 +294,21 @@ function playConfigPath(baseDirectory)
   end if
   return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
     appfs.BASE_DIRECTORY_NAME), "miniquake2.cfg")
+end function
+
+function playSaveMetadataPath(baseDirectory, slot)
+  applicationSaveMetadataPaths = playSavePaths(baseDirectory, slot)
+  return applicationSaveMetadataPaths[0] + ".meta"
+end function
+
+function playScreenshotDirectory(baseDirectory)
+  return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
+    appfs.BASE_DIRECTORY_NAME), "screenshots")
+end function
+
+function playDemoDirectory(baseDirectory)
+  return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
+    appfs.BASE_DIRECTORY_NAME), "demos")
 end function
 
 function endsWith(value, suffix)
@@ -1155,7 +1218,266 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
     applicationVideoSmokeFullScreen]
 end function
 
-function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, productHost, skill)
+function productAddressBook(menu)
+  applicationProductAddresses = []
+  applicationProductAddressIndex = 0
+  while applicationProductAddressIndex < 8
+    applicationProductAddressItem = appuimenu.itemById(menu, "addressbook",
+      "address" + applicationProductAddressIndex)
+    if applicationProductAddressItem is not void and
+        applicationProductAddressItem.value != "" then
+      applicationProductAddresses = applicationProductAddresses + [
+        applicationProductAddressItem.value]
+    end if
+    applicationProductAddressIndex = applicationProductAddressIndex + 1
+  end while
+  return applicationProductAddresses
+end function
+
+function updateProductBrowserMenu(menu, browser)
+  applicationProductBrowserCount = appstartup.browserEntryCount(browser)
+  applicationProductBrowserIndex = 0
+  while applicationProductBrowserIndex < 8
+    applicationProductServerId = "server" + applicationProductBrowserIndex
+    if applicationProductBrowserIndex < applicationProductBrowserCount then
+      applicationProductServer = browser.entries[applicationProductBrowserIndex]
+      applicationProductEndpoint = appstartup.endpointText(
+        applicationProductServer.endpoint)
+      appuimenu.setActionCommand(menu, "join", applicationProductServerId,
+        applicationProductServer.description + " " +
+        applicationProductServer.ping + "ms", "connect " +
+        applicationProductEndpoint, true)
+    else
+      applicationProductEmptyLabel = ""
+      if applicationProductBrowserIndex == 0 then
+        applicationProductEmptyLabel = "no local servers found"
+      end if
+      appuimenu.setActionCommand(menu, "join", applicationProductServerId,
+        applicationProductEmptyLabel, "", false)
+    end if
+    applicationProductBrowserIndex = applicationProductBrowserIndex + 1
+  end while
+  return applicationProductBrowserCount
+end function
+
+function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
+    initialProfile)
+  global previewFileSystem
+  previewFileSystem = appfs.initialize(baseDirectory, "")
+  applicationProductWindow = productHost.window
+  applicationProductRenderer = productHost.renderer
+  applicationProductInput = appuikeys.createInputState()
+  appuikeys.bindDefaultGame(applicationProductInput)
+  applicationProductScreen = appuiscreen.create(appuiconsole.create(80),
+    appuimenu.create())
+  applicationProductCommands = appuicommands.create()
+  applicationProductCommands.videoMode = productHost.videoMode
+  applicationProductCommands.fullScreen = productHost.fullScreen
+  applicationProductMixer = appaudiomixer.create(44100)
+  appaudiomixer.setMasterVolume(applicationProductMixer, 0.7)
+  applicationProductAudioResult = try(appaudiodevice.open(44100, 2, 16))
+  applicationProductDevice = void
+  if applicationProductAudioResult is not error then
+    applicationProductDevice = applicationProductAudioResult
+  end if
+  applicationProductPreferencesPath = appnativefs.joinPath(
+    appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME),
+    "miniquake2_multiplayer.cfg")
+  applicationProductPreferencesResult = try(appstartup.loadPreferences(
+    applicationProductPreferencesPath))
+  applicationProductPreferences = appstartup.defaultPreferences()
+  if applicationProductPreferencesResult is not error then
+    applicationProductPreferences = applicationProductPreferencesResult
+  end if
+  applicationProductProfile = initialProfile
+  if applicationProductProfile is void then
+    applicationProductProfile = applicationProductPreferences.profile
+  end if
+  applicationProductCommands.playerName = applicationProductProfile.name
+  applicationProductCommands.playerModel = applicationProductProfile.model
+  applicationProductCommands.playerSkin = applicationProductProfile.skin
+  applicationProductInput.config.hand = applicationProductProfile.hand
+  applicationProductCommands.allowDownload = applicationProductPreferences.downloads.allow
+  applicationProductCommands.allowDownloadMaps = applicationProductPreferences.downloads.maps
+  applicationProductCommands.allowDownloadModels = applicationProductPreferences.downloads.models
+  applicationProductCommands.allowDownloadPlayers = applicationProductPreferences.downloads.players
+  applicationProductCommands.allowDownloadSounds = applicationProductPreferences.downloads.sounds
+  appuimenu.setItemText(applicationProductScreen.menu, "player", "name",
+    applicationProductProfile.name)
+  applicationProductModelIndex = 0
+  if applicationProductProfile.model == "female" then applicationProductModelIndex = 1
+  else if applicationProductProfile.model == "cyborg" then applicationProductModelIndex = 2 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "player", "model",
+    applicationProductModelIndex)
+  appuimenu.synchronizePlayerSkins(applicationProductScreen.menu)
+  applicationProductSkinItem = appuimenu.itemById(applicationProductScreen.menu,
+    "player", "skin")
+  applicationProductSkinIndex = 0
+  while applicationProductSkinIndex < len(applicationProductSkinItem.choices) and
+      applicationProductSkinItem.choices[applicationProductSkinIndex] !=
+      applicationProductProfile.skin
+    applicationProductSkinIndex = applicationProductSkinIndex + 1
+  end while
+  if applicationProductSkinIndex < len(applicationProductSkinItem.choices) then
+    appuimenu.setItemValue(applicationProductScreen.menu, "player", "skin",
+      applicationProductSkinIndex)
+  end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "player", "hand",
+    applicationProductProfile.hand)
+  applicationProductAddressIndex = 0
+  while applicationProductAddressIndex < 8
+    appuimenu.setItemText(applicationProductScreen.menu, "addressbook",
+      "address" + applicationProductAddressIndex,
+      applicationProductPreferences.addresses[applicationProductAddressIndex])
+    applicationProductAddressIndex = applicationProductAddressIndex + 1
+  end while
+  applicationProductDownloadAllow = 0
+  if applicationProductCommands.allowDownload then applicationProductDownloadAllow = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "downloads", "allow",
+    applicationProductDownloadAllow)
+  applicationProductDownloadMaps = 0
+  if applicationProductCommands.allowDownloadMaps then applicationProductDownloadMaps = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "downloads", "maps",
+    applicationProductDownloadMaps)
+  applicationProductDownloadModels = 0
+  if applicationProductCommands.allowDownloadModels then applicationProductDownloadModels = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "downloads", "models",
+    applicationProductDownloadModels)
+  applicationProductDownloadPlayers = 0
+  if applicationProductCommands.allowDownloadPlayers then applicationProductDownloadPlayers = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "downloads", "players",
+    applicationProductDownloadPlayers)
+  applicationProductDownloadSounds = 0
+  if applicationProductCommands.allowDownloadSounds then applicationProductDownloadSounds = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "downloads", "sounds",
+    applicationProductDownloadSounds)
+  applicationProductConfigPath = playConfigPath(baseDirectory)
+  applicationProductConfigLoad = try(appuiconfig.loadProductConfig(
+    applicationProductConfigPath))
+  if applicationProductConfigLoad is not error and
+      applicationProductConfigLoad is not void then
+    appuiconfig.applyProductConfig(applicationProductConfigLoad,
+      applicationProductInput, applicationProductCommands,
+      applicationProductMixer, applicationProductScreen)
+    applicationProductProfile.hand = applicationProductInput.config.hand
+    appuimenu.setItemValue(applicationProductScreen.menu, "player", "hand",
+      applicationProductProfile.hand)
+  end if
+  appuicontroller.configureGamepad(
+    applicationProductCommands.joystickEnabled)
+  applicationProductJoystickValue = 0
+  if applicationProductCommands.joystickEnabled then
+    applicationProductJoystickValue = 1
+  end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "options",
+    "joystick", applicationProductJoystickValue)
+  appproducthost.applyProductGamma(productHost,
+    applicationProductCommands.brightness, appnative.winHasFocus() != 0)
+  appuimenu.open(applicationProductScreen.menu, "main")
+  appuikeys.setDestination(applicationProductInput, appuiconstants.KEY_MENU)
+  appwindow.setMouseCapture(false)
+  applicationProductBrowser = appstartup.createBrowser()
+  applicationProductClock = appsystem.createClock()
+  applicationProductFrames = 0
+  applicationProductAction = ""
+  applicationProductMap = ""
+  applicationProductSkill = 1
+  applicationProductEndpoint = ""
+  applicationProductServerOptions = void
+  appwindow.setTitle(applicationProductWindow, "MiniQuake2 - Main Menu - FPS --")
+  applicationProductFpsStart = appsystem.milliseconds(applicationProductClock)
+  applicationProductFpsFrames = 0
+  while (frameLimit == 0 or applicationProductFrames < frameLimit) and
+      applicationProductAction == "" and appwindow.poll(applicationProductWindow)
+    applicationProductNow = appsystem.milliseconds(applicationProductClock)
+    appuicontroller.poll(applicationProductInput, applicationProductScreen,
+      applicationProductNow)
+    appuicommands.drain(applicationProductCommands, applicationProductInput,
+      applicationProductScreen, applicationProductMixer)
+    appuicontroller.configureGamepad(
+      applicationProductCommands.joystickEnabled)
+    appproducthost.applyProductGamma(productHost,
+      applicationProductCommands.brightness, appnative.winHasFocus() != 0)
+    if appuicommands.takePlayerDirty(applicationProductCommands) then
+      applicationProductProfile = appuicommands.playerProfile(
+        applicationProductCommands, applicationProductInput)
+    end if
+    applicationProductNewGame = appuicommands.takeNewGameSkill(
+      applicationProductCommands)
+    if applicationProductNewGame >= 0 then
+      applicationProductAction = "local"
+      applicationProductMap = "base1"
+      applicationProductSkill = applicationProductNewGame
+    end if
+    if appuicommands.takeStartServer(applicationProductCommands) then
+      applicationProductAction = "server"
+      applicationProductServerOptions = appuicommands.serverOptions(
+        applicationProductCommands)
+      applicationProductMap = applicationProductServerOptions.mapName
+    end if
+    applicationProductConnect = appuicommands.takeConnectAddress(
+      applicationProductCommands)
+    if applicationProductConnect != "" then
+      applicationProductAction = "connect"
+      applicationProductEndpoint = applicationProductConnect
+    end if
+    if applicationProductCommands.quitRequested then
+      applicationProductAction = "quit"
+    end if
+    if appuicommands.takeRefreshServers(applicationProductCommands) then
+      applicationProductBrowserStart = try(appstartup.startBrowser(
+        applicationProductBrowser,
+        productAddressBook(applicationProductScreen.menu),
+        appbyteio.truncInt(applicationProductNow)))
+    end if
+    if applicationProductBrowser.active then
+      applicationProductBrowserPumped = try(appstartup.pumpBrowser(
+        applicationProductBrowser, appbyteio.truncInt(applicationProductNow)))
+      updateProductBrowserMenu(applicationProductScreen.menu,
+        applicationProductBrowser)
+    end if
+    if appuicommands.takeConfigDirty(applicationProductCommands) then
+      applicationProductConfigSave = try(appuiconfig.saveProductConfig(
+        applicationProductConfigPath, appuiconfig.captureProductConfig(
+          applicationProductInput, applicationProductCommands,
+          applicationProductMixer, applicationProductScreen)))
+    end if
+    applicationProductRenderer.exports.BeginFrame(0.0)
+    appuimenu.draw(applicationProductScreen.menu, applicationProductWindow.width,
+      applicationProductWindow.height, applicationProductNow,
+      applicationProductRenderer.exports)
+    applicationProductRenderer.exports.EndFrame()
+    pumpPlayAudio(applicationProductDevice, applicationProductMixer)
+    applicationProductFrames = applicationProductFrames + 1
+    applicationProductFpsFrames = applicationProductFpsFrames + 1
+    applicationProductFpsElapsed = applicationProductNow - applicationProductFpsStart
+    if applicationProductFpsElapsed >= 1000 then
+      applicationProductMeasuredFps = appbyteio.truncInt(
+        applicationProductFpsFrames * 1000 / applicationProductFpsElapsed)
+      appwindow.setTitle(applicationProductWindow,
+        "MiniQuake2 - Main Menu - FPS " + applicationProductMeasuredFps)
+      applicationProductFpsStart = applicationProductNow
+      applicationProductFpsFrames = 0
+    end if
+    appsystem.sleep(0)
+  end while
+  appstartup.closeBrowser(applicationProductBrowser)
+  applicationProductSavedPreferences = try(appstartup.savePreferences(
+    applicationProductPreferencesPath, appstartup.MultiplayerPreferences(
+      applicationProductProfile,
+      appuicommands.downloadPolicy(applicationProductCommands),
+      productAddressBook(applicationProductScreen.menu))))
+  closePlayAudio(applicationProductDevice, applicationProductMixer)
+  if applicationProductAction == "" then applicationProductAction = "quit" end if
+  return ProductMenuSelection(applicationProductAction, applicationProductMap,
+    applicationProductSkill, applicationProductEndpoint,
+    applicationProductServerOptions, applicationProductProfile,
+    appuicommands.downloadPolicy(applicationProductCommands),
+    applicationProductFrames)
+end function
+
+function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
+    productHost, skill, menuAtStart, serverOptions, playerProfile)
   global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
@@ -1168,11 +1490,33 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   // Drop any CIN/DM2/previous-map registration before expanding the next BSP.
   // Registration remains open until all world and client assets are ready.
   renderer.exports.BeginRegistration(path)
-  map = appbsp.parse(appfs.readFile(filesystem, path), path)
+  applicationMapBytes = appfs.readFile(filesystem, path)
+  map = appbsp.parse(applicationMapBytes, path)
   collision = appcollision.create(map)
-  session = appplay.createCoreAtSkill(applicationCurrentMapName, map.entityText,
-    collision,
-    spawnPoint, playUserInfo(0), skill)
+  applicationInitialUserInfo = playProfileUserInfo(playerProfile)
+  session = void
+  if serverOptions is void then
+    session = appplay.createCoreAtSkill(applicationCurrentMapName, map.entityText,
+      collision, spawnPoint, applicationInitialUserInfo, skill)
+  else
+    applicationServerDeathmatch = not serverOptions.cooperative
+    applicationConfiguredServer = appsession.createCoreModeAtSkill(
+      applicationCurrentMapName, map.entityText, collision, spawnPoint,
+      "0.0.0.0", appstartup.DEFAULT_PORT, serverOptions.maxClients, false,
+      applicationServerDeathmatch, serverOptions.cooperative, skill)
+    // The exported game API exposes the same owned context through the
+    // module accessor; configure it after construction and before signon.
+    applicationConfiguredContext = appgame.playerContext()
+    applicationConfiguredContext.dmFlags = serverOptions.dmFlags
+    applicationConfiguredContext.timeLimit = serverOptions.timeLimit
+    applicationConfiguredContext.fragLimit = serverOptions.fragLimit
+    applicationConfiguredServer.networkRuntime.server.hostname = serverOptions.hostname
+    applicationConfiguredServer.networkRuntime.server.serverInfo = appinfo.setValueForKey(
+      applicationConfiguredServer.networkRuntime.server.serverInfo,
+      "hostname", serverOptions.hostname)
+    session = appplay.wrap(applicationConfiguredServer, applicationInitialUserInfo)
+  end if
+  appsession.setMapChecksum(session.server, applicationMapBytes)
   appplay.runUntilActive(session, 256)
 
   appgl.adoptClassicMapModel(renderer, map, path)
@@ -1191,6 +1535,15 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   audioResult = try(appaudiodevice.open(44100, 2, 16))
   audioDevice = void
   if audioResult is not error then audioDevice = audioResult end if
+  applicationMusicTrackValue = session.client.integrated.network.configStrings[
+    appqconstants.CS_CDTRACK]
+  applicationMusicStart = try(appaudiomixer.synchronizeMusicTrack(audioMixer,
+    filesystem, applicationMusicTrackValue))
+  applicationDemoRecording = appdemorecording.create(
+    session.client.integrated, playDemoDirectory(baseDirectory))
+  applicationScreenshotState = appscreenshot.create(
+    playScreenshotDirectory(baseDirectory))
+  applicationPendingSaveMetadataSlot = -1
 
   input = appuikeys.createInputState()
   playerState = session.client.integrated.client.current.playerState
@@ -1198,6 +1551,12 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   appuikeys.bindDefaultGame(input)
   screen = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
   commandState = appuicommands.create()
+  if playerProfile is not void then
+    commandState.playerName = playerProfile.name
+    commandState.playerModel = playerProfile.model
+    commandState.playerSkin = playerProfile.skin
+    input.config.hand = playerProfile.hand
+  end if
   commandState.videoMode = productHost.videoMode
   commandState.fullScreen = productHost.fullScreen
   applicationConfigPath = playConfigPath(baseDirectory)
@@ -1213,6 +1572,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       commandState.videoRestartRequested = true
     end if
   end if
+  appuicontroller.configureGamepad(commandState.joystickEnabled)
+  appproducthost.applyProductGamma(productHost, commandState.brightness,
+    appnative.winHasFocus() != 0)
   appgl.setHandedness(renderer, input.config.hand)
   applicationPublishedHand = 0
   appuimenu.setItemValue(screen.menu, "options", "sensitivity",
@@ -1228,6 +1590,10 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   appuimenu.setItemValue(screen.menu, "options", "volume",
     audioMixer.masterVolume)
   appuimenu.setItemValue(screen.menu, "options", "crosshair", screen.crosshair)
+  applicationJoystickValue = 0
+  if commandState.joystickEnabled then applicationJoystickValue = 1 end if
+  appuimenu.setItemValue(screen.menu, "options", "joystick",
+    applicationJoystickValue)
   appuimenu.setItemValue(screen.menu, "video", "mode", commandState.videoMode)
   applicationFullscreenValue = 0
   if commandState.fullScreen then applicationFullscreenValue = 1 end if
@@ -1236,6 +1602,21 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   appuimenu.setItemValue(screen.menu, "video", "brightness",
     commandState.brightness)
   appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
+  appuimenu.setItemText(screen.menu, "player", "name", commandState.playerName)
+  applicationPlayerModelIndex = 0
+  if commandState.playerModel == "female" then applicationPlayerModelIndex = 1
+  else if commandState.playerModel == "cyborg" then applicationPlayerModelIndex = 2 end if
+  appuimenu.setItemValue(screen.menu, "player", "model", applicationPlayerModelIndex)
+  appuimenu.synchronizePlayerSkins(screen.menu)
+  applicationPlayerSkinItem = appuimenu.itemById(screen.menu, "player", "skin")
+  applicationPlayerSkinIndex = 0
+  while applicationPlayerSkinIndex < len(applicationPlayerSkinItem.choices) and
+      applicationPlayerSkinItem.choices[applicationPlayerSkinIndex] != commandState.playerSkin
+    applicationPlayerSkinIndex = applicationPlayerSkinIndex + 1
+  end while
+  if applicationPlayerSkinIndex < len(applicationPlayerSkinItem.choices) then
+    appuimenu.setItemValue(screen.menu, "player", "skin", applicationPlayerSkinIndex)
+  end if
   saveCheckpoints = array(3)
   applicationPersistentSlot = 0
   while applicationPersistentSlot < len(saveCheckpoints)
@@ -1245,15 +1626,27 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       session.server.gameExport.maxEdicts))
     if applicationPersistentResult is not error then
       saveCheckpoints[applicationPersistentSlot] = applicationPersistentResult
+      applicationPersistentLabel = "slot " +
+        (applicationPersistentSlot + 1) + " - " +
+        applicationPersistentResult.mapName
+      applicationPersistentMetadataPath = playSaveMetadataPath(baseDirectory,
+        applicationPersistentSlot)
+      if appnativefs.isFile(applicationPersistentMetadataPath) then
+        applicationPersistentMetadata = try(appsavemetadata.decode(
+          appnativefs.readAllText(applicationPersistentMetadataPath)))
+        if applicationPersistentMetadata is not error then
+          applicationPersistentLabel = applicationPersistentLabel + " " +
+            applicationPersistentMetadata.timestamp
+        end if
+      end if
       appuimenu.setItemLabel(screen.menu, "load", "load" + applicationPersistentSlot,
-        "slot " + (applicationPersistentSlot + 1) + " - " +
-        applicationPersistentResult.mapName)
+        applicationPersistentLabel)
     end if
     applicationPersistentSlot = applicationPersistentSlot + 1
   end while
   // Interactive product runs enter through the Quake II main menu. Bounded
   // frame runs remain game-directed so automated retail gates need no input.
-  if frameLimit == 0 then
+  if menuAtStart and frameLimit == 0 then
     appuimenu.open(screen.menu, "main")
     appuikeys.setDestination(input, appuiconstants.KEY_MENU)
   end if
@@ -1277,7 +1670,9 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   lastWorldStats = void
   applicationPendingMediaSpecification = ""
   applicationNextSkill = skill
+  applicationDisconnectRequested = false
   while (frameLimit == 0 or frames < frameLimit) and not commandState.quitRequested and
+      not applicationDisconnectRequested and
       applicationPendingMediaSpecification == "" and
       appwindow.poll(window)
     started = appsystem.milliseconds(clock)
@@ -1291,6 +1686,35 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     appuiinput.sampleView(input, appbyteio.truncInt(applicationInputMsec))
     appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
     appuicommands.drain(commandState, input, screen, audioMixer)
+    appuicontroller.configureGamepad(commandState.joystickEnabled)
+    applicationWindowActive = appnative.winHasFocus() != 0
+    appproducthost.applyProductGamma(productHost, commandState.brightness,
+      applicationWindowActive)
+    applicationSinglePlayerPaused = apppause.shouldPause(
+      session.server.networkRuntime.server.maxClients, true,
+      input.destination)
+    appsession.setPaused(session.server, applicationSinglePlayerPaused)
+    if applicationSinglePlayerPaused or not applicationWindowActive then
+      appaudiomixer.pauseMusic(audioMixer)
+    else
+      appaudiomixer.resumeMusic(audioMixer)
+    end if
+    if appuicommands.takePlayerDirty(commandState) then
+      applicationUpdatedProfile = appuicommands.playerProfile(commandState, input)
+      applicationUpdatedUserInfo = try(appstartup.playerUserInfo(applicationUpdatedProfile))
+      if applicationUpdatedUserInfo is error then
+        appuiconsole.appendLine(screen.console,
+          "Player setup rejected: " + applicationUpdatedUserInfo.message,
+          appbyteio.truncInt(started))
+      else
+        applicationProfileSent = try(appplay.setUserInfo(session,
+          applicationUpdatedUserInfo))
+      end if
+    end if
+    if appuicommands.takeDisconnect(commandState) then
+      applicationDisconnectRequested = true
+      continue
+    end if
     if input.config.hand != applicationPublishedHand then
       appgl.setHandedness(renderer, input.config.hand)
       appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
@@ -1322,6 +1746,34 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       applicationForwardedResult = try(appclientsession.sendStringCommand(session.client,
         applicationForwardedCommand, appbyteio.truncInt(started)))
     end for
+    applicationRecordName = appuicommands.takeRecordName(commandState)
+    if applicationRecordName != "" then
+      applicationRecordResult = try(appdemorecording.start(
+        applicationDemoRecording, applicationRecordName))
+      if applicationRecordResult is error then
+        appuiconsole.appendLine(screen.console,
+          "Record failed: " + applicationRecordResult.message,
+          appbyteio.truncInt(started))
+      else
+        appuiconsole.appendLine(screen.console,
+          "Recording " + applicationRecordName,
+          appbyteio.truncInt(started))
+      end if
+    end if
+    if appuicommands.takeStopRecording(commandState) then
+      applicationStopRecordResult = try(appdemorecording.stop(
+        applicationDemoRecording))
+      if applicationStopRecordResult is error then
+        appuiconsole.appendLine(screen.console,
+          "Stop failed: " + applicationStopRecordResult.message,
+          appbyteio.truncInt(started))
+      else
+        appuiconsole.appendLine(screen.console,
+          "Stopped demo: " + applicationStopRecordResult,
+          appbyteio.truncInt(started))
+      end if
+    end if
+    applicationScreenshotRequested = appuicommands.takeScreenshot(commandState)
     applicationSaveSlot = appuicommands.takeSaveSlot(commandState)
     if applicationSaveSlot >= 0 then
       applicationSavePaths = playSavePaths(baseDirectory, applicationSaveSlot)
@@ -1336,6 +1788,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
           "slot " + (applicationSaveSlot + 1) + " - " + applicationSaveResult.mapName)
         appuiconsole.appendLine(screen.console, "Saved slot " + (applicationSaveSlot + 1),
           appbyteio.truncInt(started))
+        applicationPendingSaveMetadataSlot = applicationSaveSlot
       end if
     end if
     applicationLoadSlot = appuicommands.takeLoadSlot(commandState)
@@ -1359,7 +1812,10 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
             appgl.releaseClassicWorld(renderer, world)
             applicationCurrentMapName = applicationLoadCheckpoint.mapName
             path = mapPath(applicationCurrentMapName)
-            map = appbsp.parse(appfs.readFile(filesystem, path), path)
+            applicationRestoredMapBytes = appfs.readFile(filesystem, path)
+            map = appbsp.parse(applicationRestoredMapBytes, path)
+            appsession.setMapChecksum(session.server,
+              applicationRestoredMapBytes)
             renderer.exports.BeginRegistration(path)
             appgl.adoptClassicMapModel(renderer, map, path)
             world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile,
@@ -1441,6 +1897,19 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       networkTime = started
     end if
 
+    applicationNextMusicTrackValue = session.client.integrated.network.configStrings[
+      appqconstants.CS_CDTRACK]
+    if applicationNextMusicTrackValue != applicationMusicTrackValue then
+      applicationMusicTrackValue = applicationNextMusicTrackValue
+      applicationMusicSync = try(appaudiomixer.synchronizeMusicTrack(
+        audioMixer, filesystem, applicationMusicTrackValue))
+      if applicationMusicSync is error then
+        appuiconsole.appendLine(screen.console,
+          "Music unavailable: " + applicationMusicSync.message,
+          appbyteio.truncInt(started))
+      end if
+    end if
+
     applicationPerfStart = appsystem.milliseconds(clock)
     fraction = (started - networkTime) / 100.0
     if fraction < 0.0 then fraction = 0.0 end if
@@ -1493,6 +1962,51 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       session.client.integrated.network.configStrings,
       session.client.integrated.client.current.number,
       session.client.integrated.network.playerNumber, renderer.exports)
+    if applicationPendingSaveMetadataSlot >= 0 then
+      applicationSaveCapture = try(appscreenshot.capture(
+        applicationScreenshotState, window.width, window.height))
+      if applicationSaveCapture is error then
+        appuiconsole.appendLine(screen.console,
+          "Save preview failed: " + applicationSaveCapture.message,
+          appbyteio.truncInt(started))
+      else
+        applicationSaveCaptureIndex = (applicationScreenshotState.nextIndex +
+          9999) % 10000
+        applicationSaveCaptureName = appscreenshot.fileName(
+          applicationSaveCaptureIndex)
+        applicationSaveTimestamp = appsavemetadata.currentTimestamp()
+        applicationSaveMetadataResult = try(appsavemetadata.save(
+          playSaveMetadataPath(baseDirectory,
+            applicationPendingSaveMetadataSlot),
+          appsavemetadata.SaveSlotMetadata(applicationCurrentMapName,
+            session.server.frameNumber, applicationSaveTimestamp,
+            applicationSaveCaptureName)))
+        if applicationSaveMetadataResult is error then
+          appuiconsole.appendLine(screen.console,
+            "Save metadata failed: " + applicationSaveMetadataResult.message,
+            appbyteio.truncInt(started))
+        else
+          appuimenu.setItemLabel(screen.menu, "load", "load" +
+            applicationPendingSaveMetadataSlot, "slot " +
+            (applicationPendingSaveMetadataSlot + 1) + " - " +
+            applicationCurrentMapName + " " + applicationSaveTimestamp)
+        end if
+      end if
+      applicationPendingSaveMetadataSlot = -1
+    end if
+    if applicationScreenshotRequested then
+      applicationScreenshotResult = try(appscreenshot.capture(
+        applicationScreenshotState, window.width, window.height))
+      if applicationScreenshotResult is error then
+        appuiconsole.appendLine(screen.console,
+          "Screenshot failed: " + applicationScreenshotResult.message,
+          appbyteio.truncInt(started))
+      else
+        appuiconsole.appendLine(screen.console,
+          "Wrote " + applicationScreenshotResult,
+          appbyteio.truncInt(started))
+      end if
+    end if
     applicationPerfHud = applicationPerfHud +
       appsystem.milliseconds(clock) - applicationPerfHudStart
     applicationPerfPresentStart = appsystem.milliseconds(clock)
@@ -1526,6 +2040,8 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   end while
 
   appwindow.setMouseCapture(false)
+  applicationDemoShutdown = try(appdemorecording.shutdown(
+    applicationDemoRecording))
   closePlayAudio(audioDevice, audioMixer)
   appclientassets.releaseBindings()
   if world is not void then appgl.releaseClassicWorld(renderer, world) end if
@@ -1559,7 +2075,14 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
     visibleSurfaces, culledSurfaces, viewCluster,
     applicationPerfClient, applicationPerfWorld, applicationPerfEntities,
     applicationPerfHud, missingAssetSummary, applicationPerfPresent,
-    applicationPerfAudio, applicationPerfFrame]
+    applicationPerfAudio, applicationPerfFrame, applicationDisconnectRequested,
+    commandState.quitRequested]
+end function
+
+function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit,
+    productHost, skill)
+  return runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
+    productHost, skill, true, void, appstartup.defaultPlayerProfile())
 end function
 
 function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
@@ -1584,6 +2107,571 @@ end function
 
 function runPlay(baseDirectory, mapName, frameLimit)
   return runPlayAt(baseDirectory, mapName, "", frameLimit)
+end function
+
+function remoteMapModelPath(session)
+  applicationRemoteMapIndex = appqconstants.CS_MODELS + 1
+  applicationRemoteConfigStrings = session.integrated.network.configStrings
+  if applicationRemoteMapIndex < 0 or
+      applicationRemoteMapIndex >= len(applicationRemoteConfigStrings) then
+    return ""
+  end if
+  applicationRemoteMapName = applicationRemoteConfigStrings[
+    applicationRemoteMapIndex]
+  if typeof(applicationRemoteMapName) != "string" then return "" end if
+  return applicationRemoteMapName
+end function
+
+function applicationRegisterRemoteWorld()
+  global previewFileSystem, playAssetState, playAssetBindings
+  global applicationRemoteRegistrationSession
+  global applicationRemoteRegistrationFileSystem
+  global applicationRemoteRegistrationRenderer
+  global applicationRemoteRegistrationWorld
+  global applicationRemoteRegistrationMap
+  global applicationRemoteRegistrationCollision
+  global applicationRemoteRegistrationMapPath
+  global applicationRemoteRegistrationAssets
+  if applicationRemoteRegistrationSession is void or
+      applicationRemoteRegistrationFileSystem is void or
+      applicationRemoteRegistrationRenderer is void then
+    return error(9967, "remote precache registration context is unavailable")
+  end if
+  applicationRemoteRegisterPath = remoteMapModelPath(
+    applicationRemoteRegistrationSession)
+  if applicationRemoteRegisterPath == "" or not appfs.fileExists(
+      applicationRemoteRegistrationFileSystem, applicationRemoteRegisterPath) then
+    return error(9968, "remote precache BSP is not visible in the VFS")
+  end if
+  if applicationRemoteRegistrationMapPath == applicationRemoteRegisterPath and
+      applicationRemoteRegistrationWorld is not void and
+      applicationRemoteRegistrationAssets is not void then return true end if
+  if applicationRemoteRegistrationWorld is not void then
+    appgl.releaseClassicWorld(applicationRemoteRegistrationRenderer,
+      applicationRemoteRegistrationWorld)
+  end if
+  applicationRemoteRegistrationRenderer.exports.BeginRegistration(
+    applicationRemoteRegisterPath)
+  applicationRemoteRegisterBytes = appfs.readFile(
+    applicationRemoteRegistrationFileSystem, applicationRemoteRegisterPath)
+  applicationRemoteRegistrationMap = appbsp.parse(applicationRemoteRegisterBytes,
+    applicationRemoteRegisterPath)
+  applicationRemoteRegistrationCollision = appcollision.create(
+    applicationRemoteRegistrationMap)
+  appgl.adoptClassicMapModel(applicationRemoteRegistrationRenderer,
+    applicationRemoteRegistrationMap, applicationRemoteRegisterPath)
+  applicationRemoteRegistrationWorld = appgl.prepareClassicWorld(
+    applicationRemoteRegistrationRenderer, applicationRemoteRegistrationMap,
+    loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
+  applicationRemoteRegistrationAssets = appclientassets.createForRenderer(
+    applicationRemoteRegistrationRenderer.exports, loadPlaySound,
+    noteMissingPlayAsset)
+  playAssetState = applicationRemoteRegistrationAssets
+  appclientassets.registerConfigStrings(applicationRemoteRegistrationAssets,
+    applicationRemoteRegistrationSession.integrated.network.configStrings,
+    applicationRemoteRegisterPath)
+  playAssetBindings = appclientassets.bindings(
+    applicationRemoteRegistrationAssets)
+  applicationRemoteRegistrationRenderer.exports.EndRegistration()
+  applicationRemoteRegistrationMapPath = applicationRemoteRegisterPath
+  return true
+end function
+
+function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
+    playerProfile, downloadPolicy, frameLimit)
+  if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
+    return error(9976, "remote product frame limit outside [0,36000]")
+  end if
+  global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
+  global applicationRemoteRegistrationSession
+  global applicationRemoteRegistrationFileSystem
+  global applicationRemoteRegistrationRenderer
+  global applicationRemoteRegistrationWorld
+  global applicationRemoteRegistrationMap
+  global applicationRemoteRegistrationCollision
+  global applicationRemoteRegistrationMapPath
+  global applicationRemoteRegistrationAssets
+  applicationRemoteEndpoint = appstartup.parseEndpoint(endpoint)
+  applicationRemoteFileSystem = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationRemoteFileSystem
+  applicationRemoteUserInfo = appstartup.playerUserInfo(playerProfile)
+  applicationRemoteSession = appclientsession.create(
+    applicationRemoteEndpoint.address, applicationRemoteEndpoint.port,
+    applicationRemoteUserInfo, 0)
+  applicationRemoteDownloadPolicy = appdownloads.DownloadPolicy(
+    downloadPolicy.allow, downloadPolicy.maps, downloadPolicy.models,
+    downloadPolicy.sounds, downloadPolicy.allow, downloadPolicy.players)
+  applicationRemoteDownloads = appdownloads.create(baseDirectory, "",
+    applicationRemoteDownloadPolicy, applicationRemoteFileExists,
+    loadPreviewFile, applicationRemoteRegisterDownload)
+  appclientsession.configureDownloads(applicationRemoteSession,
+    applicationRemoteDownloads)
+  applicationRemoteWindow = productHost.window
+  applicationRemoteRenderer = productHost.renderer
+  applicationRemoteRegistrationSession = applicationRemoteSession
+  applicationRemoteRegistrationFileSystem = applicationRemoteFileSystem
+  applicationRemoteRegistrationRenderer = applicationRemoteRenderer
+  applicationRemoteRegistrationWorld = void
+  applicationRemoteRegistrationMap = void
+  applicationRemoteRegistrationCollision = void
+  applicationRemoteRegistrationMapPath = ""
+  applicationRemoteRegistrationAssets = void
+  applicationRemoteWorld = void
+  applicationRemoteMap = void
+  applicationRemoteCollision = void
+  applicationRemoteMapPath = ""
+  applicationRemoteAssets = void
+  playClientRuntime = applicationRemoteSession.integrated.client
+  playEffectState = applicationRemoteSession.integrated.effects
+  applicationRemoteMixer = appaudiomixer.create(44100)
+  appaudiomixer.setMasterVolume(applicationRemoteMixer, 0.7)
+  applicationRemoteDeviceResult = try(appaudiodevice.open(44100, 2, 16))
+  applicationRemoteDevice = void
+  if applicationRemoteDeviceResult is not error then
+    applicationRemoteDevice = applicationRemoteDeviceResult
+  end if
+  applicationRemoteMusicTrack = ""
+  applicationRemoteDemoRecording = appdemorecording.create(
+    applicationRemoteSession.integrated, playDemoDirectory(baseDirectory))
+  applicationRemoteScreenshotState = appscreenshot.create(
+    playScreenshotDirectory(baseDirectory))
+  applicationRemoteInput = appuikeys.createInputState()
+  appuikeys.bindDefaultGame(applicationRemoteInput)
+  applicationRemoteInput.config.hand = playerProfile.hand
+  applicationRemoteScreen = appuiscreen.create(appuiconsole.create(80),
+    appuimenu.create())
+  applicationRemoteCommands = appuicommands.create()
+  applicationRemoteCommands.playerName = playerProfile.name
+  applicationRemoteCommands.playerModel = playerProfile.model
+  applicationRemoteCommands.playerSkin = playerProfile.skin
+  applicationRemoteCommands.videoMode = productHost.videoMode
+  applicationRemoteCommands.fullScreen = productHost.fullScreen
+  applicationRemoteConfigPath = playConfigPath(baseDirectory)
+  applicationRemoteConfigLoad = try(appuiconfig.loadProductConfig(
+    applicationRemoteConfigPath))
+  if applicationRemoteConfigLoad is not error and
+      applicationRemoteConfigLoad is not void then
+    appuiconfig.applyProductConfig(applicationRemoteConfigLoad,
+      applicationRemoteInput, applicationRemoteCommands,
+      applicationRemoteMixer, applicationRemoteScreen)
+  end if
+  appuicontroller.configureGamepad(
+    applicationRemoteCommands.joystickEnabled)
+  applicationRemoteJoystickValue = 0
+  if applicationRemoteCommands.joystickEnabled then
+    applicationRemoteJoystickValue = 1
+  end if
+  appuimenu.setItemValue(applicationRemoteScreen.menu, "options", "joystick",
+    applicationRemoteJoystickValue)
+  appproducthost.applyProductGamma(productHost,
+    applicationRemoteCommands.brightness, appnative.winHasFocus() != 0)
+  appuimenu.setItemValue(applicationRemoteScreen.menu, "player", "hand",
+    playerProfile.hand)
+  appuimenu.setItemText(applicationRemoteScreen.menu, "player", "name",
+    playerProfile.name)
+  applicationRemoteClock = appsystem.createClock()
+  applicationRemoteNetworkTime = appsystem.milliseconds(applicationRemoteClock)
+  applicationRemoteInputTime = applicationRemoteNetworkTime
+  applicationRemoteFrames = 0
+  applicationRemoteDisconnect = false
+  applicationRemoteBoundedComplete = false
+  applicationRemoteViewInitialized = false
+  applicationRemoteLastWorldStats = void
+  appwindow.setTitle(applicationRemoteWindow,
+    "MiniQuake2 - connecting " + endpoint + " - FPS --")
+  applicationRemoteFpsStart = applicationRemoteNetworkTime
+  applicationRemoteFpsFrames = 0
+  while (frameLimit == 0 or applicationRemoteFrames < frameLimit) and
+      not applicationRemoteBoundedComplete and
+      not applicationRemoteDisconnect and
+      not applicationRemoteCommands.quitRequested and
+      applicationRemoteSession.integrated.network.client.state !=
+        miniquake2.network.constants.CA_DISCONNECTED and
+      appwindow.poll(applicationRemoteWindow)
+    applicationRemoteStarted = appsystem.milliseconds(applicationRemoteClock)
+    appclientstate.setPredictionRealTime(
+      applicationRemoteSession.integrated.client, applicationRemoteStarted)
+    appuicontroller.poll(applicationRemoteInput, applicationRemoteScreen,
+      applicationRemoteStarted)
+    applicationRemoteInputMsec = applicationRemoteStarted -
+      applicationRemoteInputTime
+    applicationRemoteInputTime = applicationRemoteStarted
+    if applicationRemoteInputMsec < 1 then applicationRemoteInputMsec = 1 end if
+    if applicationRemoteInputMsec > 200 then applicationRemoteInputMsec = 200 end if
+    appuiinput.sampleView(applicationRemoteInput,
+      appbyteio.truncInt(applicationRemoteInputMsec))
+    appwindow.setMouseCapture(applicationRemoteInput.destination ==
+      appuiconstants.KEY_GAME)
+    appuicommands.drain(applicationRemoteCommands, applicationRemoteInput,
+      applicationRemoteScreen, applicationRemoteMixer)
+    appuicontroller.configureGamepad(
+      applicationRemoteCommands.joystickEnabled)
+    applicationRemoteWindowActive = appnative.winHasFocus() != 0
+    appproducthost.applyProductGamma(productHost,
+      applicationRemoteCommands.brightness, applicationRemoteWindowActive)
+    if applicationRemoteWindowActive then
+      appaudiomixer.resumeMusic(applicationRemoteMixer)
+    else
+      appaudiomixer.pauseMusic(applicationRemoteMixer)
+    end if
+    if appuicommands.takeConfigDirty(applicationRemoteCommands) then
+      applicationRemoteConfigSave = try(appuiconfig.saveProductConfig(
+        applicationRemoteConfigPath, appuiconfig.captureProductConfig(
+          applicationRemoteInput, applicationRemoteCommands,
+          applicationRemoteMixer, applicationRemoteScreen)))
+    end if
+    if appuicommands.takePlayerDirty(applicationRemoteCommands) then
+      applicationRemoteProfile = appuicommands.playerProfile(
+        applicationRemoteCommands, applicationRemoteInput)
+      applicationRemoteUserInfo = appstartup.playerUserInfo(
+        applicationRemoteProfile)
+      applicationRemoteNow = appbyteio.truncInt(appsystem.milliseconds(
+        applicationRemoteSession.clock))
+      applicationRemoteUserInfoSent = try(appclientsession.sendUserInfo(
+        applicationRemoteSession, applicationRemoteUserInfo,
+        applicationRemoteNow))
+    end if
+    if appuicommands.takeDisconnect(applicationRemoteCommands) then
+      applicationRemoteDisconnect = true
+      continue
+    end if
+    applicationRemoteForwarded = appuicommands.takeForwarded(
+      applicationRemoteCommands)
+    applicationRemoteCommandNow = appbyteio.truncInt(appsystem.milliseconds(
+      applicationRemoteSession.clock))
+    for each applicationRemoteForwardedCommand in applicationRemoteForwarded
+      applicationRemoteForwardResult = try(appclientsession.sendStringCommand(
+        applicationRemoteSession, applicationRemoteForwardedCommand,
+        applicationRemoteCommandNow))
+    end for
+    applicationRemoteRecordName = appuicommands.takeRecordName(
+      applicationRemoteCommands)
+    if applicationRemoteRecordName != "" then
+      applicationRemoteRecordResult = try(appdemorecording.start(
+        applicationRemoteDemoRecording, applicationRemoteRecordName))
+      if applicationRemoteRecordResult is error then
+        appuiconsole.appendLine(applicationRemoteScreen.console,
+          "Record failed: " + applicationRemoteRecordResult.message,
+          appbyteio.truncInt(applicationRemoteStarted))
+      end if
+    end if
+    if appuicommands.takeStopRecording(applicationRemoteCommands) then
+      applicationRemoteStopResult = try(appdemorecording.stop(
+        applicationRemoteDemoRecording))
+      if applicationRemoteStopResult is error then
+        appuiconsole.appendLine(applicationRemoteScreen.console,
+          "Stop failed: " + applicationRemoteStopResult.message,
+          appbyteio.truncInt(applicationRemoteStarted))
+      else
+        appuiconsole.appendLine(applicationRemoteScreen.console,
+          "Stopped demo: " + applicationRemoteStopResult,
+          appbyteio.truncInt(applicationRemoteStarted))
+      end if
+    end if
+    applicationRemoteScreenshotRequested = appuicommands.takeScreenshot(
+      applicationRemoteCommands)
+
+    applicationRemoteNetworkMsec = applicationRemoteStarted -
+      applicationRemoteNetworkTime
+    if applicationRemoteNetworkMsec >= 100 then
+      if applicationRemoteNetworkMsec > 200 then applicationRemoteNetworkMsec = 200 end if
+      applicationRemoteCommand = appuiinput.createSampledUserCmd(
+        applicationRemoteInput, appbyteio.truncInt(applicationRemoteNetworkMsec))
+      appclientsession.setUserCmd(applicationRemoteSession,
+        applicationRemoteCommand)
+      applicationRemoteStep = try(appclientsession.step(
+        applicationRemoteSession))
+      applicationRemoteNetworkTime = applicationRemoteStarted
+    else
+      applicationRemotePoll = try(appclientsession.poll(
+        applicationRemoteSession))
+    end if
+    applicationRemoteHandoff = appruntimehandoff.takeLatest(
+      applicationRemoteSession.integrated)
+    if applicationRemoteHandoff is not void then
+      applyPlayHandoff(applicationRemoteScreen, applicationRemoteHandoff)
+    end if
+    applicationRemoteNextMusicTrack = applicationRemoteSession.integrated.network.configStrings[
+      appqconstants.CS_CDTRACK]
+    if applicationRemoteNextMusicTrack != applicationRemoteMusicTrack then
+      applicationRemoteMusicTrack = applicationRemoteNextMusicTrack
+      applicationRemoteMusicSync = try(
+        appaudiomixer.synchronizeMusicTrack(applicationRemoteMixer,
+          applicationRemoteFileSystem, applicationRemoteMusicTrack))
+    end if
+
+    applicationRemoteNextMapPath = remoteMapModelPath(applicationRemoteSession)
+    if applicationRemoteRegistrationMapPath != "" and
+        applicationRemoteRegistrationMapPath != applicationRemoteMapPath then
+      applicationRemoteMapPath = applicationRemoteRegistrationMapPath
+      applicationRemoteWorld = applicationRemoteRegistrationWorld
+      applicationRemoteMap = applicationRemoteRegistrationMap
+      applicationRemoteCollision = applicationRemoteRegistrationCollision
+      applicationRemoteAssets = applicationRemoteRegistrationAssets
+      applicationRemoteViewInitialized = false
+      appwindow.setTitle(applicationRemoteWindow,
+        "MiniQuake2 - " + applicationRemoteMapPath + " - FPS --")
+    end if
+    if applicationRemoteNextMapPath != "" and
+        applicationRemoteNextMapPath != applicationRemoteMapPath and
+        appfs.fileExists(applicationRemoteFileSystem,
+          applicationRemoteNextMapPath) then
+      if applicationRemoteWorld is not void then
+        appgl.releaseClassicWorld(applicationRemoteRenderer,
+          applicationRemoteWorld)
+      end if
+      applicationRemoteMapPath = applicationRemoteNextMapPath
+      applicationRemoteRenderer.exports.BeginRegistration(
+        applicationRemoteMapPath)
+      applicationRemoteMap = appbsp.parse(appfs.readFile(
+        applicationRemoteFileSystem, applicationRemoteMapPath),
+        applicationRemoteMapPath)
+      applicationRemoteCollision = appcollision.create(applicationRemoteMap)
+      appgl.adoptClassicMapModel(applicationRemoteRenderer,
+        applicationRemoteMap, applicationRemoteMapPath)
+      applicationRemoteWorld = appgl.prepareClassicWorld(
+        applicationRemoteRenderer, applicationRemoteMap, loadPreviewFile,
+        apprtypes.defaultLightStyles(), 0, 1.0)
+      applicationRemoteAssets = appclientassets.createForRenderer(
+        applicationRemoteRenderer.exports, loadPlaySound,
+        noteMissingPlayAsset)
+      playAssetState = applicationRemoteAssets
+      appclientassets.registerConfigStrings(applicationRemoteAssets,
+        applicationRemoteSession.integrated.network.configStrings,
+        applicationRemoteMapPath)
+      playAssetBindings = appclientassets.bindings(applicationRemoteAssets)
+      applicationRemoteRenderer.exports.EndRegistration()
+      applicationRemoteRegistrationWorld = applicationRemoteWorld
+      applicationRemoteRegistrationMap = applicationRemoteMap
+      applicationRemoteRegistrationCollision = applicationRemoteCollision
+      applicationRemoteRegistrationMapPath = applicationRemoteMapPath
+      applicationRemoteRegistrationAssets = applicationRemoteAssets
+      applicationRemoteViewInitialized = false
+      appwindow.setTitle(applicationRemoteWindow,
+        "MiniQuake2 - " + applicationRemoteMapPath + " - FPS --")
+    end if
+
+    applicationRemoteCurrent = applicationRemoteSession.integrated.client.current
+    if applicationRemoteCurrent is not void and not applicationRemoteViewInitialized then
+      applicationRemoteInput.viewAngles = appprediction.localInputAngles(
+        applicationRemoteCurrent.playerState)
+      applicationRemoteViewInitialized = true
+    end if
+    if applicationRemoteWorld is not void and applicationRemoteAssets is not void and
+        applicationRemoteCurrent is not void then
+      applicationRemotePredictionMsec = applicationRemoteStarted -
+        applicationRemoteNetworkTime
+      if applicationRemotePredictionMsec < 0 then applicationRemotePredictionMsec = 0 end if
+      if applicationRemotePredictionMsec > 200 then applicationRemotePredictionMsec = 200 end if
+      applicationRemotePreviewCommand = appuiinput.previewUserCmd(
+        applicationRemoteInput,
+        appbyteio.truncInt(applicationRemotePredictionMsec))
+      applicationRemotePredict = try(appclientsession.predictRemote(
+        applicationRemoteSession, applicationRemotePreviewCommand,
+        applicationRemoteCollision))
+      applicationRemoteFraction = applicationRemotePredictionMsec / 100.0
+      if applicationRemoteFraction > 1.0 then applicationRemoteFraction = 1.0 end if
+      applicationRemoteFrame = appclientstate.buildPredictedRefDef(
+        applicationRemoteSession.integrated.client, applicationRemoteFraction,
+        applicationRemoteWindow.width, applicationRemoteWindow.height,
+        playAssetBindings,
+        applicationRemoteSession.integrated.network.playerNumber + 1,
+        randomPlayClientEffect)
+      if applicationRemoteDevice is not void then
+        applicationRemoteAxes = appphysicsvector.angleVectors(
+          applicationRemoteFrame.viewAngles)
+        appclientassets.attachMixer(applicationRemoteAssets,
+          applicationRemoteSession.integrated.effects,
+          applicationRemoteMixer, resolvePlayEntityPosition,
+          applicationRemoteFrame.viewOrigin, applicationRemoteAxes[1])
+        appclientassets.setMixerListenerEntity(
+          applicationRemoteSession.integrated.network.playerNumber + 1)
+        appclientassets.syncEntityLoops(applicationRemoteMixer,
+          applicationRemoteCurrent)
+      end if
+      applicationRemoteEffectNow = appbyteio.truncInt(appsystem.milliseconds(
+        applicationRemoteSession.clock))
+      appentityeffects.emit(applicationRemoteSession.integrated.effects,
+        applicationRemoteCurrent,
+        applicationRemoteSession.integrated.client.previous,
+        applicationRemoteFraction, applicationRemoteEffectNow,
+        applicationRemoteSession.integrated.network.playerNumber + 1,
+        applicationRemoteFrame)
+      appeffecthandoff.apply(applicationRemoteSession.integrated.effects,
+        applicationRemoteFrame, applicationRemoteEffectNow,
+        resolvePlayEffectModel)
+      applicationRemoteRenderer.exports.BeginFrame(0.0)
+      applicationRemoteLastWorldStats = appgl.submitClassicWorld(
+        applicationRemoteRenderer, applicationRemoteWorld,
+        applicationRemoteFrame)
+      applicationRemoteRenderer.exports.RenderFrame(applicationRemoteFrame)
+      applicationRemoteInput.lightLevel = appgl.lightLevel(
+        applicationRemoteRenderer)
+      appuiscreen.draw(applicationRemoteScreen, applicationRemoteStarted,
+        applicationRemoteWindow.width, applicationRemoteWindow.height,
+        applicationRemoteCurrent.playerState.stats,
+        applicationRemoteSession.integrated.network.configStrings,
+        applicationRemoteCurrent.number,
+        applicationRemoteSession.integrated.network.playerNumber,
+        applicationRemoteRenderer.exports)
+      if applicationRemoteScreenshotRequested then
+        applicationRemoteScreenshotResult = try(appscreenshot.capture(
+          applicationRemoteScreenshotState, applicationRemoteWindow.width,
+          applicationRemoteWindow.height))
+        if applicationRemoteScreenshotResult is error then
+          appuiconsole.appendLine(applicationRemoteScreen.console,
+            "Screenshot failed: " + applicationRemoteScreenshotResult.message,
+            appbyteio.truncInt(applicationRemoteStarted))
+        else
+          appuiconsole.appendLine(applicationRemoteScreen.console,
+            "Wrote " + applicationRemoteScreenshotResult,
+            appbyteio.truncInt(applicationRemoteStarted))
+        end if
+      end if
+      applicationRemoteRenderer.exports.EndFrame()
+      pumpPlayAudio(applicationRemoteDevice, applicationRemoteMixer)
+      if frameLimit > 0 then applicationRemoteBoundedComplete = true end if
+    else
+      applicationRemoteRenderer.exports.BeginFrame(0.0)
+      applicationRemoteRenderer.exports.DrawFadeScreen()
+      appproducthost.productHostDrawText(applicationRemoteRenderer.exports,
+        applicationRemoteWindow.width / 2 - 80,
+        applicationRemoteWindow.height / 2,
+        "connecting " + endpoint)
+      if applicationRemoteScreen.menu.active then
+        appuimenu.draw(applicationRemoteScreen.menu,
+          applicationRemoteWindow.width, applicationRemoteWindow.height,
+          applicationRemoteStarted, applicationRemoteRenderer.exports)
+      end if
+      applicationRemoteRenderer.exports.EndFrame()
+    end if
+    applicationRemoteFrames = applicationRemoteFrames + 1
+    applicationRemoteFpsFrames = applicationRemoteFpsFrames + 1
+    applicationRemoteFpsElapsed = applicationRemoteStarted - applicationRemoteFpsStart
+    if applicationRemoteFpsElapsed >= 1000 then
+      applicationRemoteMeasuredFps = appbyteio.truncInt(
+        applicationRemoteFpsFrames * 1000 / applicationRemoteFpsElapsed)
+      applicationRemoteTitleMap = applicationRemoteMapPath
+      if applicationRemoteTitleMap == "" then applicationRemoteTitleMap = endpoint end if
+      appwindow.setTitle(applicationRemoteWindow, "MiniQuake2 - " +
+        applicationRemoteTitleMap + " - FPS " + applicationRemoteMeasuredFps)
+      applicationRemoteFpsStart = applicationRemoteStarted
+      applicationRemoteFpsFrames = 0
+    end if
+    if applicationRemoteWorld is void then appsystem.sleep(1) end if
+    appsystem.sleep(0)
+  end while
+  appwindow.setMouseCapture(false)
+  applicationRemoteDemoShutdown = try(appdemorecording.shutdown(
+    applicationRemoteDemoRecording))
+  closePlayAudio(applicationRemoteDevice, applicationRemoteMixer)
+  appclientassets.releaseBindings()
+  if applicationRemoteWorld is not void then
+    appgl.releaseClassicWorld(applicationRemoteRenderer,
+      applicationRemoteWorld)
+  end if
+  appclientsession.shutdown(applicationRemoteSession)
+  previewFileSystem = void
+  playAssetState = void
+  playAssetBindings = void
+  playClientRuntime = void
+  playEffectState = void
+  applicationRemoteRegistrationSession = void
+  applicationRemoteRegistrationFileSystem = void
+  applicationRemoteRegistrationRenderer = void
+  applicationRemoteRegistrationWorld = void
+  applicationRemoteRegistrationMap = void
+  applicationRemoteRegistrationCollision = void
+  applicationRemoteRegistrationMapPath = ""
+  applicationRemoteRegistrationAssets = void
+  return [applicationRemoteFrames, applicationRemoteDisconnect,
+    applicationRemoteCommands.quitRequested, applicationRemoteMapPath]
+end function
+
+function runRemoteProductSmoke(baseDirectory, endpoint, frameLimit)
+  applicationRemoteSmokeHost = appproducthost.openProductHost(
+    "MiniQuake2 Remote Smoke", 3, false, applicationRendererImports())
+  applicationRemoteSmokeResult = try(runRemoteProductOnHost(baseDirectory,
+    endpoint, applicationRemoteSmokeHost, appstartup.defaultPlayerProfile(),
+    appstartup.defaultDownloadPolicy(), frameLimit))
+  appproducthost.closeProductHost(applicationRemoteSmokeHost)
+  if applicationRemoteSmokeResult is error then return applicationRemoteSmokeResult end if
+  return applicationRemoteSmokeResult
+end function
+
+function runProduct(baseDirectory, frameLimit)
+  if not appstartup.retailRootValid(baseDirectory) then
+    return error(9965, "MiniQuake2 product requires a Quake II root containing baseq2/pak0.pak")
+  end if
+  if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
+    return error(9966, "product frame limit outside [0,36000]")
+  end if
+  applicationProductPersistRoot = try(appstartup.persistSelectedRoot(
+    "miniquake2_data_root.txt", baseDirectory))
+  applicationPersistentHost = appproducthost.openProductHost("MiniQuake2",
+    3, false, applicationRendererImports())
+  applicationPersistentProfile = void
+  applicationPersistentRuns = 0
+  applicationPersistentMenuFrames = 0
+  applicationPersistentGameplayFrames = 0
+  applicationPersistentDone = false
+  while not applicationPersistentDone
+    applicationPersistentSelection = runProductMenuOnHost(baseDirectory,
+      applicationPersistentHost, frameLimit, applicationPersistentProfile)
+    applicationPersistentMenuFrames = applicationPersistentMenuFrames +
+      applicationPersistentSelection.frames
+    applicationPersistentProfile = applicationPersistentSelection.playerProfile
+    if applicationPersistentSelection.action == "quit" then
+      applicationPersistentDone = true
+      continue
+    end if
+    if applicationPersistentSelection.action == "connect" then
+      // The protocol client owns a clean connect/disconnect lifecycle today;
+      // retain the product host and return to the Join page after a bounded
+      // interoperability attempt instead of constructing a local map first.
+      applicationPersistentEndpoint = appstartup.parseEndpoint(
+        applicationPersistentSelection.endpoint)
+      appproducthost.showProductLoading(applicationPersistentHost,
+        "connecting " + applicationPersistentSelection.endpoint)
+      applicationPersistentConnect = try(runRemoteProductOnHost(
+        baseDirectory, applicationPersistentSelection.endpoint,
+        applicationPersistentHost, applicationPersistentProfile,
+        applicationPersistentSelection.downloadPolicy, 0))
+      if applicationPersistentConnect is error then
+        appproducthost.closeProductHost(applicationPersistentHost)
+        return applicationPersistentConnect
+      end if
+      applicationPersistentRuns = applicationPersistentRuns + 1
+      applicationPersistentGameplayFrames = applicationPersistentGameplayFrames +
+        applicationPersistentConnect[0]
+      if applicationPersistentConnect[2] then applicationPersistentDone = true end if
+      continue
+    end if
+    applicationPersistentServerOptions = void
+    if applicationPersistentSelection.action == "server" then
+      applicationPersistentServerOptions = applicationPersistentSelection.serverOptions
+    end if
+    applicationPersistentPlayResult = try(runPlayAtOnHostConfigured(
+      baseDirectory, applicationPersistentSelection.mapName, "", 0,
+      applicationPersistentHost, applicationPersistentSelection.skill,
+      false, applicationPersistentServerOptions,
+      applicationPersistentProfile))
+    if applicationPersistentPlayResult is error then
+      appproducthost.closeProductHost(applicationPersistentHost)
+      return applicationPersistentPlayResult
+    end if
+    applicationPersistentRuns = applicationPersistentRuns + 1
+    applicationPersistentGameplayFrames = applicationPersistentGameplayFrames +
+      applicationPersistentPlayResult[0]
+    if len(applicationPersistentPlayResult) < 19 or
+        not applicationPersistentPlayResult[18] then
+      applicationPersistentDone = true
+    end if
+  end while
+  appproducthost.closeProductHost(applicationPersistentHost)
+  previewFileSystem = void
+  return [applicationPersistentRuns, applicationPersistentMenuFrames,
+    applicationPersistentGameplayFrames]
 end function
 
 function runDedicated(baseDirectory, mapName, port, frameLimit)

@@ -35,6 +35,7 @@ import miniquake2.qcommon.byteio as ngbyteio
 import miniquake2.qcommon.info as nginfo
 import miniquake2.qcommon.types as ngqtypes
 import miniquake2.qcommon.text as ngtext
+import miniquake2.server.administration as ngserveradmin
 
 // Original BaseQ2 layout programs. Keeping each program in one immutable
 // literal avoids the repeated string concatenation used by the C source while
@@ -1284,7 +1285,19 @@ function ServerCommand()
   global activeImports, serverCommandCount
   requireInitialized("ServerCommand")
   serverCommandCount = serverCommandCount + 1
-  activeImports.dprintf("MiniQuake2 BaseQ2: ServerCommand (extended admin set pending)")
+  activeImports.dprintf("MiniQuake2 BaseQ2: ServerCommand")
+  arguments = []
+  count = activeImports.argc()
+  if typeof(count) != "int" then count = 0 end if
+  index = 0
+  while index < count
+    arguments = arguments + [activeImports.argv(index)]
+    index = index + 1
+  end while
+  output = ngserveradmin.serverCommand(ngserveradmin.active(), arguments)
+  if count > 0 and output != "" then
+    activeImports.cprintf(void, qc.PRINT_HIGH, output)
+  end if
   return true
 end function
 

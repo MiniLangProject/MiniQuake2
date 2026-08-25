@@ -23,6 +23,12 @@ function choice(id, label, value, choices, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_CHOICE, value, 0.0, len(choices) - 1, 1.0, choices, command, true)
 end function
 
+function field(id, label, value, maximumLength, command)
+  if typeof(value) != "string" then value = "" end if
+  return cuitypes.MenuItem(id, label, cuic.MENU_FIELD, value, 0, maximumLength,
+    1, [], command, true)
+end function
+
 function label(id, text)
   return cuitypes.MenuItem(id, text, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], "", false)
 end function
@@ -50,6 +56,7 @@ function defaultPages()
     slider("volume", "sound volume", 0.7, 0.0, 1.0, 0.1, "s_volume"),
     choice("crosshair", "crosshair", 1,
       ["off", "crosshair 1", "crosshair 2", "crosshair 3"], "crosshair"),
+    toggle("joystick", "controller", 1, "in_joystick"),
     action("keys", "customize controls", "menu:keys")])
   load = cuitypes.MenuPage("load", "LOAD GAME", "game", [
     action("load0", "slot 1", "load 0"), action("load1", "slot 2", "load 1"),
@@ -68,12 +75,69 @@ function defaultPages()
     action("inventory", "bind inventory", "bindcapture inven"),
     label("hint", "ENTER, then key; ESC cancels")])
   multiplayer = cuitypes.MenuPage("multiplayer", "MULTIPLAYER", "main", [
-    label("join", "join network server"),
-    label("start", "start network server"),
+    action("join", "join network server", "menu:join"),
+    action("start", "start network server", "menu:start"),
     action("player", "player setup", "menu:player"),
-    label("pending", "network setup follows in multiplayer parity")])
+    action("downloads", "download options", "menu:downloads"),
+    action("disconnect", "disconnect", "disconnect")])
   player = cuitypes.MenuPage("player", "PLAYER SETUP", "multiplayer", [
-    choice("hand", "handedness", 0, ["right", "left", "center"], "hand")])
+    field("name", "name", "MiniQuake2", 15, "name"),
+    choice("model", "model", 0, ["male", "female", "cyborg"], "model"),
+    choice("skin", "skin", 3,
+      ["cipher", "claymore", "flak", "grunt", "howitzer", "major",
+       "nightops", "pointman", "psycho", "rampage", "razor", "recon",
+       "scout", "sniper", "viper"], "skin"),
+    choice("hand", "handedness", 0, ["right", "left", "center"], "hand"),
+    label("preview", "player preview")])
+  join = cuitypes.MenuPage("join", "JOIN SERVER", "multiplayer", [
+    action("refresh", "refresh server list", "net_refresh"),
+    action("addressbook", "address book", "menu:addressbook"),
+    label("server0", "no local servers found"), label("server1", ""),
+    label("server2", ""), label("server3", ""), label("server4", ""),
+    label("server5", ""), label("server6", ""), label("server7", "")])
+  addressbook = cuitypes.MenuPage("addressbook", "ADDRESS BOOK", "join", [
+    field("address0", "address 1", "127.0.0.1:27910", 63, "connect"),
+    field("address1", "address 2", "", 63, "connect"),
+    field("address2", "address 3", "", 63, "connect"),
+    field("address3", "address 4", "", 63, "connect"),
+    field("address4", "address 5", "", 63, "connect"),
+    field("address5", "address 6", "", 63, "connect"),
+    field("address6", "address 7", "", 63, "connect"),
+    field("address7", "address 8", "", 63, "connect")])
+  start = cuitypes.MenuPage("start", "START SERVER", "multiplayer", [
+    choice("map", "initial map", 0,
+      ["base1", "q2dm1", "q2dm2", "q2dm3", "q2dm4", "q2dm5",
+       "q2dm6", "q2dm7", "q2dm8"], "sv_map"),
+    choice("rules", "rules", 0, ["deathmatch", "cooperative"], "sv_rules"),
+    field("hostname", "hostname", "MiniQuake2", 63, "hostname"),
+    slider("maxclients", "max players", 8, 2, 8, 1, "sv_maxclients"),
+    slider("timelimit", "time limit", 0, 0, 60, 5, "timelimit"),
+    slider("fraglimit", "frag limit", 0, 0, 100, 5, "fraglimit"),
+    action("dmoptions", "deathmatch options", "menu:dmoptions"),
+    action("begin", "begin", "startserver")])
+  dmoptions = cuitypes.MenuPage("dmoptions", "DEATHMATCH OPTIONS", "start", [
+    toggle("health", "allow health", 1, "dm_health"),
+    toggle("items", "allow powerups", 1, "dm_items"),
+    toggle("armor", "allow armor", 1, "dm_armor"),
+    toggle("falling", "falling damage", 1, "dm_falling"),
+    toggle("weaponsstay", "weapons stay", 0, "dm_weapons_stay"),
+    toggle("instantitems", "instant powerups", 0, "dm_instant_items"),
+    toggle("samelevel", "stay on same level", 0, "dm_same_level"),
+    choice("teamplay", "teamplay", 0, ["off", "by skin", "by model"],
+      "dm_teamplay"),
+    toggle("friendlyfire", "friendly fire", 1, "dm_friendly_fire"),
+    toggle("spawnfarthest", "spawn farthest", 0, "dm_spawn_farthest"),
+    toggle("force_respawn", "force respawn", 0, "dm_force_respawn"),
+    toggle("allowexit", "allow exit", 0, "dm_allow_exit"),
+    toggle("infiniteammo", "infinite ammo", 0, "dm_infinite_ammo"),
+    toggle("fixedfov", "fixed FOV", 0, "dm_fixed_fov"),
+    toggle("quad_drop", "quad drop", 0, "dm_quad_drop")])
+  downloads = cuitypes.MenuPage("downloads", "DOWNLOAD OPTIONS", "multiplayer", [
+    toggle("allow", "allow downloading", 1, "allow_download"),
+    toggle("maps", "maps", 1, "allow_download_maps"),
+    toggle("models", "models", 1, "allow_download_models"),
+    toggle("players", "player models/skins", 1, "allow_download_players"),
+    toggle("sounds", "sounds", 1, "allow_download_sounds")])
   quit = cuitypes.MenuPage("quit", "QUIT", "main", [
     action("yes", "yes", "quit"), action("no", "no", "menu:main")])
   credits = cuitypes.MenuPage("credits", "CREDITS", "game", [
@@ -83,7 +147,7 @@ function defaultPages()
   // Keep the original seven page slots stable for save/load callers and add
   // the newly restored branches afterwards.
   return [main, game, video, options, load, save, keys, multiplayer, quit, credits,
-    player]
+    player, join, addressbook, start, dmoptions, downloads]
 end function
 
 function create()
@@ -150,6 +214,81 @@ function setItemValue(menu, pageId, itemId, value)
   return error(8230, "unknown page")
 end function
 
+function setItemText(menu, pageId, itemId, value)
+  if typeof(value) != "string" then return error(8232, "menu field value must be text") end if
+  for each menuTextPage in menu.pages
+    if menuTextPage.id == pageId then
+      for each menuTextItem in menuTextPage.items
+        if menuTextItem.id == itemId then
+          if menuTextItem.kind != cuic.MENU_FIELD then return error(8233, "menu item is not a field") end if
+          if len(bytes(value)) > menuTextItem.maximum then return error(8233, "menu field value is too long") end if
+          menuTextItem.value = value
+          return true
+        end if
+      end for
+      return error(8233, "menu item is unavailable")
+    end if
+  end for
+  return error(8230, "unknown page")
+end function
+
+function setActionCommand(menu, pageId, itemId, text, command, enabled)
+  if typeof(text) != "string" or typeof(command) != "string" or typeof(enabled) != "bool" then
+    return error(8232, "menu action update is invalid")
+  end if
+  for each menuActionPage in menu.pages
+    if menuActionPage.id == pageId then
+      for each menuActionItem in menuActionPage.items
+        if menuActionItem.id == itemId then
+          if menuActionItem.kind != cuic.MENU_ACTION then return error(8233, "menu item is not an action") end if
+          menuActionItem.label = text
+          menuActionItem.command = command
+          menuActionItem.enabled = enabled
+          return true
+        end if
+      end for
+      return error(8233, "menu item is unavailable")
+    end if
+  end for
+  return error(8230, "unknown page")
+end function
+
+function itemById(menu, pageId, itemId)
+  for each menuFindPage in menu.pages
+    if menuFindPage.id == pageId then
+      for each menuFindItem in menuFindPage.items
+        if menuFindItem.id == itemId then return menuFindItem end if
+      end for
+      return void
+    end if
+  end for
+  return void
+end function
+
+function playerSkinChoices(modelName)
+  if modelName == "female" then
+    return ["athena", "brianna", "cobalt", "ensign", "jezebel", "jungle",
+      "lotus", "stiletto", "venus", "voodoo"]
+  end if
+  if modelName == "cyborg" then return ["oni911", "ps9000", "tyr574"] end if
+  return ["cipher", "claymore", "flak", "grunt", "howitzer", "major",
+    "nightops", "pointman", "psycho", "rampage", "razor", "recon",
+    "scout", "sniper", "viper"]
+end function
+
+function synchronizePlayerSkins(menu)
+  modelItem = itemById(menu, "player", "model")
+  skinItem = itemById(menu, "player", "skin")
+  if modelItem is void or skinItem is void then return false end if
+  modelName = modelItem.choices[modelItem.value]
+  skinItem.choices = playerSkinChoices(modelName)
+  skinItem.minimum = 0
+  skinItem.maximum = len(skinItem.choices) - 1
+  skinItem.value = 0
+  if modelName == "male" then skinItem.value = 3 end if
+  return true
+end function
+
 function move(menu, direction)
   current = page(menu)
   if current is void or len(current.items) == 0 then return false end if
@@ -171,6 +310,11 @@ function adjust(menu, direction)
   else return false
   end if
   queueCommand(menu, item.command + " " + item.value)
+  if current.id == "player" and item.id == "model" then
+    synchronizePlayerSkins(menu)
+    skinItem = itemById(menu, "player", "skin")
+    queueCommand(menu, "skin " + skinItem.value)
+  end if
   return true
 end function
 
@@ -182,6 +326,11 @@ function activate(menu)
   data = bytes(item.command)
   if len(data) > 5 and decode(slice(data, 0, 5)) == "menu:" then return open(menu, decode(slice(data, 5, len(data) - 5))) end if
   if item.kind == cuic.MENU_TOGGLE or item.kind == cuic.MENU_SLIDER or item.kind == cuic.MENU_CHOICE then return adjust(menu, 1) end if
+  if item.kind == cuic.MENU_FIELD then
+    if item.value == "" then return false end if
+    queueCommand(menu, item.command + " \"" + item.value + "\"")
+    return true
+  end if
   queueCommand(menu, item.command)
   return true
 end function
@@ -197,6 +346,22 @@ function handleKey(menu, key)
   if key == cuic.K_LEFTARROW then return adjust(menu, -1) end if
   if key == cuic.K_RIGHTARROW then return adjust(menu, 1) end if
   if key == cuic.K_ENTER then return activate(menu) end if
+  current = page(menu)
+  if current is not void and menu.cursor >= 0 and menu.cursor < len(current.items) then
+    item = current.items[menu.cursor]
+    if item.kind == cuic.MENU_FIELD then
+      if key == cuic.K_BACKSPACE then
+        fieldBytes = bytes(item.value)
+        if len(fieldBytes) > 0 then item.value = decode(slice(fieldBytes, 0, len(fieldBytes) - 1)) end if
+        return true
+      end if
+      if key >= 32 and key <= 126 and key != 34 and key != 59 and key != 92 and
+          len(bytes(item.value)) < item.maximum then
+        item.value = item.value + decode(bytes([key]))
+        return true
+      end if
+    end if
+  end if
   if key == cuic.K_ESCAPE then
     current = page(menu)
     if current is not void and current.parent != "" then return open(menu, current.parent) end if
@@ -208,7 +373,16 @@ end function
 function itemValue(item)
   if item.kind == cuic.MENU_TOGGLE or item.kind == cuic.MENU_CHOICE then return item.choices[item.value] end if
   if item.kind == cuic.MENU_SLIDER then return item.value + "" end if
+  if item.kind == cuic.MENU_FIELD then return item.value end if
   return ""
+end function
+
+function playerPreviewPath(menu)
+  modelItem = itemById(menu, "player", "model")
+  skinItem = itemById(menu, "player", "skin")
+  if modelItem is void or skinItem is void then return "" end if
+  return "players/" + modelItem.choices[modelItem.value] + "/" +
+    skinItem.choices[skinItem.value] + "_i.pcx"
 end function
 
 function drawText(exports, x, y, text)
@@ -310,6 +484,13 @@ function draw(menu, screenWidth, screenHeight, now, exports)
     if value != "" then drawText(exports, x + 168, y, value) end if
     y = y + 16; index = index + 1
   end while
+  if current.id == "player" then
+    preview = playerPreviewPath(menu)
+    if preview != "" then
+      previewSize = exports.DrawGetPicSize(preview)
+      exports.DrawPic(x + 264, y - len(current.items) * 16 - 8, preview)
+    end if
+  end if
   return len(current.items) + 1
 end function
 

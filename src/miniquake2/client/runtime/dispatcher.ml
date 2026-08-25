@@ -13,6 +13,7 @@ import miniquake2.network.runtime.messages as rmessages
 import miniquake2.network.runtime.types as nrtypes
 import miniquake2.network.runtime.lifecycle as nrlifecycle
 import miniquake2.client.demo as cdemo
+import miniquake2.client.downloads as cdownloads
 import miniquake2.client.effects.parser as ceparser
 import miniquake2.client.effects.state as cestate
 import miniquake2.client.effects.constants as ceconstants
@@ -40,6 +41,14 @@ function setDemoRecorder(runtime, demo)
   return true
 end function
 
+function setDownloadManager(runtime, manager)
+  if manager is not void and typeof(manager) != "struct" then
+    return error(8281, "download manager must be a struct")
+  end if
+  runtime.downloads = manager
+  return true
+end function
+
 // Release DM2 files shipped with Quake II use protocol 26. The 3.19 client
 // kept an explicit demo-only compatibility hack; live network sessions remain
 // strictly Protocol 34.
@@ -56,6 +65,7 @@ function releaseResolver()
 end function
 
 function resetClientState(runtime)
+  if runtime.downloads is not void then cdownloads.cancel(runtime.downloads) end if
   clean = cstate.create()
   runtime.client.state = "connected"
   runtime.client.snapshots = clean.snapshots
@@ -239,10 +249,25 @@ function appendDownload(runtime, buffer)
   if count == -1 then
     runtime.network.downloadMissing = true
     runtime.network.downloadData = bytes()
+    if runtime.downloads is not void then
+      acceptedDownload = try(cdownloads.acceptChunk(runtime.downloads,
+        bytes(), percent, true))
+      if acceptedDownload is error then return acceptedDownload end if
+    end if
   else
     if count < 0 or count > 1024 then return error(8283, "download chunk size outside range") end if
-    runtime.network.downloadData = rmessages.appendBytes(runtime.network.downloadData,
-      pchecked.readBytes(buffer, count, "download data"))
+    chunk = pchecked.readBytes(buffer, count, "download data")
+    if runtime.downloads is void then
+      runtime.network.downloadData = rmessages.appendBytes(runtime.network.downloadData,
+        chunk)
+    else
+      // The manager streams to disk; retaining and concatenating a second
+      // complete map image here would be quadratic and doubles peak memory.
+      runtime.network.downloadData = bytes()
+      acceptedDownload = try(cdownloads.acceptChunk(runtime.downloads, chunk,
+        percent, false))
+      if acceptedDownload is error then return acceptedDownload end if
+    end if
     runtime.network.downloadMissing = false
   end if
   runtime.network.downloadPercent = percent
@@ -260,7 +285,9 @@ function acceptFrame(runtime, buffer)
   snapshot = crtypes.snapshot(frame)
   accepted = cstate.acceptSnapshot(runtime.client, snapshot)
   if accepted then
-    runtime.effects.time = frame.serverTime
+    // Effects live on the receiving client's monotonic clock. A remote
+    // server's uptime is an unrelated epoch; assigning frame.serverTime here
+    // makes a freshly connected client fail as soon as it renders effects.
     for each entityState in frame.entities
       if entityState.event != 0 then ceparser.handleEntityEvent(runtime.effects, entityState) end if
       if (entityState.effects & ceconstants.EF_TELEPORTER) != 0 then
@@ -372,7 +399,13 @@ function dispatch(runtime, payload, sequence, now)
   end if
   runtime.parsedPackets = runtime.parsedPackets + 1
   runtime.network.parsedMessages = runtime.network.parsedMessages + parsed[0]
-  if runtime.demo is not void then cdemo.append(runtime.demo, payload) end if
+  if runtime.demo is not void then
+    demoDeltaNumber = -1
+    if runtime.client.current is not void then
+      demoDeltaNumber = runtime.client.current.deltaNumber
+    end if
+    cdemo.appendLive(runtime.demo, payload, parsed[2], demoDeltaNumber)
+  end if
   return crtypes.result(true, sequence, parsed[0], parsed[1], parsed[2], "accepted")
 end function
 

@@ -2,6 +2,7 @@
 package miniquake2.runtime.product_host
 
 import miniquake2.platform.window as producthostwindow
+import miniquake2.platform.gamma as producthostgamma
 import miniquake2.renderer.opengl as producthostgl
 
 struct ProductHostCallbacks
@@ -21,6 +22,7 @@ struct ProductHost
   generation
   loadingFrames
   closed
+  gammaState
 end struct
 
 function productHostCreateWindow(title, width, height, fullScreen)
@@ -94,7 +96,7 @@ function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererIm
     return productHostInitResult
   end if
   return ProductHost(productHostCallbacksHolder, productHostWindowHolder,
-    productHostRendererHolder, videoMode, fullScreen, 1, 0, false)
+    productHostRendererHolder, videoMode, fullScreen, 1, 0, false, void)
 end function
 
 function openProductHost(title, videoMode, fullScreen, rendererImports)
@@ -139,6 +141,12 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   end if
   productHostRestartDimensions = productHostDimensions(videoMode)
   productHostRestartCallbacks = host.callbacks
+  productHostRestartGamma = 1.0
+  if host.gammaState is not void then
+    productHostRestartGamma = host.gammaState.value
+    producthostgamma.restore(host.gammaState)
+    host.gammaState = void
+  end if
   productHostRestartCallbacks.shutdownRenderer(host.renderer)
   productHostRestartCallbacks.destroyWindow(host.window)
 
@@ -170,7 +178,16 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   host.videoMode = videoMode
   host.fullScreen = fullScreen
   host.generation = host.generation + 1
+  if productHostRestartGamma != 1.0 then
+    applyProductGamma(host, productHostRestartGamma, true)
+  end if
   return true
+end function
+
+function applyProductGamma(host, gamma, active)
+  if typeof(host) != "struct" or host.closed then return false end if
+  if host.gammaState is void then host.gammaState = producthostgamma.create() end if
+  return producthostgamma.update(host.gammaState, gamma, active)
 end function
 
 // Rebuild renderer-owned managed state while preserving the native window and
@@ -204,6 +221,10 @@ end function
 
 function closeProductHost(host)
   if typeof(host) != "struct" or host.closed then return false end if
+  if host.gammaState is not void then
+    producthostgamma.restore(host.gammaState)
+    host.gammaState = void
+  end if
   host.callbacks.shutdownRenderer(host.renderer)
   host.callbacks.destroyWindow(host.window)
   host.closed = true

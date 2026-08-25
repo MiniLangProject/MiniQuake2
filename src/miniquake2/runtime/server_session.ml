@@ -11,6 +11,7 @@ package miniquake2.runtime.server_session
 import std.array as sssessionarray
 import miniquake2.qcommon.constants as ssqc
 import miniquake2.qcommon.byteio as ssqbyteio
+import miniquake2.qcommon.checksum as sschecksum
 import miniquake2.qcommon.filesystem as ssfs
 import miniquake2.qcommon.sizebuf as ssqsz
 import miniquake2.qcommon.types as ssqtypes
@@ -40,6 +41,7 @@ import miniquake2.platform.udp as ssudp
 import miniquake2.server.game_bridge as ssbridge
 import miniquake2.server.sound_events as ssoundevents
 import miniquake2.server.game_messages as ssgamemessages
+import miniquake2.server.administration as ssadministration
 
 struct ServerSession
   bridgeRuntime
@@ -57,6 +59,7 @@ struct ServerSession
   retailFileSystem
   retailBaseDirectory
   closed
+  paused
 end struct
 
 struct MapChangeResult
@@ -434,6 +437,21 @@ function synchronizeServerState(session)
   return true
 end function
 
+// Protocol 34 download clients compare the BSP's original COM_BlockChecksum
+// before publishing a downloaded map. Core constructors intentionally accept
+// parsed state only, so retail/bootstrap callers attach the raw bytes here.
+function setMapChecksum(session, mapBytes)
+  if session is void or typeof(mapBytes) != "bytes" or len(mapBytes) < 1 then
+    return error(9989, "server map checksum requires BSP bytes")
+  end if
+  serverSessionMapChecksum = sschecksum.blockChecksum(mapBytes, 0,
+    len(mapBytes)) + ""
+  session.networkRuntime.configStrings[ssqc.CS_MAPCHECKSUM] = serverSessionMapChecksum
+  session.bridgeRuntime.configStrings[ssqc.CS_MAPCHECKSUM] = serverSessionMapChecksum
+  session.bridgeRuntime.configStringDirty[ssqc.CS_MAPCHECKSUM] = false
+  return serverSessionMapChecksum
+end function
+
 function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative, skill)
   if mapName == "" or typeof(entityText) != "string" then return error(9970, "server session requires map and entity text") end if
@@ -467,10 +485,12 @@ function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindA
   serverInfo = "\\hostname\\MiniQuake2\\mapname\\" + mapName + "\\maxclients\\" + maxClients + "\\protocol\\34"
   server = ssserver.create(maxClients, "MiniQuake2", mapName, serverInfo, dedicated, false)
   networkRuntime = ssnrtypes.createServer(server, 1, "baseq2", mapName, callbacks)
+  ssadministration.activate(networkRuntime.administration)
+  ssadministration.setWritePath(networkRuntime.administration, "listip.cfg")
   socket = ssudp.open(bindAddress, port)
   clock = sssystem.createClock()
   session = ServerSession(bridgeRuntime, gameExport, networkRuntime, socket, clock,
-    collision, mapName, entityText, 0, 0, 0, 0, void, "", false)
+    collision, mapName, entityText, 0, 0, 0, 0, void, "", false, false)
   synchronizeServerState(session)
   return session
 end function
@@ -504,11 +524,15 @@ end function
 function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   filesystem = ssfs.initialize(baseDirectory, "")
   path = "maps/" + mapName + ".bsp"
-  map = ssbsp.parse(ssfs.readFile(filesystem, path), path)
+  serverSessionRetailBytes = ssfs.readFile(filesystem, path)
+  map = ssbsp.parse(serverSessionRetailBytes, path)
   session = createCoreModeAt(mapName, map.entityText, sscollision.create(map), spawnPoint,
     bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   session.retailFileSystem = filesystem
   session.retailBaseDirectory = baseDirectory
+  setMapChecksum(session, serverSessionRetailBytes)
+  ssadministration.setWritePath(session.networkRuntime.administration,
+    baseDirectory + "\\baseq2\\listip.cfg")
   return session
 end function
 
@@ -516,13 +540,18 @@ function createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress
     port, maxClients, dedicated, deathmatch, cooperative, skill)
   serverSessionSkillFileSystem = ssfs.initialize(baseDirectory, "")
   serverSessionSkillPath = "maps/" + mapName + ".bsp"
-  serverSessionSkillMap = ssbsp.parse(ssfs.readFile(serverSessionSkillFileSystem,
-    serverSessionSkillPath), serverSessionSkillPath)
+  serverSessionSkillBytes = ssfs.readFile(serverSessionSkillFileSystem,
+    serverSessionSkillPath)
+  serverSessionSkillMap = ssbsp.parse(serverSessionSkillBytes,
+    serverSessionSkillPath)
   serverSessionSkillValue = createCoreModeAtSkill(mapName,
     serverSessionSkillMap.entityText, sscollision.create(serverSessionSkillMap),
     spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative, skill)
   serverSessionSkillValue.retailFileSystem = serverSessionSkillFileSystem
   serverSessionSkillValue.retailBaseDirectory = baseDirectory
+  setMapChecksum(serverSessionSkillValue, serverSessionSkillBytes)
+  ssadministration.setWritePath(serverSessionSkillValue.networkRuntime.administration,
+    baseDirectory + "\\baseq2\\listip.cfg")
   return serverSessionSkillValue
 end function
 
@@ -669,8 +698,14 @@ function changeMapRetail(session, baseDirectory, mapName)
     session.retailBaseDirectory = baseDirectory
   end if
   path = "maps/" + mapName + ".bsp"
-  map = ssbsp.parse(ssfs.readFile(filesystem, path), path)
-  return changeMapCore(session, mapName, map.entityText, sscollision.create(map))
+  serverSessionChangeRetailBytes = ssfs.readFile(filesystem, path)
+  map = ssbsp.parse(serverSessionChangeRetailBytes, path)
+  serverSessionChangeRetailResult = changeMapCore(session, mapName,
+    map.entityText, sscollision.create(map))
+  if serverSessionChangeRetailResult.changed then
+    setMapChecksum(session, serverSessionChangeRetailBytes)
+  end if
+  return serverSessionChangeRetailResult
 end function
 
 function areaBits(session, clientEdict)
@@ -731,7 +766,9 @@ end function
 function step(session)
   if session.closed then return error(9972, "server session is closed") end if
   now = ssqbyteio.truncInt(sssystem.milliseconds(session.clock))
-  stats = sspump.pumpServer(session.networkRuntime, session.socket, now, 128)
+  serverPaused = session.paused and session.networkRuntime.server.maxClients == 1
+  stats = sspump.pumpServerPaused(session.networkRuntime, session.socket, now, 128,
+    serverPaused)
   session.packetsReceived = session.packetsReceived + stats.received
   session.packetsSent = session.packetsSent + stats.sent
   session.packetsRejected = session.packetsRejected + stats.rejected
@@ -752,7 +789,7 @@ function step(session)
     end if
     keepaliveSlot = keepaliveSlot + 1
   end while
-  session.gameExport.runFrame()
+  if not serverPaused then session.gameExport.runFrame() end if
   // Baselines describe the immutable level-start state used during signon.
   // Rebuilding them from live edicts every frame both destroys that contract
   // and allocates a complete duplicate entity set twice per server tick.
@@ -781,6 +818,19 @@ function step(session)
   return session.frameNumber
 end function
 
+// Listen-server pause is authoritative: client commands continue to be
+// received and acknowledged, but neither ClientThink nor the Game API world
+// frame advances. Multiplayer always remains live.
+function setPaused(session, value)
+  if typeof(value) != "bool" then return error(9986, "server pause state must be boolean") end if
+  if session.networkRuntime.server.maxClients != 1 then
+    session.paused = false
+    return false
+  end if
+  session.paused = value
+  return session.paused
+end function
+
 function run(session, frameLimit)
   if typeof(frameLimit) != "int" or frameLimit < 0 then return error(9973, "server frame limit must be non-negative") end if
   frames = 0
@@ -796,6 +846,8 @@ end function
 
 function shutdown(session)
   if session.closed then return false end if
+  shutdownStats = sspump.shutdownServer(session.networkRuntime, session.socket)
+  session.packetsSent = session.packetsSent + shutdownStats.sent
   ssudp.close(session.socket)
   session.gameExport.shutdown()
   session.closed = true

@@ -56,7 +56,7 @@ allEvent = nrmr_stypes.PendingMulticastEvent(2, nrmr_gc.MULTICAST_ALL,
   source, bytes([nrmr_qc.SVC_NOP]))
 session = nrmr_session.ServerSession(void, multicastRouteGameExport([
   nrmr_gtypes.zeroEdict(0), listener]), void, void, void, collision,
-  "multicast-routing", "", 0, 0, 0, 0, void, "", false)
+  "multicast-routing", "", 0, 0, 0, 0, void, "", false, false)
 
 multicastRouteAssert(not nrmr_session.multicastVisibleToClient(session, pvsEvent, listener) and
   not nrmr_session.multicastVisibleToClient(session, phsEvent, listener),

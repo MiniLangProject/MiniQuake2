@@ -95,9 +95,14 @@ function buildSampledUserCmd(state, frameMsec, consumeTransient)
   forward = 0.0
   side = 0.0
   up = cfg.upSpeed * (action(state, "moveup") - action(state, "movedown"))
+  forward = forward + cfg.forwardSpeed * state.controllerForward
+  side = side + cfg.sideSpeed * state.controllerSide
+  if (state.controllerButtons & 4) != 0 then up = up + cfg.upSpeed end if
+  if (state.controllerButtons & 8) != 0 then up = up - cfg.upSpeed end if
   if strafing then side = side + cfg.sideSpeed * (action(state, "right") - action(state, "left")) end if
   side = side + cfg.sideSpeed * (action(state, "moveright") - action(state, "moveleft"))
-  if klook == false then forward = cfg.forwardSpeed * (action(state, "forward") - action(state, "back")) end if
+  if klook == false then forward = forward + cfg.forwardSpeed *
+    (action(state, "forward") - action(state, "back")) end if
 
   // Axes left behind by sampleView are strafe/klook movement.  A prediction
   // preview observes them without consuming them; the transmitted command is
@@ -114,15 +119,20 @@ function buildSampledUserCmd(state, frameMsec, consumeTransient)
 
   buttons = 0
   attack = cuikeys.findAction(state, "attack")
-  if attack.down or attack.pressed then buttons = buttons | cuic.BUTTON_ATTACK end if
+  if attack.down or attack.pressed or (state.controllerButtons & 1) != 0 then
+    buttons = buttons | cuic.BUTTON_ATTACK
+  end if
   if consumeTransient then attack.pressed = false end if
   useAction = cuikeys.findAction(state, "use")
-  if useAction.down or useAction.pressed then buttons = buttons | cuic.BUTTON_USE end if
+  if useAction.down or useAction.pressed or (state.controllerButtons & 2) != 0 then
+    buttons = buttons | cuic.BUTTON_USE
+  end if
   if consumeTransient then useAction.pressed = false end if
   if state.destination == cuic.KEY_GAME then
     for each keyDown in state.keys
       if keyDown then buttons = buttons | cuic.BUTTON_ANY end if
     end for
+    if state.controllerButtons != 0 then buttons = buttons | cuic.BUTTON_ANY end if
   end if
 
   impulse = state.impulse

@@ -9,7 +9,7 @@ function uiMenuAssertEqual(actual, expected, name)
 end function
 
 uiMenuState = cuimenu.create()
-uiMenuAssertEqual(len(uiMenuState.pages), 11, "default page count")
+uiMenuAssertEqual(len(uiMenuState.pages), 16, "default page count")
 cuimenu.open(uiMenuState, "main")
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 uiMenuAssertEqual(uiMenuState.cursor, 1, "cursor movement")
@@ -19,12 +19,25 @@ cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
 uiMenuAssertEqual(uiMenuState.currentPage, "player", "player setup submenu activation")
+cuimenu.handleKey(uiMenuState, cuic.K_BACKSPACE)
+cuimenu.handleKey(uiMenuState, 50)
+uiMenuAssertEqual(cuimenu.itemValue(cuimenu.itemById(uiMenuState, "player", "name")),
+  "MiniQuake2", "player name field edit")
+cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
+cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
+uiMenuModelCommands = cuimenu.drainCommands(uiMenuState)
+uiMenuAssertEqual(uiMenuModelCommands[0], "model 1", "player model choice command")
+uiMenuAssertEqual(uiMenuModelCommands[1], "skin 0", "model synchronizes a valid skin")
+uiMenuAssertEqual(cuimenu.playerPreviewPath(uiMenuState),
+  "players/female/athena_i.pcx", "player preview follows model and skin")
+cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
+cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
 uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "hand 1",
   "handedness choice command")
 uiMenuAssertEqual(cuimenu.setItemValue(uiMenuState, "player", "hand", 2),
   true, "player setup value synchronization")
-uiMenuAssertEqual(uiMenuState.pages[10].items[0].value, 2,
+uiMenuAssertEqual(uiMenuState.pages[10].items[3].value, 2,
   "player setup value retained")
 cuimenu.handleKey(uiMenuState, cuic.K_ESCAPE)
 uiMenuAssertEqual(uiMenuState.currentPage, "multiplayer",

@@ -3,9 +3,12 @@ package miniquake2.audio.mixer
 
 import std.math as ammath
 import miniquake2.qcommon.byteio as ambio
+import miniquake2.qcommon.filesystem as amfilesystem
+import miniquake2.native as amnative
 
 const MAX_CHANNELS = 32
 const MAX_PLAYSOUNDS = 128
+const MUSIC_DECODE_FRAMES = 4096
 
 struct Channel
   sound
@@ -25,6 +28,21 @@ struct Channel
   origin
 end struct
 
+struct MusicTrack
+  number
+  source
+  samples
+  rate
+  channels
+  frames
+  position
+  looping
+  playing
+  paused
+  sampleBase
+  sampleFrames
+end struct
+
 struct Mixer
   sampleRate
   channels
@@ -32,11 +50,111 @@ struct Mixer
   paintedFrames
   masterVolume
   listenerEntityNumber
+  music
+  musicVolume
 end struct
 
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
-  return Mixer(sampleRate, [], [], 0, 1.0, -1)
+  return Mixer(sampleRate, [], [], 0, 1.0, -1, void, 0.5)
+end function
+
+function setMusicVolume(mixer, value)
+  if mixer is void or (typeof(value) != "int" and typeof(value) != "float") or
+      value != value or value < 0.0 or value > 1.0 then
+    return error(2960, "music volume outside [0,1]")
+  end if
+  mixer.musicVolume = value * 1.0
+  return mixer.musicVolume
+end function
+
+function stopMusic(mixer)
+  if mixer is void then return false end if
+  if mixer.music is not void then amnative.oggClose() end if
+  mixer.music = void
+  return true
+end function
+
+function pauseMusic(mixer)
+  if mixer is void or mixer.music is void or not mixer.music.playing then return false end if
+  mixer.music.paused = true
+  return true
+end function
+
+function resumeMusic(mixer)
+  if mixer is void or mixer.music is void or not mixer.music.playing then return false end if
+  mixer.music.paused = false
+  return true
+end function
+
+function playMusic(mixer, filesystem, track, looping)
+  if mixer is void or filesystem is void then return error(2961, "music mixer/filesystem unavailable") end if
+  if typeof(track) != "int" or track < 1 or track > 99 then
+    return error(2962, "music track outside [1,99]")
+  end if
+  if typeof(looping) != "bool" then return error(2963, "music loop state must be boolean") end if
+  if mixer.music is not void and mixer.music.number == track and mixer.music.playing then
+    mixer.music.looping = looping
+    mixer.music.paused = false
+    return true
+  end if
+  stopMusic(mixer)
+  source = bytes()
+  path = amfilesystem.musicTrackPath(filesystem, track)
+  opened = 0
+  if path != "" then opened = amnative.oggOpenFile(path)
+  else
+    sourceResult = try(amfilesystem.readMusicTrack(filesystem, track))
+    if sourceResult is error then return sourceResult end if
+    source = sourceResult
+    opened = amnative.oggOpen(source, len(source))
+  end if
+  if opened == 0 then return error(2964, "invalid Ogg Vorbis music track " + track) end if
+  rate = amnative.oggRate()
+  channels = amnative.oggChannels()
+  frames = amnative.oggFrames()
+  if rate < 1 or channels < 1 or channels > 2 or frames < 1 or frames > 0x10000000 then
+    amnative.oggClose()
+    return error(2965, "unsupported Ogg Vorbis music track " + track)
+  end if
+  probe = bytes(MUSIC_DECODE_FRAMES * channels * 2)
+  decoded = amnative.oggDecode(probe, MUSIC_DECODE_FRAMES)
+  if decoded < 1 or amnative.oggSeekStart() == 0 then
+    amnative.oggClose()
+    return error(2966, "Ogg Vorbis music decode failed for track " + track)
+  end if
+  mixer.music = MusicTrack(track, source, bytes(), rate, channels, frames,
+    0, looping, true, false, 0, 0)
+  return true
+end function
+
+function decodeMusicChunk(track, restart)
+  if restart then
+    if amnative.oggSeekStart() == 0 then return false end if
+    track.sampleBase = 0
+  else
+    track.sampleBase = track.sampleBase + track.sampleFrames
+  end if
+  pcmSize = MUSIC_DECODE_FRAMES * track.channels * 2
+  pcm = track.samples
+  if len(pcm) != pcmSize then pcm = bytes(pcmSize) end if
+  decoded = amnative.oggDecode(pcm, MUSIC_DECODE_FRAMES)
+  if decoded < 1 then track.sampleFrames = 0; return false end if
+  track.samples = pcm
+  track.sampleFrames = decoded
+  return true
+end function
+
+function synchronizeMusicTrack(mixer, filesystem, configValue)
+  if typeof(configValue) != "string" then return false end if
+  parsed = try(toNumber(configValue))
+  if parsed is error or
+      (typeof(parsed) != "int" and typeof(parsed) != "float") then return false end if
+  track = ambio.truncInt(parsed)
+  if parsed != track then return false end if
+  if track == 0 then return stopMusic(mixer) end if
+  if track < 1 or track > 99 then return false end if
+  return playMusic(mixer, filesystem, track, true)
 end function
 
 function setListenerEntity(mixer, number)
@@ -249,6 +367,10 @@ function mix(mixer, frameCount)
     if activeChannel.active then hasActiveChannel = true; break end if
   end for
   if len(mixer.pendingSounds) > 0 then hasActiveChannel = true end if
+  if mixer.music is not void and mixer.music.playing and
+      not mixer.music.paused and mixer.musicVolume > 0.0 then
+    hasActiveChannel = true
+  end if
   if not hasActiveChannel then
     mixer.paintedFrames = mixer.paintedFrames + frameCount
     return output
@@ -279,6 +401,56 @@ function mix(mixer, frameCount)
         end if
       end if
     end for
+    track = mixer.music
+    if track is not void and track.playing and not track.paused and
+        mixer.musicVolume > 0.0 then
+      sourceFrame = ambio.truncInt(track.position * track.rate /
+        (mixer.sampleRate * 1.0))
+      if sourceFrame >= track.frames then
+        if track.looping then
+          track.position = 0
+          sourceFrame = 0
+          if not decodeMusicChunk(track, true) then track.playing = false end if
+        else track.playing = false
+        end if
+      end if
+      if track.playing and track.sampleFrames == 0 then
+        if not decodeMusicChunk(track, track.sampleBase != 0) then track.playing = false end if
+      end if
+      while track.playing and sourceFrame >= track.sampleBase + track.sampleFrames
+        if not decodeMusicChunk(track, false) then
+          if track.looping then
+            track.position = 0
+            sourceFrame = 0
+            if not decodeMusicChunk(track, true) then track.playing = false end if
+          else track.playing = false
+          end if
+        end if
+      end while
+      if track.playing then
+        chunkFrame = sourceFrame - track.sampleBase
+        musicLeft = 0
+        musicRight = 0
+        if track.channels == 1 then
+          sampleOffset = chunkFrame * 2
+          musicLeft = track.samples[sampleOffset] |
+            (track.samples[sampleOffset + 1] << 8)
+          if musicLeft >= 0x8000 then musicLeft = musicLeft - 0x10000 end if
+          musicRight = musicLeft
+        else
+          sampleOffset = chunkFrame * 4
+          musicLeft = track.samples[sampleOffset] |
+            (track.samples[sampleOffset + 1] << 8)
+          musicRight = track.samples[sampleOffset + 2] |
+            (track.samples[sampleOffset + 3] << 8)
+          if musicLeft >= 0x8000 then musicLeft = musicLeft - 0x10000 end if
+          if musicRight >= 0x8000 then musicRight = musicRight - 0x10000 end if
+        end if
+        mixedLeft = mixedLeft + musicLeft * mixer.musicVolume
+        mixedRight = mixedRight + musicRight * mixer.musicVolume
+        track.position = track.position + 1
+      end if
+    end if
     mixedLeft = mixedLeft * mixer.masterVolume
     mixedRight = mixedRight * mixer.masterVolume
     ambio.putI16(output, frameIndex * 4, ambio.truncInt(clamp16(mixedLeft)))

@@ -81,6 +81,7 @@ struct Runtime
   handoffSerial
   frameHandoffs
   allowDemoProtocol26
+  downloads
 end struct
 
 function snapshot(frame)
@@ -94,5 +95,5 @@ end function
 
 function create(networkRuntime, clientState, effectState)
   return Runtime(networkRuntime, clientState, effectState, void, false, 0, 0,
-    false, 0, 0, [], [], [], [], -1, 0, [], false)
+    false, 0, 0, [], [], [], [], -1, 0, [], false, void)
 end function

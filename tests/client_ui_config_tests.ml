@@ -30,6 +30,7 @@ uiConfigState = uiconfigtestcommands.create()
 uiConfigState.videoMode = 2
 uiConfigState.fullScreen = true
 uiConfigState.brightness = 1.2
+uiConfigState.joystickEnabled = false
 uiConfigMixer = uiconfigtestmixer.create(8000)
 uiconfigtestmixer.setMasterVolume(uiConfigMixer, 0.4)
 uiConfigScreen = uiconfigtestscreen.create(uiconfigtestconsole.create(40),
@@ -44,6 +45,7 @@ uiConfigAssert(uiConfigLoaded.videoMode == 2 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.brightness == 1.2 and uiConfigLoaded.sensitivity == 6.5 and
   uiConfigLoaded.alwaysRun and uiConfigLoaded.invertMouse and
   uiConfigLoaded.hand == 1 and uiConfigLoaded.crosshair == 3 and
+  not uiConfigLoaded.joystick and
   uiConfigLoaded.volume == 0.4 and
   len(uiConfigLoaded.bindings) == 2, "config disk round trip")
 
@@ -61,6 +63,7 @@ uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, miniquake2.client.ui.constants.K_MWHEELUP) == "weapnext" and
   uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
   uiConfigApplyState.videoMode == 2 and uiConfigApplyMixer.masterVolume == 0.4 and
+  not uiConfigApplyState.joystickEnabled and
   uiConfigApplyScreen.crosshair == 3,
   "config applied to live product state")
 
@@ -76,8 +79,8 @@ uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
 uiConfigLegacy = uiconfigtestconfig.decodeProductConfig(
   "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\n")
 uiConfigAssert(uiConfigLegacy.hand == 0 and not uiConfigLegacy.invertMouse and
-  uiConfigLegacy.crosshair == 1,
-  "legacy config defaults to right hand, normal pitch and crosshair one")
+  uiConfigLegacy.crosshair == 1 and uiConfigLegacy.joystick,
+  "legacy config defaults to right hand, normal pitch, crosshair one and controller enabled")
 uiconfigtestfs.delete(uiConfigPath)
 return true
 end function
