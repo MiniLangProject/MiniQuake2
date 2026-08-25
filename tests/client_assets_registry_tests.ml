@@ -76,11 +76,12 @@ registryAssert(car_test_registry.resolveModelIndex(state, 4) is void and
 registryAssert(car_test_registry.resolveSoundIndex(state, 1).name == "weapons/unit.wav",
   "indexed mixer sound missing")
 registryAssert(car_test_registry.resolveSoundIndex(state, 2) is void and
-  car_test_registry.resolveSoundIndex(state, 3) is void, "missing/deferred sound resolved")
+  car_test_registry.resolveSoundIndex(state, 3).name ==
+    "player/male/pain100_1.wav", "missing/player fallback sound resolution")
 registryAssert(len(modelCalls) == 10, "indexed/player model registration mismatch")
 registryAssert(len(skinCalls) == 2, "base and configured player skins not registered")
-registryAssert(len(soundCalls) == 3, "deferred player sound reached loader")
-registryAssert(len(car_test_registry.missingAssets(state)) == 5 and len(missingCalls) == 5,
+registryAssert(len(soundCalls) == 4, "player sound fallback registration mismatch")
+registryAssert(len(car_test_registry.missingAssets(state)) == 4 and len(missingCalls) == 4,
   "missing asset diagnostics mismatch")
 
 bindings = car_test_registry.bindings(state)

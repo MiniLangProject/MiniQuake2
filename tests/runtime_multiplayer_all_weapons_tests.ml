@@ -1,5 +1,6 @@
 /* Every stock weapon fired by a real two-client UDP UserCmd session. */
 import miniquake2.network.constants as mpweaponnetwork
+import miniquake2.qcommon.constants as mpweaponqconstants
 import miniquake2.qcommon.types as mpweaponqtypes
 import miniquake2.game.constants as mpweapongameconstants
 import miniquake2.game.gameplay.constants as mpweapongameplayconstants
@@ -53,6 +54,25 @@ function mpweaponSnapshotSkin(session, clientIndex, entityNumber)
   return -1
 end function
 
+function mpweaponSnapshotEntity(session, clientIndex, entityNumber)
+  mpweaponEntityFrame = session.clients[clientIndex].integrated.network.client.currentFrame
+  if mpweaponEntityFrame is void then return void end if
+  for each mpweaponSnapshotValue in mpweaponEntityFrame.entities
+    if mpweaponSnapshotValue.number == entityNumber then return mpweaponSnapshotValue end if
+  end for
+  return void
+end function
+
+function mpweaponNewProjectile(runtime, minimumNumber, className)
+  for each mpweaponProjectileValue in runtime.weaponContext.projectiles
+    if mpweaponProjectileValue.number >= minimumNumber and
+        mpweaponProjectileValue.className == className then
+      return mpweaponProjectileValue
+    end if
+  end for
+  return void
+end function
+
 function mpweaponSawMuzzle(session, clientIndex, entityNumber)
   for each mpweaponHandoff in session.clients[clientIndex].integrated.frameHandoffs
     for each mpweaponLight in mpweaponHandoff.dLights
@@ -81,10 +101,22 @@ mpweaponClasses = ["weapon_blaster", "weapon_shotgun", "weapon_supershotgun",
   "weapon_grenadelauncher", "weapon_rocketlauncher",
   "weapon_hyperblaster", "weapon_railgun", "weapon_bfg"]
 mpweaponAmmoCosts = [0, 1, 2, 1, 1, 1, 1, 1, 1, 1, 50]
+mpweaponProjectileClasses = ["bolt", "", "", "", "", "hgrenade",
+  "grenade", "rocket", "bolt", "", "bfg blast"]
+mpweaponProjectileModels = ["models/objects/laser/tris.md2", "", "", "", "",
+  "models/objects/grenade2/tris.md2", "models/objects/grenade/tris.md2",
+  "models/objects/rocket/tris.md2", "models/objects/laser/tris.md2", "",
+  "sprites/s_bfg1.sp2"]
+mpweaponProjectileSounds = ["misc/lasfly.wav", "", "", "", "",
+  "weapons/hgrenc1b.wav", "", "weapons/rockfly.wav", "misc/lasfly.wav", "",
+  "weapons/bfg__l1a.wav"]
 mpweaponIndex = 0
 while mpweaponIndex < len(mpweaponClasses)
   mpweaponClass = mpweaponClasses[mpweaponIndex]
-  mpweaponAssert(mpweaponsession.prepareDuel(mpweaponSession, 0, 1, 96),
+  mpweaponDuelDistance = 96
+  if mpweaponProjectileClasses[mpweaponIndex] != "" then mpweaponDuelDistance = 512 end if
+  mpweaponAssert(mpweaponsession.prepareDuel(mpweaponSession, 0, 1,
+    mpweaponDuelDistance),
     "weapon duel reset failed: " + mpweaponClass)
   mpweaponVictim.health = 10000
   mpweaponVictim.gameplay.health = 10000
@@ -94,7 +126,7 @@ while mpweaponIndex < len(mpweaponClasses)
   mpweaponItem = mpweaponEquip(mpweaponAttacker, mpweaponRegistry,
     mpweaponClass, 200)
   mpweaponFireBefore = mpweaponAttacker.gameplay.fireCount
-  mpweaponProjectilesBefore = len(mpweaponRuntime.weaponContext.projectiles)
+  mpweaponProjectileNumberBefore = mpweaponRuntime.weaponContext.nextProjectileNumber
   mpweaponAmmoBefore = 0
   if mpweaponAttacker.gameplay.ammoIndex != 0 then
     mpweaponAmmoBefore = mpweaponAttacker.gameplay.inventory.counts[
@@ -110,9 +142,10 @@ while mpweaponIndex < len(mpweaponClasses)
   mpweaponFired = false
   while not mpweaponFired and mpweaponFireSteps < 32
     mpweaponsession.step(mpweaponSession)
-    if mpweaponClass == "ammo_grenades" then
-      mpweaponFired = len(mpweaponRuntime.weaponContext.projectiles) >
-        mpweaponProjectilesBefore
+    if mpweaponProjectileClasses[mpweaponIndex] != "" then
+      mpweaponFired = mpweaponNewProjectile(mpweaponRuntime,
+        mpweaponProjectileNumberBefore,
+        mpweaponProjectileClasses[mpweaponIndex]) is not void
     else
       mpweaponFired = mpweaponAttacker.gameplay.fireCount > mpweaponFireBefore
     end if
@@ -122,6 +155,12 @@ while mpweaponIndex < len(mpweaponClasses)
     "decoded UDP attack did not fire " + mpweaponClass)
   if mpweaponClass == "ammo_grenades" then
     mpweaponsession.step(mpweaponSession)
+    mpweaponsession.step(mpweaponSession)
+  end if
+  if mpweaponProjectileClasses[mpweaponIndex] != "" then
+    // A player weapon fires during ClientBeginServerFrame, after the managed
+    // projectile physics pass.  Observe the following authoritative frame so
+    // oldOrigin/origin prove actual visible motion rather than spawn presence.
     mpweaponsession.step(mpweaponSession)
   end if
   mpweaponAssert(mpweaponSession.clients[0].integrated.network.client.channel.outgoingSequence >
@@ -139,17 +178,51 @@ while mpweaponIndex < len(mpweaponClasses)
     mpweaponAssert(mpweaponAmmoAfter == mpweaponAmmoBefore -
       mpweaponAmmoCosts[mpweaponIndex], "weapon ammo cost mismatch: " + mpweaponClass)
   end if
-  if mpweaponClass == "ammo_grenades" then
-    mpweaponHandProjectile = mpweaponRuntime.weaponContext.projectiles[
-      len(mpweaponRuntime.weaponContext.projectiles) - 1]
-    mpweaponAssert(mpweaponHandProjectile.className == "hgrenade" and
-      mpweaponHandProjectile.engineNumber > 0 and
-      mpweaponsession.snapshotHasEntity(mpweaponSession, 0,
-        mpweaponHandProjectile.engineNumber) and
-      mpweaponsession.snapshotHasEntity(mpweaponSession, 1,
-        mpweaponHandProjectile.engineNumber),
-      "hand grenade projectile did not reach both snapshots")
-  else
+  if mpweaponProjectileClasses[mpweaponIndex] != "" then
+    mpweaponMovingProjectile = mpweaponNewProjectile(mpweaponRuntime,
+      mpweaponProjectileNumberBefore,
+      mpweaponProjectileClasses[mpweaponIndex])
+    mpweaponAssert(mpweaponMovingProjectile is not void and
+      mpweaponMovingProjectile.engineNumber > 0,
+      "moving projectile did not own an engine edict: " + mpweaponClass)
+    mpweaponProjectileSnapshot0 = mpweaponSnapshotEntity(mpweaponSession, 0,
+      mpweaponMovingProjectile.engineNumber)
+    mpweaponProjectileSnapshot1 = mpweaponSnapshotEntity(mpweaponSession, 1,
+      mpweaponMovingProjectile.engineNumber)
+    mpweaponAssert(mpweaponProjectileSnapshot0 is not void and
+      mpweaponProjectileSnapshot1 is not void,
+      "moving projectile did not reach both snapshots: " + mpweaponClass)
+    mpweaponAssert(mpweaponProjectileSnapshot0.modelIndex > 0 and
+      mpweaponProjectileSnapshot1.modelIndex == mpweaponProjectileSnapshot0.modelIndex and
+      mpweaponMovingProjectile.modelIndex == mpweaponProjectileSnapshot0.modelIndex,
+      "moving projectile model index mismatch: " + mpweaponClass)
+    mpweaponAssert(mpweaponProjectileSnapshot0.origin[0] !=
+        mpweaponProjectileSnapshot0.oldOrigin[0] or
+        mpweaponProjectileSnapshot0.origin[1] !=
+        mpweaponProjectileSnapshot0.oldOrigin[1] or
+        mpweaponProjectileSnapshot0.origin[2] !=
+        mpweaponProjectileSnapshot0.oldOrigin[2],
+      "projectile snapshot did not retain visible motion: " + mpweaponClass)
+    mpweaponAssert(mpweaponSession.clients[0].integrated.network.configStrings[
+      mpweaponqconstants.CS_MODELS + mpweaponProjectileSnapshot0.modelIndex] ==
+      mpweaponProjectileModels[mpweaponIndex] and
+      mpweaponSession.clients[1].integrated.network.configStrings[
+      mpweaponqconstants.CS_MODELS + mpweaponProjectileSnapshot1.modelIndex] ==
+      mpweaponProjectileModels[mpweaponIndex],
+      "moving projectile model configstring missing: " + mpweaponClass)
+    if mpweaponProjectileSounds[mpweaponIndex] != "" then
+      mpweaponAssert(mpweaponProjectileSnapshot0.sound > 0 and
+        mpweaponProjectileSnapshot1.sound == mpweaponProjectileSnapshot0.sound and
+        mpweaponSession.clients[0].integrated.network.configStrings[
+          mpweaponqconstants.CS_SOUNDS + mpweaponProjectileSnapshot0.sound] ==
+          mpweaponProjectileSounds[mpweaponIndex] and
+        mpweaponSession.clients[1].integrated.network.configStrings[
+          mpweaponqconstants.CS_SOUNDS + mpweaponProjectileSnapshot1.sound] ==
+          mpweaponProjectileSounds[mpweaponIndex],
+        "moving projectile loop sound missing: " + mpweaponClass)
+    end if
+  end if
+  if mpweaponClass != "ammo_grenades" then
     mpweaponAssert(mpweaponSawMuzzle(mpweaponSession, 0,
       mpweaponAttacker.edict.state.number) and
       mpweaponSawMuzzle(mpweaponSession, 1,

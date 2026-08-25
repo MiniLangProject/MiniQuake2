@@ -55,6 +55,14 @@ function attachMixer(state, effectState, mixer, entityPositionResolver, listener
   return audioCallbacks
 end function
 
+function syncEntityLoops(mixer, snapshot)
+  return cameffects.syncEntityLoops(mixer, snapshot)
+end function
+
+function setMixerListenerEntity(number)
+  return cameffects.setListenerEntity(number)
+end function
+
 function missingAssets(state)
   return caregistry.missingAssets(state)
 end function

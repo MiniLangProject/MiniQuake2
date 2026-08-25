@@ -193,6 +193,7 @@ end function
 function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
     part, fraction, renderTime, assetResolvers, randomResolver)
   if modelIndex <= 0 then return outputIndex end if
+  if outputIndex >= len(output) then return outputIndex end if
   effects = effectiveEffects(state)
   renderFx = effectiveRenderFx(state)
   resolvedIndex = modelIndex
@@ -263,6 +264,7 @@ function appendColorShell(output, outputIndex, state, oldState, fraction,
   if state.modelIndex <= 0 or (effects & cseconstants.EF_COLOR_SHELL) == 0 then
     return outputIndex
   end if
+  if outputIndex >= len(output) then return outputIndex end if
   renderFx = effectiveRenderFx(state)
   model = assetResolvers.modelIndex(state.modelIndex); skin = void; skinNum = state.skinNum
   if state.modelIndex == 255 then
@@ -299,6 +301,7 @@ function appendPowerScreen(output, outputIndex, state, oldState, fraction,
   if state.modelIndex <= 0 or (effects & cseconstants.EF_POWERSCREEN) == 0 then
     return outputIndex
   end if
+  if outputIndex >= len(output) then return outputIndex end if
   model = assetResolvers.modelName("models/items/armor/effect/tris.md2")
   if model is void then return outputIndex end if
   origin = interpolatedOrigin(oldState, state, fraction)
@@ -314,6 +317,7 @@ function appendViewWeapon(output, outputIndex, client, fraction, assetResolvers,
     viewOrigin, viewAngles)
   player = client.current.playerState
   if player.gunIndex <= 0 or player.fov > 90.0 then return outputIndex end if
+  if outputIndex >= len(output) then return outputIndex end if
   model = assetResolvers.modelIndex(player.gunIndex)
   if model is void then return outputIndex end if
   previousPlayer = interpolationPlayer(client)
@@ -346,6 +350,7 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
     end if
   end for
   if client.current.playerState.gunIndex > 0 then capacity = capacity + 1 end if
+  if capacity > crc.MAX_ENTITIES then capacity = crc.MAX_ENTITIES end if
   if capacity == 0 then return [] end if
   output = array(capacity)
   outputIndex = 0

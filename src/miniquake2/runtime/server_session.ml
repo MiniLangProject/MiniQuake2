@@ -129,20 +129,70 @@ function packetEntities(gameExport)
   return sssessionarray.slice(ssPacketEntitiesHolder, 0, ssPacketEntityCount)
 end function
 
+function linkedBoundsVisible(collisionModel, nodeNumber, mins, maxs, row)
+  if nodeNumber < 0 then
+    leafNumber = -1 - nodeNumber
+    if leafNumber < 0 or leafNumber >= len(collisionModel.map.leafs) then
+      return false
+    end if
+    cluster = collisionModel.map.leafs[leafNumber].cluster
+    if cluster < 0 then return false end if
+    byteIndex = cluster >> 3
+    return byteIndex >= 0 and byteIndex < len(row) and
+      (row[byteIndex] & (1 << (cluster & 7))) != 0
+  end if
+  if nodeNumber >= len(collisionModel.map.nodes) then return false end if
+  node = collisionModel.map.nodes[nodeNumber]
+  plane = collisionModel.map.planes[node.planeIndex]
+  side = sscollision.boxOnPlaneSide(mins, maxs, plane)
+  if (side & 1) != 0 and linkedBoundsVisible(collisionModel, node.child0,
+      mins, maxs, row) then return true end if
+  return (side & 2) != 0 and linkedBoundsVisible(collisionModel, node.child1,
+    mins, maxs, row)
+end function
+
 function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
   if session.collision is void then return true end if
   if edict.state.number == viewer.state.number then return true end if
-  entityLeaf = sscollision.pointLeafNumber(session.collision, edict.state.origin, 0)
   view = session.collision.map.leafs[viewLeaf]
-  target = session.collision.map.leafs[entityLeaf]
-  if view.cluster < 0 or target.cluster < 0 then return false end if
-  if not sscollision.areasConnected(session.collision, view.area, target.area) then return false end if
+  visibility = session.collision.map.visibility
+  if visibility is void or visibility.numClusters == 0 then return true end if
+  if view.cluster < 0 or view.cluster >= visibility.numClusters then return false end if
+
+  // Doors may legally straddle two areas.  The original SV_BuildClientFrame
+  // accepts either linked area; looking up only s.origin can select a solid or
+  // disconnected leaf and suppress an otherwise visible brush entity.
+  if edict.areaNumber != 0 then
+    areaVisible = sscollision.areasConnected(session.collision, view.area,
+      edict.areaNumber)
+    if areaVisible != true and edict.areaNumber2 != 0 then
+      areaVisible = sscollision.areasConnected(session.collision, view.area,
+        edict.areaNumber2)
+    end if
+    if areaVisible != true then return false end if
+  end if
+
   kind = 0
   if edict.state.sound != 0 then kind = 1 end if
   row = sscollision.visibilityRow(session.collision, view.cluster, kind)
-  byteIndex = target.cluster >> 3
-  if byteIndex < 0 or byteIndex >= len(row) then return false end if
-  return (row[byteIndex] & (1 << (target.cluster & 7))) != 0
+  if edict.numClusters >= 0 then
+    clusterIndex = 0
+    while clusterIndex < edict.numClusters
+      cluster = edict.clusterNumbers[clusterIndex]
+      byteIndex = cluster >> 3
+      if byteIndex >= 0 and byteIndex < len(row) and
+          (row[byteIndex] & (1 << (cluster & 7))) != 0 then return true end if
+      clusterIndex = clusterIndex + 1
+    end while
+    return false
+  end if
+
+  // MAX_ENT_CLUSTERS overflow is uncommon (large trains/rotating brushes), but
+  // it must remain correct. Traverse only BSP branches crossed by the cached
+  // bounds, allocation-free, equivalent to CM_HeadnodeVisible without
+  // confusing the inline collision hull headnode stored by this bridge.
+  return linkedBoundsVisible(session.collision, 0, edict.absoluteMins,
+    edict.absoluteMaxs, row)
 end function
 
 function entityVisible(session, viewer, edict)
@@ -412,7 +462,8 @@ function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindA
   bridgeRuntime.mapName = mapName
   bridgeRuntime.spawnCount = 1
 
-  callbacks = ssgameadapter.installGameExport(gameExport)
+  callbacks = ssgameadapter.installGameExportWithCommands(gameExport,
+    bridgeRuntime.commands)
   serverInfo = "\\hostname\\MiniQuake2\\mapname\\" + mapName + "\\maxclients\\" + maxClients + "\\protocol\\34"
   server = ssserver.create(maxClients, "MiniQuake2", mapName, serverInfo, dedicated, false)
   networkRuntime = ssnrtypes.createServer(server, 1, "baseq2", mapName, callbacks)

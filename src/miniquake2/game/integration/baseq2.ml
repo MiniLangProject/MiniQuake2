@@ -136,6 +136,7 @@ function worldEntity(baseEdict)
   entity.damage = source.damage; entity.health = source.health; entity.maxHealth = source.health
   entity.mass = source.mass; entity.count = source.count
   entity.volume = source.volume; entity.attenuation = source.attenuation
+  entity.sounds = source.sounds
   entity.style = source.style; entity.lip = source.spawnTemp.lip; entity.height = source.spawnTemp.height
   entity.item = source.spawnTemp.item
   entity.moveInfo.distance = source.spawnTemp.distance
@@ -2021,6 +2022,34 @@ function precacheSpawned(runtime, playerContext)
     if entity.inUse and entity.model != "" then
       entity.modelIndex = imports.modelIndex(entity.model)
       if containsItemIndex(worldModels, entity.modelIndex) != true then worldModels = worldModels + [entity.modelIndex] end if
+    end if
+    // g_func.c / g_target.c sound precache.  World movers keep their stock
+    // middle/loop sound in WorldEntity.soundIndex; the client consumes the
+    // synchronized EntityState.sound value as an autosound.
+    if entity.inUse and (entity.className == "func_door_secret" or
+        ((entity.className == "func_door" or
+          entity.className == "func_door_rotating") and
+          entity.sounds != 1)) then
+      imports.soundIndex("doors/dr1_strt.wav")
+      entity.soundIndex = imports.soundIndex("doors/dr1_mid.wav")
+      imports.soundIndex("doors/dr1_end.wav")
+    else if entity.inUse and entity.className == "func_plat" then
+      imports.soundIndex("plats/pt1_strt.wav")
+      entity.soundIndex = imports.soundIndex("plats/pt1_mid.wav")
+      imports.soundIndex("plats/pt1_end.wav")
+    else if entity.inUse and entity.className == "func_button" and
+        entity.sounds != 1 then
+      entity.soundIndex = imports.soundIndex("switches/butn2.wav")
+    else if entity.inUse and entity.className == "func_train" and
+        entity.noise != "" then
+      entity.soundIndex = imports.soundIndex(entity.noise)
+    else if entity.inUse and entity.className == "target_speaker" and
+        entity.noise != "" then
+      entity.soundIndex = imports.soundIndex(entity.noise)
+      if (entity.spawnFlags & 1) != 0 then entity.loopSound = entity.soundIndex end if
+    else if entity.inUse and entity.className == "misc_teleporter" then
+      entity.soundIndex = imports.soundIndex("world/amb10.wav")
+      entity.loopSound = entity.soundIndex
     end if
     if entity.inUse and entity.className == "misc_explobox" then
       imports.modelIndex("models/objects/debris1/tris.md2")

@@ -222,6 +222,27 @@ function testSnapshotsAndRefDef()
   assertEqual(beamFrame.entities[0].skinNum, 0x33, "beam selects packed skin byte")
   assertNear(beamFrame.entities[0].alpha, 0.30, 0.0001, "beam stock alpha")
 
+  denseStates = array(rc.MAX_ENTITIES + 16)
+  denseIndex = 0
+  while denseIndex < len(denseStates)
+    denseEntity = makeEntity(denseIndex * 1.0, 5)
+    denseEntity.number = denseIndex + 2
+    denseEntity.frame = denseIndex
+    denseEntity.effects = ceconstants.EF_COLOR_SHELL | ceconstants.EF_POWERSCREEN
+    denseStates[denseIndex] = denseEntity
+    denseIndex = denseIndex + 1
+  end while
+  denseClient = cstate.create()
+  cstate.acceptSnapshot(denseClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    effectPlayer, denseStates))
+  denseFrame = cstate.buildRefDef(denseClient, 1.0, 640, 480, testResolvers,
+    0, testRandom)
+  assertEqual(len(denseFrame.entities), rc.MAX_ENTITIES,
+    "dense snapshot is capped at stock renderer entity limit")
+  denseValidation = rval.validateRefDef(denseFrame)
+  assertEqual(denseValidation.valid, true,
+    "capped dense snapshot remains a valid refdef (" + denseValidation.code + ")")
+
   cstate.acceptPrediction(client, [160, 80, 32], [40.0, 50.0, 60.0])
   predictedFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
     testResolvers, 0, testRandom)

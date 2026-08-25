@@ -626,6 +626,10 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
           applicationDemoSessionHolder.runtime.effects,
           applicationDemoMixerHolder, resolvePlayEntityPosition,
           applicationDemoFrameHolder.viewOrigin, applicationDemoAxesHolder[1])
+        appclientassets.setMixerListenerEntity(
+          applicationDemoSessionHolder.runtime.network.playerNumber + 1)
+        appclientassets.syncEntityLoops(applicationDemoMixerHolder,
+          applicationDemoSessionHolder.runtime.client.current)
         appentityeffects.emit(applicationDemoSessionHolder.runtime.effects,
           applicationDemoSessionHolder.runtime.client.current,
           applicationDemoSessionHolder.runtime.client.previous, 1.0,
@@ -1191,16 +1195,7 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
   input = appuikeys.createInputState()
   playerState = session.client.integrated.client.current.playerState
   input.viewAngles = appprediction.localInputAngles(playerState)
-  appuikeys.bind(input, 119, "+forward")
-  appuikeys.bind(input, 115, "+back")
-  appuikeys.bind(input, 97, "+moveleft")
-  appuikeys.bind(input, 100, "+moveright")
-  appuikeys.bind(input, appuiconstants.K_SPACE, "+moveup")
-  appuikeys.bind(input, 99, "+movedown")
-  appuikeys.bind(input, appuiconstants.K_SHIFT, "+speed")
-  appuikeys.bind(input, appuiconstants.K_MOUSE1, "+attack")
-  appuikeys.bind(input, 101, "+use")
-  appuikeys.bind(input, 105, "inven")
+  appuikeys.bindDefaultGame(input)
   screen = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
   commandState = appuicommands.create()
   commandState.videoMode = productHost.videoMode
@@ -1464,6 +1459,10 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       viewAxes = appphysicsvector.angleVectors(frame.viewAngles)
       appclientassets.attachMixer(assetState, session.client.integrated.effects,
         audioMixer, resolvePlayEntityPosition, frame.viewOrigin, viewAxes[1])
+      appclientassets.setMixerListenerEntity(
+        session.client.integrated.network.playerNumber + 1)
+      appclientassets.syncEntityLoops(audioMixer,
+        session.client.integrated.client.current)
     end if
     // Effects are timestamped by the ClientSession clock while packets are
     // dispatched.  Keep advances on that same monotonic epoch; the render

@@ -48,6 +48,7 @@ uiConfigAssert(uiConfigLoaded.videoMode == 2 and uiConfigLoaded.fullScreen and
   len(uiConfigLoaded.bindings) == 2, "config disk round trip")
 
 uiConfigApplyInput = uiconfigtestkeys.createInputState()
+uiconfigtestkeys.bindDefaultGame(uiConfigApplyInput)
 uiConfigApplyState = uiconfigtestcommands.create()
 uiConfigApplyMixer = uiconfigtestmixer.create(8000)
 uiConfigApplyScreen = uiconfigtestscreen.create(uiconfigtestconsole.create(40),
@@ -56,6 +57,8 @@ uiconfigtestconfig.applyProductConfig(uiConfigLoaded, uiConfigApplyInput,
   uiConfigApplyState, uiConfigApplyMixer, uiConfigApplyScreen)
 uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward" and
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, 200) == "+attack" and
+  uiconfigtestkeys.bindingFor(uiConfigApplyInput, 55) == "use Rocket Launcher" and
+  uiconfigtestkeys.bindingFor(uiConfigApplyInput, miniquake2.client.ui.constants.K_MWHEELUP) == "weapnext" and
   uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
   uiConfigApplyState.videoMode == 2 and uiConfigApplyMixer.masterVolume == 0.4 and
   uiConfigApplyScreen.crosshair == 3,

@@ -25,6 +25,16 @@ cuikeys.bind(uiInputState, 119, "+forward")
 cuikeys.bind(uiInputState, cuic.K_MOUSE1, "+attack")
 cuikeys.bind(uiInputState, cuic.K_MWHEELUP, "weapnext")
 
+uiDefaultBindings = cuikeys.bindDefaultGame(cuikeys.createInputState())
+uiInputAssertEqual(cuikeys.bindingFor(uiDefaultBindings, cuic.K_MWHEELUP),
+  "weapnext", "default wheel next weapon")
+uiInputAssertEqual(cuikeys.bindingFor(uiDefaultBindings, cuic.K_MWHEELDOWN),
+  "weapprev", "default wheel previous weapon")
+uiInputAssertEqual(cuikeys.bindingFor(uiDefaultBindings, 55),
+  "use Rocket Launcher", "default rocket number key")
+uiInputAssertEqual(cuikeys.bindingFor(uiDefaultBindings, 48),
+  "use BFG10K", "default BFG number key")
+
 // Set-1 scan 17 is W. Holding it yields the stock 200 u/s move.
 cuikeys.handleEvent(uiInputState, pwindow.InputEvent(cuic.EVENT_SCAN_KEY, 17, 1), 1000)
 uiInputState.lightLevel = 58

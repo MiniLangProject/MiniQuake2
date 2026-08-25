@@ -3,8 +3,10 @@ package miniquake2.network.runtime.game_adapter
 
 import miniquake2.game.constants as gc
 import miniquake2.network.runtime.types as nrtypes
+import miniquake2.qcommon.cmd as rqcmd
 
 activeGameExport = void
+activeCommandSystem = void
 
 function allowConnect(slot, userInfo)
   return true
@@ -78,8 +80,16 @@ function exportClientThink(slot, command)
 end function
 
 function exportClientCommand(slot, commandText)
-  global activeGameExport
+  global activeGameExport, activeCommandSystem
   // game_export_t obtains argc/argv through game_import_t, as in the C ABI.
+  // Preserve the exact command for the duration of ClientCommand.  The
+  // former adapter discarded commandText, leaving every GameImport argc/argv
+  // call empty even though the Protocol-34 string command reached the server.
+  if activeCommandSystem is not void then
+    commandSystem = activeCommandSystem
+    commandSystem.arguments = rqcmd.tokenize(commandText)
+    commandSystem.argumentTail = rqcmd.argumentTail(commandText)
+  end if
   return activeGameExport.clientCommand(gameEntity(slot, "ClientCommand"))
 end function
 
@@ -94,7 +104,7 @@ function exportClientDisconnect(slot)
 end function
 
 function installGameExport(gameExport)
-  global activeGameExport
+  global activeGameExport, activeCommandSystem
   if typeof(gameExport) != "struct" or gameExport.apiVersion != gc.GAME_API_VERSION then
     return error(7213, "runtime requires Game API version 3")
   end if
@@ -104,6 +114,17 @@ function installGameExport(gameExport)
     return error(7214, "game export is missing client callbacks")
   end if
   activeGameExport = gameExport
+  activeCommandSystem = void
   return createWithDisconnect(exportClientConnect, exportClientUserinfoChanged, exportClientThink,
     exportClientCommand, exportClientBegin, exportClientDisconnect)
+end function
+
+function installGameExportWithCommands(gameExport, commandSystem)
+  global activeCommandSystem
+  callbacks = installGameExport(gameExport)
+  if typeof(commandSystem) != "struct" then
+    return error(7215, "runtime Game API adapter requires a command system")
+  end if
+  activeCommandSystem = commandSystem
+  return callbacks
 end function

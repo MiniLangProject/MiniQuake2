@@ -9,9 +9,12 @@ struct Channel
   entityNumber
   entityChannel
   sourceFrame
+  startFrame
   leftVolume
   rightVolume
   active
+  looping
+  autoSound
 end struct
 
 struct Mixer
@@ -55,7 +58,8 @@ function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, right
       if oldChannel.active and oldChannel.entityNumber == entityNumber and oldChannel.entityChannel == entityChannel then oldChannel.active = false end if
     end for
   end if
-  channel = Channel(sound, entityNumber, entityChannel, 0.0, leftVolume, rightVolume, true)
+  channel = Channel(sound, entityNumber, entityChannel, 0.0,
+    mixer.paintedFrames, leftVolume, rightVolume, true, false, false)
   // Reuse a finished slot. Sound events are frequent during combat and an
   // append-only channel array would otherwise retain and scan every expired
   // sound for the rest of the map.
@@ -78,10 +82,22 @@ function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin, masterVolum
   distance = ammath.sqrt(dx * dx + dy * dy + dz * dz)
   dot = 0.0
   if distance > 0.0 then dot = (dx * listenerRight.x + dy * listenerRight.y + dz * listenerRight.z) / distance end if
+  // S_SpatializeOrigin keeps an 80-unit full-volume radius and receives the
+  // already-scaled dist_mult (normal one-shot sounds use 0.0005).  With no
+  // attenuation Quake also disables stereo separation, making ATTN_NONE a
+  // genuinely global sound instead of panning it toward the source.
+  distance = distance - 80.0
+  if distance < 0.0 then distance = 0.0 end if
   distanceScale = 1.0 - distance * attenuation
   if distanceScale < 0.0 then distanceScale = 0.0 end if
-  left = masterVolume * distanceScale * (1.0 - dot)
-  right = masterVolume * distanceScale * (1.0 + dot)
+  leftScale = 1.0
+  rightScale = 1.0
+  if attenuation != 0.0 then
+    leftScale = 0.5 * (1.0 - dot)
+    rightScale = 0.5 * (1.0 + dot)
+  end if
+  left = masterVolume * distanceScale * leftScale
+  right = masterVolume * distanceScale * rightScale
   if left > 255.0 then left = 255.0 end if
   if right > 255.0 then right = 255.0 end if
   if left < 0.0 then left = 0.0 end if
@@ -108,10 +124,13 @@ function mix(mixer, frameCount)
     mixedLeft = 0
     mixedRight = 0
     for each channel in mixer.channels
-      if channel.active then
+      if channel.active and mixer.paintedFrames + frameIndex >= channel.startFrame then
         sourceIndex = ambio.truncInt(channel.sourceFrame)
         if sourceIndex >= channel.sound.sampleCount then
-          if channel.sound.loopStart >= 0 then
+          if channel.looping then
+            sourceIndex = 0
+            channel.sourceFrame = 0.0
+          else if channel.sound.loopStart >= 0 then
             sourceIndex = channel.sound.loopStart
             channel.sourceFrame = sourceIndex * 1.0
           else
@@ -133,6 +152,29 @@ function mix(mixer, frameCount)
   end while
   mixer.paintedFrames = mixer.paintedFrames + frameCount
   return output
+end function
+
+// EntityState.sound values are Quake "autosounds": they are rebuilt from the
+// current snapshot every client frame and loop even when the WAV has no cue
+// chunk.  Their phase follows painted time so a refreshed channel does not
+// restart at sample zero on every rendered frame.
+function clearAutoSounds(mixer)
+  for each channel in mixer.channels
+    if channel.autoSound then channel.active = false end if
+  end for
+  return true
+end function
+
+function startAutoSound(mixer, sound, leftVolume, rightVolume)
+  channel = startSound(mixer, sound, 0, 0, leftVolume, rightVolume)
+  channel.looping = true
+  channel.autoSound = true
+  if sound.sampleCount > 0 then
+    phase = ambio.truncInt(mixer.paintedFrames * sound.sampleRate /
+      (mixer.sampleRate * 1.0)) % sound.sampleCount
+    channel.sourceFrame = phase * 1.0
+  end if
+  return channel
 end function
 
 function stopAll(mixer)

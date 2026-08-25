@@ -432,11 +432,15 @@ payloads remain readable.
 muzzle mappings, silencer framing, hit/blood/splash/bubble/rail/BFG effects,
 Shotgun pump timing, BFG windup and late ammo checks, Machinegun/Chaingun/
 HyperBlaster cycling, handed muzzle projection, recoil and cooked hand-grenade
-state. The integrated DM gate additionally observes moving Blaster projectile
-edicts in both real client snapshots and the resulting muzzle light/sound and
-blood particles through the normal Protocol-34 dispatcher. This closes the
-stock player weapon state/protocol vertical slice; paired original view-model,
-kick and per-frame visual capture remains an explicit acceptance gate.
+state. The integrated UDP gates additionally observe moving Blaster,
+HyperBlaster, hand-/launcher-grenade, rocket and BFG projectile edicts in both
+real client snapshots, including visible old-origin motion, stock model
+configstrings, loop-sound configstrings where applicable, muzzle light/sound
+and impact particles through the normal Protocol-34 dispatcher. Named,
+previous, next and last-weapon string commands also traverse the live Game
+API. This closes the stock player weapon state/protocol vertical slice; paired
+original view-model, kick and per-frame visual capture remains an explicit
+acceptance gate.
 
 `runtime_active_session_persistence_tests` writes both managed Game and Level
 images from an active UDP session, mutates live world/player/item/score state,

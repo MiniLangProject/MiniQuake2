@@ -26,6 +26,35 @@ function createInputState()
     defaultConfig(), "", -1)
 end function
 
+// Product defaults retain the classic Quake II weapon keys and add the mouse
+// wheel convention expected by modern players.  Keeping these in the input
+// package makes the real product bindings independently regression-testable.
+function bindDefaultGame(state)
+  bind(state, 119, "+forward")
+  bind(state, 115, "+back")
+  bind(state, 97, "+moveleft")
+  bind(state, 100, "+moveright")
+  bind(state, cuic.K_SPACE, "+moveup")
+  bind(state, 99, "+movedown")
+  bind(state, cuic.K_SHIFT, "+speed")
+  bind(state, cuic.K_MOUSE1, "+attack")
+  bind(state, 101, "+use")
+  bind(state, 105, "inven")
+  bind(state, cuic.K_MWHEELUP, "weapnext")
+  bind(state, cuic.K_MWHEELDOWN, "weapprev")
+  bind(state, 48, "use BFG10K")
+  bind(state, 49, "use Blaster")
+  bind(state, 50, "use Shotgun")
+  bind(state, 51, "use Super Shotgun")
+  bind(state, 52, "use Machinegun")
+  bind(state, 53, "use Chaingun")
+  bind(state, 54, "use Grenade Launcher")
+  bind(state, 55, "use Rocket Launcher")
+  bind(state, 56, "use HyperBlaster")
+  bind(state, 57, "use Railgun")
+  return state
+end function
+
 function setDestination(state, destination)
   if destination < cuic.KEY_GAME or destination > cuic.KEY_MENU then return error(8200, "invalid key destination") end if
   state.destination = destination

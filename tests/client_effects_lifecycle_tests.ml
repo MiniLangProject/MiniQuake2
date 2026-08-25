@@ -211,9 +211,13 @@ testSound = awav.WavSound("generated", 8000, 1, 1, 4, -1, bytes([128, 129, 130, 
 mixer = amixer.create(8000)
 mixerCallbacks = cemixer.install(mixer, resolveSoundIndex, resolveSoundName, resolveEntityPosition,
   qt.zeroVec3(), qt.Vec3(0.0, 1.0, 0.0))
+cemixer.setListenerEntity(3)
 audioState = cestate.create(mixerCallbacks, 1)
 event = cetypes.SoundEvent(void, 3, 1, 7, "", 1.0, 1.0, 0.001)
 ceaudio.emit(audioState, event)
 assertEqual(len(mixer.channels), 1, "audio mixer callback starts channel")
-assertEqual(mixer.channels[0].sourceFrame, 8.0, "audio mixer start offset")
+assertEqual(mixer.channels[0].sourceFrame, 0.0, "delayed sound retains PCM start")
+assertEqual(mixer.channels[0].startFrame, 8, "audio mixer delayed start frame")
+assertEqual(mixer.channels[0].leftVolume, 255, "local entity sound full left volume")
+assertEqual(mixer.channels[0].rightVolume, 255, "local entity sound full right volume")
 print "client_effects_lifecycle_tests: PASS"

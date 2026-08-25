@@ -186,10 +186,24 @@ function loadSoundAsset(state, index, name)
   end if
   existing = cached(state.namedSounds, name, state.generation)
   if existing is not void then return indexed(existing, index, name) end if
+  // Protocol configstrings beginning with '*' are player-relative sounds.
+  // The full stock client chooses the emitting player's model at playback
+  // and falls back to male when that model-specific file is unavailable.
+  // The product currently exposes one male player model, so materialize that
+  // mandatory fallback instead of leaving every pain/fall/death sound silent.
+  if bytes(name)[0] == 42 then
+    fallbackName = "player/male/" + textSlice(name, 1,
+      len(bytes(name)) - 1)
+    fallback = loadSoundAsset(state, -1, fallbackName)
+    if fallback.available then
+      return cartypes.AssetEntry("sound", index, name, fallback.value,
+        state.generation, true, "player-sound-male-fallback")
+    end if
+    return noteMissing(state, "sound", index, name,
+      "player-sound-fallback-missing")
+  end if
   if not safeSoundName(name) then
-    reason = "unsafe-name"
-    if typeof(name) == "string" and name != "" and bytes(name)[0] == 42 then reason = "player-sound-deferred" end if
-    return noteMissing(state, "sound", index, name, reason)
+    return noteMissing(state, "sound", index, name, "unsafe-name")
   end if
   loaded = try(state.loaders.loadSound(name))
   if loaded is error then return missingNamed(state, "sound", index, name, "loader-error") end if

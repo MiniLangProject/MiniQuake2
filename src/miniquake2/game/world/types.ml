@@ -47,6 +47,7 @@ struct WorldEntity
   renderFx
   frame
   soundIndex
+  sounds
   loopSound
   style
   origin
@@ -205,7 +206,7 @@ function createEntity(number, className)
     "", "", "", "", "", "", "", "", "",
     0, 0, 0,
     gwconstants.SOLID_NOT, gwconstants.MOVETYPE_NONE,
-    0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),
     qt.zeroVec3(), qt.zeroVec3(),
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),

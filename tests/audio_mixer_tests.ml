@@ -49,6 +49,14 @@ assertEqual(typeof(try(amix.setMasterVolume(volumeMixer, 0.0 / 0.0))), "error", 
 volumes = amix.spatialVolumes(qt.zeroVec3(), qt.Vec3(1.0, 0.0, 0.0), qt.Vec3(10.0, 0.0, 0.0), 255.0, 0.01)
 assertEqual(volumes[0], 0, "hard-right left volume")
 assertEqual(volumes[1], 255, "hard-right volume clamp")
+globalVolumes = amix.spatialVolumes(qt.zeroVec3(), qt.Vec3(1.0, 0.0, 0.0),
+  qt.Vec3(400.0, 0.0, 0.0), 255.0, 0.0)
+assertEqual(globalVolumes[0], 255, "ATTN_NONE global left volume")
+assertEqual(globalVolumes[1], 255, "ATTN_NONE global right volume")
+fullRadiusVolumes = amix.spatialVolumes(qt.zeroVec3(), qt.Vec3(0.0, 1.0, 0.0),
+  qt.Vec3(80.0, 0.0, 0.0), 255.0, 0.0005)
+assertEqual(fullRadiusVolumes[0], 127, "stock full-volume radius left")
+assertEqual(fullRadiusVolumes[1], 127, "stock full-volume radius right")
 bad = monoWav(); bad[0] = 0
 assertEqual(typeof(try(awav.parse(bad, "bad"))), "error", "bad RIFF rejected")
 print("MiniQuake2 audio mixer tests passed: 2")

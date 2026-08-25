@@ -2,6 +2,7 @@
 import miniquake2.server.game_bridge as inbridge
 import miniquake2.game.null_game as ingameapi
 import miniquake2.game.ai.constants as inaiconstants
+import miniquake2.game.constants as ingameconstants
 import miniquake2.game.types as ingametypes
 import miniquake2.collision.model as incollision
 import miniquake2.format.constants as informatconstants
@@ -10,6 +11,7 @@ import miniquake2.qcommon.constants as inqconstants
 import miniquake2.qcommon.types as inqtypes
 import miniquake2.runtime.application as inproductapplication
 import miniquake2.runtime.play_session as inproductplay
+import miniquake2.runtime.server_session as inserversession
 
 function inlineAssert(value, message)
   if value != true then return error(9880, message) end if
@@ -55,6 +57,25 @@ function inlineFixture()
   map = informattypes.BspMap("inline-fixture", bytes(0), [], "", planes, [],
     informattypes.BspVisibility(0, [], [], bytes(0)), nodes, [texture], [], bytes(0), leafs, [], [0], [], [], models,
     brushes, sides, [informattypes.BspArea(0, 0), informattypes.BspArea(0, 0)], [])
+  return incollision.create(map)
+end function
+
+function inlineVisibilityFixture()
+  plane = informattypes.BspPlane(informattypes.Vec3(1.0, 0.0, 0.0), 0.0, 0)
+  node = informattypes.BspNode(0, -1, -2,
+    informattypes.Vec3(-32.0, -32.0, -32.0),
+    informattypes.Vec3(32.0, 32.0, 32.0), 0, 0)
+  front = informattypes.BspLeaf(0, 0, 1,
+    informattypes.Vec3(0.0, -32.0, -32.0),
+    informattypes.Vec3(32.0, 32.0, 32.0), 0, 0, 0, 0)
+  back = informattypes.BspLeaf(0, 1, 2,
+    informattypes.Vec3(-32.0, -32.0, -32.0),
+    informattypes.Vec3(0.0, 32.0, 32.0), 0, 0, 0, 0)
+  map = informattypes.BspMap("inline-visibility", bytes(0), [], "", [plane], [],
+    informattypes.BspVisibility(2, [0, 1], [0, 1], bytes([1, 2])),
+    [node], [], [], bytes(0), [front, back], [], [], [], [], [], [], [],
+    [informattypes.BspArea(0, 0), informattypes.BspArea(0, 0),
+      informattypes.BspArea(0, 0)], [])
   return incollision.create(map)
 end function
 
@@ -129,6 +150,52 @@ inlineAssert(hit.surface.name == "inline/brush", "inline brush surface propagate
 inlineAssert((imports.pointContents(inqtypes.Vec3(9.5, 0.0, 0.0)) & informatconstants.CONTENTS_SOLID) != 0, "dynamic inline brush contributes point contents")
 inlineAssert(runtime.inlineBrushCount == 1 and runtime.inlineBrushModelNumbers[0] == 1,
   "linked inline brush publishes its cached model number")
+inlineAssert(brush.numClusters == 1 and brush.clusterNumbers[0] == 0,
+  "linked inline brush caches its complete-bounds PVS cluster")
+inlineAssert(brush.state.solid == 31,
+  "linked inline brush publishes Protocol-34 BSP solidity")
+
+// The origin lies in hidden cluster 1/area 2, while the complete brush
+// bounds straddle into visible cluster 0/area 1. Point-origin culling used to
+// remove this entity from every client snapshot even though the door surface
+// was in view.
+mainCollision = runtime.collision
+runtime.collision = inlineVisibilityFixture()
+visibilityBrush = ingametypes.zeroEdict(77)
+visibilityBrush.inUse = true
+visibilityBrush.solid = ingameconstants.SOLID_BSP
+visibilityBrush.state.modelIndex = brush.state.modelIndex
+visibilityBrush.state.origin = inqtypes.Vec3(-0.5, 0.0, 0.0)
+visibilityBrush.mins = inqtypes.Vec3(-1.0, -1.0, -1.0)
+visibilityBrush.maxs = inqtypes.Vec3(1.0, 1.0, 1.0)
+imports.linkEntity(visibilityBrush)
+visibilityOriginLeaf = incollision.pointLeafNumber(runtime.collision,
+  visibilityBrush.state.origin, 0)
+inlineAssert(runtime.collision.map.leafs[visibilityOriginLeaf].cluster == 1,
+  "straddling-door regression origin unexpectedly lies in the viewer cluster")
+inlineAssert(visibilityBrush.areaNumber == 1 and visibilityBrush.areaNumber2 == 2 and
+  visibilityBrush.numClusters == 2 and visibilityBrush.clusterNumbers[0] == 0 and
+  visibilityBrush.clusterNumbers[1] == 1,
+  "straddling door publishes both areas and its visible cluster")
+visibilityViewer = ingametypes.zeroEdict(1)
+visibilityViewer.inUse = true
+visibilityViewer.state.origin = inqtypes.Vec3(10.0, 0.0, 0.0)
+visibilitySession = inserversession.ServerSession(void, void, void, void, void,
+  runtime.collision, "inline-fixture", "", 0, 0, 0, 0, void, "", false)
+inlineAssert(inserversession.entityVisibleFromLeaf(visibilitySession,
+  visibilityViewer, 0, visibilityBrush),
+  "snapshot PVS rejected door whose bounds touch the viewer cluster")
+visibilityProtocolState = inserversession.protocolEntity(visibilityBrush.state)
+inlineAssert(visibilityProtocolState.modelIndex == visibilityBrush.state.modelIndex and
+  visibilityProtocolState.solid == 31 and visibilityProtocolState.origin[0] == -0.5,
+  "visible door transform/model/solidity did not reach Protocol 34")
+visibilityBrush.numClusters = -1
+inlineAssert(inserversession.entityVisibleFromLeaf(visibilitySession,
+  visibilityViewer, 0, visibilityBrush),
+  "large moving-brush PVS overflow fallback rejected visible bounds")
+imports.unlinkEntity(visibilityBrush)
+runtime.collision = mainCollision
+
 // A spatially remote trace must never enter this hull. Deliberately poison the
 // headnode to turn the performance broad phase into a behavioral regression:
 // an all-brush scan would fail, while SV_AreaEdicts-style filtering stays clear.
@@ -207,6 +274,26 @@ inlineAssert(aiRuntime.aiContext.walkMove(aiMonster, 180.0, 80.0),
 inlineAssert(aiMonster.edict.state.origin.x < aiClosedMoveX,
   "unblocked monster hull did not advance")
 game.clientDisconnect(aiClient)
+
+// Every stock moving-brush family reaches the same SetModel -> LinkEdict PVS
+// path. Keep a product Game-API regression for doors, plats, buttons and both
+// rotating variants rather than proving only one classname.
+moverFixture = "{\"classname\" \"worldspawn\"}" +
+  "{\"classname\" \"func_door\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
+  "{\"classname\" \"func_plat\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
+  "{\"classname\" \"func_button\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
+  "{\"classname\" \"func_door_rotating\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
+  "{\"classname\" \"func_rotating\" \"model\" \"*1\" \"origin\" \"10 0 0\"}"
+game.spawnEntities("inline-mover-families", moverFixture, "")
+inlineAssert(game.numEdicts == 7, "moving-brush family edict count")
+moverIndex = 2
+while moverIndex < game.numEdicts
+  mover = game.edicts[moverIndex]
+  inlineAssert(mover.state.modelIndex > 0 and mover.numClusters == 1 and
+    mover.clusterNumbers[0] == 0,
+    "moving-brush family lost model/PVS linkage at edict " + moverIndex)
+  moverIndex = moverIndex + 1
+end while
 
 inlineRepeatedBrushLifetime(runtime, imports, game)
 malformedBrush = ingametypes.zeroEdict(99)

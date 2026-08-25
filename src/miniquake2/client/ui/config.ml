@@ -227,7 +227,10 @@ function applyProductConfig(config, input, commandState, mixer, screen)
   commandState.brightness = productConfigApply.brightness
   screen.crosshair = productConfigApply.crosshair
   uiconfigmixer.setMasterVolume(mixer, productConfigApply.volume)
-  input.bindings = []
+  // Apply persisted entries as overrides.  Product defaults may gain new
+  // bindings between releases (notably the weapon number row and mouse
+  // wheel); clearing the table here made every existing v1 config suppress
+  // those additions forever.
   for each productConfigApplyBinding in productConfigApply.bindings
     uiconfigkeys.bind(input, productConfigApplyBinding.key,
       productConfigApplyBinding.command)

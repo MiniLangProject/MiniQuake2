@@ -4,6 +4,8 @@ import miniquake2.qcommon.types as rca_qt
 import miniquake2.audio.mixer as rca_mixer
 import miniquake2.audio.wav as rca_wav
 import miniquake2.renderer.recording as rca_recording
+import miniquake2.protocol.types as rca_protocol_types
+import miniquake2.client.runtime.types as rca_runtime_types
 import miniquake2.client.effects.audio as rca_effect_audio
 import miniquake2.client.effects.state as rca_effect_state
 import miniquake2.client.effects.types as rca_effect_types
@@ -39,6 +41,7 @@ configStrings = array(rca_qc.MAX_CONFIGSTRINGS, "")
 configStrings[rca_qc.CS_MODELS + 1] = "maps/runtime_unit.bsp"
 configStrings[rca_qc.CS_MODELS + 2] = "models/runtime_unit.md2"
 configStrings[rca_qc.CS_SOUNDS + 7] = "weapons/runtime.wav"
+configStrings[rca_qc.CS_SOUNDS + 8] = "weapons/replacement.wav"
 rca_assets.registerConfigStrings(state, configStrings, "runtime_unit")
 renderer.exports.EndRegistration()
 
@@ -60,6 +63,40 @@ runtimeAssetAssert(rca_effect_audio.emit(effects, event) != false and len(mixer.
 runtimeAssetAssert(mixer.channels[0].sound.name == "weapons/runtime.wav",
   "mixer received wrong sound object")
 runtimeAssetAssert(len(rca_mixer.mix(mixer, 2)) == 8, "mixer could not consume resolved sound")
+
+// Snapshot EntityState.sound autosounds start, merge identical sources, stop
+// when absent from the next frame and replace their sound index.
+loopMixer = rca_mixer.create(8000)
+rca_assets.attachMixer(state, effects, loopMixer, entityPosition,
+  rca_qt.zeroVec3(), rca_qt.vec3(0.0, 1.0, 0.0))
+loopEntity1 = rca_protocol_types.zeroEntityState()
+loopEntity1.number = 2; loopEntity1.sound = 7
+loopEntity2 = rca_protocol_types.zeroEntityState()
+loopEntity2.number = 3; loopEntity2.sound = 7
+loopSnapshot = rca_runtime_types.Snapshot(1, 0, 0, bytes([]), void,
+  [loopEntity1, loopEntity2])
+runtimeAssetAssert(rca_assets.syncEntityLoops(loopMixer, loopSnapshot) == 1,
+  "identical entity loops were not merged")
+runtimeAssetAssert(len(loopMixer.channels) == 1 and
+  loopMixer.channels[0].active and loopMixer.channels[0].looping and
+  loopMixer.channels[0].autoSound and
+  loopMixer.channels[0].sound.name == "weapons/runtime.wav",
+  "snapshot sound did not start autosound channel")
+silentEntity = rca_protocol_types.zeroEntityState()
+silentEntity.number = 2
+silentSnapshot = rca_runtime_types.Snapshot(2, 1, 0, bytes([]), void,
+  [silentEntity])
+runtimeAssetAssert(rca_assets.syncEntityLoops(loopMixer, silentSnapshot) == 0 and
+  not loopMixer.channels[0].active,
+  "removed EntityState.sound did not stop autosound")
+replacementEntity = rca_protocol_types.zeroEntityState()
+replacementEntity.number = 2; replacementEntity.sound = 8
+replacementSnapshot = rca_runtime_types.Snapshot(3, 2, 0, bytes([]), void,
+  [replacementEntity])
+runtimeAssetAssert(rca_assets.syncEntityLoops(loopMixer, replacementSnapshot) == 1 and
+  loopMixer.channels[0].active and
+  loopMixer.channels[0].sound.name == "weapons/replacement.wav",
+  "changed EntityState.sound did not replace autosound")
 
 rca_assets.reset(state, "runtime_unit2")
 runtimeAssetAssert(values.modelIndex(1) is void and values.soundIndex(7) is void,

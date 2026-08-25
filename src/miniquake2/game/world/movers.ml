@@ -167,6 +167,9 @@ end function
 function buttonFire(entity, world)
   if entity.moveInfo.state == gwconstants.STATE_UP or entity.moveInfo.state == gwconstants.STATE_TOP then return false end if
   entity.moveInfo.state = gwconstants.STATE_UP
+  if entity.soundIndex != 0 and (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    world.callbacks.sound(entity, "switches/butn2.wav")
+  end if
   moveCalc(entity, entity.moveInfo.endOrigin, buttonWait, world)
   return true
 end function
@@ -236,7 +239,10 @@ end function
 
 function doorHitTop(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
-  entity.loopSound = 0
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
+    entity.loopSound = 0
+  end if
   if (entity.spawnFlags & gwconstants.DOOR_TOGGLE) != 0 then return true end if
   if entity.moveInfo.wait >= 0.0 then
     entity.think = doorGoDown
@@ -247,12 +253,19 @@ end function
 
 function doorHitBottom(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
-  entity.loopSound = 0
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
+    entity.loopSound = 0
+  end if
   doorUseAreaPortals(entity, false, world)
   return true
 end function
 
 function doorGoDown(entity, world)
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
   if entity.maxHealth != 0 then
     entity.takeDamage = gwconstants.DAMAGE_YES
     entity.health = entity.maxHealth
@@ -266,6 +279,10 @@ function doorGoUp(entity, activator, world)
   if entity.moveInfo.state == gwconstants.STATE_TOP then
     if entity.moveInfo.wait >= 0.0 then entity.nextThink = world.time + entity.moveInfo.wait end if
     return false
+  end if
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_strt.wav")
+    entity.loopSound = entity.soundIndex
   end if
   entity.moveInfo.state = gwconstants.STATE_UP
   moveCalc(entity, entity.moveInfo.endOrigin, doorHitTop, world)
@@ -373,12 +390,20 @@ function rotatingDoorHitBottom(entity, world)
   entity.angularVelocity = qt.zeroVec3()
   entity.angles = gwvector.copy(entity.moveInfo.startAngles)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
+    entity.loopSound = 0
+  end if
   world.callbacks.linkEntity(entity)
   return true
 end function
 
 function rotatingDoorGoDown(entity, world)
   entity.moveInfo.state = gwconstants.STATE_DOWN
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
   entity.angularVelocity = gwvector.scale(entity.moveDirection, -entity.speed)
   entity.think = rotatingDoorHitBottom
   entity.nextThink = world.time + entity.moveInfo.distance / entity.speed
@@ -389,6 +414,10 @@ function rotatingDoorHitTop(entity, world)
   entity.angularVelocity = qt.zeroVec3()
   entity.angles = gwvector.copy(entity.moveInfo.endAngles)
   entity.moveInfo.state = gwconstants.STATE_TOP
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
+    entity.loopSound = 0
+  end if
   if entity.wait >= 0.0 and (entity.spawnFlags & gwconstants.DOOR_TOGGLE) == 0 then
     entity.think = rotatingDoorGoDown
     entity.nextThink = world.time + entity.wait
@@ -399,6 +428,10 @@ end function
 
 function rotatingDoorGoUp(entity, world)
   entity.moveInfo.state = gwconstants.STATE_UP
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
   entity.angularVelocity = gwvector.scale(entity.moveDirection, entity.speed)
   entity.think = rotatingDoorHitTop
   entity.nextThink = world.time + entity.moveInfo.distance / entity.speed
@@ -440,6 +473,10 @@ end function
 
 function platHitTop(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.soundIndex != 0 then world.callbacks.sound(entity, "plats/pt1_end.wav") end if
+    entity.loopSound = 0
+  end if
   entity.think = platGoDown
   entity.nextThink = world.time + 3.0
   return true
@@ -447,16 +484,28 @@ end function
 
 function platHitBottom(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.soundIndex != 0 then world.callbacks.sound(entity, "plats/pt1_end.wav") end if
+    entity.loopSound = 0
+  end if
   return true
 end function
 
 function platGoDown(entity, world)
   entity.moveInfo.state = gwconstants.STATE_DOWN
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "plats/pt1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
   return moveCalc(entity, entity.moveInfo.endOrigin, platHitBottom, world)
 end function
 
 function platGoUp(entity, world)
   entity.moveInfo.state = gwconstants.STATE_UP
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "plats/pt1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
   return moveCalc(entity, entity.moveInfo.startOrigin, platHitTop, world)
 end function
 
@@ -561,6 +610,7 @@ function trainWait(entity, world)
       entity.velocity = qt.zeroVec3()
       entity.nextThink = 0.0
     end if
+    if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then entity.loopSound = 0 end if
   else
     trainNext(entity, world)
   end if
@@ -593,6 +643,9 @@ function trainNext(entity, world)
       entity.moveInfo.state = gwconstants.STATE_TOP
       entity.moveInfo.startOrigin = gwvector.copy(entity.origin)
       entity.moveInfo.endOrigin = gwvector.copy(destination)
+      if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+        entity.loopSound = entity.soundIndex
+      end if
       moveCalc(entity, destination, trainWait, world)
       entity.spawnFlags = entity.spawnFlags | gwconstants.TRAIN_START_ON
     end if
@@ -606,6 +659,9 @@ function trainResume(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
   entity.moveInfo.startOrigin = gwvector.copy(entity.origin)
   entity.moveInfo.endOrigin = gwvector.copy(destination)
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    entity.loopSound = entity.soundIndex
+  end if
   moveCalc(entity, destination, trainWait, world)
   entity.spawnFlags = entity.spawnFlags | gwconstants.TRAIN_START_ON
   return true
@@ -637,6 +693,7 @@ function trainUse(entity, other, activator, world)
     entity.spawnFlags = entity.spawnFlags & ~gwconstants.TRAIN_START_ON
     entity.velocity = qt.zeroVec3()
     entity.nextThink = 0.0
+    if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then entity.loopSound = 0 end if
   else if entity.targetEntity is not void then
     trainResume(entity, world)
   else

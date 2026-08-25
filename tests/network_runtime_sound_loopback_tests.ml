@@ -8,6 +8,8 @@ import miniquake2.renderer.types as nrsl_rt
 import miniquake2.server.game_bridge as nrsl_bridge
 import miniquake2.runtime.client_assets as nrsl_assets
 import miniquake2.runtime.play_session as nrsl_play
+import miniquake2.game.integration.baseq2 as nrsl_integration
+import miniquake2.game.null_game as nrsl_game
 
 nextLoopbackModelId = 1
 
@@ -39,8 +41,17 @@ function loopbackEntityPosition(number)
   return nrsl_qt.vec3(number * 8.0, 0.0, 0.0)
 end function
 
+function activeAutoSounds(mixer)
+  count = 0
+  for each channel in mixer.channels
+    if channel.active and channel.autoSound then count = count + 1 end if
+  end for
+  return count
+end function
+
 entities = "{\n\"classname\" \"worldspawn\"\n}\n" +
-  "{\n\"classname\" \"info_player_start\"\n\"origin\" \"0 0 24\"\n}\n"
+  "{\n\"classname\" \"info_player_start\"\n\"origin\" \"0 0 24\"\n}\n" +
+  "{\n\"classname\" \"target_speaker\"\n\"noise\" \"weapons/loop\"\n\"spawnflags\" \"1\"\n\"origin\" \"32 0 24\"\n}\n"
 session = nrsl_play.createCore("sound_loop", entities, void,
   "\\name\\SoundLoop\\rate\\25000")
 nrsl_play.runUntilActive(session, 500)
@@ -84,12 +95,24 @@ serverChannel = session.server.networkRuntime.server.clients[0].channel
 soundLoopAssert(serverChannel.reliableLength > 0 and serverChannel.message.curSize == 0,
   "CHAN_RELIABLE sound was not held by Netchan until acknowledgement")
 soundLoopAssert(len(nrsl_mixer.mix(mixer, 2)) == 8, "resolved sounds could not be mixed")
+soundLoopAssert(nrsl_assets.syncEntityLoops(mixer,
+  session.client.integrated.client.current) == 1 and
+  activeAutoSounds(mixer) == 1,
+  "server EntityState.sound did not reach client autosound mixer")
 
 // The integrated client ACK is emitted by its poll phase.  The next server
 // pump consumes that ACK and releases the reliable holding buffer.
 nrsl_play.step(session)
 soundLoopAssert(serverChannel.reliableLength == 0,
   "reliable sound acknowledgement did not release Netchan holding buffer")
+
+speaker = nrsl_integration.findWorldByClass(
+  nrsl_game.baseRuntime(), "target_speaker")
+speaker.loopSound = 0
+nrsl_play.step(session)
+nrsl_assets.syncEntityLoops(mixer, session.client.integrated.client.current)
+soundLoopAssert(activeAutoSounds(mixer) == 0,
+  "cleared server EntityState.sound left client autosound playing")
 
 nrsl_play.shutdown(session)
 print("network_runtime_sound_loopback_tests: PASS")

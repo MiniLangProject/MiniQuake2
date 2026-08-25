@@ -552,8 +552,14 @@ function updateTriggerCache(context, entity, linked)
   return true
 end function
 
-function collectLinkedEntityAreas(context, nodeNumber, mins, maxs, entity)
-  if entity.areaNumber != 0 and entity.areaNumber2 != 0 then return true end if
+// SV_LinkEdict records every distinct PVS cluster touched by the complete
+// linked bounds, not merely the leaf containing s.origin.  Inline BSP origins
+// commonly lie in solid or on the far side of an area boundary, so a point
+// lookup makes doors, plats and buttons disappear even while their geometry is
+// visible.  Fold cluster collection into the existing allocation-free BSP
+// traversal.  MAX_ENT_CLUSTERS overflow retains Quake II's -1 sentinel; the
+// per-client snapshot path then tests all leaves covered by the cached bounds.
+function collectLinkedEntityVisibility(context, nodeNumber, mins, maxs, entity)
   if nodeNumber < 0 then
     sgbAreaLeafNumber = -1 - nodeNumber
     if sgbAreaLeafNumber < 0 or sgbAreaLeafNumber >= len(context.collision.map.leafs) then
@@ -567,6 +573,24 @@ function collectLinkedEntityAreas(context, nodeNumber, mins, maxs, entity)
         entity.areaNumber2 = sgbAreaNumber
       end if
     end if
+    sgbVisibilityCluster = sgbAreaLeafHolder.cluster
+    if sgbVisibilityCluster >= 0 and entity.numClusters >= 0 then
+      sgbVisibilityDuplicate = false
+      sgbVisibilityIndex = 0
+      while sgbVisibilityIndex < entity.numClusters
+        if entity.clusterNumbers[sgbVisibilityIndex] == sgbVisibilityCluster then
+          sgbVisibilityDuplicate = true
+        end if
+        sgbVisibilityIndex = sgbVisibilityIndex + 1
+      end while
+      if sgbVisibilityDuplicate != true then
+        if entity.numClusters >= gc.MAX_ENT_CLUSTERS then entity.numClusters = -1
+        else
+          entity.clusterNumbers[entity.numClusters] = sgbVisibilityCluster
+          entity.numClusters = entity.numClusters + 1
+        end if
+      end if
+    end if
     return true
   end if
   if nodeNumber >= len(context.collision.map.nodes) then
@@ -576,10 +600,10 @@ function collectLinkedEntityAreas(context, nodeNumber, mins, maxs, entity)
   sgbAreaPlaneHolder = context.collision.map.planes[sgbAreaNodeHolder.planeIndex]
   sgbAreaSide = collision.boxOnPlaneSide(mins, maxs, sgbAreaPlaneHolder)
   if (sgbAreaSide & 1) != 0 then
-    collectLinkedEntityAreas(context, sgbAreaNodeHolder.child0, mins, maxs, entity)
+    collectLinkedEntityVisibility(context, sgbAreaNodeHolder.child0, mins, maxs, entity)
   end if
-  if (sgbAreaSide & 2) != 0 and entity.areaNumber2 == 0 then
-    collectLinkedEntityAreas(context, sgbAreaNodeHolder.child1, mins, maxs, entity)
+  if (sgbAreaSide & 2) != 0 then
+    collectLinkedEntityVisibility(context, sgbAreaNodeHolder.child1, mins, maxs, entity)
   end if
   return true
 end function
@@ -592,6 +616,11 @@ function linkEntity(entity)
     return error(3931, "transformed bounds require an Edict state")
   end if
   sgbLinkEntityHolder = gt.stabilizeEdict(entity)
+  if sgbLinkEntityHolder.linkCount == 0 then
+    sgbFirstLinkOriginHolder = sgbLinkEntityHolder.state.origin
+    sgbLinkEntityHolder.state.oldOrigin = qt.Vec3(sgbFirstLinkOriginHolder.x,
+      sgbFirstLinkOriginHolder.y, sgbFirstLinkOriginHolder.z)
+  end if
   sgbLinkEntityHolder.linkCount = sgbLinkEntityHolder.linkCount + 1
   sgbLinkMinsHolder = sgbLinkEntityHolder.mins
   sgbLinkMaxsHolder = sgbLinkEntityHolder.maxs
@@ -601,12 +630,16 @@ function linkEntity(entity)
   // triggers use a direct origin-plus-extents path, avoiding sixteen managed
   // vector allocations on every successful AI step.
   if sgbLinkEntityHolder.solid == gc.SOLID_BSP then
+    // Protocol 34 reserves 31 for inline BSP solidity; ordinary encoded BBOX
+    // dimensions cannot produce this value (SV_LinkEdict).
+    sgbLinkEntityHolder.state.solid = 31
     sgbLinkTransformedHolder = transformedEntityBounds(sgbLinkEntityHolder)
     sgbLinkAbsoluteMinsHolder = sgbLinkTransformedHolder[0]
     sgbLinkAbsoluteMaxsHolder = sgbLinkTransformedHolder[1]
     sgbLinkEntityHolder.absoluteMins = sgbLinkAbsoluteMinsHolder
     sgbLinkEntityHolder.absoluteMaxs = sgbLinkAbsoluteMaxsHolder
   else
+    sgbLinkEntityHolder.state.solid = 0
     sgbLinkOriginHolder = sgbLinkEntityHolder.state.origin
     sgbLinkAbsoluteMinsHolder.x = sgbLinkOriginHolder.x + sgbLinkMinsHolder.x - 1.0
     sgbLinkAbsoluteMinsHolder.y = sgbLinkOriginHolder.y + sgbLinkMinsHolder.y - 1.0
@@ -620,11 +653,13 @@ function linkEntity(entity)
   sgbLinkSizeHolder.y = sgbLinkMaxsHolder.y - sgbLinkMinsHolder.y
   sgbLinkSizeHolder.z = sgbLinkMaxsHolder.z - sgbLinkMinsHolder.z
   // SV_LinkEdict publishes the BSP areas occupied by the entity. Monster
-  // hearing uses these fields to respect closed area portals.
+  // hearing and snapshot visibility use these fields to respect closed area
+  // portals. It also caches the PVS clusters touched by the full bounds.
+  sgbLinkEntityHolder.numClusters = 0
   sgbLinkEntityHolder.areaNumber = 0
   sgbLinkEntityHolder.areaNumber2 = 0
   if sgbLinkContextHolder.collision is not void then
-    collectLinkedEntityAreas(sgbLinkContextHolder, 0, sgbLinkAbsoluteMinsHolder,
+    collectLinkedEntityVisibility(sgbLinkContextHolder, 0, sgbLinkAbsoluteMinsHolder,
       sgbLinkAbsoluteMaxsHolder, sgbLinkEntityHolder)
   end if
   updateInlineBrushCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)

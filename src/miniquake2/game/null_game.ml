@@ -24,9 +24,11 @@ import miniquake2.game.player.types as ngplayertypes
 import miniquake2.game.player.userinfo as ngplayerinfo
 import miniquake2.game.player.spawn as ngplayerspawn
 import miniquake2.game.player.client as ngplayerclient
+import miniquake2.game.player.commands as ngplayercommands
 import miniquake2.game.player.frame as ngplayerframe
 import miniquake2.game.player.view as ngplayerview
 import miniquake2.qcommon.types as ngqtypes
+import miniquake2.qcommon.text as ngtext
 
 // Original BaseQ2 layout programs. Keeping each program in one immutable
 // literal avoids the repeated string concatenation used by the C source while
@@ -79,7 +81,22 @@ function baseWorldSound(entity, soundName)
   global activeImports
   target = runtimeEdict(entity.number)
   if target is void then return false end if
-  return activeImports.sound(target, gc.CHAN_AUTO, activeImports.soundIndex(soundName), 1.0, gc.ATTN_NORM, 0.0)
+  soundIndex = activeImports.soundIndex(soundName)
+  if entity.className == "target_speaker" then
+    channel = gc.CHAN_VOICE
+    if (entity.spawnFlags & 4) != 0 then channel = channel | gc.CHAN_RELIABLE end if
+    return activeImports.positionedSound(entity.origin, target, channel,
+      soundIndex, entity.volume, entity.attenuation, 0.0)
+  end if
+  if entity.className == "func_button" or entity.className == "func_door" or
+      entity.className == "func_door_rotating" or
+      entity.className == "func_door_secret" or
+      entity.className == "func_plat" or entity.className == "func_train" then
+    return activeImports.sound(target, gc.CHAN_NO_PHS_ADD | gc.CHAN_VOICE,
+      soundIndex, 1.0, gc.ATTN_STATIC, 0.0)
+  end if
+  return activeImports.sound(target, gc.CHAN_AUTO, soundIndex, 1.0,
+    gc.ATTN_NORM, 0.0)
 end function
 
 function baseWorldAreaPortal(style, isOpen)
@@ -607,10 +624,34 @@ function ClientDisconnect(entity)
 end function
 
 function ClientCommand(entity)
-  global activeExport, clientCommandCount
+  global activeImports, activeExport, activePlayerContext, clientCommandCount
   slot = checkedClientEdict(entity, "ClientCommand")
   if slot.client is void then return error(3817, "ClientCommand: client is not connected") end if
   clientCommandCount = clientCommandCount + 1
+  if activePlayerContext is void or len(activePlayerContext.spawnSpots) == 0 then return true end if
+  player = playerForEdict(slot, "ClientCommand", false)
+  command = ngtext.lower(activeImports.argv(0))
+  if command == "use" then
+    selected = ngplayercommands.useWeapon(player, activePlayerContext.registry,
+      activeImports.args())
+    if not selected then
+      activeImports.cprintf(slot, qc.PRINT_HIGH,
+        "Unable to use " + activeImports.args() + ".\n")
+    end if
+    return true
+  end if
+  if command == "weapprev" then
+    ngplayercommands.weaponPrevious(player, activePlayerContext.registry)
+    return true
+  end if
+  if command == "weapnext" then
+    ngplayercommands.weaponNext(player, activePlayerContext.registry)
+    return true
+  end if
+  if command == "weaplast" then
+    ngplayercommands.weaponLast(player, activePlayerContext.registry)
+    return true
+  end if
   return true
 end function
 
