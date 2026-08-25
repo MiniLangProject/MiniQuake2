@@ -91,8 +91,27 @@ function useItem(player, context, pickupName)
     context.cooperative, context.dmFlags, context.time)
   pickupContext.frameNumber = context.frameNumber
   gpcpowerups.SyncFromPlayerData(player.gameplay, player)
+  oldQuadFrame = player.gameplay.quadFrame
+  oldInvincibleFrame = player.gameplay.invincibleFrame
+  oldPowerArmor = player.gameplay.flags & gpcconstants.FL_POWER_ARMOR
   result = item.use(player.gameplay, item, pickupContext, context.registry)
   gpcpowerups.SyncToPlayerData(player.gameplay, player)
+  if result.success then
+    useSound = ""
+    if player.gameplay.quadFrame != oldQuadFrame then useSound = "items/damage.wav"
+    else if player.gameplay.invincibleFrame != oldInvincibleFrame then useSound = "items/protect.wav"
+    else if (player.gameplay.flags & gpcconstants.FL_POWER_ARMOR) != oldPowerArmor then
+      if (player.gameplay.flags & gpcconstants.FL_POWER_ARMOR) != 0 then
+        useSound = "misc/power1.wav"
+      else useSound = "misc/power2.wav"
+      end if
+    end if
+    if useSound != "" then
+      context.imports.sound(player.edict, gpcgameconstants.CHAN_ITEM,
+        context.imports.soundIndex(useSound), 1.0,
+        gpcgameconstants.ATTN_NORM, 0.0)
+    end if
+  end if
   return result.success
 end function
 
@@ -102,6 +121,62 @@ function useSelectedItem(player, context)
     player.gameplay.inventory.selectedItem)
   if item is void then return false end if
   return useItem(player, context, item.pickupName)
+end function
+
+// Cmd_Drop_f/Cmd_InvDrop_f share this dispatch after their command-specific
+// diagnostics.  Grenades are both IT_AMMO and IT_WEAPON, so ammo must win the
+// arity decision exactly as its gitem_t drop pointer does in stock BaseQ2.
+function dropDefinition(player, context, item, worldEntityNumber)
+  if item is void or item.drop is void or item.index <= 0 or
+      item.index >= len(player.gameplay.inventory.counts) or
+      player.gameplay.inventory.counts[item.index] <= 0 then
+    return gpctypes.itemAction(false, "item cannot be dropped", 0)
+  end if
+  if context.cooperative and
+      (item.flags & gpcconstants.IT_STAY_COOP) != 0 then
+    return gpctypes.itemAction(false, "item stays in cooperative play", 0)
+  end if
+  gpcpowerups.SyncFromPlayerData(player.gameplay, player)
+  oldDropPowerArmor = player.gameplay.flags & gpcconstants.FL_POWER_ARMOR
+  result = void
+  if (item.flags & gpcconstants.IT_AMMO) != 0 then
+    result = item.drop(player.gameplay, item, context.registry,
+      worldEntityNumber)
+  else if (item.flags & gpcconstants.IT_WEAPON) != 0 then
+    result = item.drop(player.gameplay, item, context.registry,
+      worldEntityNumber, context.dmFlags)
+  else
+    result = item.drop(player.gameplay, item, context.registry,
+      worldEntityNumber)
+  end if
+  gpcpowerups.SyncToPlayerData(player.gameplay, player)
+  if result.success and
+      (player.gameplay.flags & gpcconstants.FL_POWER_ARMOR) !=
+      oldDropPowerArmor then
+    context.imports.sound(player.edict, gpcgameconstants.CHAN_ITEM,
+      context.imports.soundIndex("misc/power2.wav"), 1.0,
+      gpcgameconstants.ATTN_NORM, 0.0)
+  end if
+  if result.success then
+    validateSelectedItem(player, context.registry)
+    player.persistent.selectedItem = player.gameplay.inventory.selectedItem
+  end if
+  return result
+end function
+
+function dropItem(player, context, pickupName, worldEntityNumber)
+  item = gpcitems.findByPickupName(context.registry, pickupName)
+  if item is void then return gpctypes.itemAction(false, "unknown item", 0) end if
+  return dropDefinition(player, context, item, worldEntityNumber)
+end function
+
+function dropSelectedItem(player, context, worldEntityNumber)
+  if not validateSelectedItem(player, context.registry) then
+    return gpctypes.itemAction(false, "no selected item", 0)
+  end if
+  item = gpcitems.getByIndex(context.registry,
+    player.gameplay.inventory.selectedItem)
+  return dropDefinition(player, context, item, worldEntityNumber)
 end function
 
 function toggleInventory(player)

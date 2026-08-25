@@ -8,6 +8,8 @@ import miniquake2.server.sound_events as sppsounds
 import miniquake2.game.constants as sppgameconstants
 import miniquake2.game.integration.baseq2 as sppintegration
 import miniquake2.game.world.core as sppworld
+import miniquake2.game.weapons.constants as sppweaponconstants
+import miniquake2.game.gameplay.constants as sppgameplayconstants
 
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9985, name + ": values differ") end if
@@ -43,6 +45,14 @@ end function
 fixture = "{ \"classname\" \"worldspawn\" }\n" +
   "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" }\n" +
   "{ \"classname\" \"weapon_machinegun\" \"origin\" \"48 0 8\" }\n" +
+  "{ \"classname\" \"ammo_shells\" \"origin\" \"80 256 64\" \"target\" \"item_help\" }\n" +
+  "{ \"classname\" \"target_help\" \"targetname\" \"item_help\" \"message\" \"Item target fired\" }\n" +
+  "{ \"classname\" \"key_power_cube\" \"origin\" \"128 256 64\" \"targetname\" \"reveal_item\" \"spawnflags\" \"3\" }\n" +
+  "{ \"classname\" \"trigger_relay\" \"targetname\" \"reveal_switch\" \"target\" \"reveal_item\" }\n" +
+  "{ \"classname\" \"item_armor_body\" \"origin\" \"176 256 64\" \"spawnflags\" \"2\" }\n" +
+  "{ \"classname\" \"weapon_bfg\" \"origin\" \"224 256 64\" \"team\" \"weapon_cycle\" }\n" +
+  "{ \"classname\" \"weapon_hyperblaster\" \"origin\" \"272 256 64\" \"team\" \"weapon_cycle\" }\n" +
+  "{ \"classname\" \"item_quad\" \"origin\" \"320 256 64\" }\n" +
   "{ \"classname\" \"monster_soldier\" \"origin\" \"96 0 8\" }\n" +
   "{ \"classname\" \"monster_gunner\" \"origin\" \"160 0 8\" }\n" +
   "{ \"classname\" \"monster_jorg\" \"origin\" \"512 0 8\" }\n" +
@@ -57,6 +67,8 @@ fixture = "{ \"classname\" \"worldspawn\" }\n" +
   "{ \"classname\" \"target_laser\" \"origin\" \"1024 1024 1024\" \"angle\" \"0\" \"spawnflags\" \"66\" }\n" +
   "{ \"classname\" \"target_earthquake\" \"targetname\" \"quake_test\" }\n" +
   "{ \"classname\" \"target_blaster\" \"origin\" \"2048 2048 2048\" \"angle\" \"90\" }\n" +
+  "{ \"classname\" \"target_explosion\" \"targetname\" \"wire_boom\" \"origin\" \"32 64 96\" }\n" +
+  "{ \"classname\" \"target_splash\" \"targetname\" \"wire_splash\" \"origin\" \"40 72 104\" \"angle\" \"90\" \"count\" \"7\" \"sounds\" \"4\" }\n" +
   "{ \"classname\" \"target_spawner\" \"target\" \"monster_soldier\" \"origin\" \"3000 3000 3000\" \"angle\" \"180\" }\n" +
   "{ \"classname\" \"target_spawner\" \"target\" \"item_adrenaline\" \"origin\" \"3100 3000 3000\" }\n" +
   "{ \"classname\" \"target_spawner\" \"target\" \"misc_gib_arm\" \"origin\" \"3200 3000 3000\" \"angle\" \"90\" \"speed\" \"80\" }\n" +
@@ -137,6 +149,66 @@ assertEqual(api.edicts[runtime.monsters[5].edict.state.number].state.sound,
   hoverLoop, "live Hover edict keeps engine loop")
 assertEqual(api.edicts[runtime.monsters[6].edict.state.number].state.sound,
   boss2Loop, "live Boss2 edict keeps engine loop")
+
+// SpawnItem waits two frames for BSP solids, then droptofloor plants the
+// item, applies render flags and initializes authored item modes/teams.
+sppgameapi.playerContext().cooperative = true
+api.runFrame()
+api.runFrame()
+machineItem = sppintegration.findItemByClass(runtime, "weapon_machinegun")
+assertEqual(machineItem.edict.state.origin.z, -120.0,
+  "droptofloor traces stock 128 units")
+assertTrue(machineItem.edict.solid == sppgameconstants.SOLID_TRIGGER and
+  (machineItem.edict.state.effects & sppgameconstants.EF_ROTATE) != 0 and
+  (machineItem.edict.state.renderFx & sppgameconstants.RF_GLOW) != 0,
+  "ordinary item trigger/rotate/glow initialization")
+noTouchItem = sppintegration.findItemByClass(runtime, "item_armor_body")
+assertTrue(noTouchItem.spawnFlags == 0 and
+  noTouchItem.edict.solid == sppgameconstants.SOLID_TRIGGER and
+  (noTouchItem.edict.state.effects & sppgameconstants.EF_ROTATE) != 0 and
+  (noTouchItem.edict.state.renderFx & sppgameconstants.RF_GLOW) != 0,
+  "SpawnItem clears invalid non-cube item flags")
+triggerItem = sppintegration.findItemByClass(runtime, "key_power_cube")
+assertTrue(triggerItem.hidden and
+  triggerItem.edict.solid == sppgameconstants.SOLID_NOT and
+  (triggerItem.spawnFlags & 0x0000ff00) == 0x00000100,
+  "power-cube ITEM_TRIGGER_SPAWN starts hidden")
+revealRelay = sppintegration.findWorldByClass(runtime, "trigger_relay")
+sppworld.useEntity(runtime.world, revealRelay, revealRelay, player)
+assertTrue(not triggerItem.hidden and
+  triggerItem.edict.solid == sppgameconstants.SOLID_BBOX and
+  (triggerItem.edict.state.effects & sppgameconstants.EF_ROTATE) == 0 and
+  (triggerItem.edict.state.renderFx & sppgameconstants.RF_GLOW) == 0,
+  "power-cube trigger use preserves ITEM_NO_TOUCH bbox mode")
+sppgameapi.playerContext().cooperative = false
+teamBfg = sppintegration.findItemByClass(runtime, "weapon_bfg")
+teamHyper = sppintegration.findItemByClass(runtime, "weapon_hyperblaster")
+teamVisible = 0
+if not teamBfg.hidden then teamVisible = teamVisible + 1 end if
+if not teamHyper.hidden then teamVisible = teamVisible + 1 end if
+assertEqual(teamVisible, 1, "item team exposes exactly one random member")
+
+skillQuad = sppintegration.findItemByClass(runtime, "item_quad")
+runtime.aiContext.skill = 3
+player.gameplay.inventory.counts[skillQuad.item.index] = 1
+skillQuadPickup = sppintegration.touchItem(runtime, skillQuad, player,
+  sppgameapi.playerContext())
+assertTrue(not skillQuadPickup.success and
+  player.gameplay.inventory.counts[skillQuad.item.index] == 1,
+  "live pickup path forwards skill-3 powerup cap")
+runtime.aiContext.skill = 1
+
+targetShells = sppintegration.findItemByClass(runtime, "ammo_shells")
+player.gameplay.inventory.counts[targetShells.item.index] = player.gameplay.inventory.maxShells
+itemHelpBefore = runtime.world.helpChanged
+rejectedPickup = sppintegration.touchItem(runtime, targetShells, player,
+  sppgameapi.playerContext())
+assertTrue(not rejectedPickup.success and
+  runtime.world.helpMessage2 == "Item target fired" and
+  runtime.world.helpChanged == itemHelpBefore + 1 and
+  (targetShells.spawnFlags &
+    sppgameplayconstants.ITEM_TARGETS_USED) != 0,
+  "rejected pickup still fires item targets exactly once")
 
 speaker = sppintegration.findWorldByClass(runtime, "target_speaker")
 speakerEdict = api.edicts[speaker.number]
@@ -219,6 +291,31 @@ targetBlasterEvents = sppsounds.pendingSnapshot(server)
 targetBlasterSound = targetBlasterEvents[len(targetBlasterEvents) - 1]
 assertEqual(targetBlasterSound.channelFlags, sppgameconstants.CHAN_VOICE,
   "target_blaster sound uses stock voice channel")
+
+targetExplosion = sppintegration.findWorldByClass(runtime,
+  "target_explosion")
+targetSplash = sppintegration.findWorldByClass(runtime, "target_splash")
+targetTempBefore = len(server.pendingMulticasts)
+sppworld.useEntity(runtime.world, targetExplosion, targetExplosion, player)
+assertEqual(len(server.pendingMulticasts), targetTempBefore + 1,
+  "target_explosion queues a live temp entity")
+targetExplosionWire = server.pendingMulticasts[targetTempBefore]
+assertEqual(targetExplosionWire.destination, sppgameconstants.MULTICAST_PHS,
+  "target_explosion multicast scope")
+assertTrue(len(targetExplosionWire.payload) == 8 and
+  targetExplosionWire.payload[0] == sppqconstants.SVC_TEMP_ENTITY and
+  targetExplosionWire.payload[1] == sppweaponconstants.TE_EXPLOSION1,
+  "target_explosion wire framing")
+sppworld.useEntity(runtime.world, targetSplash, targetSplash, player)
+targetSplashWire = server.pendingMulticasts[targetTempBefore + 1]
+assertEqual(targetSplashWire.destination, sppgameconstants.MULTICAST_PVS,
+  "target_splash multicast scope")
+assertTrue(len(targetSplashWire.payload) == 11 and
+  targetSplashWire.payload[0] == sppqconstants.SVC_TEMP_ENTITY and
+  targetSplashWire.payload[1] == sppweaponconstants.TE_SPLASH and
+  targetSplashWire.payload[2] == 7 and
+  targetSplashWire.payload[10] == 4,
+  "target_splash count/direction/color wire framing")
 
 monsterSpawner = void
 itemSpawner = void

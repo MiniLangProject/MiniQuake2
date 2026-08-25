@@ -375,13 +375,53 @@ function SyncArmorFromCombatant(player, combatant)
   return true
 end function
 
-function PickupForPlayerData(itemEntity, playerData, playerContext)
+function PickupForPlayerDataAtSkill(itemEntity, playerData, playerContext, skill)
+  // g_items.c::Touch_Item rejects dead clients before invoking any pickup
+  // callback, so inventory and one-shot items remain untouched by corpses.
+  if playerData.health < 1 then return gptypes.itemAction(false, "dead player", 0) end if
   context = gptypes.pickupContext(playerContext.deathmatch, playerContext.cooperative, playerContext.dmFlags, playerContext.time)
+  context.skill = skill
   context.frameNumber = playerContext.frameNumber
   SyncFromPlayerData(playerData.gameplay, playerData)
+  oldQuadFrame = playerData.gameplay.quadFrame
+  oldInvincibleFrame = playerData.gameplay.invincibleFrame
+  oldPowerArmor = playerData.gameplay.flags & gpconstants.FL_POWER_ARMOR
   action = gprules.Pickup_Item(itemEntity, playerData.gameplay, context, playerContext.registry)
   SyncToPlayerData(playerData.gameplay, playerData)
   if action.success then
+    activationSound = ""
+    if playerData.gameplay.quadFrame != oldQuadFrame then
+      activationSound = "items/damage.wav"
+    else if playerData.gameplay.invincibleFrame != oldInvincibleFrame then
+      activationSound = "items/protect.wav"
+    else if (playerData.gameplay.flags & gpconstants.FL_POWER_ARMOR) !=
+        oldPowerArmor then
+      if (playerData.gameplay.flags & gpconstants.FL_POWER_ARMOR) != 0 then
+        activationSound = "misc/power1.wav"
+      else activationSound = "misc/power2.wav"
+      end if
+    end if
+    if activationSound != "" then
+      playerContext.imports.sound(playerData.edict,
+        miniquake2.game.constants.CHAN_ITEM,
+        playerContext.imports.soundIndex(activationSound), 1.0,
+        miniquake2.game.constants.ATTN_NORM, 0.0)
+    end if
+    pickupSound = itemEntity.item.pickupSound
+    if itemEntity.item.ruleData is not void and itemEntity.item.ruleData.kind == "health" then
+      healthCount = itemEntity.count
+      if healthCount <= 0 then healthCount = itemEntity.item.ruleData.healthCount end if
+      if healthCount == 2 then pickupSound = "items/s_health.wav"
+      else if healthCount == 10 then pickupSound = "items/n_health.wav"
+      else if healthCount == 25 then pickupSound = "items/l_health.wav"
+      else pickupSound = "items/m_health.wav"
+      end if
+    end if
+    if pickupSound != "" then
+      playerContext.imports.sound(playerData.edict, miniquake2.game.constants.CHAN_ITEM,
+        playerContext.imports.soundIndex(pickupSound), 1.0,
+        miniquake2.game.constants.ATTN_NORM, 0.0)
+    end if
     playerData.view.bonusAlpha = 0.25
     playerData.edict.client.playerState.stats[miniquake2.game.constants.STAT_PICKUP_ICON] = playerContext.imports.imageIndex(itemEntity.item.icon)
     playerData.edict.client.playerState.stats[miniquake2.game.constants.STAT_PICKUP_STRING] = miniquake2.qcommon.constants.CS_ITEMS + itemEntity.item.index
@@ -392,4 +432,8 @@ function PickupForPlayerData(itemEntity, playerData, playerContext)
     end if
   end if
   return action
+end function
+
+function PickupForPlayerData(itemEntity, playerData, playerContext)
+  return PickupForPlayerDataAtSkill(itemEntity, playerData, playerContext, 1)
 end function

@@ -77,4 +77,6 @@ const MOD_EXPLOSIVE = "explosive"
 const MOD_BARREL = "barrel"
 const MOD_BOMB = "bomb"
 const MOD_TARGET_LASER = "target-laser"
+const MOD_TRIGGER_HURT = "trigger-hurt"
+const MOD_TRIGGER_HURT_NO_PROTECTION = "trigger-hurt-no-protection"
 const SFL_CROSS_TRIGGER_MASK = 0x000000ff

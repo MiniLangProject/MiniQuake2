@@ -14,14 +14,14 @@ function campAssertEqual(actual, expected, message)
 end function
 
 registry = campregistry.defaultRegistry()
-campAssertEqual(len(registry.entries), 141, "stock registry entry count")
+campAssertEqual(len(registry.entries), 143, "stock registry entry count")
 
 previouslyMissing = [
-  "func_clock", "func_door_rotating", "func_door_secret", "func_killbox", "func_object", "func_water", "info_null",
+  "func_clock", "func_conveyor", "func_door_rotating", "func_door_secret", "func_killbox", "func_object", "func_water", "info_null",
   "light_mine2", "misc_blackhole", "misc_easterchick", "misc_easterchick2", "misc_eastertank", "misc_insane",
   "misc_satellite_dish", "misc_teleporter", "misc_teleporter_dest", "misc_viper", "misc_viper_bomb",
   "monster_boss3_stand", "monster_commander_body", "target_actor", "target_character", "target_earthquake",
-  "target_laser", "target_lightramp", "target_string", "trigger_counter", "trigger_elevator", "trigger_hurt",
+  "target_laser", "target_lightramp", "target_string", "trigger_counter", "trigger_elevator", "trigger_gravity", "trigger_hurt",
   "trigger_key", "trigger_monsterjump", "trigger_push", "turret_base", "turret_breach", "turret_driver",
 ]
 for each className in previouslyMissing

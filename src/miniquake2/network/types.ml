@@ -63,6 +63,8 @@ struct ServerClient
   suppressCount
   frameLatencies
   frameSentTimes
+  rate
+  messageSizes
 end struct
 
 struct ServerState

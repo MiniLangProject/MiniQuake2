@@ -3,6 +3,7 @@ package miniquake2.game.ai.monster
 
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
+import miniquake2.game.ai.move as gaimove
 import miniquake2.game.ai.reaction_sequences as gaireactions
 import miniquake2.game.ai.death_effects as gaideatheffects
 import miniquake2.game.ai.locomotion_sequences as gailocomotion
@@ -11,6 +12,7 @@ import miniquake2.game.ai.props as gaimonsterprops
 import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.types as gaiqtypes
+import std.math as gaimath
 
 function CurrentMoveName(actor)
   if actor.info.currentMove is void then return "" end if
@@ -334,6 +336,9 @@ function StateRun(actor, context)
   end if
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then return StateStand(actor, context) end if
   actor.activity = "run"
+  if actor.className == "monster_brain" then
+    actor.powerArmorType = gaiconstants.POWER_ARMOR_SCREEN
+  end if
   if not gailocomotion.hasStockMoves(actor.className) then return true end if
   currentName = CurrentMoveName(actor)
   if actor.className == "monster_soldier_light" or actor.className == "monster_soldier" or actor.className == "monster_soldier_ss" then
@@ -407,6 +412,10 @@ function StateDie(actor, attacker, damage, context)
     actor.enemy.owner = void
   end if
   actor.activity = "dead"
+  if actor.className == "monster_brain" then
+    actor.edict.state.effects = 0
+    actor.powerArmorType = gaiconstants.POWER_ARMOR_NONE
+  end if
   actor.dieCount = actor.dieCount + 1
   actor.deadFlag = gaiconstants.DEAD_DEAD
   actor.edict.serverFlags = actor.edict.serverFlags | gconstants.SVF_DEADMONSTER
@@ -473,12 +482,132 @@ function installDefaultCallbacks(actor, hasAttack, hasMelee)
   return actor
 end function
 
+function M_FliesOff(actor, context)
+  actor.edict.state.effects = actor.edict.state.effects & ~gconstants.EF_FLIES
+  actor.edict.state.sound = 0
+  actor.thinkKind = "none"
+  actor.nextThink = 0.0
+  return true
+end function
+
+function M_FliesOn(actor, context)
+  actor.thinkKind = "none"
+  actor.nextThink = 0.0
+  if actor.waterLevel != 0 then return false end if
+  actor.edict.state.effects = actor.edict.state.effects | gconstants.EF_FLIES
+  if typeof(context.soundIndex) == "function" then
+    actor.edict.state.sound = context.soundIndex("infantry/inflies1.wav")
+  end if
+  actor.thinkKind = "flies-off"
+  actor.nextThink = context.time + 60.0
+  return true
+end function
+
+function M_FlyCheck(actor, context)
+  if actor.waterLevel != 0 then return false end if
+  if NextStockRandomUnit(context, context.randomIdle) > 0.5 then return false end if
+  actor.thinkKind = "flies-on"
+  actor.nextThink = context.time + 5.0 +
+    10.0 * NextStockRandomUnit(context, context.randomDelay)
+  return true
+end function
+
+function ApplyWorldDamage(actor, amount, damageFlags, meansOfDeath, context)
+  if typeof(context.damage) == "function" then
+    return context.damage(actor, amount, damageFlags, meansOfDeath)
+  end if
+  actor.health = actor.health - amount
+  if actor.health <= 0 then return DispatchDie(actor, void, amount, context) end if
+  DispatchPain(actor, void, amount, context)
+  return amount
+end function
+
+function M_WorldEffects(actor, context)
+  if actor.health > 0 then
+    if (actor.flags & gaiconstants.FL_SWIM) == 0 then
+      if actor.waterLevel < 3 then
+        actor.airFinished = context.time + 12.0
+      else if actor.airFinished < context.time and
+          actor.painDebounceTime < context.time then
+        damage = 2 + 2 * gaimath.floor(context.time - actor.airFinished)
+        if damage > 15 then damage = 15 end if
+        ApplyWorldDamage(actor, damage, gaiconstants.DAMAGE_NO_ARMOR,
+          gaiconstants.MOD_WATER, context)
+        actor.painDebounceTime = context.time + 1.0
+      end if
+    else
+      if actor.waterLevel > 0 then
+        actor.airFinished = context.time + 9.0
+      else if actor.airFinished < context.time and
+          actor.painDebounceTime < context.time then
+        damage = 2 + 2 * gaimath.floor(context.time - actor.airFinished)
+        if damage > 15 then damage = 15 end if
+        ApplyWorldDamage(actor, damage, gaiconstants.DAMAGE_NO_ARMOR,
+          gaiconstants.MOD_WATER, context)
+        actor.painDebounceTime = context.time + 1.0
+      end if
+    end if
+  end if
+
+  if actor.waterLevel == 0 then
+    if (actor.flags & gaiconstants.FL_INWATER) != 0 then
+      EmitStockSound(actor, context, "player/watr_out.wav",
+        gconstants.CHAN_BODY, gconstants.ATTN_NORM)
+      actor.flags = actor.flags & ~gaiconstants.FL_INWATER
+    end if
+    return true
+  end if
+
+  if (actor.waterType & qconstants.CONTENTS_LAVA) != 0 and
+      (actor.flags & gaiconstants.FL_IMMUNE_LAVA) == 0 and
+      actor.damageDebounceTime < context.time then
+    actor.damageDebounceTime = context.time + 0.2
+    ApplyWorldDamage(actor, 10 * actor.waterLevel, 0,
+      gaiconstants.MOD_LAVA, context)
+  end if
+  if (actor.waterType & qconstants.CONTENTS_SLIME) != 0 and
+      (actor.flags & gaiconstants.FL_IMMUNE_SLIME) == 0 and
+      actor.damageDebounceTime < context.time then
+    actor.damageDebounceTime = context.time + 1.0
+    ApplyWorldDamage(actor, 4 * actor.waterLevel, 0,
+      gaiconstants.MOD_SLIME, context)
+  end if
+
+  if (actor.flags & gaiconstants.FL_INWATER) == 0 then
+    if (actor.edict.serverFlags & gconstants.SVF_DEADMONSTER) == 0 then
+      if (actor.waterType & qconstants.CONTENTS_LAVA) != 0 then
+        soundName = "player/lava1.wav"
+        if NextStockRandomUnit(context, context.randomIdle) > 0.5 then
+          soundName = "player/lava2.wav"
+        end if
+        EmitStockSound(actor, context, soundName,
+          gconstants.CHAN_BODY, gconstants.ATTN_NORM)
+      else if (actor.waterType & (qconstants.CONTENTS_SLIME | qconstants.CONTENTS_WATER)) != 0 then
+        EmitStockSound(actor, context, "player/watr_in.wav",
+          gconstants.CHAN_BODY, gconstants.ATTN_NORM)
+      end if
+    end if
+    actor.flags = actor.flags | gaiconstants.FL_INWATER
+    actor.damageDebounceTime = 0.0
+  end if
+  return true
+end function
+
 function M_SetEffects(actor, context)
   actor.edict.state.effects = actor.edict.state.effects & ~(gconstants.EF_COLOR_SHELL | gconstants.EF_POWERSCREEN)
   actor.edict.state.renderFx = actor.edict.state.renderFx & ~(gconstants.RF_SHELL_RED | gconstants.RF_SHELL_GREEN | gconstants.RF_SHELL_BLUE)
   if (actor.info.aiFlags & gaiconstants.AI_RESURRECTING) != 0 then
     actor.edict.state.effects = actor.edict.state.effects | gconstants.EF_COLOR_SHELL
     actor.edict.state.renderFx = actor.edict.state.renderFx | gconstants.RF_SHELL_RED
+  end if
+  if actor.health <= 0 then return true end if
+  if actor.powerArmorTime > context.time then
+    if actor.powerArmorType == gaiconstants.POWER_ARMOR_SCREEN then
+      actor.edict.state.effects = actor.edict.state.effects | gconstants.EF_POWERSCREEN
+    else if actor.powerArmorType == gaiconstants.POWER_ARMOR_SHIELD then
+      actor.edict.state.effects = actor.edict.state.effects | gconstants.EF_COLOR_SHELL
+      actor.edict.state.renderFx = actor.edict.state.renderFx | gconstants.RF_SHELL_GREEN
+    end if
   end if
   return true
 end function
@@ -624,6 +753,9 @@ function FinishReaction(actor, plan, context)
   actor.nextThink = 0.0
   gaiCorpseResult = gaideatheffects.applyCorpse(actor, context)
   if gaiCorpseResult is error then return gaiCorpseResult end if
+  if actor.className == "monster_infantry" or actor.className == "monster_mutant" then
+    M_FlyCheck(actor, context)
+  end if
   if plan.terminalKind == "jorg" then actor.bossPhase = "jorg-complete" end if
   return true
 end function
@@ -695,11 +827,33 @@ function inline IsLocomotionActivity(activity)
     activity == "search" or activity == "walk" or activity == "run" or activity == "sight"
 end function
 
+function M_EndFrame(actor, context)
+  if actor.edict.linkCount != actor.info.linkCount then
+    actor.info.linkCount = actor.edict.linkCount
+    if typeof(context.moveTrace) == "function" then gaimove.M_CheckGround(actor, context) end if
+  end if
+  // The live engine always installs pointContents. Narrow plan-only unit
+  // contexts deliberately omit collision callbacks.
+  if typeof(context.pointContents) == "function" then gaimove.M_CategorizePosition(actor, context) end if
+  M_WorldEffects(actor, context)
+  M_SetEffects(actor, context)
+  return true
+end function
+
 function MonsterThink(actor, context)
+  if actor.thinkKind == "triggered-spawn" then
+    return MonsterTriggeredSpawn(actor, context)
+  end if
+  if actor.thinkKind == "flies-on" then return M_FliesOn(actor, context) end if
+  if actor.thinkKind == "flies-off" then return M_FliesOff(actor, context) end if
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.Think(actor, context) end if
   if actor.activity == "boss-explode" then return AdvanceBossExplosion(actor, context) end if
   reactionPlan = gaireactions.planByName(actor.className, actor.activity)
-  if reactionPlan is not void then return AdvanceReaction(actor, reactionPlan, context) end if
+  if reactionPlan is not void then
+    reactionResult = AdvanceReaction(actor, reactionPlan, context)
+    if actor.edict.inUse then M_EndFrame(actor, context) end if
+    return reactionResult
+  end if
   if actor.bossPhase == "jorg-death" then return ContinueBossDeath(actor, context) end if
   // misc_insane owns real post-mortem moves whose end callback shrinks the
   // corpse bounds. Other generic actors have no managed death animation.
@@ -710,8 +864,7 @@ function MonsterThink(actor, context)
   // distance while firing.
   if actor.className == "misc_insane" or IsLocomotionActivity(actor.activity) then M_MoveFrame(actor, context)
   else actor.nextThink = context.time + gaiconstants.FRAMETIME end if
-  actor.info.linkCount = actor.edict.linkCount
-  M_SetEffects(actor, context)
+  M_EndFrame(actor, context)
   actor.thinkKind = "monster-think"
   return true
 end function
@@ -754,6 +907,7 @@ function MonsterStart(actor, context)
   actor.edict.serverFlags = actor.edict.serverFlags | gconstants.SVF_MONSTER
   actor.edict.state.renderFx = actor.edict.state.renderFx | gconstants.RF_FRAMELERP
   actor.takeDamage = 2
+  actor.airFinished = context.time + 12.0
   actor.maxHealth = actor.health
   actor.edict.clipMask = qconstants.MASK_MONSTERSOLID
   actor.deadFlag = gaiconstants.DEAD_NO
@@ -772,9 +926,38 @@ function MonsterStart(actor, context)
   return true
 end function
 
+function NormalizeCombatTarget(actor, context)
+  if actor.target != "" and typeof(context.findTargets) == "function" then
+    targets = context.findTargets(actor.target)
+    fixup = false
+    notCombat = false
+    for each target in targets
+      if target.className == "point_combat" then
+        actor.combatTarget = actor.target
+        fixup = true
+      else notCombat = true end if
+    end for
+    if notCombat and actor.combatTarget != "" and typeof(context.log) == "function" then
+      context.log(actor.className + " has target with mixed types")
+    end if
+    if fixup then actor.target = "" end if
+  end if
+  if actor.combatTarget != "" and typeof(context.findTargets) == "function" then
+    combatTargets = context.findTargets(actor.combatTarget)
+    for each combatTarget in combatTargets
+      if combatTarget.className != "point_combat" and typeof(context.log) == "function" then
+        context.log(actor.className + " has a bad combattarget " +
+          actor.combatTarget + ": " + combatTarget.className)
+      end if
+    end for
+  end if
+  return true
+end function
+
 function MonsterStartGo(actor, context)
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.StartGo(actor, context) end if
   if actor.health <= 0 then return false end if
+  NormalizeCombatTarget(actor, context)
   if actor.target != "" and typeof(context.pickTarget) == "function" then
     destination = context.pickTarget(actor.target)
     if destination is not void and destination.className == "path_corner" then
@@ -796,21 +979,61 @@ function MonsterStartGo(actor, context)
   end if
   actor.thinkKind = "monster-think"
   actor.nextThink = context.time + gaiconstants.FRAMETIME
-  if (actor.spawnFlags & gaiconstants.SPAWNFLAG_TRIGGER_SPAWN) != 0 then
-    actor.edict.solid = gconstants.SOLID_NOT
-    actor.moveType = gaiconstants.MOVETYPE_NONE
-    actor.edict.serverFlags = actor.edict.serverFlags | gconstants.SVF_NOCLIENT
-    actor.nextThink = 0.0
-    actor.thinkKind = "triggered-wait"
-  end if
   return true
+end function
+
+function MonsterTriggeredStart(actor, context)
+  actor.edict.solid = gconstants.SOLID_NOT
+  actor.moveType = gaiconstants.MOVETYPE_NONE
+  actor.edict.serverFlags = actor.edict.serverFlags | gconstants.SVF_NOCLIENT
+  actor.nextThink = 0.0
+  actor.thinkKind = "triggered-wait"
+  return true
+end function
+
+function MonsterTriggeredSpawnUse(actor, other, activator, context)
+  actor.thinkKind = "triggered-spawn"
+  actor.nextThink = context.time + gaiconstants.FRAMETIME
+  if activator is not void and activator.isClient == true then actor.enemy = activator end if
+  return true
+end function
+
+function MonsterTriggeredSpawn(actor, context)
+  actor.edict.state.origin.z = actor.edict.state.origin.z + 1.0
+  if typeof(context.killBox) == "function" then
+    killResult = context.killBox(actor)
+    if killResult is error then return killResult end if
+  end if
+  actor.edict.solid = gconstants.SOLID_BBOX
+  actor.moveType = gaiconstants.MOVETYPE_STEP
+  actor.edict.serverFlags = actor.edict.serverFlags & ~gconstants.SVF_NOCLIENT
+  actor.airFinished = context.time + 12.0
+  if typeof(context.linkActor) == "function" then context.linkActor(actor) end if
+  MonsterStartGo(actor, context)
+  if actor.enemy is not void and
+      (actor.spawnFlags & gaiconstants.SPAWNFLAG_AMBUSH) == 0 and
+      (actor.enemy.flags & gaiconstants.FL_NOTARGET) == 0 then
+    gaicore.FoundTarget(actor, context)
+  else actor.enemy = void end if
+  return true
+end function
+
+function MonsterTargetUse(actor, other, activator, context)
+  if actor.thinkKind == "triggered-wait" then
+    return MonsterTriggeredSpawnUse(actor, other, activator, context)
+  end if
+  return MonsterUse(actor, other, activator, context)
 end function
 
 function WalkMonsterStart(actor, context)
   if not MonsterStart(actor, context) then return false end if
   if actor.yawSpeed == 0.0 then actor.yawSpeed = 20.0 end if
   actor.viewHeight = 25.0
-  return MonsterStartGo(actor, context)
+  result = MonsterStartGo(actor, context)
+  if result and (actor.spawnFlags & gaiconstants.SPAWNFLAG_TRIGGER_SPAWN) != 0 then
+    MonsterTriggeredStart(actor, context)
+  end if
+  return result
 end function
 
 function FlyMonsterStart(actor, context)
@@ -818,7 +1041,11 @@ function FlyMonsterStart(actor, context)
   if not MonsterStart(actor, context) then return false end if
   if actor.yawSpeed == 0.0 then actor.yawSpeed = 10.0 end if
   actor.viewHeight = 25.0
-  return MonsterStartGo(actor, context)
+  result = MonsterStartGo(actor, context)
+  if result and (actor.spawnFlags & gaiconstants.SPAWNFLAG_TRIGGER_SPAWN) != 0 then
+    MonsterTriggeredStart(actor, context)
+  end if
+  return result
 end function
 
 function SwimMonsterStart(actor, context)
@@ -826,7 +1053,11 @@ function SwimMonsterStart(actor, context)
   if not MonsterStart(actor, context) then return false end if
   if actor.yawSpeed == 0.0 then actor.yawSpeed = 10.0 end if
   actor.viewHeight = 10.0
-  return MonsterStartGo(actor, context)
+  result = MonsterStartGo(actor, context)
+  if result and (actor.spawnFlags & gaiconstants.SPAWNFLAG_TRIGGER_SPAWN) != 0 then
+    MonsterTriggeredStart(actor, context)
+  end if
+  return result
 end function
 
 function DispatchPain(actor, attacker, damage, context)

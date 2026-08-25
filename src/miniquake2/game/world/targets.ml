@@ -165,7 +165,9 @@ function spawnGoal(entity, world)
 end function
 
 function explosionThink(entity, world)
-  world.callbacks.effect("explosion", entity.origin, 0, 1)
+  // g_target.c publishes TE_EXPLOSION1 through MULTICAST_PHS.  Keep the
+  // protocol-specific encoding outside the portable world simulation.
+  world.callbacks.targetExplosion(entity.origin)
   world.callbacks.radiusDamage(entity, entity.activator, entity.damage, entity.damage + 40, gwconstants.MOD_EXPLOSIVE)
   savedDelay = entity.delay
   entity.delay = 0.0
@@ -209,7 +211,11 @@ function spawnChangeLevel(entity, world)
 end function
 
 function useSplash(entity, other, activator, world)
-  world.callbacks.effect("splash", entity.origin, entity.style, entity.count)
+  // target_splash uses the map's "sounds" field as the TE_SPLASH color, not
+  // style.  Its movedir is part of the wire event and cannot be reconstructed
+  // by the client from origin/count alone.
+  world.callbacks.targetSplash(entity.origin, entity.moveDirection,
+    entity.count, entity.sounds)
   if entity.damage != 0 then world.callbacks.radiusDamage(entity, activator, entity.damage, entity.damage + 40, "splash") end if
   return true
 end function

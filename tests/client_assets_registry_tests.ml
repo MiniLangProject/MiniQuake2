@@ -38,6 +38,7 @@ function fakeLoadSound(name)
   global soundCalls
   soundCalls = soundCalls + [name]
   if name == "weapons/missing.wav" then return void end if
+  if name == "players/cyborg/pain100_1.wav" then return void end if
   if name == "weapons/bad.wav" then return car_test_wav.WavSound(name, 11025, 1, 1, 2, -1, bytes([128])) end if
   return car_test_wav.WavSound(name, 11025, 1, 1, 1, -1, bytes([128]))
 end function
@@ -91,6 +92,17 @@ registryAssert(bindings.playerSkin(0).name == "players/female/athena.pcx",
   "configured player skin resolver failed")
 registryAssert(bindings.playerWeapon(0, 1).name == "players/female/w_unit.md2",
   "configured visible weapon resolver failed")
+registryAssert(bindings.soundEntity(1, 3, "").name ==
+  "players/female/pain100_1.wav",
+  "entity-specific female sound resolver failed")
+missingBeforeSexedFallback = len(car_test_registry.missingAssets(state))
+configStrings[car_test_qc.CS_PLAYERSKINS] = "Unit\\cyborg/oni"
+registryAssert(car_test_registry.refreshClientInfos(state, configStrings) == 1 and
+  bindings.soundEntity(1, 3, "").name == "player/male/pain100_1.wav",
+  "missing entity-specific sound did not use male fallback")
+registryAssert(len(car_test_registry.missingAssets(state)) ==
+  missingBeforeSexedFallback,
+  "normal sexed-sound fallback was reported as a missing asset")
 configStrings[car_test_qc.CS_PLAYERSKINS] = "Unit\\male/grunt"
 registryAssert(car_test_registry.refreshClientInfos(state, configStrings) == 1 and
   bindings.playerModel(0).name == "players/male/tris.md2",

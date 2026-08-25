@@ -99,6 +99,12 @@ end function
 function noopFireBlaster(entity, direction, damage, speed)
   return void
 end function
+function noopTargetExplosion(origin)
+  return true
+end function
+function noopTargetSplash(origin, direction, count, sounds)
+  return true
+end function
 
 function defaultCallbacks()
   return gwtypes.WorldCallbacks(
@@ -109,7 +115,8 @@ function defaultCallbacks()
     noopResolveKeyItem, noopHasKeyItem, noopConsumeKeyItem,
     noopActorMessage, noopActorTransition, noopCombatPointTransition, zeroClockSeconds,
     noopSetModel, noopLightStyle,
-    noopTraceLine, noopLaserSparks, noopEarthquake, noopFireBlaster
+    noopTraceLine, noopLaserSparks, noopEarthquake, noopFireBlaster,
+    noopTargetExplosion, noopTargetSplash
   )
 end function
 
@@ -256,7 +263,9 @@ function useTargets(world, entity, activator)
 
   if entity.message != "" and activator is not void and (activator.serverFlags & gwconstants.SVF_MONSTER) == 0 then
     world.callbacks.centerPrint(activator, entity.message)
-    world.callbacks.sound(activator, "misc/talk1.wav")
+    messageSound = entity.noise
+    if messageSound == "" then messageSound = "misc/talk1.wav" end if
+    world.callbacks.sound(activator, messageSound)
     emit(world, "message", activator, entity.message)
   end if
 

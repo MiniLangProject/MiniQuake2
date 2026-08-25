@@ -97,9 +97,13 @@ end function
 
 function testSpawnEntities()
   registry = bregistry.defaultRegistry()
-  assertEqual(len(registry.entries), 141, "registry entry count")
+  assertEqual(len(registry.entries), 143, "registry entry count")
   assertTrue(bregistry.find(registry, "weapon_railgun") is not void, "gameplay item spawn registered")
   assertTrue(bregistry.find(registry, "item_quad") is not void, "stock powerup spawn registered")
+  assertTrue(bregistry.find(registry, "func_conveyor") is not void,
+    "conveyor spawn registered")
+  assertTrue(bregistry.find(registry, "trigger_gravity") is not void,
+    "gravity trigger spawn registered")
   assertEqual(typeof(registry.entries[0].spawn), "function", "registry function value")
   assertErrorContains(try(bregistry.register(registry, "worldspawn", registry.entries[0].spawn)), "duplicate", "duplicate registry entry")
 

@@ -167,7 +167,13 @@ function parseMuzzleFlash(state, buffer, entityResolver)
   if weapon == ceconstants.MZ_CHAINGUN2 then radius = 225 + (cestate.random(state) & 31) end if
   if weapon == ceconstants.MZ_CHAINGUN3 then radius = 250 + (cestate.random(state) & 31) end if
   duration = 0.0
-  if weapon == ceconstants.MZ_LOGIN or weapon == ceconstants.MZ_LOGOUT or weapon == ceconstants.MZ_RESPAWN then duration = 1000.0 end if
+  // Preserve the original cl_fx.c millisecond clock literals exactly. The
+  // 3.19 source uses +0.1 for the longer chaingun flashes and +1.0 for the
+  // login/logout/respawn flash (not seconds).
+  if weapon == ceconstants.MZ_CHAINGUN2 or
+      weapon == ceconstants.MZ_CHAINGUN3 then duration = 0.1 end if
+  if weapon == ceconstants.MZ_LOGIN or weapon == ceconstants.MZ_LOGOUT or
+      weapon == ceconstants.MZ_RESPAWN then duration = 1.0 end if
   if weapon == ceconstants.MZ_HEATBEAM or (weapon >= ceconstants.MZ_NUKE1 and weapon <= ceconstants.MZ_NUKE8) then duration = 100.0 end if
   light = cestate.addDLight(state, entityNumber, origin, radius * 1.0,
     playerMuzzleColor(weapon), duration, 0.0)

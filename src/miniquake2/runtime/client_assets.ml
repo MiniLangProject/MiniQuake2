@@ -50,7 +50,7 @@ end function
 function attachMixer(state, effectState, mixer, entityPositionResolver, listenerOrigin, listenerRight)
   values = bindings(state)
   audioCallbacks = cameffects.install(mixer, values.soundIndex, values.soundName,
-    entityPositionResolver, listenerOrigin, listenerRight)
+    values.soundEntity, entityPositionResolver, listenerOrigin, listenerRight)
   effectState.audio = audioCallbacks
   return audioCallbacks
 end function

@@ -39,6 +39,7 @@ import miniquake2.game.ai.types as ibaitypes
 import miniquake2.game.player.view as ibplayerview
 import miniquake2.game.player.rules as ibplayerrules
 import miniquake2.game.player.constants as ibplayerconstants
+import miniquake2.game.player.commands as ibplayercommands
 import miniquake2.game.weapons.types as ibwptypes
 import miniquake2.game.weapons.core as ibwpcore
 import miniquake2.game.weapons.hitscan as ibwphitscan
@@ -133,6 +134,13 @@ function copyVector(values)
   return ibqtypes.Vec3(values[0], values[1], values[2])
 end function
 
+function itemWorldEffects(item)
+  if (item.flags & ibgpconstants.IT_AMMO) != 0 then return 0 end if
+  if item.ruleData is not void and item.ruleData.kind == "health" then return 0 end if
+  if item.className == "key_commander_head" then return ibgconstants.EF_GIB end if
+  return ibgconstants.EF_ROTATE
+end function
+
 function worldEntity(baseEdict)
   source = baseEdict.component
   entity = ibwtypes.createEntity(baseEdict.number, source.className)
@@ -151,6 +159,10 @@ function worldEntity(baseEdict)
   entity.sounds = source.sounds
   entity.style = source.style; entity.lip = source.spawnTemp.lip; entity.height = source.spawnTemp.height
   entity.item = source.spawnTemp.item
+  parsedGravity = try(toNumber(source.spawnTemp.gravity))
+  if typeof(parsedGravity) == "int" or typeof(parsedGravity) == "float" then
+    entity.gravity = parsedGravity
+  end if
   entity.moveInfo.distance = source.spawnTemp.distance
   entity.pauseTime = source.spawnTemp.pauseTime
   if source.className == "turret_breach" then
@@ -486,6 +498,7 @@ function integratedAITouchTriggers(actor)
   proxy.mins = actor.edict.mins; proxy.maxs = actor.edict.maxs
   proxy.health = actor.health; proxy.maxHealth = actor.maxHealth
   proxy.mass = actor.mass; proxy.flags = actor.flags
+  proxy.gravity = actor.gravity
   proxy.groundEntity = actor.groundEntity
   proxy.serverFlags = actor.edict.serverFlags | ibgconstants.SVF_MONSTER
   proxy.isClient = false
@@ -508,6 +521,7 @@ function integratedAITouchTriggers(actor)
   actor.velocity.y = proxy.velocity.y
   actor.velocity.z = proxy.velocity.z
   actor.groundEntity = proxy.groundEntity
+  actor.gravity = proxy.gravity
   return touched
 end function
 
@@ -793,7 +807,51 @@ function configureAI(context)
   context.moveToGoal = integratedAIMoveToGoal
   context.trailPickFirst = aiTrailPickFirst
   context.trailPickNext = aiTrailPickNext
+  context.findTargets = integratedAIFindTargets
+  context.damage = integratedAIDamage
+  context.killBox = integratedAIKillBox
+  context.soundIndex = integratedAISoundIndex
+  context.log = integratedAILog
   return context
+end function
+
+function integratedAIFindTargets(targetName)
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void or targetName == "" then return [] end if
+  return ibworld.matchingTargets(activeIntegrationRuntime.world, targetName)
+end function
+
+function integratedAIDamage(actor, amount, damageFlags, meansOfDeath)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or actor is void or amount <= 0 then return 0 end if
+  target = monsterWeaponTarget(actor)
+  result = ibwpcore.applyDamage(runtime.weaponContext, target, void, void,
+    ibqtypes.zeroVec3(), actor.edict.state.origin, amount, 0,
+    damageFlags, meansOfDeath)
+  if result is void or result == false then return 0 end if
+  return result.taken
+end function
+
+function integratedAIKillBox(actor)
+  if actor is void then return false end if
+  proxy = ibwtypes.createEntity(actor.edict.state.number, actor.className)
+  proxy.origin = actor.edict.state.origin
+  proxy.mins = actor.edict.mins; proxy.maxs = actor.edict.maxs
+  return integratedWorldKillBox(proxy)
+end function
+
+function integratedAISoundIndex(soundName)
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void or
+      activeIntegrationRuntime.playerContext is void then return 0 end if
+  return activeIntegrationRuntime.playerContext.imports.soundIndex(soundName)
+end function
+
+function integratedAILog(message)
+  global activeIntegrationRuntime
+  if activeIntegrationRuntime is void then return false end if
+  return ibworld.log(activeIntegrationRuntime.world, message)
 end function
 
 function integratedPropProxyUse(entity, other, activator, world)
@@ -816,6 +874,52 @@ function installPropTargetProxies(runtime)
     end if
   end for
   return ibPropProxyCount
+end function
+
+function integratedWorldAIActivator(source)
+  global activeIntegrationRuntime
+  if source is void or activeIntegrationRuntime is void then return void end if
+  number = integratedSourceNumber(source)
+  actor = integratedMonsterByNumber(activeIntegrationRuntime, number)
+  if actor is void then actor = findAIPlayer(activeIntegrationRuntime, number) end if
+  if actor is not void then return actor end if
+  if source.isClient then actor = ibaitypes.createClientTarget(number)
+  else actor = ibaitypes.createActor(number, source.className) end if
+  actor.edict.state.origin = source.origin
+  actor.edict.state.angles = source.angles
+  actor.flags = source.flags
+  actor.health = source.health
+  actor.maxHealth = source.maxHealth
+  actor.isClient = source.isClient
+  actor.isMonster = (source.serverFlags & ibworldconstants.SVF_MONSTER) != 0
+  return actor
+end function
+
+function integratedMonsterProxyUse(entity, other, activator, world)
+  global activeIntegrationRuntime
+  actor = integratedWorldActor(entity.number)
+  if actor is void then return false end if
+  return ibmonster.MonsterTargetUse(actor,
+    integratedWorldAIActivator(other), integratedWorldAIActivator(activator),
+    activeIntegrationRuntime.aiContext)
+end function
+
+function installMonsterTargetProxies(runtime)
+  count = 0
+  for each actor in runtime.monsters
+    if actor.targetName != "" and not ibaiprops.isProp(actor) then
+      proxy = ibwtypes.createEntity(actor.edict.state.number,
+        "ai_monster_target_proxy")
+      proxy.targetName = actor.targetName
+      proxy.target = actor.target
+      proxy.origin = actor.edict.state.origin
+      proxy.serverFlags = proxy.serverFlags | ibworldconstants.SVF_NOCLIENT
+      proxy.use = integratedMonsterProxyUse
+      runtime.world.entities = runtime.world.entities + [proxy]
+      count = count + 1
+    end if
+  end for
+  return count
 end function
 
 function integratedSpawnMonster(className, parent)
@@ -1097,7 +1201,28 @@ function integratedWeaponDamage(combatant, request)
   worldEntity = ibworld.findByNumber(runtime.world, number)
   if player is not void and player.deadFlag != ibplayerconstants.DEAD_NO then return false end if
   if actor is not void and actor.health <= 0 then return false end if
+  powerArmorSaved = 0
+  if actor is not void and actor.powerArmorPower > 0 and
+      actor.powerArmorType != ibaiconstants.POWER_ARMOR_NONE and
+      (request.flags & ibgpconstants.DAMAGE_NO_ARMOR) == 0 then
+    damagePerCell = 1
+    powerArmorSaved = ibmath.floor(request.damage / 3.0)
+    if actor.powerArmorType == ibaiconstants.POWER_ARMOR_SHIELD then
+      damagePerCell = 2
+      powerArmorSaved = ibmath.floor(request.damage * 2.0 / 3.0)
+    end if
+    maximumSave = actor.powerArmorPower * damagePerCell
+    if powerArmorSaved > maximumSave then powerArmorSaved = maximumSave end if
+    if powerArmorSaved > 0 then
+      cellsUsed = ibmath.floor((powerArmorSaved + damagePerCell - 1) /
+        damagePerCell)
+      actor.powerArmorPower = actor.powerArmorPower - cellsUsed
+      actor.powerArmorTime = runtime.aiContext.time + 0.2
+      request.damage = request.damage - powerArmorSaved
+    end if
+  end if
   result = ibgpcombat.T_Damage(combatant, request)
+  result.armorSaved = result.armorSaved + powerArmorSaved
   ibDamagePointHolder = weaponVector(request.point)
   ibDamageDirectionHolder = weaponVector(request.direction)
   ibDamageWasBullet = (request.flags & ibgpconstants.DAMAGE_BULLET) != 0
@@ -1142,6 +1267,10 @@ function integratedWorldMeans(means)
   if means == ibworldconstants.MOD_CRUSH then return ibplayerconstants.MOD_CRUSH end if
   if means == ibworldconstants.MOD_BARREL then return ibplayerconstants.MOD_BARREL end if
   if means == ibworldconstants.MOD_TARGET_LASER then return ibplayerconstants.MOD_TARGET_LASER end if
+  if means == ibworldconstants.MOD_TRIGGER_HURT or
+      means == ibworldconstants.MOD_TRIGGER_HURT_NO_PROTECTION then
+    return ibplayerconstants.MOD_TRIGGER_HURT
+  end if
   return ibplayerconstants.MOD_EXPLOSIVE
 end function
 
@@ -1170,6 +1299,9 @@ function integratedWorldDamage(targetEntity, inflictor, attacker, amount, means)
   if attackerNumber >= 0 then attackerTarget = weaponTargetByNumber(runtime, attackerNumber) end if
   damageFlags = 0
   if means == ibworldconstants.MOD_TARGET_LASER then damageFlags = ibgpconstants.DAMAGE_ENERGY end if
+  if means == ibworldconstants.MOD_TRIGGER_HURT_NO_PROTECTION then
+    damageFlags = damageFlags | ibgpconstants.DAMAGE_NO_PROTECTION
+  end if
   return ibwpcore.applyDamage(runtime.weaponContext, target, inflictorTarget, attackerTarget,
     ibqtypes.zeroVec3(), target.origin, amount, 1, damageFlags, integratedWorldMeans(means))
 end function
@@ -1452,6 +1584,80 @@ function reserveSpawnerEdict(runtime)
   return number
 end function
 
+function releaseReservedEdict(runtime, number)
+  if runtime.exportTable is not void and number >= 0 and
+      number < runtime.exportTable.numEdicts then
+    runtime.exportTable.edicts[number].inUse = false
+    if runtime.playerContext is not void then
+      runtime.playerContext.imports.unlinkEntity(runtime.exportTable.edicts[number])
+    end if
+  end if
+  return true
+end function
+
+// Complete Drop_Item's engine-facing half after the item-specific callback
+// has changed inventory.  The managed item record retains toss velocity and
+// the two stock deadlines: owner immunity for one second and DM expiry at 30.
+function installDroppedItem(runtime, player, playerContext, itemEntity)
+  if itemEntity is void or runtime.exportTable is void then return false end if
+  imports = playerContext.imports
+  edict = itemEntity.edict
+  edict.mins = ibqtypes.Vec3(-15.0, -15.0, -15.0)
+  edict.maxs = ibqtypes.Vec3(15.0, 15.0, 15.0)
+  edict.solid = ibgconstants.SOLID_TRIGGER
+  edict.state.renderFx = ibgconstants.RF_GLOW
+  edict.state.effects = itemWorldEffects(itemEntity.item)
+
+  viewAngles = player.edict.client.playerState.viewAngles
+  basis = ibwpvector.angleVectors(viewAngles)
+  forward = basis[0]; right = basis[1]
+  start = player.edict.state.origin
+  projected = ibqtypes.Vec3(
+    start.x + forward.x * 24.0,
+    start.y + forward.y * 24.0,
+    start.z + forward.z * 24.0 - 16.0)
+  trace = imports.trace(start, edict.mins, edict.maxs, projected,
+    player.edict, ibqconstants.MASK_SOLID)
+  edict.state.origin = ibqtypes.Vec3(trace.endPosition.x,
+    trace.endPosition.y, trace.endPosition.z)
+  edict.state.oldOrigin = ibqtypes.Vec3(trace.endPosition.x,
+    trace.endPosition.y, trace.endPosition.z)
+  edict.state.angles = ibqtypes.Vec3(0.0, viewAngles.y, 0.0)
+  itemEntity.velocity = ibqtypes.Vec3(forward.x * 100.0,
+    forward.y * 100.0, 300.0)
+  itemEntity.owner = player.gameplay
+  edict.owner = player.edict
+  itemEntity.nextThink = playerContext.time + 1.0
+  itemEntity.respawnAt = 0.0
+  if playerContext.deathmatch then itemEntity.respawnAt = playerContext.time + 30.0 end if
+  itemEntity.edict = ibgametypes.stabilizeEdict(edict)
+
+  ibprecache.PrecacheItem(playerContext.registry, itemEntity.item, imports)
+  if itemEntity.item.worldModel != "" then
+    imports.setModel(itemEntity.edict, itemEntity.item.worldModel)
+  end if
+  number = itemEntity.edict.state.number
+  runtime.exportTable.edicts[number] = itemEntity.edict
+  runtime.items = runtime.items + [itemEntity]
+  imports.linkEntity(runtime.exportTable.edicts[number])
+  return itemEntity
+end function
+
+function dropPlayerItem(runtime, player, playerContext, item)
+  if runtime is void or player is void or item is void then
+    return ibgtypes.itemAction(false, "item cannot be dropped", 0)
+  end if
+  number = reserveSpawnerEdict(runtime)
+  if number is error then return number end if
+  action = ibplayercommands.dropDefinition(player, playerContext, item, number)
+  if not action.success then
+    releaseReservedEdict(runtime, number)
+    return action
+  end if
+  installDroppedItem(runtime, player, playerContext, action.droppedEntity)
+  return action
+end function
+
 function integratedWorldSpawnExternal(className, origin, angles, velocity)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1497,7 +1703,13 @@ function integratedWorldSpawnExternal(className, origin, angles, velocity)
     itemEntity.edict.state.angles = ibqtypes.Vec3(angles.x, angles.y, angles.z)
     itemEntity.edict.mins = ibqtypes.Vec3(-15.0, -15.0, -15.0)
     itemEntity.edict.maxs = ibqtypes.Vec3(15.0, 15.0, 15.0)
-    itemEntity.edict.solid = ibgconstants.SOLID_TRIGGER
+    itemEntity.edict.solid = ibgconstants.SOLID_NOT
+    itemEntity.edict.serverFlags = itemEntity.edict.serverFlags |
+      ibgconstants.SVF_NOCLIENT
+    itemEntity.edict.state.renderFx = ibgconstants.RF_GLOW
+    itemEntity.edict.state.effects = itemWorldEffects(definition)
+    itemEntity.nextThink = runtime.world.time + 2.0 * runtime.world.frameTime
+    itemEntity.spawnPending = true
     runtime.items = runtime.items + [itemEntity]
     if runtime.playerContext is not void and runtime.exportTable is not void then
       imports = runtime.playerContext.imports
@@ -2170,6 +2382,7 @@ function installWorldSpawn(entity, world)
   if name == "trigger_counter" then return ibtriggers.spawnCounter(entity, world) end if
   if name == "trigger_hurt" then return ibtriggers.spawnHurt(entity, world) end if
   if name == "trigger_push" then return ibtriggers.spawnPush(entity, world) end if
+  if name == "trigger_gravity" then return ibtriggers.spawnGravity(entity, world) end if
   if name == "trigger_monsterjump" then return ibtriggers.spawnMonsterJump(entity, world) end if
   if name == "trigger_key" then return ibtriggers.spawnKey(entity, world) end if
   if name == "func_button" then return ibmovers.spawnButton(entity, world) end if
@@ -2179,6 +2392,7 @@ function installWorldSpawn(entity, world)
   if name == "func_door_rotating" then return ibmovers.spawnRotatingDoor(entity, world) end if
   if name == "func_plat" then return ibmovers.spawnPlat(entity, world) end if
   if name == "func_train" then return ibmovers.spawnTrain(entity, world) end if
+  if name == "func_conveyor" then return ibmovers.spawnConveyor(entity, world) end if
   if name == "trigger_elevator" then return ibmovers.spawnElevator(entity, world) end if
   if name == "func_timer" then return ibmovers.spawnTimer(entity, world) end if
   if name == "func_clock" then return ibmisc.spawnWorldClock(entity, world) end if
@@ -2300,12 +2514,38 @@ function create(spawnResult)
     else if item is not void then
       itemEntity = ibgtypes.createItemEntity(baseEdict.number, item)
       itemEntity.edict.state.origin = copyVector(component.origin)
+      itemEntity.edict.state.angles = copyVector(component.angles)
       itemEntity.edict.mins = ibqtypes.Vec3(-15.0, -15.0, -15.0)
       itemEntity.edict.maxs = ibqtypes.Vec3(15.0, 15.0, 15.0)
       ibgametypes.stabilizeEdict(itemEntity.edict)
-      itemEntity.edict.solid = ibgconstants.SOLID_TRIGGER
+      // SpawnItem defers droptofloor for two frames so every BSP pusher has
+      // linked first.  Until then the engine edict is neither visible nor
+      // touchable.
+      itemEntity.edict.solid = ibgconstants.SOLID_NOT
+      itemEntity.edict.serverFlags = itemEntity.edict.serverFlags |
+        ibgconstants.SVF_NOCLIENT
+      itemEntity.edict.state.renderFx = ibgconstants.RF_GLOW
+      itemEntity.edict.state.effects = itemWorldEffects(item)
       itemEntity.spawnFlags = component.spawnFlags
+      if component.className != "key_power_cube" and
+          itemEntity.spawnFlags != 0 then
+        ibworld.log(world, component.className + " has invalid spawnflags set")
+        itemEntity.spawnFlags = 0
+      end if
       itemEntity.count = component.count
+      itemEntity.nextThink = world.time + 2.0 * world.frameTime
+      itemEntity.spawnPending = true
+      itemTarget = worldEntity(baseEdict)
+      itemTarget.itemName = "__item_target_proxy"
+      itemTarget.spawnFlags = itemEntity.spawnFlags
+      itemTarget.solid = ibworldconstants.SOLID_NOT
+      itemTarget.serverFlags = itemTarget.serverFlags |
+        ibworldconstants.SVF_NOCLIENT
+      itemEntity.worldTarget = itemTarget
+      if itemTarget.targetName != "" or itemTarget.team != "" or
+          (itemEntity.spawnFlags & ibgpconstants.ITEM_TRIGGER_SPAWN) != 0 then
+        ibworld.addEntity(world, itemTarget)
+      end if
       items = items + [itemEntity]
     else
       entity = worldEntity(baseEdict)
@@ -2338,6 +2578,7 @@ function create(spawnResult)
   end for
   installTurretRigs(runtime)
   installPropTargetProxies(runtime)
+  installMonsterTargetProxies(runtime)
   ibpusher.assembleTeams(runtime.world)
   // SpawnMonster establishes defaults before the parsed fields are copied.
   // Re-running the generic start boundary applies target/trigger-spawn state.
@@ -2345,6 +2586,10 @@ function create(spawnResult)
     refreshAiRandom(runtime)
     ibmonster.MonsterStart(actor, aiContext)
     ibmonster.MonsterStartGo(actor, aiContext)
+    if not ibaiprops.isProp(actor) and
+        (actor.spawnFlags & ibaiconstants.SPAWNFLAG_TRIGGER_SPAWN) != 0 then
+      ibmonster.MonsterTriggeredStart(actor, aiContext)
+    end if
   end for
   return runtime
 end function
@@ -2383,7 +2628,12 @@ function precacheSpawned(runtime, playerContext)
       ibprecache.PrecacheItem(playerContext.registry, item, imports)
       itemIndexes = itemIndexes + [item.index]
     end if
-    if item.worldModel != "" then imports.setModel(itemEntity.edict, item.worldModel) end if
+    itemModel = item.worldModel
+    if itemEntity.worldTarget is not void and
+        itemEntity.worldTarget.model != "" then
+      itemModel = itemEntity.worldTarget.model
+    end if
+    if itemModel != "" then imports.setModel(itemEntity.edict, itemModel) end if
   end for
 
   monsterModels = []
@@ -2596,6 +2846,25 @@ function findItemByClass(runtime, className)
   return void
 end function
 
+function useTriggeredItem(entity, other, activator, world)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then return false end if
+  itemEntity = findItemByNumber(runtime, entity.number)
+  if itemEntity is void or not itemEntity.edict.inUse then return false end if
+  itemEntity.edict.serverFlags = itemEntity.edict.serverFlags &
+    ~ibgconstants.SVF_NOCLIENT
+  itemEntity.hidden = false
+  if (itemEntity.spawnFlags & ibgpconstants.ITEM_NO_TOUCH) != 0 then
+    itemEntity.edict.solid = ibgconstants.SOLID_BBOX
+  else
+    itemEntity.edict.solid = ibgconstants.SOLID_TRIGGER
+  end if
+  entity.use = void
+  runtime.playerContext.imports.linkEntity(itemEntity.edict)
+  return true
+end function
+
 function playerWorldProxy(player)
   proxy = ibwtypes.createEntity(player.edict.state.number, "player")
   proxy.inUse = player.edict.inUse
@@ -2610,6 +2879,9 @@ function playerWorldProxy(player)
   proxy.takeDamage = player.takeDamage
   proxy.flags = player.flags
   proxy.serverFlags = player.edict.serverFlags
+  proxy.gravity = player.gravity
+  proxy.oldVelocity = weaponVector(player.view.oldVelocity)
+  proxy.flySoundDebounceTime = player.flySoundDebounceTime
   return proxy
 end function
 
@@ -2620,6 +2892,10 @@ function touchWorld(runtime, entity, player)
   player.edict.state.origin = proxy.origin
   player.edict.state.angles = proxy.angles
   player.velocity = [proxy.velocity.x, proxy.velocity.y, proxy.velocity.z]
+  player.gravity = proxy.gravity
+  player.view.oldVelocity = [proxy.oldVelocity.x, proxy.oldVelocity.y,
+    proxy.oldVelocity.z]
+  player.flySoundDebounceTime = proxy.flySoundDebounceTime
   return touched
 end function
 
@@ -2632,13 +2908,50 @@ function touchWorldByClass(runtime, className, player)
 end function
 
 function touchItem(runtime, itemEntity, player, playerContext)
-  if itemEntity is void or itemEntity.edict.inUse != true or itemEntity.hidden then return ibgtypes.itemAction(false, "item unavailable", 0) end if
-  action = ibpowerups.PickupForPlayerData(itemEntity, player, playerContext)
+  if itemEntity is void or itemEntity.edict.inUse != true or itemEntity.hidden or
+      itemEntity.edict.solid != ibgconstants.SOLID_TRIGGER then
+    return ibgtypes.itemAction(false, "item unavailable", 0)
+  end if
+  if player.health < 1 or itemEntity.item.pickup is void then
+    return ibgtypes.itemAction(false, "item unavailable", 0)
+  end if
+  if (itemEntity.spawnFlags & ibgpconstants.DROPPED_ITEM) != 0 and
+      itemEntity.owner is not void then
+    if playerContext.time >= itemEntity.nextThink then
+      itemEntity.owner = void
+      itemEntity.edict.owner = void
+      itemEntity.nextThink = 0.0
+    else if nativeRawValue(itemEntity.owner) == nativeRawValue(player.gameplay) then
+      return ibgtypes.itemAction(false, "drop owner immunity", 0)
+    end if
+  end if
+  action = ibpowerups.PickupForPlayerDataAtSkill(itemEntity, player,
+    playerContext, runtime.aiContext.skill)
+  if (itemEntity.spawnFlags & ibgpconstants.ITEM_TARGETS_USED) == 0 then
+    if itemEntity.worldTarget is not void then
+      ibworld.useTargets(runtime.world, itemEntity.worldTarget,
+        playerWorldProxy(player))
+      itemEntity.worldTarget.spawnFlags = itemEntity.worldTarget.spawnFlags |
+        ibgpconstants.ITEM_TARGETS_USED
+    end if
+    itemEntity.spawnFlags = itemEntity.spawnFlags |
+      ibgpconstants.ITEM_TARGETS_USED
+  end if
   staysCoop = playerContext.cooperative and (itemEntity.item.flags & ibgpconstants.IT_STAY_COOP) != 0
-  if action.success and itemEntity.hidden != true and (itemEntity.flags & ibgpconstants.FL_RESPAWN) == 0 and staysCoop != true then
-    itemEntity.freed = true
-    itemEntity.edict.inUse = false
-    itemEntity.edict.solid = ibgconstants.SOLID_NOT
+  dropped = (itemEntity.spawnFlags & (ibgpconstants.DROPPED_ITEM |
+    ibgpconstants.DROPPED_PLAYER_ITEM)) != 0
+  if action.success and (not staysCoop or dropped) then
+    if (itemEntity.flags & ibgpconstants.FL_RESPAWN) != 0 then
+      itemEntity.flags = itemEntity.flags & ~ibgpconstants.FL_RESPAWN
+    else
+      itemEntity.freed = true
+      itemEntity.edict.inUse = false
+      itemEntity.edict.solid = ibgconstants.SOLID_NOT
+      if itemEntity.worldTarget is not void then
+        itemEntity.worldTarget.inUse = false
+      end if
+      playerContext.imports.unlinkEntity(itemEntity.edict)
+    end if
   end if
   return action
 end function
@@ -2660,7 +2973,9 @@ end function
 function touchNearbyItems(runtime, player, playerContext)
   touched = 0
   for each item in runtime.items
-    if item.edict.inUse and item.hidden != true and boundsOverlap(player.edict, item.edict) then
+    if item.edict.inUse and item.hidden != true and
+        item.edict.solid == ibgconstants.SOLID_TRIGGER and
+        boundsOverlap(player.edict, item.edict) then
       action = touchItem(runtime, item, player, playerContext)
       if action.success then touched = touched + 1 end if
     end if
@@ -4246,11 +4561,214 @@ function advanceWeaponProjectiles(runtime)
   return true
 end function
 
+function advanceDroppedItems(runtime)
+  if runtime.playerContext is void then return 0 end if
+  imports = runtime.playerContext.imports
+  moved = 0
+  for each item in runtime.items
+    if item.edict.inUse and
+        (item.spawnFlags & ibgpconstants.DROPPED_ITEM) != 0 then
+      if item.owner is not void and item.nextThink > 0.0 and
+          item.nextThink <= runtime.world.time then
+        item.owner = void
+        item.edict.owner = void
+        item.nextThink = 0.0
+      end if
+      if item.respawnAt > 0.0 and item.respawnAt <= runtime.world.time then
+        item.freed = true
+        item.edict.inUse = false
+        item.edict.solid = ibgconstants.SOLID_NOT
+        imports.unlinkEntity(item.edict)
+      else if item.velocity.x != 0.0 or item.velocity.y != 0.0 or
+          item.velocity.z != 0.0 then
+        state = item.edict.state
+        state.oldOrigin = ibqtypes.Vec3(state.origin.x, state.origin.y,
+          state.origin.z)
+        item.velocity.z = item.velocity.z - runtime.playerContext.gravity *
+          runtime.world.frameTime
+        finish = ibqtypes.Vec3(
+          state.origin.x + item.velocity.x * runtime.world.frameTime,
+          state.origin.y + item.velocity.y * runtime.world.frameTime,
+          state.origin.z + item.velocity.z * runtime.world.frameTime)
+        trace = imports.trace(state.origin, item.edict.mins, item.edict.maxs,
+          finish, item.edict, ibqconstants.MASK_SOLID)
+        state.origin = ibqtypes.Vec3(trace.endPosition.x,
+          trace.endPosition.y, trace.endPosition.z)
+        item.edict.state = state
+        if trace.fraction < 1.0 then
+          normal = trace.plane.normal
+          backoff = item.velocity.x * normal.x +
+            item.velocity.y * normal.y + item.velocity.z * normal.z
+          item.velocity.x = item.velocity.x - normal.x * backoff
+          item.velocity.y = item.velocity.y - normal.y * backoff
+          item.velocity.z = item.velocity.z - normal.z * backoff
+          if normal.z > 0.7 then
+            item.velocity.x = 0.0; item.velocity.y = 0.0
+            item.velocity.z = 0.0
+          end if
+        end if
+        imports.linkEntity(item.edict)
+        moved = moved + 1
+      end if
+    end if
+  end for
+  return moved
+end function
+
+function deathmatchInhibitsItem(itemEntity, playerContext)
+  if not playerContext.deathmatch then return false end if
+  flags = playerContext.dmFlags
+  item = itemEntity.item
+  kind = ""
+  if item.ruleData is not void then kind = item.ruleData.kind end if
+  if (flags & ibgconstants.DF_NO_ARMOR) != 0 and
+      ((item.flags & ibgpconstants.IT_ARMOR) != 0 or
+       kind == "power-armor") then return true end if
+  if (flags & ibgconstants.DF_NO_ITEMS) != 0 and
+      kind == "powerup" then return true end if
+  if (flags & ibgconstants.DF_NO_HEALTH) != 0 and
+      (kind == "health" or item.className == "item_adrenaline" or
+       item.className == "item_ancient_head") then return true end if
+  if (flags & ibgconstants.DF_INFINITE_AMMO) != 0 and
+      (item.flags == ibgpconstants.IT_AMMO or
+       item.className == "weapon_bfg") then return true end if
+  return false
+end function
+
+function itemTeamMaster(itemEntity)
+  if itemEntity.worldTarget is void or itemEntity.worldTarget.team == "" then
+    return void
+  end if
+  master = itemEntity.worldTarget.teamMaster
+  if master is void then master = itemEntity.worldTarget end if
+  return master
+end function
+
+function prepareSpawnedItem(runtime, itemEntity)
+  if not itemEntity.spawnPending or runtime.playerContext is void then
+    return false
+  end if
+  if itemEntity.nextThink > runtime.world.time then return false end if
+  imports = runtime.playerContext.imports
+  itemEntity.spawnPending = false
+  itemEntity.nextThink = 0.0
+  if runtime.playerContext.cooperative and
+      itemEntity.item.className == "key_power_cube" then
+    cubeIndex = 0
+    for each cubeCandidate in runtime.items
+      if nativeRawValue(cubeCandidate) == nativeRawValue(itemEntity) then break end if
+      if cubeCandidate.item.className == "key_power_cube" then
+        cubeIndex = cubeIndex + 1
+      end if
+    end for
+    itemEntity.spawnFlags = itemEntity.spawnFlags | (1 << (8 + cubeIndex))
+  end if
+  if deathmatchInhibitsItem(itemEntity, runtime.playerContext) then
+    itemEntity.freed = true
+    itemEntity.edict.inUse = false
+    itemEntity.edict.solid = ibgconstants.SOLID_NOT
+    if itemEntity.worldTarget is not void then itemEntity.worldTarget.inUse = false end if
+    imports.unlinkEntity(itemEntity.edict)
+    return true
+  end if
+
+  edict = itemEntity.edict
+  start = edict.state.origin
+  finish = ibqtypes.Vec3(start.x, start.y, start.z - 128.0)
+  trace = imports.trace(start, edict.mins, edict.maxs, finish, edict,
+    ibqconstants.MASK_SOLID)
+  if trace.startSolid then
+    ibworld.log(runtime.world, "droptofloor: " + itemEntity.item.className +
+      " startsolid")
+    itemEntity.freed = true
+    edict.inUse = false
+    edict.solid = ibgconstants.SOLID_NOT
+    if itemEntity.worldTarget is not void then itemEntity.worldTarget.inUse = false end if
+    imports.unlinkEntity(edict)
+    return true
+  end if
+  edict.state.oldOrigin = ibqtypes.Vec3(start.x, start.y, start.z)
+  edict.state.origin = ibqtypes.Vec3(trace.endPosition.x,
+    trace.endPosition.y, trace.endPosition.z)
+  edict.serverFlags = edict.serverFlags & ~ibgconstants.SVF_NOCLIENT
+  edict.solid = ibgconstants.SOLID_TRIGGER
+  itemEntity.hidden = false
+
+  if (itemEntity.spawnFlags & ibgpconstants.ITEM_NO_TOUCH) != 0 then
+    edict.solid = ibgconstants.SOLID_BBOX
+    edict.state.effects = edict.state.effects & ~ibgconstants.EF_ROTATE
+    edict.state.renderFx = edict.state.renderFx & ~ibgconstants.RF_GLOW
+  end if
+  if (itemEntity.spawnFlags & ibgpconstants.ITEM_TRIGGER_SPAWN) != 0 then
+    edict.serverFlags = edict.serverFlags | ibgconstants.SVF_NOCLIENT
+    edict.solid = ibgconstants.SOLID_NOT
+    itemEntity.hidden = true
+    if itemEntity.worldTarget is not void then
+      itemEntity.worldTarget.use = useTriggeredItem
+    end if
+  end if
+
+  teamMaster = itemTeamMaster(itemEntity)
+  if teamMaster is not void then
+    edict.serverFlags = edict.serverFlags | ibgconstants.SVF_NOCLIENT
+    edict.solid = ibgconstants.SOLID_NOT
+    itemEntity.hidden = true
+    if nativeRawValue(teamMaster) == nativeRawValue(itemEntity.worldTarget) then
+      itemEntity.nextThink = runtime.world.time + runtime.world.frameTime
+      itemEntity.respawnAt = itemEntity.nextThink
+    end if
+  end if
+  itemEntity.edict = ibgametypes.stabilizeEdict(edict)
+  imports.linkEntity(itemEntity.edict)
+  return true
+end function
+
+function respawnTeamItem(runtime, itemEntity)
+  master = itemTeamMaster(itemEntity)
+  if master is void then
+    result = ibitemrules.DoRespawn(itemEntity, runtime.world.time)
+    if result then runtime.playerContext.imports.linkEntity(itemEntity.edict) end if
+    return result
+  end if
+  members = []
+  for each candidate in runtime.items
+    candidateMaster = itemTeamMaster(candidate)
+    if candidate.edict.inUse and candidateMaster is not void and
+        nativeRawValue(candidateMaster) == nativeRawValue(master) then
+      members = members + [candidate]
+    end if
+  end for
+  if len(members) == 0 then return false end if
+  choice = runtime.world.callbacks.randomIndex(len(members))
+  if choice < 0 or choice >= len(members) then choice = 0 end if
+  selected = members[choice]
+  for each member in members
+    member.hidden = true
+    member.edict.serverFlags = member.edict.serverFlags |
+      ibgconstants.SVF_NOCLIENT
+    member.edict.solid = ibgconstants.SOLID_NOT
+    member.nextThink = 0.0
+    member.respawnAt = 0.0
+    runtime.playerContext.imports.linkEntity(member.edict)
+  end for
+  selected.hidden = false
+  selected.edict.serverFlags = selected.edict.serverFlags &
+    ~ibgconstants.SVF_NOCLIENT
+  selected.edict.solid = ibgconstants.SOLID_TRIGGER
+  selected.edict.state.event = ibgconstants.EV_ITEM_RESPAWN
+  runtime.playerContext.imports.linkEntity(selected.edict)
+  return true
+end function
+
 function runFrame(runtime)
   pusherState = ibpusher.capture(runtime)
   ibworld.runFrame(runtime.world)
   ibpusher.resolve(runtime, pusherState)
   advanceWorldTossEntities(runtime)
+  advanceDroppedItems(runtime)
+  for each pendingItem in runtime.items
+    prepareSpawnedItem(runtime, pendingItem)
+  end for
   runtime.aiContext.time = runtime.world.time
   runtime.weaponContext.time = runtime.world.time
   runtime.aiContext.frameNumber = runtime.aiContext.frameNumber + 1
@@ -4265,9 +4783,10 @@ function runFrame(runtime)
   end for
   advanceWeaponProjectiles(runtime)
   for each item in runtime.items
-    if item.decaying != true and item.hidden and item.nextThink > 0.0 and item.nextThink <= runtime.world.time then
+    if not item.spawnPending and item.decaying != true and item.hidden and
+        item.nextThink > 0.0 and item.nextThink <= runtime.world.time then
       // DoRespawn is deterministic and does not require a player/context.
-      ibitemrules.DoRespawn(item, runtime.world.time)
+      respawnTeamItem(runtime, item)
     end if
   end for
 end function
@@ -4314,7 +4833,10 @@ function syncGameEdicts(runtime, exportTable)
     // G_UseTargets can find them.  They are dispatch-only records and must
     // never overwrite the authoritative actor EntityState through the shared
     // export-edict reference.
-    if entity.className != "ai_prop_target_proxy" and entity.number >= 0 and entity.number < exportTable.numEdicts then
+    if entity.className != "ai_prop_target_proxy" and
+        entity.className != "ai_monster_target_proxy" and
+        entity.itemName != "__item_target_proxy" and
+        entity.number >= 0 and entity.number < exportTable.numEdicts then
       ibSyncTargetHolder = exportTable.edicts[entity.number]
       ibSyncStateHolder = ibSyncTargetHolder.state
       ibSyncOriginHolder = entity.origin

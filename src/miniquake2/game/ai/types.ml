@@ -113,6 +113,13 @@ struct AIActor
   timestamp
   triggerProxy
   enemyVisible
+  airFinished
+  painDebounceTime
+  damageDebounceTime
+  powerArmorTime
+  powerArmorType
+  powerArmorPower
+  gravity
 end struct
 
 struct AIContext
@@ -155,6 +162,11 @@ struct AIContext
   touchActorTriggers
   trailPickFirst
   trailPickNext
+  findTargets
+  damage
+  killBox
+  soundIndex
+  log
 end struct
 
 struct TargetSelection
@@ -222,7 +234,8 @@ function createActor(number, className)
     info, void, void, "created", 0, 0, 0, 0, "none",
     false, "none", "", 0.0, false, number, 0.0,
     gaiAttackAimHolder, false, 0, 0.0, void, void,
-    void, 0, 0, 0, gaiVelocityHolder, false, void, 0.0, void, false
+    void, 0, 0, 0, gaiVelocityHolder, false, void, 0.0, void, false,
+    0.0, 0.0, 0.0, 0.0, gaiconstants.POWER_ARMOR_NONE, 0, 1.0
   )
   actor.edict = edict
   gtypes.stabilizeEdict(actor.edict)
@@ -246,6 +259,7 @@ function defaultContext()
     0.0, 0.0, 0.0, 0,
     void, void, void, void,
     void, void, void, void, void, void, void, void, void, void, void, void, void,
-    void, void, void, void, void, void
+    void, void, void, void, void, void,
+    void, void, void, void, void
   )
 end function

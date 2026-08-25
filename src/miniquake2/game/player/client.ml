@@ -10,6 +10,7 @@ import miniquake2.game.types as gtypes
 import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.qcommon.info as qinfo
 import miniquake2.qcommon.types as qtypes
+import std.math as gplayermath
 
 function copyPmoveState(state)
   return qtypes.PmoveState(state.moveType,
@@ -209,7 +210,8 @@ function ClientThink(context, player, command)
     else if player.deadFlag != gplayerconstants.DEAD_NO then player.edict.client.playerState.pmove.moveType = miniquake2.game.constants.PM_DEAD
     else player.edict.client.playerState.pmove.moveType = miniquake2.game.constants.PM_NORMAL
     end if
-    player.edict.client.playerState.pmove.gravity = context.gravity
+    player.edict.client.playerState.pmove.gravity = gplayermath.floor(
+      context.gravity * player.gravity)
     pmove.state = copyPmoveState(player.edict.client.playerState.pmove)
     pmove.state.origin = [qbyteio.truncInt(player.edict.state.origin.x * 8.0), qbyteio.truncInt(player.edict.state.origin.y * 8.0), qbyteio.truncInt(player.edict.state.origin.z * 8.0)]
     pmove.state.velocity = [qbyteio.truncInt(player.velocity[0] * 8.0), qbyteio.truncInt(player.velocity[1] * 8.0), qbyteio.truncInt(player.velocity[2] * 8.0)]

@@ -82,6 +82,7 @@ struct WorldEntity
   health
   maxHealth
   mass
+  gravity
   count
   volume
   attenuation
@@ -112,6 +113,8 @@ struct WorldEntity
   gibHealth
   clipMask
   aiFlags
+  oldVelocity
+  flySoundDebounceTime
 end struct
 
 struct WorldCallbacks
@@ -141,6 +144,8 @@ struct WorldCallbacks
   laserSparks
   earthquake
   fireBlaster
+  targetExplosion
+  targetSplash
 end struct
 
 struct WorldState
@@ -227,13 +232,13 @@ function createEntity(number, className)
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0, 0, 0, 0, 0, 1.0, 1.0,
+    0, 0, 0, 0, 0.0, 0, 1.0, 1.0,
     gwconstants.DAMAGE_NO, false,
     void, void, void, void, void,
     void, void, void, void, void,
     0.0, 0.0, 0.0, zeroMoveInfo(),
     0.0, 0.0, 0.0,
     "", "", void, void, void,
-    0, 0, 0
+    0, 0, 0, qt.zeroVec3(), 0.0
   )
 end function

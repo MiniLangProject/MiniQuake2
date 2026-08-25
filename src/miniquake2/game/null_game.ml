@@ -22,6 +22,7 @@ import miniquake2.game.gameplay.types as nggtypes
 import miniquake2.game.gameplay.item_rules as nggpitems
 import miniquake2.game.gameplay.combat as ngcombat
 import miniquake2.game.gameplay.powerups as ngpowerups
+import miniquake2.game.weapons.constants as ngweaponconstants
 import miniquake2.game.player.types as ngplayertypes
 import miniquake2.game.player.userinfo as ngplayerinfo
 import miniquake2.game.player.spawn as ngplayerspawn
@@ -109,6 +110,25 @@ function baseWorldAreaPortal(style, isOpen)
   return activeImports.setAreaPortalState(style, isOpen)
 end function
 
+function baseWorldTargetExplosion(origin)
+  global activeImports
+  activeImports.writeByte(qc.SVC_TEMP_ENTITY)
+  activeImports.writeByte(ngweaponconstants.TE_EXPLOSION1)
+  activeImports.writePosition(origin)
+  return activeImports.multicast(origin, gc.MULTICAST_PHS)
+end function
+
+function baseWorldTargetSplash(origin, direction, count, sounds)
+  global activeImports
+  activeImports.writeByte(qc.SVC_TEMP_ENTITY)
+  activeImports.writeByte(ngweaponconstants.TE_SPLASH)
+  activeImports.writeByte(count)
+  activeImports.writePosition(origin)
+  activeImports.writeDirection(direction)
+  activeImports.writeByte(sounds)
+  return activeImports.multicast(origin, gc.MULTICAST_PVS)
+end function
+
 function baseWorldChangeLevel(entity, mapName)
   global activePlayerContext, currentMap
   if activePlayerContext is void or typeof(mapName) != "string" or mapName == "" then return false end if
@@ -124,9 +144,21 @@ function baseWorldChangeLevel(entity, mapName)
 end function
 
 function baseWorldLink(entity)
-  global activeImports
+  global activeImports, activeExport
+  if activeExport is void or entity.number < 0 or
+      entity.number >= activeExport.maxEdicts then return false end if
+  ngLinkExportHolder = activeExport
+  if entity.number >= ngLinkExportHolder.numEdicts then
+    nextNumber = ngLinkExportHolder.numEdicts
+    while nextNumber <= entity.number
+      ngLinkExportHolder.edicts[nextNumber] = gt.zeroEdict(nextNumber)
+      nextNumber = nextNumber + 1
+    end while
+    ngLinkExportHolder.numEdicts = entity.number + 1
+  end if
   ngLinkTargetHolder = runtimeEdict(entity.number)
   if ngLinkTargetHolder is void then return false end if
+  ngLinkTargetHolder.inUse = entity.inUse
   ngLinkStateHolder = ngLinkTargetHolder.state
   ngLinkOriginHolder = entity.origin
   ngLinkAnglesHolder = entity.angles
@@ -216,6 +248,8 @@ function configureIntegratedRuntime(runtime, playerContext)
   runtime.world.callbacks.radiusDamage = ngbaseq2.integratedWorldRadiusDamage
   runtime.world.callbacks.changeLevel = baseWorldChangeLevel
   runtime.world.callbacks.linkEntity = baseWorldLink
+  runtime.world.callbacks.targetExplosion = baseWorldTargetExplosion
+  runtime.world.callbacks.targetSplash = baseWorldTargetSplash
   runtime.aiContext.visible = ngbaseq2.aiVisible
   runtime.aiContext.clearShot = ngbaseq2.aiClearShot
   runtime.aiContext.inPHS = ngbaseq2.aiInPHS
@@ -977,6 +1011,18 @@ function giveItems(player, context, arguments)
   return action.success
 end function
 
+function executeItemDrop(slot, player, context, item)
+  global activeBaseRuntime, activeImports
+  action = ngbaseq2.dropPlayerItem(activeBaseRuntime, player, context, item)
+  if action is error then return action end if
+  if not action.success and
+      (action.reason == "cannot drop current weapon" or
+       action.reason == "cannot drop current grenade weapon") then
+    activeImports.cprintf(slot, qc.PRINT_HIGH, "Can't drop current weapon\n")
+  end if
+  return action.success
+end function
+
 function ClientCommand(entity)
   global activeImports, activeExport, activePlayerContext, clientCommandCount
   slot = checkedClientEdict(entity, "ClientCommand")
@@ -1060,6 +1106,23 @@ function ClientCommand(entity)
     end if
     return true
   end if
+  if command == "drop" then
+    dropName = activeImports.args()
+    dropItem = nggpitems.findByPickupName(activePlayerContext.registry,
+      dropName)
+    if dropItem is void then
+      activeImports.cprintf(slot, qc.PRINT_HIGH,
+        "unknown item: " + dropName + "\n")
+    else if dropItem.drop is void then
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "Item is not dropable.\n")
+    else if player.gameplay.inventory.counts[dropItem.index] <= 0 then
+      activeImports.cprintf(slot, qc.PRINT_HIGH,
+        "Out of item: " + dropName + "\n")
+    else
+      executeItemDrop(slot, player, activePlayerContext, dropItem)
+    end if
+    return true
+  end if
   if command == "weapprev" then
     ngplayercommands.weaponPrevious(player, activePlayerContext.registry)
     return true
@@ -1108,6 +1171,21 @@ function ClientCommand(entity)
   if command == "invuse" then
     if not ngplayercommands.useSelectedItem(player, activePlayerContext) then
       activeImports.cprintf(slot, qc.PRINT_HIGH, "No item to use.\n")
+    end if
+    return true
+  end if
+  if command == "invdrop" then
+    if not ngplayercommands.validateSelectedItem(player,
+        activePlayerContext.registry) then
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "No item to drop.\n")
+    else
+      selectedDrop = nggpitems.getByIndex(activePlayerContext.registry,
+        player.gameplay.inventory.selectedItem)
+      if selectedDrop is void or selectedDrop.drop is void then
+        activeImports.cprintf(slot, qc.PRINT_HIGH, "Item is not dropable.\n")
+      else
+        executeItemDrop(slot, player, activePlayerContext, selectedDrop)
+      end if
     end if
     return true
   end if

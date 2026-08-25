@@ -85,9 +85,9 @@ soundLoopAssert(handoff.sounds[1].entity == 1 and handoff.sounds[1].channel == n
 soundLoopAssert(handoff.sounds[1].position.x == 16.0 and handoff.sounds[1].position.y == 24.0 and
   handoff.sounds[1].position.z == 32.0 and handoff.sounds[1].timeOffset == 0.025,
   "positioned sound optional fields mismatch")
-soundLoopAssert(len(mixer.channels) == 2 and
+soundLoopAssert(len(mixer.channels) == 1 and len(mixer.pendingSounds) == 1 and
   mixer.channels[0].sound.name == "weapons/loop.wav" and
-  mixer.channels[1].sound.name == "weapons/loop.wav",
+  mixer.pendingSounds[0].sound.name == "weapons/loop.wav",
   "integrated sound resolver did not reach mixer callbacks")
 soundLoopAssert(session.server.bridgeRuntime.pendingSoundCount == 0,
   "delivered server sound queue was not drained")

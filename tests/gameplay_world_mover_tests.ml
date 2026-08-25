@@ -3,11 +3,13 @@ import miniquake2.qcommon.types as qt
 import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.movers as gwmovers
+import miniquake2.game.world.triggers as gwtriggers
 
 portalEvents = []
 damageEvents = []
 effectEvents = []
 soundEvents = []
+centerEvents = []
 killBoxCount = 0
 
 function assertEqual(actual, expected, name)
@@ -47,6 +49,11 @@ function recordSound(entity, soundName)
   soundEvents = soundEvents + [soundName]
   return true
 end function
+function recordCenter(entity, message)
+  global centerEvents
+  centerEvents = centerEvents + [message]
+  return true
+end function
 function recordKillBox(entity)
   global killBoxCount
   killBoxCount = killBoxCount + 1
@@ -58,11 +65,13 @@ function makeWorld()
   global damageEvents
   global effectEvents
   global soundEvents
+  global centerEvents
   global killBoxCount
   portalEvents = []
   damageEvents = []
   effectEvents = []
   soundEvents = []
+  centerEvents = []
   killBoxCount = 0
   callbacks = gwcore.defaultCallbacks()
   callbacks.areaPortal = recordPortal
@@ -70,8 +79,239 @@ function makeWorld()
   callbacks.radiusDamage = recordRadius
   callbacks.effect = recordEffect
   callbacks.sound = recordSound
+  callbacks.centerPrint = recordCenter
   callbacks.killBox = recordKillBox
   return gwcore.createWorld(callbacks)
+end function
+
+function testTriggerCounterAndHurtParity()
+  global centerEvents
+  global soundEvents
+  global damageEvents
+
+  world = makeWorld()
+  activator = gwcore.spawnEntity(world, "player")
+  activator.isClient = true
+  counter = gwcore.spawnEntity(world, "trigger_counter")
+  counter.count = 2
+  gwtriggers.spawnCounter(counter, world)
+  gwcore.useEntity(world, counter, counter, activator)
+  assertEqual(centerEvents[0], "1 more to go...", "counter remaining message")
+  assertEqual(soundEvents[0], "misc/talk1.wav", "counter remaining sound")
+  assertEqual(counter.message, "", "counter does not overwrite mapper message")
+  gwcore.useEntity(world, counter, counter, activator)
+  assertEqual(centerEvents[1], "Sequence completed!", "counter completion message")
+  assertEqual(soundEvents[1], "misc/talk1.wav", "counter completion sound")
+
+  world = makeWorld()
+  activator = gwcore.spawnEntity(world, "player")
+  activator.isClient = true
+  silentCounter = gwcore.spawnEntity(world, "trigger_counter")
+  silentCounter.spawnFlags = 1
+  silentCounter.count = 2
+  gwtriggers.spawnCounter(silentCounter, world)
+  gwcore.useEntity(world, silentCounter, silentCounter, activator)
+  gwcore.useEntity(world, silentCounter, silentCounter, activator)
+  assertEqual(len(centerEvents), 0, "counter nomessage suppresses centerprint")
+  assertEqual(len(soundEvents), 0, "counter nomessage suppresses talk sound")
+
+  world = makeWorld()
+  hurt = gwcore.spawnEntity(world, "trigger_hurt")
+  gwtriggers.spawnHurt(hurt, world)
+  inert = gwcore.spawnEntity(world, "inert")
+  hurt.touch(hurt, inert, world)
+  assertEqual(len(damageEvents), 0, "trigger_hurt ignores non-damageable entity")
+  victim = gwcore.spawnEntity(world, "victim")
+  victim.takeDamage = gwconstants.DAMAGE_YES
+  hurt.touch(hurt, victim, world)
+  assertEqual(len(damageEvents), 1, "trigger_hurt damages damageable entity")
+  assertEqual(damageEvents[0][1], 5, "trigger_hurt default damage")
+
+  startOff = gwcore.spawnEntity(world, "trigger_hurt")
+  startOff.spawnFlags = 1
+  gwtriggers.spawnHurt(startOff, world)
+  assertEqual(startOff.solid, gwconstants.SOLID_NOT, "start-off hurt starts disabled")
+  assertEqual(startOff.use is void, true, "start-off hurt without toggle cannot be enabled")
+
+  toggle = gwcore.spawnEntity(world, "trigger_hurt")
+  toggle.spawnFlags = 3
+  gwtriggers.spawnHurt(toggle, world)
+  assertEqual(toggle.use is void, false, "toggle hurt installs use callback")
+  gwcore.useEntity(world, toggle, activator, activator)
+  assertEqual(toggle.solid, gwconstants.SOLID_TRIGGER, "toggle hurt enables")
+  assertEqual(toggle.use is void, false, "toggle hurt keeps use callback")
+  return true
+end function
+
+function testTriggerMessageSounds()
+  global soundEvents
+  world = makeWorld()
+  activator = gwcore.spawnEntity(world, "player")
+  activator.isClient = true
+
+  trigger = gwcore.spawnEntity(world, "trigger_multiple")
+  trigger.message = "A secret is revealed."
+  trigger.sounds = 1
+  gwtriggers.spawnMultiple(trigger, world)
+  gwcore.useEntity(world, trigger, trigger, activator)
+  assertEqual(trigger.noise, "misc/secret.wav", "trigger secret sound selection")
+  assertEqual(soundEvents[0], "misc/secret.wav", "trigger message uses selected sound")
+
+  trigger2 = gwcore.spawnEntity(world, "trigger_multiple")
+  trigger2.sounds = 2
+  gwtriggers.spawnMultiple(trigger2, world)
+  assertEqual(trigger2.noise, "misc/talk.wav", "trigger talk sound selection")
+  trigger3 = gwcore.spawnEntity(world, "trigger_multiple")
+  trigger3.sounds = 3
+  gwtriggers.spawnMultiple(trigger3, world)
+  assertEqual(trigger3.noise, "misc/trigger1.wav", "trigger switch sound selection")
+  return true
+end function
+
+function findClass(world, className)
+  for each entity in world.entities
+    if entity.inUse and entity.className == className then return entity end if
+  end for
+  return void
+end function
+
+function testStockTriggerParityGaps()
+  global damageEvents
+  global soundEvents
+
+  world = makeWorld()
+  hurt = gwcore.spawnEntity(world, "trigger_hurt")
+  hurt.spawnFlags = 8
+  gwtriggers.spawnHurt(hurt, world)
+  victim = gwcore.spawnEntity(world, "victim")
+  victim.takeDamage = gwconstants.DAMAGE_YES
+  gwcore.touchEntity(world, hurt, victim)
+  assertEqual(soundEvents[0], "world/electro.wav", "hurt stock electrical sound")
+  assertEqual(damageEvents[0][2], gwconstants.MOD_TRIGGER_HURT_NO_PROTECTION,
+    "hurt no-protection damage path")
+
+  silent = gwcore.spawnEntity(world, "trigger_hurt")
+  silent.spawnFlags = 4
+  gwtriggers.spawnHurt(silent, world)
+  gwcore.touchEntity(world, silent, victim)
+  assertEqual(len(soundEvents), 1, "silent hurt suppresses electrical sound")
+  assertEqual(damageEvents[1][2], gwconstants.MOD_TRIGGER_HURT,
+    "regular hurt damage path")
+
+  world = makeWorld()
+  push = gwcore.spawnEntity(world, "trigger_push")
+  push.angles.y = 90.0
+  gwtriggers.spawnPush(push, world)
+  player = gwcore.spawnEntity(world, "player")
+  player.isClient = true
+  player.health = 100
+  gwcore.advance(world, 0.1)
+  gwcore.touchEntity(world, push, player)
+  assertNear(player.velocity.y, 10000.0, 0.1, "push stock velocity")
+  assertNear(player.oldVelocity.y, player.velocity.y, 0.000001,
+    "push copies client old velocity")
+  assertEqual(soundEvents[0], "misc/windfly.wav", "push stock wind sound")
+  gwcore.touchEntity(world, push, player)
+  assertEqual(len(soundEvents), 1, "push wind sound is debounced")
+
+  pushOnce = gwcore.spawnEntity(world, "trigger_push")
+  pushOnce.spawnFlags = gwconstants.PUSH_ONCE
+  gwtriggers.spawnPush(pushOnce, world)
+  inert = gwcore.spawnEntity(world, "inert")
+  gwcore.touchEntity(world, pushOnce, inert)
+  assertEqual(pushOnce.inUse, false, "push-once frees on every touch")
+
+  world = makeWorld()
+  missingGravity = gwcore.spawnEntity(world, "trigger_gravity")
+  assertEqual(gwtriggers.spawnGravity(missingGravity, world), false,
+    "gravity trigger without value is rejected")
+  assertEqual(missingGravity.inUse, false, "invalid gravity trigger freed")
+  gravity = gwcore.spawnEntity(world, "trigger_gravity")
+  gravity.gravity = 3.0
+  gwtriggers.spawnGravity(gravity, world)
+  actor = gwcore.spawnEntity(world, "actor")
+  gwcore.touchEntity(world, gravity, actor)
+  assertEqual(actor.gravity, 3.0, "gravity trigger updates touched entity")
+  return true
+end function
+
+function testConveyorParity()
+  world = makeWorld()
+  conveyor = gwcore.spawnEntity(world, "func_conveyor")
+  gwmovers.spawnConveyor(conveyor, world)
+  assertEqual(conveyor.speed, 0.0, "conveyor defaults off")
+  assertEqual(conveyor.count, 100.0, "conveyor remembers stock speed")
+  gwcore.useEntity(world, conveyor, conveyor, conveyor)
+  assertEqual(conveyor.speed, 100.0, "conveyor switches on")
+  assertEqual(conveyor.count, 0, "non-toggle conveyor consumes stored speed")
+  gwcore.useEntity(world, conveyor, conveyor, conveyor)
+  gwcore.useEntity(world, conveyor, conveyor, conveyor)
+  assertEqual(conveyor.speed, 0, "non-toggle conveyor cannot restart")
+
+  toggle = gwcore.spawnEntity(world, "func_conveyor")
+  toggle.spawnFlags = 2
+  toggle.speed = 250.0
+  gwmovers.spawnConveyor(toggle, world)
+  gwcore.useEntity(world, toggle, toggle, toggle)
+  gwcore.useEntity(world, toggle, toggle, toggle)
+  gwcore.useEntity(world, toggle, toggle, toggle)
+  assertEqual(toggle.speed, 250.0, "toggle conveyor retains restart speed")
+  return true
+end function
+
+function testAutomaticDoorAndPlatTriggers()
+  world = makeWorld()
+  door = gwcore.spawnEntity(world, "func_door")
+  door.size = qt.Vec3(32.0, 16.0, 24.0)
+  door.absoluteMins = qt.Vec3(10.0, 20.0, 30.0)
+  door.absoluteMaxs = qt.Vec3(42.0, 36.0, 54.0)
+  gwmovers.spawnDoor(door, world)
+  gwcore.advance(world, world.frameTime)
+  doorTrigger = findClass(world, "door_trigger")
+  assertEqual(doorTrigger is void, false, "untargeted door creates touch field")
+  assertNear(doorTrigger.mins.x, -50.0, 0.000001, "door trigger expands minimum x")
+  assertNear(doorTrigger.maxs.y, 96.0, 0.000001, "door trigger expands maximum y")
+  player = gwcore.spawnEntity(world, "player")
+  player.isClient = true
+  player.health = 100
+  gwcore.touchEntity(world, doorTrigger, player)
+  assertEqual(door.moveInfo.state, gwconstants.STATE_UP, "door trigger opens owner")
+
+  world = makeWorld()
+  noMonsterDoor = gwcore.spawnEntity(world, "func_door")
+  noMonsterDoor.size = qt.Vec3(32.0, 16.0, 24.0)
+  noMonsterDoor.absoluteMaxs = qt.Vec3(32.0, 16.0, 24.0)
+  noMonsterDoor.spawnFlags = gwconstants.DOOR_NOMONSTER
+  gwmovers.spawnDoor(noMonsterDoor, world)
+  gwcore.advance(world, world.frameTime)
+  doorTrigger = findClass(world, "door_trigger")
+  monster = gwcore.spawnEntity(world, "monster")
+  monster.serverFlags = gwconstants.SVF_MONSTER
+  monster.health = 100
+  gwcore.touchEntity(world, doorTrigger, monster)
+  assertEqual(noMonsterDoor.moveInfo.state, gwconstants.STATE_BOTTOM,
+    "no-monster door rejects monster touch")
+
+  world = makeWorld()
+  plat = gwcore.spawnEntity(world, "func_plat")
+  plat.origin = qt.Vec3(0.0, 0.0, 64.0)
+  plat.mins = qt.Vec3(-32.0, -32.0, 0.0)
+  plat.maxs = qt.Vec3(32.0, 32.0, 16.0)
+  plat.height = 32.0
+  plat.spawnFlags = gwconstants.PLAT_LOW_TRIGGER
+  gwmovers.spawnPlat(plat, world)
+  gwcore.advance(world, world.frameTime)
+  platTrigger = findClass(world, "plat_trigger")
+  assertEqual(platTrigger is void, false, "plat creates inside trigger")
+  assertNear(platTrigger.mins.x, -7.0, 0.000001, "plat trigger horizontal inset")
+  assertNear(platTrigger.maxs.z - platTrigger.mins.z, 8.0, 0.000001,
+    "plat low-trigger height")
+  player = gwcore.spawnEntity(world, "player")
+  player.isClient = true
+  player.health = 100
+  gwcore.touchEntity(world, platTrigger, player)
+  assertEqual(plat.moveInfo.state, gwconstants.STATE_UP, "plat trigger raises platform")
+  return true
 end function
 
 function movementFinished(entity, world)
@@ -132,6 +372,8 @@ function testButton()
 end function
 
 function testDoorAndPortal()
+  global centerEvents
+  global soundEvents
   world = makeWorld()
   portal = gwcore.spawnEntity(world, "func_areaportal")
   portal.targetName = "door-chain"
@@ -166,6 +408,92 @@ function testDoorAndPortal()
   gwcore.useEntity(world, toggle, receiver, receiver)
   gwcore.advance(world, world.time + 0.3)
   assertEqual(toggle.moveInfo.state, gwconstants.STATE_BOTTOM, "toggle closes on use")
+
+  messageDoor = gwcore.spawnEntity(world, "func_door")
+  messageDoor.size = qt.Vec3(18.0, 8.0, 8.0)
+  messageDoor.targetName = "remote-door"
+  messageDoor.message = "Remote switch required."
+  gwmovers.spawnDoor(messageDoor, world)
+  visitor = gwcore.spawnEntity(world, "player")
+  visitor.isClient = true
+  visitor.health = 100
+  gwcore.touchEntity(world, messageDoor, visitor)
+  assertEqual(centerEvents[len(centerEvents) - 1], "Remote switch required.",
+    "targeted door touch message")
+  assertEqual(soundEvents[len(soundEvents) - 1], "misc/talk1.wav",
+    "targeted door touch sound")
+  gwcore.useEntity(world, messageDoor, visitor, visitor)
+  assertEqual(messageDoor.touch is void, true, "used door clears touch message")
+
+  master = gwcore.spawnEntity(world, "func_door")
+  master.size = qt.Vec3(108.0, 8.0, 8.0)
+  gwmovers.spawnDoor(master, world)
+  slave = gwcore.spawnEntity(world, "func_door")
+  slave.size = qt.Vec3(58.0, 8.0, 8.0)
+  gwmovers.spawnDoor(slave, world)
+  master.teamChain = slave
+  slave.teamMaster = master
+  slave.flags = slave.flags | gwconstants.FL_TEAMSLAVE
+  gwcore.advance(world, world.time + world.frameTime)
+  assertNear(master.moveInfo.speed, 200.0, 0.000001,
+    "long door team member synchronized speed")
+  assertNear(slave.moveInfo.speed, 100.0, 0.000001,
+    "short door team member synchronized speed")
+
+  startOpenRotating = gwcore.spawnEntity(world, "func_door_rotating")
+  startOpenRotating.spawnFlags = gwconstants.DOOR_START_OPEN
+  startOpenRotating.moveInfo.distance = 90.0
+  gwmovers.spawnRotatingDoor(startOpenRotating, world)
+  assertNear(startOpenRotating.angles.y, 90.0, 0.000001,
+    "start-open rotating door initial angle")
+  assertNear(startOpenRotating.moveInfo.endAngles.y, 0.0, 0.000001,
+    "start-open rotating door closed angle")
+
+  rotatingMaster = gwcore.spawnEntity(world, "func_door_rotating")
+  rotatingMaster.moveInfo.distance = 90.0
+  rotatingMaster.spawnFlags = gwconstants.DOOR_TOGGLE
+  rotatingMaster.target = "door-chain"
+  gwmovers.spawnRotatingDoor(rotatingMaster, world)
+  rotatingSlave = gwcore.spawnEntity(world, "func_door_rotating")
+  rotatingSlave.moveInfo.distance = 45.0
+  rotatingSlave.spawnFlags = gwconstants.DOOR_TOGGLE
+  gwmovers.spawnRotatingDoor(rotatingSlave, world)
+  rotatingMaster.teamChain = rotatingSlave
+  rotatingSlave.teamMaster = rotatingMaster
+  rotatingSlave.flags = rotatingSlave.flags | gwconstants.FL_TEAMSLAVE
+  gwcore.advance(world, world.time + world.frameTime)
+  assertNear(rotatingMaster.moveInfo.speed, 200.0, 0.000001,
+    "rotating door team synchronized speed")
+  gwcore.useEntity(world, rotatingMaster, visitor, visitor)
+  assertEqual(rotatingMaster.moveInfo.state, gwconstants.STATE_UP,
+    "rotating team master opens")
+  assertEqual(rotatingSlave.moveInfo.state, gwconstants.STATE_UP,
+    "rotating team slave opens")
+  assertEqual(receiver.count, 2, "rotating door fires targets on opening")
+  assertEqual(portalEvents[len(portalEvents) - 1][1], true,
+    "rotating door opens area portal")
+  gwcore.advance(world, world.time + 0.5)
+  assertEqual(rotatingMaster.moveInfo.state, gwconstants.STATE_TOP,
+    "rotating team master reaches top")
+  assertEqual(rotatingSlave.moveInfo.state, gwconstants.STATE_TOP,
+    "rotating team slave reaches top")
+  gwcore.useEntity(world, rotatingMaster, visitor, visitor)
+  gwcore.advance(world, world.time + 0.5)
+  assertEqual(rotatingMaster.moveInfo.state, gwconstants.STATE_BOTTOM,
+    "rotating team master closes")
+  assertEqual(rotatingSlave.moveInfo.state, gwconstants.STATE_BOTTOM,
+    "rotating team slave closes")
+  assertEqual(portalEvents[len(portalEvents) - 1][1], false,
+    "rotating door closes area portal")
+
+  shootDoor = gwcore.spawnEntity(world, "func_door_rotating")
+  shootDoor.health = 10
+  gwmovers.spawnRotatingDoor(shootDoor, world)
+  assertEqual(shootDoor.takeDamage, gwconstants.DAMAGE_YES,
+    "shootable rotating door takes damage")
+  gwcore.killEntity(world, shootDoor, visitor, visitor, 10, qt.zeroVec3())
+  assertEqual(shootDoor.moveInfo.state, gwconstants.STATE_UP,
+    "shot rotating door opens")
   return true
 end function
 
@@ -231,6 +559,7 @@ function testPlatAndTrain()
   plat.height = 20.0
   gwmovers.spawnPlat(plat, world)
   assertEqual(plat.moveInfo.state, gwconstants.STATE_UP, "targeted plat starts top")
+  gwcore.advance(world, world.frameTime)
   gwcore.useEntity(world, plat, plat, plat)
   gwcore.advance(world, 5.0)
   assertEqual(plat.moveInfo.state, gwconstants.STATE_BOTTOM, "plat reaches bottom")
@@ -337,6 +666,11 @@ function testRepeatedLinearAndRotatingMoverMaps()
 end function
 
 function main(args)
+  testTriggerCounterAndHurtParity()
+  testTriggerMessageSounds()
+  testStockTriggerParityGaps()
+  testConveyorParity()
+  testAutomaticDoorAndPlatTriggers()
   testLinearAndAcceleratedMove()
   testButton()
   testDoorAndPortal()

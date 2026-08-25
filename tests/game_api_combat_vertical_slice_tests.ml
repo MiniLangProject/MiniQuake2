@@ -111,7 +111,13 @@ function testPlayerHitscanWeapon()
   api = session[1]; client = session[2]
   player = cvgameapi.playerContext().players[0]
   runtime = cvgameapi.baseRuntime()
-  pickup = cvintegration.touchItem(runtime, cvintegration.findItemByClass(runtime, "weapon_machinegun"), player, cvgameapi.playerContext())
+  machinegun = cvintegration.findItemByClass(runtime, "weapon_machinegun")
+  assertTrue(machinegun.spawnPending, "map item starts in deferred droptofloor")
+  runFrames(api, 2)
+  assertEqual(machinegun.edict.solid, cvgconstants.SOLID_TRIGGER,
+    "map item completes stock droptofloor")
+  pickup = cvintegration.touchItem(runtime, machinegun, player,
+    cvgameapi.playerContext())
   assertTrue(pickup.success, "machinegun pickup")
   runFrames(api, 13)
   assertEqual(player.gameplay.currentWeapon.className, "weapon_machinegun", "machinegun selected")

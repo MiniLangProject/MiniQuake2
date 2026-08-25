@@ -177,7 +177,7 @@ function defaultRegistry()
   end for
   worldClasses = [
     "trigger_multiple", "trigger_relay", "trigger_always",
-    "func_button", "func_plat", "func_train", "func_timer", "func_explosive",
+    "func_button", "func_plat", "func_train", "func_timer", "func_conveyor", "func_explosive",
     "target_temp_entity", "target_help", "target_secret", "target_goal",
     "target_explosion", "target_changelevel", "target_splash", "target_spawner",
     "target_blaster", "target_crosslevel_trigger", "target_crosslevel_target",
@@ -203,7 +203,7 @@ function defaultRegistry()
     "misc_insane", "misc_satellite_dish", "misc_teleporter", "misc_teleporter_dest",
     "misc_viper", "misc_viper_bomb", "monster_boss3_stand", "monster_commander_body",
     "target_actor", "target_character", "target_earthquake", "target_laser", "target_lightramp", "target_string",
-    "trigger_counter", "trigger_elevator", "trigger_hurt", "trigger_key", "trigger_monsterjump", "trigger_push",
+    "trigger_counter", "trigger_elevator", "trigger_gravity", "trigger_hurt", "trigger_key", "trigger_monsterjump", "trigger_push",
     "turret_driver",
   ]
   for each className in campaignClasses

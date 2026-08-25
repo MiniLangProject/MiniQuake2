@@ -4,6 +4,9 @@ package miniquake2.audio.mixer
 import std.math as ammath
 import miniquake2.qcommon.byteio as ambio
 
+const MAX_CHANNELS = 32
+const MAX_PLAYSOUNDS = 128
+
 struct Channel
   sound
   entityNumber
@@ -15,18 +18,33 @@ struct Channel
   active
   looping
   autoSound
+  spatialized
+  masterVolume
+  distanceMultiplier
+  fixedOrigin
+  origin
 end struct
 
 struct Mixer
   sampleRate
   channels
+  pendingSounds
   paintedFrames
   masterVolume
+  listenerEntityNumber
 end struct
 
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
-  return Mixer(sampleRate, [], 0, 1.0)
+  return Mixer(sampleRate, [], [], 0, 1.0, -1)
+end function
+
+function setListenerEntity(mixer, number)
+  if mixer is void or typeof(number) != "int" or number < 1 then
+    return error(2959, "mixer listener entity must be positive")
+  end if
+  mixer.listenerEntityNumber = number
+  return number
 end function
 
 function setMasterVolume(mixer, value)
@@ -51,28 +69,143 @@ function inline sampleAt(sound, frame, channel)
   return ambio.i16(sound.pcm, sampleIndex * 2)
 end function
 
+function inline channelLifeLeft(mixer, channel)
+  waiting = channel.startFrame - mixer.paintedFrames
+  if waiting < 0 then waiting = 0 end if
+  remaining = channel.sound.sampleCount - channel.sourceFrame
+  if remaining < 0.0 then remaining = 0.0 end if
+  return waiting + ambio.truncInt(remaining * mixer.sampleRate /
+    (channel.sound.sampleRate * 1.0))
+end function
+
+// S_PickChannel: explicit entity channels override themselves; otherwise the
+// shortest-lived channel is replaced. A non-player sound may never evict a
+// live channel owned by the view entity.
+function pickChannelSlot(mixer, entityNumber, entityChannel)
+  if entityChannel != 0 then
+    index = 0
+    while index < len(mixer.channels)
+      channel = mixer.channels[index]
+      if channel.active and channel.entityNumber == entityNumber and
+          channel.entityChannel == entityChannel then return index end if
+      index = index + 1
+    end while
+  end if
+  index = 0
+  while index < len(mixer.channels)
+    if not mixer.channels[index].active then return index end if
+    index = index + 1
+  end while
+  if len(mixer.channels) < MAX_CHANNELS then return len(mixer.channels) end if
+
+  selected = -1
+  shortest = 0x7fffffff
+  index = 0
+  while index < len(mixer.channels)
+    channel = mixer.channels[index]
+    protectedPlayer = channel.entityNumber == mixer.listenerEntityNumber and
+      entityNumber != mixer.listenerEntityNumber
+    if not protectedPlayer then
+      lifeLeft = channelLifeLeft(mixer, channel)
+      if lifeLeft < shortest then
+        shortest = lifeLeft
+        selected = index
+      end if
+    end if
+    index = index + 1
+  end while
+  return selected
+end function
+
 function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, rightVolume)
   if leftVolume < 0 or leftVolume > 255 or rightVolume < 0 or rightVolume > 255 then return error(2956, "channel volume outside [0,255]") end if
-  if entityChannel != 0 then
-    for each oldChannel in mixer.channels
-      if oldChannel.active and oldChannel.entityNumber == entityNumber and oldChannel.entityChannel == entityChannel then oldChannel.active = false end if
-    end for
-  end if
+  slot = pickChannelSlot(mixer, entityNumber, entityChannel)
+  if slot < 0 then return void end if
   channel = Channel(sound, entityNumber, entityChannel, 0.0,
-    mixer.paintedFrames, leftVolume, rightVolume, true, false, false)
+    mixer.paintedFrames, leftVolume, rightVolume, true, false, false,
+    false, 255.0, 0.0, false, void)
   // Reuse a finished slot. Sound events are frequent during combat and an
   // append-only channel array would otherwise retain and scan every expired
   // sound for the rest of the map.
-  channelIndex = 0
-  while channelIndex < len(mixer.channels)
-    if not mixer.channels[channelIndex].active then
-      mixer.channels[channelIndex] = channel
-      return channel
-    end if
-    channelIndex = channelIndex + 1
-  end while
-  mixer.channels = mixer.channels + [channel]
+  if slot < len(mixer.channels) then mixer.channels[slot] = channel
+  else mixer.channels = mixer.channels + [channel]
+  end if
   return channel
+end function
+
+function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
+    rightVolume, startFrame)
+  if startFrame <= mixer.paintedFrames then
+    return startSound(mixer, sound, entityNumber, entityChannel, leftVolume,
+      rightVolume)
+  end if
+  if leftVolume < 0 or leftVolume > 255 or rightVolume < 0 or
+      rightVolume > 255 then
+    return error(2956, "channel volume outside [0,255]")
+  end if
+  if len(mixer.pendingSounds) >= MAX_PLAYSOUNDS then return void end if
+  channel = Channel(sound, entityNumber, entityChannel, 0.0, startFrame,
+    leftVolume, rightVolume, true, false, false, false, 255.0, 0.0,
+    false, void)
+  // Match S_StartSound's sorted pending list. New entries precede an existing
+  // entry with the same begin frame, which also preserves stock replacement
+  // order for equal-time sounds on the same entity channel.
+  pending = array(len(mixer.pendingSounds) + 1)
+  sourceIndex = 0
+  outputIndex = 0
+  inserted = false
+  while sourceIndex < len(mixer.pendingSounds)
+    if not inserted and mixer.pendingSounds[sourceIndex].startFrame >= startFrame then
+      pending[outputIndex] = channel
+      outputIndex = outputIndex + 1
+      inserted = true
+    end if
+    pending[outputIndex] = mixer.pendingSounds[sourceIndex]
+    outputIndex = outputIndex + 1
+    sourceIndex = sourceIndex + 1
+  end while
+  if not inserted then pending[outputIndex] = channel end if
+  mixer.pendingSounds = pending
+  return channel
+end function
+
+function issuePending(mixer, absoluteFrame)
+  due = false
+  for each pending in mixer.pendingSounds
+    if pending.startFrame <= absoluteFrame then due = true; break end if
+  end for
+  if not due then return 0 end if
+  remaining = array(len(mixer.pendingSounds))
+  remainingCount = 0
+  issued = 0
+  for each pending in mixer.pendingSounds
+    if pending.startFrame <= absoluteFrame then
+      slot = pickChannelSlot(mixer, pending.entityNumber,
+        pending.entityChannel)
+      if slot < 0 then pending.active = false
+      else
+        if slot < len(mixer.channels) then mixer.channels[slot] = pending
+        else mixer.channels = mixer.channels + [pending]
+        end if
+        issued = issued + 1
+      end if
+    else
+      remaining[remainingCount] = pending
+      remainingCount = remainingCount + 1
+    end if
+  end for
+  if remainingCount == 0 then mixer.pendingSounds = []
+  else if remainingCount == len(remaining) then mixer.pendingSounds = remaining
+  else
+    compact = array(remainingCount)
+    index = 0
+    while index < remainingCount
+      compact[index] = remaining[index]
+      index = index + 1
+    end while
+    mixer.pendingSounds = compact
+  end if
+  return issued
 end function
 
 function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin, masterVolume, attenuation)
@@ -115,12 +248,14 @@ function mix(mixer, frameCount)
   for each activeChannel in mixer.channels
     if activeChannel.active then hasActiveChannel = true; break end if
   end for
+  if len(mixer.pendingSounds) > 0 then hasActiveChannel = true end if
   if not hasActiveChannel then
     mixer.paintedFrames = mixer.paintedFrames + frameCount
     return output
   end if
   frameIndex = 0
   while frameIndex < frameCount
+    issuePending(mixer, mixer.paintedFrames + frameIndex)
     mixedLeft = 0
     mixedRight = 0
     for each channel in mixer.channels
@@ -167,6 +302,7 @@ end function
 
 function startAutoSound(mixer, sound, leftVolume, rightVolume)
   channel = startSound(mixer, sound, 0, 0, leftVolume, rightVolume)
+  if channel is void then return void end if
   channel.looping = true
   channel.autoSound = true
   if sound.sampleCount > 0 then
@@ -181,4 +317,8 @@ function stopAll(mixer)
   for each channel in mixer.channels
     channel.active = false
   end for
+  for each pending in mixer.pendingSounds
+    pending.active = false
+  end for
+  mixer.pendingSounds = []
 end function

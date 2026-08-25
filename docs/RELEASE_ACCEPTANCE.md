@@ -4,6 +4,28 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-25 Quake II 3.19 source-parity follow-up
+
+Four independent source audits compared the MiniLang game/world, monster,
+client/audio and server/network paths with the bundled Quake II 3.19 source.
+The resulting pass closes real runtime gaps rather than only extending the
+inventory: exact delayed item spawning/team selection/targets and dropped
+edicts, `TE_EXPLOSION1`/`TE_SPLASH`, automatic door/plat touch fields,
+conveyors and gravity/push/hurt triggers, monster environment/flies/
+trigger-spawn/Brain power armor, per-frame sound spatialization with stock
+channel arbitration and sexed sounds, and `SV_RateDrop` with userinfo rate
+clamping.
+
+Private-Save v16 now retains dynamic dropped items, pending map items,
+monster environment/power-armor state, world/player gravity and push sound/
+prediction debounce. New end-to-end Game-API coverage proves monster target
+activation, delayed trigger-spawn, KillBox publication, Brain absorption,
+player gravity/push handoff and dynamically allocated door-trigger edicts.
+The complete asset-free Release matrix contains 164 MiniLang test programs;
+the focused remainder matrix and final full build both compile and execute all
+applicable programs successfully. Retail-only tests remain explicit `SKIP`
+without an install root and are run separately against the user-owned data.
+
 ## 2026-08-24 planar MD2 shadow acceptance run
 
 The renderer now ports the Quake II 3.19 `GL_DrawAliasShadow` projection for

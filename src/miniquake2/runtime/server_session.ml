@@ -687,34 +687,41 @@ function sendSnapshots(session, now)
   while slot < runtime.server.maxClients
     client = runtime.server.clients[slot]
     if client.state == ssnc.CS_SPAWNED and client.channel is not void then
-      edict = session.gameExport.edicts[slot + 1]
-      entities = packetEntitiesForClient(session, edict)
-      // Netchan's MAX_MSGLEN includes its eight-byte server header.  Encoding
-      // into a 1400-byte payload buffer could therefore succeed only for
-      // transmit() to discard that unreliable tail.  Dense retail scenes can
-      // reach exactly that narrow 1393..1400-byte window and leave a freshly
-      // spawned client waiting forever for its first frame.
-      //
-      // Preserve entity-number order and trim only the tail until the complete
-      // frame fits.  Failed attempts cannot update frame history because
-      // writeFrameForClient commits history only after the final entity marker.
-      maximumPayload = sspc.MAX_MSGLEN - sspc.PACKET_HEADER_SERVER
-      entityCount = len(entities)
-      message = void
-      while entityCount >= 0 and message is void
-        selected = sssessionarray.slice(entities, 0, entityCount)
-        frame = sssnapshot.createFrame(session.frameNumber, areaBits(session, edict),
-          protocolPlayer(edict), selected)
-        candidate = ssqsz.alloc(maximumPayload)
-        encoded = try(ssserver.writeClientFrame(runtime.server, slot, frame,
-          runtime.baselines, candidate))
-        if encoded is not error then message = candidate
-        else entityCount = entityCount - 1
-        end if
-      end while
-      if message is void then return error(9978, "snapshot player state exceeds packet payload budget") end if
-      stats = sspump.sendServerPayload(runtime, session.socket, slot, now, ssqsz.dataSlice(message))
-      if typeof(stats) == "struct" then sent = sent + stats.sent end if
+      // SV_RateDrop runs before SV_SendClientDatagram, so a skipped frame
+      // neither mutates delta history nor resets the accumulated suppressCount.
+      droppedForRate = ssserver.rateDrop(runtime.server, slot, session.frameNumber)
+      if not droppedForRate then
+        edict = session.gameExport.edicts[slot + 1]
+        entities = packetEntitiesForClient(session, edict)
+        // Netchan's MAX_MSGLEN includes its eight-byte server header.  Encoding
+        // into a 1400-byte payload buffer could therefore succeed only for
+        // transmit() to discard that unreliable tail.  Dense retail scenes can
+        // reach exactly that narrow 1393..1400-byte window and leave a freshly
+        // spawned client waiting forever for its first frame.
+        //
+        // Preserve entity-number order and trim only the tail until the complete
+        // frame fits.  Failed attempts cannot update frame history because
+        // writeFrameForClient commits history only after the final entity marker.
+        maximumPayload = sspc.MAX_MSGLEN - sspc.PACKET_HEADER_SERVER
+        entityCount = len(entities)
+        message = void
+        while entityCount >= 0 and message is void
+          selected = sssessionarray.slice(entities, 0, entityCount)
+          frame = sssnapshot.createFrame(session.frameNumber, areaBits(session, edict),
+            protocolPlayer(edict), selected)
+          candidate = ssqsz.alloc(maximumPayload)
+          encoded = try(ssserver.writeClientFrame(runtime.server, slot, frame,
+            runtime.baselines, candidate))
+          if encoded is not error then message = candidate
+          else entityCount = entityCount - 1
+          end if
+        end while
+        if message is void then return error(9978, "snapshot player state exceeds packet payload budget") end if
+        payload = ssqsz.dataSlice(message)
+        stats = sspump.sendServerPayload(runtime, session.socket, slot, now, payload)
+        ssserver.recordClientMessage(runtime.server, slot, session.frameNumber, len(payload))
+        if typeof(stats) == "struct" then sent = sent + stats.sent end if
+      end if
     end if
     slot = slot + 1
   end while

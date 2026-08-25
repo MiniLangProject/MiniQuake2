@@ -9,6 +9,7 @@ package miniquake2.game.gameplay.types
 
 import miniquake2.game.gameplay.constants as gpconstants
 import miniquake2.game.types as gtypes
+import miniquake2.qcommon.types as gpqtypes
 
 struct WeaponFrames
   activateLast
@@ -104,6 +105,9 @@ struct ItemEntity
   owner
   decaying
   freed
+  velocity
+  worldTarget
+  spawnPending
 end struct
 
 struct PickupContext
@@ -215,7 +219,8 @@ end function
 function createItemEntity(number, item)
   edict = gtypes.zeroEdict(number)
   edict.inUse = true
-  return ItemEntity(edict, item, 0, 0, 0, 0.0, false, 0.0, void, false, false)
+  return ItemEntity(edict, item, 0, 0, 0, 0.0, false, 0.0, void, false, false,
+    gpqtypes.Vec3(0.0, 0.0, 0.0), void, false)
 end function
 
 function pickupContext(deathmatch, cooperative, dmFlags, time)

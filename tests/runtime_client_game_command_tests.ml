@@ -3,6 +3,8 @@ import miniquake2.qcommon.constants as gccqconstants
 import miniquake2.game.null_game as gccgame
 import miniquake2.game.gameplay.item_rules as gccitems
 import miniquake2.game.gameplay.constants as gccgameplayconstants
+import miniquake2.game.constants as gccgameconstants
+import miniquake2.game.integration.baseq2 as gccintegration
 import miniquake2.game.player.constants as gccplayerconstants
 import miniquake2.runtime.client_session as gccclient
 import miniquake2.runtime.play_session as gccplay
@@ -88,6 +90,48 @@ gccAssert(len(gccInventory) == gccqconstants.MAX_ITEMS and
 gccSend(gccSession, "invuse")
 gccAssert(gccPlayer.gameplay.inventory.counts[gccQuad.index] == 0,
   "invuse did not consume selected powerup")
+
+// Cmd_Drop_f creates the stock toss entity, changes inventory and prevents
+// the owner from immediately reclaiming it.  Once drop_make_touchable's
+// one-second deadline passes, the normal pickup path accepts it again.
+gccRuntime = gccgame.baseRuntime()
+gccPlayer.gameplay.inventory.counts[gccShells.index] = 20
+gccDropCountBefore = len(gccRuntime.items)
+gccSend(gccSession, "drop Shells")
+gccAssert(gccPlayer.gameplay.inventory.counts[gccShells.index] == 10 and
+  len(gccRuntime.items) == gccDropCountBefore + 1,
+  "drop command did not publish inventory/entity change")
+gccDroppedShells = gccRuntime.items[len(gccRuntime.items) - 1]
+gccAssert(gccDroppedShells.count == 10 and
+  (gccDroppedShells.spawnFlags & gccgameplayconstants.DROPPED_ITEM) != 0 and
+  gccDroppedShells.edict.state.modelIndex > 0 and
+  gccDroppedShells.edict.state.renderFx == gccgameconstants.RF_GLOW and
+  gccDroppedShells.velocity.z != 0.0,
+  "Drop_Item toss/model/render contract")
+gccOwnerPickup = gccintegration.touchItem(gccRuntime, gccDroppedShells,
+  gccPlayer, gccContext)
+gccAssert(not gccOwnerPickup.success and
+  gccOwnerPickup.reason == "drop owner immunity",
+  "drop_temp_touch did not reject owner")
+gccSavedCommandTime = gccContext.time
+gccContext.time = gccDroppedShells.nextThink
+gccOwnerPickup = gccintegration.touchItem(gccRuntime, gccDroppedShells,
+  gccPlayer, gccContext)
+gccContext.time = gccSavedCommandTime
+gccAssert(gccOwnerPickup.success and
+  gccPlayer.gameplay.inventory.counts[gccShells.index] == 20 and
+  not gccDroppedShells.edict.inUse,
+  "drop_make_touchable did not enable normal pickup")
+
+// Cmd_InvDrop_f uses the selected definition and validates the selection.
+gccPlayer.gameplay.inventory.counts[gccQuad.index] = 1
+gccPlayer.gameplay.inventory.selectedItem = gccQuad.index
+gccInvDropCountBefore = len(gccRuntime.items)
+gccSend(gccSession, "invdrop")
+gccAssert(gccPlayer.gameplay.inventory.counts[gccQuad.index] == 0 and
+  len(gccRuntime.items) == gccInvDropCountBefore + 1 and
+  gccRuntime.items[len(gccRuntime.items) - 1].item.index == gccQuad.index,
+  "invdrop did not drop the selected carried item")
 
 // Score/help produce real layouts and putaway clears every overlay.
 gccContext.deathmatch = true

@@ -214,6 +214,25 @@ function loadSoundAsset(state, index, name)
   return entry
 end function
 
+// S_RegisterSexedSound probes a model-specific file without treating absence
+// as a missing precache asset: failure is the normal path to the male alias.
+function loadOptionalSoundAsset(state, name)
+  existing = cached(state.namedSounds, name, state.generation)
+  if existing is not void then return existing end if
+  if not safeSoundName(name) then
+    return cartypes.AssetEntry("sound", -1, name, void, state.generation,
+      false, "unsafe-name")
+  end if
+  loaded = try(state.loaders.loadSound(name))
+  available = loaded is not error and loaded is not void and validSound(loaded)
+  reason = ""
+  if not available then reason = "optional-not-found"; loaded = void end if
+  entry = cartypes.AssetEntry("sound", -1, name, loaded, state.generation,
+    available, reason)
+  ignored = cacheNamed(state, "sound", entry)
+  return entry
+end function
+
 function loadSkinAsset(state, name)
   if typeof(name) != "string" or name == "" or not safeRegularName(name) then
     return noteMissing(state, "skin", -1, name, "unsafe-name")
@@ -568,6 +587,35 @@ function resolveSoundName(state, name)
   return entry.value
 end function
 
+function resolveSoundForEntity(state, entityNumber, soundIndex, soundName)
+  name = soundName
+  if name == "" and typeof(soundIndex) == "int" and soundIndex > 0 and
+      soundIndex < carqc.MAX_SOUNDS then
+    entry = state.soundEntries[soundIndex]
+    if entry is not void and entry.generation == state.generation then
+      name = entry.name
+    end if
+  end if
+  if typeof(name) != "string" or name == "" or bytes(name)[0] != 42 then
+    if soundName != "" then return resolveSoundName(state, soundName) end if
+    return resolveSoundIndex(state, soundIndex)
+  end if
+
+  modelName = "male"
+  slot = entityNumber - 1
+  if typeof(entityNumber) == "int" and slot >= 0 and slot < carqc.MAX_CLIENTS then
+    identity = clientIdentity(state.clientConfigStrings[slot])
+    modelName = identity[1]
+  end if
+  base = textSlice(name, 1, len(bytes(name)) - 1)
+  specific = loadOptionalSoundAsset(state,
+    "players/" + modelName + "/" + base)
+  if specific.available then return specific.value end if
+  fallback = loadSoundAsset(state, -1, "player/male/" + base)
+  if fallback.available then return fallback.value end if
+  return void
+end function
+
 function clientAssetBoundModelIndex(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
@@ -598,6 +646,12 @@ function clientAssetBoundSoundName(name)
   return resolveSoundName(state, name)
 end function
 
+function clientAssetBoundSoundEntity(entityNumber, soundIndex, soundName)
+  state = clientAssetBindingSlot.registry
+  if state is void then return void end if
+  return resolveSoundForEntity(state, entityNumber, soundIndex, soundName)
+end function
+
 function clientAssetBoundPlayerModel(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
@@ -621,6 +675,7 @@ function bindings(state)
   holder.registry = state
   return cartypes.ResolverBindings(clientAssetBoundModelIndex, clientAssetBoundModelName,
     clientAssetBoundSkinName, clientAssetBoundSoundIndex, clientAssetBoundSoundName,
+    clientAssetBoundSoundEntity,
     clientAssetBoundPlayerModel, clientAssetBoundPlayerSkin,
     clientAssetBoundPlayerWeapon)
 end function

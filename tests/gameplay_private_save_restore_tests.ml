@@ -4,6 +4,8 @@ import std.fs as privatesavedeletefs
 import miniquake2.server.game_bridge as privaterestorebridge
 import miniquake2.game.null_game as privaterestoregame
 import miniquake2.game.integration.baseq2 as privaterestoreintegration
+import miniquake2.game.gameplay.item_rules as privaterestoreitems
+import miniquake2.game.gameplay.constants as privaterestoreitemconstants
 import miniquake2.game.world.core as privaterestoreworld
 import miniquake2.game.ai.constants as privaterestoreaiconstants
 import miniquake2.qcommon.constants as privaterestoreqconstants
@@ -61,6 +63,9 @@ privaterestoreworld.useEntity(runtime.world, linearDoor, void, linearDoor)
 api.runFrame()
 savedDoorAngle = door.angles.y
 savedDoorState = door.moveInfo.state
+door.gravity = 0.25
+door.oldVelocity = privaterestoreqtypes.Vec3(7.0, 8.0, 9.0)
+door.flySoundDebounceTime = 4.5
 savedLinearDirectionX = linearDoor.moveInfo.direction.x
 savedLinearRemaining = linearDoor.moveInfo.remainingDistance
 runtime.world.totalSecrets = 4; runtime.world.foundSecrets = 3
@@ -85,6 +90,10 @@ monster.info.savedGoal[2] = 24.0
 monster.info.trailTime = 6.75; monster.idealYaw = 135.0
 monster.info.lefty = 1; monster.showHostile = 9.25
 monster.velocity = privaterestoreqtypes.Vec3(11.0, 12.0, 13.0)
+monster.airFinished = 14.5; monster.painDebounceTime = 15.5
+monster.damageDebounceTime = 16.5; monster.powerArmorTime = 17.5
+monster.powerArmorType = privaterestoreaiconstants.POWER_ARMOR_SCREEN
+monster.powerArmorPower = 23; monster.gravity = 0.75
 saveMedic = findPrivateSaveMonster(runtime, "monster_medic")
 savePatient = findPrivateSaveMonster(runtime, "monster_gunner")
 monster.enemy = runtime.aiPlayers[0]
@@ -106,6 +115,14 @@ runtime.randomState.seed = 305419896
 item = runtime.items[0]; item.hidden = true; item.nextThink = 12.5; item.count = 9
 player = context.players[0]; player.health = 73; player.maxHealth = 125; player.gameplay.inventory.counts[2] = 17
 player.powerups.quadFrame = 321; player.persistent.score = 6
+player.gravity = 0.5; player.flySoundDebounceTime = 6.25
+privateSaveShells = privaterestoreitems.findByPickupName(context.registry,
+  "Shells")
+player.gameplay.inventory.counts[privateSaveShells.index] = 20
+privateSaveDrop = privaterestoreintegration.dropPlayerItem(runtime, player,
+  context, privateSaveShells)
+restoreAssert(privateSaveDrop.success, "dynamic dropped-item save fixture")
+privateSaveDroppedNumber = privateSaveDrop.droppedEntity.edict.state.number
 api.writeLevel(savePath)
 
 door.angles.y = 999.0; door.moveInfo.state = 99
@@ -132,6 +149,11 @@ restoredLinearDoor = privaterestoreintegration.findWorldByClass(restoredRuntime,
 restoredTurretBreach = privaterestoreintegration.findWorldByClass(restoredRuntime, "turret_breach")
 restoredTurretDriver = privaterestoreintegration.findWorldByClass(restoredRuntime, "turret_driver")
 restoreAssert(restoredDoor.angles.y == savedDoorAngle and restoredDoor.moveInfo.state == savedDoorState, "mover transform/state restored")
+restoreAssert(restoredDoor.gravity == 0.25 and
+  restoredDoor.oldVelocity.x == 7.0 and restoredDoor.oldVelocity.y == 8.0 and
+  restoredDoor.oldVelocity.z == 9.0 and
+  restoredDoor.flySoundDebounceTime == 4.5,
+  "private v16 restores world gravity/push state")
 restoreAssert(restoredDoor.think is not void, "mid-move callback rebound")
 restoreAssert(typeof(restoredLinearDoor.moveInfo.direction) == "struct" and
   restoredLinearDoor.moveInfo.direction.x == savedLinearDirectionX and
@@ -177,6 +199,13 @@ restoreAssert((restoredMonster.info.aiFlags & privaterestoreaiconstants.AI_LOST_
   nativeRawValue(restoredMonster.goalEntity) == nativeRawValue(restoredMonster.enemy) and
   restoredMonster.moveTarget is not void and restoredMonster.moveTarget.className == "monster_gunner",
   "private v14 restores lost-sight pursuit and movement state")
+restoreAssert(restoredMonster.airFinished == 14.5 and
+  restoredMonster.painDebounceTime == 15.5 and
+  restoredMonster.damageDebounceTime == 16.5 and
+  restoredMonster.powerArmorTime == 17.5 and
+  restoredMonster.powerArmorType == privaterestoreaiconstants.POWER_ARMOR_SCREEN and
+  restoredMonster.powerArmorPower == 23 and restoredMonster.gravity == 0.75,
+  "private v16 restores monster environment/power-armor state")
 restoredMedic = findPrivateSaveMonster(restoredRuntime, "monster_medic")
 restoredPatient = findPrivateSaveMonster(restoredRuntime, "monster_gunner")
 restoreAssert(restoredMedic.activity == "medic-cable" and
@@ -189,9 +218,23 @@ restoreAssert(restoredMedic.activity == "medic-cable" and
   (restoredPatient.info.aiFlags & privaterestoreaiconstants.AI_RESURRECTING) != 0,
   "private v14 restores Medic cable references and AI flags")
 restoreAssert(restoredRuntime.items[0].hidden and restoredRuntime.items[0].nextThink == 12.5 and restoredRuntime.items[0].count == 9, "item respawn state restored")
+restoredDroppedItem = privaterestoreintegration.findItemByNumber(
+  restoredRuntime, privateSaveDroppedNumber)
+restoreAssert(restoredDroppedItem is not void and
+  (restoredDroppedItem.spawnFlags &
+    privaterestoreitemconstants.DROPPED_ITEM) != 0 and
+  restoredDroppedItem.velocity.z == 300.0 and
+  restoredDroppedItem.owner is not void and
+  restoredDroppedItem.edict.owner.state.number == 1,
+  "private v16 restores dynamic Drop_Item velocity/owner")
 restoredPlayer = restoredContext.players[0]
 restoreAssert(restoredPlayer.health == 73 and restoredPlayer.maxHealth == 125, "player health restored")
+restoreAssert(restoredPlayer.gravity == 0.5 and
+  restoredPlayer.flySoundDebounceTime == 6.25,
+  "private v16 restores player gravity/push debounce")
 restoreAssert(restoredPlayer.gameplay.inventory.counts[2] == 17 and restoredPlayer.powerups.quadFrame == 321 and restoredPlayer.persistent.score == 6, "inventory/powerup/score restored")
+restoreAssert(restoredPlayer.gameplay.inventory.counts[privateSaveShells.index] == 10,
+  "dropped-item inventory persisted")
 api.runFrame(); api.runFrame(); api.runFrame()
 restoreAssert(restoredDoor.angles.y != savedDoorAngle, "restored mover continues simulation")
 privateMedicResumeFrames = 0

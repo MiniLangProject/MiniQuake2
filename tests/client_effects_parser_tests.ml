@@ -111,18 +111,20 @@ function testMuzzleFlashes()
     "boss machinegun global attenuation")
 
   chainState = cestate.createSilent(17)
-  ceparser.parseMuzzleFlash(chainState, reading(bytes([1, 0, ceconstants.MZ_CHAINGUN3])), resolveEntity)
+  chainLight = ceparser.parseMuzzleFlash(chainState, reading(bytes([1, 0, ceconstants.MZ_CHAINGUN3])), resolveEntity)
   assertEqual(len(chainState.soundEvents), 3, "chaingun three layered shots")
   assertNear(chainState.soundEvents[1].timeOffset, 0.033, 0.0001, "chaingun second delay")
   assertNear(chainState.soundEvents[2].timeOffset, 0.066, 0.0001, "chaingun third delay")
+  assertNear(chainLight.die, 0.1, 0.0001, "chaingun source dlight lifetime")
 
   loginState = cestate.createSilent(19)
-  ceparser.parseMuzzleFlash(loginState, reading(bytes([1, 0, ceconstants.MZ_LOGIN])), resolveEntity)
+  loginLight = ceparser.parseMuzzleFlash(loginState, reading(bytes([1, 0, ceconstants.MZ_LOGIN])), resolveEntity)
   assertEqual(loginState.particleCount, 500, "login effect stock particle count")
   assertNear(loginState.particles[0].acceleration.z, -40.0, 0.0001,
     "login effect stock gravity")
   assertTrue(loginState.particles[0].color >= 0xd0 and loginState.particles[0].color <= 0xd7,
     "login effect stock color range")
+  assertNear(loginLight.die, 1.0, 0.0001, "login source dlight lifetime")
   assertTrue(try(ceparser.parseMuzzleFlash2(state, reading(bytes([1, 0, 0])), resolveEntity)) is error,
     "unused monster flash zero rejected")
   return true

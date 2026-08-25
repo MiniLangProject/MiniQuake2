@@ -146,6 +146,16 @@ function ReinitializeMonster(actor, context)
   actor.timestamp = 0.0
   actor.triggerProxy = void
   actor.enemyVisible = false
+  actor.airFinished = context.time + 12.0
+  actor.painDebounceTime = 0.0
+  actor.damageDebounceTime = 0.0
+  actor.powerArmorTime = 0.0
+  actor.powerArmorType = gaiconstants.POWER_ARMOR_NONE
+  actor.powerArmorPower = 0
+  if actor.className == "monster_brain" then
+    actor.powerArmorType = gaiconstants.POWER_ARMOR_SCREEN
+    actor.powerArmorPower = 100
+  end if
 
   actor.edict.inUse = true
   actor.edict.solid = gconstants.SOLID_BBOX
@@ -183,6 +193,10 @@ function SpawnMonster(registry, className, number, context)
   actor.info.currentMove = idleMove()
   if actor.className == "monster_boss2" then
     actor.flags = actor.flags | gaiconstants.FL_IMMUNE_LASER
+  end if
+  if actor.className == "monster_brain" then
+    actor.powerArmorType = gaiconstants.POWER_ARMOR_SCREEN
+    actor.powerArmorPower = 100
   end if
   if gaiprops.isProp(actor) then return gaiprops.configure(actor, context) end if
   if actor.className == "misc_insane" then gaiinsane.configure(actor, context)

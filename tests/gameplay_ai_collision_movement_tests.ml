@@ -1,6 +1,7 @@
 /* Deterministic m_move.c stairs, ledges, water and flight regression. */
 import miniquake2.game.ai.constants as movementconstants
 import miniquake2.game.ai.move as movement
+import miniquake2.game.ai.monster as movementmonster
 import miniquake2.game.ai.types as movementtypes
 import miniquake2.game.types as movementgametypes
 import miniquake2.qcommon.constants as movementqconstants
@@ -151,5 +152,22 @@ movementAssert(actor.groundEntity is void,
   "partial-ground bridge fall retained ground entity")
 movementAssert(movementLinkCount > 0 and movementTouchCount > 0,
   "successful movement did not link and touch triggers")
+
+// g_monster.c::monster_think refreshes ground state after a relink and water
+// state every frame, not only while an explicit walk move is being attempted.
+thinker = movementActor(3)
+thinker.edict.state.origin = movementqtypes.Vec3(-40.0, 0.0, 24.0)
+thinker.edict.linkCount = 1
+thinker.info.linkCount = 0
+thinker.info.currentMove = movementtypes.MonsterMove("stand", 0, 0,
+  [movementtypes.MonsterFrame(void, 0.0, void)], void)
+thinker.edict.state.frame = 0
+thinker.activity = "stand"
+movementAssert(movementmonster.MonsterThink(thinker, context),
+  "monster think failed")
+movementAssert(thinker.groundEntity is not void,
+  "monster think did not refresh ground after relink")
+movementAssert(thinker.waterLevel == 3 and thinker.waterType == movementqconstants.CONTENTS_WATER,
+  "monster think did not categorize water position")
 
 print "gameplay_ai_collision_movement_tests: PASS"

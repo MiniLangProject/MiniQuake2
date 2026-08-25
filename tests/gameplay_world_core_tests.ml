@@ -104,6 +104,13 @@ end function
 function callbackFireBlaster(entity, direction, damage, speed)
   return void
 end function
+function callbackTargetExplosion(origin)
+  return record("target-explosion", [origin.x, origin.y, origin.z])
+end function
+function callbackTargetSplash(origin, direction, count, sounds)
+  return record("target-splash", [origin.x, origin.y, origin.z,
+    direction.x, direction.y, direction.z, count, sounds])
+end function
 
 function makeWorld()
   global callbackEvents
@@ -116,7 +123,8 @@ function makeWorld()
     callbackResolveKey, callbackHasKey, callbackConsumeKey,
     callbackActorMessage, callbackActorTransition, callbackCombatPointTransition, callbackClockSeconds,
     callbackSetModel, callbackLightStyle,
-    callbackTraceLine, callbackLaserSparks, callbackEarthquake, callbackFireBlaster
+    callbackTraceLine, callbackLaserSparks, callbackEarthquake, callbackFireBlaster,
+    callbackTargetExplosion, callbackTargetSplash
   )
   return gwcore.createWorld(callbacks)
 end function
@@ -302,6 +310,9 @@ function testTargets()
   assertEqual(receiver.count, 0, "explosion delay")
   gwcore.advance(world, 0.25)
   assertEqual(receiver.count, 1, "explosion target chain")
+  explosionEvent = callbackEvents[len(callbackEvents) - 2]
+  assertEqual(explosionEvent[0], "target-explosion", "explosion temp entity callback")
+  assertEqual(explosionEvent[1], [0.0, 0.0, 0.0], "explosion temp entity origin")
 
   secret = gwcore.spawnEntity(world, "target_secret")
   gwtargets.spawnSecret(secret, world)
@@ -313,9 +324,16 @@ function testTargets()
   splash = gwcore.spawnEntity(world, "target_splash")
   splash.count = 0
   splash.damage = 5
+  splash.sounds = 4
+  splash.angles.y = 90.0
   gwtargets.spawnSplash(splash, world)
   gwcore.useEntity(world, splash, activator, activator)
   assertEqual(splash.count, 32, "splash default count")
+  splashEvent = callbackEvents[len(callbackEvents) - 2]
+  assertEqual(splashEvent[0], "target-splash", "splash temp entity callback")
+  assertNear(splashEvent[1][4], 1.0, 0.00001, "splash wire direction")
+  assertEqual(splashEvent[1][6], 32, "splash wire count")
+  assertEqual(splashEvent[1][7], 4, "splash uses sounds as wire color")
 
   spawner = gwcore.spawnEntity(world, "target_spawner")
   spawner.target = "monster_soldier"

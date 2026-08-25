@@ -35,6 +35,10 @@ function resolveNothing(value)
   return void
 end function
 
+function resolveNoEntitySound(entityNumber, soundIndex, soundName)
+  return void
+end function
+
 function resolvePlayerModel(index)
   return rt.ResourceHandle("model", 1000 + index, "players/custom/tris.md2", 1)
 end function
@@ -57,7 +61,8 @@ function testRandom()
 end function
 
 testResolvers = catypes.ResolverBindings(resolveModel, resolveNamedModel,
-  resolveNamedSkin, resolveNothing, resolveNothing, resolvePlayerModel,
+  resolveNamedSkin, resolveNothing, resolveNothing, resolveNoEntitySound,
+  resolvePlayerModel,
   resolvePlayerSkin, resolvePlayerWeapon)
 
 function makeEntity(x, secondModel)

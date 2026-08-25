@@ -21,7 +21,8 @@ import miniquake2.network.snapshot as nsnapshot
 function emptyClient(slot)
   return nt.ServerClient(slot, nc.CS_FREE, "", "", 0, 0, void, 0, 0, 0, 0,
     void, array(nc.UPDATE_BACKUP, void), 0, 0,
-    array(nc.LATENCY_COUNTS, 0), array(nc.UPDATE_BACKUP, 0))
+    array(nc.LATENCY_COUNTS, 0), array(nc.UPDATE_BACKUP, 0), 5000,
+    array(nc.RATE_MESSAGES, 0))
 end function
 
 function create(maxClients, hostname, mapName, serverInfo, dedicated, publicServer)
@@ -119,6 +120,26 @@ function sanitizedName(userInfo)
   return decode(output)
 end function
 
+// SV_UserinfoChanged clamps the client-requested one-second snapshot budget.
+// Missing or non-numeric values retain the stock 5000 byte default.
+function clientRate(userInfo)
+  value = qinfo.valueForKey(userInfo, "rate")
+  if value == "" then return 5000 end if
+  parsed = try(nconnectionless.parseDecimal(value))
+  rate = 0
+  if parsed is not error then rate = parsed end if
+  if rate < 100 then return 100 end if
+  if rate > 15000 then return 15000 end if
+  return rate
+end function
+
+function applyUserInfo(client, userInfo)
+  client.userInfo = userInfo
+  client.name = sanitizedName(userInfo)
+  client.rate = clientRate(userInfo)
+  return client
+end function
+
 function reply(kind, address, data, slot, text)
   return nt.action(kind, naddress.copy(address), data, slot, text)
 end function
@@ -183,7 +204,8 @@ function handleConnect(server, address, request, now)
   client = nt.ServerClient(slot, nc.CS_CONNECTED, userInfo, sanitizedName(userInfo), 0, 0,
     naddress.copy(address), qport, now, now, challenge, channel,
     array(nc.UPDATE_BACKUP, void), 0, 0,
-    array(nc.LATENCY_COUNTS, 0), array(nc.UPDATE_BACKUP, 0))
+    array(nc.LATENCY_COUNTS, 0), array(nc.UPDATE_BACKUP, 0), clientRate(userInfo),
+    array(nc.RATE_MESSAGES, 0))
   server.clients[slot] = client
   action = reply("client_connect", address, nconnectionless.clientConnect(), slot, "client_connect")
   return nt.result(true, slot, [action], "connected", void)
@@ -299,6 +321,38 @@ function writeClientFrame(server, slot, current, baselines, buffer)
   client.frameSentTimes[current.serverFrame & nc.UPDATE_MASK] = server.realTime
   client.suppressCount = 0
   return selected
+end function
+
+// sv_send.c: SV_RateDrop sums the previous ten 10 Hz datagram sizes. Remote
+// clients over their advertised rate skip this frame and expose the number of
+// skipped frames in the next svc_frame. Loopback is deliberately unlimited.
+function rateDrop(server, slot, frameNumber)
+  if slot < 0 or slot >= server.maxClients then return error(7129, "rate-drop client slot outside range") end if
+  if typeof(frameNumber) != "int" or frameNumber < 0 then return error(7130, "rate-drop frame must be non-negative") end if
+  client = server.clients[slot]
+  if naddress.isLocal(client.address) then return false end if
+  total = 0
+  index = 0
+  while index < nc.RATE_MESSAGES
+    total = total + client.messageSizes[index]
+    index = index + 1
+  end while
+  if total > client.rate then
+    client.suppressCount = client.suppressCount + 1
+    client.messageSizes[frameNumber % nc.RATE_MESSAGES] = 0
+    return true
+  end if
+  return false
+end function
+
+function recordClientMessage(server, slot, frameNumber, messageSize)
+  if slot < 0 or slot >= server.maxClients then return error(7129, "message-size client slot outside range") end if
+  if typeof(frameNumber) != "int" or frameNumber < 0 then return error(7130, "message-size frame must be non-negative") end if
+  if typeof(messageSize) != "int" or messageSize < 0 or messageSize > pc.MAX_MSGLEN then
+    return error(7131, "client message size outside protocol range")
+  end if
+  server.clients[slot].messageSizes[frameNumber % nc.RATE_MESSAGES] = messageSize
+  return messageSize
 end function
 
 function heartbeatActions(server, masters, now)

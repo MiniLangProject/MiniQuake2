@@ -1,6 +1,7 @@
 /* BaseQ2 g_trigger.c trigger_multiple/once/relay state machines. */
 package miniquake2.game.world.triggers
 
+import std.math as smath
 import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.vector as gwvector
@@ -71,6 +72,10 @@ function enableTrigger(entity, other, activator, world)
 end function
 
 function spawnMultiple(entity, world)
+  if entity.sounds == 1 then entity.noise = "misc/secret.wav"
+  else if entity.sounds == 2 then entity.noise = "misc/talk.wav"
+  else if entity.sounds == 3 then entity.noise = "misc/trigger1.wav"
+  end if
   if entity.wait == 0.0 then entity.wait = 0.2 end if
   entity.touch = touchMulti
   entity.moveType = gwconstants.MOVETYPE_NONE
@@ -172,11 +177,16 @@ function useCounter(entity, other, activator, world)
   if entity.count == 0 then return false end if
   entity.count = entity.count - 1
   if entity.count > 0 then
-    if entity.message == "" then entity.message = entity.count + " more to go..." end if
-    if activator is not void then world.callbacks.centerPrint(activator, entity.message) end if
+    if (entity.spawnFlags & 1) == 0 and activator is not void then
+      world.callbacks.centerPrint(activator, entity.count + " more to go...")
+      world.callbacks.sound(activator, "misc/talk1.wav")
+    end if
     return true
   end if
-  if activator is not void then world.callbacks.centerPrint(activator, "Sequence completed!") end if
+  if (entity.spawnFlags & 1) == 0 and activator is not void then
+    world.callbacks.centerPrint(activator, "Sequence completed!")
+    world.callbacks.sound(activator, "misc/talk1.wav")
+  end if
   entity.activator = activator
   return multiTrigger(entity, world)
 end function
@@ -190,12 +200,20 @@ function spawnCounter(entity, world)
 end function
 
 function hurtTouch(entity, other, world)
-  if other is void or other.inUse == false then return false end if
+  if other is void or other.inUse == false or other.takeDamage == gwconstants.DAMAGE_NO then return false end if
   if world.time < entity.touchDebounceTime then return false end if
   if (entity.spawnFlags & 16) != 0 then entity.touchDebounceTime = world.time + 1.0
   else entity.touchDebounceTime = world.time + world.frameTime
   end if
-  world.callbacks.damage(other, entity, entity, entity.damage, "trigger-hurt")
+  if (entity.spawnFlags & 4) == 0 then
+    frameNumber = smath.floor(world.time / world.frameTime + 0.00001)
+    if frameNumber % 10 == 0 then
+      world.callbacks.sound(other, entity.noise)
+    end if
+  end if
+  means = gwconstants.MOD_TRIGGER_HURT
+  if (entity.spawnFlags & 8) != 0 then means = gwconstants.MOD_TRIGGER_HURT_NO_PROTECTION end if
+  world.callbacks.damage(other, entity, entity, entity.damage, means)
   return true
 end function
 
@@ -208,10 +226,11 @@ end function
 
 function spawnHurt(entity, world)
   initTrigger(entity, world)
+  entity.noise = "world/electro.wav"
   entity.touch = hurtTouch
   if entity.damage == 0 then entity.damage = 5 end if
   if (entity.spawnFlags & 1) != 0 then entity.solid = gwconstants.SOLID_NOT end if
-  if (entity.spawnFlags & 2) != 0 or (entity.spawnFlags & 1) != 0 then entity.use = hurtUse end if
+  if (entity.spawnFlags & 2) != 0 then entity.use = hurtUse end if
   world.callbacks.linkEntity(entity)
   return entity
 end function
@@ -219,16 +238,43 @@ end function
 function pushTouch(entity, other, world)
   if other is void or other.inUse == false then return false end if
   pushed = other.className == "grenade" or other.health > 0
-  if pushed then other.velocity = gwvector.scale(entity.moveDirection, entity.speed * 10.0) end if
+  if pushed then
+    other.velocity = gwvector.scale(entity.moveDirection, entity.speed * 10.0)
+    if other.isClient then
+      other.oldVelocity = gwvector.copy(other.velocity)
+      if other.flySoundDebounceTime < world.time then
+        other.flySoundDebounceTime = world.time + 1.5
+        world.callbacks.sound(other, entity.noise)
+      end if
+    end if
+  end if
   if (entity.spawnFlags & gwconstants.PUSH_ONCE) != 0 then gwcore.freeEntity(world, entity) end if
   return pushed
 end function
 
 function spawnPush(entity, world)
   initTrigger(entity, world)
+  entity.noise = "misc/windfly.wav"
   entity.touch = pushTouch
   entity.moveDirection = gwvector.movedir(entity.angles)
   if entity.speed == 0.0 then entity.speed = 1000.0 end if
+  return entity
+end function
+
+function gravityTouch(entity, other, world)
+  if other is void or other.inUse == false then return false end if
+  other.gravity = entity.gravity
+  return true
+end function
+
+function spawnGravity(entity, world)
+  if entity.gravity == 0.0 then
+    gwcore.log(world, "trigger_gravity without gravity set")
+    gwcore.freeEntity(world, entity)
+    return false
+  end if
+  initTrigger(entity, world)
+  entity.touch = gravityTouch
   return entity
 end function
 
@@ -275,6 +321,9 @@ function SP_trigger_hurt(entity, world)
 end function
 function SP_trigger_push(entity, world)
   return spawnPush(entity, world)
+end function
+function SP_trigger_gravity(entity, world)
+  return spawnGravity(entity, world)
 end function
 function SP_trigger_monsterjump(entity, world)
   return spawnMonsterJump(entity, world)

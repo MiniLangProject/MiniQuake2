@@ -41,6 +41,7 @@ struct ResolverBindings
   skinName
   soundIndex
   soundName
+  soundEntity
   playerModel
   playerSkin
   playerWeapon

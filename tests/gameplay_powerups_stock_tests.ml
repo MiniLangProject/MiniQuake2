@@ -221,11 +221,33 @@ function testPlayerAdaptersAndPrecache(registry)
   playerData = gplayertypes.createPlayer(1, registry)
   playerContext.players = [playerData]
   jacket = classEntity(registry, "item_armor_jacket", 60)
+  playerData.health = 0
+  deadAction = gppowerups.PickupForPlayerData(jacket, playerData, playerContext)
+  assertEqual(deadAction.success, false, "dead PlayerData cannot pick up items")
+  assertEqual(playerData.gameplay.inventory.counts[jacket.item.index], 0,
+    "dead pickup leaves inventory unchanged")
+  playerData.health = 100
   action = gppowerups.PickupForPlayerData(jacket, playerData, playerContext)
   assertTrue(action.success, "PlayerData pickup adapter")
+  assertEqual(runtime.pendingSoundCount, 1, "PlayerData pickup sound count")
+  assertEqual(runtime.soundNames[runtime.pendingSounds[0].soundIndex],
+    "misc/ar1_pkup.wav", "PlayerData pickup sound")
   assertEqual(playerData.armorItemIndex, 19, "PlayerData armor HUD index")
   assertEqual(playerData.view.bonusAlpha, 0.25, "PlayerData pickup blend")
   assertEqual(playerData.edict.client.playerState.stats[gameconstants.STAT_PICKUP_STRING], qtypes.zeroUserCmd().buttons + miniquake2.qcommon.constants.CS_ITEMS + 19, "PlayerData pickup configstring")
+
+  playerData.health = 90
+  smallHealth = classEntity(registry, "item_health_small", 61)
+  assertTrue(gppowerups.PickupForPlayerData(smallHealth, playerData, playerContext).success,
+    "PlayerData small health pickup")
+  assertEqual(runtime.soundNames[runtime.pendingSounds[1].soundIndex],
+    "items/s_health.wav", "small health pickup sound")
+  customHealth = classEntity(registry, "item_health", 62)
+  customHealth.count = 25
+  assertTrue(gppowerups.PickupForPlayerData(customHealth, playerData, playerContext).success,
+    "PlayerData custom health pickup")
+  assertEqual(runtime.soundNames[runtime.pendingSounds[2].soundIndex],
+    "items/l_health.wav", "custom-count health pickup sound")
 
   playerData.gameplay.quadFrame = 350
   playerData.gameplay.invincibleFrame = 360

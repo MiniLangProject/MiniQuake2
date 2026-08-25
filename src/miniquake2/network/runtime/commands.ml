@@ -409,8 +409,7 @@ function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
       userInfo = rmessages.readString(buffer, "client userinfo", qc.MAX_INFO_STRING)
       if not qinfo.validate(userInfo) then return error(7257, "malformed clc_userinfo") end if
       client = runtime.server.clients[slot]
-      client.userInfo = userInfo
-      client.name = nserver.sanitizedName(userInfo)
+      nserver.applyUserInfo(client, userInfo)
       runtime.callbacks.clientUserinfoChanged(slot, userInfo)
     else if opcode == qc.CLC_MOVE then
       if moveIssued then return error(7258, "multiple clc_move commands in one packet") end if

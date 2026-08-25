@@ -33,6 +33,8 @@ const MAX_MAP_AREA_BYTES = 32
 const UPDATE_BACKUP = 16
 const UPDATE_MASK = 15
 const LATENCY_COUNTS = 16
+// server.h: ten 10 Hz snapshot sizes form the one-second SV_RateDrop window.
+const RATE_MESSAGES = 10
 const DELTA_SAFETY_WINDOW = UPDATE_BACKUP - 3
 const CONNECT_RETRY_MSEC = 3000
 const HEARTBEAT_MSEC = 300000

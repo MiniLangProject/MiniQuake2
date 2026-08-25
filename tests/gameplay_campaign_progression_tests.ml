@@ -27,6 +27,8 @@ goalApi.spawnEntities("goal-source", goalFixture, "")
 goalClient = goalApi.edicts[1]
 goalAssert(goalApi.clientConnect(goalClient, "\\name\\GoalDriver\\skin\\male/grunt"), "client connect")
 goalAssert(goalApi.clientBegin(goalClient), "client begin")
+// SpawnItem exposes keys only after the original two-frame droptofloor think.
+goalApi.runFrame(); goalApi.runFrame()
 goalResult = goalprogress.driveToMap(goalgame.baseRuntime(), goalgame.playerContext(), "bunk1")
 goalAssert(goalResult.reached and goalResult.selectedMapSpec == "eou1_.cin+*bunk1$start",
   "goal graph reaches normalized changelevel")

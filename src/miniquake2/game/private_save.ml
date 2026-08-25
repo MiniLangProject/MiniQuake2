@@ -16,9 +16,10 @@ import miniquake2.game.world.turret as privateturret
 import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
+import miniquake2.game.gameplay.types as privategameplaytypes
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 15
+const PRIVATE_VERSION = 16
 
 struct PrivateRestore
   runtime
@@ -167,6 +168,9 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privatemessage.writeLong(buffer, entity.takeDamage); privatemessage.writeLong(buffer, entity.gibHealth)
     privatemessage.writeLong(buffer, entity.clipMask); privatemessage.writeLong(buffer, entity.aiFlags)
     privatemessage.writeFloat(buffer, entity.timestamp); privatemessage.writeFloat(buffer, entity.pauseTime)
+    privatemessage.writeFloat(buffer, entity.gravity)
+    privateWriteVec(buffer, entity.oldVelocity)
+    privatemessage.writeFloat(buffer, entity.flySoundDebounceTime)
   end for
 
   privatemessage.writeLong(buffer, len(runtime.monsters))
@@ -209,14 +213,26 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privateWriteVec(buffer, actor.velocity)
     privatemessage.writeLong(buffer, privateReferenceNumber(actor.goalEntity))
     privatemessage.writeLong(buffer, privateReferenceNumber(actor.moveTarget))
+    privatemessage.writeFloat(buffer, actor.airFinished)
+    privatemessage.writeFloat(buffer, actor.painDebounceTime)
+    privatemessage.writeFloat(buffer, actor.damageDebounceTime)
+    privatemessage.writeFloat(buffer, actor.powerArmorTime)
+    privatemessage.writeLong(buffer, actor.powerArmorType)
+    privatemessage.writeLong(buffer, actor.powerArmorPower)
+    privatemessage.writeFloat(buffer, actor.gravity)
   end for
 
   privatemessage.writeLong(buffer, len(runtime.items))
   for each itemEntity in runtime.items
-    privatemessage.writeLong(buffer, itemEntity.edict.state.number); privateWriteBool(buffer, itemEntity.edict.inUse)
+    privatemessage.writeLong(buffer, itemEntity.edict.state.number)
+    privatemessage.writeLong(buffer, itemEntity.item.index)
+    privateWriteBool(buffer, itemEntity.edict.inUse)
     privateWriteBool(buffer, itemEntity.hidden); privateWriteBool(buffer, itemEntity.freed); privateWriteBool(buffer, itemEntity.decaying)
     privatemessage.writeLong(buffer, itemEntity.count); privatemessage.writeLong(buffer, itemEntity.spawnFlags)
     privatemessage.writeFloat(buffer, itemEntity.nextThink); privatemessage.writeFloat(buffer, itemEntity.respawnAt)
+    privateWriteVec(buffer, itemEntity.velocity)
+    privatemessage.writeLong(buffer, privateReferenceNumber(itemEntity.owner))
+    privateWriteBool(buffer, itemEntity.spawnPending)
   end for
 
   privatemessage.writeLong(buffer, playerCount)
@@ -241,6 +257,8 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       for each floodTime in player.floodWhen
         privatemessage.writeFloat(buffer, floodTime)
       end for
+      privatemessage.writeFloat(buffer, player.gravity)
+      privatemessage.writeFloat(buffer, player.flySoundDebounceTime)
     end for
   end if
   return privatesizebuf.dataSlice(buffer)
@@ -347,6 +365,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateSaveVersion != 9 and privateSaveVersion != 10 and
       privateSaveVersion != 11 and privateSaveVersion != 12 and
       privateSaveVersion != 13 and privateSaveVersion != 14 and
+      privateSaveVersion != 15 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -503,6 +522,12 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       entity.timestamp = privateReadFloat(buffer, "private world trail time")
       entity.pauseTime = privateReadFloat(buffer, "private world attack finished")
     end if
+    if privateSaveVersion >= 16 then
+      entity.gravity = privateReadFloat(buffer, "private world gravity")
+      entity.oldVelocity = privateReadVec(buffer, "private world old velocity")
+      entity.flySoundDebounceTime = privateReadFloat(buffer,
+        "private world fly sound debounce")
+    end if
     if entity.className == "monster_gib" then entity.think = privateworldcore.freeThink
     else if entity.className == "DelayedUse" then entity.think = privateworldcore.thinkDelayed
     else privatemovers.restoreMoverState(entity, runtime.world) end if
@@ -615,6 +640,21 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateMonsterMoveTargetNumber = privatechecked.readLong(buffer,
         "private monster move target")
     end if
+    if privateSaveVersion >= 16 then
+      actor.airFinished = privateReadFloat(buffer,
+        "private monster air finished")
+      actor.painDebounceTime = privateReadFloat(buffer,
+        "private monster pain debounce")
+      actor.damageDebounceTime = privateReadFloat(buffer,
+        "private monster damage debounce")
+      actor.powerArmorTime = privateReadFloat(buffer,
+        "private monster power armor time")
+      actor.powerArmorType = privatechecked.readLong(buffer,
+        "private monster power armor type")
+      actor.powerArmorPower = privatechecked.readLong(buffer,
+        "private monster power armor power")
+      actor.gravity = privateReadFloat(buffer, "private monster gravity")
+    end if
     privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(
       actor, enemyNumber, privateMonsterOldEnemyNumber, privateMonsterOwnerNumber,
       privateMonsterGoalEntityNumber, privateMonsterMoveTargetNumber)]
@@ -648,14 +688,50 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   end for
 
   itemCount = privatechecked.readLong(buffer, "private item count")
-  if itemCount != len(runtime.items) then return error(3878, "private item count mismatch") end if
+  if privateSaveVersion < 16 and itemCount != len(runtime.items) then return error(3878, "private item count mismatch") end if
+  privateItemOwners = []
+  privateItemOwnerNumbers = []
   while itemCount > 0
-    itemEntity = findItem(runtime, privatechecked.readLong(buffer, "private item number"))
+    privateItemNumber = privatechecked.readLong(buffer, "private item number")
+    privateItemIndex = 0
+    if privateSaveVersion >= 16 then
+      privateItemIndex = privatechecked.readLong(buffer, "private item definition")
+    end if
+    itemEntity = findItem(runtime, privateItemNumber)
+    if itemEntity is void and privateSaveVersion >= 16 then
+      if privateItemNumber < 0 or privateItemNumber >= exportTable.numEdicts then
+        return error(3879, "private dynamic item outside edict table")
+      end if
+      privateItemDefinition = itemByIndex(playerContext.registry,
+        privateItemIndex)
+      if privateItemDefinition is void then
+        return error(3879, "private dynamic item definition missing")
+      end if
+      itemEntity = privategameplaytypes.createItemEntity(privateItemNumber,
+        privateItemDefinition)
+      itemEntity.edict = exportTable.edicts[privateItemNumber]
+      runtime.items = runtime.items + [itemEntity]
+    end if
     if itemEntity is void then return error(3879, "private item missing") end if
+    if privateSaveVersion >= 16 and itemEntity.item.index != privateItemIndex then
+      return error(3879, "private item definition mismatch")
+    end if
+    if privateSaveVersion >= 16 and privateItemNumber >= 0 and
+        privateItemNumber < exportTable.numEdicts then
+      itemEntity.edict = exportTable.edicts[privateItemNumber]
+    end if
     itemEntity.edict.inUse = privateReadBool(buffer, "private item inuse")
     itemEntity.hidden = privateReadBool(buffer, "private item hidden"); itemEntity.freed = privateReadBool(buffer, "private item freed"); itemEntity.decaying = privateReadBool(buffer, "private item decaying")
     itemEntity.count = privatechecked.readLong(buffer, "private item count field"); itemEntity.spawnFlags = privatechecked.readLong(buffer, "private item spawnflags")
     itemEntity.nextThink = privateReadFloat(buffer, "private item nextthink"); itemEntity.respawnAt = privateReadFloat(buffer, "private item respawn")
+    if privateSaveVersion >= 16 then
+      itemEntity.velocity = privateReadVec(buffer, "private item velocity")
+      privateItemOwners = privateItemOwners + [itemEntity]
+      privateItemOwnerNumbers = privateItemOwnerNumbers + [
+        privatechecked.readLong(buffer, "private item owner")]
+      itemEntity.spawnPending = privateReadBool(buffer,
+        "private item spawn pending")
+    end if
     itemCount = itemCount - 1
   end while
 
@@ -699,8 +775,31 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
         privateFloodIndex = privateFloodIndex + 1
       end while
     end if
+    if privateSaveVersion >= 16 then
+      player.gravity = privateReadFloat(buffer, "private player gravity")
+      player.flySoundDebounceTime = privateReadFloat(buffer,
+        "private player fly sound debounce")
+    end if
     playerContext.players = playerContext.players + [player]
     playerCount = playerCount - 1
+  end while
+  privateItemOwnerIndex = 0
+  while privateItemOwnerIndex < len(privateItemOwners)
+    privateItemOwnerNumber = privateItemOwnerNumbers[privateItemOwnerIndex]
+    if privateItemOwnerNumber >= 0 then
+      privateOwnerFound = false
+      for each privateOwnerPlayer in playerContext.players
+        if privateOwnerPlayer.edict.state.number == privateItemOwnerNumber then
+          privateItemOwners[privateItemOwnerIndex].owner = privateOwnerPlayer.gameplay
+          privateItemOwners[privateItemOwnerIndex].edict.owner = privateOwnerPlayer.edict
+          privateOwnerFound = true
+        end if
+      end for
+      if not privateOwnerFound then
+        return error(3879, "private item owner missing")
+      end if
+    end if
+    privateItemOwnerIndex = privateItemOwnerIndex + 1
   end while
   if privateSaveVersion >= 10 then
     for each privateWorldReference in privateWorldReferences

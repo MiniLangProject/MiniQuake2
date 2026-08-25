@@ -97,10 +97,12 @@ the dense `lab` map. Swept traces use Quake II's near-first BSP hull walk on a
 fixed stack, and inline brushes are rejected by cached swept bounds before any
 model transform or hull trace. Fixed sound storage also avoids array
 concatenation and drains transient/PHS-filtered events without backlog.
-Private-Save v15 resumes attacks and active reactions at their next
+Private-Save v16 resumes attacks and active reactions at their next
 frame, preserves held death-fire bursts, live refire, jump, saved-aim,
 shared-random, Medic ownership, live turret sight/reaction state and all
-lost-sight pursuit fields, and round-trips live dynamic gib records. Client
+lost-sight pursuit fields, and round-trips live dynamic gib and dropped-item
+records. It also retains monster air/damage/power-armor state plus per-entity
+gravity and trigger-push prediction/debounce state. Client
 impact feedback follows the Quake II 3.19 temp-entity and muzzleflash switches:
 smoke/flash pairs, directional blaster models, explosion model/frame/base
 variants, layered player-weapon sounds, monster-family sounds, attenuation and
@@ -201,7 +203,9 @@ combat/AI/cooldown fields required to resume a coupled turret without resetting
 its target cadence; v14 added collision movement,
 velocity, last-sighting, trail and temporary pursuit-goal state.
 v15 retains v7-v14 readers and additionally persists the original chat flood
-ring, head and lockout timestamp.
+ring, head and lockout timestamp. v16 adds dynamic dropped items, pending map
+item spawn state, monster environment/power-armor fields and world/player
+gravity plus push debounce state while retaining the v7-v15 readers.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached

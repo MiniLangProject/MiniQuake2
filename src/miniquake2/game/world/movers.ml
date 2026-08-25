@@ -237,6 +237,85 @@ function doorUseAreaPortals(entity, isOpen, world)
   return true
 end function
 
+function doorTouch(entity, other, world)
+  if other is void or other.health <= 0 then return false end if
+  if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then return false end if
+  if world.time < entity.touchDebounceTime then return false end if
+  entity.touchDebounceTime = world.time + 5.0
+  world.callbacks.centerPrint(other, entity.message)
+  world.callbacks.sound(other, "misc/talk1.wav")
+  return true
+end function
+
+function calculateDoorMoveSpeed(entity, world)
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
+  minimumDistance = smath.abs(entity.moveInfo.distance)
+  member = entity.teamChain
+  while member is not void
+    memberDistance = smath.abs(member.moveInfo.distance)
+    if memberDistance < minimumDistance then minimumDistance = memberDistance end if
+    member = member.teamChain
+  end while
+  if minimumDistance == 0.0 or entity.moveInfo.speed == 0.0 then return false end if
+  movementTime = minimumDistance / entity.moveInfo.speed
+  member = entity
+  while member is not void
+    newSpeed = smath.abs(member.moveInfo.distance) / movementTime
+    ratio = newSpeed / member.moveInfo.speed
+    if member.moveInfo.accel == member.moveInfo.speed then member.moveInfo.accel = newSpeed
+    else member.moveInfo.accel = member.moveInfo.accel * ratio end if
+    if member.moveInfo.decel == member.moveInfo.speed then member.moveInfo.decel = newSpeed
+    else member.moveInfo.decel = member.moveInfo.decel * ratio end if
+    member.moveInfo.speed = newSpeed
+    member = member.teamChain
+  end while
+  return true
+end function
+
+function doorTriggerTouch(trigger, other, world)
+  owner = trigger.owner
+  if owner is void or other is void or other.health <= 0 then return false end if
+  if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then return false end if
+  if (owner.spawnFlags & gwconstants.DOOR_NOMONSTER) != 0 and
+      (other.serverFlags & gwconstants.SVF_MONSTER) != 0 then return false end if
+  if world.time < trigger.touchDebounceTime then return false end if
+  trigger.touchDebounceTime = world.time + 1.0
+  return doorUse(owner, other, other, world)
+end function
+
+function spawnDoorTrigger(entity, world)
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
+  minimum = gwvector.copy(entity.absoluteMins)
+  maximum = gwvector.copy(entity.absoluteMaxs)
+  member = entity.teamChain
+  while member is not void
+    if member.absoluteMins.x < minimum.x then minimum.x = member.absoluteMins.x end if
+    if member.absoluteMins.y < minimum.y then minimum.y = member.absoluteMins.y end if
+    if member.absoluteMins.z < minimum.z then minimum.z = member.absoluteMins.z end if
+    if member.absoluteMaxs.x > maximum.x then maximum.x = member.absoluteMaxs.x end if
+    if member.absoluteMaxs.y > maximum.y then maximum.y = member.absoluteMaxs.y end if
+    if member.absoluteMaxs.z > maximum.z then maximum.z = member.absoluteMaxs.z end if
+    member = member.teamChain
+  end while
+  minimum.x = minimum.x - 60.0
+  minimum.y = minimum.y - 60.0
+  maximum.x = maximum.x + 60.0
+  maximum.y = maximum.y + 60.0
+  trigger = gwcore.spawnEntity(world, "door_trigger")
+  trigger.mins = minimum
+  trigger.maxs = maximum
+  trigger.owner = entity
+  trigger.solid = gwconstants.SOLID_TRIGGER
+  trigger.moveType = gwconstants.MOVETYPE_NONE
+  trigger.touch = doorTriggerTouch
+  world.callbacks.linkEntity(trigger)
+  if (entity.spawnFlags & gwconstants.DOOR_START_OPEN) != 0 then
+    doorUseAreaPortals(entity, true, world)
+  end if
+  calculateDoorMoveSpeed(entity, world)
+  return true
+end function
+
 function doorHitTop(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
@@ -340,7 +419,13 @@ function doorBlocked(entity, other, world)
   if master is void then master = entity end if
   member = master
   while member is not void
-    if entity.moveInfo.state == gwconstants.STATE_DOWN then doorGoUp(member, member.activator, world) else doorGoDown(member, world) end if
+    if entity.moveInfo.state == gwconstants.STATE_DOWN then
+      if member.className == "func_door_rotating" then rotatingDoorGoUp(member, member.activator, world)
+      else doorGoUp(member, member.activator, world) end if
+    else
+      if member.className == "func_door_rotating" then rotatingDoorGoDown(member, world)
+      else doorGoDown(member, world) end if
+    end if
     member = member.teamChain
   end while
   return true
@@ -355,6 +440,7 @@ function doorKilled(entity, inflictor, attacker, damage, point, world)
     member.takeDamage = gwconstants.DAMAGE_NO
     member = member.teamChain
   end while
+  if master.className == "func_door_rotating" then return rotatingDoorUse(master, attacker, attacker, world) end if
   return doorUse(master, attacker, attacker, world)
 end function
 
@@ -383,6 +469,8 @@ function spawnDoor(entity, world)
     entity.takeDamage = gwconstants.DAMAGE_YES
     entity.die = doorKilled
     entity.maxHealth = entity.health
+  else if entity.targetName != "" and entity.message != "" then
+    entity.touch = doorTouch
   end if
   entity.moveInfo.speed = entity.speed
   entity.moveInfo.accel = entity.accel
@@ -397,6 +485,11 @@ function spawnDoor(entity, world)
   if (entity.spawnFlags & 64) != 0 then entity.effects = entity.effects | gwconstants.EF_ANIM_ALLFAST end if
   if entity.teamMaster is void then entity.teamMaster = entity end if
   world.callbacks.linkEntity(entity)
+  // The one-frame delay matches g_func.c: teams and inline-model absolute
+  // bounds are complete before speed synchronization or touch-field creation.
+  if entity.health != 0 or entity.targetName != "" then entity.think = calculateDoorMoveSpeed
+  else entity.think = spawnDoorTrigger end if
+  entity.nextThink = world.time + world.frameTime
   return entity
 end function
 
@@ -610,6 +703,7 @@ function rotatingDoorHitBottom(entity, world)
     if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
     entity.loopSound = 0
   end if
+  doorUseAreaPortals(entity, false, world)
   world.callbacks.linkEntity(entity)
   return true
 end function
@@ -620,9 +714,9 @@ function rotatingDoorGoDown(entity, world)
     world.callbacks.sound(entity, "doors/dr1_strt.wav")
     entity.loopSound = entity.soundIndex
   end if
-  entity.angularVelocity = gwvector.scale(entity.moveDirection, -entity.speed)
+  entity.angularVelocity = gwvector.scale(entity.moveDirection, -entity.moveInfo.speed)
   entity.think = rotatingDoorHitBottom
-  entity.nextThink = world.time + entity.moveInfo.distance / entity.speed
+  entity.nextThink = world.time + entity.moveInfo.distance / entity.moveInfo.speed
   return true
 end function
 
@@ -642,25 +736,52 @@ function rotatingDoorHitTop(entity, world)
   return true
 end function
 
-function rotatingDoorGoUp(entity, world)
+function rotatingDoorGoUp(entity, activator, world)
+  if entity.moveInfo.state == gwconstants.STATE_UP then return false end if
+  if entity.moveInfo.state == gwconstants.STATE_TOP then
+    if entity.moveInfo.wait >= 0.0 then entity.nextThink = world.time + entity.moveInfo.wait end if
+    return false
+  end if
   entity.moveInfo.state = gwconstants.STATE_UP
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
     world.callbacks.sound(entity, "doors/dr1_strt.wav")
     entity.loopSound = entity.soundIndex
   end if
-  entity.angularVelocity = gwvector.scale(entity.moveDirection, entity.speed)
+  entity.angularVelocity = gwvector.scale(entity.moveDirection, entity.moveInfo.speed)
   entity.think = rotatingDoorHitTop
-  entity.nextThink = world.time + entity.moveInfo.distance / entity.speed
+  entity.nextThink = world.time + entity.moveInfo.distance / entity.moveInfo.speed
+  gwcore.useTargets(world, entity, activator)
+  doorUseAreaPortals(entity, true, world)
   return true
 end function
 
 function rotatingDoorUse(entity, other, activator, world)
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
   entity.activator = activator
-  if (entity.spawnFlags & gwconstants.DOOR_TOGGLE) != 0 and (entity.moveInfo.state == gwconstants.STATE_TOP or entity.moveInfo.state == gwconstants.STATE_UP) then return rotatingDoorGoDown(entity, world) end if
-  return rotatingDoorGoUp(entity, world)
+  if (entity.spawnFlags & gwconstants.DOOR_TOGGLE) != 0 and (entity.moveInfo.state == gwconstants.STATE_TOP or entity.moveInfo.state == gwconstants.STATE_UP) then
+    member = entity
+    while member is not void
+      member.activator = activator
+      member.message = ""
+      member.touch = void
+      rotatingDoorGoDown(member, world)
+      member = member.teamChain
+    end while
+    return true
+  end if
+  member = entity
+  while member is not void
+    member.activator = activator
+    member.message = ""
+    member.touch = void
+    rotatingDoorGoUp(member, activator, world)
+    member = member.teamChain
+  end while
+  return true
 end function
 
 function spawnRotatingDoor(entity, world)
+  entity.angles = qt.zeroVec3()
   entity.moveType = gwconstants.MOVETYPE_PUSH
   entity.solid = gwconstants.SOLID_BSP
   entity.blocked = doorBlocked
@@ -672,15 +793,38 @@ function spawnRotatingDoor(entity, world)
   end if
   if (entity.spawnFlags & gwconstants.DOOR_REVERSE) != 0 then entity.moveDirection = gwvector.scale(entity.moveDirection, -1.0) end if
   if entity.speed == 0.0 then entity.speed = 100.0 end if
+  if entity.accel == 0.0 then entity.accel = entity.speed end if
+  if entity.decel == 0.0 then entity.decel = entity.speed end if
   if entity.wait == 0.0 then entity.wait = 3.0 end if
   if entity.damage == 0 then entity.damage = 2 end if
   distance = entity.moveInfo.distance
   if distance == 0.0 then distance = 90.0 end if
   entity.moveInfo.distance = distance
+  entity.moveInfo.speed = entity.speed
+  entity.moveInfo.accel = entity.accel
+  entity.moveInfo.decel = entity.decel
+  entity.moveInfo.wait = entity.wait
   entity.moveInfo.startAngles = gwvector.copy(entity.angles)
   entity.moveInfo.endAngles = gwvector.multiplyAdd(entity.angles, distance, entity.moveDirection)
+  if (entity.spawnFlags & gwconstants.DOOR_START_OPEN) != 0 then
+    entity.angles = gwvector.copy(entity.moveInfo.endAngles)
+    entity.moveInfo.endAngles = gwvector.copy(entity.moveInfo.startAngles)
+    entity.moveInfo.startAngles = gwvector.copy(entity.angles)
+    entity.moveDirection = gwvector.scale(entity.moveDirection, -1.0)
+  end if
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
+  if entity.health != 0 then
+    entity.takeDamage = gwconstants.DAMAGE_YES
+    entity.die = doorKilled
+    entity.maxHealth = entity.health
+  end if
+  if entity.targetName != "" and entity.message != "" then entity.touch = doorTouch end if
+  if (entity.spawnFlags & 16) != 0 then entity.effects = entity.effects | gwconstants.EF_ANIM_ALL end if
+  if entity.teamMaster is void then entity.teamMaster = entity end if
   world.callbacks.linkEntity(entity)
+  if entity.health != 0 or entity.targetName != "" then entity.think = calculateDoorMoveSpeed
+  else entity.think = spawnDoorTrigger end if
+  entity.nextThink = world.time + world.frameTime
   return entity
 end function
 
@@ -730,6 +874,43 @@ function platUse(entity, other, activator, world)
   return platGoDown(entity, world)
 end function
 
+function platCenterTouch(trigger, other, world)
+  if other is void or other.isClient == false or other.health <= 0 then return false end if
+  plat = trigger.enemy
+  if plat is void or plat.inUse == false then return false end if
+  if plat.moveInfo.state == gwconstants.STATE_BOTTOM then return platGoUp(plat, world) end if
+  if plat.moveInfo.state == gwconstants.STATE_TOP then
+    plat.nextThink = world.time + 1.0
+    return true
+  end if
+  return false
+end function
+
+function spawnPlatInsideTrigger(entity, world)
+  trigger = gwcore.spawnEntity(world, "plat_trigger")
+  trigger.touch = platCenterTouch
+  trigger.moveType = gwconstants.MOVETYPE_NONE
+  trigger.solid = gwconstants.SOLID_TRIGGER
+  trigger.enemy = entity
+  trigger.mins = qt.Vec3(entity.mins.x + 25.0, entity.mins.y + 25.0, entity.mins.z)
+  trigger.maxs = qt.Vec3(entity.maxs.x - 25.0, entity.maxs.y - 25.0, entity.maxs.z + 8.0)
+  trigger.mins.z = trigger.maxs.z -
+    (entity.moveInfo.startOrigin.z - entity.moveInfo.endOrigin.z + entity.lip)
+  if (entity.spawnFlags & gwconstants.PLAT_LOW_TRIGGER) != 0 then
+    trigger.maxs.z = trigger.mins.z + 8.0
+  end if
+  if trigger.maxs.x - trigger.mins.x <= 0.0 then
+    trigger.mins.x = (entity.mins.x + entity.maxs.x) * 0.5
+    trigger.maxs.x = trigger.mins.x + 1.0
+  end if
+  if trigger.maxs.y - trigger.mins.y <= 0.0 then
+    trigger.mins.y = (entity.mins.y + entity.maxs.y) * 0.5
+    trigger.maxs.y = trigger.mins.y + 1.0
+  end if
+  world.callbacks.linkEntity(trigger)
+  return true
+end function
+
 function platBlocked(entity, other, world)
   if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then
     world.callbacks.damage(other, entity, entity, 100000, gwconstants.MOD_CRUSH)
@@ -769,6 +950,8 @@ function spawnPlat(entity, world)
   entity.moveInfo.startOrigin = top
   entity.moveInfo.endOrigin = bottom
   world.callbacks.linkEntity(entity)
+  entity.think = spawnPlatInsideTrigger
+  entity.nextThink = world.time + world.frameTime
   return entity
 end function
 
@@ -1055,6 +1238,33 @@ function spawnTimer(entity, world)
 end function
 
 // -------------------------------------------------------------------------
+// func_conveyor
+
+function conveyorUse(entity, other, activator, world)
+  if (entity.spawnFlags & 1) != 0 then
+    entity.speed = 0.0
+    entity.spawnFlags = entity.spawnFlags & ~1
+  else
+    entity.speed = entity.count
+    entity.spawnFlags = entity.spawnFlags | 1
+  end if
+  if (entity.spawnFlags & 2) == 0 then entity.count = 0 end if
+  return true
+end function
+
+function spawnConveyor(entity, world)
+  if entity.speed == 0.0 then entity.speed = 100.0 end if
+  if (entity.spawnFlags & 1) == 0 then
+    entity.count = entity.speed
+    entity.speed = 0.0
+  end if
+  entity.use = conveyorUse
+  entity.solid = gwconstants.SOLID_BSP
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// -------------------------------------------------------------------------
 // func_explosive from g_misc.c (kept here with the brush movers).
 
 function explosiveExplode(entity, inflictor, attacker, damage, point, world)
@@ -1161,6 +1371,9 @@ function SP_func_train(entity, world)
 end function
 function SP_func_timer(entity, world)
   return spawnTimer(entity, world)
+end function
+function SP_func_conveyor(entity, world)
+  return spawnConveyor(entity, world)
 end function
 function SP_func_explosive(entity, world, deathmatch)
   return spawnExplosive(entity, world, deathmatch)
