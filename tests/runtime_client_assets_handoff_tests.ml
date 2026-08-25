@@ -97,6 +97,13 @@ runtimeAssetAssert(rca_assets.syncEntityLoops(loopMixer, replacementSnapshot) ==
   loopMixer.channels[0].active and
   loopMixer.channels[0].sound.name == "weapons/replacement.wav",
   "changed EntityState.sound did not replace autosound")
+missingEntity = rca_protocol_types.zeroEntityState()
+missingEntity.number = 2; missingEntity.sound = 9
+missingSnapshot = rca_runtime_types.Snapshot(4, 3, 0, bytes([]), void,
+  [missingEntity])
+runtimeAssetAssert(rca_assets.syncEntityLoops(loopMixer, missingSnapshot) == 0 and
+  not loopMixer.channels[0].active,
+  "unresolved EntityState.sound did not remain silent")
 
 rca_assets.reset(state, "runtime_unit2")
 runtimeAssetAssert(values.modelIndex(1) is void and values.soundIndex(7) is void,

@@ -15,6 +15,7 @@ struct Channel
   entityNumber
   entityChannel
   sourceFrame
+  sourceStep
   startFrame
   leftVolume
   rightVolume
@@ -184,7 +185,10 @@ function inline sampleAt(sound, frame, channel)
   if sound.channels == 1 then channel = 0 end if
   sampleIndex = frame * sound.channels + channel
   if sound.width == 1 then return (sound.pcm[sampleIndex] - 128) << 8 end if
-  return ambio.i16(sound.pcm, sampleIndex * 2)
+  offset = sampleIndex * 2
+  value = sound.pcm[offset] | (sound.pcm[offset + 1] << 8)
+  if value >= 0x8000 then return value - 0x10000 end if
+  return value
 end function
 
 function inline channelLifeLeft(mixer, channel)
@@ -240,6 +244,7 @@ function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, right
   slot = pickChannelSlot(mixer, entityNumber, entityChannel)
   if slot < 0 then return void end if
   channel = Channel(sound, entityNumber, entityChannel, 0.0,
+    sound.sampleRate / (mixer.sampleRate * 1.0),
     mixer.paintedFrames, leftVolume, rightVolume, true, false, false,
     false, 255.0, 0.0, false, void)
   // Reuse a finished slot. Sound events are frequent during combat and an
@@ -262,7 +267,8 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
     return error(2956, "channel volume outside [0,255]")
   end if
   if len(mixer.pendingSounds) >= MAX_PLAYSOUNDS then return void end if
-  channel = Channel(sound, entityNumber, entityChannel, 0.0, startFrame,
+  channel = Channel(sound, entityNumber, entityChannel, 0.0,
+    sound.sampleRate / (mixer.sampleRate * 1.0), startFrame,
     leftVolume, rightVolume, true, false, false, false, 255.0, 0.0,
     false, void)
   // Match S_StartSound's sorted pending list. New entries precede an existing
@@ -326,7 +332,8 @@ function issuePending(mixer, absoluteFrame)
   return issued
 end function
 
-function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin, masterVolume, attenuation)
+function spatialVolumesInto(output, listenerOrigin, listenerRight, sourceOrigin,
+    masterVolume, attenuation)
   dx = sourceOrigin.x - listenerOrigin.x
   dy = sourceOrigin.y - listenerOrigin.y
   dz = sourceOrigin.z - listenerOrigin.z
@@ -353,7 +360,15 @@ function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin, masterVolum
   if right > 255.0 then right = 255.0 end if
   if left < 0.0 then left = 0.0 end if
   if right < 0.0 then right = 0.0 end if
-  return [ambio.truncInt(left), ambio.truncInt(right)]
+  output[0] = ambio.truncInt(left)
+  output[1] = ambio.truncInt(right)
+  return output
+end function
+
+function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin,
+    masterVolume, attenuation)
+  return spatialVolumesInto(array(2, 0), listenerOrigin, listenerRight,
+    sourceOrigin, masterVolume, attenuation)
 end function
 
 function mix(mixer, frameCount)
@@ -375,13 +390,19 @@ function mix(mixer, frameCount)
     mixer.paintedFrames = mixer.paintedFrames + frameCount
     return output
   end if
+  track = mixer.music
+  musicScale = 0.0
+  if track is not void then
+    musicScale = track.rate / (mixer.sampleRate * 1.0)
+  end if
   frameIndex = 0
   while frameIndex < frameCount
-    issuePending(mixer, mixer.paintedFrames + frameIndex)
+    paintedFrame = mixer.paintedFrames + frameIndex
+    if len(mixer.pendingSounds) > 0 then issuePending(mixer, paintedFrame) end if
     mixedLeft = 0
     mixedRight = 0
     for each channel in mixer.channels
-      if channel.active and mixer.paintedFrames + frameIndex >= channel.startFrame then
+      if channel.active and paintedFrame >= channel.startFrame then
         sourceIndex = ambio.truncInt(channel.sourceFrame)
         if sourceIndex >= channel.sound.sampleCount then
           if channel.looping then
@@ -397,15 +418,13 @@ function mix(mixer, frameCount)
         if channel.active then
           mixedLeft = mixedLeft + sampleAt(channel.sound, sourceIndex, 0) * channel.leftVolume / 255
           mixedRight = mixedRight + sampleAt(channel.sound, sourceIndex, 1) * channel.rightVolume / 255
-          channel.sourceFrame = channel.sourceFrame + channel.sound.sampleRate / (mixer.sampleRate * 1.0)
+          channel.sourceFrame = channel.sourceFrame + channel.sourceStep
         end if
       end if
     end for
-    track = mixer.music
     if track is not void and track.playing and not track.paused and
         mixer.musicVolume > 0.0 then
-      sourceFrame = ambio.truncInt(track.position * track.rate /
-        (mixer.sampleRate * 1.0))
+      sourceFrame = ambio.truncInt(track.position * musicScale)
       if sourceFrame >= track.frames then
         if track.looping then
           track.position = 0
@@ -453,8 +472,13 @@ function mix(mixer, frameCount)
     end if
     mixedLeft = mixedLeft * mixer.masterVolume
     mixedRight = mixedRight * mixer.masterVolume
-    ambio.putI16(output, frameIndex * 4, ambio.truncInt(clamp16(mixedLeft)))
-    ambio.putI16(output, frameIndex * 4 + 2, ambio.truncInt(clamp16(mixedRight)))
+    mixedLeft = ambio.truncInt(clamp16(mixedLeft))
+    mixedRight = ambio.truncInt(clamp16(mixedRight))
+    outputOffset = frameIndex * 4
+    output[outputOffset] = mixedLeft & 255
+    output[outputOffset + 1] = (mixedLeft >> 8) & 255
+    output[outputOffset + 2] = mixedRight & 255
+    output[outputOffset + 3] = (mixedRight >> 8) & 255
     frameIndex = frameIndex + 1
   end while
   mixer.paintedFrames = mixer.paintedFrames + frameCount

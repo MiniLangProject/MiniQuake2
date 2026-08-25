@@ -699,7 +699,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
           applicationDemoSessionHolder.runtime.client.serverTime,
           applicationDemoSessionHolder.runtime.network.playerNumber + 1,
           applicationDemoFrameHolder)
-        appeffecthandoff.apply(applicationDemoSessionHolder.runtime.effects,
+        appeffecthandoff.applyPrepared(applicationDemoSessionHolder.runtime.effects,
           applicationDemoFrameHolder,
           applicationDemoSessionHolder.runtime.client.serverTime,
           resolvePlayEffectModel)
@@ -1943,7 +1943,8 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       session.client.integrated.client.current,
       session.client.integrated.client.previous, fraction, effectNow,
       session.client.integrated.network.playerNumber + 1, frame)
-    appeffecthandoff.apply(session.client.integrated.effects, frame, effectNow, resolvePlayEffectModel)
+    appeffecthandoff.applyPrepared(session.client.integrated.effects, frame,
+      effectNow, resolvePlayEffectModel)
     applicationPerfWorldStart = appsystem.milliseconds(clock)
     applicationPerfClient = applicationPerfClient +
       applicationPerfWorldStart - applicationPerfStart
@@ -2497,7 +2498,7 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
         applicationRemoteFraction, applicationRemoteEffectNow,
         applicationRemoteSession.integrated.network.playerNumber + 1,
         applicationRemoteFrame)
-      appeffecthandoff.apply(applicationRemoteSession.integrated.effects,
+      appeffecthandoff.applyPrepared(applicationRemoteSession.integrated.effects,
         applicationRemoteFrame, applicationRemoteEffectNow,
         resolvePlayEffectModel)
       applicationRemoteRenderer.exports.BeginFrame(0.0)

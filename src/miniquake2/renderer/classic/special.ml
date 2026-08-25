@@ -234,27 +234,37 @@ function classicSpecialSortTransparent(draws, origin)
 end function
 
 function classicSpecialPassPlanOrigin(draws, viewOrigin)
-  opaque = array(len(draws)); warp = array(len(draws)); sky = array(len(draws)); transparent = array(len(draws))
   opaqueCount = 0; warpCount = 0; skyCount = 0; transparentCount = 0
   for each draw in draws
     category = draw.surface.category
-    if category == rclassicconstants.MATERIAL_OPAQUE then
-      opaque[opaqueCount] = draw; opaqueCount = opaqueCount + 1
-    else if category == rclassicconstants.MATERIAL_WARP then
-      warp[warpCount] = draw; warpCount = warpCount + 1
-    else if category == rclassicconstants.MATERIAL_SKY then
-      sky[skyCount] = draw; skyCount = skyCount + 1
-    else if category == rclassicconstants.MATERIAL_TRANSPARENT then
-      transparent[transparentCount] = draw; transparentCount = transparentCount + 1
+    if category == rclassicconstants.MATERIAL_OPAQUE then opaqueCount = opaqueCount + 1
+    else if category == rclassicconstants.MATERIAL_WARP then warpCount = warpCount + 1
+    else if category == rclassicconstants.MATERIAL_SKY then skyCount = skyCount + 1
+    else if category == rclassicconstants.MATERIAL_TRANSPARENT then transparentCount = transparentCount + 1
     end if
   end for
-  transparentDraws = rspecialarray.slice(transparent, 0, transparentCount)
-  transparentDraws = classicSpecialSortTransparent(transparentDraws, viewOrigin)
+  // Count first and allocate the exact pass sizes. The old one-pass builder
+  // allocated four arrays at the full visible-surface count and then sliced
+  // all four, copying hundreds of references on every rendered frame.
+  opaque = array(opaqueCount); warp = array(warpCount)
+  sky = array(skyCount); transparent = array(transparentCount)
+  opaqueIndex = 0; warpIndex = 0; skyIndex = 0; transparentIndex = 0
+  for each draw in draws
+    category = draw.surface.category
+    if category == rclassicconstants.MATERIAL_OPAQUE then
+      opaque[opaqueIndex] = draw; opaqueIndex = opaqueIndex + 1
+    else if category == rclassicconstants.MATERIAL_WARP then
+      warp[warpIndex] = draw; warpIndex = warpIndex + 1
+    else if category == rclassicconstants.MATERIAL_SKY then
+      sky[skyIndex] = draw; skyIndex = skyIndex + 1
+    else if category == rclassicconstants.MATERIAL_TRANSPARENT then
+      transparent[transparentIndex] = draw
+      transparentIndex = transparentIndex + 1
+    end if
+  end for
+  transparentDraws = classicSpecialSortTransparent(transparent, viewOrigin)
   return rclassictypes.ClassicSpecialPassPlan(
-    rspecialarray.slice(opaque, 0, opaqueCount),
-    rspecialarray.slice(warp, 0, warpCount),
-    rspecialarray.slice(sky, 0, skyCount),
-    transparentDraws
+    opaque, warp, sky, transparentDraws
   )
 end function
 

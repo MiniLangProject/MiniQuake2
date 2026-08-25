@@ -41,8 +41,8 @@ function inline scaled(value, amount)
 end function
 
 function compact(values, count)
-  if count <= 0 then return [] end if
   if count == len(values) then return values end if
+  if count <= 0 then return [] end if
   output = array(count)
   index = 0
   while index < count
@@ -924,7 +924,6 @@ function advance(state, now)
   if typeof(now) != "int" or now < state.time then return error(7313, "effect time must be monotonic integer milliseconds") end if
   seconds = (now - state.time) * 0.001
   state.time = now
-  activeSustains = array(len(state.sustains))
   activeSustainCount = 0
   for each sustain in state.sustains
     if sustain.endTime >= now then
@@ -939,23 +938,22 @@ function advance(state, now)
         end if
         sustain.nextThink = sustain.nextThink + sustain.thinkInterval
       end if
-      activeSustains[activeSustainCount] = sustain
+      state.sustains[activeSustainCount] = sustain
       activeSustainCount = activeSustainCount + 1
     end if
   end for
-  state.sustains = compact(activeSustains, activeSustainCount)
-  activeLights = array(len(state.dLights))
+  state.sustains = compact(state.sustains, activeSustainCount)
   activeLightCount = 0
   for each light in state.dLights
     if light.radius > 0.0 and light.die >= now then
       light.radius = light.radius - seconds * light.decay
       if light.radius > 0.0 then
-        activeLights[activeLightCount] = light
+        state.dLights[activeLightCount] = light
         activeLightCount = activeLightCount + 1
       end if
     end if
   end for
-  state.dLights = compact(activeLights, activeLightCount)
+  state.dLights = compact(state.dLights, activeLightCount)
   oldParticleCount = state.particleCount
   activeParticleCount = 0
   particleIndex = 0
@@ -969,34 +967,31 @@ function advance(state, now)
     particleIndex = particleIndex + 1
   end while
   state.particleCount = activeParticleCount
-  activeBeams = array(len(state.beams))
   activeBeamCount = 0
   for each beam in state.beams
     if beam.endTime >= now then
-      activeBeams[activeBeamCount] = beam
+      state.beams[activeBeamCount] = beam
       activeBeamCount = activeBeamCount + 1
     end if
   end for
-  state.beams = compact(activeBeams, activeBeamCount)
-  activeLasers = array(len(state.lasers))
+  state.beams = compact(state.beams, activeBeamCount)
   activeLaserCount = 0
   for each laser in state.lasers
     if laser.endTime >= now then
-      activeLasers[activeLaserCount] = laser
+      state.lasers[activeLaserCount] = laser
       activeLaserCount = activeLaserCount + 1
     end if
   end for
-  state.lasers = compact(activeLasers, activeLaserCount)
-  activeExplosions = array(len(state.explosions))
+  state.lasers = compact(state.lasers, activeLaserCount)
   activeExplosionCount = 0
   for each explosion in state.explosions
     frame = (now - explosion.startTime) / 100
     if frame < explosion.frames - 1 then
-      activeExplosions[activeExplosionCount] = explosion
+      state.explosions[activeExplosionCount] = explosion
       activeExplosionCount = activeExplosionCount + 1
     end if
   end for
-  state.explosions = compact(activeExplosions, activeExplosionCount)
+  state.explosions = compact(state.explosions, activeExplosionCount)
   return state
 end function
 

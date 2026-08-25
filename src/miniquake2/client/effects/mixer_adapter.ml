@@ -2,6 +2,7 @@
 package miniquake2.client.effects.mixer_adapter
 
 import miniquake2.qcommon.byteio as qbio
+import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.types as qtypes
 import miniquake2.audio.mixer as amixer
 import miniquake2.client.effects.audio as ceaudio
@@ -14,6 +15,14 @@ entityPositionResolver = void
 listenerOrigin = void
 listenerRight = void
 listenerEntityNumber = -1
+mixerSpatialScratch = array(2, 0)
+loopSoundEpoch = 0
+loopSoundSeen = array(qconstants.MAX_SOUNDS, 0)
+loopSoundIndices = array(qconstants.MAX_SOUNDS, 0)
+loopSoundLeft = array(qconstants.MAX_SOUNDS, 0)
+loopSoundRight = array(qconstants.MAX_SOUNDS, 0)
+loopSoundResolved = array(qconstants.MAX_SOUNDS, void)
+loopSoundAvailable = array(qconstants.MAX_SOUNDS, false)
 
 function resolveIndex(index)
   global indexResolver
@@ -43,10 +52,12 @@ function play(event, sound)
   if event.attenuation == 3.0 then
     distanceMultiplier = event.attenuation * 0.001
   end if
-  volumes = [qbio.truncInt(master), qbio.truncInt(master)]
+  volumes = mixerSpatialScratch
+  volumes[0] = qbio.truncInt(master)
+  volumes[1] = volumes[0]
   if position is not void then
-    volumes = amixer.spatialVolumes(listenerOrigin, listenerRight, position,
-      master, distanceMultiplier)
+    amixer.spatialVolumesInto(volumes, listenerOrigin, listenerRight,
+      position, master, distanceMultiplier)
   end if
   startFrame = activeMixer.paintedFrames +
     qbio.truncInt(event.timeOffset * activeMixer.sampleRate)
@@ -83,7 +94,8 @@ function respatializeDynamic(mixer, entityPositionCallback, origin, right,
           position = entityPositionCallback(channel.entityNumber)
         end if
         if position is not void then
-          volumes = amixer.spatialVolumes(origin, right, position,
+          volumes = mixerSpatialScratch
+          amixer.spatialVolumesInto(volumes, origin, right, position,
             channel.masterVolume, channel.distanceMultiplier)
           channel.leftVolume = volumes[0]
           channel.rightVolume = volumes[1]
@@ -109,7 +121,8 @@ function respatializeDynamic(mixer, entityPositionCallback, origin, right,
           position = entityPositionCallback(channel.entityNumber)
         end if
         if position is not void then
-          volumes = amixer.spatialVolumes(origin, right, position,
+          volumes = mixerSpatialScratch
+          amixer.spatialVolumesInto(volumes, origin, right, position,
             channel.masterVolume, channel.distanceMultiplier)
           channel.leftVolume = volumes[0]
           channel.rightVolume = volumes[1]
@@ -136,51 +149,63 @@ end function
 // summed, exactly as the stock client does for doors, plats, ambients and
 // projectile flight loops.
 function syncEntityLoops(mixer, snapshot)
-  global indexResolver, listenerOrigin, listenerRight
+  global indexResolver, listenerOrigin, listenerRight, loopSoundEpoch
   if mixer is void then return error(7343, "loop sound sync requires a mixer") end if
   amixer.clearAutoSounds(mixer)
   if snapshot is void then return 0 end if
+  loopSoundEpoch = loopSoundEpoch + 1
+  if loopSoundEpoch >= 0x7fffffff then
+    loopSoundEpoch = 1
+    index = 0
+    while index < len(loopSoundSeen)
+      loopSoundSeen[index] = 0
+      index = index + 1
+    end while
+  end if
+  activeCount = 0
+  for each entity in snapshot.entities
+    soundIndex = entity.sound
+    if soundIndex > 0 and soundIndex < qconstants.MAX_SOUNDS then
+      if loopSoundSeen[soundIndex] != loopSoundEpoch then
+        loopSoundSeen[soundIndex] = loopSoundEpoch
+        loopSoundIndices[activeCount] = soundIndex
+        activeCount = activeCount + 1
+        loopSoundLeft[soundIndex] = 0
+        loopSoundRight[soundIndex] = 0
+        resolvedSound = indexResolver(soundIndex)
+        loopSoundAvailable[soundIndex] = resolvedSound is not void
+        // MiniLang deliberately rejects assigning void through an array index.
+        // Keep the previous handle in the scratch slot and gate it with the
+        // current epoch's availability bit when a configstring is unresolved.
+        if resolvedSound is not void then
+          loopSoundResolved[soundIndex] = resolvedSound
+        end if
+      end if
+      if loopSoundAvailable[soundIndex] then
+        position = qtypes.Vec3(entity.origin[0], entity.origin[1],
+          entity.origin[2])
+        volumes = mixerSpatialScratch
+        amixer.spatialVolumesInto(volumes, listenerOrigin, listenerRight,
+          position, 255.0, 0.003)
+        loopSoundLeft[soundIndex] = loopSoundLeft[soundIndex] + volumes[0]
+        loopSoundRight[soundIndex] = loopSoundRight[soundIndex] + volumes[1]
+      end if
+    end if
+  end for
   started = 0
   index = 0
-  while index < len(snapshot.entities)
-    soundIndex = snapshot.entities[index].sound
-    firstSource = soundIndex > 0
-    prior = 0
-    while prior < index and firstSource
-      if snapshot.entities[prior].sound == soundIndex then firstSource = false end if
-      prior = prior + 1
-    end while
-    if firstSource then
-      sound = indexResolver(soundIndex)
-      if sound is not void then
-        entity = snapshot.entities[index]
-        position = qtypes.Vec3(entity.origin[0],
-          entity.origin[1], entity.origin[2])
-        volumes = amixer.spatialVolumes(listenerOrigin, listenerRight,
-          position, 255.0, 0.003)
-        left = volumes[0]
-        right = volumes[1]
-        other = index + 1
-        while other < len(snapshot.entities)
-          if snapshot.entities[other].sound == soundIndex then
-            otherEntity = snapshot.entities[other]
-            otherPosition = qtypes.Vec3(
-              otherEntity.origin[0], otherEntity.origin[1],
-              otherEntity.origin[2])
-            otherVolumes = amixer.spatialVolumes(listenerOrigin,
-              listenerRight, otherPosition, 255.0, 0.003)
-            left = left + otherVolumes[0]
-            right = right + otherVolumes[1]
-          end if
-          other = other + 1
-        end while
+  while index < activeCount
+    soundIndex = loopSoundIndices[index]
+    sound = loopSoundResolved[soundIndex]
+    if loopSoundAvailable[soundIndex] then
+        left = loopSoundLeft[soundIndex]
+        right = loopSoundRight[soundIndex]
         if left > 255 then left = 255 end if
         if right > 255 then right = 255 end if
         if left > 0 or right > 0 then
           channel = amixer.startAutoSound(mixer, sound, left, right)
           if channel is not void then started = started + 1 end if
         end if
-      end if
     end if
     index = index + 1
   end while

@@ -184,7 +184,10 @@ $CompilerArguments = @(
   "--heap-reserve", "1g",
   "--heap-commit", "32m",
   "--heap-grow", "16m",
-  "--gc-limit", "128m"
+  # Retail rendering retains a large immutable BSP graph. A wider release GC
+  # interval avoids collecting that graph during ordinary frame bursts while
+  # keeping collections bounded well below the 1-GiB reserve.
+  "--gc-limit", "256m"
 )
 if ($Configuration -ieq "Debug") { $CompilerArguments += "--trace-calls" }
 if ($Listings) { $CompilerArguments += @("--asm", "--asm-pe", "--asm-data") }

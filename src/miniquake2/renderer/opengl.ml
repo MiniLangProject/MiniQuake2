@@ -91,6 +91,8 @@ struct OpenGlState
   rawTextureId
   rawPixels
   batchRecords
+  batchDraws
+  batchAnimationFrame
   md2ShadeRows
   md2NormalVectors
   md2ShadowSpotZ
@@ -1658,7 +1660,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1670,7 +1672,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1896,6 +1898,17 @@ function inline writeOpenGlBatchU32(buffer, offset, value)
   buffer[offset + 3] = (value >> 24) & 255
 end function
 
+function inline openGlBatchDrawsEqual(first, second)
+  if nativeRawValue(first) == nativeRawValue(second) then return true end if
+  if len(first) != len(second) then return false end if
+  index = 0
+  while index < len(first)
+    if first[index] != second[index] then return false end if
+    index = index + 1
+  end while
+  return true
+end function
+
 function writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId,
     lightmapTextureId)
   offset = index * 16
@@ -1910,19 +1923,29 @@ end function
 function submitOpenGlClassicMultitexture(binding, draws, time)
   if len(draws) == 0 or native.glMultitextureAvailable() == 0 then return [false, 0] end if
   required = len(draws) * 16
-  if len(binding.state.batchRecords) < required then binding.state.batchRecords = bytes(required) end if
+  if len(binding.state.batchRecords) < required then
+    binding.state.batchRecords = bytes(required)
+    binding.state.batchDraws = []
+  end if
   uploaded = 0
-  index = 0
-  while index < len(draws)
-    draw = draws[index]
-    if not classicDrawCanCache(draw) then return [false, uploaded] end if
-    baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, time)
-    if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
-    if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
-    writeOpenGlMultitextureRecord(binding.state.batchRecords, index, draw,
-      baseTexture.id, draw.lightmapTexture.id)
-    index = index + 1
-  end while
+  animationFrame = ropenglbyteio.truncInt(time * 2.0)
+  batchHit = binding.state.batchAnimationFrame == animationFrame and
+    openGlBatchDrawsEqual(binding.state.batchDraws, draws)
+  if not batchHit then
+    index = 0
+    while index < len(draws)
+      draw = draws[index]
+      if not classicDrawCanCache(draw) then return [false, uploaded] end if
+      baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, time)
+      if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
+      if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
+      writeOpenGlMultitextureRecord(binding.state.batchRecords, index, draw,
+        baseTexture.id, draw.lightmapTexture.id)
+      index = index + 1
+    end while
+    binding.state.batchDraws = draws
+    binding.state.batchAnimationFrame = animationFrame
+  end if
 
   native.glActiveTexture(0)
   native.glEnable(GL_TEXTURE_2D)

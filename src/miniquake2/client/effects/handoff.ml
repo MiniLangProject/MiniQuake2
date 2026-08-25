@@ -10,6 +10,8 @@ import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.state as cestate
 
 function appendLimited(values, additions, maximum)
+  if len(additions) == 0 and len(values) <= maximum then return values end if
+  if len(values) == 0 and len(additions) <= maximum then return additions end if
   total = len(values) + len(additions)
   if total > maximum then total = maximum end if
   if total <= 0 then return [] end if
@@ -29,8 +31,8 @@ function appendLimited(values, additions, maximum)
 end function
 
 function trim(values, count)
-  if count <= 0 then return [] end if
   if count == len(values) then return values end if
+  if count <= 0 then return [] end if
   compact = array(count)
   index = 0
   while index < count
@@ -50,6 +52,7 @@ function particleOrigin(particle, now)
 end function
 
 function rendererParticles(state, now)
+  if state.particleCount <= 0 then return [] end if
   output = array(state.particleCount)
   outputIndex = 0
   particleIndex = 0
@@ -73,6 +76,7 @@ function rendererParticles(state, now)
 end function
 
 function rendererDLights(state)
+  if len(state.dLights) == 0 then return [] end if
   output = array(len(state.dLights))
   outputIndex = 0
   for each light in state.dLights
@@ -214,11 +218,17 @@ function explosionEntity(explosion, now, modelResolver)
     explosionAlpha(explosion, now), void, flags)
 end function
 
-function apply(state, refDef, now, modelResolver)
-  cestate.advance(state, now)
+// Product rendering calls entity.emit first, which already advances the shared
+// effect state. Keep that prepared path separate so one frame never scans and
+// compacts every effect collection twice at the same timestamp.
+function applyPrepared(state, refDef, now, modelResolver)
   // A cable/lightning effect is a chain of 30-35 unit MD2 segments in the
   // original client. Reserve the renderer ceiling once and fill it in-place.
-  effectEntities = array(rc.MAX_ENTITIES)
+  effectEntities = []
+  if len(state.beams) > 0 or len(state.lasers) > 0 or
+      len(state.explosions) > 0 then
+    effectEntities = array(rc.MAX_ENTITIES)
+  end if
   effectEntityCount = 0
   for each beam in state.beams
     effectEntityCount = appendBeamEntities(effectEntities, effectEntityCount,
@@ -242,7 +252,10 @@ function apply(state, refDef, now, modelResolver)
   for each countedExplosion in state.explosions
     if countedExplosion.light > 0.0 then extraLightCount = extraLightCount + 1 end if
   end for
-  combinedLights = array(len(effectLights) + extraLightCount)
+  combinedLights = effectLights
+  if extraLightCount > 0 then
+    combinedLights = array(len(effectLights) + extraLightCount)
+  end if
   effectLightCount = 0
   for each existingLight in effectLights
     combinedLights[effectLightCount] = existingLight
@@ -264,4 +277,9 @@ function apply(state, refDef, now, modelResolver)
   refDef.numDLights = len(refDef.dLights)
   refDef.numParticles = len(refDef.particles)
   return refDef
+end function
+
+function apply(state, refDef, now, modelResolver)
+  cestate.advance(state, now)
+  return applyPrepared(state, refDef, now, modelResolver)
 end function

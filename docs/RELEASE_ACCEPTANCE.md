@@ -474,6 +474,16 @@ gate on Windows 11, Ryzen 9 9900X and an NVIDIA RTX 5080 compatibility context:
 - 20,000 unpaced retail session frames at 43.89 fps, 40,740/40,740 packets,
   zero rejects, bounded histories and zero residual engine-command bytes.
 
+The 2026-08-25 rendered-product optimization pass used three consecutive runs
+of `MiniQuake2.exe --play ROOT base1 512` on the same host. Median frame time
+fell from 6,836.93 ms to 5,955.80 ms, or from 74.89 to 85.97 fps (+14.8%). A
+three-run 1,024-frame confirmation reached a median 11,579.57 ms (88.43 fps).
+All runs retained 297 visible/7,010 culled world surfaces, zero missing assets
+and the same Protocol-34 active state. The measured changes cache packed static
+multitexture batches, use exact render-pass arrays, remove per-sample mixer
+checks/divisions, reuse spatial-audio buffers, compact effects in place and
+replace quadratic loop-sound merging with fixed indexed accumulators.
+
 The extended soak exposed and closed the previously unconsumed
 `menu_loadgame` AddCommandString boundary. See
 [`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md) for exact measurements and
