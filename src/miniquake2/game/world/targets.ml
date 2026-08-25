@@ -239,10 +239,9 @@ function spawnSpawner(entity, world)
 end function
 
 function useBlaster(entity, other, activator, world)
-  effectStyle = 8
-  if (entity.spawnFlags & 2) != 0 then effectStyle = 0 else if (entity.spawnFlags & 1) != 0 then effectStyle = 64 end if
-  world.callbacks.effect("target-blaster", entity.origin, effectStyle, entity.damage)
-  world.callbacks.sound(entity, "weapons/laser2.wav")
+  world.callbacks.fireBlaster(entity, entity.moveDirection, entity.damage,
+    entity.speed)
+  gwcore.emit(world, "target-blaster", entity, entity.damage)
   return true
 end function
 
@@ -284,66 +283,168 @@ function spawnCrossLevelTarget(entity, world)
   return entity
 end function
 
+const LASER_START_ON = 1
+const LASER_RED = 2
+const LASER_GREEN = 4
+const LASER_BLUE = 8
+const LASER_YELLOW = 16
+const LASER_ORANGE = 32
+const LASER_FAT = 64
+const LASER_DIRECTION_CHANGED = 0x80000000
+
 function laserThink(entity, world)
+  sparkCount = 4
+  if (entity.spawnFlags & LASER_DIRECTION_CHANGED) != 0 then sparkCount = 8 end if
   target = entity.targetEntity
-  if target is void and entity.target != "" then target = gwcore.pickTarget(world, entity.target); entity.targetEntity = target end if
-  if target is not void then
+  if target is not void and target.inUse then
     targetDelta = gwvector.subtract(target.origin, entity.origin)
-    normalizedDirection = gwvector.normalized(targetDelta)
-    entity.moveDirection = normalizedDirection[0]
-  else entity.moveDirection = gwvector.movedir(entity.angles)
+    newDirection = gwvector.normalized(targetDelta)[0]
+    if gwvector.equal(newDirection, entity.moveDirection) == false then
+      entity.spawnFlags = entity.spawnFlags | LASER_DIRECTION_CHANGED
+    end if
+    entity.moveDirection = newDirection
   end if
-  world.callbacks.effect("target-laser", entity.origin, entity.spawnFlags, entity.damage)
+
+  start = entity.origin
+  finish = gwvector.multiplyAdd(start, 2048.0, entity.moveDirection)
+  ignore = entity
+  tracing = true
+  traceCount = 0
+  while tracing and traceCount < 256
+    trace = world.callbacks.traceLine(start, finish, ignore)
+    entity.oldOrigin = trace.endPosition
+    if trace.hit == false or trace.entity is void then
+      tracing = false
+    else
+      hit = trace.entity
+      if hit.takeDamage != gwconstants.DAMAGE_NO and
+          (hit.flags & gwconstants.FL_IMMUNE_LASER) == 0 then
+        world.callbacks.damage(hit, entity, entity.activator, entity.damage,
+          gwconstants.MOD_TARGET_LASER)
+      end if
+
+      // Stock target_laser passes through players and monsters, including an
+      // immune boss, but stops at every other solid entity.
+      if (hit.serverFlags & gwconstants.SVF_MONSTER) == 0 and hit.isClient == false then
+        if (entity.spawnFlags & LASER_DIRECTION_CHANGED) != 0 then
+          entity.spawnFlags = entity.spawnFlags & ~LASER_DIRECTION_CHANGED
+          world.callbacks.laserSparks(trace.endPosition, trace.planeNormal,
+            sparkCount, entity.style)
+          gwcore.emit(world, "laser-sparks", entity, sparkCount)
+        end if
+        tracing = false
+      else
+        ignore = hit
+        start = trace.endPosition
+      end if
+    end if
+    traceCount = traceCount + 1
+  end while
+
   entity.think = laserThink
   entity.nextThink = world.time + world.frameTime
   return true
 end function
 
+function laserOn(entity, world)
+  if entity.activator is void then entity.activator = entity end if
+  entity.spawnFlags = entity.spawnFlags | LASER_DIRECTION_CHANGED | LASER_START_ON
+  entity.serverFlags = entity.serverFlags & ~gwconstants.SVF_NOCLIENT
+  laserThink(entity, world)
+  return true
+end function
+
+function laserOff(entity, world)
+  entity.spawnFlags = entity.spawnFlags & ~LASER_START_ON
+  entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
+  entity.nextThink = 0.0
+  return true
+end function
+
 function laserUse(entity, other, activator, world)
   entity.activator = activator
-  if entity.nextThink != 0.0 then
-    entity.nextThink = 0.0
-    entity.think = void
-    entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
-  else
-    entity.serverFlags = entity.serverFlags & ~gwconstants.SVF_NOCLIENT
-    entity.think = laserThink
-    entity.nextThink = world.time + world.frameTime
+  if (entity.spawnFlags & LASER_START_ON) != 0 then laserOff(entity, world)
+  else laserOn(entity, world)
   end if
   world.callbacks.linkEntity(entity)
   return true
 end function
 
-function spawnLaser(entity, world)
-  if entity.damage == 0 then entity.damage = 1 end if
+function laserStart(entity, world)
+  entity.moveType = gwconstants.MOVETYPE_NONE
+  entity.solid = gwconstants.SOLID_NOT
+  entity.renderFx = entity.renderFx | gwconstants.RF_BEAM | gwconstants.RF_TRANSLUCENT
+  entity.modelIndex = 1
+  if (entity.spawnFlags & LASER_FAT) != 0 then entity.frame = 16 else entity.frame = 4 end if
+  if (entity.spawnFlags & LASER_RED) != 0 then entity.style = 0xf2f2f0f0
+  else if (entity.spawnFlags & LASER_GREEN) != 0 then entity.style = 0xd0d1d2d3
+  else if (entity.spawnFlags & LASER_BLUE) != 0 then entity.style = 0xf3f3f1f1
+  else if (entity.spawnFlags & LASER_YELLOW) != 0 then entity.style = 0xdcdddedf
+  else if (entity.spawnFlags & LASER_ORANGE) != 0 then entity.style = 0xe0e1e2e3
+  end if
+
+  if entity.targetEntity is void then
+    if entity.target != "" then
+      choices = gwcore.matchingTargets(world, entity.target)
+      if len(choices) > 0 then entity.targetEntity = choices[0]
+      else gwcore.log(world, "target_laser has a bad target " + entity.target)
+      end if
+    else
+      entity.moveDirection = gwvector.movedir(entity.angles)
+    end if
+  end if
   entity.use = laserUse
-  entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
-  if (entity.spawnFlags & 1) != 0 then laserUse(entity, void, entity, world) end if
+  entity.think = laserThink
+  if entity.damage == 0 then entity.damage = 1 end if
+  entity.mins = targetactorqtypes.Vec3(-8.0, -8.0, -8.0)
+  entity.maxs = targetactorqtypes.Vec3(8.0, 8.0, 8.0)
+  world.callbacks.linkEntity(entity)
+  if (entity.spawnFlags & LASER_START_ON) != 0 then laserOn(entity, world)
+  else laserOff(entity, world)
+  end if
+  return true
+end function
+
+function spawnLaser(entity, world)
+  // The original defers initialization so every possible target has spawned.
+  entity.think = laserStart
+  entity.nextThink = world.time + 1.0
   return entity
 end function
 
 function earthquakeThink(entity, world)
-  if world.time >= entity.pauseTime then entity.nextThink = 0.0; return true end if
-  world.callbacks.effect("earthquake", entity.origin, entity.speed, 1)
-  entity.think = earthquakeThink
-  entity.nextThink = world.time + world.frameTime
+  playSound = false
+  if entity.pauseTime < world.time then
+    playSound = true
+    entity.pauseTime = world.time + 0.5
+  end if
+  world.callbacks.earthquake(entity, entity.speed, playSound)
+  gwcore.emit(world, "earthquake", entity, entity.speed)
+  if world.time < entity.timestamp then
+    entity.think = earthquakeThink
+    entity.nextThink = world.time + world.frameTime
+  else
+    entity.nextThink = 0.0
+  end if
   return true
 end function
 
 function earthquakeUse(entity, other, activator, world)
-  if entity.nextThink != 0.0 then return false end if
-  entity.activator = activator
-  entity.pauseTime = world.time + entity.count
-  entity.think = earthquakeThink
+  // Re-triggering extends/restarts the stock effect; it is not rejected while
+  // an earlier activation is still running.
+  entity.timestamp = world.time + entity.count
   entity.nextThink = world.time + world.frameTime
-  world.callbacks.sound(entity, entity.noise)
+  entity.activator = activator
+  entity.pauseTime = 0.0
   return true
 end function
 
 function spawnEarthquake(entity, world)
+  if entity.targetName == "" then gwcore.log(world, "untargeted target_earthquake") end if
   if entity.count == 0 then entity.count = 5 end if
   if entity.speed == 0.0 then entity.speed = 200.0 end if
   if entity.noise == "" then entity.noise = "world/quake.wav" end if
+  entity.think = earthquakeThink
   entity.use = earthquakeUse
   entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
   return entity

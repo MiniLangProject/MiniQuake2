@@ -579,7 +579,10 @@ function changeMapCore(session, mapName, entityText, collision)
       typeof(entityText) != "string" then return error(9979, "map transition input is invalid") end if
   // Parse and materialize the complete entity document before touching the
   // live game, bridge, network clients, or reliable queues.
-  serverSessionChangeParsedHolder = ssbasespawn.SpawnEntities(serverSessionChangeMapNameHolder, serverSessionChangeEntityTextHolder, "")
+  serverSessionChangeModeHolder = ssgame.playerContext()
+  serverSessionChangeParsedHolder = ssbasespawn.SpawnEntitiesForMode(
+    serverSessionChangeMapNameHolder, serverSessionChangeEntityTextHolder, "",
+    ssgame.configuredGameSkill(), serverSessionChangeModeHolder.deathmatch)
   if len(serverSessionChangeParsedHolder.edicts) + serverSessionChangeSessionHolder.networkRuntime.server.maxClients > ssqc.MAX_EDICTS then
     return error(9980, "map transition edict count exceeds server capacity")
   end if

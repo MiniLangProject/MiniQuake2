@@ -80,6 +80,14 @@ function testClassicDrawingHelpers()
   assertNear(ogl.md2ModelPitch(17.5), 17.5, 0.000001,
     "Quake II alias-model pitch sign workaround")
 
+  polyBlend = ogl.openGlPolyBlendColor([1.0, 0.5, 0.0, 0.25])
+  assertEqual(polyBlend[0], 255, "polyblend red")
+  assertEqual(polyBlend[1], 128, "polyblend green")
+  assertEqual(polyBlend[2], 0, "polyblend blue")
+  assertEqual(polyBlend[3], 64, "polyblend alpha")
+  assertEqual(typeof(try(ogl.openGlPolyBlendColor([1.0, 0.0, 0.0]))),
+    "error", "polyblend rejects malformed RefDef blend")
+
   renderer = ogl.createOpenGlRenderer(false)
   shadeRow0 = ogl.md2ShadeRow(renderer, 0.0)
   shadeRow1 = ogl.md2ShadeRow(renderer, 22.5)

@@ -59,6 +59,10 @@ function collisionUnavailable()
   return false
 end function
 
+function testCvar(name, value, flags)
+  return t.cvar(name, value, flags)
+end function
+
 function makeImports()
   return t.GameImport(
     noop, recordDebug, noop, noop,
@@ -69,7 +73,7 @@ function makeImports()
     noop, noop,
     noop, noop, noop, noop, noop, noop, noop, noop, noop,
     noop, noop, noop,
-    noop, noop, noop,
+    testCvar, noop, noop,
     noop, noop, noop,
     noop, noop, collisionUnavailable
   )

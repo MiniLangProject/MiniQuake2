@@ -32,12 +32,17 @@ function ignoreDisconnect(slot)
   return true
 end function
 
+function ignorePing(slot, ping)
+  return true
+end function
+
 function create(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin)
   if typeof(clientConnect) != "function" or typeof(clientUserinfoChanged) != "function" or
       typeof(clientThink) != "function" or typeof(clientCommand) != "function" or typeof(clientBegin) != "function" then
     return error(7210, "game callback adapter requires five function values")
   end if
-  return nrtypes.GameCallbacks(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin, ignoreDisconnect)
+  return nrtypes.GameCallbacks(clientConnect, clientUserinfoChanged, clientThink,
+    clientCommand, clientBegin, ignoreDisconnect, ignorePing)
 end function
 
 function createWithDisconnect(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin, clientDisconnect)
@@ -103,6 +108,13 @@ function exportClientDisconnect(slot)
   return activeGameExport.clientDisconnect(gameEntity(slot, "ClientDisconnect"))
 end function
 
+function exportClientPing(slot, ping)
+  entity = gameEntity(slot, "ClientPing")
+  if entity.client is void then return error(7216, "ClientPing: edict has no game client") end if
+  entity.client.ping = ping
+  return true
+end function
+
 function installGameExport(gameExport)
   global activeGameExport, activeCommandSystem
   if typeof(gameExport) != "struct" or gameExport.apiVersion != gc.GAME_API_VERSION then
@@ -115,8 +127,10 @@ function installGameExport(gameExport)
   end if
   activeGameExport = gameExport
   activeCommandSystem = void
-  return createWithDisconnect(exportClientConnect, exportClientUserinfoChanged, exportClientThink,
-    exportClientCommand, exportClientBegin, exportClientDisconnect)
+  callbacks = createWithDisconnect(exportClientConnect, exportClientUserinfoChanged,
+    exportClientThink, exportClientCommand, exportClientBegin, exportClientDisconnect)
+  callbacks.clientPing = exportClientPing
+  return callbacks
 end function
 
 function installGameExportWithCommands(gameExport, commandSystem)

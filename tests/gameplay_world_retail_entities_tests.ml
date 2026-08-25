@@ -167,8 +167,64 @@ function testDecorativeAndConsumedClasses()
   return true
 end function
 
-print "MiniQuake2 retail world entity tests starting: 3"
+function testFuncObjectAndSpawnerGibs()
+  global retailWorldDamage, retailWorldKillBoxes
+  world = createWorld()
+  object = rwtypes.createEntity(1, "func_object")
+  object.model = "*1"
+  object.mins = rwqtypes.Vec3(-16.0, -16.0, -16.0)
+  object.maxs = rwqtypes.Vec3(16.0, 16.0, 16.0)
+  rwcore.addEntity(world, object)
+  rwmisc.spawnObject(object, world)
+  assertEqual(object.damage, 100, "func_object default crush damage")
+  assertEqual(object.solid, rwconstants.SOLID_BSP,
+    "func_object begins solid")
+  assertEqual(object.mins.x, -15.0, "func_object shrinks mins")
+  assertEqual(object.maxs.x, 15.0, "func_object shrinks maxs")
+  rwcore.advance(world, 0.2)
+  assertEqual(object.moveType, rwconstants.MOVETYPE_TOSS,
+    "func_object releases after two frames")
+  victim = rwtypes.createEntity(2, "player")
+  victim.takeDamage = rwconstants.DAMAGE_AIM
+  damageBefore = retailWorldDamage
+  object.moveDirection = rwqtypes.Vec3(0.0, 0.0, 1.0)
+  rwmisc.funcObjectTouch(object, victim, world)
+  assertEqual(retailWorldDamage, damageBefore + 100,
+    "func_object crushes only from above")
+
+  triggered = rwtypes.createEntity(3, "func_object")
+  triggered.spawnFlags = 1
+  triggered.mins = rwqtypes.Vec3(-8.0, -8.0, -8.0)
+  triggered.maxs = rwqtypes.Vec3(8.0, 8.0, 8.0)
+  rwcore.addEntity(world, triggered)
+  rwmisc.spawnObject(triggered, world)
+  assertEqual(triggered.solid, rwconstants.SOLID_NOT,
+    "triggered func_object starts hidden")
+  killBoxesBefore = retailWorldKillBoxes
+  rwcore.useEntity(world, triggered, void, void)
+  assertEqual(triggered.solid, rwconstants.SOLID_BSP,
+    "triggered func_object becomes solid")
+  assertEqual(triggered.moveType, rwconstants.MOVETYPE_TOSS,
+    "triggered func_object releases immediately")
+  assertEqual(retailWorldKillBoxes, killBoxesBefore + 1,
+    "triggered func_object performs KillBox")
+
+  arm = rwtypes.createEntity(4, "misc_gib_arm")
+  leg = rwtypes.createEntity(5, "misc_gib_leg")
+  rwmisc.spawnGibArm(arm, world)
+  rwmisc.spawnGibLeg(leg, world)
+  assertEqual(arm.model, "models/objects/gibs/arm/tris.md2",
+    "spawner arm model")
+  assertEqual(leg.model, "models/objects/gibs/leg/tris.md2",
+    "spawner leg model")
+  assertEqual(arm.moveType, rwconstants.MOVETYPE_TOSS,
+    "spawner gib toss movement")
+  return true
+end function
+
+print "MiniQuake2 retail world entity tests starting: 4"
 testWallAndRotating()
 testExploboxLifecycle()
 testDecorativeAndConsumedClasses()
-print "MiniQuake2 retail world entity tests passed: 3"
+testFuncObjectAndSpawnerGibs()
+print "MiniQuake2 retail world entity tests passed: 4"

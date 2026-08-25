@@ -41,6 +41,8 @@ command = qt.UserCmd(100, 0, [0, 0, 0], 200, 0, 0, 0, 0)
 result = cprediction.predict(player, [command], predictionEmptyTrace,
   predictionEmptyContents, 0.0)
 predictionAssertEqual(result.commandsReplayed, 1, "replayed command count")
+predictionAssertEqual(result.previousOrigin[1], 0,
+  "stair detector retains origin before final replayed command")
 predictionAssertEqual(result.state.origin[1], 159,
   "spectator command predicted in fixed-point space")
 predictionAssertNear(result.viewAngles.y, 90.0, 0.0001,

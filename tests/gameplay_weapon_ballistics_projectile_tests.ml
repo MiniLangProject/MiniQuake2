@@ -45,6 +45,13 @@ function traceCallback(start, mins, maxs, endPosition, ignore, mask)
     if traceCalls == 1 then return makeTrace(0.5, traceTarget.origin, traceTarget, 0) end if
     return makeTrace(1.0, endPosition, void, 0)
   end if
+  if traceMode == "bounce" then
+    midpoint = qt.Vec3(
+      (start.x + endPosition.x) * 0.5,
+      (start.y + endPosition.y) * 0.5,
+      (start.z + endPosition.z) * 0.5)
+    return makeTrace(0.5, midpoint, traceTarget, 0)
+  end if
   return makeTrace(1.0, endPosition, void, 0)
 end function
 function contentsCallback(point) return 0 end function
@@ -117,6 +124,13 @@ function testBlasterTouchAndLifetime()
   assertEqual(damageMeans[0], gpconstants.MOD_BLASTER, "blaster MOD")
   assertEqual(projectile.inUse, false, "blaster freed on touch")
 
+  targetBolt = wbprojectiles.fireTargetBlaster(context, owner, qt.zeroVec3(),
+    qt.Vec3(1.0, 0.0, 0.0), 5, 1000.0)
+  wbcore.touchProjectile(context, targetBolt, victim,
+    makeTrace(0.5, targetBolt.origin, victim, 0))
+  assertEqual(damageMeans[1], gpconstants.MOD_TARGET_BLASTER,
+    "target blaster distinct MOD")
+
   second = wbprojectiles.fireBlaster(context, owner, qt.zeroVec3(), qt.Vec3(1.0, 0.0, 0.0), 5, 500.0, wbconstants.EF_HYPERBLASTER, true)
   wbcore.advance(context, 2.0)
   assertEqual(second.inUse, false, "blaster lifetime expiry")
@@ -145,6 +159,25 @@ function testGrenadeBounceDirectSplashAndTimer()
   assertEqual(splash.combatant.health, 120, "grenade splash falloff")
   assertEqual(damageMeans[0], gpconstants.MOD_GRENADE, "grenade direct MOD")
   assertEqual(damageMeans[1], gpconstants.MOD_G_SPLASH, "grenade splash MOD")
+
+  // SV_Physics_Toss applies gravity before movement and clips a bouncing
+  // grenade with the stock 1.5 overbounce factor.
+  reset()
+  context = makeContext()
+  global randomValues, traceMode, traceTarget
+  randomValues = [0.0, 0.0]
+  bounceWall = wbtypes.createTarget(8, 1)
+  bounceWall.combatant.takeDamage = false
+  traceMode = "bounce"; traceTarget = bounceWall
+  bouncing = wbprojectiles.fireGrenade(context, owner, qt.zeroVec3(),
+    qt.Vec3(1.0, 0.0, 0.0), 100, 600.0, 2.5, 160.0)
+  wbprojectiles.advanceProjectile(context, bouncing)
+  assertNear(bouncing.velocity.z, 120.0, 0.001,
+    "grenade receives one stock gravity frame")
+  assertNear(bouncing.origin.x, 30.0, 0.001,
+    "grenade stops at bounce trace fraction")
+  assertNear(bouncing.velocity.x, -300.0, 0.001,
+    "grenade uses stock 1.5 overbounce")
 
   global randomValues, randomOffset
   randomValues = [0.0, 0.0]; randomOffset = 0
@@ -192,6 +225,17 @@ function testBfgLaserTouchEffectFrames()
   wbcore.advance(context, 0.1)
   assertEqual(laserVictim.combatant.health, 490, "BFG scanning laser damage")
   assertEqual(damageMeans[0], gpconstants.MOD_BFG_LASER, "BFG laser MOD")
+
+  immuneVictim = wbtypes.createTarget(5, 500)
+  immuneVictim.isMonster = true
+  immuneVictim.flags = wbconstants.FL_IMMUNE_LASER
+  immuneVictim.origin = qt.Vec3(60.0, 0.0, 0.0)
+  radiusTargets = [immuneVictim]
+  traceCalls = 0
+  traceTarget = immuneVictim
+  wbprojectiles.bfgThink(bfg, context)
+  assertEqual(immuneVictim.combatant.health, 500,
+    "BFG scanning laser respects FL_IMMUNE_LASER")
 
   traceMode = "clear"
   direct = wbtypes.createTarget(3, 500)

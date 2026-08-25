@@ -2,6 +2,7 @@
 package miniquake2.game.world.core
 
 import miniquake2.qcommon.text as qtext
+import miniquake2.qcommon.types as gwcoreqtypes
 import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.types as gwtypes
 import miniquake2.game.world.vector as gwvector
@@ -86,6 +87,18 @@ end function
 function noopLightStyle(style, pattern)
   return true
 end function
+function noopTraceLine(start, finish, ignore)
+  return gwtypes.WorldTrace(false, finish, gwcoreqtypes.zeroVec3(), void)
+end function
+function noopLaserSparks(origin, normal, count, color)
+  return true
+end function
+function noopEarthquake(entity, speed, playSound)
+  return 0
+end function
+function noopFireBlaster(entity, direction, damage, speed)
+  return void
+end function
 
 function defaultCallbacks()
   return gwtypes.WorldCallbacks(
@@ -95,7 +108,8 @@ function defaultCallbacks()
     zeroRandomSigned, zeroRandomIndex,
     noopResolveKeyItem, noopHasKeyItem, noopConsumeKeyItem,
     noopActorMessage, noopActorTransition, noopCombatPointTransition, zeroClockSeconds,
-    noopSetModel, noopLightStyle
+    noopSetModel, noopLightStyle,
+    noopTraceLine, noopLaserSparks, noopEarthquake, noopFireBlaster
   )
 end function
 
@@ -267,7 +281,11 @@ function useTargets(world, entity, activator)
       if typeof(gwUseTargetClassHolder) != "string" or typeof(gwUseSourceClassHolder) != "string" then
         return error(9292, "useTargets classname is not text")
       end if
-      skipAreaPortal = qtext.equalInsensitive(gwUseTargetClassHolder, "func_areaportal") and (qtext.equalInsensitive(gwUseSourceClassHolder, "func_door") or qtext.equalInsensitive(gwUseSourceClassHolder, "func_door_rotating"))
+      skipAreaPortal = qtext.equalInsensitive(gwUseTargetClassHolder, "func_areaportal") and
+        (qtext.equalInsensitive(gwUseSourceClassHolder, "func_door") or
+         qtext.equalInsensitive(gwUseSourceClassHolder, "func_door_rotating") or
+         qtext.equalInsensitive(gwUseSourceClassHolder, "func_door_secret") or
+         qtext.equalInsensitive(gwUseSourceClassHolder, "func_water"))
       if skipAreaPortal == false then
         if targetEntity.number == entity.number then
           log(world, "WARNING: Entity used itself.")

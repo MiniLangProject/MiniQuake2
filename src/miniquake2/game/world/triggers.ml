@@ -218,32 +218,40 @@ end function
 
 function pushTouch(entity, other, world)
   if other is void or other.inUse == false then return false end if
-  other.velocity = gwvector.scale(entity.moveDirection, entity.speed * 10.0)
-  return true
+  pushed = other.className == "grenade" or other.health > 0
+  if pushed then other.velocity = gwvector.scale(entity.moveDirection, entity.speed * 10.0) end if
+  if (entity.spawnFlags & gwconstants.PUSH_ONCE) != 0 then gwcore.freeEntity(world, entity) end if
+  return pushed
 end function
 
 function spawnPush(entity, world)
   initTrigger(entity, world)
   entity.touch = pushTouch
   entity.moveDirection = gwvector.movedir(entity.angles)
-  if entity.speed == 0.0 then entity.speed = 100.0 end if
+  if entity.speed == 0.0 then entity.speed = 1000.0 end if
   return entity
 end function
 
 function monsterJumpTouch(entity, other, world)
-  if other is void or (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then return false end if
+  if other is void then return false end if
+  if (other.flags & (gwconstants.FL_FLY | gwconstants.FL_SWIM)) != 0 then return false end if
+  if (other.serverFlags & gwconstants.SVF_DEADMONSTER) != 0 then return false end if
+  if (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then return false end if
   other.velocity.x = entity.moveDirection.x * entity.speed
   other.velocity.y = entity.moveDirection.y * entity.speed
-  other.velocity.z = entity.height
+  if other.groundEntity is void then return true end if
+  other.groundEntity = void
+  other.velocity.z = entity.moveDirection.z
   return true
 end function
 
 function spawnMonsterJump(entity, world)
-  initTrigger(entity, world)
-  entity.touch = monsterJumpTouch
-  entity.moveDirection = gwvector.movedir(entity.angles)
   if entity.speed == 0.0 then entity.speed = 200.0 end if
   if entity.height == 0.0 then entity.height = 200.0 end if
+  if entity.angles.y == 0.0 then entity.angles.y = 360.0 end if
+  initTrigger(entity, world)
+  entity.touch = monsterJumpTouch
+  entity.moveDirection.z = entity.height
   return entity
 end function
 

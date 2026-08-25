@@ -7,6 +7,7 @@ import miniquake2.game.world.movers as gwmovers
 portalEvents = []
 damageEvents = []
 effectEvents = []
+soundEvents = []
 killBoxCount = 0
 
 function assertEqual(actual, expected, name)
@@ -41,6 +42,11 @@ function recordEffect(kind, origin, style, count)
   effectEvents = effectEvents + [[kind, style, count]]
   return true
 end function
+function recordSound(entity, soundName)
+  global soundEvents
+  soundEvents = soundEvents + [soundName]
+  return true
+end function
 function recordKillBox(entity)
   global killBoxCount
   killBoxCount = killBoxCount + 1
@@ -51,16 +57,19 @@ function makeWorld()
   global portalEvents
   global damageEvents
   global effectEvents
+  global soundEvents
   global killBoxCount
   portalEvents = []
   damageEvents = []
   effectEvents = []
+  soundEvents = []
   killBoxCount = 0
   callbacks = gwcore.defaultCallbacks()
   callbacks.areaPortal = recordPortal
   callbacks.damage = recordDamage
   callbacks.radiusDamage = recordRadius
   callbacks.effect = recordEffect
+  callbacks.sound = recordSound
   callbacks.killBox = recordKillBox
   return gwcore.createWorld(callbacks)
 end function
@@ -157,6 +166,60 @@ function testDoorAndPortal()
   gwcore.useEntity(world, toggle, receiver, receiver)
   gwcore.advance(world, world.time + 0.3)
   assertEqual(toggle.moveInfo.state, gwconstants.STATE_BOTTOM, "toggle closes on use")
+  return true
+end function
+
+function testWaterAndSecretDoor()
+  global soundEvents
+  world = makeWorld()
+  water = gwcore.spawnEntity(world, "func_water")
+  water.size = qt.Vec3(50.0, 16.0, 16.0)
+  water.sounds = 1
+  gwmovers.spawnWater(water, world)
+  assertEqual(water.speed, 25.0, "water stock speed")
+  assertEqual(water.wait, -1.0, "water stock wait")
+  assertNear(water.moveInfo.endOrigin.x, 50.0, 0.000001, "water keeps zero lip")
+  assertEqual(water.blocked is void, true, "water has no door blocked callback")
+  assertEqual((water.spawnFlags & gwconstants.DOOR_TOGGLE) != 0, true,
+    "water wait -1 enables toggle")
+  gwcore.useEntity(world, water, water, water)
+  assertEqual(soundEvents[0], "world/mov_watr.wav", "water start sound")
+  gwcore.advance(world, 2.2)
+  assertNear(water.origin.x, 50.0, 0.000001, "water reaches open position")
+  assertEqual(soundEvents[1], "world/stp_watr.wav", "water stop sound")
+  gwcore.useEntity(world, water, water, water)
+  gwcore.advance(world, 4.4)
+  assertNear(water.origin.x, 0.0, 0.000001, "water toggle closes")
+
+  portal = gwcore.spawnEntity(world, "func_areaportal")
+  portal.targetName = "secret-chain"
+  portal.style = 9
+  secret = gwcore.spawnEntity(world, "func_door_secret")
+  secret.target = "secret-chain"
+  secret.size = qt.Vec3(100.0, 20.0, 40.0)
+  secret.wait = 0.5
+  gwmovers.spawnSecretDoor(secret, world)
+  assertEqual(secret.speed, 50.0, "secret door fixed stock speed")
+  assertNear(secret.moveInfo.startOrigin.y, -20.0, 0.000001,
+    "secret door first sideways leg")
+  assertNear(secret.moveInfo.endOrigin.x, 100.0, 0.000001,
+    "secret door second forward leg")
+  gwcore.useEntity(world, secret, secret, secret)
+  assertEqual(portalEvents[len(portalEvents) - 1][1], true,
+    "secret door opens area portal")
+  gwcore.advance(world, world.time + 0.8)
+  assertNear(secret.origin.y, -20.0, 0.000001,
+    "secret door pauses after first leg")
+  gwcore.advance(world, world.time + 3.0)
+  assertNear(secret.origin.x, 100.0, 0.000001,
+    "secret door reaches open position")
+  gwcore.advance(world, world.time + 4.5)
+  assertNear(secret.origin.x, 0.0, 0.000001, "secret door returns x")
+  assertNear(secret.origin.y, 0.0, 0.000001, "secret door returns y")
+  assertEqual(secret.moveInfo.state, gwconstants.STATE_BOTTOM,
+    "secret door returns to bottom state")
+  assertEqual(portalEvents[len(portalEvents) - 1][1], false,
+    "secret door closes area portal")
   return true
 end function
 
@@ -277,6 +340,7 @@ function main(args)
   testLinearAndAcceleratedMove()
   testButton()
   testDoorAndPortal()
+  testWaterAndSecretDoor()
   testPlatAndTrain()
   testTimer()
   testExplosive()

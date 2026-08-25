@@ -116,6 +116,9 @@ function ReinitializeMonster(actor, context)
   actor.info = gaitypes.defaultMonsterInfo()
   actor.info.scale = definition.scale
   actor.info.currentMove = idleMove()
+  if actor.className == "monster_boss2" then
+    actor.flags = actor.flags | gaiconstants.FL_IMMUNE_LASER
+  end if
   actor.pain = void
   actor.die = void
   actor.activity = "created"
@@ -178,6 +181,9 @@ function SpawnMonster(registry, className, number, context)
   actor.edict.solid = gconstants.SOLID_BBOX
   actor.info.scale = definition.scale
   actor.info.currentMove = idleMove()
+  if actor.className == "monster_boss2" then
+    actor.flags = actor.flags | gaiconstants.FL_IMMUNE_LASER
+  end if
   if gaiprops.isProp(actor) then return gaiprops.configure(actor, context) end if
   if actor.className == "misc_insane" then gaiinsane.configure(actor, context)
   else gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee) end if

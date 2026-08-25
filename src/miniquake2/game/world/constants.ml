@@ -39,6 +39,9 @@ const EF_ANIM_ALLFAST = 0x00002000
 const EF_ROCKET = 0x00000010
 
 const RF_TRANSLUCENT = 32
+const RF_BEAM = 128
+
+const FL_IMMUNE_LASER = 0x00000004
 
 const DOOR_START_OPEN = 1
 const DOOR_REVERSE = 2
@@ -56,6 +59,7 @@ const TRAIN_BLOCK_STOPS = 4
 const TRIGGER_MONSTER = 1
 const TRIGGER_NOT_PLAYER = 2
 const TRIGGER_TRIGGERED = 4
+const PUSH_ONCE = 1
 
 const ACTOR_JUMP = 1
 const ACTOR_SHOOT = 2
@@ -72,4 +76,5 @@ const MOD_CRUSH = "crush"
 const MOD_EXPLOSIVE = "explosive"
 const MOD_BARREL = "barrel"
 const MOD_BOMB = "bomb"
+const MOD_TARGET_LASER = "target-laser"
 const SFL_CROSS_TRIGGER_MASK = 0x000000ff

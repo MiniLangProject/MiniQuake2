@@ -21,6 +21,7 @@ struct GameCallbacks
   clientCommand
   clientBegin
   clientDisconnect
+  clientPing
 end struct
 
 struct DownloadFile

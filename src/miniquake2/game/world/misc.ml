@@ -7,6 +7,7 @@ import miniquake2.game.world.core as wmcore
 import miniquake2.game.world.movers as wmmovers
 import miniquake2.game.world.vector as wmvector
 import miniquake2.qcommon.types as wmqtypes
+import miniquake2.qcommon.constants as wmqconstants
 import miniquake2.qcommon.byteio as worldclockbyteio
 
 // -------------------------------------------------------------------------
@@ -101,6 +102,57 @@ function spawnWall(entity, world)
   if (entity.spawnFlags & 4) != 0 then entity.solid = wmconstants.SOLID_BSP
   else entity.solid = wmconstants.SOLID_NOT; entity.serverFlags = entity.serverFlags | wmconstants.SVF_NOCLIENT
   end if
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+function funcObjectTouch(entity, other, world)
+  if other is void or entity.moveDirection.z < 1.0 or
+      other.takeDamage == wmconstants.DAMAGE_NO then return false end if
+  return world.callbacks.damage(other, entity, entity, entity.damage,
+    wmconstants.MOD_CRUSH)
+end function
+
+function funcObjectRelease(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_TOSS
+  entity.touch = funcObjectTouch
+  return true
+end function
+
+function funcObjectUse(entity, other, activator, world)
+  entity.solid = wmconstants.SOLID_BSP
+  entity.serverFlags = entity.serverFlags & ~wmconstants.SVF_NOCLIENT
+  entity.use = void
+  world.callbacks.killBox(entity)
+  funcObjectRelease(entity, world)
+  world.callbacks.linkEntity(entity)
+  return true
+end function
+
+function shrinkFuncObjectBounds(entity)
+  if entity.mins.x < entity.maxs.x then entity.mins.x = entity.mins.x + 1.0; entity.maxs.x = entity.maxs.x - 1.0 end if
+  if entity.mins.y < entity.maxs.y then entity.mins.y = entity.mins.y + 1.0; entity.maxs.y = entity.maxs.y - 1.0 end if
+  if entity.mins.z < entity.maxs.z then entity.mins.z = entity.mins.z + 1.0; entity.maxs.z = entity.maxs.z - 1.0 end if
+  return true
+end function
+
+function spawnObject(entity, world)
+  world.callbacks.setModel(entity, entity.model)
+  shrinkFuncObjectBounds(entity)
+  if entity.damage == 0 then entity.damage = 100 end if
+  entity.moveType = wmconstants.MOVETYPE_PUSH
+  if entity.spawnFlags == 0 then
+    entity.solid = wmconstants.SOLID_BSP
+    entity.think = funcObjectRelease
+    entity.nextThink = world.time + 2.0 * world.frameTime
+  else
+    entity.solid = wmconstants.SOLID_NOT
+    entity.use = funcObjectUse
+    entity.serverFlags = entity.serverFlags | wmconstants.SVF_NOCLIENT
+  end if
+  if (entity.spawnFlags & 2) != 0 then entity.effects = entity.effects | wmconstants.EF_ANIM_ALL end if
+  if (entity.spawnFlags & 4) != 0 then entity.effects = entity.effects | wmconstants.EF_ANIM_ALLFAST end if
+  entity.clipMask = wmqconstants.MASK_MONSTERSOLID
   world.callbacks.linkEntity(entity)
   return entity
 end function
@@ -316,19 +368,34 @@ function gibDie(entity, inflictor, attacker, damage, point, world)
   return wmcore.freeEntity(world, entity)
 end function
 
-function spawnGibHead(entity, world)
-  entity.model = "models/objects/gibs/head/tris.md2"
+function spawnGibPart(entity, modelName, world)
+  entity.model = modelName
   entity.solid = wmconstants.SOLID_NOT
   entity.effects = entity.effects | wmgameconstants.EF_GIB
   entity.takeDamage = wmconstants.DAMAGE_YES
   entity.die = gibDie
   entity.moveType = wmconstants.MOVETYPE_TOSS
   entity.serverFlags = entity.serverFlags | wmconstants.SVF_MONSTER
-  entity.angularVelocity = wmqtypes.Vec3(0.0, 0.0, 0.0)
+  entity.angularVelocity = wmqtypes.Vec3(
+    (world.callbacks.randomSigned() + 1.0) * 100.0,
+    (world.callbacks.randomSigned() + 1.0) * 100.0,
+    (world.callbacks.randomSigned() + 1.0) * 100.0)
   entity.think = gibFree
   entity.nextThink = world.time + 30.0
   world.callbacks.linkEntity(entity)
   return entity
+end function
+
+function spawnGibHead(entity, world)
+  return spawnGibPart(entity, "models/objects/gibs/head/tris.md2", world)
+end function
+
+function spawnGibArm(entity, world)
+  return spawnGibPart(entity, "models/objects/gibs/arm/tris.md2", world)
+end function
+
+function spawnGibLeg(entity, world)
+  return spawnGibPart(entity, "models/objects/gibs/leg/tris.md2", world)
 end function
 
 function lightUse(entity, other, activator, world)

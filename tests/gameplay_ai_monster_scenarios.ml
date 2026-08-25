@@ -143,6 +143,9 @@ function testArchetypesAndSpawn()
   assertEqual(flipperDef.movement, "swim", "flipper movement")
   jorgDef = gaiarchetypes.find(registry, "monster_jorg")
   assertEqual(jorgDef.maxs[2], 140.0, "Jorg bounds")
+  boss2 = gaiarchetypes.SpawnMonster(registry, "monster_boss2", 14, makeContext())
+  assertTrue((boss2.flags & gaiconstants.FL_IMMUNE_LASER) != 0,
+    "Boss2 stock laser immunity")
 
   context = makeContext()
   context.time = 5.0

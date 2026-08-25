@@ -46,10 +46,20 @@ fixture = "{ \"classname\" \"worldspawn\" }\n" +
   "{ \"classname\" \"monster_soldier\" \"origin\" \"96 0 8\" }\n" +
   "{ \"classname\" \"monster_gunner\" \"origin\" \"160 0 8\" }\n" +
   "{ \"classname\" \"monster_jorg\" \"origin\" \"512 0 8\" }\n" +
+  "{ \"classname\" \"monster_flyer\" \"origin\" \"576 0 8\" }\n" +
+  "{ \"classname\" \"monster_floater\" \"origin\" \"640 0 8\" }\n" +
+  "{ \"classname\" \"monster_hover\" \"origin\" \"704 0 8\" }\n" +
+  "{ \"classname\" \"monster_boss2\" \"origin\" \"768 0 8\" }\n" +
   "{ \"classname\" \"func_door\" \"targetname\" \"sound_door\" \"origin\" \"256 0 0\" }\n" +
   "{ \"classname\" \"func_door_secret\" \"targetname\" \"secret_sound_door\" \"sounds\" \"1\" \"origin\" \"320 0 0\" }\n" +
   "{ \"classname\" \"target_speaker\" \"noise\" \"world/amb10\" \"spawnflags\" \"1\" \"volume\" \"0.4\" \"attenuation\" \"-1\" }\n" +
   "{ \"classname\" \"target_speaker\" \"noise\" \"misc/talk\" \"spawnflags\" \"4\" \"volume\" \"0.25\" \"attenuation\" \"3\" }\n" +
+  "{ \"classname\" \"target_laser\" \"origin\" \"1024 1024 1024\" \"angle\" \"0\" \"spawnflags\" \"66\" }\n" +
+  "{ \"classname\" \"target_earthquake\" \"targetname\" \"quake_test\" }\n" +
+  "{ \"classname\" \"target_blaster\" \"origin\" \"2048 2048 2048\" \"angle\" \"90\" }\n" +
+  "{ \"classname\" \"target_spawner\" \"target\" \"monster_soldier\" \"origin\" \"3000 3000 3000\" \"angle\" \"180\" }\n" +
+  "{ \"classname\" \"target_spawner\" \"target\" \"item_adrenaline\" \"origin\" \"3100 3000 3000\" }\n" +
+  "{ \"classname\" \"target_spawner\" \"target\" \"misc_gib_arm\" \"origin\" \"3200 3000 3000\" \"angle\" \"90\" \"speed\" \"80\" }\n" +
   "{ \"classname\" \"misc_teleporter\" \"target\" \"tele_dest\" \"origin\" \"384 0 0\" }\n" +
   "{ \"classname\" \"misc_teleporter_dest\" \"targetname\" \"tele_dest\" \"origin\" \"448 0 0\" }"
 
@@ -88,12 +98,28 @@ speakerSound = findName(server.soundNames, "world/amb10.wav")
 assertTrue(doorStartSound > 0 and doorMiddleSound > 0 and doorEndSound > 0,
   "stock door sound set precached")
 assertTrue(speakerSound > 0, "target_speaker noise precached")
+quakeSound = findName(server.soundNames, "world/quake.wav")
+assertTrue(quakeSound > 0, "target_earthquake sound precached")
 assertTrue(findName(server.imageNames, "w_machinegun") > 0, "spawned item image precached")
 assertEqual(runtime.items[0].edict.state.modelIndex, machineModel, "item edict model index")
 assertEqual(runtime.monsters[0].edict.state.modelIndex, soldierModel, "soldier edict model index")
 assertEqual(runtime.monsters[1].edict.state.modelIndex, gunnerModel, "gunner edict model index")
 assertEqual(runtime.monsters[2].edict.state.modelIndex, jorgRiderModel, "Jorg rider model index")
 assertEqual(runtime.monsters[2].edict.state.modelIndex2, jorgChassisModel, "Jorg chassis model2 index")
+flyerLoop = findName(server.soundNames, "flyer/flyidle1.wav")
+floaterLoop = findName(server.soundNames, "floater/fltsrch1.wav")
+hoverLoop = findName(server.soundNames, "hover/hovidle1.wav")
+boss2Loop = findName(server.soundNames, "bosshovr/bhvengn1.wav")
+assertTrue(flyerLoop > 0 and floaterLoop > 0 and hoverLoop > 0 and boss2Loop > 0,
+  "stock persistent monster loops precached")
+assertEqual(runtime.monsters[3].edict.state.sound, flyerLoop,
+  "Flyer spawn publishes engine loop")
+assertEqual(runtime.monsters[4].edict.state.sound, floaterLoop,
+  "Floater spawn publishes engine loop")
+assertEqual(runtime.monsters[5].edict.state.sound, hoverLoop,
+  "Hover spawn publishes engine loop")
+assertEqual(runtime.monsters[6].edict.state.sound, boss2Loop,
+  "Boss2 spawn publishes engine loop")
 
 client = sppgameapi.edictAt(1)
 assertTrue(api.clientConnect(client, "\\name\\Ranger\\skin\\male/grunt"), "client connect")
@@ -103,6 +129,14 @@ player = sppgameapi.playerContext().players[0]
 assertTrue(player.edict.state.modelIndex > 0, "player entity model index")
 assertTrue(player.edict.client.playerState.gunIndex > 0, "player gun model index")
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + player.edict.client.playerState.gunIndex], "models/weapons/v_blast/tris.md2", "player gun configstring")
+assertEqual(api.edicts[runtime.monsters[3].edict.state.number].state.sound,
+  flyerLoop, "live Flyer edict keeps engine loop")
+assertEqual(api.edicts[runtime.monsters[4].edict.state.number].state.sound,
+  floaterLoop, "live Floater edict keeps engine loop")
+assertEqual(api.edicts[runtime.monsters[5].edict.state.number].state.sound,
+  hoverLoop, "live Hover edict keeps engine loop")
+assertEqual(api.edicts[runtime.monsters[6].edict.state.number].state.sound,
+  boss2Loop, "live Boss2 edict keeps engine loop")
 
 speaker = sppintegration.findWorldByClass(runtime, "target_speaker")
 speakerEdict = api.edicts[speaker.number]
@@ -132,6 +166,108 @@ assertEqual(reliableSpeakerEvent.volume, 0.25,
   "target_speaker authored volume reaches sound packet")
 assertEqual(reliableSpeakerEvent.attenuation, 3.0,
   "target_speaker authored attenuation reaches sound packet")
+
+earthquake = sppintegration.findWorldByClass(runtime, "target_earthquake")
+player.groundEntity = api.edicts[0]
+player.velocity = [0.0, 0.0, 0.0]
+sppworld.useEntity(runtime.world, earthquake, earthquake, player)
+sppworld.advance(runtime.world, runtime.world.time + 0.1)
+assertTrue(player.groundEntity is void,
+  "target_earthquake clears grounded player")
+assertEqual(player.velocity[2], 100.0,
+  "target_earthquake applies stock mass-200 vertical speed")
+quakeEvents = sppsounds.pendingSnapshot(server)
+quakeEvent = quakeEvents[len(quakeEvents) - 1]
+assertEqual(quakeEvent.soundIndex, quakeSound,
+  "target_earthquake emits stock sound")
+assertEqual(quakeEvent.attenuation, sppgameconstants.ATTN_NONE,
+  "target_earthquake sound is level-wide")
+
+laser = sppintegration.findWorldByClass(runtime, "target_laser")
+sppworld.advance(runtime.world, 1.0)
+assertEqual(laser.modelIndex, 1, "target_laser delayed beam initialization")
+player.edict.state.origin.x = 1100.0
+player.edict.state.origin.y = 1024.0
+player.edict.state.origin.z = 1024.0
+laserHealthBefore = player.health
+sppworld.useEntity(runtime.world, laser, laser, player)
+assertEqual(player.health, laserHealthBefore - 1,
+  "target_laser integrated trace damages player")
+sppintegration.syncGameEdicts(runtime, api)
+laserEdict = api.edicts[laser.number]
+assertTrue((laserEdict.state.renderFx & sppgameconstants.RF_BEAM) != 0,
+  "target_laser RF_BEAM reaches engine EntityState")
+assertTrue((laserEdict.state.renderFx & sppgameconstants.RF_TRANSLUCENT) != 0,
+  "target_laser translucency reaches engine EntityState")
+assertEqual(laserEdict.state.frame, 16,
+  "target_laser fat width reaches engine EntityState")
+assertEqual(laserEdict.state.skinNumber, 0xf2f2f0f0,
+  "target_laser packed color reaches engine EntityState")
+assertEqual(laserEdict.state.oldOrigin.x, 3072.0,
+  "target_laser beam endpoint reaches engine EntityState")
+
+targetBlaster = sppintegration.findWorldByClass(runtime, "target_blaster")
+projectileCountBefore = len(runtime.weaponContext.projectiles)
+sppworld.useEntity(runtime.world, targetBlaster, targetBlaster, player)
+assertEqual(len(runtime.weaponContext.projectiles), projectileCountBefore + 1,
+  "target_blaster spawns a managed bolt")
+targetBolt = runtime.weaponContext.projectiles[len(runtime.weaponContext.projectiles) - 1]
+assertEqual(targetBolt.className, "bolt", "target_blaster projectile class")
+assertTrue((targetBolt.spawnFlags & 2) != 0,
+  "target_blaster projectile carries distinct means-of-death marker")
+targetBlasterEvents = sppsounds.pendingSnapshot(server)
+targetBlasterSound = targetBlasterEvents[len(targetBlasterEvents) - 1]
+assertEqual(targetBlasterSound.channelFlags, sppgameconstants.CHAN_VOICE,
+  "target_blaster sound uses stock voice channel")
+
+monsterSpawner = void
+itemSpawner = void
+gibSpawner = void
+for each spawnProbe in runtime.world.entities
+  if spawnProbe.className == "target_spawner" then
+    if spawnProbe.target == "monster_soldier" then monsterSpawner = spawnProbe
+    else if spawnProbe.target == "item_adrenaline" then itemSpawner = spawnProbe
+    else if spawnProbe.target == "misc_gib_arm" then gibSpawner = spawnProbe
+    end if
+  end if
+end for
+assertTrue(monsterSpawner is not void and itemSpawner is not void and
+  gibSpawner is not void, "target_spawner fixtures")
+monsterCountBefore = len(runtime.monsters)
+sppworld.useEntity(runtime.world, monsterSpawner, monsterSpawner, player)
+assertEqual(len(runtime.monsters), monsterCountBefore + 1,
+  "target_spawner creates registered monster")
+spawnedMonster = runtime.monsters[len(runtime.monsters) - 1]
+assertEqual(spawnedMonster.edict.state.origin.x, 3000.0,
+  "target_spawner monster origin")
+assertTrue(spawnedMonster.edict.state.modelIndex > 0,
+  "target_spawner monster linked model")
+
+itemCountBefore = len(runtime.items)
+sppworld.useEntity(runtime.world, itemSpawner, itemSpawner, player)
+assertEqual(len(runtime.items), itemCountBefore + 1,
+  "target_spawner creates registered item")
+spawnedItem = runtime.items[len(runtime.items) - 1]
+assertEqual(spawnedItem.item.className, "item_adrenaline",
+  "target_spawner item definition")
+assertTrue(spawnedItem.edict.state.modelIndex > 0,
+  "target_spawner item linked model")
+
+worldCountBefore = len(runtime.world.entities)
+sppworld.useEntity(runtime.world, gibSpawner, gibSpawner, player)
+assertEqual(len(runtime.world.entities), worldCountBefore + 1,
+  "target_spawner creates stock gib")
+spawnedGib = runtime.world.entities[len(runtime.world.entities) - 1]
+assertEqual(spawnedGib.className, "misc_gib_arm",
+  "target_spawner gib class")
+assertTrue(spawnedGib.modelIndex > 0, "target_spawner gib linked model")
+gibStartY = spawnedGib.origin.y
+gibStartZ = spawnedGib.origin.z
+sppintegration.runFrame(runtime)
+assertTrue(spawnedGib.origin.y > gibStartY,
+  "target_spawner speed drives gib toss")
+assertTrue(spawnedGib.origin.z < gibStartZ,
+  "spawned gib receives toss gravity")
 door = sppintegration.findWorldByClass(runtime, "func_door")
 assertEqual(door.soundIndex, doorMiddleSound, "door middle loop sound index")
 sppworld.useEntity(runtime.world, door, door, door)
@@ -160,7 +296,12 @@ entities = [
   protocolEntity(runtime.items[0].edict.state),
   protocolEntity(runtime.monsters[0].edict.state),
   protocolEntity(runtime.monsters[1].edict.state),
-  protocolEntity(runtime.monsters[2].edict.state)
+  protocolEntity(runtime.monsters[2].edict.state),
+  protocolEntity(runtime.monsters[3].edict.state),
+  protocolEntity(runtime.monsters[4].edict.state),
+  protocolEntity(runtime.monsters[5].edict.state),
+  protocolEntity(runtime.monsters[6].edict.state),
+  protocolEntity(laserEdict.state)
 ]
 history = sppsnapshot.createHistory(4)
 frame = sppsnapshot.addFrame(history, 1, bytes([]), sppptypes.zeroPlayerState(), entities)
@@ -170,6 +311,14 @@ assertEqual(frame.entities[2].modelIndex, soldierModel, "snapshot soldier model 
 assertEqual(frame.entities[3].modelIndex, gunnerModel, "snapshot gunner model index")
 assertEqual(frame.entities[4].modelIndex, jorgRiderModel, "snapshot Jorg rider model index")
 assertEqual(frame.entities[4].modelIndex2, jorgChassisModel, "snapshot Jorg chassis model2 index")
+assertEqual(frame.entities[5].sound, flyerLoop, "snapshot Flyer engine loop")
+assertEqual(frame.entities[6].sound, floaterLoop, "snapshot Floater engine loop")
+assertEqual(frame.entities[7].sound, hoverLoop, "snapshot Hover engine loop")
+assertEqual(frame.entities[8].sound, boss2Loop, "snapshot Boss2 engine loop")
+assertTrue((frame.entities[9].renderFx & sppgameconstants.RF_BEAM) != 0,
+  "snapshot preserves target_laser beam render flag")
+assertEqual(frame.entities[9].skinNum, 0xf2f2f0f0,
+  "snapshot preserves target_laser color")
 
 api.clientDisconnect(client)
 api.shutdown()

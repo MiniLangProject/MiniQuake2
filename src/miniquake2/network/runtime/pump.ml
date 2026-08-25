@@ -2,6 +2,7 @@
 package miniquake2.network.runtime.pump
 
 import miniquake2.platform.udp as pudp
+import miniquake2.qcommon.byteio as qbio
 import miniquake2.qcommon.sizebuf as qsz
 import miniquake2.protocol.constants as pc
 import miniquake2.protocol.packet as ppacket
@@ -140,6 +141,60 @@ function sendServerPayload(runtime, socket, slot, now, payload)
   return stats
 end function
 
+// SV_CheckTimeouts routes spawned clients through SV_DropClient before the
+// slot is reclaimed.  SV_DropClient calls the game DLL's ClientDisconnect,
+// which removes the player entity and other game-owned state.  Keep that
+// callback boundary in the managed runtime; connected clients have not
+// entered the game yet and therefore deliberately do not receive it.
+function expireTimedOutClients(runtime, now)
+  dropPoint = now - runtime.server.timeoutMsec
+  slot = 0
+  while slot < runtime.server.maxClients
+    client = runtime.server.clients[slot]
+    if client.state == nc.CS_SPAWNED and client.lastMessage < dropPoint then
+      runtime.callbacks.clientDisconnect(slot)
+    end if
+    slot = slot + 1
+  end while
+
+  dropped = nserver.checkTimeouts(runtime.server, now)
+  for each droppedSlot in dropped
+    runtime.transfers[droppedSlot] = nrtypes.DownloadTransfer("", bytes(), -1)
+    runtime.deferredReliable[droppedSlot] = []
+    runtime.ackPending[droppedSlot] = false
+  end for
+  return dropped
+end function
+
+// SV_CalcPings averages the positive samples in frame_latency and publishes
+// the result both on client_t and the corresponding game client.  Keeping the
+// Game API write behind a callback avoids coupling the transport runtime to a
+// concrete game implementation.
+function calculatePings(runtime)
+  slot = 0
+  while slot < runtime.server.maxClients
+    client = runtime.server.clients[slot]
+    if client.state == nc.CS_SPAWNED then
+      total = 0
+      count = 0
+      index = 0
+      while index < nc.LATENCY_COUNTS
+        if client.frameLatencies[index] > 0 then
+          total = total + client.frameLatencies[index]
+          count = count + 1
+        end if
+        index = index + 1
+      end while
+      if count == 0 then client.ping = 0
+      else client.ping = qbio.truncInt(total / count)
+      end if
+      runtime.callbacks.clientPing(slot, client.ping)
+    end if
+    slot = slot + 1
+  end while
+  return true
+end function
+
 function pumpServer(runtime, socket, now, maximumPackets)
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7281, "server pump packet limit must be positive") end if
   stats = nrtypes.stats()
@@ -170,12 +225,8 @@ function pumpServer(runtime, socket, now, maximumPackets)
     end if
     count = count + 1
   end while
-  dropped = nserver.checkTimeouts(runtime.server, now)
-  for each slot in dropped
-    runtime.transfers[slot] = nrtypes.DownloadTransfer("", bytes(), -1)
-    runtime.deferredReliable[slot] = []
-    runtime.ackPending[slot] = false
-  end for
+  calculatePings(runtime)
+  expireTimedOutClients(runtime, now)
   slot = 0
   while slot < runtime.server.maxClients
     client = runtime.server.clients[slot]

@@ -20,7 +20,8 @@ import miniquake2.network.snapshot as nsnapshot
 
 function emptyClient(slot)
   return nt.ServerClient(slot, nc.CS_FREE, "", "", 0, 0, void, 0, 0, 0, 0,
-    void, array(nc.UPDATE_BACKUP, void), 0, 0)
+    void, array(nc.UPDATE_BACKUP, void), 0, 0,
+    array(nc.LATENCY_COUNTS, 0), array(nc.UPDATE_BACKUP, 0))
 end function
 
 function create(maxClients, hostname, mapName, serverInfo, dedicated, publicServer)
@@ -181,7 +182,8 @@ function handleConnect(server, address, request, now)
   channel = pnetchan.setup(pc.NS_SERVER, naddress.copy(address), qport, now)
   client = nt.ServerClient(slot, nc.CS_CONNECTED, userInfo, sanitizedName(userInfo), 0, 0,
     naddress.copy(address), qport, now, now, challenge, channel,
-    array(nc.UPDATE_BACKUP, void), 0, 0)
+    array(nc.UPDATE_BACKUP, void), 0, 0,
+    array(nc.LATENCY_COUNTS, 0), array(nc.UPDATE_BACKUP, 0))
   server.clients[slot] = client
   action = reply("client_connect", address, nconnectionless.clientConnect(), slot, "client_connect")
   return nt.result(true, slot, [action], "connected", void)
@@ -274,7 +276,17 @@ end function
 function acknowledgeFrame(server, slot, frameNumber)
   if slot < 0 or slot >= server.maxClients then return error(7125, "frame acknowledgement slot outside range") end if
   if typeof(frameNumber) != "int" then return error(7126, "frame acknowledgement must be an integer") end if
-  server.clients[slot].lastFrame = frameNumber
+  client = server.clients[slot]
+  // sv_user.c records one RTT sample only when lastframe changes.  The wire
+  // frame number addresses both rings with their respective power-of-two
+  // masks, exactly like client->frames / frame_latency in Quake II 3.19.
+  if frameNumber != client.lastFrame then
+    client.lastFrame = frameNumber
+    if frameNumber > 0 then
+      sentTime = client.frameSentTimes[frameNumber & nc.UPDATE_MASK]
+      client.frameLatencies[frameNumber & (nc.LATENCY_COUNTS - 1)] = server.realTime - sentTime
+    end if
+  end if
   return frameNumber
 end function
 
@@ -284,6 +296,7 @@ function writeClientFrame(server, slot, current, baselines, buffer)
   if client.state < nc.CS_CONNECTED then return error(7128, "cannot write frame for a free client slot") end if
   selected = nsnapshot.writeFrameForClient(buffer, current, client.lastFrame,
     client.frames, baselines, server.maxClients, client.suppressCount)
+  client.frameSentTimes[current.serverFrame & nc.UPDATE_MASK] = server.realTime
   client.suppressCount = 0
   return selected
 end function

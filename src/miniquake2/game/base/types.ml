@@ -123,6 +123,7 @@ struct SpawnResult
   sourceEntityCount
   skippedEntityCount
   skippedClasses
+  inhibitedEntityCount
 end struct
 
 function zeroSpawnTemp()

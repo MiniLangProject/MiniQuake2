@@ -164,10 +164,9 @@ function particle(origin, color, alpha)
 end function
 
 function lightStyle(red, green, blue)
-  white = red
-  if green > white then white = green end if
-  if blue > white then white = blue end if
-  return LightStyle([red, green, blue], white)
+  // V_AddLightStyle stores the RGB sum in white; ref_gl uses it solely as a
+  // compact change key for cached lightmaps.
+  return LightStyle([red, green, blue], red + green + blue)
 end function
 
 function defaultLightStyles()

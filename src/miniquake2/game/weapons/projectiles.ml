@@ -24,6 +24,7 @@ function blasterTouch(projectile, other, trace, context)
   if other is not void and other.combatant is not void and other.combatant.takeDamage then
     means = gpconstants.MOD_BLASTER
     if (projectile.spawnFlags & 1) != 0 then means = gpconstants.MOD_HYPERBLASTER end if
+    if (projectile.spawnFlags & 2) != 0 then means = gpconstants.MOD_TARGET_BLASTER end if
     normal = qt.zeroVec3()
     if trace is not void and trace.plane is not void then normal = trace.plane.normal end if
     wbcore.applyDamage(context, other, projectile, projectile.owner, projectile.velocity, projectile.origin, projectile.damage, 1, gpconstants.DAMAGE_ENERGY, means)
@@ -35,7 +36,8 @@ function blasterTouch(projectile, other, trace, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
-function fireBlaster(context, owner, start, direction, damage, speed, effect, hyper)
+function fireBlasterInternal(context, owner, start, direction, damage, speed,
+    effect, hyper, targetBlaster)
   normalized = wbvector.normalized(direction)[0]
   projectile = wbcore.spawnProjectile(context, "bolt")
   projectile.origin = wbvector.copy(start)
@@ -54,6 +56,7 @@ function fireBlaster(context, owner, start, direction, damage, speed, effect, hy
   projectile.think = wbcore.freeThink
   projectile.damage = damage
   if hyper then projectile.spawnFlags = 1 end if
+  if targetBlaster then projectile.spawnFlags = projectile.spawnFlags | 2 end if
   context.callbacks.dodge(owner, start, normalized, speed)
   context.callbacks.linkEntity(projectile)
   zero = qt.zeroVec3()
@@ -63,6 +66,71 @@ function fireBlaster(context, owner, start, direction, damage, speed, effect, hy
     blasterTouch(projectile, trace.entity, trace, context)
   end if
   return projectile
+end function
+
+function fireBlaster(context, owner, start, direction, damage, speed, effect, hyper)
+  return fireBlasterInternal(context, owner, start, direction, damage, speed,
+    effect, hyper, false)
+end function
+
+function fireTargetBlaster(context, owner, start, direction, damage, speed)
+  // Stock use_target_blaster computes a spawnflag-dependent effect but the
+  // shipped call passes EF_BLASTER unconditionally. Preserve that retail
+  // behavior while retaining its distinct means-of-death value.
+  return fireBlasterInternal(context, owner, start, direction, damage, speed,
+    wbconstants.EF_BLASTER, false, true)
+end function
+
+function clipBounceVelocity(projectile, normal)
+  backoff = wbvector.dot(projectile.velocity, normal) * 1.5
+  projectile.velocity.x = projectile.velocity.x - normal.x * backoff
+  projectile.velocity.y = projectile.velocity.y - normal.y * backoff
+  projectile.velocity.z = projectile.velocity.z - normal.z * backoff
+  if smath.abs(projectile.velocity.x) < 0.1 then projectile.velocity.x = 0.0 end if
+  if smath.abs(projectile.velocity.y) < 0.1 then projectile.velocity.y = 0.0 end if
+  if smath.abs(projectile.velocity.z) < 0.1 then projectile.velocity.z = 0.0 end if
+  return true
+end function
+
+// SV_Physics_Toss subset shared by launcher and hand grenades. Missiles do
+// not receive gravity; MOVETYPE_BOUNCE receives the stock 800 ups gravity and
+// 1.5 overbounce before its next server snapshot.
+function advanceProjectile(context, projectile)
+  if projectile.inUse == false then return false end if
+  if projectile.velocity.z > 0.0 then projectile.groundEntity = void end if
+  if projectile.groundEntity is not void then
+    groundInUse = try(projectile.groundEntity.inUse)
+    if groundInUse == false then projectile.groundEntity = void
+    else return true
+    end if
+  end if
+
+  projectile.oldOrigin = wbvector.copy(projectile.origin)
+  if projectile.moveType == wbconstants.MOVETYPE_BOUNCE then
+    projectile.velocity.z = projectile.velocity.z - 800.0 * context.frameTime
+  end if
+  finish = wbvector.multiplyAdd(projectile.origin, context.frameTime,
+    projectile.velocity)
+  trace = context.callbacks.trace(projectile.origin, projectile.mins,
+    projectile.maxs, finish, projectile, projectile.clipMask)
+  projectile.origin = wbvector.copy(trace.endPosition)
+  projectile.angles = wbvector.multiplyAdd(projectile.angles,
+    context.frameTime, projectile.angularVelocity)
+  if trace.fraction < 1.0 then
+    wbcore.touchProjectile(context, projectile, trace.entity, trace)
+    if projectile.inUse and projectile.moveType == wbconstants.MOVETYPE_BOUNCE then
+      clipBounceVelocity(projectile, trace.plane.normal)
+      if trace.plane.normal.z > 0.7 and projectile.velocity.z < 60.0 then
+        projectile.groundEntity = trace.entity
+        projectile.velocity.x = 0.0; projectile.velocity.y = 0.0
+        projectile.velocity.z = 0.0
+        projectile.angularVelocity.x = 0.0
+        projectile.angularVelocity.y = 0.0
+        projectile.angularVelocity.z = 0.0
+      end if
+    end if
+  end if
+  return projectile.inUse
 end function
 
 function grenadeExplode(projectile, context)
@@ -222,7 +290,9 @@ function bfgThink(projectile, context)
         hit = trace.entity
         laserEnd = wbvector.copy(trace.endPosition)
         laserNormal = wbvector.copy(trace.plane.normal)
-        if hit is not void and hit.combatant is not void and hit.combatant.takeDamage and (projectile.owner is void or hit.number != projectile.owner.number) then
+        if hit is not void and hit.combatant is not void and hit.combatant.takeDamage and
+            (hit.flags & wbconstants.FL_IMMUNE_LASER) == 0 and
+            (projectile.owner is void or hit.number != projectile.owner.number) then
           wbcore.applyDamage(context, hit, projectile, projectile.owner, direction, trace.endPosition, damage, 1, gpconstants.DAMAGE_ENERGY, gpconstants.MOD_BFG_LASER)
         end if
         tracing = hit is not void and (hit.isMonster or hit.isClient)

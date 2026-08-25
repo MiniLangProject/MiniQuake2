@@ -17,7 +17,9 @@ import miniquake2.game.private_save as ngprivatesave
 import miniquake2.game.base.spawn as bspawn
 import miniquake2.game.integration.baseq2 as ngbaseq2
 import miniquake2.game.gameplay.registry as ngregistry
+import miniquake2.game.gameplay.constants as nggpconstants
 import miniquake2.game.gameplay.types as nggtypes
+import miniquake2.game.gameplay.item_rules as nggpitems
 import miniquake2.game.gameplay.combat as ngcombat
 import miniquake2.game.gameplay.powerups as ngpowerups
 import miniquake2.game.player.types as ngplayertypes
@@ -27,6 +29,9 @@ import miniquake2.game.player.client as ngplayerclient
 import miniquake2.game.player.commands as ngplayercommands
 import miniquake2.game.player.frame as ngplayerframe
 import miniquake2.game.player.view as ngplayerview
+import miniquake2.game.player.constants as ngplayerconstants
+import miniquake2.qcommon.byteio as ngbyteio
+import miniquake2.qcommon.info as nginfo
 import miniquake2.qcommon.types as ngqtypes
 import miniquake2.qcommon.text as ngtext
 
@@ -380,6 +385,10 @@ function Init()
   activePlayerContext = ngplayertypes.createContext(activeImports, ngregistry.stockRegistry(), playerPmoveTrace)
   playerContext = activePlayerContext
   playerContext.damagePlayer = playerDamage
+  activeImports.cvar("cheats", "0", qc.CVAR_SERVERINFO | qc.CVAR_LATCH)
+  activeImports.cvar("flood_msgs", "4", 0)
+  activeImports.cvar("flood_persecond", "4", 0)
+  activeImports.cvar("flood_waitdelay", "10", 0)
   activeImports.dprintf("MiniQuake2 BaseQ2: Init (managed gameplay runtime)")
   return true
 end function
@@ -411,7 +420,8 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   if typeof(mapName) != "string" or len(bytes(mapName)) == 0 then return error(3805, "SpawnEntities: empty map name") end if
   if typeof(entityString) != "string" then return error(3806, "SpawnEntities: entity string must be text") end if
   if typeof(spawnPoint) != "string" then return error(3807, "SpawnEntities: spawn point must be text") end if
-  spawned = bspawn.SpawnEntities(mapName, entityString, spawnPoint)
+  spawned = bspawn.SpawnEntitiesForMode(mapName, entityString, spawnPoint,
+    activeSkill, activePlayerContext.deathmatch)
   spawnedEdicts = spawned.edicts
   if len(spawnedEdicts) + activeMaxClients > qc.MAX_EDICTS then return error(3809, "SpawnEntities: parsed edict count exceeds engine limit") end if
   // Extract the small player-spawn view before integrated world/item/monster
@@ -623,6 +633,350 @@ function ClientDisconnect(entity)
   return true
 end function
 
+function sendInventory(slot, player)
+  global activeImports
+  activeImports.writeByte(qc.SVC_INVENTORY)
+  index = 0
+  while index < qc.MAX_ITEMS
+    count = 0
+    if index < len(player.gameplay.inventory.counts) then
+      count = player.gameplay.inventory.counts[index]
+    end if
+    activeImports.writeShort(count)
+    index = index + 1
+  end while
+  return activeImports.unicast(slot, true)
+end function
+
+// p_hud.c DeathmatchScoreboardMessage, retaining its score order, 12-client
+// display bound and Protocol-34 "client" layout command.
+function scoreboardLayout(context)
+  sorted = array(len(context.players), -1)
+  scores = array(len(context.players), 0)
+  total = 0
+  clientIndex = 0
+  while clientIndex < len(context.players)
+    candidate = context.players[clientIndex]
+    if candidate.edict.inUse and candidate.persistent.connected and
+        not candidate.respawn.spectator then
+      score = candidate.respawn.score
+      position = 0
+      while position < total and score <= scores[position]
+        position = position + 1
+      end while
+      shift = total
+      while shift > position
+        sorted[shift] = sorted[shift - 1]
+        scores[shift] = scores[shift - 1]
+        shift = shift - 1
+      end while
+      sorted[position] = clientIndex
+      scores[position] = score
+      total = total + 1
+    end if
+    clientIndex = clientIndex + 1
+  end while
+  if total > 12 then total = 12 end if
+  layout = ""
+  index = 0
+  while index < total
+    clientIndex = sorted[index]
+    player = context.players[clientIndex]
+    x = 0
+    if index >= 6 then x = 160 end if
+    y = 32 + 32 * (index % 6)
+    elapsed = ngbyteio.truncInt((context.frameNumber - player.respawn.enterFrame) / 600)
+    entry = "client " + x + " " + y + " " + clientIndex + " " +
+      player.respawn.score + " " + player.edict.client.ping + " " +
+      elapsed + " "
+    if len(bytes(layout)) + len(bytes(entry)) > 1024 then return layout end if
+    layout = layout + entry
+    index = index + 1
+  end while
+  return layout
+end function
+
+function sendLayout(slot, layout)
+  global activeImports
+  activeImports.writeByte(qc.SVC_LAYOUT)
+  activeImports.writeString(layout)
+  return activeImports.unicast(slot, true)
+end function
+
+function sendScoreboard(slot, context)
+  return sendLayout(slot, scoreboardLayout(context))
+end function
+
+function helpLayout(context)
+  global activeBaseRuntime, activeSkill, currentMap
+  skillName = "hard+"
+  if activeSkill == 0 then skillName = "easy"
+  else if activeSkill == 1 then skillName = "medium"
+  else if activeSkill == 2 then skillName = "hard"
+  end if
+  help1 = ""; help2 = ""; foundGoals = 0; totalGoals = 0
+  foundSecrets = 0; totalSecrets = 0; killed = 0; totalMonsters = 0
+  if activeBaseRuntime is not void then
+    world = activeBaseRuntime.world
+    help1 = world.helpMessage1; help2 = world.helpMessage2
+    foundGoals = world.foundGoals; totalGoals = world.totalGoals
+    foundSecrets = world.foundSecrets; totalSecrets = world.totalSecrets
+    totalMonsters = len(activeBaseRuntime.monsters)
+    for each actor in activeBaseRuntime.monsters
+      if actor.deadFlag != ngplayerconstants.DEAD_NO then killed = killed + 1 end if
+    end for
+  end if
+  return "xv 32 yv 8 picn help xv 202 yv 12 string2 \"" + skillName +
+    "\" xv 0 yv 24 cstring2 \"" + currentMap +
+    "\" xv 0 yv 54 cstring2 \"" + help1 +
+    "\" xv 0 yv 110 cstring2 \"" + help2 +
+    "\" xv 50 yv 164 string2 \" kills goals secrets\" xv 50 yv 172 string2 \"" +
+    killed + "/" + totalMonsters + " " + foundGoals + "/" + totalGoals +
+    " " + foundSecrets + "/" + totalSecrets + "\" "
+end function
+
+function playersText(context)
+  sorted = array(len(context.players), void)
+  count = 0
+  for each candidate in context.players
+    if candidate.edict.inUse and candidate.persistent.connected then
+      position = 0
+      while position < count and
+          candidate.respawn.score >= sorted[position].respawn.score
+        position = position + 1
+      end while
+      shift = count
+      while shift > position
+        sorted[shift] = sorted[shift - 1]
+        shift = shift - 1
+      end while
+      sorted[position] = candidate
+      count = count + 1
+    end if
+  end for
+  text = ""
+  index = 0
+  while index < count
+    listedPlayer = sorted[index]
+    line = listedPlayer.respawn.score + " " +
+      listedPlayer.persistent.netName + "\n"
+    if len(bytes(text)) + len(bytes(line)) > 1180 then
+      text = text + "...\n"
+      break
+    end if
+    text = text + line
+    index = index + 1
+  end while
+  return text + "\n" + count + " players\n"
+end function
+
+function playerListText(context)
+  text = ""
+  for each listedPlayer in context.players
+    if listedPlayer.edict.inUse and listedPlayer.persistent.connected then
+      seconds = ngbyteio.truncInt((context.frameNumber -
+        listedPlayer.respawn.enterFrame) / 10)
+      minutes = ngbyteio.truncInt(seconds / 60)
+      seconds = seconds % 60
+      minuteText = "" + minutes
+      secondText = "" + seconds
+      if minutes < 10 then minuteText = "0" + minuteText end if
+      if seconds < 10 then secondText = "0" + secondText end if
+      spectator = ""
+      if listedPlayer.respawn.spectator then spectator = " (spectator)" end if
+      line = minuteText + ":" + secondText + " " +
+        listedPlayer.edict.client.ping + " " + listedPlayer.respawn.score +
+        " " + listedPlayer.persistent.netName + spectator + "\n"
+      if len(bytes(text)) + len(bytes(line)) > 1350 then
+        return text + "And more...\n"
+      end if
+      text = text + line
+    end if
+  end for
+  return text
+end function
+
+function chatTeamName(player, dmFlags)
+  skin = nginfo.valueForKey(player.persistent.userInfo, "skin")
+  data = bytes(skin)
+  slash = -1
+  index = 0
+  while index < len(data)
+    if data[index] == 47 then slash = index; break end if
+    index = index + 1
+  end while
+  if slash < 0 then return skin end if
+  if (dmFlags & gc.DF_MODELTEAMS) != 0 then
+    return decode(slice(data, 0, slash))
+  end if
+  return decode(slice(data, slash + 1, len(data) - slash - 1))
+end function
+
+function onSameChatTeam(first, second, dmFlags)
+  if (dmFlags & (gc.DF_MODELTEAMS | gc.DF_SKINTEAMS)) == 0 then return false end if
+  return chatTeamName(first, dmFlags) == chatTeamName(second, dmFlags)
+end function
+
+function chatFloodAllowed(slot, player, context)
+  global activeImports
+  floodMessages = ngbyteio.truncInt(activeImports.cvar(
+    "flood_msgs", "4", 0).value)
+  if floodMessages <= 0 then return true end if
+  if floodMessages > len(player.floodWhen) then
+    floodMessages = len(player.floodWhen)
+  end if
+  if context.time < player.floodLockTill then
+    remaining = ngbyteio.truncInt(player.floodLockTill - context.time)
+    activeImports.cprintf(slot, qc.PRINT_HIGH,
+      "You can't talk for " + remaining + " more seconds\n")
+    return false
+  end if
+  index = player.floodWhenHead - floodMessages + 1
+  while index < 0
+    index = index + len(player.floodWhen)
+  end while
+  perSecond = activeImports.cvar("flood_persecond", "4", 0).value
+  if player.floodWhen[index] != 0.0 and
+      context.time - player.floodWhen[index] < perSecond then
+    waitDelay = activeImports.cvar("flood_waitdelay", "10", 0).value
+    player.floodLockTill = context.time + waitDelay
+    activeImports.cprintf(slot, qc.PRINT_CHAT,
+      "Flood protection:  You can't talk for " +
+      ngbyteio.truncInt(waitDelay) + " seconds.\n")
+    return false
+  end if
+  player.floodWhenHead = (player.floodWhenHead + 1) % len(player.floodWhen)
+  player.floodWhen[player.floodWhenHead] = context.time
+  return true
+end function
+
+function normalizedChatBody(command, arguments, includeCommand)
+  body = arguments
+  if includeCommand then
+    body = command + " " + arguments
+  else
+    data = bytes(body)
+    if len(data) >= 2 and data[0] == 34 and data[len(data) - 1] == 34 then
+      body = decode(slice(data, 1, len(data) - 2))
+    end if
+  end if
+  return body
+end function
+
+function sendChat(slot, player, context, team, includeCommand, command)
+  global activeImports
+  if not includeCommand and activeImports.argc() < 2 then return false end if
+  if (context.dmFlags & (gc.DF_MODELTEAMS | gc.DF_SKINTEAMS)) == 0 then
+    team = false
+  end if
+  prefix = player.persistent.netName + ": "
+  if team then prefix = "(" + player.persistent.netName + "): " end if
+  text = prefix + normalizedChatBody(command, activeImports.args(),
+    includeCommand)
+  data = bytes(text)
+  if len(data) > 150 then text = decode(slice(data, 0, 150)) end if
+  text = text + "\n"
+  if not chatFloodAllowed(slot, player, context) then return false end if
+  for each recipient in context.players
+    if recipient.edict.inUse and recipient.persistent.connected and
+        (not team or onSameChatTeam(player, recipient, context.dmFlags)) then
+      activeImports.cprintf(recipient.edict, qc.PRINT_CHAT, text)
+    end if
+  end for
+  return true
+end function
+
+function cheatsAllowed(slot, context)
+  global activeImports
+  if not context.deathmatch or
+      activeImports.cvar("cheats", "0", qc.CVAR_SERVERINFO |
+        qc.CVAR_LATCH).value != 0.0 then return true end if
+  activeImports.cprintf(slot, qc.PRINT_HIGH,
+    "You must run the server with '+set cheats 1' to enable this command.\n")
+  return false
+end function
+
+function giveItems(player, context, arguments)
+  global activeImports
+  giveAll = ngtext.equalInsensitive(arguments, "all")
+  first = activeImports.argv(1)
+  if giveAll or ngtext.equalInsensitive(first, "health") then
+    health = player.maxHealth
+    if activeImports.argc() == 3 then
+      parsedHealth = try(toNumber(activeImports.argv(2)))
+      if parsedHealth is not error then health = ngbyteio.truncInt(parsedHealth) end if
+    end if
+    player.health = health; player.persistent.health = health
+    player.gameplay.health = health
+    if not giveAll then return true end if
+  end if
+  if giveAll or ngtext.equalInsensitive(arguments, "weapons") then
+    for each item in context.registry.items
+      if item.pickup is not void and (item.flags & nggpconstants.IT_WEAPON) != 0 then
+        player.gameplay.inventory.counts[item.index] = player.gameplay.inventory.counts[item.index] + 1
+      end if
+    end for
+    if not giveAll then return true end if
+  end if
+  if giveAll or ngtext.equalInsensitive(arguments, "ammo") then
+    for each item in context.registry.items
+      if item.pickup is not void and (item.flags & nggpconstants.IT_AMMO) != 0 then
+        nggpitems.Add_Ammo(player.gameplay, item, 1000)
+      end if
+    end for
+    if not giveAll then return true end if
+  end if
+  if giveAll or ngtext.equalInsensitive(arguments, "armor") then
+    jacket = nggpitems.findByPickupName(context.registry, "Jacket Armor")
+    combat = nggpitems.findByPickupName(context.registry, "Combat Armor")
+    body = nggpitems.findByPickupName(context.registry, "Body Armor")
+    player.gameplay.inventory.counts[jacket.index] = 0
+    player.gameplay.inventory.counts[combat.index] = 0
+    player.gameplay.inventory.counts[body.index] = body.ruleData.armorMax
+    player.armorItemIndex = body.index
+    if not giveAll then return true end if
+  end if
+  if giveAll or ngtext.equalInsensitive(arguments, "Power Shield") then
+    shield = nggpitems.findByPickupName(context.registry, "Power Shield")
+    player.gameplay.inventory.counts[shield.index] = player.gameplay.inventory.counts[shield.index] + 1
+    if not giveAll then return true end if
+  end if
+  if giveAll then
+    for each item in context.registry.items
+      if item.pickup is not void and
+          (item.flags & (nggpconstants.IT_ARMOR | nggpconstants.IT_WEAPON |
+            nggpconstants.IT_AMMO)) == 0 then
+        player.gameplay.inventory.counts[item.index] = 1
+      end if
+    end for
+    return true
+  end if
+  item = nggpitems.findByPickupName(context.registry, arguments)
+  if item is void then
+    item = nggpitems.findByPickupName(context.registry, first)
+  end if
+  if item is void then return false end if
+  if item.pickup is void then return false end if
+  if (item.flags & nggpconstants.IT_AMMO) != 0 then
+    if activeImports.argc() == 3 then
+      amount = try(toNumber(activeImports.argv(2)))
+      if amount is error then return false end if
+      player.gameplay.inventory.counts[item.index] = ngbyteio.truncInt(amount)
+    else
+      player.gameplay.inventory.counts[item.index] = player.gameplay.inventory.counts[item.index] + item.quantity
+    end if
+    return true
+  end if
+  pickupContext = nggtypes.pickupContext(context.deathmatch,
+    context.cooperative, context.dmFlags, context.time)
+  pickupContext.frameNumber = context.frameNumber
+  itemEntity = nggtypes.createItemEntity(-1, item)
+  action = item.pickup(itemEntity, player.gameplay, pickupContext,
+    context.registry)
+  ngpowerups.SyncToPlayerData(player.gameplay, player)
+  return action.success
+end function
+
 function ClientCommand(entity)
   global activeImports, activeExport, activePlayerContext, clientCommandCount
   slot = checkedClientEdict(entity, "ClientCommand")
@@ -631,8 +985,74 @@ function ClientCommand(entity)
   if activePlayerContext is void or len(activePlayerContext.spawnSpots) == 0 then return true end if
   player = playerForEdict(slot, "ClientCommand", false)
   command = ngtext.lower(activeImports.argv(0))
+  if command == "players" then
+    activeImports.cprintf(slot, qc.PRINT_HIGH, playersText(activePlayerContext))
+    return true
+  end if
+  if command == "say" then
+    sendChat(slot, player, activePlayerContext, false, false, command)
+    return true
+  end if
+  if command == "say_team" then
+    sendChat(slot, player, activePlayerContext, true, false, command)
+    return true
+  end if
+  if command == "score" then
+    visible = ngplayercommands.toggleScore(player, activePlayerContext)
+    if visible then sendScoreboard(slot, activePlayerContext) end if
+    return true
+  end if
+  if command == "help" then
+    visible = ngplayercommands.toggleHelp(player, activePlayerContext)
+    if visible then
+      if activePlayerContext.deathmatch then sendScoreboard(slot, activePlayerContext)
+      else sendLayout(slot, helpLayout(activePlayerContext))
+      end if
+    end if
+    return true
+  end if
+  // Original ClientCommand accepts only players/chat/score/help while the
+  // level is in intermission.
+  if activePlayerContext.intermissionTime > 0.0 then return true end if
+  if command == "give" then
+    if cheatsAllowed(slot, activePlayerContext) and
+        not giveItems(player, activePlayerContext, activeImports.args()) then
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "unknown item\n")
+    end if
+    return true
+  end if
+  if command == "god" then
+    if cheatsAllowed(slot, activePlayerContext) then
+      player.flags = player.flags ^ nggpconstants.FL_GODMODE
+      state = "OFF"
+      if (player.flags & nggpconstants.FL_GODMODE) != 0 then state = "ON" end if
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "godmode " + state + "\n")
+    end if
+    return true
+  end if
+  if command == "notarget" then
+    if cheatsAllowed(slot, activePlayerContext) then
+      player.flags = player.flags ^ nggpconstants.FL_NOTARGET
+      state = "OFF"
+      if (player.flags & nggpconstants.FL_NOTARGET) != 0 then state = "ON" end if
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "notarget " + state + "\n")
+    end if
+    return true
+  end if
+  if command == "noclip" then
+    if cheatsAllowed(slot, activePlayerContext) then
+      state = "ON"
+      if player.moveType == ngplayerconstants.MOVETYPE_NOCLIP then
+        player.moveType = ngplayerconstants.MOVETYPE_WALK
+        state = "OFF"
+      else player.moveType = ngplayerconstants.MOVETYPE_NOCLIP
+      end if
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "noclip " + state + "\n")
+    end if
+    return true
+  end if
   if command == "use" then
-    selected = ngplayercommands.useWeapon(player, activePlayerContext.registry,
+    selected = ngplayercommands.useItem(player, activePlayerContext,
       activeImports.args())
     if not selected then
       activeImports.cprintf(slot, qc.PRINT_HIGH,
@@ -652,6 +1072,67 @@ function ClientCommand(entity)
     ngplayercommands.weaponLast(player, activePlayerContext.registry)
     return true
   end if
+  if command == "inven" then
+    visible = ngplayercommands.toggleInventory(player)
+    if visible then sendInventory(slot, player) end if
+    return true
+  end if
+  if command == "invnext" then
+    ngplayercommands.selectNextItem(player, activePlayerContext.registry, -1)
+    return true
+  end if
+  if command == "invprev" then
+    ngplayercommands.selectPreviousItem(player, activePlayerContext.registry, -1)
+    return true
+  end if
+  if command == "invnextw" then
+    ngplayercommands.selectNextItem(player, activePlayerContext.registry,
+      nggpconstants.IT_WEAPON)
+    return true
+  end if
+  if command == "invprevw" then
+    ngplayercommands.selectPreviousItem(player, activePlayerContext.registry,
+      nggpconstants.IT_WEAPON)
+    return true
+  end if
+  if command == "invnextp" then
+    ngplayercommands.selectNextItem(player, activePlayerContext.registry,
+      nggpconstants.IT_POWERUP)
+    return true
+  end if
+  if command == "invprevp" then
+    ngplayercommands.selectPreviousItem(player, activePlayerContext.registry,
+      nggpconstants.IT_POWERUP)
+    return true
+  end if
+  if command == "invuse" then
+    if not ngplayercommands.useSelectedItem(player, activePlayerContext) then
+      activeImports.cprintf(slot, qc.PRINT_HIGH, "No item to use.\n")
+    end if
+    return true
+  end if
+  if command == "kill" then
+    ngplayercommands.killPlayer(player, activePlayerContext)
+    return true
+  end if
+  if command == "putaway" then
+    ngplayercommands.putAway(player)
+    return true
+  end if
+  if command == "wave" then
+    choice = 4
+    parsedChoice = try(toNumber(activeImports.argv(1)))
+    if parsedChoice is not error then choice = ngbyteio.truncInt(parsedChoice) end if
+    waveName = ngplayercommands.wave(player, choice)
+    if waveName != "" then activeImports.cprintf(slot, qc.PRINT_HIGH, waveName + "\n") end if
+    return true
+  end if
+  if command == "playerlist" then
+    activeImports.cprintf(slot, qc.PRINT_HIGH,
+      playerListText(activePlayerContext))
+    return true
+  end if
+  sendChat(slot, player, activePlayerContext, false, true, command)
   return true
 end function
 

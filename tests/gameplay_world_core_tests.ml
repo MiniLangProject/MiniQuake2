@@ -17,7 +17,7 @@ end function
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
-  if difference > tolerance then return error(9961, name + ": outside tolerance") end if
+  if difference > tolerance then return error(9961, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
@@ -92,6 +92,18 @@ end function
 function callbackLightStyle(style, pattern)
   return true
 end function
+function callbackTraceLine(start, finish, ignore)
+  return gwtypes.WorldTrace(false, finish, qt.zeroVec3(), void)
+end function
+function callbackLaserSparks(origin, normal, count, color)
+  return true
+end function
+function callbackEarthquake(entity, speed, playSound)
+  return 0
+end function
+function callbackFireBlaster(entity, direction, damage, speed)
+  return void
+end function
 
 function makeWorld()
   global callbackEvents
@@ -103,7 +115,8 @@ function makeWorld()
     callbackRandomSigned, callbackRandomIndex,
     callbackResolveKey, callbackHasKey, callbackConsumeKey,
     callbackActorMessage, callbackActorTransition, callbackCombatPointTransition, callbackClockSeconds,
-    callbackSetModel, callbackLightStyle
+    callbackSetModel, callbackLightStyle,
+    callbackTraceLine, callbackLaserSparks, callbackEarthquake, callbackFireBlaster
   )
   return gwcore.createWorld(callbacks)
 end function
@@ -188,6 +201,70 @@ function testMultipleOnceRelay()
   gwtriggers.spawnRelay(relay, world)
   gwcore.useEntity(world, relay, player, player)
   assertEqual(target.count, 5, "relay fires target")
+  return true
+end function
+
+function testPushAndMonsterJump()
+  world = makeWorld()
+  player = gwcore.spawnEntity(world, "player")
+  player.isClient = true
+  player.health = 100
+
+  push = gwcore.spawnEntity(world, "trigger_push")
+  gwtriggers.spawnPush(push, world)
+  assertEqual(push.speed, 1000.0, "trigger_push stock default speed")
+  gwcore.touchEntity(world, push, player)
+  assertNear(player.velocity.x, 10000.0, 0.000001,
+    "trigger_push applies stock tenfold default speed")
+
+  pushOnce = gwcore.spawnEntity(world, "trigger_push")
+  pushOnce.spawnFlags = gwconstants.PUSH_ONCE
+  pushOnce.speed = 100.0
+  gwtriggers.spawnPush(pushOnce, world)
+  gwcore.touchEntity(world, pushOnce, player)
+  assertEqual(pushOnce.inUse, false, "PUSH_ONCE frees after touch")
+
+  grenade = gwcore.spawnEntity(world, "grenade")
+  grenade.health = 0
+  grenadePush = gwcore.spawnEntity(world, "trigger_push")
+  grenadePush.speed = 20.0
+  gwtriggers.spawnPush(grenadePush, world)
+  gwcore.touchEntity(world, grenadePush, grenade)
+  assertNear(grenade.velocity.x, 200.0, 0.000001,
+    "trigger_push moves grenades without health")
+
+  jump = gwcore.spawnEntity(world, "trigger_monsterjump")
+  jump.angles.y = 90.0
+  jump.speed = 400.0
+  jump.height = 300.0
+  gwtriggers.spawnMonsterJump(jump, world)
+  monster = gwcore.spawnEntity(world, "monster_soldier")
+  monster.serverFlags = monster.serverFlags | gwconstants.SVF_MONSTER
+  monster.groundEntity = player
+  gwcore.touchEntity(world, jump, monster)
+  assertNear(monster.velocity.y, 400.0, 0.01,
+    "monsterjump sets horizontal launch")
+  assertNear(monster.velocity.z, 300.0, 0.000001,
+    "grounded monsterjump sets vertical launch")
+  assertEqual(monster.groundEntity is void, true,
+    "monsterjump clears ground entity")
+
+  airborne = gwcore.spawnEntity(world, "monster_infantry")
+  airborne.serverFlags = airborne.serverFlags | gwconstants.SVF_MONSTER
+  airborne.velocity.z = 17.0
+  gwcore.touchEntity(world, jump, airborne)
+  assertNear(airborne.velocity.y, 400.0, 0.01,
+    "airborne monsterjump still sets horizontal launch")
+  assertNear(airborne.velocity.z, 17.0, 0.000001,
+    "airborne monsterjump preserves vertical velocity")
+
+  flyer = gwcore.spawnEntity(world, "monster_flyer")
+  flyer.serverFlags = flyer.serverFlags | gwconstants.SVF_MONSTER
+  flyer.flags = flyer.flags | gwconstants.FL_FLY
+  flyer.groundEntity = player
+  gwcore.touchEntity(world, jump, flyer)
+  assertNear(flyer.velocity.y, 0.0, 0.000001,
+    "monsterjump ignores flying monsters")
   return true
 end function
 
@@ -324,6 +401,7 @@ end function
 function main(args)
   testUseTargetsAndDelay()
   testMultipleOnceRelay()
+  testPushAndMonsterJump()
   testTargets()
   testCrossLevel()
   testWorldVectorGcSoak()

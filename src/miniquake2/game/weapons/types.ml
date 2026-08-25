@@ -15,6 +15,7 @@ struct WeaponTarget
   combatant
   isClient
   isMonster
+  flags
 end struct
 
 struct WeaponEffect
@@ -104,7 +105,7 @@ function createTarget(number, health)
   combatant = gptypes.createCombatant(number, health)
   return WeaponTarget(
     number, true, "target", qt.zeroVec3(), qt.Vec3(-16.0, -16.0, -16.0),
-    qt.Vec3(16.0, 16.0, 16.0), combatant, false, false
+    qt.Vec3(16.0, 16.0, 16.0), combatant, false, false, 0
   )
 end function
 

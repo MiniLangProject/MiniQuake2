@@ -20,15 +20,57 @@ struct ClientRuntime
   predictedAngles
   predictionError
   predictionValid
+  predictedStep
+  predictedStepTime
+  predictionRealTime
+  predictionStepOriginZ
+  predictionStepOriginValid
   serverFrame
   serverTime
   lightStyles
+  lightStyleMaps
+  lightStyleOffset
 end struct
 
 function create()
   return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void,
     cqt.zeroVec3(), cqt.zeroVec3(), cqt.zeroVec3(), false,
-    -1, 0, crt.defaultLightStyles())
+    0.0, 0.0, 0.0, 0, false, -1, 0, crt.defaultLightStyles(),
+    array(qc.MAX_LIGHTSTYLES, ""), -1)
+end function
+
+// CL_SetLightstyle decodes CS_LIGHTS strings lazily at their 10 Hz playback
+// rate. Keeping the compact source string avoids a second 256 x MAX_QPATH
+// float table and is cheaper than rebuilding every style on every render.
+function setLightStyle(client, index, pattern)
+  if typeof(index) != "int" or index < 0 or index >= qc.MAX_LIGHTSTYLES then
+    return error(7604, "light style index outside table")
+  end if
+  if typeof(pattern) != "string" or len(bytes(pattern)) >= qc.MAX_QPATH then
+    return error(7605, "light style pattern outside protocol path limit")
+  end if
+  client.lightStyleMaps[index] = pattern
+  client.lightStyleOffset = -1
+  return true
+end function
+
+function runLightStyles(client, renderTime)
+  offset = cstatemath.floor(renderTime / 100.0)
+  if offset == client.lightStyleOffset then return false end if
+  client.lightStyleOffset = offset
+  index = 0
+  while index < qc.MAX_LIGHTSTYLES
+    pattern = bytes(client.lightStyleMaps[index])
+    value = 1.0
+    if len(pattern) > 0 then
+      patternIndex = 0
+      if len(pattern) > 1 then patternIndex = offset % len(pattern) end if
+      value = (pattern[patternIndex] - 97) / 12.0
+    end if
+    client.lightStyles[index] = crt.lightStyle(value, value, value)
+    index = index + 1
+  end while
+  return true
 end function
 
 function setConnectionState(client, state)
@@ -113,6 +155,42 @@ function interpolatedAngles(oldState, currentState, fraction)
   )
 end function
 
+// CL_DeltaEntity deliberately breaks interpolation when an entity changes
+// model, moves more than 512 units between server frames, or reports either
+// teleport event.  Particle trails already observe this rule; the render
+// handoff must use the same predecessor or models visibly sweep through the
+// world after teleports and model replacements.
+function inline entityRequiresLerpReset(oldState, state)
+  if oldState is void then return true end if
+  if oldState.modelIndex != state.modelIndex or
+      oldState.modelIndex2 != state.modelIndex2 or
+      oldState.modelIndex3 != state.modelIndex3 or
+      oldState.modelIndex4 != state.modelIndex4 then return true end if
+  deltaX = state.origin[0] - oldState.origin[0]
+  deltaY = state.origin[1] - oldState.origin[1]
+  deltaZ = state.origin[2] - oldState.origin[2]
+  if deltaX < -512.0 or deltaX > 512.0 or
+      deltaY < -512.0 or deltaY > 512.0 or
+      deltaZ < -512.0 or deltaZ > 512.0 then return true end if
+  return state.event == cseconstants.EV_PLAYER_TELEPORT or
+    state.event == cseconstants.EV_OTHER_TELEPORT
+end function
+
+function inline entityRenderOrigin(oldState, state, fraction, reset)
+  if not reset then return interpolatedOrigin(oldState, state, fraction) end if
+  first = state.oldOrigin
+  if state.event == cseconstants.EV_OTHER_TELEPORT then first = state.origin end if
+  return cqt.vec3(
+    lerp(first[0], state.origin[0], fraction),
+    lerp(first[1], state.origin[1], fraction),
+    lerp(first[2], state.origin[2], fraction))
+end function
+
+function inline entityRenderAngles(oldState, state, fraction, reset)
+  if reset then return cqt.vec3(state.angles[0], state.angles[1], state.angles[2]) end if
+  return interpolatedAngles(oldState, state, fraction)
+end function
+
 function inline effectiveEffects(state)
   effects = state.effects
   if (effects & cseconstants.EF_PENT) != 0 then
@@ -166,7 +244,7 @@ function inline animatedFrame(state, effects, renderTime)
   return state.frame
 end function
 
-function renderAngles(oldState, state, effects, fraction, renderTime)
+function renderAngles(oldState, state, effects, fraction, renderTime, lerpReset)
   if (effects & cseconstants.EF_ROTATE) != 0 then
     yaw = renderTime / 10.0
     yaw = yaw - cstatemath.floor(yaw / 360.0) * 360.0
@@ -177,7 +255,7 @@ function renderAngles(oldState, state, effects, fraction, renderTime)
     yaw = yaw - cstatemath.floor(yaw / 360.0) * 360.0
     return cqt.vec3(0.0, yaw + state.angles[1], 180.0)
   end if
-  return interpolatedAngles(oldState, state, fraction)
+  return entityRenderAngles(oldState, state, fraction, lerpReset)
 end function
 
 function inline disguiseFamily(skin)
@@ -191,7 +269,7 @@ function inline disguiseFamily(skin)
 end function
 
 function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
-    part, fraction, renderTime, assetResolvers, randomResolver)
+    part, fraction, renderTime, assetResolvers, randomResolver, lerpReset)
   if modelIndex <= 0 then return outputIndex end if
   if outputIndex >= len(output) then return outputIndex end if
   effects = effectiveEffects(state)
@@ -217,15 +295,16 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
   else
     model = assetResolvers.modelIndex(resolvedIndex)
   end if
-  origin = interpolatedOrigin(oldState, state, fraction)
+  origin = entityRenderOrigin(oldState, state, fraction, lerpReset)
   oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
   if (renderFx & (crc.RF_FRAMELERP | crc.RF_BEAM)) != 0 then
     origin = cqt.vec3(state.origin[0], state.origin[1], state.origin[2])
     oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
   end if
-  angles = renderAngles(oldState, state, effects, fraction, renderTime)
+  angles = renderAngles(oldState, state, effects, fraction, renderTime,
+    lerpReset)
   oldFrame = state.frame
-  if oldState is not void then oldFrame = oldState.frame end if
+  if oldState is not void and not lerpReset then oldFrame = oldState.frame end if
   frame = animatedFrame(state, effects, renderTime)
   skinNum = 0
   flags = 0
@@ -259,7 +338,7 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
 end function
 
 function appendColorShell(output, outputIndex, state, oldState, fraction,
-    renderTime, assetResolvers)
+    renderTime, assetResolvers, lerpReset)
   effects = effectiveEffects(state)
   if state.modelIndex <= 0 or (effects & cseconstants.EF_COLOR_SHELL) == 0 then
     return outputIndex
@@ -279,16 +358,16 @@ function appendColorShell(output, outputIndex, state, oldState, fraction,
       end if
     end if
   end if
-  origin = interpolatedOrigin(oldState, state, fraction)
+  origin = entityRenderOrigin(oldState, state, fraction, lerpReset)
   oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
   if (renderFx & (crc.RF_FRAMELERP | crc.RF_BEAM)) != 0 then
     origin = cqt.vec3(state.origin[0], state.origin[1], state.origin[2])
     oldOrigin = cqt.vec3(state.oldOrigin[0], state.oldOrigin[1], state.oldOrigin[2])
   end if
   oldFrame = state.frame
-  if oldState is not void then oldFrame = oldState.frame end if
+  if oldState is not void and not lerpReset then oldFrame = oldState.frame end if
   output[outputIndex] = crt.entity(model,
-    renderAngles(oldState, state, effects, fraction, renderTime), origin,
+    renderAngles(oldState, state, effects, fraction, renderTime, lerpReset), origin,
     animatedFrame(state, effects, renderTime), oldOrigin, oldFrame,
     1.0 - fraction, skinNum, 0, 0.30, skin,
     renderFx | crc.RF_TRANSLUCENT)
@@ -296,7 +375,7 @@ function appendColorShell(output, outputIndex, state, oldState, fraction,
 end function
 
 function appendPowerScreen(output, outputIndex, state, oldState, fraction,
-    renderTime, assetResolvers)
+    renderTime, assetResolvers, lerpReset)
   effects = effectiveEffects(state)
   if state.modelIndex <= 0 or (effects & cseconstants.EF_POWERSCREEN) == 0 then
     return outputIndex
@@ -304,10 +383,10 @@ function appendPowerScreen(output, outputIndex, state, oldState, fraction,
   if outputIndex >= len(output) then return outputIndex end if
   model = assetResolvers.modelName("models/items/armor/effect/tris.md2")
   if model is void then return outputIndex end if
-  origin = interpolatedOrigin(oldState, state, fraction)
+  origin = entityRenderOrigin(oldState, state, fraction, lerpReset)
   oldOrigin = cqt.vec3(origin.x, origin.y, origin.z)
   output[outputIndex] = crt.entity(model,
-    renderAngles(oldState, state, effects, fraction, renderTime), origin,
+    renderAngles(oldState, state, effects, fraction, renderTime, lerpReset), origin,
     0, oldOrigin, 0, 1.0 - fraction, 0, 0, 0.30, void,
     crc.RF_TRANSLUCENT | crc.RF_SHELL_GREEN)
   return outputIndex + 1
@@ -341,6 +420,7 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
     randomResolver, viewOrigin, viewAngles)
   if client.current is void then return [] end if
   fraction = clampFraction(fraction)
+  renderTime = client.serverTime - (1.0 - fraction) * 100.0
   oldEntities = []
   if client.previous is not void then oldEntities = client.previous.entities end if
   capacity = 0
@@ -359,22 +439,23 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
     state = client.current.entities[index]
     if state.number != localEntityNumber then
       oldState = findEntity(oldEntities, state.number)
+      lerpReset = entityRequiresLerpReset(oldState, state)
       outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-        state.modelIndex, 0, fraction, client.serverTime, assetResolvers,
-        randomResolver)
+        state.modelIndex, 0, fraction, renderTime, assetResolvers,
+        randomResolver, lerpReset)
       outputIndex = appendColorShell(output, outputIndex, state, oldState,
-        fraction, client.serverTime, assetResolvers)
+        fraction, renderTime, assetResolvers, lerpReset)
       outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-        state.modelIndex2, 1, fraction, client.serverTime, assetResolvers,
-        randomResolver)
+        state.modelIndex2, 1, fraction, renderTime, assetResolvers,
+        randomResolver, lerpReset)
       outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-        state.modelIndex3, 2, fraction, client.serverTime, assetResolvers,
-        randomResolver)
+        state.modelIndex3, 2, fraction, renderTime, assetResolvers,
+        randomResolver, lerpReset)
       outputIndex = appendModelEntity(output, outputIndex, state, oldState,
-        state.modelIndex4, 3, fraction, client.serverTime, assetResolvers,
-        randomResolver)
+        state.modelIndex4, 3, fraction, renderTime, assetResolvers,
+        randomResolver, lerpReset)
       outputIndex = appendPowerScreen(output, outputIndex, state, oldState,
-        fraction, client.serverTime, assetResolvers)
+        fraction, renderTime, assetResolvers, lerpReset)
     end if
     index = index + 1
   end while
@@ -420,9 +501,50 @@ function acceptPrediction(client, fixedOrigin, angles)
   return true
 end function
 
+function setPredictionRealTime(client, now)
+  if typeof(now) != "int" and typeof(now) != "float" then
+    return error(7606, "prediction real time must be numeric")
+  end if
+  client.predictionRealTime = now * 1.0
+  return true
+end function
+
+// CL_PredictMovement recognizes one ordinary stair riser in fixed-point
+// Pmove coordinates (8..20 world units) and records a half-frame-adjusted
+// start time. CL_CalcViewValues then removes that vertical discontinuity over
+// the next 100 ms instead of snapping the camera upward.
+function notePredictionStep(client, previousFixedOrigin, currentFixedOrigin,
+    flags, frameMsec)
+  if typeof(previousFixedOrigin) != "array" or len(previousFixedOrigin) != 3 or
+      typeof(currentFixedOrigin) != "array" or len(currentFixedOrigin) != 3 then
+    return error(7607, "prediction step requires fixed-point origins")
+  end if
+  step = currentFixedOrigin[2] - previousFixedOrigin[2]
+  repeatedOrigin = client.predictionStepOriginValid and
+    client.predictionStepOriginZ == currentFixedOrigin[2]
+  client.predictionStepOriginZ = currentFixedOrigin[2]
+  client.predictionStepOriginValid = true
+  if step <= 63 or step >= 160 or (flags & qc.PMF_ON_GROUND) == 0 then
+    return false
+  end if
+  // The product may replay the same unsent preview command more than once
+  // between 10-Hz network ticks. Original Quake advanced its outgoing command
+  // every render; suppress the duplicate endpoint so the 100-ms easing window
+  // is not restarted continuously.
+  if repeatedOrigin then return false end if
+  client.predictedStep = step * 0.125
+  client.predictedStepTime = client.predictionRealTime - frameMsec * 0.5
+  return true
+end function
+
 function clearPrediction(client)
   client.predictionValid = false
   client.predictionError = cqt.zeroVec3()
+  client.predictedStep = 0.0
+  client.predictedStepTime = 0.0
+  client.predictionRealTime = 0.0
+  client.predictionStepOriginZ = 0
+  client.predictionStepOriginValid = false
   return true
 end function
 
@@ -430,6 +552,8 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, usePrediction)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
   fraction = clampFraction(fraction)
+  renderTime = client.serverTime - (1.0 - fraction) * 100.0
+  runLightStyles(client, renderTime)
   player = client.current.playerState
   previousPlayer = interpolationPlayer(client)
   predictionAllowed = usePrediction and client.predictionValid and
@@ -451,6 +575,13 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
       lerp(previousPlayer.pmove.origin[2] * 0.125 + previousPlayer.viewOffset[2],
         player.pmove.origin[2] * 0.125 + player.viewOffset[2], fraction))
   end if
+  if predictionAllowed and client.predictedStep > 0.0 then
+    stepDelta = client.predictionRealTime - client.predictedStepTime
+    if stepDelta >= 0.0 and stepDelta < 100.0 then
+      viewOrigin.z = viewOrigin.z - client.predictedStep *
+        (100.0 - stepDelta) * 0.01
+    end if
+  end if
   viewAngles = cqt.zeroVec3()
   if usePrediction and client.predictionValid and player.pmove.moveType < qc.PM_DEAD then
     viewAngles = cqt.vec3(client.predictedAngles.x, client.predictedAngles.y,
@@ -470,8 +601,14 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
   projectionDistance = width / (cstatenative.sin(halfFov) / cstatenative.cos(halfFov))
   fovY = cstatenative.atan2(height * 1.0, projectionDistance) * 114.59155902616465
   blend = [player.blend[0], player.blend[1], player.blend[2], player.blend[3]]
-  return crt.refDef(0, 0, width, height, fov, fovY, viewOrigin, viewAngles,
-    blend, client.serverTime * 0.001, player.rdFlags, void,
+  // V_RenderView offsets the camera by half a protocol coordinate quantum so
+  // it never lies exactly on a BSP node (most visibly, a water plane).  The
+  // view weapon was already positioned from the unshifted origin above.
+  renderViewOrigin = cqt.vec3(viewOrigin.x + 0.0625,
+    viewOrigin.y + 0.0625, viewOrigin.z + 0.0625)
+  return crt.refDef(0, 0, width, height, fov, fovY, renderViewOrigin, viewAngles,
+    blend, renderTime * 0.001, player.rdFlags,
+    bytes(client.current.areaBits),
     client.lightStyles, buildEntities(client, fraction, assetResolvers,
     localEntityNumber, randomResolver, viewOrigin, viewAngles), [], [])
 end function

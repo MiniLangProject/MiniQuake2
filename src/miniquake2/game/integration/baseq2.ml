@@ -105,6 +105,18 @@ aiMoveDynamicClip = IntegratedDynamicClip(false, 1.0, 0.0, 1.0, -1,
 aiTriggerMinsScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
 aiTriggerMaxsScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
 
+// target_laser is evaluated every server frame.  Reuse its clip and adapter
+// records so retail maps with large laser banks do not allocate a target array
+// (and one WeaponTarget per actor) for every beam trace.
+worldLaserClipScratch = IntegratedDynamicClip(false, 1.0, 0.0, 1.0, -1,
+  0.0, false, false)
+worldLaserEndScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+worldLaserNormalScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+worldLaserTraceScratch = ibwtypes.WorldTrace(false, worldLaserEndScratch,
+  worldLaserNormalScratch, void)
+worldLaserPlayerProxy = ibwtypes.createEntity(-1, "laser_player_proxy")
+worldLaserBlockProxy = ibwtypes.createEntity(-1, "laser_block_proxy")
+
 function compactIntegratedValues(values, count)
   if count <= 0 then return [] end if
   if count == len(values) then return values end if
@@ -474,6 +486,7 @@ function integratedAITouchTriggers(actor)
   proxy.mins = actor.edict.mins; proxy.maxs = actor.edict.maxs
   proxy.health = actor.health; proxy.maxHealth = actor.maxHealth
   proxy.mass = actor.mass; proxy.flags = actor.flags
+  proxy.groundEntity = actor.groundEntity
   proxy.serverFlags = actor.edict.serverFlags | ibgconstants.SVF_MONSTER
   proxy.isClient = false
   touched = 0
@@ -494,6 +507,7 @@ function integratedAITouchTriggers(actor)
   actor.velocity.x = proxy.velocity.x
   actor.velocity.y = proxy.velocity.y
   actor.velocity.z = proxy.velocity.z
+  actor.groundEntity = proxy.groundEntity
   return touched
 end function
 
@@ -890,6 +904,7 @@ function playerWeaponTarget(player, registry)
   target.mins = weaponVector(player.edict.mins)
   target.maxs = weaponVector(player.edict.maxs)
   target.isClient = true
+  target.flags = player.flags
   target.inUse = player.edict.inUse and player.health > 0
   target.combatant.edict = player.edict
   target.combatant.health = player.health
@@ -911,6 +926,7 @@ function monsterWeaponTarget(actor)
   target.mins = weaponVector(actor.edict.mins)
   target.maxs = weaponVector(actor.edict.maxs)
   target.isMonster = true
+  target.flags = actor.flags
   target.inUse = actor.edict.inUse and actor.health > 0
   target.combatant.edict = actor.edict
   target.combatant.health = actor.health
@@ -929,6 +945,7 @@ function worldWeaponTarget(entity)
   target.maxs = weaponVector(entity.maxs)
   target.inUse = entity.inUse
   target.isMonster = (entity.serverFlags & ibworldconstants.SVF_MONSTER) != 0
+  target.flags = entity.flags
   target.combatant.edict.state.number = entity.number
   target.combatant.edict.state.origin = weaponVector(entity.origin)
   target.combatant.edict.mins = weaponVector(entity.mins)
@@ -1124,7 +1141,19 @@ end function
 function integratedWorldMeans(means)
   if means == ibworldconstants.MOD_CRUSH then return ibplayerconstants.MOD_CRUSH end if
   if means == ibworldconstants.MOD_BARREL then return ibplayerconstants.MOD_BARREL end if
+  if means == ibworldconstants.MOD_TARGET_LASER then return ibplayerconstants.MOD_TARGET_LASER end if
   return ibplayerconstants.MOD_EXPLOSIVE
+end function
+
+function integratedSourceNumber(source)
+  if source is void then return -1 end if
+  directNumber = try(source.number)
+  if typeof(directNumber) == "int" then return directNumber end if
+  gameplayNumber = try(source.edict.state.number)
+  if typeof(gameplayNumber) == "int" then return gameplayNumber end if
+  engineNumber = try(source.state.number)
+  if typeof(engineNumber) == "int" then return engineNumber end if
+  return -1
 end function
 
 function integratedWorldDamage(targetEntity, inflictor, attacker, amount, means)
@@ -1135,10 +1164,375 @@ function integratedWorldDamage(targetEntity, inflictor, attacker, amount, means)
   if target is void then return false end if
   inflictorTarget = void
   attackerTarget = void
-  if inflictor is not void then inflictorTarget = weaponTargetByNumber(runtime, inflictor.number) end if
-  if attacker is not void then attackerTarget = weaponTargetByNumber(runtime, attacker.number) end if
+  inflictorNumber = integratedSourceNumber(inflictor)
+  attackerNumber = integratedSourceNumber(attacker)
+  if inflictorNumber >= 0 then inflictorTarget = weaponTargetByNumber(runtime, inflictorNumber) end if
+  if attackerNumber >= 0 then attackerTarget = weaponTargetByNumber(runtime, attackerNumber) end if
+  damageFlags = 0
+  if means == ibworldconstants.MOD_TARGET_LASER then damageFlags = ibgpconstants.DAMAGE_ENERGY end if
   return ibwpcore.applyDamage(runtime.weaponContext, target, inflictorTarget, attackerTarget,
-    ibqtypes.zeroVec3(), target.origin, amount, 1, 0, integratedWorldMeans(means))
+    ibqtypes.zeroVec3(), target.origin, amount, 1, damageFlags, integratedWorldMeans(means))
+end function
+
+function clipWorldLaserAxis(clip, startValue, endValue, minimum, maximum, axis)
+  delta = endValue - startValue
+  if delta == 0.0 then return startValue >= minimum and startValue <= maximum end if
+  near = (minimum - startValue) / delta
+  far = (maximum - startValue) / delta
+  normalSign = -1.0
+  if near > far then swap = near; near = far; far = swap; normalSign = 1.0 end if
+  if near > clip.enter then
+    clip.enter = near
+    clip.normalAxis = axis
+    clip.normalSign = normalSign
+  end if
+  if far < clip.exit then clip.exit = far end if
+  return clip.enter <= clip.exit
+end function
+
+function clipWorldLaserBounds(start, finish, origin, mins, maxs)
+  global worldLaserClipScratch
+  clip = worldLaserClipScratch
+  clip.hit = false
+  clip.enter = 0.0
+  clip.exit = 1.0
+  clip.normalAxis = -1
+  clip.normalSign = 0.0
+  if clipWorldLaserAxis(clip, start.x, finish.x,
+      origin.x + mins.x, origin.x + maxs.x, 0) == false then return false end if
+  if clipWorldLaserAxis(clip, start.y, finish.y,
+      origin.y + mins.y, origin.y + maxs.y, 1) == false then return false end if
+  if clipWorldLaserAxis(clip, start.z, finish.z,
+      origin.z + mins.z, origin.z + maxs.z, 2) == false then return false end if
+  clip.hit = clip.enter >= 0.0 and clip.enter <= 1.0
+  return clip.hit
+end function
+
+function integratedWorldLaserTrace(start, finish, ignore)
+  global activeIntegrationRuntime, worldLaserTraceScratch, worldLaserEndScratch
+  global worldLaserNormalScratch, worldLaserPlayerProxy, worldLaserBlockProxy
+  runtime = activeIntegrationRuntime
+  result = worldLaserTraceScratch
+  endPosition = worldLaserEndScratch
+  normal = worldLaserNormalScratch
+  endPosition.x = finish.x; endPosition.y = finish.y; endPosition.z = finish.z
+  normal.x = 0.0; normal.y = 0.0; normal.z = 0.0
+  result.hit = false
+  result.entity = void
+  result.endPosition = endPosition
+  result.planeNormal = normal
+  if runtime is void or runtime.playerContext is void then return result end if
+
+  ignoredNumber = -1
+  passEdict = void
+  if ignore is not void then
+    ignoredNumber = ignore.number
+    if runtime.exportTable is not void and ignoredNumber >= 0 and
+        ignoredNumber < runtime.exportTable.numEdicts then
+      passEdict = runtime.exportTable.edicts[ignoredNumber]
+    end if
+  end if
+
+  mask = ibqconstants.CONTENTS_SOLID | ibqconstants.CONTENTS_MONSTER |
+    ibqconstants.CONTENTS_DEADMONSTER
+  engineTrace = runtime.playerContext.imports.trace(start, aiTraceZeroScratch,
+    aiTraceZeroScratch, finish, passEdict, mask)
+  closest = engineTrace.fraction
+  selectedKind = 0
+  selected = void
+  selectedNumber = -1
+  bestAxis = -1
+  bestSign = 0.0
+  if engineTrace.entity is not void then selectedNumber = engineTrace.entity.state.number end if
+
+  for each player in runtime.playerContext.players
+    if player.edict.inUse and player.edict.state.number != ignoredNumber and
+        player.edict.solid != ibgconstants.SOLID_NOT and
+        clipWorldLaserBounds(start, finish, player.edict.state.origin,
+          player.edict.mins, player.edict.maxs) and
+        worldLaserClipScratch.enter < closest then
+      closest = worldLaserClipScratch.enter
+      bestAxis = worldLaserClipScratch.normalAxis
+      bestSign = worldLaserClipScratch.normalSign
+      selectedKind = 1
+      selected = player
+    end if
+  end for
+
+  for each actor in runtime.monsters
+    if actor.edict.inUse and actor.edict.state.number != ignoredNumber and
+        actor.edict.solid != ibgconstants.SOLID_NOT and
+        clipWorldLaserBounds(start, finish, actor.edict.state.origin,
+          actor.edict.mins, actor.edict.maxs) and
+        worldLaserClipScratch.enter < closest then
+      closest = worldLaserClipScratch.enter
+      bestAxis = worldLaserClipScratch.normalAxis
+      bestSign = worldLaserClipScratch.normalSign
+      selectedKind = 2
+      selected = actor
+    end if
+  end for
+
+  for each candidate in runtime.world.entities
+    if candidate.inUse and candidate.number != ignoredNumber and
+        candidate.solid == ibworldconstants.SOLID_BBOX and
+        clipWorldLaserBounds(start, finish, candidate.origin,
+          candidate.mins, candidate.maxs) and
+        worldLaserClipScratch.enter < closest then
+      closest = worldLaserClipScratch.enter
+      bestAxis = worldLaserClipScratch.normalAxis
+      bestSign = worldLaserClipScratch.normalSign
+      selectedKind = 3
+      selected = candidate
+    end if
+  end for
+
+  if selectedKind == 0 and closest >= 1.0 and engineTrace.startSolid == false and
+      engineTrace.allSolid == false then return result end if
+
+  result.hit = true
+  if selectedKind == 0 then
+    endPosition.x = engineTrace.endPosition.x
+    endPosition.y = engineTrace.endPosition.y
+    endPosition.z = engineTrace.endPosition.z
+    normal.x = engineTrace.plane.normal.x
+    normal.y = engineTrace.plane.normal.y
+    normal.z = engineTrace.plane.normal.z
+    blocker = ibworld.findByNumber(runtime.world, selectedNumber)
+    if blocker is void then
+      blocker = worldLaserBlockProxy
+      blocker.number = selectedNumber
+      blocker.inUse = true
+      blocker.className = "laser_world_block"
+      blocker.takeDamage = ibworldconstants.DAMAGE_NO
+      blocker.flags = 0
+      blocker.serverFlags = 0
+      blocker.isClient = false
+    end if
+    result.entity = blocker
+    return result
+  end if
+
+  endPosition.x = start.x + (finish.x - start.x) * closest
+  endPosition.y = start.y + (finish.y - start.y) * closest
+  endPosition.z = start.z + (finish.z - start.z) * closest
+  if bestAxis == 0 then normal.x = bestSign
+  else if bestAxis == 1 then normal.y = bestSign
+  else if bestAxis == 2 then normal.z = bestSign
+  end if
+  if selectedKind == 1 then
+    proxy = worldLaserPlayerProxy
+    proxy.number = selected.edict.state.number
+    proxy.inUse = selected.edict.inUse
+    proxy.className = "player"
+    proxy.origin = selected.edict.state.origin
+    proxy.mins = selected.edict.mins
+    proxy.maxs = selected.edict.maxs
+    proxy.health = selected.health
+    proxy.takeDamage = selected.takeDamage
+    proxy.flags = selected.flags
+    proxy.serverFlags = selected.edict.serverFlags
+    proxy.isClient = true
+    result.entity = proxy
+  else if selectedKind == 2 then
+    proxy = selected.triggerProxy
+    if proxy is void then
+      proxy = ibwtypes.createEntity(selected.edict.state.number, selected.className)
+      selected.triggerProxy = proxy
+    end if
+    proxy.number = selected.edict.state.number
+    proxy.inUse = selected.edict.inUse
+    proxy.className = selected.className
+    proxy.origin = selected.edict.state.origin
+    proxy.mins = selected.edict.mins
+    proxy.maxs = selected.edict.maxs
+    proxy.health = selected.health
+    proxy.takeDamage = selected.takeDamage
+    proxy.flags = selected.flags
+    proxy.serverFlags = selected.edict.serverFlags | ibworldconstants.SVF_MONSTER
+    proxy.isClient = false
+    result.entity = proxy
+  else
+    result.entity = selected
+  end if
+  return result
+end function
+
+function integratedWorldLaserSparks(origin, normal, count, color)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then return false end if
+  imports = runtime.playerContext.imports
+  imports.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  imports.writeByte(ibwpconstants.TE_LASER_SPARKS)
+  imports.writeByte(count)
+  imports.writePosition(origin)
+  imports.writeDirection(normal)
+  imports.writeByte(color & 255)
+  return imports.multicast(origin, ibgconstants.MULTICAST_PVS)
+end function
+
+function integratedWorldEarthquake(entity, speed, playSound)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then return 0 end if
+  if playSound and runtime.exportTable is not void and entity.number >= 0 and
+      entity.number < runtime.exportTable.numEdicts then
+    imports = runtime.playerContext.imports
+    imports.positionedSound(entity.origin, runtime.exportTable.edicts[entity.number],
+      ibgconstants.CHAN_AUTO, imports.soundIndex(entity.noise), 1.0,
+      ibgconstants.ATTN_NONE, 0.0)
+  end if
+  affected = 0
+  for each player in runtime.playerContext.players
+    if player.edict.inUse and player.groundEntity is not void then
+      player.groundEntity = void
+      player.velocity[0] = player.velocity[0] + integratedRandomSigned() * 150.0
+      player.velocity[1] = player.velocity[1] + integratedRandomSigned() * 150.0
+      player.velocity[2] = speed * 0.5
+      affected = affected + 1
+    end if
+  end for
+  return affected
+end function
+
+function integratedWorldFireBlaster(entity, direction, damage, speed)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void then return void end if
+  shooter = worldWeaponTarget(entity)
+  projectile = ibwpprojectiles.fireTargetBlaster(runtime.weaponContext,
+    shooter, entity.origin, direction, damage, speed)
+  if runtime.playerContext is not void and runtime.exportTable is not void and
+      entity.number >= 0 and entity.number < runtime.exportTable.numEdicts then
+    imports = runtime.playerContext.imports
+    imports.sound(runtime.exportTable.edicts[entity.number],
+      ibgconstants.CHAN_VOICE, imports.soundIndex("weapons/laser2.wav"),
+      1.0, ibgconstants.ATTN_NORM, 0.0)
+  end if
+  return projectile
+end function
+
+function integratedWorldKillBox(entity)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then return true end if
+  minimum = ibqtypes.Vec3(entity.origin.x + entity.mins.x,
+    entity.origin.y + entity.mins.y, entity.origin.z + entity.mins.z)
+  maximum = ibqtypes.Vec3(entity.origin.x + entity.maxs.x,
+    entity.origin.y + entity.maxs.y, entity.origin.z + entity.maxs.z)
+  candidates = runtime.playerContext.imports.boxEdicts(minimum, maximum, 1)
+  source = worldWeaponTarget(entity)
+  for each engineEntity in candidates
+    if engineEntity.state.number != entity.number then
+      target = weaponTargetByNumber(runtime, engineEntity.state.number)
+      if target is void then return false end if
+      ibwpcore.applyDamage(runtime.weaponContext, target, source, source,
+        ibqtypes.zeroVec3(), entity.origin, 100000, 0,
+        ibgpconstants.DAMAGE_NO_PROTECTION, ibgpconstants.MOD_TELEFRAG)
+    end if
+  end for
+  return true
+end function
+
+function reserveSpawnerEdict(runtime)
+  number = runtime.world.nextEntityNumber
+  if runtime.exportTable is not void then
+    number = runtime.exportTable.numEdicts
+    if number >= runtime.exportTable.maxEdicts then
+      return error(9699, "target_spawner exceeds edict capacity")
+    end if
+    runtime.exportTable.edicts[number] = ibgametypes.zeroEdict(number)
+    runtime.exportTable.edicts[number].inUse = true
+    runtime.exportTable.numEdicts = number + 1
+  end if
+  if number >= runtime.world.nextEntityNumber then
+    runtime.world.nextEntityNumber = number + 1
+  end if
+  return number
+end function
+
+function integratedWorldSpawnExternal(className, origin, angles, velocity)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void then return false end if
+
+  archetype = ibarchetypes.find(ibarchetypes.defaultRegistry(), className)
+  if archetype is not void then
+    actor = integratedSpawnMonster(className, void)
+    actor.edict.state.origin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    actor.edict.state.oldOrigin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    actor.edict.state.angles = ibqtypes.Vec3(angles.x, angles.y, angles.z)
+    actor.velocity.x = velocity.x; actor.velocity.y = velocity.y
+    actor.velocity.z = velocity.z
+    actor.activity = "stand"
+    actor.nextThink = runtime.aiContext.time + runtime.world.frameTime
+    ibmonster.MonsterStart(actor, runtime.aiContext)
+    ibmonster.MonsterStartGo(actor, runtime.aiContext)
+    if runtime.playerContext is not void then
+      imports = runtime.playerContext.imports
+      imports.modelIndex(actor.model)
+      imports.setModel(actor.edict, actor.model)
+      for each soundName in ibaisounds.stockNames(actor.className)
+        imports.soundIndex(soundName)
+      end for
+      imports.linkEntity(actor.edict)
+    end if
+    proxy = ibwtypes.createEntity(actor.edict.state.number, actor.className)
+    proxy.origin = actor.edict.state.origin
+    proxy.mins = actor.edict.mins; proxy.maxs = actor.edict.maxs
+    integratedWorldKillBox(proxy)
+    return actor
+  end if
+
+  registry = ibitems.stockRegistry()
+  if runtime.playerContext is not void then registry = runtime.playerContext.registry end if
+  definition = ibitemrules.findByClassName(registry, className)
+  if definition is not void then
+    number = reserveSpawnerEdict(runtime)
+    if number is error then return number end if
+    itemEntity = ibgtypes.createItemEntity(number, definition)
+    itemEntity.edict.state.origin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    itemEntity.edict.state.oldOrigin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    itemEntity.edict.state.angles = ibqtypes.Vec3(angles.x, angles.y, angles.z)
+    itemEntity.edict.mins = ibqtypes.Vec3(-15.0, -15.0, -15.0)
+    itemEntity.edict.maxs = ibqtypes.Vec3(15.0, 15.0, 15.0)
+    itemEntity.edict.solid = ibgconstants.SOLID_TRIGGER
+    runtime.items = runtime.items + [itemEntity]
+    if runtime.playerContext is not void and runtime.exportTable is not void then
+      imports = runtime.playerContext.imports
+      ibprecache.PrecacheItem(registry, definition, imports)
+      if definition.worldModel != "" then imports.setModel(itemEntity.edict, definition.worldModel) end if
+      runtime.exportTable.edicts[number] = itemEntity.edict
+      imports.linkEntity(runtime.exportTable.edicts[number])
+    end if
+    proxy = ibwtypes.createEntity(number, className)
+    proxy.origin = itemEntity.edict.state.origin
+    proxy.mins = itemEntity.edict.mins; proxy.maxs = itemEntity.edict.maxs
+    integratedWorldKillBox(proxy)
+    return itemEntity
+  end if
+
+  if className == "misc_gib_arm" or className == "misc_gib_leg" or
+      className == "misc_gib_head" then
+    number = reserveSpawnerEdict(runtime)
+    if number is error then return number end if
+    entity = ibwtypes.createEntity(number, className)
+    entity.origin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    entity.oldOrigin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    entity.angles = ibqtypes.Vec3(angles.x, angles.y, angles.z)
+    entity.velocity = ibqtypes.Vec3(velocity.x, velocity.y, velocity.z)
+    ibworld.addEntity(runtime.world, entity)
+    installWorldSpawn(entity, runtime.world)
+    if runtime.playerContext is not void and runtime.exportTable is not void then
+      runtime.world.callbacks.setModel(entity, entity.model)
+      runtime.world.callbacks.linkEntity(entity)
+    end if
+    return entity
+  end if
+
+  ibworld.log(runtime.world, "target_spawner unknown class " + className)
+  return false
 end function
 
 function integratedWorldRadiusDamage(inflictor, attacker, amount, radius, means)
@@ -1147,7 +1541,8 @@ function integratedWorldRadiusDamage(inflictor, attacker, amount, radius, means)
   if runtime is void or inflictor is void then return false end if
   inflictorTarget = worldWeaponTarget(inflictor)
   attackerTarget = void
-  if attacker is not void then attackerTarget = weaponTargetByNumber(runtime, attacker.number) end if
+  attackerNumber = integratedSourceNumber(attacker)
+  if attackerNumber >= 0 then attackerTarget = weaponTargetByNumber(runtime, attackerNumber) end if
   ibwpcore.radiusDamage(runtime.weaponContext, inflictorTarget, attackerTarget, amount, void, radius, integratedWorldMeans(means))
   return true
 end function
@@ -1559,6 +1954,13 @@ function integratedRandomInteger()
   return ibrandom.nextInteger(ibRandomIntegerRuntimeHolder.randomState)
 end function
 
+function integratedRandomIndex(count)
+  if count <= 1 then return 0 end if
+  index = ibmath.floor(integratedRandomUnit() * count)
+  if index >= count then index = count - 1 end if
+  return index
+end function
+
 function refreshAiRandom(runtime)
   // Stock game AI shares the Win32 CRT rand() stream with weapons. Refresh
   // decision inputs only for an actual monster think, so idle server frames do
@@ -1772,8 +2174,8 @@ function installWorldSpawn(entity, world)
   if name == "trigger_key" then return ibtriggers.spawnKey(entity, world) end if
   if name == "func_button" then return ibmovers.spawnButton(entity, world) end if
   if name == "func_door" then return ibmovers.spawnDoor(entity, world) end if
-  if name == "func_water" then entity.wait = -1.0; return ibmovers.spawnDoor(entity, world) end if
-  if name == "func_door_secret" then return ibmovers.spawnDoor(entity, world) end if
+  if name == "func_water" then return ibmovers.spawnWater(entity, world) end if
+  if name == "func_door_secret" then return ibmovers.spawnSecretDoor(entity, world) end if
   if name == "func_door_rotating" then return ibmovers.spawnRotatingDoor(entity, world) end if
   if name == "func_plat" then return ibmovers.spawnPlat(entity, world) end if
   if name == "func_train" then return ibmovers.spawnTrain(entity, world) end if
@@ -1783,13 +2185,15 @@ function installWorldSpawn(entity, world)
   if name == "func_killbox" then return ibmovers.spawnKillBox(entity, world) end if
   if name == "func_explosive" then return ibmovers.spawnExplosive(entity, world, false) end if
   if name == "func_wall" then return ibmisc.spawnWall(entity, world) end if
-  if name == "func_object" then return ibmisc.spawnWall(entity, world) end if
+  if name == "func_object" then return ibmisc.spawnObject(entity, world) end if
   if name == "func_rotating" then return ibmisc.spawnRotating(entity, world) end if
   if name == "misc_explobox" then return ibmisc.spawnExplobox(entity, world) end if
   if name == "misc_banner" then return ibmisc.spawnBanner(entity, world) end if
   if name == "misc_deadsoldier" then return ibmisc.spawnDeadSoldier(entity, world) end if
   if name == "misc_strogg_ship" then return ibmisc.spawnStroggShip(entity, world) end if
   if name == "misc_gib_head" then return ibmisc.spawnGibHead(entity, world) end if
+  if name == "misc_gib_arm" then return ibmisc.spawnGibArm(entity, world) end if
+  if name == "misc_gib_leg" then return ibmisc.spawnGibLeg(entity, world) end if
   if name == "misc_teleporter" then return ibmisc.spawnTeleporter(entity, world) end if
   if name == "misc_teleporter_dest" then return ibmisc.spawnTeleporterDestination(entity, world) end if
   if name == "misc_viper" then return ibmisc.spawnViper(entity, world) end if
@@ -1853,6 +2257,14 @@ function create(spawnResult)
   world.callbacks.clockSeconds = integratedClockSeconds
   world.callbacks.setModel = integratedWorldSetModel
   world.callbacks.lightStyle = integratedLightStyle
+  world.callbacks.traceLine = integratedWorldLaserTrace
+  world.callbacks.laserSparks = integratedWorldLaserSparks
+  world.callbacks.earthquake = integratedWorldEarthquake
+  world.callbacks.fireBlaster = integratedWorldFireBlaster
+  world.callbacks.killBox = integratedWorldKillBox
+  world.callbacks.spawnExternal = integratedWorldSpawnExternal
+  world.callbacks.randomSigned = integratedRandomSigned
+  world.callbacks.randomIndex = integratedRandomIndex
   aiContext = ibaitypes.defaultContext()
   monsters = []
   items = []
@@ -1872,6 +2284,13 @@ function create(spawnResult)
       actor.spawnFlags = component.spawnFlags
       actor.target = component.target
       actor.targetName = component.targetName
+      // Stock m_flyer.c repairs one shipped jail5 entity whose target was
+      // authored in the target field instead of targetname.
+      if spawnResult.mapName == "jail5" and actor.className == "monster_flyer" and
+          actor.edict.state.origin.z == -104.0 then
+        actor.targetName = actor.target
+        actor.target = ""
+      end if
       actor.deathTarget = component.deathTarget
       actor.combatTarget = component.combatTarget
       if component.health != 0 then actor.health = component.health; actor.maxHealth = component.health end if
@@ -1895,6 +2314,12 @@ function create(spawnResult)
       if entity.number == 0 then world.entities = world.entities + [entity]
       else ibworld.addEntity(world, entity) end if
       installWorldSpawn(entity, world)
+      // Stock g_target.c fixes the shipped mine3 secret's missing message.
+      if spawnResult.mapName == "mine3" and entity.className == "target_secret" and
+          entity.origin.x == 280.0 and entity.origin.y == -2048.0 and
+          entity.origin.z == -624.0 then
+        entity.message = "You have found a secret area."
+      end if
     end if
   end for
   weaponContext = ibwpcore.createContext(integratedWeaponCallbacks())
@@ -1997,6 +2422,15 @@ function precacheSpawned(runtime, playerContext)
     for each ibPrecacheMonsterSoundName in ibaisounds.stockNames(ibPrecacheActorHolder.className)
       imports.soundIndex(ibPrecacheMonsterSoundName)
     end for
+    ibPrecacheMonsterLoopName = ibaisounds.loopName(ibPrecacheActorHolder.className)
+    if ibPrecacheMonsterLoopName != "" then
+      ibPrecacheMonsterLoopEdict = ibPrecacheActorHolder.edict
+      ibPrecacheMonsterLoopState = ibPrecacheMonsterLoopEdict.state
+      ibPrecacheMonsterLoopState.sound = imports.soundIndex(ibPrecacheMonsterLoopName)
+      ibPrecacheMonsterLoopEdict.state = ibPrecacheMonsterLoopState
+      ibPrecacheActorHolder.edict = ibPrecacheMonsterLoopEdict
+      runtime.monsters[ibPrecacheMonsterPosition] = ibPrecacheActorHolder
+    end if
     if ibPrecacheActorHolder.className == "monster_jorg" then
       // m_boss31.c invokes MakronPrecache because the rider is spawned during
       // Jorg's death sequence, after configstring setup has completed.
@@ -2037,6 +2471,10 @@ function precacheSpawned(runtime, playerContext)
       imports.soundIndex("plats/pt1_strt.wav")
       entity.soundIndex = imports.soundIndex("plats/pt1_mid.wav")
       imports.soundIndex("plats/pt1_end.wav")
+    else if entity.inUse and entity.className == "func_water" and
+        entity.sounds != 0 then
+      imports.soundIndex("world/mov_watr.wav")
+      imports.soundIndex("world/stp_watr.wav")
     else if entity.inUse and entity.className == "func_button" and
         entity.sounds != 1 then
       entity.soundIndex = imports.soundIndex("switches/butn2.wav")
@@ -2047,6 +2485,8 @@ function precacheSpawned(runtime, playerContext)
         entity.noise != "" then
       entity.soundIndex = imports.soundIndex(entity.noise)
       if (entity.spawnFlags & 1) != 0 then entity.loopSound = entity.soundIndex end if
+    else if entity.inUse and entity.className == "target_earthquake" then
+      imports.soundIndex("world/quake.wav")
     else if entity.inUse and entity.className == "misc_teleporter" then
       entity.soundIndex = imports.soundIndex("world/amb10.wav")
       entity.loopSound = entity.soundIndex
@@ -2087,6 +2527,7 @@ function bindEngineModelsWithMode(runtime, exportTable, imports, refreshGeometry
       entity.size = target.size
       entity.absoluteMins = target.absoluteMins
       entity.absoluteMaxs = target.absoluteMaxs
+      if entity.className == "func_object" then ibmisc.shrinkFuncObjectBounds(entity) end if
       if refreshGeometry and entity.solid == ibworldconstants.SOLID_BSP then ibmovers.refreshBrushGeometry(entity, runtime.world) end if
       bound = bound + 1
     end if
@@ -2166,6 +2607,8 @@ function playerWorldProxy(player)
   // both directions so touching a trigger never changes the runtime shape.
   proxy.velocity = weaponVector(player.velocity)
   proxy.health = player.health
+  proxy.takeDamage = player.takeDamage
+  proxy.flags = player.flags
   proxy.serverFlags = player.edict.serverFlags
   return proxy
 end function
@@ -3696,20 +4139,98 @@ function runMonsterCombat(runtime, actor)
   return beginMonsterAttack(runtime, actor, attackPlan)
 end function
 
+function integratedWorldCollisionProxy(runtime, number)
+  entity = ibworld.findByNumber(runtime.world, number)
+  if entity is not void then return entity end if
+  player = integratedPlayerByNumber(runtime, number)
+  if player is not void then return playerWorldProxy(player) end if
+  actor = integratedMonsterByNumber(runtime, number)
+  if actor is not void then
+    proxy = actor.triggerProxy
+    if proxy is void then proxy = ibwtypes.createEntity(number, actor.className); actor.triggerProxy = proxy end if
+    proxy.number = number; proxy.inUse = actor.edict.inUse
+    proxy.health = actor.health; proxy.takeDamage = actor.takeDamage
+    proxy.flags = actor.flags
+    proxy.serverFlags = actor.edict.serverFlags | ibworldconstants.SVF_MONSTER
+    return proxy
+  end if
+  return void
+end function
+
+function advanceWorldTossEntities(runtime)
+  if runtime.playerContext is void or runtime.exportTable is void then return 0 end if
+  moved = 0
+  imports = runtime.playerContext.imports
+  for each entity in runtime.world.entities
+    if entity.inUse and entity.moveType == ibworldconstants.MOVETYPE_TOSS then
+      if entity.velocity.z > 0.0 then entity.groundEntity = void end if
+      if entity.groundEntity is not void then
+        groundInUse = try(entity.groundEntity.inUse)
+        if groundInUse == false then entity.groundEntity = void end if
+      end if
+      if entity.groundEntity is void then
+        entity.oldOrigin.x = entity.origin.x
+        entity.oldOrigin.y = entity.origin.y
+        entity.oldOrigin.z = entity.origin.z
+        entity.velocity.z = entity.velocity.z -
+          runtime.playerContext.gravity * runtime.world.frameTime
+        finish = ibwpvector.multiplyAdd(entity.origin, runtime.world.frameTime,
+          entity.velocity)
+        passEdict = void
+        if entity.number >= 0 and entity.number < runtime.exportTable.numEdicts then
+          passEdict = runtime.exportTable.edicts[entity.number]
+        end if
+        mask = entity.clipMask
+        if mask == 0 then mask = ibqconstants.MASK_MONSTERSOLID end if
+        trace = imports.trace(entity.origin, entity.mins, entity.maxs,
+          finish, passEdict, mask)
+        entity.origin.x = trace.endPosition.x
+        entity.origin.y = trace.endPosition.y
+        entity.origin.z = trace.endPosition.z
+        entity.angles.x = entity.angles.x + entity.angularVelocity.x * runtime.world.frameTime
+        entity.angles.y = entity.angles.y + entity.angularVelocity.y * runtime.world.frameTime
+        entity.angles.z = entity.angles.z + entity.angularVelocity.z * runtime.world.frameTime
+        if trace.fraction < 1.0 then
+          hit = void
+          if trace.entity is not void then
+            hit = integratedWorldCollisionProxy(runtime, trace.entity.state.number)
+          end if
+          entity.moveDirection.x = trace.plane.normal.x
+          entity.moveDirection.y = trace.plane.normal.y
+          entity.moveDirection.z = trace.plane.normal.z
+          if entity.touch is not void then entity.touch(entity, hit, runtime.world) end if
+          backoff = entity.velocity.x * trace.plane.normal.x +
+            entity.velocity.y * trace.plane.normal.y +
+            entity.velocity.z * trace.plane.normal.z
+          entity.velocity.x = entity.velocity.x - trace.plane.normal.x * backoff
+          entity.velocity.y = entity.velocity.y - trace.plane.normal.y * backoff
+          entity.velocity.z = entity.velocity.z - trace.plane.normal.z * backoff
+          if trace.plane.normal.z > 0.7 then
+            entity.groundEntity = hit
+            entity.velocity.x = 0.0; entity.velocity.y = 0.0
+            entity.velocity.z = 0.0
+            entity.angularVelocity.x = 0.0
+            entity.angularVelocity.y = 0.0
+            entity.angularVelocity.z = 0.0
+          end if
+        end if
+        runtime.world.callbacks.linkEntity(entity)
+        moved = moved + 1
+      end if
+    end if
+  end for
+  return moved
+end function
+
 function advanceWeaponProjectiles(runtime)
   context = runtime.weaponContext
   context.time = runtime.world.time
-  for each projectile in context.projectiles
-    if projectile.inUse then
-      projectile.oldOrigin = ibwpvector.copy(projectile.origin)
-      finish = ibwpvector.multiplyAdd(projectile.origin, context.frameTime, projectile.velocity)
-      trace = context.callbacks.trace(projectile.origin, projectile.mins, projectile.maxs, finish, projectile, projectile.clipMask)
-      projectile.origin = ibwpvector.copy(trace.endPosition)
-      projectile.angles = ibwpvector.multiplyAdd(projectile.angles, context.frameTime, projectile.angularVelocity)
-      if trace.fraction < 1.0 then ibwpcore.touchProjectile(context, projectile, trace.entity, trace) end if
-    end if
-  end for
+  // Stock G_RunEntity runs due thinks before toss/missile physics. This also
+  // prevents an expiring grenade from moving one extra frame before exploding.
   ibwpcore.runDueThinks(context)
+  for each projectile in context.projectiles
+    if projectile.inUse then ibwpprojectiles.advanceProjectile(context, projectile) end if
+  end for
   // The C game reuses freed edicts. Managed projectiles are private records,
   // so drop inactive entries after all due thinks instead of retaining every
   // projectile ever fired for the lifetime of the level.
@@ -3729,6 +4250,7 @@ function runFrame(runtime)
   pusherState = ibpusher.capture(runtime)
   ibworld.runFrame(runtime.world)
   ibpusher.resolve(runtime, pusherState)
+  advanceWorldTossEntities(runtime)
   runtime.aiContext.time = runtime.world.time
   runtime.weaponContext.time = runtime.world.time
   runtime.aiContext.frameNumber = runtime.aiContext.frameNumber + 1
@@ -3802,11 +4324,13 @@ function syncGameEdicts(runtime, exportTable)
       ibSyncTargetHolder.inUse = entity.inUse
       ibSyncStateHolder.origin = ibSyncOriginHolder
       ibSyncStateHolder.angles = ibSyncAnglesHolder
+      ibSyncStateHolder.oldOrigin = entity.oldOrigin
       ibSyncTargetHolder.state = ibSyncStateHolder
       ibSyncTargetHolder.state.modelIndex = entity.modelIndex
       ibSyncTargetHolder.state.effects = entity.effects
       ibSyncTargetHolder.state.renderFx = entity.renderFx
       ibSyncTargetHolder.state.frame = entity.frame
+      if entity.className == "target_laser" then ibSyncTargetHolder.state.skinNumber = entity.style end if
       ibSyncTargetHolder.state.sound = entity.loopSound
       ibSyncTargetHolder.serverFlags = entity.serverFlags
       ibSyncTargetHolder.solid = entity.solid

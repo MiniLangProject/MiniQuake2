@@ -65,8 +65,16 @@ function resetClientState(runtime)
   runtime.client.predictedAngles = clean.predictedAngles
   runtime.client.predictionError = clean.predictionError
   runtime.client.predictionValid = clean.predictionValid
+  runtime.client.predictedStep = clean.predictedStep
+  runtime.client.predictedStepTime = clean.predictedStepTime
+  runtime.client.predictionRealTime = clean.predictionRealTime
+  runtime.client.predictionStepOriginZ = clean.predictionStepOriginZ
+  runtime.client.predictionStepOriginValid = clean.predictionStepOriginValid
   runtime.client.serverFrame = clean.serverFrame
   runtime.client.serverTime = clean.serverTime
+  runtime.client.lightStyles = clean.lightStyles
+  runtime.client.lightStyleMaps = clean.lightStyleMaps
+  runtime.client.lightStyleOffset = clean.lightStyleOffset
   runtime.effects.dLights = []
   runtime.effects.particles = []
   runtime.effects.particleCount = 0
@@ -138,8 +146,16 @@ function validationRuntime(runtime)
   client.predictedAngles = runtime.client.predictedAngles
   client.predictionError = runtime.client.predictionError
   client.predictionValid = runtime.client.predictionValid
+  client.predictedStep = runtime.client.predictedStep
+  client.predictedStepTime = runtime.client.predictedStepTime
+  client.predictionRealTime = runtime.client.predictionRealTime
+  client.predictionStepOriginZ = runtime.client.predictionStepOriginZ
+  client.predictionStepOriginValid = runtime.client.predictionStepOriginValid
   client.serverFrame = runtime.client.serverFrame
   client.serverTime = runtime.client.serverTime
+  client.lightStyles = copyArray(runtime.client.lightStyles)
+  client.lightStyleMaps = copyArray(runtime.client.lightStyleMaps)
+  client.lightStyleOffset = runtime.client.lightStyleOffset
   effects = cestate.createSilent(runtime.effects.randomSeed)
   copy = crtypes.create(network, client, effects)
   copy.allowDemoProtocol26 = runtime.allowDemoProtocol26
@@ -279,6 +295,10 @@ function parseBuffer(runtime, buffer, now)
       index = pchecked.readShort(buffer, "configstring index")
       if index < 0 or index >= qc.MAX_CONFIGSTRINGS then return error(8284, "configstring index outside range") end if
       runtime.network.configStrings[index] = rmessages.readString(buffer, "configstring value", qc.MAX_STRING_CHARS)
+      if index >= qc.CS_LIGHTS and index < qc.CS_LIGHTS + qc.MAX_LIGHTSTYLES then
+        cstate.setLightStyle(runtime.client, index - qc.CS_LIGHTS,
+          runtime.network.configStrings[index])
+      end if
     else if opcode == qc.SVC_SPAWNBASELINE then
       header = pentity.readHeader(buffer)
       if header.endMarker or header.remove or header.number <= 0 then return error(8285, "invalid spawnbaseline header") end if

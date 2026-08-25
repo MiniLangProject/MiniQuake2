@@ -202,3 +202,13 @@ function stockNames(className)
   if className == "misc_insane" then return insaneSounds end if
   return noSounds
 end function
+
+// Persistent entity-loop sounds assigned directly by the original monster
+// spawn functions. They are distinct from idle/search voice callbacks.
+function loopName(className)
+  if className == "monster_flyer" then return "flyer/flyidle1.wav" end if
+  if className == "monster_floater" then return "floater/fltsrch1.wav" end if
+  if className == "monster_hover" then return "hover/hovidle1.wav" end if
+  if className == "monster_boss2" then return "bosshovr/bhvengn1.wav" end if
+  return ""
+end function

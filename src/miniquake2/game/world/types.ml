@@ -24,6 +24,17 @@ struct MoveInfo
   endFunction
 end struct
 
+// Narrow trace result owned by the world layer.  Keeping the engine trace
+// behind this adapter lets target_laser retain the stock penetration rules in
+// deterministic unit tests without coupling g_target state machines to an
+// engine Edict or collision implementation.
+struct WorldTrace
+  hit
+  endPosition
+  planeNormal
+  entity
+end struct
+
 struct WorldEntity
   number
   inUse
@@ -126,6 +137,10 @@ struct WorldCallbacks
   clockSeconds
   setModel
   lightStyle
+  traceLine
+  laserSparks
+  earthquake
+  fireBlaster
 end struct
 
 struct WorldState

@@ -138,6 +138,9 @@ function predictLocal(session, previewCommand)
   playPredictionSession = void
   plstate.acceptPrediction(session.client.integrated.client,
     result.state.origin, result.viewAngles)
+  plstate.notePredictionStep(session.client.integrated.client,
+    result.previousOrigin, result.state.origin, result.state.flags,
+    commands[len(commands) - 1].msec)
   plclient.storePredictedOrigin(session.client,
     plclient.predictionSequence(session.client), result.state.origin)
   return result

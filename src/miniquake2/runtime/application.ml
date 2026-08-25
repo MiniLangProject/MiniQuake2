@@ -1281,6 +1281,8 @@ function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit, product
       applicationPendingMediaSpecification == "" and
       appwindow.poll(window)
     started = appsystem.milliseconds(clock)
+    appclientstate.setPredictionRealTime(session.client.integrated.client,
+      started)
     appuicontroller.poll(input, screen, started)
     applicationInputMsec = started - inputTime
     inputTime = started

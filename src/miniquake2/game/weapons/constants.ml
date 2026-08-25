@@ -1,6 +1,8 @@
 /* BaseQ2 g_weapon.c/p_weapon.c constants kept local to the ballistics layer. */
 package miniquake2.game.weapons.constants
 
+const FL_IMMUNE_LASER = 0x00000004
+
 const MOVETYPE_NONE = 0
 const MOVETYPE_FLYMISSILE = 8
 const MOVETYPE_BOUNCE = 9
@@ -65,6 +67,7 @@ const TE_SPARKS = 9
 const TE_SPLASH = 10
 const TE_BUBBLETRAIL = 11
 const TE_BULLET_SPARKS = 14
+const TE_LASER_SPARKS = 15
 const TE_PARASITE_ATTACK = 16
 const TE_MEDIC_CABLE_ATTACK = 19
 const TE_ROCKET_EXPLOSION_WATER = 17

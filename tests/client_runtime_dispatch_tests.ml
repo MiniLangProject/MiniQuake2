@@ -31,6 +31,7 @@ crdispatcher.setDemoRecorder(clientRuntime, clientRuntimeDemo)
 clientRuntimeBuffer = qsz.alloc(1024)
 rmessages.writeServerData(clientRuntimeBuffer, 44, false, "baseq2", 0, "Runtime Unit")
 rmessages.writeConfigString(clientRuntimeBuffer, qc.CS_NAME, "Runtime Unit")
+rmessages.writeConfigString(clientRuntimeBuffer, qc.CS_LIGHTS + 3, "az")
 clientRuntimeBaseline = pt.zeroEntityState()
 clientRuntimeBaseline.number = 1
 clientRuntimeBaseline.modelIndex = 2
@@ -51,9 +52,11 @@ clientRuntimePayload = qsz.dataSlice(clientRuntimeBuffer)
 
 clientRuntimeResult = crdispatcher.dispatch(clientRuntime, clientRuntimePayload, 10, 2500)
 clientRuntimeAssertEqual(clientRuntimeResult.accepted, true, "integrated packet accepted")
-clientRuntimeAssertEqual(clientRuntimeResult.commands, 8, "service command count")
+clientRuntimeAssertEqual(clientRuntimeResult.commands, 9, "service command count")
 clientRuntimeAssertEqual(clientRuntime.network.protocol, 34, "serverdata routed")
 clientRuntimeAssertEqual(clientRuntime.network.configStrings[qc.CS_NAME], "Runtime Unit", "configstring routed")
+clientRuntimeAssertEqual(clientRuntime.client.lightStyleMaps[3], "az",
+  "light style configstring routed into client animation")
 clientRuntimeAssertEqual(clientRuntime.network.baselines[1].modelIndex, 2, "baseline routed")
 clientRuntimeAssertEqual(clientRuntime.network.downloadData, bytes([8, 9, 10]), "download routed")
 clientRuntimeAssertEqual(crdispatcher.pendingStuffText(clientRuntime)[0], "echo server-controlled\n", "stufftext only queued")

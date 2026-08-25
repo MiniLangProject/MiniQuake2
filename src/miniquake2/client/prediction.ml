@@ -18,6 +18,7 @@ struct MovementPrediction
   state
   viewAngles
   commandsReplayed
+  previousOrigin
 end struct
 
 function inline shortToAngle(value)
@@ -39,10 +40,14 @@ function predict(playerState, commands, traceCallback, pointContentsCallback,
   if typeof(commands) != "array" then return error(7651, "prediction commands must be an array") end if
   pmove = cppmove.create(traceCallback, pointContentsCallback)
   pmove.state = cppt.copyPmoveState(playerState.pmove)
+  previousOrigin = [pmove.state.origin[0], pmove.state.origin[1],
+    pmove.state.origin[2]]
   index = 0
   while index < len(commands)
     command = commands[index]
     if typeof(command) != "struct" then return error(7652, "prediction command is malformed") end if
+    previousOrigin = [pmove.state.origin[0], pmove.state.origin[1],
+      pmove.state.origin[2]]
     pmove.command = cppt.copyUserCmd(command)
     cppmove.moveWithAirAcceleration(pmove, airAcceleration)
     index = index + 1
@@ -55,7 +60,7 @@ function predict(playerState, commands, traceCallback, pointContentsCallback,
   end if
   return MovementPrediction(cppt.copyPmoveState(pmove.state),
     cpqt.vec3(pmove.viewAngles.x, pmove.viewAngles.y, pmove.viewAngles.z),
-    len(commands))
+    len(commands), previousOrigin)
 end function
 
 function predictionEnabled(playerState)

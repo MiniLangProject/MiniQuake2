@@ -98,11 +98,15 @@ function testSnapshotsAndRefDef()
   assertEqual(cstate.acceptSnapshot(client, second), false, "duplicate snapshot ignored")
   frame = cstate.buildRefDef(client, 0.5, 640, 480, testResolvers, 0, testRandom)
   assertEqual(rval.validateRefDef(frame).valid, true, "generated refdef valid")
-  assertEqual(frame.viewOrigin.x, 10.5, "view origin interpolation")
+  assertEqual(frame.viewOrigin.x, 10.5625,
+    "view origin interpolation plus BSP plane nudge")
   assertEqual(frame.viewAngles.x, 6.0, "view and kick angle interpolation")
   assertNear(frame.fovY, 73.739795, 0.0001, "aspect-correct vertical fov")
+  assertNear(frame.time, 1.05, 0.000001,
+    "render time advances within the server snapshot interval")
   assertEqual(frame.entities[0].origin.x, 4.0, "entity interpolation")
-  assertEqual(frame.entities[0].oldFrame, 0, "old animation frame")
+  assertEqual(frame.entities[0].oldFrame, 1,
+    "linked-model change resets stale animation frame")
   assertEqual(len(frame.entities), 3, "multi-model entity and view weapon expansion")
   assertEqual(frame.entities[2].model.id, 7, "view weapon model")
   assertEqual(frame.entities[2].frame, 4, "view weapon frame")
@@ -222,6 +226,74 @@ function testSnapshotsAndRefDef()
   assertEqual(beamFrame.entities[0].skinNum, 0x33, "beam selects packed skin byte")
   assertNear(beamFrame.entities[0].alpha, 0.30, 0.0001, "beam stock alpha")
 
+  areaClient = cstate.create()
+  cstate.acceptSnapshot(areaClient, ssnap.SnapshotFrame(1, -1, 0,
+    bytes([0x05, 0xa0]), effectPlayer, [makeEntity(0.0, 0)]))
+  areaFrame = cstate.buildRefDef(areaClient, 1.0, 640, 480, testResolvers,
+    0, testRandom)
+  assertEqual(len(areaFrame.areaBits), 2, "snapshot area bits reach renderer")
+  assertEqual(areaFrame.areaBits[0], 0x05, "renderer area byte zero")
+  assertEqual(areaFrame.areaBits[1], 0xa0, "renderer area byte one")
+
+  lightClient = cstate.create()
+  cstate.setLightStyle(lightClient, 3, "az")
+  cstate.acceptSnapshot(lightClient, ssnap.SnapshotFrame(1, -1, 0,
+    bytes([]), effectPlayer, [makeEntity(0.0, 0)]))
+  brightLightFrame = cstate.buildRefDef(lightClient, 1.0, 640, 480,
+    testResolvers, 0, testRandom)
+  assertNear(brightLightFrame.lightStyles[3].rgb[0], 25.0 / 12.0,
+    0.000001, "animated light style z intensity")
+  assertNear(brightLightFrame.lightStyles[3].white, 75.0 / 12.0,
+    0.000001, "light style cache key is the stock RGB sum")
+  assertEqual(rval.validateRefDef(brightLightFrame).valid, true,
+    "stock z light style passes renderer contract")
+  cstate.acceptSnapshot(lightClient, ssnap.SnapshotFrame(2, 1, 0,
+    bytes([]), effectPlayer, [makeEntity(0.0, 0)]))
+  darkLightFrame = cstate.buildRefDef(lightClient, 1.0, 640, 480,
+    testResolvers, 0, testRandom)
+  assertNear(darkLightFrame.lightStyles[3].rgb[0], 0.0, 0.000001,
+    "animated light style advances at 10 Hz")
+
+  // CL_DeltaEntity invalidates the render predecessor on teleports, large
+  // coordinate jumps and model replacements.  EV_OTHER_TELEPORT starts at
+  // the destination immediately instead of sweeping across the map.
+  teleportClient = cstate.create()
+  teleportOld = makeEntity(0.0, 0)
+  teleportNew = makeEntity(1024.0, 0)
+  teleportNew.oldOrigin = [0.0, 0.0, 0.0]
+  teleportNew.event = ceconstants.EV_OTHER_TELEPORT
+  teleportNew.angles = [5.0, 90.0, 15.0]
+  cstate.acceptSnapshot(teleportClient, ssnap.SnapshotFrame(1, -1, 0,
+    bytes([]), effectPlayer, [teleportOld]))
+  cstate.acceptSnapshot(teleportClient, ssnap.SnapshotFrame(2, 1, 0,
+    bytes([]), effectPlayer, [teleportNew]))
+  teleportFrame = cstate.buildRefDef(teleportClient, 0.25, 640, 480,
+    testResolvers, 0, testRandom)
+  assertEqual(teleportFrame.entities[0].origin.x, 1024.0,
+    "other teleport snaps render origin to destination")
+  assertEqual(teleportFrame.entities[0].angles.y, 90.0,
+    "teleport does not interpolate stale angles")
+  assertEqual(teleportFrame.entities[0].oldFrame, teleportNew.frame,
+    "teleport does not interpolate stale animation frame")
+
+  replacementClient = cstate.create()
+  replacementOld = makeEntity(16.0, 0)
+  replacementOld.angles = [0.0, 0.0, 0.0]
+  replacementNew = makeEntity(80.0, 0)
+  replacementNew.modelIndex = 9
+  replacementNew.oldOrigin = [40.0, 0.0, 0.0]
+  replacementNew.angles = [0.0, 120.0, 0.0]
+  cstate.acceptSnapshot(replacementClient, ssnap.SnapshotFrame(1, -1, 0,
+    bytes([]), effectPlayer, [replacementOld]))
+  cstate.acceptSnapshot(replacementClient, ssnap.SnapshotFrame(2, 1, 0,
+    bytes([]), effectPlayer, [replacementNew]))
+  replacementFrame = cstate.buildRefDef(replacementClient, 0.5, 640, 480,
+    testResolvers, 0, testRandom)
+  assertEqual(replacementFrame.entities[0].origin.x, 60.0,
+    "model replacement interpolates from protocol old origin")
+  assertEqual(replacementFrame.entities[0].angles.y, 120.0,
+    "model replacement owns current angles")
+
   denseStates = array(rc.MAX_ENTITIES + 16)
   denseIndex = 0
   while denseIndex < len(denseStates)
@@ -246,17 +318,50 @@ function testSnapshotsAndRefDef()
   cstate.acceptPrediction(client, [160, 80, 32], [40.0, 50.0, 60.0])
   predictedFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
     testResolvers, 0, testRandom)
-  assertEqual(predictedFrame.viewOrigin.x, 20.5, "predicted view origin")
-  assertEqual(predictedFrame.viewOrigin.y, 11.0, "predicted view offset")
+  assertEqual(predictedFrame.viewOrigin.x, 20.5625,
+    "predicted view origin plus BSP plane nudge")
+  assertEqual(predictedFrame.viewOrigin.y, 11.0625,
+    "predicted view offset plus BSP plane nudge")
   assertEqual(predictedFrame.viewAngles.x, 41.0, "predicted view plus kick")
   assertEqual(predictedFrame.entities[2].angles.x, 43.0,
     "predicted view weapon angle")
+
+  cstate.setPredictionRealTime(client, 1000)
+  assertEqual(cstate.notePredictionStep(client, [160, 80, -40],
+    [160, 80, 32], qc.PMF_ON_GROUND, 20), true,
+    "8-to-20-unit grounded riser starts stair smoothing")
+  assertNear(client.predictedStep, 9.0, 0.000001,
+    "fixed-point stair height converted to world units")
+  assertNear(client.predictedStepTime, 990.0, 0.000001,
+    "stair start time receives original half-frame adjustment")
+  cstate.setPredictionRealTime(client, 1005)
+  assertEqual(cstate.notePredictionStep(client, [160, 80, -40],
+    [160, 80, 32], qc.PMF_ON_GROUND, 20), false,
+    "replayed preview endpoint does not restart stair smoothing")
+  assertNear(client.predictedStepTime, 990.0, 0.000001,
+    "duplicate preview preserves original stair start time")
+  cstate.setPredictionRealTime(client, 990)
+  stairStartFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
+    testResolvers, 0, testRandom)
+  assertNear(stairStartFrame.viewOrigin.z, -3.4375, 0.000001,
+    "stair camera begins at pre-step height")
+  cstate.setPredictionRealTime(client, 1040)
+  stairHalfFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
+    testResolvers, 0, testRandom)
+  assertNear(stairHalfFrame.viewOrigin.z, 1.0625, 0.000001,
+    "stair camera eases halfway after 50 ms")
+  cstate.setPredictionRealTime(client, 1090)
+  stairCompleteFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
+    testResolvers, 0, testRandom)
+  assertNear(stairCompleteFrame.viewOrigin.z, 5.5625, 0.000001,
+    "stair camera reaches predicted height after 100 ms")
 
   // Dead cameras and demos remain locked to authoritative interpolation.
   secondPlayer.pmove.moveType = qc.PM_DEAD
   deadFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
     testResolvers, 0, testRandom)
-  assertEqual(deadFrame.viewOrigin.x, 10.5, "dead camera server origin")
+  assertEqual(deadFrame.viewOrigin.x, 10.5625,
+    "dead camera server origin plus BSP plane nudge")
   assertEqual(deadFrame.viewAngles.x, 6.0, "dead camera server angles")
   secondPlayer.pmove.moveType = qc.PM_NORMAL
 

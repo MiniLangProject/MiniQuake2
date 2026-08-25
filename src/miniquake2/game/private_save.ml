@@ -18,7 +18,7 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 14
+const PRIVATE_VERSION = 15
 
 struct PrivateRestore
   runtime
@@ -236,6 +236,11 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       privatemessage.writeLong(buffer, player.powerups.quadFrame); privatemessage.writeLong(buffer, player.powerups.invincibleFrame)
       privatemessage.writeLong(buffer, player.powerups.enviroFrame); privatemessage.writeLong(buffer, player.powerups.breatherFrame)
       privatemessage.writeLong(buffer, player.armorItemIndex); privatemessage.writeLong(buffer, player.flags)
+      privatemessage.writeLong(buffer, player.floodWhenHead)
+      privatemessage.writeFloat(buffer, player.floodLockTill)
+      for each floodTime in player.floodWhen
+        privatemessage.writeFloat(buffer, floodTime)
+      end for
     end for
   end if
   return privatesizebuf.dataSlice(buffer)
@@ -341,7 +346,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if privateSaveVersion != 7 and privateSaveVersion != 8 and
       privateSaveVersion != 9 and privateSaveVersion != 10 and
       privateSaveVersion != 11 and privateSaveVersion != 12 and
-      privateSaveVersion != 13 and
+      privateSaveVersion != 13 and privateSaveVersion != 14 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -370,7 +375,8 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if privateSaveVersion >= 11 then
     privateSavedRandomSeed = privatechecked.readLong(buffer, "private random seed")
   end if
-  spawnResult = privatespawn.SpawnEntities(mapName, entityString, spawnPoint)
+  spawnResult = privatespawn.SpawnEntitiesForMode(mapName, entityString,
+    spawnPoint, privateSavedSkill, playerContext.deathmatch)
   restoredBaseEdicts = spawnResult.edicts
   index = 0
   while index < len(restoredBaseEdicts)
@@ -678,6 +684,21 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     player.powerups.quadFrame = privatechecked.readLong(buffer, "private quad"); player.powerups.invincibleFrame = privatechecked.readLong(buffer, "private invincible")
     player.powerups.enviroFrame = privatechecked.readLong(buffer, "private enviro"); player.powerups.breatherFrame = privatechecked.readLong(buffer, "private breather")
     player.armorItemIndex = privatechecked.readLong(buffer, "private armor item"); player.flags = privatechecked.readLong(buffer, "private player flags")
+    if privateSaveVersion >= 15 then
+      player.floodWhenHead = privatechecked.readLong(buffer,
+        "private flood head")
+      if player.floodWhenHead < 0 or
+          player.floodWhenHead >= len(player.floodWhen) then
+        return error(3890, "private flood head outside ring")
+      end if
+      player.floodLockTill = privateReadFloat(buffer, "private flood lock")
+      privateFloodIndex = 0
+      while privateFloodIndex < len(player.floodWhen)
+        player.floodWhen[privateFloodIndex] = privateReadFloat(buffer,
+          "private flood timestamp")
+        privateFloodIndex = privateFloodIndex + 1
+      end while
+    end if
     playerContext.players = playerContext.players + [player]
     playerCount = playerCount - 1
   end while

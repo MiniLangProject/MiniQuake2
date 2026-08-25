@@ -30,6 +30,7 @@ scenarioAssert(rotatingDoor.angles.y == 90.0, "rotating door reaches configured 
 
 actor = campworldtypes.createEntity(900, "player-proxy")
 actor.isClient = true
+actor.health = 100
 push = campworldintegration.findWorldByClass(runtime, "trigger_push")
 campworldcore.touchEntity(world, push, actor)
 scenarioAssert(actor.velocity.x == 1000.0, "trigger_push applies BaseQ2 tenfold launch speed")
@@ -47,9 +48,11 @@ campworldcore.useEntity(world, counter, void, actor)
 scenarioAssert(counter.count == 0 and len(world.events) > eventCount, "counter completes and fires targets")
 
 laser = campworldintegration.findWorldByClass(runtime, "target_laser")
+// Stock SP_target_laser defers target resolution and installs its use
+// callback one second so all possible targets have spawned first.
+campworldcore.advance(world, world.time + 0.2)
 campworldcore.useEntity(world, laser, void, actor)
 scenarioAssert(laser.nextThink > world.time, "laser starts deterministic frame think")
-campworldcore.advance(world, world.time + 0.2)
 scenarioAssert(laser.moveDirection.x != 0.0 or laser.moveDirection.y != 0.0 or laser.moveDirection.z != 0.0, "laser aims at target")
 
 print "gameplay_campaign_world_scenarios_tests: PASS"

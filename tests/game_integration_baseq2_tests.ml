@@ -70,10 +70,41 @@ function testFrameAndEdictHandoff()
   return true
 end function
 
+function testJail5FlyerCompatibilityFix()
+  fixture = "{ \"classname\" \"worldspawn\" }\n" +
+    "{ \"classname\" \"monster_flyer\" \"origin\" \"1 2 -104\" \"target\" \"flyer_gate\" }"
+  jailRuntime = itbaseq2.create(itbspawn.SpawnEntities("jail5", fixture, ""))
+  assertEqual(jailRuntime.monsters[0].targetName, "flyer_gate",
+    "jail5 flyer moves bad target to targetname")
+  assertEqual(jailRuntime.monsters[0].target, "",
+    "jail5 flyer clears bad target")
+
+  otherRuntime = itbaseq2.create(itbspawn.SpawnEntities("base1", fixture, ""))
+  assertEqual(otherRuntime.monsters[0].target, "flyer_gate",
+    "flyer compatibility fix is jail5-only")
+  assertEqual(otherRuntime.monsters[0].targetName, "",
+    "non-jail5 flyer targetname unchanged")
+  return true
+end function
+
+function testMine3SecretCompatibilityFix()
+  fixture = "{ \"classname\" \"worldspawn\" }\n" +
+    "{ \"classname\" \"target_secret\" \"origin\" \"280 -2048 -624\" }"
+  mineRuntime = itbaseq2.create(itbspawn.SpawnEntities("mine3", fixture, ""))
+  assertEqual(mineRuntime.world.entities[1].message,
+    "You have found a secret area.", "mine3 secret restores shipped message")
+  otherRuntime = itbaseq2.create(itbspawn.SpawnEntities("base1", fixture, ""))
+  assertEqual(otherRuntime.world.entities[1].message, "",
+    "secret message compatibility fix is mine3-only")
+  return true
+end function
+
 function main(args)
-  print "MiniQuake2 BaseQ2 integration tests starting: 2"
+  print "MiniQuake2 BaseQ2 integration tests starting: 4"
   testDispatch()
   testFrameAndEdictHandoff()
-  print "MiniQuake2 BaseQ2 integration tests passed: 2"
+  testJail5FlyerCompatibilityFix()
+  testMine3SecretCompatibilityFix()
+  print "MiniQuake2 BaseQ2 integration tests passed: 4"
   return 0
 end function

@@ -240,7 +240,10 @@ end function
 function doorHitTop(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
-    if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
+    if entity.className == "func_water" and entity.sounds != 0 then
+      world.callbacks.sound(entity, "world/stp_watr.wav")
+    else if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav")
+    end if
     entity.loopSound = 0
   end if
   if (entity.spawnFlags & gwconstants.DOOR_TOGGLE) != 0 then return true end if
@@ -254,7 +257,10 @@ end function
 function doorHitBottom(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
-    if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav") end if
+    if entity.className == "func_water" and entity.sounds != 0 then
+      world.callbacks.sound(entity, "world/stp_watr.wav")
+    else if entity.soundIndex != 0 then world.callbacks.sound(entity, "doors/dr1_end.wav")
+    end if
     entity.loopSound = 0
   end if
   doorUseAreaPortals(entity, false, world)
@@ -262,9 +268,13 @@ function doorHitBottom(entity, world)
 end function
 
 function doorGoDown(entity, world)
-  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
-    world.callbacks.sound(entity, "doors/dr1_strt.wav")
-    entity.loopSound = entity.soundIndex
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.className == "func_water" and entity.sounds != 0 then
+      world.callbacks.sound(entity, "world/mov_watr.wav")
+    else if entity.soundIndex != 0 then
+      world.callbacks.sound(entity, "doors/dr1_strt.wav")
+      entity.loopSound = entity.soundIndex
+    end if
   end if
   if entity.maxHealth != 0 then
     entity.takeDamage = gwconstants.DAMAGE_YES
@@ -280,9 +290,13 @@ function doorGoUp(entity, activator, world)
     if entity.moveInfo.wait >= 0.0 then entity.nextThink = world.time + entity.moveInfo.wait end if
     return false
   end if
-  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
-    world.callbacks.sound(entity, "doors/dr1_strt.wav")
-    entity.loopSound = entity.soundIndex
+  if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
+    if entity.className == "func_water" and entity.sounds != 0 then
+      world.callbacks.sound(entity, "world/mov_watr.wav")
+    else if entity.soundIndex != 0 then
+      world.callbacks.sound(entity, "doors/dr1_strt.wav")
+      entity.loopSound = entity.soundIndex
+    end if
   end if
   entity.moveInfo.state = gwconstants.STATE_UP
   moveCalc(entity, entity.moveInfo.endOrigin, doorHitTop, world)
@@ -383,6 +397,208 @@ function spawnDoor(entity, world)
   if (entity.spawnFlags & 64) != 0 then entity.effects = entity.effects | gwconstants.EF_ANIM_ALLFAST end if
   if entity.teamMaster is void then entity.teamMaster = entity end if
   world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// func_water reuses door_use only after establishing its distinct defaults:
+// 25-unit speed, zero lip, no blocked callback and a wait=-1 toggle.
+function spawnWater(entity, world)
+  entity.moveDirection = gwvector.movedir(entity.angles)
+  entity.moveType = gwconstants.MOVETYPE_PUSH
+  entity.solid = gwconstants.SOLID_BSP
+  entity.blocked = void
+  entity.use = doorUse
+  if entity.speed == 0.0 then entity.speed = 25.0 end if
+  if entity.wait == 0.0 then entity.wait = -1.0 end if
+
+  startOrigin = gwvector.copy(entity.origin)
+  distance = smath.abs(entity.moveDirection.x) * entity.size.x +
+    smath.abs(entity.moveDirection.y) * entity.size.y +
+    smath.abs(entity.moveDirection.z) * entity.size.z - entity.lip
+  endOrigin = gwvector.multiplyAdd(startOrigin, distance, entity.moveDirection)
+  if (entity.spawnFlags & gwconstants.DOOR_START_OPEN) != 0 then
+    entity.origin = gwvector.copy(endOrigin)
+    endOrigin = startOrigin
+    startOrigin = gwvector.copy(entity.origin)
+  end if
+
+  entity.moveInfo.state = gwconstants.STATE_BOTTOM
+  entity.moveInfo.speed = entity.speed
+  entity.moveInfo.accel = entity.speed
+  entity.moveInfo.decel = entity.speed
+  entity.moveInfo.wait = entity.wait
+  entity.moveInfo.distance = distance
+  entity.moveInfo.startOrigin = startOrigin
+  entity.moveInfo.endOrigin = endOrigin
+  entity.moveInfo.startAngles = gwvector.copy(entity.angles)
+  entity.moveInfo.endAngles = gwvector.copy(entity.angles)
+  if entity.wait == -1.0 then
+    entity.spawnFlags = entity.spawnFlags | gwconstants.DOOR_TOGGLE
+  end if
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// func_door_secret is a two-leg mover. It slides sideways, pauses, moves
+// forward, waits open, then reverses the same two legs.
+function configureSecretDoorGeometry(entity, world)
+  authoredAngles = entity.moveInfo.startAngles
+  pitch = smath.degToRad(authoredAngles.x)
+  yaw = smath.degToRad(authoredAngles.y)
+  roll = smath.degToRad(authoredAngles.z)
+  sp = smath.sin(pitch); cp = smath.cos(pitch)
+  sy = smath.sin(yaw); cy = smath.cos(yaw)
+  sr = smath.sin(roll); cr = smath.cos(roll)
+  forward = qt.Vec3(cp * cy, cp * sy, -sp)
+  right = qt.Vec3(-sr * sp * cy + cr * sy,
+    -sr * sp * sy - cr * cy, -sr * cp)
+  up = qt.Vec3(cr * sp * cy + sr * sy,
+    cr * sp * sy - sr * cy, cr * cp)
+
+  side = 1.0
+  if (entity.spawnFlags & 2) != 0 then side = -1.0 end if
+  firstDirection = right
+  firstScale = side
+  if (entity.spawnFlags & 4) != 0 then
+    firstDirection = up
+    firstScale = -1.0
+  end if
+  width = smath.abs(gwvector.dot(firstDirection, entity.size))
+  length = smath.abs(gwvector.dot(forward, entity.size))
+  entity.origin = gwvector.copy(entity.oldOrigin)
+  entity.moveInfo.startOrigin = gwvector.multiplyAdd(entity.oldOrigin,
+    firstScale * width, firstDirection)
+  entity.moveInfo.endOrigin = gwvector.multiplyAdd(entity.moveInfo.startOrigin,
+    length, forward)
+  entity.moveInfo.distance = width + length
+  entity.angles = qt.zeroVec3()
+  world.callbacks.linkEntity(entity)
+  return true
+end function
+
+function secretDoorMove2(entity, world)
+  entity.count = 3
+  return moveCalc(entity, entity.moveInfo.endOrigin, secretDoorMove3, world)
+end function
+
+function secretDoorMove1(entity, world)
+  entity.count = 2
+  entity.think = secretDoorMove2
+  entity.nextThink = world.time + 1.0
+  return true
+end function
+
+function secretDoorMove3(entity, world)
+  entity.moveInfo.state = gwconstants.STATE_TOP
+  entity.count = 4
+  if entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_end.wav")
+    entity.loopSound = 0
+  end if
+  if entity.wait == -1.0 then return true end if
+  entity.think = secretDoorMove4
+  entity.nextThink = world.time + entity.wait
+  return true
+end function
+
+function secretDoorMove4(entity, world)
+  entity.moveInfo.state = gwconstants.STATE_DOWN
+  entity.count = 5
+  if entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
+  return moveCalc(entity, entity.moveInfo.startOrigin, secretDoorMove5, world)
+end function
+
+function secretDoorMove5(entity, world)
+  entity.count = 6
+  entity.think = secretDoorMove6
+  entity.nextThink = world.time + 1.0
+  return true
+end function
+
+function secretDoorMove6(entity, world)
+  entity.count = 7
+  return moveCalc(entity, entity.oldOrigin, secretDoorDone, world)
+end function
+
+function secretDoorDone(entity, world)
+  entity.moveInfo.state = gwconstants.STATE_BOTTOM
+  entity.count = 0
+  if entity.targetName == "" or (entity.spawnFlags & 1) != 0 then
+    entity.health = 0
+    entity.takeDamage = gwconstants.DAMAGE_YES
+  end if
+  if entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_end.wav")
+    entity.loopSound = 0
+  end if
+  doorUseAreaPortals(entity, false, world)
+  return true
+end function
+
+function secretDoorUse(entity, other, activator, world)
+  if entity.moveInfo.state != gwconstants.STATE_BOTTOM or
+      gwvector.equal(entity.origin, entity.oldOrigin) == false then return false end if
+  entity.activator = activator
+  entity.moveInfo.state = gwconstants.STATE_UP
+  entity.count = 1
+  if entity.soundIndex != 0 then
+    world.callbacks.sound(entity, "doors/dr1_strt.wav")
+    entity.loopSound = entity.soundIndex
+  end if
+  moveCalc(entity, entity.moveInfo.startOrigin, secretDoorMove1, world)
+  doorUseAreaPortals(entity, true, world)
+  return true
+end function
+
+function secretDoorBlocked(entity, other, world)
+  if other is void then return false end if
+  if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then
+    world.callbacks.damage(other, entity, entity, 100000, gwconstants.MOD_CRUSH)
+    gwcore.freeEntity(world, other)
+    return true
+  end if
+  if world.time < entity.touchDebounceTime then return false end if
+  entity.touchDebounceTime = world.time + 0.5
+  world.callbacks.damage(other, entity, entity, entity.damage, gwconstants.MOD_CRUSH)
+  return true
+end function
+
+function secretDoorDie(entity, inflictor, attacker, damage, point, world)
+  entity.takeDamage = gwconstants.DAMAGE_NO
+  return secretDoorUse(entity, attacker, attacker, world)
+end function
+
+function spawnSecretDoor(entity, world)
+  entity.moveType = gwconstants.MOVETYPE_PUSH
+  entity.solid = gwconstants.SOLID_BSP
+  entity.blocked = secretDoorBlocked
+  entity.use = secretDoorUse
+  entity.oldOrigin = gwvector.copy(entity.origin)
+  entity.moveInfo.startAngles = gwvector.copy(entity.angles)
+  if entity.damage == 0 then entity.damage = 2 end if
+  if entity.wait == 0.0 then entity.wait = 5.0 end if
+  entity.speed = 50.0
+  entity.accel = 50.0
+  entity.decel = 50.0
+  entity.moveInfo.speed = 50.0
+  entity.moveInfo.accel = 50.0
+  entity.moveInfo.decel = 50.0
+  entity.moveInfo.wait = entity.wait
+  entity.moveInfo.state = gwconstants.STATE_BOTTOM
+  entity.count = 0
+  if entity.targetName == "" or (entity.spawnFlags & 1) != 0 then
+    entity.health = 0
+    entity.takeDamage = gwconstants.DAMAGE_YES
+    entity.die = secretDoorDie
+  else if entity.health != 0 then
+    entity.maxHealth = entity.health
+    entity.takeDamage = gwconstants.DAMAGE_YES
+    entity.die = doorKilled
+  end if
+  configureSecretDoorGeometry(entity, world)
   return entity
 end function
 
@@ -568,7 +784,18 @@ function refreshBrushGeometry(entity, world)
     world.callbacks.linkEntity(entity)
     return true
   end if
-  if entity.className == "func_door" or entity.className == "func_water" or entity.className == "func_door_secret" then
+  if entity.className == "func_water" then
+    closedOrigin = entity.moveInfo.startOrigin
+    if (entity.spawnFlags & gwconstants.DOOR_START_OPEN) != 0 then
+      closedOrigin = entity.moveInfo.endOrigin
+    end if
+    entity.origin = gwvector.copy(closedOrigin)
+    return spawnWater(entity, world)
+  end if
+  if entity.className == "func_door_secret" then
+    return configureSecretDoorGeometry(entity, world)
+  end if
+  if entity.className == "func_door" then
     closedOrigin = entity.moveInfo.startOrigin
     if (entity.spawnFlags & gwconstants.DOOR_START_OPEN) != 0 then closedOrigin = entity.moveInfo.endOrigin end if
     entity.origin = gwvector.copy(closedOrigin)
@@ -920,6 +1147,12 @@ end function
 function SP_func_door(entity, world)
   return spawnDoor(entity, world)
 end function
+function SP_func_water(entity, world)
+  return spawnWater(entity, world)
+end function
+function SP_func_door_secret(entity, world)
+  return spawnSecretDoor(entity, world)
+end function
 function SP_func_plat(entity, world)
   return spawnPlat(entity, world)
 end function
@@ -953,7 +1186,15 @@ function restoreMoverState(entity, world)
     else if state == gwconstants.STATE_DOWN then entity.think = rotatingDoorHitBottom
     else if state == gwconstants.STATE_TOP then entity.think = rotatingDoorGoDown
     end if
-  else if name == "func_door" or name == "func_water" or name == "func_door_secret" then
+  else if name == "func_door_secret" then
+    if entity.count == 2 then entity.think = secretDoorMove2
+    else if entity.count == 3 then entity.think = secretDoorMove3
+    else if entity.count == 4 then entity.think = secretDoorMove4
+    else if entity.count == 5 then entity.think = secretDoorMove5
+    else if entity.count == 6 then entity.think = secretDoorMove6
+    else if entity.count == 7 then entity.think = secretDoorDone
+    end if
+  else if name == "func_door" or name == "func_water" then
     if state == gwconstants.STATE_UP then entity.think = doorHitTop
     else if state == gwconstants.STATE_DOWN then entity.think = doorHitBottom
     else if state == gwconstants.STATE_TOP then entity.think = doorGoDown

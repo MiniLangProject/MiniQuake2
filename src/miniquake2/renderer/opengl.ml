@@ -848,6 +848,49 @@ function inline openGlShadeByte(component)
   return value
 end function
 
+// ref_gl copies RefDef.blend into v_blend and overlays it after the complete
+// 3-D scene.  This carries damage flashes, underwater tint and powerup color
+// shifts; retaining the field without drawing it leaves all three invisible.
+function openGlPolyBlendColor(blend)
+  if typeof(blend) != "array" or len(blend) != 4 then
+    return error(9633, "polyblend requires four RGBA components")
+  end if
+  color = bytes(4)
+  index = 0
+  while index < 4
+    component = blend[index]
+    if typeof(component) != "int" and typeof(component) != "float" then
+      return error(9633, "polyblend component must be numeric")
+    end if
+    color[index] = openGlShadeByte(component)
+    index = index + 1
+  end while
+  return color
+end function
+
+function drawOpenGlPolyBlend(frame)
+  color = openGlPolyBlendColor(frame.blend)
+  if color[3] == 0 then return false end if
+  setup2d()
+  native.glDisable(GL_ALPHA_TEST)
+  native.glDisable(GL_TEXTURE_2D)
+  native.glEnable(GL_BLEND)
+  native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+  native.glColor4ub(color[0], color[1], color[2], color[3])
+  native.glBegin(GL_QUADS)
+  native.glVertex2(bits(frame.x * 1.0), bits(frame.y * 1.0))
+  native.glVertex2(bits((frame.x + frame.width) * 1.0), bits(frame.y * 1.0))
+  native.glVertex2(bits((frame.x + frame.width) * 1.0),
+    bits((frame.y + frame.height) * 1.0))
+  native.glVertex2(bits(frame.x * 1.0), bits((frame.y + frame.height) * 1.0))
+  native.glEnd()
+  native.glColor4ub(255, 255, 255, 255)
+  native.glDisable(GL_BLEND)
+  native.glEnable(GL_TEXTURE_2D)
+  native.glEnable(GL_ALPHA_TEST)
+  return true
+end function
+
 function openGlMd2ShadeComponents(entity, time, rdFlags, baseColor)
   flags = entity.flags
   red = baseColor.red; green = baseColor.green; blue = baseColor.blue
@@ -1427,6 +1470,7 @@ function openGlRenderFrame(frame)
         frame.numEntities < 0 or frame.numDLights < 0 or frame.numParticles < 0 or
         frame.numEntities > rc.MAX_ENTITIES or frame.numDLights > rc.MAX_DLIGHTS or
         frame.numParticles > rc.MAX_PARTICLES or
+        typeof(frame.blend) != "array" or len(frame.blend) != 4 or
         len(frame.lightStyles) != rc.MAX_LIGHTSTYLES then
       return error(9604, "invalid product refdef shape")
     end if
@@ -1448,6 +1492,7 @@ function openGlRenderFrame(frame)
     backend.lastShadowEntities = 0
     drawOpenGlEntityPass(backend, frame, axes, true)
     drawParticles(backend, frame, axes)
+    drawOpenGlPolyBlend(frame)
     backend.submittedEntities = backend.submittedEntities + frame.numEntities
     backend.submittedParticles = backend.submittedParticles + frame.numParticles
   end if

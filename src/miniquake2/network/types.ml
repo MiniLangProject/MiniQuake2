@@ -61,6 +61,8 @@ struct ServerClient
   frames
   lastFrame
   suppressCount
+  frameLatencies
+  frameSentTimes
 end struct
 
 struct ServerState
@@ -106,4 +108,3 @@ end function
 function result(accepted, slot, actions, message, payload)
   return HandleResult(accepted, slot, actions, message, payload)
 end function
-

@@ -97,7 +97,7 @@ the dense `lab` map. Swept traces use Quake II's near-first BSP hull walk on a
 fixed stack, and inline brushes are rejected by cached swept bounds before any
 model transform or hull trace. Fixed sound storage also avoids array
 concatenation and drains transient/PHS-filtered events without backlog.
-Private-Save v14 resumes attacks and active reactions at their next
+Private-Save v15 resumes attacks and active reactions at their next
 frame, preserves held death-fire bursts, live refire, jump, saved-aim,
 shared-random, Medic ownership, live turret sight/reaction state and all
 lost-sight pursuit fields, and round-trips live dynamic gib records. Client
@@ -198,8 +198,10 @@ dynamic world references; v11 added in-flight boss aim/refire plus Win32
 random-stream state; v12 added transient monster AI, old-enemy and owner
 references required to resume a Medic cable safely; v13 added the world
 combat/AI/cooldown fields required to resume a coupled turret without resetting
-its target cadence; v14 retains v7-v13 readers and adds collision movement,
+its target cadence; v14 added collision movement,
 velocity, last-sighting, trail and temporary pursuit-goal state.
+v15 retains v7-v14 readers and additionally persists the original chat flood
+ring, head and lockout timestamp.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
 managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached

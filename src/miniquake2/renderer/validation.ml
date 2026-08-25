@@ -70,17 +70,17 @@ function validateLightStyle(value, index)
   if typeof(value) != "struct" then return invalid("lightstyle.type", "lightStyles[" + index + "] must be a LightStyle record") end if
   if typeof(value.rgb) != "array" or len(value.rgb) != 3 then return invalid("lightstyle.rgb", "lightStyles[" + index + "].rgb must contain three values") end if
   component = 0
-  highest = value.rgb[0]
   while component < 3
-    if not numeric(value.rgb[component]) or value.rgb[component] < 0.0 or value.rgb[component] > 2.0 then
-      return invalid("lightstyle.range", "light style RGB must be in [0,2]")
+    if not numeric(value.rgb[component]) or value.rgb[component] < 0.0 or
+        value.rgb[component] > 25.0 / 12.0 then
+      return invalid("lightstyle.range", "light style RGB must be in [0,25/12]")
     end if
-    if value.rgb[component] > highest then highest = value.rgb[component] end if
     component = component + 1
   end while
-  difference = value.white - highest
+  difference = value.white - (value.rgb[0] + value.rgb[1] + value.rgb[2])
   if difference < 0.0 then difference = -difference end if
-  if difference > 0.00001 then return invalid("lightstyle.white", "light style white must equal its highest RGB component") end if
+  if difference > 0.00001 then return invalid("lightstyle.white",
+    "light style white must equal its RGB sum") end if
   return valid()
 end function
 
