@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Optional read-only Classic Steam campaign spawn smoke.
    Run with the Quake II install root; the normal asset-free test invocation
    deliberately skips retail access. */

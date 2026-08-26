@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Hardware gamma lifecycle with a deterministic Quake-compatible fallback table. */
 package miniquake2.platform.gamma
 

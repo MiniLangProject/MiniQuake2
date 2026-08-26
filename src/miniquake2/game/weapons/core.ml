@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Shared projectile lifetime, damage and event machinery. */
 package miniquake2.game.weapons.core
 

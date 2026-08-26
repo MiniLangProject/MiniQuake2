@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real Protocol-34 coverage for the remaining bounded g_cmds.c surface. */
 import miniquake2.qcommon.constants as gccqconstants
 import miniquake2.game.null_game as gccgame

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Renderer-independent records produced by the classic BSP scene pass. */
 package miniquake2.renderer.classic.types
 
@@ -105,10 +109,23 @@ struct ClassicWorldDraw
   baseTexture
   baseTextures
   lightmapTexture
+  lightmapX
+  lightmapY
   vertices
   triangleCount
   mins
   maxs
+  centerX
+  centerY
+  centerZ
+  extentX
+  extentY
+  extentZ
+  planeNormalX
+  planeNormalY
+  planeNormalZ
+  planeDistance
+  planeSide
 end struct
 
 struct ClassicSkyBox

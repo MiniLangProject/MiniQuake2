@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Function-valued runtime adapter exercised against the managed Game API v3. */
 import miniquake2.qcommon.types as qt
 import miniquake2.game.constants as gc

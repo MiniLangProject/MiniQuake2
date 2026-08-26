@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Classic 3.19 turret base/breach/driver golden scenarios. */
 import miniquake2.game.world.constants as turrettestconstants
 import miniquake2.game.world.core as turrettestcore

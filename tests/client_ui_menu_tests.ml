@@ -1,7 +1,12 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Data-driven Main/Game/Video/Options menu lifecycle tests. */
 import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.menu as cuimenu
 import miniquake2.renderer.recording as recording
+import miniquake2.renderer.constants as uiMenuRendererConstants
 
 function uiMenuAssertEqual(actual, expected, name)
   if actual != expected then return error(8270, name + ": expected " + expected + ", got " + actual) end if
@@ -30,6 +35,10 @@ uiMenuAssertEqual(uiMenuModelCommands[0], "model 1", "player model choice comman
 uiMenuAssertEqual(uiMenuModelCommands[1], "skin 0", "model synchronizes a valid skin")
 uiMenuAssertEqual(cuimenu.playerPreviewPath(uiMenuState),
   "players/female/athena_i.pcx", "player preview follows model and skin")
+uiMenuAssertEqual(cuimenu.playerPreviewModelPath(uiMenuState),
+  "players/female/tris.md2", "player preview model follows model choice")
+uiMenuAssertEqual(cuimenu.playerPreviewSkinPath(uiMenuState),
+  "players/female/athena.pcx", "player preview skin follows skin choice")
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
@@ -65,6 +74,14 @@ cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
 uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "crosshair 2",
   "crosshair choice command")
+uiMenuState.cursor = 7
+cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "reset_defaults",
+  "reset defaults action command")
+uiMenuState.cursor = 8
+cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "go_console",
+  "go to console action command")
 cuimenu.open(uiMenuState, "load")
 cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
 uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "load 0", "load slot command")
@@ -97,6 +114,25 @@ uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 1400,
 cuimenu.open(uiMenuState, "game")
 uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 135.51,
   uiMenuRenderer.exports), 7, "game menu fractional-clock draw count")
+cuimenu.open(uiMenuState, "player")
+uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 1400.0,
+  uiMenuRenderer.exports), 6, "player setup 3-D draw count")
+uiMenuPreviewFrame = uiMenuRenderer.state.lastRefDef
+uiMenuAssertEqual(uiMenuPreviewFrame.x, 320, "player preview viewport x")
+uiMenuAssertEqual(uiMenuPreviewFrame.y, 168, "player preview viewport y")
+uiMenuAssertEqual(uiMenuPreviewFrame.width, 144, "player preview viewport width")
+uiMenuAssertEqual(uiMenuPreviewFrame.height, 168, "player preview viewport height")
+uiMenuAssertEqual(uiMenuPreviewFrame.rdFlags,
+  uiMenuRendererConstants.RDF_NOWORLDMODEL, "player preview world suppression")
+uiMenuAssertEqual(uiMenuPreviewFrame.numEntities, 1, "player preview entity count")
+uiMenuAssertEqual(uiMenuPreviewFrame.entities[0].model.name,
+  "players/female/tris.md2", "player preview registered model")
+uiMenuAssertEqual(uiMenuPreviewFrame.entities[0].skin.name,
+  "players/female/athena.pcx", "player preview registered skin")
+uiMenuAssertEqual(uiMenuPreviewFrame.entities[0].flags,
+  uiMenuRendererConstants.RF_FULLBRIGHT, "player preview full-bright flag")
+uiMenuAssertEqual(uiMenuPreviewFrame.entities[0].angles.y, 140.0,
+  "player preview rotation")
 uiMenuAssertEqual(len(bytes(recording.commandTrace(uiMenuRenderer))) > 0, true, "menu renderer callback trace")
 uiMenuRenderer.exports.Shutdown()
 uiMenuAssertEqual(typeof(try(cuimenu.open(uiMenuState, "missing"))), "error", "unknown page rejected")

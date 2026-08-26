@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Reproducible physical-input probe for product and campaign acceptance. */
 package miniquake2.runtime.campaign_playtest
 

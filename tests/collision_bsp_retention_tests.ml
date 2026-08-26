@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BSP38 nested-record lifetime regression under aggressive managed GC. */
 import miniquake2.format.constants as bspretconstants
 import miniquake2.format.binary as bspretbinary

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict Protocol-34 sound, event, muzzleflash and temp-entity dispatch. */
 package miniquake2.client.effects.parser
 
@@ -408,6 +412,9 @@ function parseSteam(state, buffer)
   return sustain
 end function
 
+// Decode one svc_temp_entity payload and immediately publish its bounded
+// client-side representation. Each branch consumes exactly the bytes defined
+// by the original CL_ParseTEnt switch so the next server command stays aligned.
 function parseTempEntity(state, buffer)
   type = pchecked.readByte(buffer, "temp entity type")
   if type < 0 or type > ceconstants.TE_FLECHETTE or type == ceconstants.TE_FLAME then return error(7336, "unsupported temp entity type " + type) end if
@@ -421,7 +428,9 @@ function parseTempEntity(state, buffer)
 
   if type == ceconstants.TE_BFG_LASER then
     start = readPosition(buffer, "laser start"); finish = readPosition(buffer, "laser end")
-    return cestate.addLaser(state, start, finish, 0xd0)
+    // CL_ParseLaser(0xd0d1d2d3) selects one packed palette byte per beam.
+    return cestate.addLaser(state, start, finish,
+      0xd3 - (cestate.random(state) & 3))
   end if
 
   if type == ceconstants.TE_SPLASH then

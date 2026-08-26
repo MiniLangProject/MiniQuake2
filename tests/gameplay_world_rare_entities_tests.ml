@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden scenarios for rare BaseQ2 world target/trigger/mover entities. */
 import miniquake2.game.world.constants as rareworldconstants
 import miniquake2.game.world.core as rareworldcore

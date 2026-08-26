@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic effect lifecycle and renderer RefDef handoff. */
 import miniquake2.qcommon.types as qt
 import miniquake2.audio.wav as awav
@@ -129,7 +133,10 @@ blasterEntity.effects = ceconstants.EF_BLASTER
 blasterSnapshot = crtypes.Snapshot(1, 0, 0, bytes([]), void, [blasterEntity])
 blasterFrame = rt.defaultRefDef(640, 480)
 ceentity.emit(blasterState, blasterSnapshot, void, 1.0, 0, 0, blasterFrame)
-assertEqual(blasterState.particleCount, 2, "blaster trail stock five-unit spacing")
+assertEqual(blasterState.particleCount, 3,
+  "blaster trail includes short-lived visible endpoint core")
+assertEqual(blasterState.particles[2].origin.x, 10.0,
+  "blaster endpoint core follows the projectile")
 assertEqual(blasterFrame.dLights[0].color.y, 1.0, "blaster light green")
 
 bfgState = cestate.createSilent(19)

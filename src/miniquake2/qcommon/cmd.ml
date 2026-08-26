@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II command buffer, tokenizer, aliases and cvar fallback. */
 package miniquake2.qcommon.cmd
 

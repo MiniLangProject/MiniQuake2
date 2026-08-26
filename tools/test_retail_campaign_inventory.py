@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Nils Kopal
+# SPDX-License-Identifier: Apache-2.0
 """Self-contained tests for the read-only retail campaign inventory."""
 
 from __future__ import annotations

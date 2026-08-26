@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Adapter joining parsed BSP entities to world, item and monster runtimes. */
 package miniquake2.game.integration.baseq2
 
@@ -81,6 +85,16 @@ struct IntegratedDynamicClip
 end struct
 
 activeIntegrationRuntime = void
+integratedProjectileLinkTotal = 0
+integratedProjectileFreeTotal = 0
+
+function projectileLinkCount()
+  return integratedProjectileLinkTotal
+end function
+
+function projectileFreeCount()
+  return integratedProjectileFreeTotal
+end function
 
 // Exact m_medic.c attack42-relative cable offsets. Package-rooted scalar
 // tables avoid rebuilding arrays in the live resurrection callback.
@@ -635,6 +649,7 @@ function integratedAIDeathEffect(actor, effect)
   ibDeathGibHolder.moveType = ibworldconstants.MOVETYPE_TOSS
   if effect.gibType == ibdeatheffects.GIB_METALLIC then ibDeathGibHolder.moveType = ibworldconstants.MOVETYPE_BOUNCE end if
   ibDeathGibHolder.takeDamage = ibworldconstants.DAMAGE_YES
+  ibDeathGibHolder.die = ibmisc.gibDie
   ibDeathGibHolder.think = ibworld.freeThink
   ibDeathGibHolder.nextThink = ibDeathRuntimeHolder.world.time + 10.0 + (ibDeathSequence % 10)
   ibworld.addEntity(ibDeathRuntimeHolder.world, ibDeathGibHolder)
@@ -1973,7 +1988,8 @@ function integratedWeaponSound(entity, soundName)
 end function
 
 function integratedWeaponLink(entity)
-  global activeIntegrationRuntime
+  global activeIntegrationRuntime, integratedProjectileLinkTotal
+  integratedProjectileLinkTotal = integratedProjectileLinkTotal + 1
   ibProjectileRuntimeHolder = activeIntegrationRuntime
   if ibProjectileRuntimeHolder is void or ibProjectileRuntimeHolder.exportTable is void or
       ibProjectileRuntimeHolder.playerContext is void then return true end if
@@ -2014,6 +2030,9 @@ function integratedWeaponLink(entity)
   ibProjectileEdictHolder.maxs = weaponVector(entity.maxs)
   ibProjectileEdictHolder.state.effects = entity.effects
   ibProjectileEdictHolder.state.frame = entity.frame
+  if entity.owner is not void and entity.owner.combatant is not void then
+    ibProjectileEdictHolder.owner = entity.owner.combatant.edict
+  end if
   ibProjectileImportsHolder = ibProjectileRuntimeHolder.playerContext.imports
   if entity.modelName != "" and entity.modelIndex == 0 then
     entity.modelIndex = ibProjectileImportsHolder.modelIndex(entity.modelName)
@@ -2031,7 +2050,8 @@ function integratedWeaponLink(entity)
 end function
 
 function integratedWeaponFree(entity)
-  global activeIntegrationRuntime
+  global activeIntegrationRuntime, integratedProjectileFreeTotal
+  integratedProjectileFreeTotal = integratedProjectileFreeTotal + 1
   ibProjectileFreeRuntimeHolder = activeIntegrationRuntime
   if ibProjectileFreeRuntimeHolder is void or ibProjectileFreeRuntimeHolder.exportTable is void or
       ibProjectileFreeRuntimeHolder.playerContext is void or entity.engineNumber < 0 or
@@ -2460,7 +2480,9 @@ function prepareMonsterRuntimeState(actor)
 end function
 
 function create(spawnResult)
-  global activeIntegrationRuntime
+  global activeIntegrationRuntime, integratedProjectileLinkTotal, integratedProjectileFreeTotal
+  integratedProjectileLinkTotal = 0
+  integratedProjectileFreeTotal = 0
   world = ibworld.createWorld(void)
   world.callbacks.resolveKeyItem = integratedResolveKeyItem
   world.callbacks.hasKeyItem = integratedHasKeyItem
@@ -2621,6 +2643,8 @@ function precacheSpawned(runtime, playerContext)
   end if
   imports.modelIndex("players/male/tris.md2")
   imports.soundIndex("weapons/noammo.wav")
+  // g_spawn.c precaches the generic toss/bounce water-transition splash.
+  imports.soundIndex("misc/h2ohit1.wav")
 
   for each itemEntity in runtime.items
     item = itemEntity.item
@@ -3224,6 +3248,9 @@ function playerWeaponShotCount(gameplayPlayer, item, effectiveFrame)
   return shots
 end function
 
+// Bridge the stock p_weapon state machine to authoritative edicts, protocol
+// effects and damage while preserving the component-only fallback used by
+// isolated gameplay tests.
 function integratedPlayerFire(gameplayPlayer, registry)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -3491,8 +3518,8 @@ end function
 
 function monsterAttackDirection(actor, attackPlan, eventIndex, start, destination, velocity)
   if attackPlan.name == "gunner-grenade" then
-    // The 3.19 FIXME is intentional: all four grenades launch straight along
-    // the Gunner's facing vector rather than aiming at the enemy.
+    // Preserve the documented 3.19 source quirk: all four grenades launch
+    // straight along the Gunner's facing vector rather than at the enemy.
     return ibwpvector.angleVectors(actor.edict.state.angles)[0]
   end if
   if attackPlan.name == "infantry-machinegun" or attackPlan.name == "gunner-chain" or
@@ -4188,6 +4215,9 @@ function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   return true
 end function
 
+// Advance exactly one 0.1-second attack-plan frame, including movement, frame
+// callbacks and refire decisions. nextFrame is persisted so save/restore does
+// not replay an already emitted projectile or sound.
 function advanceMonsterAttack(runtime, actor, attackPlan)
   if actor.enemy is void or
       (actor.enemy.health <= 0 and attackPlan.name != "medic-cable") then
@@ -4351,6 +4381,9 @@ function beginMonsterAttack(runtime, actor, attackPlan)
   return advanceMonsterAttack(runtime, actor, attackPlan)
 end function
 
+// Select or continue the original class-specific combat sequence only after
+// reaction/death moves have had priority. The function returns true when it
+// owns this server frame and the generic AI path must not also advance it.
 function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
   if ibreactionseq.planByName(actor.className, actor.activity) is not void then return false end if
@@ -4472,12 +4505,58 @@ function integratedWorldCollisionProxy(runtime, number)
   return void
 end function
 
+// Match g_phys.c ClipVelocity and the SV_Physics_Toss landing gate. Bounce
+// entities retain enough reflected vertical speed to leave the ground again;
+// ordinary toss entities settle on the first walkable floor impact.
+function clipWorldTossVelocity(entity, normal)
+  overbounce = 1.0
+  if entity.moveType == ibworldconstants.MOVETYPE_BOUNCE then overbounce = 1.5 end if
+  backoff = entity.velocity.x * normal.x +
+    entity.velocity.y * normal.y + entity.velocity.z * normal.z
+  backoff = backoff * overbounce
+  entity.velocity.x = entity.velocity.x - normal.x * backoff
+  entity.velocity.y = entity.velocity.y - normal.y * backoff
+  entity.velocity.z = entity.velocity.z - normal.z * backoff
+  if entity.velocity.x > -0.1 and entity.velocity.x < 0.1 then entity.velocity.x = 0.0 end if
+  if entity.velocity.y > -0.1 and entity.velocity.y < 0.1 then entity.velocity.y = 0.0 end if
+  if entity.velocity.z > -0.1 and entity.velocity.z < 0.1 then entity.velocity.z = 0.0 end if
+  return normal.z > 0.7 and
+    (entity.moveType != ibworldconstants.MOVETYPE_BOUNCE or entity.velocity.z < 60.0)
+end function
+
+function integratedWorldPointContents(runtime, point)
+  if runtime is void or runtime.playerContext is void then return 0 end if
+  return runtime.playerContext.imports.pointContents(point)
+end function
+
+// SV_Physics_Toss samples only the entity origin. Entry is positioned at the
+// pre-move origin, while exit is positioned at the post-move origin.
+function updateWorldTossWater(runtime, entity, oldOrigin)
+  wasInWater = (entity.waterType & ibqconstants.MASK_WATER) != 0
+  entity.waterType = integratedWorldPointContents(runtime, entity.origin)
+  isInWater = (entity.waterType & ibqconstants.MASK_WATER) != 0
+  entity.waterLevel = 0
+  if isInWater then entity.waterLevel = 1 end if
+  if wasInWater == isInWater or runtime.playerContext is void or
+      runtime.exportTable is void or runtime.exportTable.numEdicts <= 0 then
+    return false
+  end if
+  soundOrigin = entity.origin
+  if not wasInWater and isInWater then soundOrigin = oldOrigin end if
+  imports = runtime.playerContext.imports
+  imports.positionedSound(soundOrigin, runtime.exportTable.edicts[0],
+    ibgconstants.CHAN_AUTO, imports.soundIndex("misc/h2ohit1.wav"), 1.0,
+    ibgconstants.ATTN_NORM, 0.0)
+  return true
+end function
+
 function advanceWorldTossEntities(runtime)
   if runtime.playerContext is void or runtime.exportTable is void then return 0 end if
   moved = 0
   imports = runtime.playerContext.imports
   for each entity in runtime.world.entities
-    if entity.inUse and entity.moveType == ibworldconstants.MOVETYPE_TOSS then
+    if entity.inUse and (entity.moveType == ibworldconstants.MOVETYPE_TOSS or
+        entity.moveType == ibworldconstants.MOVETYPE_BOUNCE) then
       if entity.velocity.z > 0.0 then entity.groundEntity = void end if
       if entity.groundEntity is not void then
         groundInUse = try(entity.groundEntity.inUse)
@@ -4514,13 +4593,7 @@ function advanceWorldTossEntities(runtime)
           entity.moveDirection.y = trace.plane.normal.y
           entity.moveDirection.z = trace.plane.normal.z
           if entity.touch is not void then entity.touch(entity, hit, runtime.world) end if
-          backoff = entity.velocity.x * trace.plane.normal.x +
-            entity.velocity.y * trace.plane.normal.y +
-            entity.velocity.z * trace.plane.normal.z
-          entity.velocity.x = entity.velocity.x - trace.plane.normal.x * backoff
-          entity.velocity.y = entity.velocity.y - trace.plane.normal.y * backoff
-          entity.velocity.z = entity.velocity.z - trace.plane.normal.z * backoff
-          if trace.plane.normal.z > 0.7 then
+          if clipWorldTossVelocity(entity, trace.plane.normal) then
             entity.groundEntity = hit
             entity.velocity.x = 0.0; entity.velocity.y = 0.0
             entity.velocity.z = 0.0
@@ -4529,6 +4602,7 @@ function advanceWorldTossEntities(runtime)
             entity.angularVelocity.z = 0.0
           end if
         end if
+        updateWorldTossWater(runtime, entity, entity.oldOrigin)
         runtime.world.callbacks.linkEntity(entity)
         moved = moved + 1
       end if
@@ -4900,6 +4974,10 @@ function syncGameEdicts(runtime, exportTable)
         ibSyncProjectileHolder.engineNumber < exportTable.numEdicts then
       ibSyncProjectileEdictHolder = exportTable.edicts[ibSyncProjectileHolder.engineNumber]
       ibSyncProjectileEdictHolder.inUse = true
+      ibSyncProjectileEdictHolder.serverFlags = 0
+      if ibSyncProjectileHolder.className == "bolt" then
+        ibSyncProjectileEdictHolder.serverFlags = ibgconstants.SVF_DEADMONSTER
+      end if
       ibSyncProjectileEdictHolder.solid = ibSyncProjectileHolder.solid
       ibSyncProjectileEdictHolder.clipMask = ibSyncProjectileHolder.clipMask
       ibSyncProjectileEdictHolder.state.origin = weaponVector(ibSyncProjectileHolder.origin)
@@ -4907,6 +4985,10 @@ function syncGameEdicts(runtime, exportTable)
       ibSyncProjectileEdictHolder.state.angles = weaponVector(ibSyncProjectileHolder.angles)
       ibSyncProjectileEdictHolder.state.effects = ibSyncProjectileHolder.effects
       ibSyncProjectileEdictHolder.state.frame = ibSyncProjectileHolder.frame
+      if ibSyncProjectileHolder.owner is not void and
+          ibSyncProjectileHolder.owner.combatant is not void then
+        ibSyncProjectileEdictHolder.owner = ibSyncProjectileHolder.owner.combatant.edict
+      end if
       if runtime.playerContext is not void then
         if ibSyncProjectileHolder.modelName != "" and ibSyncProjectileHolder.modelIndex == 0 then
           ibSyncProjectileHolder.modelIndex = runtime.playerContext.imports.modelIndex(

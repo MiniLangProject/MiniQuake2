@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Function-valued adapter between the network runtime and game_export_t. */
 package miniquake2.network.runtime.game_adapter
 

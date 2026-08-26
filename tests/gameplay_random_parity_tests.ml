@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Win32 Quake II 3.19 rand/random/crandom compatibility vectors. */
 import miniquake2.game.random as gameplayrandom
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Typed bounded GameImport multicast queue at the API-v3/Protocol-34 boundary. */
 package miniquake2.server.game_messages
 

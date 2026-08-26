@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic g_misc.c/func_wall/func_rotating behavior regressions. */
 import miniquake2.game.world.constants as rwconstants
 import miniquake2.game.world.core as rwcore

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real UDP vertical slice: signon, snapshots, UI/FX handoff and shutdown. */
 import miniquake2.platform.system as psystem
 import miniquake2.qcommon.constants as qc

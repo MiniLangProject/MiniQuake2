@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic boss2 Jorg -> Makron -> counter -> intermission progression. */
 import miniquake2.server.game_bridge as endgamebridge
 import miniquake2.game.null_game as endgamegame

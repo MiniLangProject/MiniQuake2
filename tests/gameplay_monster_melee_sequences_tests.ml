@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-shaped stock melee/drain timelines and Protocol-34 beam regression. */
 import miniquake2.game.ai.attack_sequences as meleesequences
 import miniquake2.game.null_game as meleegame

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Runtime asset registry joining refimport FS callbacks to strict parsers. */
 package miniquake2.renderer.assets
 
@@ -34,10 +38,13 @@ struct AssetRegistry
   nextId
   models
   pictures
+  resourcesById
 end struct
 
+const MAX_REGISTERED_RESOURCES = 4096
+
 function create()
-  return AssetRegistry(1, 1, [], [])
+  return AssetRegistry(1, 1, [], [], array(MAX_REGISTERED_RESOURCES))
 end function
 
 function endsWith(value, suffix)
@@ -73,12 +80,22 @@ function findPicture(registry, name)
   return void
 end function
 
-function findModelByHandle(registry, handle)
+function storeResource(registry, asset)
+  id = asset.handle.id
+  if id <= 0 or id >= len(registry.resourcesById) then
+    return error(9661, "renderer resource table exhausted")
+  end if
+  registry.resourcesById[id] = asset
+  return asset
+end function
+
+function inline findModelByHandle(registry, handle)
   if typeof(handle) != "struct" or handle.kind != "model" or handle.generation != registry.generation then return void end if
-  for each asset in registry.models
-    if asset.handle.id == handle.id and asset.handle.generation == handle.generation then return asset end if
-  end for
-  return void
+  if handle.id <= 0 or handle.id >= len(registry.resourcesById) then return void end if
+  asset = registry.resourcesById[handle.id]
+  if asset is void or asset.handle.kind != "model" or
+      asset.handle.generation != handle.generation then return void end if
+  return asset
 end function
 
 function modelForHandle(registry, handle)
@@ -87,12 +104,13 @@ function modelForHandle(registry, handle)
   return asset
 end function
 
-function findPictureByHandle(registry, handle)
+function inline findPictureByHandle(registry, handle)
   if typeof(handle) != "struct" or handle.kind != "pic" or handle.generation != registry.generation then return void end if
-  for each asset in registry.pictures
-    if asset.handle.id == handle.id and asset.handle.generation == handle.generation then return asset end if
-  end for
-  return void
+  if handle.id <= 0 or handle.id >= len(registry.resourcesById) then return void end if
+  asset = registry.resourcesById[handle.id]
+  if asset is void or asset.handle.kind != "pic" or
+      asset.handle.generation != handle.generation then return void end if
+  return asset
 end function
 
 function pictureForHandle(registry, handle)
@@ -150,6 +168,7 @@ function adoptBspModel(registry, map, name)
   asset = ModelAsset(nextHandle(registry, "model", name), "bsp", map, void,
     array(0), array(0))
   registry.models = registry.models + [asset]
+  storeResource(registry, asset)
   return asset
 end function
 
@@ -206,6 +225,7 @@ function registerModel(registry, imports, name)
     end if
   end if
   registry.models = registry.models + [asset]
+  storeResource(registry, asset)
   return asset
 end function
 
@@ -223,11 +243,14 @@ function registerPicture(registry, imports, name)
     asset = PictureAsset(nextHandle(registry, "pic", name), "pcx", source, source.width, source.height, 0, "picture")
   end if
   registry.pictures = registry.pictures + [asset]
+  storeResource(registry, asset)
   return asset
 end function
 
 function beginRegistration(registry)
   registry.generation = registry.generation + 1
+  registry.nextId = 1
   registry.models = []
   registry.pictures = []
+  registry.resourcesById = array(MAX_REGISTERED_RESOURCES)
 end function

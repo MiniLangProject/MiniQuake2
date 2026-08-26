@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Original g_spawn.c skill/deathmatch entity inhibition coverage. */
 import miniquake2.game.base.spawn as sitspawn
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic campaign entity behavior scenarios without retail assets. */
 import miniquake2.game.base.spawn as campworldspawn
 import miniquake2.game.integration.baseq2 as campworldintegration

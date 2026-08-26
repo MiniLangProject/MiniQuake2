@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Header and Huffman-table reader for Quake II .cin streams. */
 package miniquake2.format.cinematic
 

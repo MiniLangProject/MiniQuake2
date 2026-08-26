@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Bounds-checked little-endian reads shared by all Quake II formats. */
 package miniquake2.format.binary
 

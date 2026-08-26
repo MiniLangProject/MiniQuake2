@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 import miniquake2.client.screenshot as screenshottest
 import miniquake2.renderer.capture as screenshottestcapture
 import std.fs as screenshottestfs

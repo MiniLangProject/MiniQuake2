@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Bounded GameImport sound queue and Protocol-34 golden fragment tests. */
 import miniquake2.qcommon.types as sseq_test_qt
 import miniquake2.game.constants as sseq_test_gc

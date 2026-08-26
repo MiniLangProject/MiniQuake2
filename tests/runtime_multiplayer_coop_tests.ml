@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real two-client UDP coop session: shared map, key stay, disconnect/reconnect. */
 import miniquake2.network.constants as mpctestnetworkconstants
 import miniquake2.game.null_game as mpctestgameapi

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Quake II on-disk format contracts without retail assets. */
 import miniquake2.format.constants as c
 import miniquake2.format.types as t

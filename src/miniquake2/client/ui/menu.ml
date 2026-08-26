@@ -1,11 +1,21 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Data-driven Quake II-style main/game/video/options menus. */
 package miniquake2.client.ui.menu
 
 import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
 import miniquake2.qcommon.byteio as cuimenubyteio
+import miniquake2.qcommon.types as cuimenuqtypes
+import miniquake2.renderer.constants as cuimenurc
+import miniquake2.renderer.types as cuimenurtypes
 
 const MAX_MENU_COMMANDS = 16
+
+menuPlayerPreviewLightStyles = void
+menuEmptyCommands = []
 
 function action(id, label, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], command, true)
@@ -57,7 +67,9 @@ function defaultPages()
     choice("crosshair", "crosshair", 1,
       ["off", "crosshair 1", "crosshair 2", "crosshair 3"], "crosshair"),
     toggle("joystick", "controller", 1, "in_joystick"),
-    action("keys", "customize controls", "menu:keys")])
+    action("keys", "customize controls", "menu:keys"),
+    action("defaults", "reset defaults", "reset_defaults"),
+    action("console", "go to console", "go_console")])
   load = cuitypes.MenuPage("load", "LOAD GAME", "game", [
     action("load0", "slot 1", "load 0"), action("load1", "slot 2", "load 1"),
     action("load2", "slot 3", "load 2")])
@@ -385,6 +397,52 @@ function playerPreviewPath(menu)
     skinItem.choices[skinItem.value] + "_i.pcx"
 end function
 
+function playerPreviewModelPath(menu)
+  modelItem = itemById(menu, "player", "model")
+  if modelItem is void then return "" end if
+  return "players/" + modelItem.choices[modelItem.value] + "/tris.md2"
+end function
+
+function playerPreviewSkinPath(menu)
+  modelItem = itemById(menu, "player", "model")
+  skinItem = itemById(menu, "player", "skin")
+  if modelItem is void or skinItem is void then return "" end if
+  return "players/" + modelItem.choices[modelItem.value] + "/" +
+    skinItem.choices[skinItem.value] + ".pcx"
+end function
+
+// PlayerConfig_MenuDraw renders the selected player as a full-bright alias
+// model in a world-less 144x168 view. Register calls are intentionally made
+// here: the renderer deduplicates current-generation resources, while a map
+// registration invalidates old handles and the next menu frame reacquires them.
+function drawPlayerPreview(menu, screenWidth, screenHeight, now, exports)
+  global menuPlayerPreviewLightStyles
+  modelPath = playerPreviewModelPath(menu)
+  skinPath = playerPreviewSkinPath(menu)
+  if modelPath == "" or skinPath == "" then return 0 end if
+  model = try(exports.RegisterModel(modelPath))
+  if model is error or model is void then return 0 end if
+  skin = try(exports.RegisterSkin(skinPath))
+  if skin is error or skin is void then return 0 end if
+
+  origin = cuimenuqtypes.vec3(80.0, 0.0, 0.0)
+  angles = cuimenuqtypes.vec3(0.0,
+    (cuimenubyteio.truncInt(now / 10.0) % 360) * 1.0, 0.0)
+  entity = cuimenurtypes.entity(model, angles, origin, 0, origin, 0, 0.0,
+    0, 0, 1.0, skin, cuimenurc.RF_FULLBRIGHT)
+  if menuPlayerPreviewLightStyles is void then
+    menuPlayerPreviewLightStyles = cuimenurtypes.defaultLightStyles()
+  end if
+  frame = cuimenurtypes.refDef(screenWidth / 2, screenHeight / 2 - 72,
+    144, 168, 40.0, 46.0152553484846, cuimenuqtypes.zeroVec3(),
+    cuimenuqtypes.zeroVec3(), [0.0, 0.0, 0.0, 0.0], now * 0.001,
+    cuimenurc.RDF_NOWORLDMODEL, void, menuPlayerPreviewLightStyles,
+    [entity], [], [])
+  rendered = try(exports.RenderFrame(frame))
+  if rendered is error then return 0 end if
+  return 1
+end function
+
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -485,11 +543,7 @@ function draw(menu, screenWidth, screenHeight, now, exports)
     y = y + 16; index = index + 1
   end while
   if current.id == "player" then
-    preview = playerPreviewPath(menu)
-    if preview != "" then
-      previewSize = exports.DrawGetPicSize(preview)
-      exports.DrawPic(x + 264, y - len(current.items) * 16 - 8, preview)
-    end if
+    drawPlayerPreview(menu, screenWidth, screenHeight, now, exports)
   end if
   return len(current.items) + 1
 end function
@@ -504,7 +558,7 @@ function drainCommands(menu)
     menu.commands = array(MAX_MENU_COMMANDS)
     return output
   end if
-  if menu.commandCount == 0 then return [] end if
+  if menu.commandCount == 0 then return menuEmptyCommands end if
   output = array(menu.commandCount)
   index = 0
   while index < menu.commandCount

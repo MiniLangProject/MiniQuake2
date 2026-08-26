@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free geometry expansion tests for parsed BSP38/MD2 records. */
 import miniquake2.format.types as ft
 import miniquake2.renderer.geometry as rgeom

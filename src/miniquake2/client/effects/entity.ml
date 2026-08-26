@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* cl_ents.c automatic entity trails and per-frame projectile lights. */
 package miniquake2.client.effects.entity
 
@@ -41,7 +45,15 @@ end function
 
 function appendLight(output, count, origin, intensity, red, green, blue)
   if count >= len(output) then return count end if
-  output[count] = rt.dLight(statefx.copyVec(origin), qt.Vec3(red, green, blue), intensity)
+  light = output[count]
+  if typeof(light) != "struct" then
+    light = rt.dLight(qt.Vec3(0.0, 0.0, 0.0),
+      qt.Vec3(0.0, 0.0, 0.0), 0.0)
+    output[count] = light
+  end if
+  light.origin.x = origin.x; light.origin.y = origin.y; light.origin.z = origin.z
+  light.color.x = red; light.color.y = green; light.color.z = blue
+  light.intensity = intensity
   return count + 1
 end function
 
@@ -183,7 +195,7 @@ function emit(state, currentSnapshot, previousSnapshot, fraction, now,
   if fraction < 0.0 then fraction = 0.0 end if
   if fraction > 1.0 then fraction = 1.0 end if
   statefx.advance(state, now)
-  lights = array(rc.MAX_DLIGHTS)
+  lights = state.entityLightScratch
   lightCount = 0
   for each existingLight in refDef.dLights
     if lightCount < len(lights) then
@@ -237,7 +249,21 @@ function emit(state, currentSnapshot, previousSnapshot, fraction, now,
       trail.origin = target
     end if
   end for
-  refDef.dLights = compactLights(lights, lightCount)
+  if lightCount == 0 then
+    refDef.dLights = []
+  else
+    compact = state.entityLightOutput
+    if len(compact) != lightCount then
+      compact = array(lightCount, void)
+      state.entityLightOutput = compact
+    end if
+    compactIndex = 0
+    while compactIndex < lightCount
+      compact[compactIndex] = lights[compactIndex]
+      compactIndex = compactIndex + 1
+    end while
+    refDef.dLights = compact
+  end if
   refDef.numDLights = lightCount
   return emitted
 end function

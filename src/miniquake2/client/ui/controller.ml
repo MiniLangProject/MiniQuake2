@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Key-destination router joining platform events to console, menu and game input. */
 package miniquake2.client.ui.controller
 
@@ -34,6 +38,15 @@ end function
 
 function pollGamepad(input, screen, time)
   state = gamepadState()
+  // The controller is disabled by default, and an unavailable WinMM device
+  // remains unavailable until configuration is retried. Bypass construction
+  // of an all-zero GamepadSample on every rendered frame in both cases.
+  if not state.enabled or not state.available then
+    input.controllerForward = 0.0
+    input.controllerSide = 0.0
+    input.controllerButtons = 0
+    return 0
+  end if
   sample = cuigamepad.poll(state)
   input.controllerForward = 0.0
   input.controllerSide = 0.0

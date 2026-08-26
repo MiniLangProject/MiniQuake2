@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Classic 3.19 misc_insane state machine from m_insane.c. */
 package miniquake2.game.ai.insane
 

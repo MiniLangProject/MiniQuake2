@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Goal-graph progression through real key/counter/changelevel callbacks. */
 import miniquake2.game.integration.campaign_progression as goalprogress
 import miniquake2.game.null_game as goalgame

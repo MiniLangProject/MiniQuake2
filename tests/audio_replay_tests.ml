@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Byte-exact deterministic multi-channel mixer replay. */
 import miniquake2.audio.wav as audioreplaywav
 import miniquake2.audio.mixer as audioreplaymixer

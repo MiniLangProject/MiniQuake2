@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* GameImport multicast queue ownership, framing and bounded-failure tests. */
 import miniquake2.qcommon.types as smq_qtypes
 import miniquake2.game.constants as smq_gc

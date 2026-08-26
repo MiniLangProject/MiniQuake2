@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden tests for BaseQ2 linear mover state machines. */
 import miniquake2.qcommon.types as qt
 import miniquake2.game.world.constants as gwconstants

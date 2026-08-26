@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Generation-owned client model/sound registration records. */
 package miniquake2.client.assets.types
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Classic SV_Map level-string parser for map/CIN/PCX/DM2 sequences. */
 package miniquake2.runtime.media_sequence
 

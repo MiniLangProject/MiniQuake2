@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Quake II 3.19 pain/death MD2 ranges for stock monsters. */
 package miniquake2.game.ai.reaction_sequences
 

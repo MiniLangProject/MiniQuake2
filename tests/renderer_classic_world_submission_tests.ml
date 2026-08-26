@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Synthetic WAL/palette/BSP test for the productive classic world handoff. */
 import miniquake2.format.types as ft
 import miniquake2.renderer.constants as rc
@@ -86,15 +90,26 @@ function testWorldPlanAndPalette()
   world = rclassicworld.build(makeMap(), loadClassicFile, styles, 0, 1.0, 7)
   assertEqual(len(world.draws), 2, "opaque chained surfaces")
   assertEqual(world.draws[0].surface.index, 1, "texture chain head order")
-  assertEqual(len(world.textures), 3, "one shared WAL plus two lightmaps")
+  assertEqual(len(world.textures), 2, "one shared WAL plus one lightmap atlas")
   assertEqual(world.draws[0].baseTexture, world.draws[1].baseTexture, "shared base handle")
   assertEqual(world.draws[0].baseTexture.rgbaPixels, bytes([20, 40, 60, 255, 80, 100, 120, 255, 80, 100, 120, 255, 20, 40, 60, 255]), "ref_gl intensity-scaled Quake II palette expansion")
-  assertEqual(slice(world.draws[0].lightmapTexture.rgbaPixels, 0, 4), bytes([20, 60, 20, 60]), "second lightstyle contribution")
-  assertEqual(slice(world.draws[1].lightmapTexture.rgbaPixels, 0, 4), bytes([100, 80, 60, 100]), "first static lightmap")
+  firstLightmapOffset = (world.draws[0].lightmapY * 256 +
+    world.draws[0].lightmapX) * 4
+  secondLightmapOffset = (world.draws[1].lightmapY * 256 +
+    world.draws[1].lightmapX) * 4
+  assertEqual(slice(world.draws[0].lightmapTexture.rgbaPixels,
+    firstLightmapOffset, 4), bytes([20, 60, 20, 60]),
+    "second lightstyle contribution in atlas")
+  assertEqual(slice(world.draws[1].lightmapTexture.rgbaPixels,
+    secondLightmapOffset, 4), bytes([100, 80, 60, 100]),
+    "first static lightmap in atlas")
+  assertEqual(world.draws[0].lightmapTexture,
+    world.draws[1].lightmapTexture, "opaque surfaces share lightmap atlas")
   assertEqual(world.draws[0].triangleCount + world.draws[1].triangleCount, 4, "triangle fans")
   assertEqual(rclassicworld.planSignature(world), "synthetic:2:4:1/wall/2x2:0/wall/2x2", "deterministic plan signature")
   assertEqual(world.draws[0].surface.vertices[1].s, 8.0, "base texture coordinate")
-  assertEqual(world.draws[0].surface.vertices[2].lightS, 0.75, "lightmap coordinate")
+  assertEqual(world.draws[0].surface.vertices[2].lightS, 0.009765625,
+    "atlas lightmap coordinate")
 end function
 
 function testBackendLifecycle()
@@ -105,7 +120,7 @@ function testBackendLifecycle()
   frame = rt.defaultRefDef(640, 480)
   first = ropengl.prepareClassicWorld(renderer, makeMap(), loadClassicFile, rt.defaultLightStyles(), 0, 1.0)
   assertEqual(first.textures[0].id, 1, "first backend texture id")
-  assertEqual(len(renderer.state.textureRecords), 3, "tracked texture handles")
+  assertEqual(len(renderer.state.textureRecords), 2, "tracked texture handles")
   stats = ropengl.submitClassicWorld(renderer, first, frame)
   assertEqual(stats.surfaces, 0, "headless submission avoids GL")
   assertEqual(first.textures[0].uploaded, false, "headless texture remains CPU-side")
@@ -113,14 +128,14 @@ function testBackendLifecycle()
   // An uploaded flag in headless mode must still take the logical release
   // path without ever entering the native glDeleteTextures wrapper.
   renderer.state.textureRecords[0].uploaded = true
-  assertEqual(ropengl.releaseClassicWorld(renderer, first), 3, "logical release count")
+  assertEqual(ropengl.releaseClassicWorld(renderer, first), 2, "logical release count")
   assertEqual(first.released, true, "world release state")
   assertEqual(renderer.state.textureRecords[0].released, true, "handle release state")
   assertEqual(typeof(try(ropengl.submitClassicWorld(renderer, first, frame))), "error", "released submission rejected")
 
   replay = ropengl.prepareClassicWorld(renderer, makeMap(), loadClassicFile, rt.defaultLightStyles(), 0, 1.0)
   assertEqual(rclassicworld.planSignature(replay), signature, "deterministic replay")
-  assertEqual(replay.textures[0].id, 4, "released ids are not reused")
+  assertEqual(replay.textures[0].id, 3, "released ids are not reused")
   renderer.exports.BeginRegistration("maps/next.bsp")
   renderer.exports.EndRegistration()
   assertEqual(typeof(try(ropengl.submitClassicWorld(renderer, replay, frame))), "error", "stale generation rejected")

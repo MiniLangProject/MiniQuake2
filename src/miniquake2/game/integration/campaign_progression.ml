@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Goal-graph driver for deterministic retail campaign acceptance. */
 package miniquake2.game.integration.campaign_progression
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II PAK and loose-file search paths with traversal-safe virtual names. */
 package miniquake2.qcommon.filesystem
 

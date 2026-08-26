@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product UI command policy joining keys, console, menus and local settings. */
 package miniquake2.client.ui.commands
 
@@ -6,6 +10,7 @@ import miniquake2.qcommon.byteio as cuicmdbyteio
 import miniquake2.qcommon.text as cuicmdtext
 import miniquake2.audio.mixer as cuicmdmixer
 import miniquake2.client.ui.console as cuicmdconsole
+import miniquake2.client.ui.constants as cuicmdconstants
 import miniquake2.client.ui.keys as cuicmdkeys
 import miniquake2.client.ui.menu as cuicmdmenu
 import miniquake2.qcommon.info as cuicmdinfo
@@ -103,6 +108,44 @@ function setDmFlag(commandState, bit, enabled)
   return true
 end function
 
+// `exec default.cfg` in the stock Options menu resets controls and the values
+// displayed by that menu. Keep the operation local and typed so it cannot run
+// arbitrary config text, while applying every setting our Options page owns.
+function resetOptionDefaults(commandState, input, screen, mixer)
+  input.config = cuicmdkeys.defaultConfig()
+  input.bindings = []
+  cuicmdkeys.bindDefaultGame(input)
+  input.captureCommand = ""
+  input.capturedKey = -1
+  for each cuicmdResetAction in input.actions
+    cuicmdResetAction.down = false
+    cuicmdResetAction.pressed = false
+  end for
+  input.mouseDx = 0.0
+  input.mouseDy = 0.0
+  cuicmdmixer.setMasterVolume(mixer, 0.7)
+  screen.crosshair = 1
+  commandState.joystickEnabled = true
+  commandState.configDirty = true
+  commandState.playerDirty = true
+  cuicmdResetSensitivity = try(cuicmdmenu.setItemValue(screen.menu,
+    "options", "sensitivity", 3.0))
+  cuicmdResetInvert = try(cuicmdmenu.setItemValue(screen.menu,
+    "options", "invertmouse", 0))
+  cuicmdResetRun = try(cuicmdmenu.setItemValue(screen.menu,
+    "options", "alwaysrun", 0))
+  cuicmdResetVolume = try(cuicmdmenu.setItemValue(screen.menu,
+    "options", "volume", 0.7))
+  cuicmdResetCrosshair = try(cuicmdmenu.setItemValue(screen.menu,
+    "options", "crosshair", 1))
+  cuicmdResetJoystick = try(cuicmdmenu.setItemValue(screen.menu,
+    "options", "joystick", 1))
+  return true
+end function
+
+// Apply commands owned by the client UI and return false only for text that
+// must cross the Game API boundary. Parsing and validation happen before any
+// persistent setting is mutated.
 function localAction(commandState, input, screen, mixer, command)
   if typeof(command) != "string" then return error(8281, "UI command must be text") end if
   cuicmdArguments = cuicmdq.tokenize(command)
@@ -240,6 +283,23 @@ function localAction(commandState, input, screen, mixer, command)
     commandState.joystickEnabled = booleanArgument(cuicmdArguments,
       cuicmdName)
     commandState.configDirty = true
+    return true
+  end if
+  if cuicmdName == "reset_defaults" then
+    if len(cuicmdArguments) != 1 then
+      return error(8289, "reset_defaults takes no arguments")
+    end if
+    return resetOptionDefaults(commandState, input, screen, mixer)
+  end if
+  if cuicmdName == "go_console" then
+    if len(cuicmdArguments) != 1 then
+      return error(8289, "go_console takes no arguments")
+    end if
+    cuicmdconsole.clearTyping(screen.console)
+    cuicmdconsole.clearNotify(screen.console)
+    screen.menu.active = false
+    screen.console.visibleFraction = 0.5
+    cuicmdkeys.setDestination(input, cuicmdconstants.KEY_CONSOLE)
     return true
   end if
   if cuicmdName == "vid_restart" then
@@ -450,7 +510,10 @@ function drain(commandState, input, screen, mixer)
   return cuicmdProcessed
 end function
 
-function takeForwarded(commandState)
+function inline takeForwarded(commandState)
+  // Most frames do not forward a console command. Avoid manufacturing a new
+  // empty array on every probe while retaining move-style ownership for work.
+  if len(commandState.forwarded) == 0 then return commandState.forwarded end if
   cuicmdForwarded = commandState.forwarded
   commandState.forwarded = []
   return cuicmdForwarded

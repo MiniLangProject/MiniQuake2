@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Protocol-34 COM_BlockSequenceCRCByte, including the 3.19 proxy table. */
 package miniquake2.network.runtime.checksum
 

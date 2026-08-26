@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Native stock armor/health/powerup/key scenarios from BaseQ2 g_items.c. */
 import miniquake2.game.constants as gameconstants
 import miniquake2.game.gameplay.combat as gpcombat

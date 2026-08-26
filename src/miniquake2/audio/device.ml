@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Native PCM queue used by the MiniLang Quake II mixer. */
 package miniquake2.audio.device
 
@@ -27,6 +31,26 @@ end function
 function queued(device)
   if device.open == false then return 0 end if
   return native.audioQueued()
+end function
+
+function submitted(device)
+  if device.open == false then return 0 end if
+  return native.audioSubmitted()
+end function
+
+function completed(device)
+  if device.open == false then return 0 end if
+  return native.audioCompleted()
+end function
+
+function underruns(device)
+  if device is void then return 0 end if
+  return native.audioUnderruns()
+end function
+
+function capacity(device)
+  if device.open == false then return 0 end if
+  return native.audioCapacity()
 end function
 
 function reset(device)

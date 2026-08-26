@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* G_UseTargets, entity lifetime and deterministic world scheduling. */
 package miniquake2.game.world.core
 

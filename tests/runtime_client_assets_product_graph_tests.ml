@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Full product import graph gate for capture-safe asset resolver bindings. */
 import miniquake2.runtime.diagnostics as asset_graph_diagnostics
 import miniquake2.runtime.application as asset_graph_application

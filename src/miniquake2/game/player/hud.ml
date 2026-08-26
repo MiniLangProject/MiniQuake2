@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic p_hud.c stats and the synchronization core of p_view.c. */
 package miniquake2.game.player.hud
 

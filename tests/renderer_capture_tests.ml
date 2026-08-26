@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free golden tests for canonical framebuffer capture and TGA output. */
 import miniquake2.renderer.capture as rendercapturetest
 

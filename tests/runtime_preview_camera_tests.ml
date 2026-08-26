@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 import miniquake2.runtime.preview_camera as pcamera
 import miniquake2.qcommon.types as qtypes
 

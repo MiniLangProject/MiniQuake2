@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden aggregate for the nine formerly skipped retail base1 classnames. */
 import miniquake2.game.base.spawn as rcaspawn
 

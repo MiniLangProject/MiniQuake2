@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II ref_gl R_LightPoint without recursive MiniLang calls. */
 package miniquake2.renderer.classic.point_lighting
 

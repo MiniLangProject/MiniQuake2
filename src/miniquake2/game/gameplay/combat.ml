@@ -1,4 +1,8 @@
 /*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
+/*
 Foundational, deterministic T_Damage/T_RadiusDamage rules.  World traces,
 power armor, monster reactions and pain/die callbacks remain later milestones.
 */

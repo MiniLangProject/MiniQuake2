@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict persistent product settings and key bindings. */
 package miniquake2.client.ui.config
 

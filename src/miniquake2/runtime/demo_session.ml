@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Protocol-34 DM2 playback session. */
 package miniquake2.runtime.demo_session
 

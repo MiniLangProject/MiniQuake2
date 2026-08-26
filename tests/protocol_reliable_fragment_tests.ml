@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* ACK-gated Protocol-34 reliable application-fragment queue tests. */
 import miniquake2.protocol.constants as prfrag_pc
 import miniquake2.protocol.netchan as prfrag_netchan

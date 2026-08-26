@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free Game API combat vertical slice for player and stock monster fire. */
 import miniquake2.game.null_game as cvgameapi
 import miniquake2.game.integration.baseq2 as cvintegration
@@ -62,6 +66,13 @@ function testPlayerProjectilePainAndDeath()
   api.clientThink(client, command(cvgconstants.BUTTON_ATTACK))
   api.clientThink(client, command(0))
   assertEqual(len(runtime.weaponContext.projectiles), 1, "blaster projectile spawned")
+  projectile = runtime.weaponContext.projectiles[0]
+  projectileEdict = api.edicts[projectile.engineNumber]
+  assertTrue(projectileEdict.owner is not void and
+    projectileEdict.owner.state.number == client.state.number,
+    "blaster export edict retained firing owner")
+  assertTrue((projectileEdict.serverFlags & cvgconstants.SVF_NOCLIENT) == 0,
+    "blaster export edict retained stale no-client flag")
   api.runFrame()
   assertEqual(monster.health, 20, "single-player Blaster health damage")
   assertEqual(monster.painCount, 1, "blaster pain dispatch")

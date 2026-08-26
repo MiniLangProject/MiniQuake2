@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Vec3 operations and the exact AngleVectors convention used by BaseQ2. */
 package miniquake2.game.weapons.vector
 

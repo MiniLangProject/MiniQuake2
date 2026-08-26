@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Static PCX intermission palette, drawing and stop lifecycle. */
 import miniquake2.qcommon.byteio as picturetestbio
 import miniquake2.client.cinematic.picture as picturetestplayer

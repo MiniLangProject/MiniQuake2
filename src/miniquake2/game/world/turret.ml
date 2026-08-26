@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Coupled Classic Quake II 3.19 turret_base/breach/driver state machines. */
 package miniquake2.game.world.turret
 

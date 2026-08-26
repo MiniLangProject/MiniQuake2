@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden scenarios for the remaining rare stock BaseQ2 world classes. */
 import miniquake2.game.world.constants as stockrareconstants
 import miniquake2.game.world.core as stockrarecore

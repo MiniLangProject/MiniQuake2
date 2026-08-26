@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Cached adoption of an already parsed BSP and lazy inline-model expansion. */
 import miniquake2.format.types as ft
 import miniquake2.renderer.opengl as ropengl

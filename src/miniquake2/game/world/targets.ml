@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Function-valued ports of the self-contained g_target.c target entities. */
 package miniquake2.game.world.targets
 

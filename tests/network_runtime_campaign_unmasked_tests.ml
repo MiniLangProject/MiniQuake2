@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Retail campaign probe which deliberately preserves the original signon error. */
 import miniquake2.network.connectionless as nrcampaign_connectionless
 import miniquake2.runtime.application as nrcampaign_application

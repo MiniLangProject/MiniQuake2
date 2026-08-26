@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II 3.19 class-specific sight/search callbacks and Soldier sight attack. */
 import miniquake2.game.ai.archetypes as sightsarchetypes
 import miniquake2.game.ai.monster as sightsmonster

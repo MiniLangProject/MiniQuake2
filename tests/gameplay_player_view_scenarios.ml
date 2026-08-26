@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden/scenario tests for the managed p_view.c environment and view core. */
 import miniquake2.game.constants as gameconstants
 import miniquake2.game.gameplay.constants as gpconstants

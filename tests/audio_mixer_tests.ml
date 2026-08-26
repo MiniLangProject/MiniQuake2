@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free RIFF loader, spatializer and PCM mixer tests. */
 import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.byteio as tbio
@@ -27,6 +31,12 @@ silentMixer = amix.create(8000)
 silentOutput = amix.mix(silentMixer, 1024)
 assertEqual(len(silentOutput), 4096, "silent fast-path byte count")
 assertEqual(silentMixer.paintedFrames, 1024, "silent fast-path painted frames")
+silentReusable = amix.mixReusable(silentMixer, 4)
+silentReusable[0] = 123
+silentReusable = amix.mixReusable(silentMixer, 4)
+assertEqual(silentReusable[0], 0, "reusable silent block is cleared")
+assertEqual(typeof(try(amix.mixInto(silentMixer, bytes(3), 1))), "error",
+  "mixer rejects a wrongly sized output buffer")
 amix.startSound(mixer, sound, 1, 1, 255, 255)
 output = amix.mix(mixer, 4)
 assertEqual(tbio.i16(output, 0), 0, "sample zero")

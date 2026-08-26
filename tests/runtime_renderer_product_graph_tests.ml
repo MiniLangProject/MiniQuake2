@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Regression: renderer factories must survive the complete product link graph. */
 import miniquake2.runtime.diagnostics as productdiagnostics
 import miniquake2.runtime.application as productapplication

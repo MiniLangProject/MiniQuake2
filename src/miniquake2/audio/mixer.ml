@@ -1,7 +1,12 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic signed-16 stereo channel mixer and Quake-style spatializer. */
 package miniquake2.audio.mixer
 
 import std.math as ammath
+import std.bytes as ambytes
 import miniquake2.qcommon.byteio as ambio
 import miniquake2.qcommon.filesystem as amfilesystem
 import miniquake2.native as amnative
@@ -9,6 +14,10 @@ import miniquake2.native as amnative
 const MAX_CHANNELS = 32
 const MAX_PLAYSOUNDS = 128
 const MUSIC_DECODE_FRAMES = 4096
+const MIX_FRAC_BITS = 16
+const MIX_FRAC_ONE = 65536
+const MIX_VOLUME_BITS = 16
+const MIX_VOLUME_ONE = 65536
 
 struct Channel
   sound
@@ -37,6 +46,7 @@ struct MusicTrack
   channels
   frames
   position
+  sourceStep
   looping
   playing
   paused
@@ -50,14 +60,18 @@ struct Mixer
   pendingSounds
   paintedFrames
   masterVolume
+  masterVolumeFixed
   listenerEntityNumber
   music
   musicVolume
+  musicVolumeFixed
+  outputScratch
 end struct
 
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
-  return Mixer(sampleRate, [], [], 0, 1.0, -1, void, 0.5)
+  return Mixer(sampleRate, [], [], 0, 1.0, MIX_VOLUME_ONE, -1,
+    void, 0.5, MIX_VOLUME_ONE / 2, bytes())
 end function
 
 function setMusicVolume(mixer, value)
@@ -66,6 +80,7 @@ function setMusicVolume(mixer, value)
     return error(2960, "music volume outside [0,1]")
   end if
   mixer.musicVolume = value * 1.0
+  mixer.musicVolumeFixed = ambio.truncInt(value * MIX_VOLUME_ONE)
   return mixer.musicVolume
 end function
 
@@ -124,8 +139,10 @@ function playMusic(mixer, filesystem, track, looping)
     amnative.oggClose()
     return error(2966, "Ogg Vorbis music decode failed for track " + track)
   end if
+  sourceStep = ambio.truncInt(rate * MIX_FRAC_ONE / (mixer.sampleRate * 1.0))
+  if sourceStep < 1 then sourceStep = 1 end if
   mixer.music = MusicTrack(track, source, bytes(), rate, channels, frames,
-    0, looping, true, false, 0, 0)
+    0, sourceStep, looping, true, false, 0, 0)
   return true
 end function
 
@@ -172,6 +189,7 @@ function setMasterVolume(mixer, value)
     return error(2958, "mixer master volume outside [0,1]")
   end if
   mixer.masterVolume = value * 1.0
+  mixer.masterVolumeFixed = ambio.truncInt(value * MIX_VOLUME_ONE)
   return mixer.masterVolume
 end function
 
@@ -191,11 +209,34 @@ function inline sampleAt(sound, frame, channel)
   return value
 end function
 
+function inline divide255Positive(value)
+  // Exact for every magnitude reachable from a signed-16 sample, an 8-bit
+  // channel volume and the Q16 remainder expansion below.
+  return (value * 8421505) >> 31
+end function
+
+function inline scaleChannelSampleFixed(sample, volume)
+  // Preserve /255 channel fractions in Q16. The old floating mixer summed
+  // these fractions across channels and rounded only the final PCM sample;
+  // truncating each channel independently changes deterministic replays.
+  product = sample * volume
+  negative = product < 0
+  magnitude = product
+  if negative then magnitude = -magnitude end if
+  whole = divide255Positive(magnitude)
+  remainder = magnitude - whole * 255
+  fraction = divide255Positive(remainder << MIX_VOLUME_BITS)
+  fixed = (whole << MIX_VOLUME_BITS) + fraction
+  if negative then return -fixed end if
+  return fixed
+end function
+
 function inline channelLifeLeft(mixer, channel)
   waiting = channel.startFrame - mixer.paintedFrames
   if waiting < 0 then waiting = 0 end if
-  remaining = channel.sound.sampleCount - channel.sourceFrame
-  if remaining < 0.0 then remaining = 0.0 end if
+  remaining = channel.sound.sampleCount -
+    (channel.sourceFrame >> MIX_FRAC_BITS)
+  if remaining < 0 then remaining = 0 end if
   return waiting + ambio.truncInt(remaining * mixer.sampleRate /
     (channel.sound.sampleRate * 1.0))
 end function
@@ -243,8 +284,10 @@ function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, right
   if leftVolume < 0 or leftVolume > 255 or rightVolume < 0 or rightVolume > 255 then return error(2956, "channel volume outside [0,255]") end if
   slot = pickChannelSlot(mixer, entityNumber, entityChannel)
   if slot < 0 then return void end if
-  channel = Channel(sound, entityNumber, entityChannel, 0.0,
-    sound.sampleRate / (mixer.sampleRate * 1.0),
+  sourceStep = ambio.truncInt(sound.sampleRate * MIX_FRAC_ONE /
+    (mixer.sampleRate * 1.0))
+  if sourceStep < 1 then sourceStep = 1 end if
+  channel = Channel(sound, entityNumber, entityChannel, 0, sourceStep,
     mixer.paintedFrames, leftVolume, rightVolume, true, false, false,
     false, 255.0, 0.0, false, void)
   // Reuse a finished slot. Sound events are frequent during combat and an
@@ -267,8 +310,10 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
     return error(2956, "channel volume outside [0,255]")
   end if
   if len(mixer.pendingSounds) >= MAX_PLAYSOUNDS then return void end if
-  channel = Channel(sound, entityNumber, entityChannel, 0.0,
-    sound.sampleRate / (mixer.sampleRate * 1.0), startFrame,
+  sourceStep = ambio.truncInt(sound.sampleRate * MIX_FRAC_ONE /
+    (mixer.sampleRate * 1.0))
+  if sourceStep < 1 then sourceStep = 1 end if
+  channel = Channel(sound, entityNumber, entityChannel, 0, sourceStep, startFrame,
     leftVolume, rightVolume, true, false, false, false, 255.0, 0.0,
     false, void)
   // Match S_StartSound's sorted pending list. New entries precede an existing
@@ -294,11 +339,10 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
 end function
 
 function issuePending(mixer, absoluteFrame)
-  due = false
-  for each pending in mixer.pendingSounds
-    if pending.startFrame <= absoluteFrame then due = true; break end if
-  end for
-  if not due then return 0 end if
+  // startSoundAt keeps this queue ordered by startFrame.  Looking only at the
+  // head avoids scanning every future sound for every painted sample.
+  if len(mixer.pendingSounds) == 0 or
+      mixer.pendingSounds[0].startFrame > absoluteFrame then return 0 end if
   remaining = array(len(mixer.pendingSounds))
   remainingCount = 0
   issued = 0
@@ -371,9 +415,14 @@ function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin,
     sourceOrigin, masterVolume, attenuation)
 end function
 
-function mix(mixer, frameCount)
+// Paint exactly frameCount interleaved signed-16 stereo frames into caller-
+// owned storage. Pending sounds are issued in timestamp order and every active
+// channel advances once, preserving deterministic mixer time across reuse.
+function mixInto(mixer, output, frameCount)
   if frameCount < 0 then return error(2957, "negative mix frame count") end if
-  output = bytes(frameCount * 4)
+  if typeof(output) != "bytes" or len(output) != frameCount * 4 then
+    return error(2967, "mixer output buffer has the wrong size")
+  end if
   // Fresh byte buffers are already zero-filled. Avoid 2,048 interpreted
   // sample writes per 1,024-frame block while no sound is active; this is the
   // common state while traversing quiet parts of a map or using the menus.
@@ -387,14 +436,14 @@ function mix(mixer, frameCount)
     hasActiveChannel = true
   end if
   if not hasActiveChannel then
+    // Reusable product buffers can still contain the preceding sound block.
+    // Clear them through the native bytes primitive instead of allocating a
+    // fresh zero-filled value on every quiet frame.
+    ambytes.fill(output, 0)
     mixer.paintedFrames = mixer.paintedFrames + frameCount
     return output
   end if
   track = mixer.music
-  musicScale = 0.0
-  if track is not void then
-    musicScale = track.rate / (mixer.sampleRate * 1.0)
-  end if
   frameIndex = 0
   while frameIndex < frameCount
     paintedFrame = mixer.paintedFrames + frameIndex
@@ -403,28 +452,30 @@ function mix(mixer, frameCount)
     mixedRight = 0
     for each channel in mixer.channels
       if channel.active and paintedFrame >= channel.startFrame then
-        sourceIndex = ambio.truncInt(channel.sourceFrame)
+        sourceIndex = channel.sourceFrame >> MIX_FRAC_BITS
         if sourceIndex >= channel.sound.sampleCount then
           if channel.looping then
             sourceIndex = 0
-            channel.sourceFrame = 0.0
+            channel.sourceFrame = 0
           else if channel.sound.loopStart >= 0 then
             sourceIndex = channel.sound.loopStart
-            channel.sourceFrame = sourceIndex * 1.0
+            channel.sourceFrame = sourceIndex << MIX_FRAC_BITS
           else
             channel.active = false
           end if
         end if
         if channel.active then
-          mixedLeft = mixedLeft + sampleAt(channel.sound, sourceIndex, 0) * channel.leftVolume / 255
-          mixedRight = mixedRight + sampleAt(channel.sound, sourceIndex, 1) * channel.rightVolume / 255
+          mixedLeft = mixedLeft + scaleChannelSampleFixed(
+            sampleAt(channel.sound, sourceIndex, 0), channel.leftVolume)
+          mixedRight = mixedRight + scaleChannelSampleFixed(
+            sampleAt(channel.sound, sourceIndex, 1), channel.rightVolume)
           channel.sourceFrame = channel.sourceFrame + channel.sourceStep
         end if
       end if
     end for
     if track is not void and track.playing and not track.paused and
         mixer.musicVolume > 0.0 then
-      sourceFrame = ambio.truncInt(track.position * musicScale)
+      sourceFrame = track.position >> MIX_FRAC_BITS
       if sourceFrame >= track.frames then
         if track.looping then
           track.position = 0
@@ -465,15 +516,21 @@ function mix(mixer, frameCount)
           if musicLeft >= 0x8000 then musicLeft = musicLeft - 0x10000 end if
           if musicRight >= 0x8000 then musicRight = musicRight - 0x10000 end if
         end if
-        mixedLeft = mixedLeft + musicLeft * mixer.musicVolume
-        mixedRight = mixedRight + musicRight * mixer.musicVolume
-        track.position = track.position + 1
+        mixedLeft = mixedLeft + musicLeft * mixer.musicVolumeFixed
+        mixedRight = mixedRight + musicRight * mixer.musicVolumeFixed
+        track.position = track.position + track.sourceStep
       end if
     end if
-    mixedLeft = mixedLeft * mixer.masterVolume
-    mixedRight = mixedRight * mixer.masterVolume
-    mixedLeft = ambio.truncInt(clamp16(mixedLeft))
-    mixedRight = ambio.truncInt(clamp16(mixedRight))
+    mixedLeftScaled = mixedLeft * mixer.masterVolumeFixed
+    mixedRightScaled = mixedRight * mixer.masterVolumeFixed
+    if mixedLeftScaled < 0 then mixedLeft = -((-mixedLeftScaled) >> 32)
+    else mixedLeft = mixedLeftScaled >> 32
+    end if
+    if mixedRightScaled < 0 then mixedRight = -((-mixedRightScaled) >> 32)
+    else mixedRight = mixedRightScaled >> 32
+    end if
+    mixedLeft = clamp16(mixedLeft)
+    mixedRight = clamp16(mixedRight)
     outputOffset = frameIndex * 4
     output[outputOffset] = mixedLeft & 255
     output[outputOffset + 1] = (mixedLeft >> 8) & 255
@@ -483,6 +540,21 @@ function mix(mixer, frameCount)
   end while
   mixer.paintedFrames = mixer.paintedFrames + frameCount
   return output
+end function
+
+function mix(mixer, frameCount)
+  if frameCount < 0 then return error(2957, "negative mix frame count") end if
+  return mixInto(mixer, bytes(frameCount * 4), frameCount)
+end function
+
+// The waveOut bridge copies submitted PCM into its own ring.  The real-time
+// product can therefore reuse one mixer-owned block and avoid a fresh bytes
+// allocation (and later GC scan) for every audio submission.
+function mixReusable(mixer, frameCount)
+  if frameCount < 0 then return error(2957, "negative mix frame count") end if
+  size = frameCount * 4
+  if len(mixer.outputScratch) != size then mixer.outputScratch = bytes(size) end if
+  return mixInto(mixer, mixer.outputScratch, frameCount)
 end function
 
 // EntityState.sound values are Quake "autosounds": they are rebuilt from the
@@ -497,14 +569,43 @@ function clearAutoSounds(mixer)
 end function
 
 function startAutoSound(mixer, sound, leftVolume, rightVolume)
-  channel = startSound(mixer, sound, 0, 0, leftVolume, rightVolume)
-  if channel is void then return void end if
+  // S_AddLoopSounds rebuilds the logical autosound set every render frame.
+  // Reuse one of the autosound Channel records disabled by clearAutoSounds;
+  // allocating a replacement for every door/ambient loop every frame caused
+  // avoidable GC spikes in both the renderer and the waveOut producer.
+  channel = void
+  for each reusable in mixer.channels
+    if reusable.autoSound and not reusable.active then
+      channel = reusable
+      break
+    end if
+  end for
+  if channel is void then
+    channel = startSound(mixer, sound, 0, 0, leftVolume, rightVolume)
+    if channel is void then return void end if
+  else
+    channel.sound = sound
+    channel.entityNumber = 0
+    channel.entityChannel = 0
+    channel.sourceStep = ambio.truncInt(sound.sampleRate * MIX_FRAC_ONE /
+      (mixer.sampleRate * 1.0))
+    if channel.sourceStep < 1 then channel.sourceStep = 1 end if
+    channel.startFrame = mixer.paintedFrames
+    channel.leftVolume = leftVolume
+    channel.rightVolume = rightVolume
+    channel.active = true
+    channel.spatialized = false
+    channel.masterVolume = 255
+    channel.distanceMultiplier = 0.0
+    channel.fixedOrigin = false
+    channel.origin = void
+  end if
   channel.looping = true
   channel.autoSound = true
   if sound.sampleCount > 0 then
     phase = ambio.truncInt(mixer.paintedFrames * sound.sampleRate /
       (mixer.sampleRate * 1.0)) % sound.sampleCount
-    channel.sourceFrame = phase * 1.0
+    channel.sourceFrame = phase << MIX_FRAC_BITS
   end if
   return channel
 end function

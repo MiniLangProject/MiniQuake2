@@ -19,6 +19,9 @@ function validateState(state, operation)
   return true
 end function
 
+// Derive the exact Protocol-34 U_* mask before any bytes are emitted. Width
+// extension flags are added by writeHeader, so callers can also use this mask
+// to decide whether an unchanged entity may be omitted.
 function computeBits(base, target, newEntity)
   validateState(base, "entity baseline")
   validateState(target, "entity target")
@@ -108,6 +111,8 @@ function writeHeader(buffer, number, rawBits)
   return bits
 end function
 
+// Emit fields in the original MSG_WriteDeltaEntity order; several flags share
+// bytes, making this ordering part of the wire and demo compatibility contract.
 function writeDelta(buffer, base, target, force, newEntity)
   rawBits = computeBits(base, target, newEntity)
   if rawBits == 0 and not force then return 0 end if
@@ -198,6 +203,8 @@ function readHeader(buffer)
   return pt.EntityDeltaHeader(number, total, (total & pc.U_REMOVE) != 0, endMarker)
 end function
 
+// Reconstruct a complete state from its baseline without retaining references
+// to mutable baseline vectors. Checked reads keep malformed packets atomic.
 function readDelta(buffer, base, header)
   if header.endMarker then return error(7036, "cannot decode an entity end marker as state") end if
   if header.remove then return error(7037, "cannot decode an entity removal as state") end if

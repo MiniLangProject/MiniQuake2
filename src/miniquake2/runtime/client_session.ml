@@ -52,11 +52,19 @@ struct ClientSession
   packetsSent
   packetsRejected
   closed
+  predictionCommandScratch
+  predictionWorld
+  predictionWorkspace
 end struct
 
 const MAX_PENDING_USERCMDS = 64
 const CMD_BACKUP = 64
 const CMD_MASK = 63
+const CLIENT_COMMAND_MSEC = 11
+
+function movementDue(previousTime, now)
+  return now - previousTime >= CLIENT_COMMAND_MSEC
+end function
 
 function create(serverAddress, serverPort, userInfo, localPort)
   socket = csudp.open("0.0.0.0", localPort)
@@ -65,12 +73,14 @@ function create(serverAddress, serverPort, userInfo, localPort)
   csnclient.beginConnect(client, serverAddress + ":" + serverPort, address, userInfo, 0)
   network = csnrtypes.createClient(client)
   integrated = csdispatcher.create(network, csstate.create(), cseffects.createSilent(1))
+  predictionWorld = cspredictionworld.createWorld()
   return ClientSession(integrated, socket, cssystem.createClock(), 0, 0,
     csqtypes.zeroUserCmd(), csqtypes.zeroUserCmd(),
     array(MAX_PENDING_USERCMDS, void), 0, 0,
     array(CMD_BACKUP, void), array(CMD_BACKUP, -1),
     array(CMD_BACKUP, void), array(CMD_BACKUP, -1), -1,
-    0, 0, 0, false)
+    0, 0, 0, false, createPredictionCommandScratch(), predictionWorld,
+    cspredictionworld.createPredictionWorkspace())
 end function
 
 function validatedMovement(value)
@@ -151,6 +161,40 @@ function inline sequenceDistance(candidate, base)
   return (candidate - base) & cspc.SEQUENCE_MASK
 end function
 
+function createPredictionCommandScratch()
+  return array(CMD_BACKUP + 1, void)
+end function
+
+// Allocation-stable form used by the product render loop. History entries are
+// session-owned immutable copies; the preview is consumed synchronously by
+// prediction, which copies each command into its reusable Pmove command.
+function fillPredictionCommands(session, previewCommand, output)
+  if typeof(output) != "array" or len(output) < CMD_BACKUP + 1 then
+    return error(9995, "prediction command scratch is too small")
+  end if
+  network = session.integrated.network
+  if network.client.channel is void then return 0 end if
+  channel = network.client.channel
+  distance = sequenceDistance(channel.outgoingSequence,
+    channel.incomingAcknowledged)
+  if distance >= CMD_BACKUP then return 0 end if
+  outputIndex = 0
+  sequence = cspnetchan.nextSequence(channel.incomingAcknowledged)
+  while sequence != channel.outgoingSequence
+    slot = sequence & CMD_MASK
+    if session.commandSequences[slot] == sequence then
+      output[outputIndex] = session.commandHistory[slot]
+      outputIndex = outputIndex + 1
+    end if
+    sequence = cspnetchan.nextSequence(sequence)
+  end while
+  if previewCommand is not void then
+    output[outputIndex] = previewCommand
+    outputIndex = outputIndex + 1
+  end if
+  return outputIndex
+end function
+
 // Return exactly the unacknowledged cmd ring followed by the current render
 // preview. Missing pre-active/sign-on sequences are intentionally skipped.
 function predictionCommands(session, previewCommand)
@@ -218,9 +262,18 @@ function predictRemote(session, previewCommand, collision)
   clientState = session.integrated.client
   if session.closed or clientState.current is void then return false end if
   if not csprediction.predictionEnabled(
-      clientState.current.playerState) then return false end if
-  commands = predictionCommands(session, previewCommand)
-  if len(commands) == 0 then return false end if
+      clientState.current.playerState) then
+    fallbackAngles = try(csprediction.commandViewAngles(
+      clientState.current.playerState, previewCommand))
+    if fallbackAngles is error then return fallbackAngles end if
+    csstate.acceptPrediction(clientState,
+      clientState.current.playerState.pmove.origin, fallbackAngles)
+    return false
+  end if
+  commandCount = try(fillPredictionCommands(session, previewCommand,
+    session.predictionCommandScratch))
+  if commandCount is error then return commandCount end if
+  if commandCount == 0 then return false end if
   airAcceleration = 0.0
   configStrings = session.integrated.network.configStrings
   if csqconstants.CS_AIRACCEL < len(configStrings) and
@@ -229,12 +282,15 @@ function predictRemote(session, previewCommand, collision)
     if parsed is not error then airAcceleration = parsed end if
   end if
   localEntityNumber = session.integrated.network.playerNumber + 1
-  result = cspredictionworld.predict(clientState.current.playerState, commands,
-    collision, configStrings, clientState.current, localEntityNumber,
-    airAcceleration)
+  result = try(cspredictionworld.predictInto(session.predictionWorld,
+    session.predictionWorkspace, clientState.current.playerState,
+    session.predictionCommandScratch, commandCount, collision, configStrings,
+    clientState.current, localEntityNumber, airAcceleration))
+  if result is error then return result end if
   csstate.acceptPrediction(clientState, result.state.origin, result.viewAngles)
   csstate.notePredictionStep(clientState, result.previousOrigin,
-    result.state.origin, result.state.flags, commands[len(commands) - 1].msec)
+    result.state.origin, result.state.flags,
+    session.predictionCommandScratch[commandCount - 1].msec)
   storePredictedOrigin(session, predictionSequence(session), result.state.origin)
   return result
 end function
@@ -386,12 +442,16 @@ end function
 function pump(session, sendMovement)
   if session.closed then return error(9990, "client session is closed") end if
   now = csqbyteio.truncInt(cssystem.milliseconds(session.clock))
-  stats = cspump.pumpIntegratedClient(session.integrated, session.socket, now, 128)
+  stats = try(cspump.pumpIntegratedClient(session.integrated, session.socket,
+    now, 128))
+  if stats is error then return stats end if
   session.packetsReceived = session.packetsReceived + stats.received
   session.packetsSent = session.packetsSent + stats.sent
   session.packetsRejected = session.packetsRejected + stats.rejected
-  processSignon(session, now)
-  processDownloads(session, now)
+  signon = try(processSignon(session, now))
+  if signon is error then return signon end if
+  downloads = try(processDownloads(session, now))
+  if downloads is error then return downloads end if
   reconcilePrediction(session)
   if sendMovement then sendMove(session, now) end if
   return session.integrated.network.client.state
@@ -412,7 +472,8 @@ function run(session, frameLimit)
   frames = 0
   while frames < frameLimit and session.integrated.network.client.state != csnc.CA_DISCONNECTED
     started = cssystem.milliseconds(session.clock)
-    step(session)
+    stepped = try(step(session))
+    if stepped is error then return stepped end if
     frames = frames + 1
     elapsed = cssystem.milliseconds(session.clock) - started
     if elapsed < 100 then cssystem.sleep(csqbyteio.truncInt(100 - elapsed)) end if

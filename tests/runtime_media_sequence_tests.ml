@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Original SV_Map level-string grammar and campaign media-chain tests. */
 import miniquake2.runtime.media_sequence as mediatestseq
 import miniquake2.qcommon.cmd as mediatestcmd

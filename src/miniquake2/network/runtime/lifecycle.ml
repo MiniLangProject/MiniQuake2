@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Atomic Protocol-34 per-level reset while preserving live Netchans. */
 package miniquake2.network.runtime.lifecycle
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Game-API integration of the formerly skipped base1 world entities. */
 import miniquake2.game.constants as rwigameconstants
 import miniquake2.game.integration.baseq2 as rwiintegration

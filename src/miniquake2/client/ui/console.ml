@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Console text buffer, notify overlay and editable command line. */
 package miniquake2.client.ui.console
 
@@ -37,6 +41,19 @@ function appendText(console, text, time)
     index = index + 1
   end while
   if count > 0 or len(data) == 0 then appendLine(console, decode(slice(data, start, count)), time) end if
+  return true
+end function
+
+function clearTyping(console)
+  console.input = ""
+  console.cursor = 0
+  return true
+end function
+
+function clearNotify(console)
+  for each consoleNotifyLine in console.lines
+    consoleNotifyLine.time = -2147483647
+  end for
   return true
 end function
 
@@ -84,7 +101,10 @@ function editKey(console, key)
   return true
 end function
 
-function drainCommands(console)
+function inline drainCommands(console)
+  // Preserve the reusable empty queue on idle frames. A non-empty queue is
+  // still transferred by ownership so command execution sees a stable array.
+  if len(console.commands) == 0 then return console.commands end if
   output = console.commands
   console.commands = []
   return output

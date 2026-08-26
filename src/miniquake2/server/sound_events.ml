@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Typed bounded GameImport sound queue and Protocol-34 fragment codec. */
 package miniquake2.server.sound_events
 

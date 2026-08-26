@@ -54,11 +54,16 @@ extern function udpLastPort() from "miniquake_native.dll" symbol "mq_udp_last_po
 extern function udpLastError() from "miniquake_native.dll" symbol "mq_udp_last_error" returns i32
 extern function udpLastAddressRaw(output as bytes, capacity as u32) from "miniquake_text.dll" symbol "mqt_udp_last_address" returns u32
 extern function udpBoundAddressRaw(handle as u64, output as bytes, capacity as u32) from "miniquake_text.dll" symbol "mqt_udp_bound_address" returns u32
+extern function udpResolveNameRaw(name as cstr, output as bytes, capacity as u32) from "miniquake_text.dll" symbol "mqt_udp_resolve_name" returns u32
 
 extern function audioOpen(sampleRate as u32, channels as u32, bitsPerSample as u32) from "miniquake_native.dll" symbol "mq_audio_open" returns i32
 extern function audioSubmit(data as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_audio_submit" returns i32
 extern function audioClose() from "miniquake_native.dll" symbol "mq_audio_close" returns void
 extern function audioQueued() from "miniquake_native.dll" symbol "mq_audio_queued" returns u32
+extern function audioSubmitted() from "miniquake_native.dll" symbol "mq_audio_submitted" returns u32
+extern function audioCompleted() from "miniquake_native.dll" symbol "mq_audio_completed" returns u32
+extern function audioUnderruns() from "miniquake_native.dll" symbol "mq_audio_underruns" returns u32
+extern function audioCapacity() from "miniquake_native.dll" symbol "mq_audio_capacity" returns u32
 extern function audioReset() from "miniquake_native.dll" symbol "mq_audio_reset" returns i32
 extern function audioIsOpen() from "miniquake_native.dll" symbol "mq_audio_is_open" returns i32
 extern function oggOpen(data as bytes, byteCount as u32) from "miniquake_native.dll" symbol "mq_ogg_open" returns u32
@@ -103,6 +108,7 @@ extern function glBindTexture(target as u32, texture as u32) from "miniquake_nat
 extern function glDeleteTextures(count as i32, textureIds as bytes) from "miniquake_native.dll" symbol "mq_gl_delete_textures" returns void
 extern function glTexParameterI(target as u32, name as u32, value as i32) from "miniquake_native.dll" symbol "mq_gl_tex_parameter_i" returns void
 extern function glTexImage2D(target as u32, level as i32, internalFormat as i32, width as i32, height as i32, border as i32, format as u32, type as u32, pixels as bytes) from "miniquake_native.dll" symbol "mq_gl_tex_image_2d" returns void
+extern function glTexSubImage2D(target as u32, level as i32, xOffset as i32, yOffset as i32, width as i32, height as i32, format as u32, type as u32, pixels as bytes) from "miniquake_native.dll" symbol "mq_gl_tex_sub_image_2d" returns void
 extern function glGetStringRaw(name as u32, output as bytes, capacity as u32) from "miniquake_text.dll" symbol "mqt_gl_get_string" returns u32
 extern function glGetError() from "miniquake_native.dll" symbol "mq_gl_get_error" returns u32
 extern function glReadPixels(x as i32, y as i32, width as i32, height as i32, format as u32, type as u32, pixels as bytes) from "miniquake_native.dll" symbol "mq_gl_read_pixels" returns void
@@ -118,6 +124,7 @@ extern function glActiveTexture(unit as i32) from "miniquake_native.dll" symbol 
 extern function glMultiTexCoord2(unit as i32, sBits as u32, tBits as u32) from "miniquake_native.dll" symbol "mq_gl_multi_tex_coord2" returns void
 extern function glTexEnvI(target as u32, name as u32, value as i32) from "miniquake_native.dll" symbol "mq_gl_tex_env_i" returns void
 extern function glDrawParticleBatch(data as bytes, byteCount as u32, viewOriginX as u32, viewOriginY as u32, viewOriginZ as u32, viewForwardX as u32, viewForwardY as u32, viewForwardZ as u32, viewUpX as u32, viewUpY as u32, viewUpZ as u32, viewRightX as u32, viewRightY as u32, viewRightZ as u32) from "miniquake_native.dll" symbol "mq_gl_draw_particle_batch" returns i32
+extern function glDrawParticleBatchStyled(data as bytes, byteCount as u32, viewOriginX as u32, viewOriginY as u32, viewOriginZ as u32, viewForwardX as u32, viewForwardY as u32, viewForwardZ as u32, viewUpX as u32, viewUpY as u32, viewUpZ as u32, viewRightX as u32, viewRightY as u32, viewRightZ as u32) from "miniquake_native.dll" symbol "mq_gl_draw_particle_batch_styled" returns i32
 extern function glDrawMd2Rgb(data as bytes, byteCount as u32, frameIndex as u32, oldFrameIndex as u32, backLerp as u32, shadeDots as bytes, shadeDotCount as u32, normalVectors as bytes, normalCount as u32, geometryKey as u64, geometryState as u32, shadeState as u32, shadeRed as u32, shadeGreen as u32, shadeBlue as u32, alpha as u32) from "miniquake_native.dll" symbol "mq_gl_draw_md2_rgb" returns i32
 extern function glDrawMd2Shadow(data as bytes, byteCount as u32, frameIndex as u32, oldFrameIndex as u32, backLerp as u32, normalVectors as bytes, normalCount as u32, geometryKey as u64, geometryState as u32, triangleCount as u32, shadeX as u32, shadeY as u32, lightHeight as u32) from "miniquake_native.dll" symbol "mq_gl_draw_md2_shadow" returns i32
 extern function glDrawAliasRgbEnd() from "miniquake_native.dll" symbol "mq_gl_draw_alias_rgb_end" returns void
@@ -158,6 +165,11 @@ end function
 function udpBoundAddress(handle)
   buffer = bytes(128)
   return textResult(buffer, udpBoundAddressRaw(handle, buffer, len(buffer)))
+end function
+
+function udpResolveName(name)
+  buffer = bytes(64)
+  return textResult(buffer, udpResolveNameRaw(name, buffer, len(buffer)))
 end function
 
 function glGetString(name)

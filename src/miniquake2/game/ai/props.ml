@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Classic 3.19 boss3 stand and commander-body scripted AI props. */
 package miniquake2.game.ai.props
 

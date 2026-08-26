@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II client input, console, screen and menu constants. */
 package miniquake2.client.ui.constants
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Full synthetic signon and snapshot flow over real loopback UDP sockets. */
 import miniquake2.network.constants as tcsnc
 import miniquake2.runtime.client_session as tclient

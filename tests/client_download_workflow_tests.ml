@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Staged, resumable and atomic Protocol-34 client download workflow. */
 import std.fs as cdwtfs
 import miniquake2.qcommon.constants as cdwtqc
@@ -36,6 +40,11 @@ function downloadTestRegister(kind, name)
     downloadRegistered[downloadRegisteredCount] = kind + ":" + name
     downloadRegisteredCount = downloadRegisteredCount + 1
   end if
+  return true
+end function
+
+function downloadRejectPrecache(kind, name)
+  if kind == "precache" then return error(7699, "registration rejected") end if
   return true
 end function
 
@@ -185,6 +194,17 @@ downloadAssert(cdwtdownloads.missingFiles(missing) ==
   "missing asset recorded and stage advances")
 downloadAssert(downloadRegisteredCount >= 3,
   "asset and final precache registration callbacks")
+
+registrationFailure = cdwtdownloads.create(downloadTestRoot,
+  cdwtqc.BASEDIRNAME,
+  cdwtdownloads.DownloadPolicy(false, false, false, false, false, false),
+  downloadTestExists, downloadTestRead, downloadRejectPrecache)
+registrationFailureResult = try(cdwtdownloads.requestFile(
+  registrationFailure, "map", "maps/not-requested.bsp", 10))
+downloadAssert(registrationFailureResult is error and
+  not registrationFailure.complete and
+  len(cdwtdownloads.takeCommands(registrationFailure)) == 0,
+  "failed final registration cannot publish completion or begin")
 
 dispatchPath = downloadTestPath("maps/dispatch.bsp")
 cdwtfs.delete(dispatchPath); cdwtfs.delete(cdwtdownloads.temporaryPath(dispatchPath))

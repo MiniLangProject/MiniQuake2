@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Client command encoding and server-side clc dispatch from sv_user.c. */
 package miniquake2.network.runtime.commands
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Nils Kopal
+# SPDX-License-Identifier: Apache-2.0
 """Generate MiniQuake2's deterministic Quake II 3.19 reference inventory.
 
 The inventory is deliberately source-oriented.  Every Git-tracked reference

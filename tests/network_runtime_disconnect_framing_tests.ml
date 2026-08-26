@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake-II-3.19 final disconnect framing and strict malformed guards. */
 import miniquake2.qcommon.message as ndfqmsg
 import miniquake2.qcommon.sizebuf as ndfqsz

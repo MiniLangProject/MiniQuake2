@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Persistent UDP map changes may commit only after real Game goal callbacks. */
 import miniquake2.runtime.campaign_session as goalruntime
 import miniquake2.runtime.play_session as goalruntimeplay

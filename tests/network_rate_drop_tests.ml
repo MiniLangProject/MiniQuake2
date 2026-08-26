@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II 3.19 SV_UserinfoChanged / SV_RateDrop parity tests. */
 import miniquake2.qcommon.types as ratetest_qtypes
 import miniquake2.qcommon.sizebuf as ratetest_sizebuf

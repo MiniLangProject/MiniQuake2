@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic m_move.c stairs, ledges, water and flight regression. */
 import miniquake2.game.ai.constants as movementconstants
 import miniquake2.game.ai.move as movement

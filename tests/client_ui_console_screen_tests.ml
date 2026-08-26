@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Console/notify, HUD, inventory and centerprint composition tests. */
 import miniquake2.client.ui.console as cuiconsole
 import miniquake2.client.ui.menu as cuimenu

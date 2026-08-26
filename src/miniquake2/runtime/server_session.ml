@@ -70,6 +70,11 @@ struct MapChangeResult
   reason
 end struct
 
+// SV_FatPVS uses a fixed 64-leaf work array. The server is single-threaded,
+// so the same storage can be reused for every 10 Hz client snapshot.
+serverSessionFatPvsLeafScratch = array(64, 0)
+serverSessionClientPacketEntityScratch = array(ssnc.MAX_PACKET_ENTITIES, void)
+
 function vector(value)
   if typeof(value) == "array" then return [value[0], value[1], value[2]] end if
   return [value.x, value.y, value.z]
@@ -154,9 +159,57 @@ function linkedBoundsVisible(collisionModel, nodeNumber, mins, maxs, row)
     mins, maxs, row)
 end function
 
-function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
+// SV_BuildClientFrame starts its fat-PVS query at the rendered eye position,
+// not at the player edict origin near the middle of the collision hull. BSP
+// leaves can split vertically between those points (notably at base1's spawn),
+// which otherwise makes muzzle-height projectiles invisible to their owner.
+function clientViewOrigin(viewer)
+  origin = viewer.state.origin
+  x = origin.x; y = origin.y; z = origin.z
+  if viewer.client is not void and viewer.client.playerState is not void and
+      viewer.client.playerState.viewOffset is not void then
+    offset = viewer.client.playerState.viewOffset
+    x = x + offset.x; y = y + offset.y; z = z + offset.z
+  end if
+  return ssqtypes.Vec3(x, y, z)
+end function
+
+function fatPvsRow(collisionModel, origin)
+  global serverSessionFatPvsLeafScratch
+  visibility = collisionModel.map.visibility
+  if visibility is void or visibility.numClusters == 0 then return bytes() end if
+  mins = ssqtypes.Vec3(origin.x - 8.0, origin.y - 8.0, origin.z - 8.0)
+  maxs = ssqtypes.Vec3(origin.x + 8.0, origin.y + 8.0, origin.z + 8.0)
+  count = sscollision.collectBoxLeafs(collisionModel, 0, mins, maxs,
+    serverSessionFatPvsLeafScratch, 0)
+  output = bytes((visibility.numClusters + 7) >> 3)
+  index = 0
+  while index < count
+    leafNumber = serverSessionFatPvsLeafScratch[index]
+    cluster = collisionModel.map.leafs[leafNumber].cluster
+    if cluster >= 0 and cluster < visibility.numClusters then
+      source = sscollision.visibilityRow(collisionModel, cluster, 0)
+      byteIndex = 0
+      while byteIndex < len(output) and byteIndex < len(source)
+        output[byteIndex] = output[byteIndex] | source[byteIndex]
+        byteIndex = byteIndex + 1
+      end while
+    end if
+    index = index + 1
+  end while
+  return output
+end function
+
+function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
+    edict)
   if session.collision is void then return true end if
   if edict.state.number == viewer.state.number then return true end if
+  // g_local.h projectiles carry their firing edict as owner. The stock fat
+  // PVS naturally contains a player's own muzzle, but retaining that semantic
+  // relationship explicitly also covers BSP leaf boundaries exactly at the
+  // 8-unit fat-PVS edge and guarantees first-person missile feedback.
+  if edict.owner is not void and
+      edict.owner.state.number == viewer.state.number then return true end if
   view = session.collision.map.leafs[viewLeaf]
   visibility = session.collision.map.visibility
   if visibility is void or visibility.numClusters == 0 then return true end if
@@ -175,9 +228,14 @@ function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
     if areaVisible != true then return false end if
   end if
 
-  kind = 0
-  if edict.state.sound != 0 then kind = 1 end if
-  row = sscollision.visibilityRow(session.collision, view.cluster, kind)
+  row = preparedPvs
+  // Stock SV_BuildClientFrame intentionally uses fatpvs here even for
+  // entities with a loop sound (the clientphs alternative is commented out).
+  // Sound-event routing has its own PHS path below and must not replace model
+  // visibility for missiles such as the blaster bolt with lasfly.wav.
+  if typeof(row) != "bytes" then
+    row = sscollision.visibilityRow(session.collision, view.cluster, 0)
+  end if
   if edict.numClusters >= 0 then
     clusterIndex = 0
     while clusterIndex < edict.numClusters
@@ -198,21 +256,34 @@ function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
     edict.absoluteMaxs, row)
 end function
 
+function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
+  return entityVisibleFromPreparedPvs(session, viewer, viewLeaf, void, edict)
+end function
+
 function entityVisible(session, viewer, edict)
   if session.collision is void then return true end if
-  viewLeaf = sscollision.pointLeafNumber(session.collision, viewer.state.origin, 0)
-  return entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
+  origin = clientViewOrigin(viewer)
+  viewLeaf = sscollision.pointLeafNumber(session.collision, origin, 0)
+  return entityVisibleFromPreparedPvs(session, viewer, viewLeaf,
+    fatPvsRow(session.collision, origin), edict)
 end function
 
 function packetEntitiesForClient(session, viewer)
   ssClientPacketSessionHolder = session
   ssClientPacketViewerHolder = viewer
-  ssClientPacketEntitiesHolder = array(ssClientPacketSessionHolder.gameExport.numEdicts)
+  // A protocol frame can never retain more than MAX_PACKET_ENTITIES.  Retail
+  // maps commonly expose hundreds of edicts, so sizing this scratch array to
+  // numEdicts needlessly multiplied snapshot allocation by every client.
+  ssClientPacketEntitiesHolder = serverSessionClientPacketEntityScratch
   ssClientPacketEntityCount = 0
   ssClientPacketViewLeaf = -1
+  ssClientPacketPvs = void
   if ssClientPacketSessionHolder.collision is not void then
+    ssClientPacketViewOrigin = clientViewOrigin(ssClientPacketViewerHolder)
     ssClientPacketViewLeaf = sscollision.pointLeafNumber(ssClientPacketSessionHolder.collision,
-      ssClientPacketViewerHolder.state.origin, 0)
+      ssClientPacketViewOrigin, 0)
+    ssClientPacketPvs = fatPvsRow(ssClientPacketSessionHolder.collision,
+      ssClientPacketViewOrigin)
   end if
   ssClientPacketIndex = 1
   while ssClientPacketIndex < ssClientPacketSessionHolder.gameExport.numEdicts and
@@ -225,8 +296,9 @@ function packetEntitiesForClient(session, viewer)
     if ssClientPacketEdictHolder.inUse and
         (ssClientPacketEdictHolder.serverFlags & ssgc.SVF_NOCLIENT) == 0 and
         ssClientPacketNetworked and ssClientPacketSessionHolder.collision is not void then
-      ssClientPacketVisible = entityVisibleFromLeaf(ssClientPacketSessionHolder,
-        ssClientPacketViewerHolder, ssClientPacketViewLeaf, ssClientPacketEdictHolder)
+      ssClientPacketVisible = entityVisibleFromPreparedPvs(
+        ssClientPacketSessionHolder, ssClientPacketViewerHolder,
+        ssClientPacketViewLeaf, ssClientPacketPvs, ssClientPacketEdictHolder)
     end if
     if ssClientPacketEdictHolder.inUse and (ssClientPacketEdictHolder.serverFlags & ssgc.SVF_NOCLIENT) == 0 and ssClientPacketNetworked and ssClientPacketVisible then
       ssClientPacketProtocolStateHolder = protocolEntity(ssClientPacketStateHolder)
@@ -323,11 +395,10 @@ function routeSounds(session, events)
   return routed
 end function
 
-function multicastVisibleToClient(session, event, listener)
+function multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
   destination = ssgamemessages.baseDestination(event.destination)
   if destination == ssgc.MULTICAST_ALL or session.collision is void then return true end if
   sourceLeafNumber = sscollision.pointLeafNumber(session.collision, event.origin, 0)
-  listenerLeafNumber = sscollision.pointLeafNumber(session.collision, listener.state.origin, 0)
   if sourceLeafNumber < 0 or sourceLeafNumber >= len(session.collision.map.leafs) or
       listenerLeafNumber < 0 or listenerLeafNumber >= len(session.collision.map.leafs) then
     return error(9984, "multicast leaf outside collision map")
@@ -349,23 +420,43 @@ function multicastVisibleToClient(session, event, listener)
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
 end function
 
+function multicastVisibleToClient(session, event, listener)
+  listenerLeafNumber = -1
+  if session.collision is not void then
+    listenerLeafNumber = sscollision.pointLeafNumber(session.collision,
+      listener.state.origin, 0)
+  end if
+  return multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
+end function
+
 function routeMulticasts(session, events)
   ssgamemessages.validateAll(events)
   runtime = session.networkRuntime
   routed = array(runtime.server.maxClients, void)
   slot = 0
   while slot < runtime.server.maxClients
-    routed[slot] = []
+    visible = array(len(events), void)
+    visibleCount = 0
     client = runtime.server.clients[slot]
     if client.state == ssnc.CS_SPAWNED and client.channel is not void then
       if session.gameExport is void or slot + 1 >= session.gameExport.numEdicts then
         return error(9987, "spawned multicast recipient has no client edict")
       end if
       listener = session.gameExport.edicts[slot + 1]
+      listenerLeafNumber = -1
+      if session.collision is not void then
+        listenerLeafNumber = sscollision.pointLeafNumber(session.collision,
+          listener.state.origin, 0)
+      end if
       for each event in events
-        if multicastVisibleToClient(session, event, listener) then routed[slot] = routed[slot] + [event] end if
+        if multicastVisibleToClientFromLeaf(session, event,
+            listenerLeafNumber) then
+          visible[visibleCount] = event
+          visibleCount = visibleCount + 1
+        end if
       end for
     end if
+    routed[slot] = sssessionarray.slice(visible, 0, visibleCount)
     slot = slot + 1
   end while
   return routed
@@ -375,17 +466,32 @@ function routeUnicasts(session, events)
   ssgamemessages.validateUnicastAll(events)
   runtime = session.networkRuntime
   routed = array(runtime.server.maxClients, void)
+  counts = array(runtime.server.maxClients, 0)
+  for each countedEvent in events
+    countedSlot = countedEvent.entity - 1
+    if countedSlot >= 0 and countedSlot < runtime.server.maxClients then
+      countedClient = runtime.server.clients[countedSlot]
+      if countedClient.state == ssnc.CS_SPAWNED and
+          countedClient.channel is not void then
+        counts[countedSlot] = counts[countedSlot] + 1
+      end if
+    end if
+  end for
   slot = 0
   while slot < runtime.server.maxClients
-    routed[slot] = []
-    client = runtime.server.clients[slot]
-    if client.state == ssnc.CS_SPAWNED and client.channel is not void then
-      for each event in events
-        if event.entity == slot + 1 then routed[slot] = routed[slot] + [event] end if
-      end for
-    end if
+    routed[slot] = array(counts[slot], void)
     slot = slot + 1
   end while
+  offsets = array(runtime.server.maxClients, 0)
+  for each targetedEvent in events
+    targetedSlot = targetedEvent.entity - 1
+    if targetedSlot >= 0 and targetedSlot < runtime.server.maxClients and
+        counts[targetedSlot] > 0 then
+      targetedOffset = offsets[targetedSlot]
+      routed[targetedSlot][targetedOffset] = targetedEvent
+      offsets[targetedSlot] = targetedOffset + 1
+    end if
+  end for
   return routed
 end function
 
@@ -740,11 +846,17 @@ function sendSnapshots(session, now)
         maximumPayload = sspc.MAX_MSGLEN - sspc.PACKET_HEADER_SERVER
         entityCount = len(entities)
         message = void
+        candidate = ssqsz.alloc(maximumPayload)
+        snapshotAreaBits = areaBits(session, edict)
+        snapshotPlayer = protocolPlayer(edict)
         while entityCount >= 0 and message is void
-          selected = sssessionarray.slice(entities, 0, entityCount)
-          frame = sssnapshot.createFrame(session.frameNumber, areaBits(session, edict),
-            protocolPlayer(edict), selected)
-          candidate = ssqsz.alloc(maximumPayload)
+          selected = entities
+          if entityCount != len(entities) then
+            selected = sssessionarray.slice(entities, 0, entityCount)
+          end if
+          frame = sssnapshot.createFrame(session.frameNumber, snapshotAreaBits,
+            snapshotPlayer, selected)
+          ssqsz.clear(candidate)
           encoded = try(ssserver.writeClientFrame(runtime.server, slot, frame,
             runtime.baselines, candidate))
           if encoded is not error then message = candidate
@@ -797,22 +909,28 @@ function step(session)
   synchronizeConfigStrings(session)
   session.frameNumber = session.frameNumber + 1
   session.networkRuntime.server.realTime = now
-  routedUnicasts = routeUnicasts(session, session.bridgeRuntime.pendingUnicasts)
-  unicastResult = ssunicastdispatch.dispatchRouted(session.networkRuntime, session.socket,
-    session.bridgeRuntime.pendingUnicasts, routedUnicasts, now)
-  session.packetsSent = session.packetsSent + unicastResult.sent
-  if unicastResult.delivered then session.bridgeRuntime.pendingUnicasts = [] end if
-  routedMulticasts = routeMulticasts(session, session.bridgeRuntime.pendingMulticasts)
-  multicastResult = ssmulticastdispatch.dispatchRouted(session.networkRuntime, session.socket,
-    session.bridgeRuntime.pendingMulticasts, routedMulticasts, now)
-  session.packetsSent = session.packetsSent + multicastResult.sent
-  if multicastResult.delivered then session.bridgeRuntime.pendingMulticasts = [] end if
-  pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
-  routedSounds = routeSounds(session, pendingSoundBatch)
-  soundResult = ssounddispatch.dispatchRouted(session.networkRuntime, session.socket,
-    pendingSoundBatch, routedSounds, now)
-  session.packetsSent = session.packetsSent + soundResult.sent
-  if soundResult.delivered then ssoundevents.clearPending(session.bridgeRuntime) end if
+  if len(session.bridgeRuntime.pendingUnicasts) > 0 then
+    routedUnicasts = routeUnicasts(session, session.bridgeRuntime.pendingUnicasts)
+    unicastResult = ssunicastdispatch.dispatchRouted(session.networkRuntime, session.socket,
+      session.bridgeRuntime.pendingUnicasts, routedUnicasts, now)
+    session.packetsSent = session.packetsSent + unicastResult.sent
+    if unicastResult.delivered then session.bridgeRuntime.pendingUnicasts = [] end if
+  end if
+  if len(session.bridgeRuntime.pendingMulticasts) > 0 then
+    routedMulticasts = routeMulticasts(session, session.bridgeRuntime.pendingMulticasts)
+    multicastResult = ssmulticastdispatch.dispatchRouted(session.networkRuntime, session.socket,
+      session.bridgeRuntime.pendingMulticasts, routedMulticasts, now)
+    session.packetsSent = session.packetsSent + multicastResult.sent
+    if multicastResult.delivered then session.bridgeRuntime.pendingMulticasts = [] end if
+  end if
+  if session.bridgeRuntime.pendingSoundCount > 0 then
+    pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
+    routedSounds = routeSounds(session, pendingSoundBatch)
+    soundResult = ssounddispatch.dispatchRouted(session.networkRuntime, session.socket,
+      pendingSoundBatch, routedSounds, now)
+    session.packetsSent = session.packetsSent + soundResult.sent
+    if soundResult.delivered then ssoundevents.clearPending(session.bridgeRuntime) end if
+  end if
   session.packetsSent = session.packetsSent + sendSnapshots(session, now)
   if (session.frameNumber % 10) == 0 then sscommands.replenishCommandMsec(session.networkRuntime) end if
   return session.frameNumber

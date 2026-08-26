@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BSP lifetime gate under the complete retail play/runtime/bridge import graph. */
 import miniquake2.runtime.application as bspgraphapplication
 import miniquake2.runtime.play_session as bspgraphplaysession

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Campaign settle regression for queue-only reliable Netchan state. */
 import miniquake2.qcommon.constants as rcsqueue_qc
 import miniquake2.protocol.netchan as rcsqueue_netchan

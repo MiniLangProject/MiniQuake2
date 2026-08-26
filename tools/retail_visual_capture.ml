@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Standalone, non-product entrypoint for deterministic retail renderer captures. */
 import miniquake2.runtime.visual_capture as retailvisualtool
 import miniquake2.qcommon.types as retailvisualtoolqtypes

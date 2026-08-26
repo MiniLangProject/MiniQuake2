@@ -1,6 +1,6 @@
 # Retail validation evidence
 
-Validation date: 2026-08-24 (Europe/Berlin)
+Validation date: 2026-08-25 (Europe/Berlin)
 
 The tests below used the user-owned classic Steam installation at
 `C:\Program Files (x86)\Steam\steamapps\common\Quake 2`. No game data was
@@ -8,14 +8,28 @@ copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
 
+The 2026-08-25 frame/audio pass replaced per-frame auto-sound channel
+allocation with inactive-channel reuse, added epoch-indexed entity and
+resource-handle lookup tables, packed BSP lightmaps into 256x256 atlases and
+pre-uploaded immutable world textures before opening the audio device. Dynamic
+brush lightmaps now update only their atlas rectangle. The mixer feeds all
+eight native 1,024-frame buffers from reusable storage and reports queue
+underruns explicitly. Two independent 512-frame installed-retail `base1` runs
+completed at 105.58 and 107.39 fps with zero missing assets and zero audio
+underruns; their longest frames were 180.8135 and 189.0996 ms. The repeated run
+measured client/world/entity/HUD phases at
+711.7916/2,296.9486/364.9296/299.2592 ms. The installed-retail physical input
+smoke also passed after the same Release build. The full source and Release
+test matrix passed with 431 maintained files and 386 MiniLang files.
+
 The final same-date renderer pass added the classic 3.19 planar alias shadow.
 It retains the receiver point from the existing BSP light traversal, projects
 cached interpolated MD2 geometry from entity yaw and height, and draws black
 alpha-0.5 geometry after the opaque world/brush pass and before alpha surfaces.
-Translucent and first-person weapon aliases are excluded. Shadows are enabled
-by default in this modern port but remain independently switchable; the
-original registered `gl_shadows` disabled by default. The bridge rebuilt twice
-byte-identically at SHA-256
+Translucent and first-person weapon aliases are excluded. Shadows remain
+independently switchable and now default to disabled, matching the original
+`gl_shadows` setting while avoiding an extra alias pass in the product. The
+bridge rebuilt twice byte-identically at SHA-256
 `E743A52E7D503F6811CFEEC48BBA83912487623F155A273AEB480829C39B9D97`
 and passed all 31 native safety invariants.
 
@@ -611,3 +625,52 @@ graphs, reference-member writes and allocation-time float boxing; the repeated
 - broader multi-host coop/deathmatch weapon/projectile gameplay beyond the
   two-client lifecycle/scoring/item matrix;
 - manual input/audio/fullscreen/device-loss acceptance on release hardware.
+
+## 2026-08-26 audit and performance validation
+
+The final Release product was run twice for 5,000 rendered frames on retail
+`base1`. The prior accepted baseline and the warm post-audit run were:
+
+| Phase | Baseline (ms) | Conservative final run (ms) | Change |
+|---|---:|---:|---:|
+| Client | 2,331.4329 | 1,622.0910 | -30.4% |
+| World | 2,131.7613 | 1,387.6843 | -34.9% |
+| Entities | 1,449.1866 | 1,426.9642 | -1.5% |
+| HUD | 317.4074 | 214.7664 | -32.3% |
+| Present | 414.5741 | 174.0026 | -58.0% |
+| Audio | 1,419.8205 | 1,088.2046 | -23.4% |
+| Total measured frame work | 10,345.2984 | 8,184.9848 | -20.9% |
+
+All post-audit runs completed with zero missing assets and zero observed
+collections; the baseline observed one full collection. The two final runs
+measured 7,910.39 and 8,184.98 ms; the latter maximum frame was 237.22 ms at
+frame 1, wholly dominated by initial entity/asset setup, not an active-play GC
+pause. The audio queue stayed bounded at eight buffers;
+three startup underruns remained in this automated window/device run.
+
+The optimized pending-audio microbenchmark mixes 327,680 output frames with 128
+scheduled sounds in 16.89 ms median, down from 229.36 ms (13.6x, -92.6%). The
+queue uses an ordered head instead of scanning every pending entry for every
+sample; fixed-point mixing and reusable output/autosound storage remove adjacent
+hot-loop allocation.
+
+The long-running retail session gate completed 100,000 `base1` frames in
+459,794.86 ms (217.49 unpaced simulation frames/s): 212,822 packets sent and
+received, zero rejects, zero pending sounds, zero queued map changes, an empty
+command buffer and a clean process exit. Additional retail results:
+
+- 47-map spawn pass: 36,404 raw entities, 20,935 live, zero skipped, maximum
+  883 live entities on `space`;
+- 47-map retained BSP/collision window and the complete 39-map product graph;
+- 39 consecutive Protocol-34 retail map sessions without a masked sign-on
+  error;
+- 600-frame menu-first product and 1280x720 fullscreen video restart with
+  identical 68-surface visibility before/after restart;
+- 600 real movement/weapon snapshots, 1,342 packets and zero rejects;
+- live Blaster chain with nine projectiles linked/freed and visibility at
+  server export, snapshot, renderer and particle stages (1,183 particles max).
+
+Retail-scale native test executables are now compiled with the same 2-GiB
+virtual reserve and 1,536-MiB collection horizon as the product. The earlier
+256-MiB test-only reserve could not retain four expanded BSP/collision graphs;
+with the product contract both 39/47-map retention gates pass.

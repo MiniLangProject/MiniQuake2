@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock g_cmds.c player weapon-selection commands. */
 package miniquake2.game.player.commands
 

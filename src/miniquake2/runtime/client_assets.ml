@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-facing function-value handoff for renderer and mixer resources. */
 package miniquake2.runtime.client_assets
 

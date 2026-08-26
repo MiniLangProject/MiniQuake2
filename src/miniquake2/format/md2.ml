@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II MD2 (IDP2, version 8) loader. */
 package miniquake2.format.md2
 

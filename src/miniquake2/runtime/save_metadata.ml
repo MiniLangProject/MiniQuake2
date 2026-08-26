@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Durable classic save-slot presentation metadata. */
 package miniquake2.runtime.save_metadata
 

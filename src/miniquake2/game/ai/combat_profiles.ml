@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Data-driven Classic 3.19 attack families for every active stock monster. */
 package miniquake2.game.ai.combat_profiles
 

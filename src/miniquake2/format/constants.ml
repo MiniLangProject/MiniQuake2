@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II 3.19 on-disk format constants from qcommon/qfiles.h. */
 package miniquake2.format.constants
 

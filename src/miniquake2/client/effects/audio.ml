@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-neutral sound handoff. Host code may resolve to audio.mixer sounds. */
 package miniquake2.client.effects.audio
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Safe Quake II statusbar/layout string interpreter and renderer handoff. */
 package miniquake2.client.layout
 
@@ -77,12 +81,14 @@ function fixedPlayerName(name)
   return output
 end function
 
-function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHeight,
-    serverFrame, playerNumber)
-  // Flash fields and client blocks can emit multiple draws. A two-command per
-  // token upper bound keeps the per-frame HUD pass linear; `commands +
-  // [value]` used to copy the complete prefix for every emitted element.
-  commands = array(len(tokens) * 2)
+function parseTokensContextInto(commands, tokens, stats, configStrings,
+    screenWidth, screenHeight, serverFrame, playerNumber)
+  // Flash fields and client blocks can emit multiple draws. Callers provide a
+  // reusable two-commands-per-token work buffer so the live HUD does not
+  // allocate and compact two arrays on every rendered frame.
+  if typeof(commands) != "array" or len(commands) < len(tokens) * 2 then
+    return error(7759, "layout command work buffer is too small")
+  end if
   commandCount = 0
   x = 0
   y = 0
@@ -205,6 +211,14 @@ function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHei
     end if
   end while
   if ifDepth != 0 then return error(7757, "layout if without endif") end if
+  return commandCount
+end function
+
+function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHeight,
+    serverFrame, playerNumber)
+  commands = array(len(tokens) * 2)
+  commandCount = parseTokensContextInto(commands, tokens, stats, configStrings,
+    screenWidth, screenHeight, serverFrame, playerNumber)
   if commandCount == 0 then return [] end if
   if commandCount == len(commands) then return commands end if
   // Do not expose a slice backed by the larger void-filled work array. The
@@ -267,7 +281,13 @@ function drawNumber(exports, x, y, value, width, color)
 end function
 
 function draw(commands, exports)
-  for each command in commands
+  return drawCount(commands, len(commands), exports)
+end function
+
+function drawCount(commands, commandCount, exports)
+  index = 0
+  while index < commandCount
+    command = commands[index]
     if command.operation == "pic" then exports.DrawPic(command.x, command.y, command.text)
     else if command.operation == "string" then drawText(exports, command.x, command.y, command.text, command.style)
     else if command.operation == "center" then
@@ -276,6 +296,7 @@ function draw(commands, exports)
     else if command.operation == "num" then
       drawNumber(exports, command.x, command.y, command.value, command.width, command.style)
     end if
-  end for
-  return len(commands)
+    index = index + 1
+  end while
+  return commandCount
 end function

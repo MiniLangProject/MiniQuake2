@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* SelectSpawnPoint semantics for single-player, cooperative and deathmatch. */
 package miniquake2.game.player.spawn
 

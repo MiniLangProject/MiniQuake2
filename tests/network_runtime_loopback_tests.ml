@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real nonblocking UDP loopback handshake through Protocol 34 and Netchan. */
 import miniquake2.platform.system as psystem
 import miniquake2.platform.udp as pudp

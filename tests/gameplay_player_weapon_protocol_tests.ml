@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Player muzzle, impact, trail and explosion GameImport protocol handoff. */
 import miniquake2.game.null_game as weaponprotocolgame
 import miniquake2.game.integration.baseq2 as weaponprotocolintegration

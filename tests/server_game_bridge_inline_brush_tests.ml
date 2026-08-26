@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Inline BSP setmodel bounds and dynamic brush trace regression. */
 import miniquake2.server.game_bridge as inbridge
 import miniquake2.game.null_game as ingameapi
@@ -180,11 +184,24 @@ inlineAssert(visibilityBrush.areaNumber == 1 and visibilityBrush.areaNumber2 == 
 visibilityViewer = ingametypes.zeroEdict(1)
 visibilityViewer.inUse = true
 visibilityViewer.state.origin = inqtypes.Vec3(10.0, 0.0, 0.0)
+visibilityViewer.client = ingametypes.zeroGameClient()
+visibilityViewer.client.playerState.viewOffset = inqtypes.Vec3(1.0, 2.0, 22.0)
+visibilityViewOrigin = inserversession.clientViewOrigin(visibilityViewer)
+inlineAssert(visibilityViewOrigin.x == 11.0 and visibilityViewOrigin.y == 2.0 and
+  visibilityViewOrigin.z == 22.0,
+  "snapshot visibility did not use the rendered eye origin")
 visibilitySession = inserversession.ServerSession(void, void, void, void, void,
   runtime.collision, "inline-fixture", "", 0, 0, 0, 0, void, "", false, false)
 inlineAssert(inserversession.entityVisibleFromLeaf(visibilitySession,
   visibilityViewer, 0, visibilityBrush),
   "snapshot PVS rejected door whose bounds touch the viewer cluster")
+visibilityOwnedProjectile = ingametypes.zeroEdict(78)
+visibilityOwnedProjectile.inUse = true
+visibilityOwnedProjectile.owner = visibilityViewer
+visibilityOwnedProjectile.numClusters = 0
+inlineAssert(inserversession.entityVisibleFromLeaf(visibilitySession,
+  visibilityViewer, 0, visibilityOwnedProjectile),
+  "snapshot PVS rejected the viewer's own projectile")
 visibilityProtocolState = inserversession.protocolEntity(visibilityBrush.state)
 inlineAssert(visibilityProtocolState.modelIndex == visibilityBrush.state.modelIndex and
   visibilityProtocolState.solid == 31 and visibilityProtocolState.origin[0] == -0.5,

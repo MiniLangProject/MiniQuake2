@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Installable bridge from effect SoundEvents to the existing audio mixer. */
 package miniquake2.client.effects.mixer_adapter
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake-II S_Update dynamic one-shot spatialization parity. */
 import miniquake2.qcommon.types as castqtypes
 import miniquake2.audio.wav as castwav

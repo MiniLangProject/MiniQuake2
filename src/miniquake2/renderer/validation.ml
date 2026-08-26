@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Renderer API v3 contract validation independent of any graphics backend. */
 package miniquake2.renderer.validation
 

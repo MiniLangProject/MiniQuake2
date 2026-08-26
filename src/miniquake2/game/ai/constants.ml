@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BaseQ2 AI constants from g_local.h. */
 package miniquake2.game.ai.constants
 

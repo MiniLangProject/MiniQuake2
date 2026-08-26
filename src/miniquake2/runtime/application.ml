@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Retail-data validation and one-frame dedicated runtime bootstrap. */
 package miniquake2.runtime.application
 
@@ -11,6 +15,7 @@ import miniquake2.audio.device as appaudiodevice
 import miniquake2.audio.mixer as appaudiomixer
 import miniquake2.collision.model as appcollision
 import miniquake2.game.null_game as appgame
+import miniquake2.game.integration.baseq2 as appbaseq2
 import miniquake2.game.constants as appgameconstants
 import miniquake2.server.game_bridge as appbridge
 import miniquake2.game.base.spawn as appspawn
@@ -39,6 +44,7 @@ import miniquake2.client.prediction as appprediction
 import miniquake2.client.effects.handoff as appeffecthandoff
 import miniquake2.client.effects.entity as appentityeffects
 import miniquake2.client.effects.state as appeffectstate
+import miniquake2.client.effects.constants as appeffectconstants
 import miniquake2.client.cinematic.audio as appcinaudio
 import miniquake2.client.cinematic.player as appcinplayer
 import miniquake2.client.cinematic.picture as appcinpicture
@@ -95,6 +101,16 @@ applicationRemoteRegistrationMap = void
 applicationRemoteRegistrationCollision = void
 applicationRemoteRegistrationMapPath = ""
 applicationRemoteRegistrationAssets = void
+applicationAutomatedProjectileAttack = false
+applicationProjectileSnapshotMaximum = 0
+applicationProjectileRenderMaximum = 0
+applicationProjectileParticleMaximum = 0
+applicationProjectileServerMaximum = 0
+applicationProjectileAttackCommands = 0
+applicationProjectileExportMaximum = 0
+applicationProjectileVisibleMaximum = 0
+applicationProjectileVisibilityDiagnostic = "unavailable"
+applicationProjectileLastEngineNumber = -1
 
 function loadPreviewFile(path)
   global previewFileSystem
@@ -223,7 +239,7 @@ end function
 function resolvePlayEntityPosition(number)
   global playClientRuntime
   if playClientRuntime is void or playClientRuntime.current is void then return void end if
-  entity = appclientstate.findEntity(playClientRuntime.current.entities, number)
+  entity = appclientstate.currentEntity(playClientRuntime, number)
   if entity is void then return void end if
   return appqtypes.vec3(entity.origin[0], entity.origin[1], entity.origin[2])
 end function
@@ -231,8 +247,13 @@ end function
 function pumpPlayAudio(device, mixer)
   if device is void or mixer is void then return 0 end if
   submitted = 0
-  while appaudiodevice.queued(device) < 3 and submitted < 3
-    samples = appaudiomixer.mix(mixer, 1024)
+  // Reusable 1,024-frame blocks halve interpreted mixer dispatch overhead.
+  // Eight queued blocks retain roughly 186 ms of audio at 44.1 kHz, enough to
+  // absorb the measured full-graph GC tail that exhausted the former 70-116
+  // ms horizons. audioQueued reaps completed headers before each refill, so a
+  // finished ring slot is available even while the other seven remain queued.
+  while appaudiodevice.queued(device) < 8 and submitted < 8
+    samples = appaudiomixer.mixReusable(mixer, 1024)
     if appaudiodevice.submit(device, samples) == 0 then return submitted end if
     submitted = submitted + 1
   end while
@@ -1120,6 +1141,9 @@ function previewMap(baseDirectory, mapName, frameLimit)
     if frameMsec < 1 then frameMsec = 1 end if
     if frameMsec > 200 then frameMsec = 200 end if
     appuicontroller.poll(input, screen, started)
+    if applicationAutomatedProjectileAttack then
+      appuikeys.setAction(input, "attack", frames >= 16 and frames < frameLimit - 16)
+    end if
     command = appuiinput.createUserCmd(input, frameMsec)
     appcamera.applyUserCmd(camera, command, input.viewAngles, frameMsec)
     frame = apprtypes.defaultRefDef(window.width, window.height)
@@ -1260,6 +1284,9 @@ function updateProductBrowserMenu(menu, browser)
   return applicationProductBrowserCount
 end function
 
+// Own the menu-only product state until one typed transition is selected.
+// Config, preferences, audio and renderer resources are finalized here so a
+// subsequent local/remote session starts without retaining menu temporaries.
 function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     initialProfile)
   global previewFileSystem
@@ -1436,16 +1463,29 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
       updateProductBrowserMenu(applicationProductScreen.menu,
         applicationProductBrowser)
     end if
-    if appuicommands.takeConfigDirty(applicationProductCommands) then
+    // A key captured by the controls menu mutates InputState directly instead
+    // of going through the command-state dirty flag.  Persist it before the
+    // menu loop hands off to a freshly constructed local/remote game input.
+    applicationProductConfigChanged = appuicommands.takeConfigDirty(
+      applicationProductCommands) or
+      applicationProductInput.capturedKey >= 0
+    if applicationProductConfigChanged then
       applicationProductConfigSave = try(appuiconfig.saveProductConfig(
         applicationProductConfigPath, appuiconfig.captureProductConfig(
           applicationProductInput, applicationProductCommands,
           applicationProductMixer, applicationProductScreen)))
+      applicationProductInput.capturedKey = -1
     end if
     applicationProductRenderer.exports.BeginFrame(0.0)
-    appuimenu.draw(applicationProductScreen.menu, applicationProductWindow.width,
-      applicationProductWindow.height, applicationProductNow,
-      applicationProductRenderer.exports)
+    if applicationProductInput.destination == appuiconstants.KEY_CONSOLE then
+      appuiconsole.draw(applicationProductScreen.console,
+        applicationProductWindow.width, applicationProductWindow.height,
+        applicationProductRenderer.exports)
+    else
+      appuimenu.draw(applicationProductScreen.menu,
+        applicationProductWindow.width, applicationProductWindow.height,
+        applicationProductNow, applicationProductRenderer.exports)
+    end if
     applicationProductRenderer.exports.EndFrame()
     pumpPlayAudio(applicationProductDevice, applicationProductMixer)
     applicationProductFrames = applicationProductFrames + 1
@@ -1476,9 +1516,18 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     applicationProductFrames)
 end function
 
+// Construct and drive one authoritative local/listen session inside an
+// existing product host. Loading, signon and renderer warm-up finish before
+// audio starts; every exit path returns a complete transition/diagnostic value.
 function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
     productHost, skill, menuAtStart, serverOptions, playerProfile)
   global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
+  global applicationProjectileAttackCommands, applicationProjectileServerMaximum
+  global applicationProjectileExportMaximum, applicationProjectileVisibleMaximum
+  global applicationProjectileVisibilityDiagnostic
+  global applicationProjectileLastEngineNumber
+  global applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum
+  global applicationProjectileParticleMaximum
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
   previewFileSystem = filesystem
@@ -1493,6 +1542,9 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   applicationMapBytes = appfs.readFile(filesystem, path)
   map = appbsp.parse(applicationMapBytes, path)
   collision = appcollision.create(map)
+  // Reuse parser/collision construction temporaries in the following server
+  // and renderer phases instead of carrying their high-water mark forward.
+  gc_collect()
   applicationInitialUserInfo = playProfileUserInfo(playerProfile)
   session = void
   if serverOptions is void then
@@ -1517,7 +1569,11 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     session = appplay.wrap(applicationConfiguredServer, applicationInitialUserInfo)
   end if
   appsession.setMapChecksum(session.server, applicationMapBytes)
+  applicationMapBytes = void
   appplay.runUntilActive(session, 256)
+  // Signon builds and discards several full snapshots/configstring messages.
+  // Collect them before allocating the equally large render world.
+  gc_collect()
 
   appgl.adoptClassicMapModel(renderer, map, path)
   world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
@@ -1529,6 +1585,54 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     session.client.integrated.network.configStrings, applicationCurrentMapName)
   playAssetBindings = appclientassets.bindings(assetState)
   renderer.exports.EndRegistration()
+
+  // Exercise the exact visible start frame while loading. Besides textures,
+  // the native alias path creates frame-pair/interpolation geometry caches on
+  // first use; leaving that work lazy produced a reproducible 200-300-ms
+  // RenderFrame stall on gameplay frame one.
+  applicationWarmBucket = 0
+  while applicationWarmBucket <= 8
+    applicationWarmFraction = applicationWarmBucket / 8.0
+    applicationWarmFrame = appclientstate.buildPredictedRefDef(
+      session.client.integrated.client, applicationWarmFraction,
+      window.width, window.height, playAssetBindings,
+      session.client.integrated.network.playerNumber + 1,
+      randomPlayClientEffect)
+    applicationWarmEffectNow = appbyteio.truncInt(
+      appsystem.milliseconds(session.client.clock))
+    appentityeffects.emit(session.client.integrated.effects,
+      session.client.integrated.client.current,
+      session.client.integrated.client.previous, applicationWarmFraction,
+      applicationWarmEffectNow,
+      session.client.integrated.network.playerNumber + 1,
+      applicationWarmFrame)
+    appeffecthandoff.applyPrepared(session.client.integrated.effects,
+      applicationWarmFrame, applicationWarmEffectNow,
+      resolvePlayEffectModel)
+    renderer.exports.BeginFrame(0.0)
+    applicationWarmWorldStats = appgl.submitClassicWorld(renderer, world,
+      applicationWarmFrame)
+    renderer.exports.RenderFrame(applicationWarmFrame)
+    renderer.exports.EndFrame()
+    // Present the warm frames at the same cadence as gameplay so DWM creates
+    // and drains its swapchain before the measured/audio-active loop starts.
+    appsystem.sleep(8)
+    applicationWarmBucket = applicationWarmBucket + 1
+  end while
+  // EndFrame flushes asynchronously. Wait here, still under the loading
+  // screen, so the driver cannot defer the warm-up command queue to a later
+  // gameplay swap and turn it into a presentation hitch.
+  appnative.glFinish()
+  applicationWarmFrame = void
+  applicationWarmWorldStats = void
+
+  // BSP parsing, collision construction and renderer registration create a
+  // large amount of short-lived conversion data. Reclaim it while the loading
+  // screen is still visible and before the audio device starts. Otherwise the
+  // first automatic full-graph collection lands in active gameplay and causes
+  // a simultaneous video and sound hitch even though the steady-state frame
+  // loop is fast.
+  gc_collect()
 
   audioMixer = appaudiomixer.create(44100)
   appaudiomixer.setMasterVolume(audioMixer, 0.7)
@@ -1664,6 +1768,26 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   applicationPerfPresent = 0
   applicationPerfAudio = 0
   applicationPerfFrame = 0
+  applicationMaximumFrameMsec = 0.0
+  applicationMaximumFrameIndex = -1
+  applicationMaximumInputMsec = 0.0
+  applicationMaximumClientMsec = 0.0
+  applicationMaximumWorldMsec = 0.0
+  applicationMaximumEntitiesMsec = 0.0
+  applicationMaximumHudMsec = 0.0
+  applicationMaximumPresentMsec = 0.0
+  applicationMaximumAudioMsec = 0.0
+  applicationFirstAudioUnderrunFrame = -1
+  applicationObservedAudioUnderruns = 0
+  applicationHeapLast = heap_bytes_used()
+  applicationHeapMaximum = applicationHeapLast
+  applicationHeapCollections = 0
+  applicationHeapInputGrowth = 0
+  applicationHeapClientGrowth = 0
+  applicationHeapWorldGrowth = 0
+  applicationHeapEntitiesGrowth = 0
+  applicationHeapHudGrowth = 0
+  applicationHeapAudioGrowth = 0
   appwindow.setTitle(window, "MiniQuake2 - " + applicationCurrentMapName +
     " - FPS --")
   latest = void
@@ -1676,9 +1800,15 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       applicationPendingMediaSpecification == "" and
       appwindow.poll(window)
     started = appsystem.milliseconds(clock)
+    applicationHeapFrameStart = heap_bytes_used()
     appclientstate.setPredictionRealTime(session.client.integrated.client,
       started)
     appuicontroller.poll(input, screen, started)
+    // Product-only acceptance hook: drive the same bound action that a real
+    // mouse button uses, before sampling view/buttons into the network cmd.
+    if applicationAutomatedProjectileAttack then
+      appuikeys.setAction(input, "attack", frames >= 16 and frames < frameLimit - 16)
+    end if
     applicationInputMsec = started - inputTime
     inputTime = started
     if applicationInputMsec < 1 then applicationInputMsec = 1 end if
@@ -1879,9 +2009,109 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       if networkMsec > 200 then networkMsec = 200 end if
       command = appuiinput.createSampledUserCmd(input,
         appbyteio.truncInt(networkMsec))
+      if applicationAutomatedProjectileAttack and
+          (command.buttons & appuiconstants.BUTTON_ATTACK) != 0 then
+        applicationProjectileAttackCommands = applicationProjectileAttackCommands + 1
+      end if
       appplay.predictLocal(session, command)
       appplay.setUserCmd(session, command)
       stepResult = appplay.step(session)
+      if applicationAutomatedProjectileAttack then
+        applicationProjectileRuntime = appgame.baseRuntime()
+        applicationProjectileServerCount = len(applicationProjectileRuntime.weaponContext.projectiles)
+        if applicationProjectileServerCount > applicationProjectileServerMaximum then
+          applicationProjectileServerMaximum = applicationProjectileServerCount
+        end if
+        applicationProjectileExportCount = 0
+        for each applicationServerProjectile in applicationProjectileRuntime.weaponContext.projectiles
+          applicationProjectileEngineNumber = applicationServerProjectile.engineNumber
+          if applicationServerProjectile.inUse and applicationProjectileEngineNumber > 0 and
+              applicationProjectileEngineNumber < session.server.gameExport.numEdicts then
+            applicationProjectileLastEngineNumber = applicationProjectileEngineNumber
+            applicationProjectileEdict = session.server.gameExport.edicts[
+              applicationProjectileEngineNumber]
+            if applicationProjectileEdict.inUse and
+                (applicationProjectileEdict.state.effects &
+                 (appeffectconstants.EF_BLASTER |
+                  appeffectconstants.EF_HYPERBLASTER)) != 0 then
+              applicationProjectileExportCount = applicationProjectileExportCount + 1
+              applicationProjectileViewerEdict = session.server.gameExport.edicts[1]
+              applicationProjectileViewerLeafNumber = appcollision.pointLeafNumber(
+                session.server.collision,
+                appsession.clientViewOrigin(applicationProjectileViewerEdict), 0)
+              applicationProjectileViewerLeaf = session.server.collision.map.leafs[
+                applicationProjectileViewerLeafNumber]
+              applicationProjectileFirstCluster = -1
+              if applicationProjectileEdict.numClusters > 0 then
+                applicationProjectileFirstCluster = applicationProjectileEdict.clusterNumbers[0]
+              end if
+              applicationProjectileAreasConnected = true
+              if applicationProjectileEdict.areaNumber != 0 then
+                applicationProjectileAreasConnected = appcollision.areasConnected(
+                  session.server.collision, applicationProjectileViewerLeaf.area,
+                  applicationProjectileEdict.areaNumber)
+              end if
+              applicationProjectileOwnerNumber = -1
+              if applicationProjectileEdict.owner is not void then
+                applicationProjectileOwnerNumber = applicationProjectileEdict.owner.state.number
+              end if
+              applicationProjectileVisibilityDiagnostic = "entity=" +
+                applicationProjectileEngineNumber + " viewer-leaf=" +
+                applicationProjectileViewerLeafNumber + " viewer-area=" +
+                applicationProjectileViewerLeaf.area + " viewer-cluster=" +
+                applicationProjectileViewerLeaf.cluster + " entity-area=" +
+                applicationProjectileEdict.areaNumber + " entity-area2=" +
+                applicationProjectileEdict.areaNumber2 + " clusters=" +
+                applicationProjectileEdict.numClusters + " first-cluster=" +
+                applicationProjectileFirstCluster + " areas-connected=" +
+                applicationProjectileAreasConnected + " owner=" +
+                applicationProjectileOwnerNumber + " viewer-origin=" +
+                applicationProjectileViewerEdict.state.origin.x + "," +
+                applicationProjectileViewerEdict.state.origin.y + "," +
+                applicationProjectileViewerEdict.state.origin.z +
+                " projectile-origin=" + applicationProjectileEdict.state.origin.x +
+                "," + applicationProjectileEdict.state.origin.y + "," +
+                applicationProjectileEdict.state.origin.z + " velocity=" +
+                applicationServerProjectile.velocity.x + "," +
+                applicationServerProjectile.velocity.y + "," +
+                applicationServerProjectile.velocity.z
+            end if
+          end if
+        end for
+        if applicationProjectileExportCount > applicationProjectileExportMaximum then
+          applicationProjectileExportMaximum = applicationProjectileExportCount
+        end if
+        applicationProjectileViewer = session.server.gameExport.edicts[1]
+        applicationProjectileVisibleStates = appsession.packetEntitiesForClient(
+          session.server, applicationProjectileViewer)
+        applicationProjectileVisibleCount = 0
+        for each applicationProjectileVisibleState in applicationProjectileVisibleStates
+          if applicationProjectileVisibleState.number ==
+              applicationProjectileLastEngineNumber or
+              (applicationProjectileVisibleState.effects &
+              (appeffectconstants.EF_BLASTER |
+               appeffectconstants.EF_HYPERBLASTER)) != 0 then
+            applicationProjectileVisibleCount = applicationProjectileVisibleCount + 1
+          end if
+        end for
+        if applicationProjectileLastEngineNumber > 0 and
+            applicationProjectileLastEngineNumber < session.server.gameExport.numEdicts then
+          applicationProjectilePublishedEdict = session.server.gameExport.edicts[
+            applicationProjectileLastEngineNumber]
+          applicationProjectileDirectVisible = appsession.entityVisible(session.server,
+            applicationProjectileViewer, applicationProjectilePublishedEdict)
+          applicationProjectileVisibilityDiagnostic = applicationProjectileVisibilityDiagnostic + " export-number=" +
+            applicationProjectilePublishedEdict.state.number + " server-flags=" +
+            applicationProjectilePublishedEdict.serverFlags + " model=" +
+            applicationProjectilePublishedEdict.state.modelIndex + " effects=" +
+            applicationProjectilePublishedEdict.state.effects + " visible-states=" +
+            len(applicationProjectileVisibleStates) + " direct-visible=" +
+            applicationProjectileDirectVisible
+        end if
+        if applicationProjectileVisibleCount > applicationProjectileVisibleMaximum then
+          applicationProjectileVisibleMaximum = applicationProjectileVisibleCount
+        end if
+      end if
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
       appclientassets.refreshConfigStrings(assetState,
@@ -1911,6 +2141,11 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     end if
 
     applicationPerfStart = appsystem.milliseconds(clock)
+    applicationHeapAfterInput = heap_bytes_used()
+    if applicationHeapAfterInput > applicationHeapFrameStart then
+      applicationHeapInputGrowth = applicationHeapInputGrowth +
+        applicationHeapAfterInput - applicationHeapFrameStart
+    end if
     fraction = (started - networkTime) / 100.0
     if fraction < 0.0 then fraction = 0.0 end if
     if fraction > 1.0 then fraction = 1.0 end if
@@ -1945,19 +2180,62 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       session.client.integrated.network.playerNumber + 1, frame)
     appeffecthandoff.applyPrepared(session.client.integrated.effects, frame,
       effectNow, resolvePlayEffectModel)
+    if applicationAutomatedProjectileAttack then
+      applicationProjectileSnapshots = 0
+      for each applicationProjectileState in session.client.integrated.client.current.entities
+        if applicationProjectileState.number == applicationProjectileLastEngineNumber or
+            (applicationProjectileState.effects &
+            (appeffectconstants.EF_BLASTER |
+             appeffectconstants.EF_HYPERBLASTER)) != 0 then
+          applicationProjectileSnapshots = applicationProjectileSnapshots + 1
+        end if
+      end for
+      if applicationProjectileSnapshots > applicationProjectileSnapshotMaximum then
+        applicationProjectileSnapshotMaximum = applicationProjectileSnapshots
+      end if
+      applicationProjectileRenders = 0
+      for each applicationProjectileEntity in frame.entities
+        if applicationProjectileEntity.model is not void and
+            applicationProjectileEntity.model.name ==
+              "models/objects/laser/tris.md2" then
+          applicationProjectileRenders = applicationProjectileRenders + 1
+        end if
+      end for
+      if applicationProjectileRenders > applicationProjectileRenderMaximum then
+        applicationProjectileRenderMaximum = applicationProjectileRenders
+      end if
+      if frame.numParticles > applicationProjectileParticleMaximum then
+        applicationProjectileParticleMaximum = frame.numParticles
+      end if
+    end if
     applicationPerfWorldStart = appsystem.milliseconds(clock)
     applicationPerfClient = applicationPerfClient +
       applicationPerfWorldStart - applicationPerfStart
+    applicationHeapAfterClient = heap_bytes_used()
+    if applicationHeapAfterClient > applicationHeapAfterInput then
+      applicationHeapClientGrowth = applicationHeapClientGrowth +
+        applicationHeapAfterClient - applicationHeapAfterInput
+    end if
     renderer.exports.BeginFrame(0.0)
     lastWorldStats = appgl.submitClassicWorld(renderer, world, frame)
     applicationPerfEntityStart = appsystem.milliseconds(clock)
     applicationPerfWorld = applicationPerfWorld +
       applicationPerfEntityStart - applicationPerfWorldStart
+    applicationHeapAfterWorld = heap_bytes_used()
+    if applicationHeapAfterWorld > applicationHeapAfterClient then
+      applicationHeapWorldGrowth = applicationHeapWorldGrowth +
+        applicationHeapAfterWorld - applicationHeapAfterClient
+    end if
     renderer.exports.RenderFrame(frame)
     input.lightLevel = appgl.lightLevel(renderer)
     applicationPerfHudStart = appsystem.milliseconds(clock)
     applicationPerfEntities = applicationPerfEntities +
       applicationPerfHudStart - applicationPerfEntityStart
+    applicationHeapAfterEntities = heap_bytes_used()
+    if applicationHeapAfterEntities > applicationHeapAfterWorld then
+      applicationHeapEntitiesGrowth = applicationHeapEntitiesGrowth +
+        applicationHeapAfterEntities - applicationHeapAfterWorld
+    end if
     appuiscreen.draw(screen, started, window.width, window.height,
       session.client.integrated.client.current.playerState.stats,
       session.client.integrated.network.configStrings,
@@ -2010,14 +2288,34 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     end if
     applicationPerfHud = applicationPerfHud +
       appsystem.milliseconds(clock) - applicationPerfHudStart
+    applicationHeapAfterHud = heap_bytes_used()
+    if applicationHeapAfterHud > applicationHeapAfterEntities then
+      applicationHeapHudGrowth = applicationHeapHudGrowth +
+        applicationHeapAfterHud - applicationHeapAfterEntities
+    end if
     applicationPerfPresentStart = appsystem.milliseconds(clock)
     renderer.exports.EndFrame()
     applicationPerfAudioStart = appsystem.milliseconds(clock)
     applicationPerfPresent = applicationPerfPresent +
       applicationPerfAudioStart - applicationPerfPresentStart
-    pumpPlayAudio(audioDevice, audioMixer)
+    // The first few frames can still create one-off HUD/effect resources.
+    // Start the queue after that warm-up so playback begins continuously;
+    // pending sounds retain their mixer timestamps and are not discarded.
+    if frames >= 4 then pumpPlayAudio(audioDevice, audioMixer) end if
+    if audioDevice is not void then
+      applicationObservedAudioUnderruns = appaudiodevice.underruns(audioDevice)
+      if applicationObservedAudioUnderruns > 0 and
+          applicationFirstAudioUnderrunFrame < 0 then
+        applicationFirstAudioUnderrunFrame = frames
+      end if
+    end if
     applicationPerfAudio = applicationPerfAudio +
       appsystem.milliseconds(clock) - applicationPerfAudioStart
+    applicationHeapAfterAudio = heap_bytes_used()
+    if applicationHeapAfterAudio > applicationHeapAfterHud then
+      applicationHeapAudioGrowth = applicationHeapAudioGrowth +
+        applicationHeapAfterAudio - applicationHeapAfterHud
+    end if
     frames = frames + 1
     applicationFpsFrameCount = applicationFpsFrameCount + 1
     applicationFpsNow = appsystem.milliseconds(clock)
@@ -2031,18 +2329,51 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       applicationFpsFrameCount = 0
     end if
     elapsed = appsystem.milliseconds(clock) - started
+    if elapsed > applicationMaximumFrameMsec then
+      applicationMaximumFrameMsec = elapsed
+      applicationMaximumFrameIndex = frames - 1
+      applicationMaximumInputMsec = applicationPerfStart - started
+      applicationMaximumClientMsec = applicationPerfWorldStart - applicationPerfStart
+      applicationMaximumWorldMsec = applicationPerfEntityStart - applicationPerfWorldStart
+      applicationMaximumEntitiesMsec = applicationPerfHudStart - applicationPerfEntityStart
+      applicationMaximumHudMsec = applicationPerfPresentStart - applicationPerfHudStart
+      applicationMaximumPresentMsec = applicationPerfAudioStart - applicationPerfPresentStart
+      applicationMaximumAudioMsec = applicationFpsNow - applicationPerfAudioStart
+    end if
     applicationPerfFrame = applicationPerfFrame + elapsed
+    applicationHeapNow = heap_bytes_used()
+    if applicationHeapNow < applicationHeapLast then
+      applicationHeapCollections = applicationHeapCollections + 1
+    end if
+    if applicationHeapNow > applicationHeapMaximum then
+      applicationHeapMaximum = applicationHeapNow
+    end if
+    applicationHeapLast = applicationHeapNow
     // Win32 Sleep(1..7) can round up to a full scheduler tick when no
-    // high-resolution timer period is active. That turned an intended
-    // 125-fps ceiling into roughly 50 fps on otherwise fast frames. Yield
-    // without adding a coarse delay; the 10-Hz game/network cadence remains
-    // governed by networkTime above.
-    if elapsed < 8 then appsystem.sleep(0) end if
+    // high-resolution timer period is active. A single Sleep(0), however,
+    // left the loop effectively uncapped and filled the compositor swapchain,
+    // producing a large block every few hundred frames. Yield repeatedly
+    // against the QPC-backed clock for a stable 125-Hz render cadence without
+    // coarse-timer oversleep; the 10-Hz game/network cadence remains separate.
+    applicationFrameDeadline = started + 8.0
+    while appsystem.milliseconds(clock) < applicationFrameDeadline
+      appsystem.sleep(0)
+    end while
   end while
 
   appwindow.setMouseCapture(false)
   applicationDemoShutdown = try(appdemorecording.shutdown(
     applicationDemoRecording))
+  applicationAudioSubmitted = 0
+  applicationAudioCompleted = 0
+  applicationAudioUnderruns = 0
+  applicationAudioCapacity = 0
+  if audioDevice is not void then
+    applicationAudioSubmitted = appaudiodevice.submitted(audioDevice)
+    applicationAudioCompleted = appaudiodevice.completed(audioDevice)
+    applicationAudioUnderruns = appaudiodevice.underruns(audioDevice)
+    applicationAudioCapacity = appaudiodevice.capacity(audioDevice)
+  end if
   closePlayAudio(audioDevice, audioMixer)
   appclientassets.releaseBindings()
   if world is not void then appgl.releaseClassicWorld(renderer, world) end if
@@ -2077,7 +2408,18 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     applicationPerfClient, applicationPerfWorld, applicationPerfEntities,
     applicationPerfHud, missingAssetSummary, applicationPerfPresent,
     applicationPerfAudio, applicationPerfFrame, applicationDisconnectRequested,
-    commandState.quitRequested]
+    commandState.quitRequested, applicationAudioSubmitted,
+    applicationAudioCompleted, applicationAudioUnderruns,
+    applicationAudioCapacity, applicationMaximumFrameMsec,
+    applicationFirstAudioUnderrunFrame, applicationHeapLast,
+    applicationHeapMaximum, applicationHeapCollections,
+    applicationMaximumFrameIndex, applicationMaximumInputMsec,
+    applicationMaximumClientMsec, applicationMaximumWorldMsec,
+    applicationMaximumEntitiesMsec, applicationMaximumHudMsec,
+    applicationMaximumPresentMsec, applicationMaximumAudioMsec,
+    applicationHeapInputGrowth, applicationHeapClientGrowth,
+    applicationHeapWorldGrowth, applicationHeapEntitiesGrowth,
+    applicationHeapHudGrowth, applicationHeapAudioGrowth]
 end function
 
 function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit,
@@ -2108,6 +2450,31 @@ end function
 
 function runPlay(baseDirectory, mapName, frameLimit)
   return runPlayAt(baseDirectory, mapName, "", frameLimit)
+end function
+
+function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
+  global applicationAutomatedProjectileAttack, applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum, applicationProjectileParticleMaximum, applicationProjectileServerMaximum, applicationProjectileAttackCommands, applicationProjectileExportMaximum, applicationProjectileVisibleMaximum, applicationProjectileVisibilityDiagnostic, applicationProjectileLastEngineNumber
+  if frameLimit < 240 then frameLimit = 240 end if
+  applicationProjectileSnapshotMaximum = 0
+  applicationProjectileRenderMaximum = 0
+  applicationProjectileParticleMaximum = 0
+  applicationProjectileServerMaximum = 0
+  applicationProjectileAttackCommands = 0
+  applicationProjectileExportMaximum = 0
+  applicationProjectileVisibleMaximum = 0
+  applicationProjectileVisibilityDiagnostic = "unavailable"
+  applicationProjectileLastEngineNumber = -1
+  applicationAutomatedProjectileAttack = true
+  applicationProjectileResult = try(runPlayAt(baseDirectory, mapName, "", frameLimit))
+  applicationAutomatedProjectileAttack = false
+  if applicationProjectileResult is error then return applicationProjectileResult end if
+  return [applicationProjectileResult, applicationProjectileAttackCommands,
+    appbaseq2.projectileLinkCount(), appbaseq2.projectileFreeCount(),
+    applicationProjectileServerMaximum, applicationProjectileExportMaximum,
+    applicationProjectileVisibleMaximum,
+    applicationProjectileSnapshotMaximum,
+    applicationProjectileRenderMaximum, applicationProjectileParticleMaximum,
+    applicationProjectileVisibilityDiagnostic]
 end function
 
 function remoteMapModelPath(session)
@@ -2178,6 +2545,9 @@ function applicationRegisterRemoteWorld()
   return true
 end function
 
+// Drive a remote Protocol-34 client with independent render, UserCmd and
+// snapshot clocks. Registration is committed only after downloads, checksum
+// validation and all client assets complete successfully.
 function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     playerProfile, downloadPolicy, frameLimit)
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
@@ -2272,9 +2642,12 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     playerProfile.name)
   applicationRemoteClock = appsystem.createClock()
   applicationRemoteNetworkTime = appsystem.milliseconds(applicationRemoteClock)
+  applicationRemoteCommandTime = applicationRemoteNetworkTime
+  applicationRemoteObservedFrame = -1
   applicationRemoteInputTime = applicationRemoteNetworkTime
   applicationRemoteFrames = 0
   applicationRemoteDisconnect = false
+  applicationRemoteFailure = void
   applicationRemoteBoundedComplete = false
   applicationRemoteViewInitialized = false
   applicationRemoteLastWorldStats = void
@@ -2315,11 +2688,15 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     else
       appaudiomixer.pauseMusic(applicationRemoteMixer)
     end if
-    if appuicommands.takeConfigDirty(applicationRemoteCommands) then
+    applicationRemoteConfigChanged = appuicommands.takeConfigDirty(
+      applicationRemoteCommands) or
+      applicationRemoteInput.capturedKey >= 0
+    if applicationRemoteConfigChanged then
       applicationRemoteConfigSave = try(appuiconfig.saveProductConfig(
         applicationRemoteConfigPath, appuiconfig.captureProductConfig(
           applicationRemoteInput, applicationRemoteCommands,
           applicationRemoteMixer, applicationRemoteScreen)))
+      applicationRemoteInput.capturedKey = -1
     end if
     if appuicommands.takePlayerDirty(applicationRemoteCommands) then
       applicationRemoteProfile = appuicommands.playerProfile(
@@ -2373,19 +2750,32 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       applicationRemoteCommands)
 
     applicationRemoteNetworkMsec = applicationRemoteStarted -
-      applicationRemoteNetworkTime
-    if applicationRemoteNetworkMsec >= 100 then
+      applicationRemoteCommandTime
+    applicationRemoteNetworkResult = void
+    if appclientsession.movementDue(applicationRemoteCommandTime,
+        applicationRemoteStarted) then
       if applicationRemoteNetworkMsec > 200 then applicationRemoteNetworkMsec = 200 end if
       applicationRemoteCommand = appuiinput.createSampledUserCmd(
         applicationRemoteInput, appbyteio.truncInt(applicationRemoteNetworkMsec))
       appclientsession.setUserCmd(applicationRemoteSession,
         applicationRemoteCommand)
-      applicationRemoteStep = try(appclientsession.step(
+      applicationRemoteNetworkResult = try(appclientsession.step(
         applicationRemoteSession))
-      applicationRemoteNetworkTime = applicationRemoteStarted
+      applicationRemoteCommandTime = applicationRemoteStarted
     else
-      applicationRemotePoll = try(appclientsession.poll(
+      applicationRemoteNetworkResult = try(appclientsession.poll(
         applicationRemoteSession))
+    end if
+    if applicationRemoteNetworkResult is error then
+      applicationRemoteFailure = applicationRemoteNetworkResult
+      applicationRemoteDisconnect = true
+      continue
+    end if
+    applicationRemoteReceivedFrame = applicationRemoteSession.integrated.client.current
+    if applicationRemoteReceivedFrame is not void and
+        applicationRemoteReceivedFrame.number != applicationRemoteObservedFrame then
+      applicationRemoteObservedFrame = applicationRemoteReceivedFrame.number
+      applicationRemoteNetworkTime = applicationRemoteStarted
     end if
     applicationRemoteHandoff = appruntimehandoff.takeLatest(
       applicationRemoteSession.integrated)
@@ -2413,7 +2803,8 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       appwindow.setTitle(applicationRemoteWindow,
         "MiniQuake2 - " + applicationRemoteMapPath + " - FPS --")
     end if
-    if applicationRemoteNextMapPath != "" and
+    if applicationRemoteDownloads.complete and
+        applicationRemoteNextMapPath != "" and
         applicationRemoteNextMapPath != applicationRemoteMapPath and
         appfs.fileExists(applicationRemoteFileSystem,
           applicationRemoteNextMapPath) then
@@ -2470,6 +2861,11 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       applicationRemotePredict = try(appclientsession.predictRemote(
         applicationRemoteSession, applicationRemotePreviewCommand,
         applicationRemoteCollision))
+      if applicationRemotePredict is error then
+        applicationRemoteFailure = applicationRemotePredict
+        applicationRemoteDisconnect = true
+        continue
+      end if
       applicationRemoteFraction = applicationRemotePredictionMsec / 100.0
       if applicationRemoteFraction > 1.0 then applicationRemoteFraction = 1.0 end if
       applicationRemoteFrame = appclientstate.buildPredictedRefDef(
@@ -2585,6 +2981,9 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
   applicationRemoteRegistrationCollision = void
   applicationRemoteRegistrationMapPath = ""
   applicationRemoteRegistrationAssets = void
+  if applicationRemoteFailure is not void then
+    return applicationRemoteFailure
+  end if
   return [applicationRemoteFrames, applicationRemoteDisconnect,
     applicationRemoteCommands.quitRequested, applicationRemoteMapPath]
 end function
@@ -2639,7 +3038,15 @@ function runProduct(baseDirectory, frameLimit)
         applicationPersistentHost, applicationPersistentProfile,
         applicationPersistentSelection.downloadPolicy, 0))
       if applicationPersistentConnect is error then
-        appproducthost.closeProductHost(applicationPersistentHost)
+        // A failure after BeginFrame must not be hidden by Shutdown's
+        // frame-open contract error.  Finish the incomplete presentation only
+        // for lifecycle unwinding, then preserve the original failure.
+        if applicationPersistentHost.renderer.state.core.state.frameOpen then
+          applicationPersistentConnectEndFrame = try(
+            applicationPersistentHost.renderer.exports.EndFrame())
+        end if
+        applicationPersistentConnectClose = try(
+          appproducthost.closeProductHost(applicationPersistentHost))
         return applicationPersistentConnect
       end if
       applicationPersistentRuns = applicationPersistentRuns + 1
@@ -2658,7 +3065,12 @@ function runProduct(baseDirectory, frameLimit)
       false, applicationPersistentServerOptions,
       applicationPersistentProfile))
     if applicationPersistentPlayResult is error then
-      appproducthost.closeProductHost(applicationPersistentHost)
+      if applicationPersistentHost.renderer.state.core.state.frameOpen then
+        applicationPersistentPlayEndFrame = try(
+          applicationPersistentHost.renderer.exports.EndFrame())
+      end if
+      applicationPersistentPlayClose = try(
+        appproducthost.closeProductHost(applicationPersistentHost))
       return applicationPersistentPlayResult
     end if
     applicationPersistentRuns = applicationPersistentRuns + 1

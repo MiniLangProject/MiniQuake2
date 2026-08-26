@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Map transition defers active downloads and preserves final-chunk ordering. */
 import miniquake2.protocol.constants as nrmd_pc
 import miniquake2.protocol.netchan as nrmd_netchan

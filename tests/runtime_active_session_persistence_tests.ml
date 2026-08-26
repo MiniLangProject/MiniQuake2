@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Active real-UDP PlaySession save/restore, atomic failure and map boundary. */
 import std.fs as savegatetestfs
 import miniquake2.network.constants as savegatetestnetworkconstants

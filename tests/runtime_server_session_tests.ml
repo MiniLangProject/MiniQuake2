@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free dedicated-session lifecycle over a real ephemeral UDP socket. */
 import miniquake2.runtime.server_session as tsession
 import miniquake2.qcommon.constants as tqc

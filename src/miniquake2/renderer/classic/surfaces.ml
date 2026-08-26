@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BSP38 face expansion and classic 16-unit lightmap extents. */
 package miniquake2.renderer.classic.surfaces
 

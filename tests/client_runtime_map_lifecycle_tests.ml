@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Client level reset, reconnect sequence generation and atomic malformed gates. */
 import miniquake2.qcommon.constants as crmap_qc
 import miniquake2.qcommon.message as crmap_qmsg

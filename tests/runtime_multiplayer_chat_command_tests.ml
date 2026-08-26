@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Original g_cmds.c global/team/fallback chat and flood protection over UDP. */
 import miniquake2.game.constants as mccgameconstants
 import miniquake2.game.null_game as mccgame

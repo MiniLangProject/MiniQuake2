@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free DM2 session timing, dispatch and malformed coverage. */
 import miniquake2.qcommon.constants as demosessiontestqc
 import miniquake2.qcommon.message as demosessiontestmessage

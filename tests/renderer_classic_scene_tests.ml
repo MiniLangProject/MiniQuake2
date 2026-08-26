@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Synthetic BSP/WAL/PCX material chains and sprite-frame preparation. */
 import miniquake2.format.constants as fc
 import miniquake2.format.types as ft

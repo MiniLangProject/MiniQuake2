@@ -1,4 +1,8 @@
 /*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
+/*
 Bidirectional external-wire harness.  The peer side constructs classic
 Protocol-34 bytes directly instead of calling MiniQuake2 connection/Netchan
 encoders, so transport-facing regressions cannot self-confirm through the same

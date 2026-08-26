@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II 3.19 SP_monster_* sound precache inventories. */
 package miniquake2.game.ai.sounds
 

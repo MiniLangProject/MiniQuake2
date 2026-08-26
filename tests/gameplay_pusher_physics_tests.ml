@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Transactional pusher, rider, rotation and team rollback scenarios. */
 import miniquake2.game.base.spawn as pushertestspawn
 import miniquake2.game.integration.baseq2 as pushertestintegration

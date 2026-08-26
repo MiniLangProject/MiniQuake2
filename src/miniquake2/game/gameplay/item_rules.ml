@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Item pickup, use, drop, ammo and deterministic respawn rules from g_items.c. */
 package miniquake2.game.gameplay.item_rules
 

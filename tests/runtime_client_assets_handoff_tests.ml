@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Renderer ResourceHandle and mixer Sound function-value handoff tests. */
 import miniquake2.qcommon.constants as rca_qc
 import miniquake2.qcommon.types as rca_qt
@@ -82,6 +86,10 @@ runtimeAssetAssert(len(loopMixer.channels) == 1 and
   loopMixer.channels[0].autoSound and
   loopMixer.channels[0].sound.name == "weapons/runtime.wav",
   "snapshot sound did not start autosound channel")
+loopChannelIdentity = nativeRawValue(loopMixer.channels[0])
+runtimeAssetAssert(rca_assets.syncEntityLoops(loopMixer, loopSnapshot) == 1 and
+  nativeRawValue(loopMixer.channels[0]) == loopChannelIdentity,
+  "unchanged autosound channel was reallocated")
 silentEntity = rca_protocol_types.zeroEntityState()
 silentEntity.number = 2
 silentSnapshot = rca_runtime_types.Snapshot(2, 1, 0, bytes([]), void,

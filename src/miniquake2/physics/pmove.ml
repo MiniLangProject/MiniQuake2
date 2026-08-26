@@ -44,7 +44,11 @@ end function
 
 function stepSlideMoveCore(pmove, localState)
   primalVelocity = phv.copy(localState.velocity)
-  planes = array(phc.MAX_CLIP_PLANES)
+  // One Pmove reuses its private plane slots for every slide attempt.  The
+  // original C client kept these five vectors on the stack; allocating the
+  // dynamic array and five managed Vec3 values for every render prediction is
+  // otherwise a dominant 125-Hz client allocation site.
+  planes = localState.clipPlanes
   numPlanes = 0
   timeLeft = localState.frameTime
   bumpCount = 0
@@ -71,7 +75,10 @@ function stepSlideMoveCore(pmove, localState)
       localState.velocity = qt.zeroVec3()
       break
     end if
-    planes[numPlanes] = phv.copy(movementTrace.plane.normal)
+    plane = planes[numPlanes]
+    plane.x = movementTrace.plane.normal.x
+    plane.y = movementTrace.plane.normal.y
+    plane.z = movementTrace.plane.normal.z
     numPlanes = numPlanes + 1
 
     planeIndex = 0
@@ -637,15 +644,23 @@ function clampAngles(pmove, localState)
   return true
 end function
 
-function moveWithAirAcceleration(pmove, airAcceleration)
+// The caller-supplied private state makes high-frequency client prediction
+// allocation-stable. Server/game callers retain the owning wrapper below.
+function moveWithAirAccelerationUsingLocal(pmove, airAcceleration, localState)
+  if typeof(localState) != "struct" or
+      typeof(localState.clipPlanes) != "array" or
+      len(localState.clipPlanes) < phc.MAX_CLIP_PLANES then
+    return error(2850, "pmove local scratch is malformed")
+  end if
   pmove.numTouch = 0
-  pmove.viewAngles = qt.zeroVec3()
+  pmove.viewAngles.x = 0.0
+  pmove.viewAngles.y = 0.0
+  pmove.viewAngles.z = 0.0
   pmove.viewHeight = 0.0
   pmove.groundEntity = void
   pmove.waterType = 0
   pmove.waterLevel = 0
 
-  localState = pht.createLocal()
   originX = signedShort(pmove.state.origin[0])
   originY = signedShort(pmove.state.origin[1])
   originZ = signedShort(pmove.state.origin[2])
@@ -717,6 +732,11 @@ function moveWithAirAcceleration(pmove, airAcceleration)
   categorizePosition(pmove, localState)
   snapPosition(pmove, localState)
   return pmove
+end function
+
+function moveWithAirAcceleration(pmove, airAcceleration)
+  return moveWithAirAccelerationUsingLocal(pmove, airAcceleration,
+    pht.createLocal())
 end function
 
 function move(pmove)

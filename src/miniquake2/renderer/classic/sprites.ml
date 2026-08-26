@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Camera-facing SP2 frame selection and quad preparation from R_DrawSpriteModel. */
 package miniquake2.renderer.classic.sprites
 

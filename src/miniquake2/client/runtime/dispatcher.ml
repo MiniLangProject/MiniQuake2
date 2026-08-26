@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict integrated Quake II 3.19 server-message dispatcher. */
 package miniquake2.client.runtime.dispatcher
 

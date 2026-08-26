@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* New Game difficulty reaches the fresh Game API before level construction. */
 package tests.runtime_new_game_skill_tests
 

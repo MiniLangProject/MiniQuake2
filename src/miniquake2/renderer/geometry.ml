@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Managed BSP38 and MD2 geometry expansion for the OpenGL backend. */
 package miniquake2.renderer.geometry
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-graph wiring for the remaining stock campaign world state machines. */
 import miniquake2.game.base.spawn as rareintegrationbase
 import miniquake2.game.integration.baseq2 as rareintegration

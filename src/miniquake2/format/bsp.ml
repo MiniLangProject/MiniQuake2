@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II BSP38 loader. Collision and renderer code consume this canonical map. */
 package miniquake2.format.bsp
 

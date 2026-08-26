@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Pointer-free game/level save image roundtrip. */
 import miniquake2.game.types as gt
 import miniquake2.game.persistence as gpersist

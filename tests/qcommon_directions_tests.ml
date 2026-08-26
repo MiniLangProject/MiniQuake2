@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Exact 162-entry Quake II bytedirs codec contract. */
 import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.sizebuf as qsz

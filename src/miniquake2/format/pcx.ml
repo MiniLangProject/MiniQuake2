@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict 8-bit single-plane PCX decoder used by Quake II pictures and skins. */
 package miniquake2.format.pcx
 

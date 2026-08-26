@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Narrow listen-server vertical slice for later application integration. */
 package miniquake2.runtime.play_session
 
@@ -28,6 +32,8 @@ struct PlaySession
   clock
   steps
   closed
+  predictionCommands
+  predictionWorkspace
 end struct
 
 playPredictionSession = void
@@ -52,7 +58,10 @@ function wrap(server, userInfo)
   if server is void then return error(8390, "play session server is missing") end if
   if typeof(userInfo) != "string" or userInfo == "" then return error(8391, "play session userinfo is missing") end if
   client = plclient.create("127.0.0.1", server.socket.port, userInfo, 0)
-  return PlaySession(server, client, plsystem.createClock(), 0, false)
+  return PlaySession(server, client, plsystem.createClock(), 0, false,
+    plclient.createPredictionCommandScratch(),
+    plprediction.createWorkspace(playPredictionTrace,
+      playPredictionPointContents))
 end function
 
 function createCore(mapName, entityText, collision, userInfo)
@@ -125,8 +134,10 @@ function predictLocal(session, previewCommand)
   if session.closed or session.client.integrated.client.current is void then return false end if
   if not plprediction.predictionEnabled(
       session.client.integrated.client.current.playerState) then return false end if
-  commands = plclient.predictionCommands(session.client, previewCommand)
-  if len(commands) == 0 then return false end if
+  commandCount = try(plclient.fillPredictionCommands(session.client,
+    previewCommand, session.predictionCommands))
+  if commandCount is error then return commandCount end if
+  if commandCount == 0 then return false end if
   airAcceleration = 0.0
   configStrings = session.client.integrated.network.configStrings
   if plqc.CS_AIRACCEL < len(configStrings) and configStrings[plqc.CS_AIRACCEL] != "" then
@@ -135,14 +146,16 @@ function predictLocal(session, previewCommand)
   end if
   playPredictionSession = session
   plbridge.activateRuntime(session.server.bridgeRuntime)
-  result = plprediction.predict(session.client.integrated.client.current.playerState,
-    commands, playPredictionTrace, playPredictionPointContents, airAcceleration)
+  result = try(plprediction.predictInto(session.predictionWorkspace,
+    session.client.integrated.client.current.playerState,
+    session.predictionCommands, commandCount, airAcceleration))
   playPredictionSession = void
+  if result is error then return result end if
   plstate.acceptPrediction(session.client.integrated.client,
     result.state.origin, result.viewAngles)
   plstate.notePredictionStep(session.client.integrated.client,
     result.previousOrigin, result.state.origin, result.state.flags,
-    commands[len(commands) - 1].msec)
+    session.predictionCommands[commandCount - 1].msec)
   plclient.storePredictedOrigin(session.client,
     plclient.predictionSequence(session.client), result.state.origin)
   return result

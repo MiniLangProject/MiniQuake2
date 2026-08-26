@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* GameImport client prints -> reliable UDP -> transactional UI handoff. */
 import miniquake2.qcommon.constants as nrul_qc
 import miniquake2.server.game_bridge as nrul_bridge

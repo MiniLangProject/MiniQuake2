@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Retail BaseQ2 g_misc.c and func_rotating/func_wall state machines. */
 package miniquake2.game.world.misc
 

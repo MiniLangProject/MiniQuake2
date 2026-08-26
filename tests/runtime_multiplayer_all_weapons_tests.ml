@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Every stock weapon fired by a real two-client UDP UserCmd session. */
 import miniquake2.network.constants as mpweaponnetwork
 import miniquake2.qcommon.constants as mpweaponqconstants
@@ -9,6 +13,11 @@ import miniquake2.game.gameplay.weapons as mpweaponrules
 import miniquake2.game.player.constants as mpweaponplayerconstants
 import miniquake2.game.null_game as mpweapongame
 import miniquake2.runtime.multiplayer_session as mpweaponsession
+import miniquake2.client.state as mpweaponclientstate
+import miniquake2.client.assets.types as mpweaponassettypes
+import miniquake2.client.effects.entity as mpweaponentityeffects
+import miniquake2.client.effects.handoff as mpweaponeffecthandoff
+import miniquake2.renderer.types as mpweaponrenderertypes
 
 function mpweaponAssert(value, name)
   if not value then return error(8424, name) end if
@@ -82,6 +91,48 @@ function mpweaponSawMuzzle(session, clientIndex, entityNumber)
   return false
 end function
 
+function mpweaponResolveModel(index)
+  return mpweaponrenderertypes.ResourceHandle("model", index,
+    "model" + index, 1)
+end function
+
+function mpweaponResolveNamedModel(name)
+  return mpweaponrenderertypes.ResourceHandle("model", 4096 + len(bytes(name)),
+    name, 1)
+end function
+
+function mpweaponResolveNamedSkin(name)
+  return mpweaponrenderertypes.ResourceHandle("skin", 8192 + len(bytes(name)),
+    name, 1)
+end function
+
+function mpweaponResolveNothing(value)
+  return void
+end function
+
+function mpweaponResolveEntitySound(entityNumber, soundIndex, soundName)
+  return void
+end function
+
+function mpweaponResolvePlayerModel(index)
+  return mpweaponrenderertypes.ResourceHandle("model", 12288 + index,
+    "players/test/tris.md2", 1)
+end function
+
+function mpweaponResolvePlayerSkin(index)
+  return mpweaponrenderertypes.ResourceHandle("skin", 16384 + index,
+    "players/test/skin.pcx", 1)
+end function
+
+function mpweaponResolvePlayerWeapon(index, weaponIndex)
+  return mpweaponrenderertypes.ResourceHandle("model", 20480 + weaponIndex,
+    "players/test/weapon.md2", 1)
+end function
+
+function mpweaponVisualRandom()
+  return 0
+end function
+
 mpweaponEntities = "{\n\"classname\" \"worldspawn\"\n\"message\" \"All Weapons UDP\"\n}\n" +
   "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"0 0 64\"\n}\n" +
   "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"128 0 64\"\n}\n" +
@@ -96,6 +147,11 @@ mpweaponVictim = mpweaponsession.player(mpweaponSession, 1)
 mpweaponContext = mpweapongame.playerContext()
 mpweaponRuntime = mpweapongame.baseRuntime()
 mpweaponRegistry = mpweaponContext.registry
+mpweaponAssetBindings = mpweaponassettypes.ResolverBindings(
+  mpweaponResolveModel, mpweaponResolveNamedModel, mpweaponResolveNamedSkin,
+  mpweaponResolveNothing, mpweaponResolveNothing, mpweaponResolveEntitySound,
+  mpweaponResolvePlayerModel, mpweaponResolvePlayerSkin,
+  mpweaponResolvePlayerWeapon)
 mpweaponClasses = ["weapon_blaster", "weapon_shotgun", "weapon_supershotgun",
   "weapon_machinegun", "weapon_chaingun", "ammo_grenades",
   "weapon_grenadelauncher", "weapon_rocketlauncher",
@@ -196,6 +252,10 @@ while mpweaponIndex < len(mpweaponClasses)
       mpweaponProjectileSnapshot1.modelIndex == mpweaponProjectileSnapshot0.modelIndex and
       mpweaponMovingProjectile.modelIndex == mpweaponProjectileSnapshot0.modelIndex,
       "moving projectile model index mismatch: " + mpweaponClass)
+    mpweaponAssert(mpweaponProjectileSnapshot0.effects ==
+        mpweaponMovingProjectile.effects and
+        mpweaponProjectileSnapshot1.effects == mpweaponProjectileSnapshot0.effects,
+      "moving projectile effects did not survive Protocol-34: " + mpweaponClass)
     mpweaponAssert(mpweaponProjectileSnapshot0.origin[0] !=
         mpweaponProjectileSnapshot0.oldOrigin[0] or
         mpweaponProjectileSnapshot0.origin[1] !=
@@ -210,6 +270,38 @@ while mpweaponIndex < len(mpweaponClasses)
       mpweaponqconstants.CS_MODELS + mpweaponProjectileSnapshot1.modelIndex] ==
       mpweaponProjectileModels[mpweaponIndex],
       "moving projectile model configstring missing: " + mpweaponClass)
+    mpweaponVisualFrame = mpweaponclientstate.buildRefDef(
+      mpweaponSession.clients[0].integrated.client, 1.0, 640, 480,
+      mpweaponAssetBindings, mpweaponAttacker.edict.state.number,
+      mpweaponVisualRandom)
+    mpweaponRenderedProjectile = void
+    for each mpweaponRenderedEntity in mpweaponVisualFrame.entities
+      if mpweaponRenderedEntity.model is not void and
+          mpweaponRenderedEntity.model.id == mpweaponProjectileSnapshot0.modelIndex then
+        mpweaponRenderedProjectile = mpweaponRenderedEntity
+        break
+      end if
+    end for
+    mpweaponAssert(mpweaponRenderedProjectile is not void and
+        mpweaponRenderedProjectile.origin.x == mpweaponProjectileSnapshot0.origin[0] and
+        mpweaponRenderedProjectile.origin.y == mpweaponProjectileSnapshot0.origin[1] and
+        mpweaponRenderedProjectile.origin.z == mpweaponProjectileSnapshot0.origin[2],
+      "moving projectile did not become a drawable client entity: " +
+        mpweaponClass)
+    mpweaponentityeffects.emit(mpweaponSession.clients[0].integrated.effects,
+      mpweaponSession.clients[0].integrated.client.current,
+      mpweaponSession.clients[0].integrated.client.previous, 1.0,
+      mpweaponSession.clients[0].integrated.client.serverTime,
+      mpweaponAttacker.edict.state.number, mpweaponVisualFrame)
+    mpweaponeffecthandoff.applyPrepared(
+      mpweaponSession.clients[0].integrated.effects, mpweaponVisualFrame,
+      mpweaponSession.clients[0].integrated.client.serverTime,
+      mpweaponResolveNamedModel)
+    if mpweaponClass == "weapon_blaster" then
+      mpweaponAssert(mpweaponVisualFrame.numDLights > 0 and
+          mpweaponVisualFrame.numParticles > 0,
+        "blaster projectile produced no visible trail/light handoff")
+    end if
     if mpweaponProjectileSounds[mpweaponIndex] != "" then
       mpweaponAssert(mpweaponProjectileSnapshot0.sound > 0 and
         mpweaponProjectileSnapshot1.sound == mpweaponProjectileSnapshot0.sound and

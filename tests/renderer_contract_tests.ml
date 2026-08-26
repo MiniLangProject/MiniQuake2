@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free native MiniLang tests for the Quake II Renderer API v3 port. */
 import miniquake2.qcommon.types as qtypes
 import miniquake2.renderer.constants as c

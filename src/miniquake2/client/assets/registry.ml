@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Safe Quake-II client asset registry with explicit map generations. */
 package miniquake2.client.assets.registry
 

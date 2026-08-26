@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Sound/configstring/download use of the ACK-gated reliable fragment queue. */
 import miniquake2.qcommon.constants as nrrfrag_qc
 import miniquake2.qcommon.types as nrrfrag_qt

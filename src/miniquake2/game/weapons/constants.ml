@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BaseQ2 g_weapon.c/p_weapon.c constants kept local to the ballistics layer. */
 package miniquake2.game.weapons.constants
 

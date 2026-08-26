@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II cvar registry including NOSET/LATCH and info-string semantics. */
 package miniquake2.qcommon.cvar
 

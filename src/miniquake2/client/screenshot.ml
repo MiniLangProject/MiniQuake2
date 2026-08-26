@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* User screenshot naming and OpenGL back-buffer capture. */
 package miniquake2.client.screenshot
 

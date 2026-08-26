@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Campaign-wide registry and live-edict compaction golden regression. */
 import miniquake2.game.base.spawn_registry as campregistry
 import miniquake2.game.base.spawn as campspawn

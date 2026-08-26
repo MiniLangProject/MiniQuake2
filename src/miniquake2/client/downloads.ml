@@ -27,6 +27,7 @@ const OPEN_ALWAYS = 4
 const FILE_ATTRIBUTE_NORMAL = 0x80
 const FILE_END = 2
 const INVALID_HANDLE_VALUE = -1
+const INVALID_SET_FILE_POINTER = 0xffffffff
 
 extern function CreateDirectoryW(path as wstr, security as ptr) from "kernel32.dll" returns bool
 extern function CreateFileW(path as wstr, access as int, share as int,
@@ -276,7 +277,11 @@ function appendChunk(path, data)
   handle = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_ALWAYS,
     FILE_ATTRIBUTE_NORMAL, 0)
   if handle == INVALID_HANDLE_VALUE then return error(7688, "failed to open download temporary file") end if
-  ignoredPosition = SetFilePointer(handle, 0, 0, FILE_END)
+  position = SetFilePointer(handle, 0, 0, FILE_END)
+  if position == INVALID_SET_FILE_POINTER then
+    CloseHandle(handle)
+    return error(7689, "failed to seek download temporary file")
+  end if
   written = bytes(4)
   ok = WriteFile(handle, data, len(data), written, 0)
   if ok then ok = cdlbio.u32(written, 0) == len(data) end if
@@ -435,10 +440,10 @@ function advance(manager)
     queueCommand(manager, command)
     return request
   end while
-  manager.complete = true
   manager.current = void
   registered = try(manager.registerAsset("precache", ""))
   if registered is error then return registered end if
+  manager.complete = true
   queueCommand(manager, "begin " + manager.spawnCount)
   return void
 end function

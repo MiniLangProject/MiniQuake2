@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free timer and two-socket UDP platform integration. */
 import miniquake2.platform.system as system
 import miniquake2.platform.udp as udp

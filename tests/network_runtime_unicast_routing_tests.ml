@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Per-client routing and failure-atomic reliable unicast backpressure. */
 import miniquake2.qcommon.constants as nrur_qc
 import miniquake2.protocol.constants as nrur_pc

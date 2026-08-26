@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Versioned private BaseQ2 component save/restore beside the engine ABI. */
 package miniquake2.game.private_save
 
@@ -12,6 +16,7 @@ import miniquake2.game.ai.props as privatesaveaiprops
 import miniquake2.game.ai.types as privatesaveaitypes
 import miniquake2.game.types as privatesavegametypes
 import miniquake2.game.world.movers as privatemovers
+import miniquake2.game.world.misc as privateworldmisc
 import miniquake2.game.world.turret as privateturret
 import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.world.core as privateworldcore
@@ -19,7 +24,7 @@ import miniquake2.game.player.types as privateplayers
 import miniquake2.game.gameplay.types as privategameplaytypes
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 16
+const PRIVATE_VERSION = 17
 
 struct PrivateRestore
   runtime
@@ -171,6 +176,8 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privatemessage.writeFloat(buffer, entity.gravity)
     privateWriteVec(buffer, entity.oldVelocity)
     privatemessage.writeFloat(buffer, entity.flySoundDebounceTime)
+    privatemessage.writeLong(buffer, entity.waterType)
+    privatemessage.writeLong(buffer, entity.waterLevel)
   end for
 
   privatemessage.writeLong(buffer, len(runtime.monsters))
@@ -356,6 +363,9 @@ function privateRestoreAIReference(runtime, number, maxClients, exportTable)
   return privateAIGoalHolder
 end function
 
+// Restore the versioned, pointer-free MiniQuake2 payload in two phases: first
+// allocate stable entity/AI slots, then resolve saved numeric relationships.
+// This prevents partially decoded references from escaping on malformed input.
 function restore(data, mapName, maxClients, exportTable, playerContext)
   if typeof(data) != "bytes" or len(data) == 0 then return error(3871, "private BaseQ2 save payload missing") end if
   buffer = privatesizebuf.alloc(len(data)); privatesizebuf.writeBytes(buffer, data); privatemessage.beginReading(buffer)
@@ -365,7 +375,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateSaveVersion != 9 and privateSaveVersion != 10 and
       privateSaveVersion != 11 and privateSaveVersion != 12 and
       privateSaveVersion != 13 and privateSaveVersion != 14 and
-      privateSaveVersion != 15 and
+      privateSaveVersion != 15 and privateSaveVersion != 16 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -528,7 +538,13 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       entity.flySoundDebounceTime = privateReadFloat(buffer,
         "private world fly sound debounce")
     end if
-    if entity.className == "monster_gib" then entity.think = privateworldcore.freeThink
+    if privateSaveVersion >= 17 then
+      entity.waterType = privatechecked.readLong(buffer, "private world water type")
+      entity.waterLevel = privatechecked.readLong(buffer, "private world water level")
+    end if
+    if entity.className == "monster_gib" then
+      entity.think = privateworldcore.freeThink
+      entity.die = privateworldmisc.gibDie
     else if entity.className == "DelayedUse" then entity.think = privateworldcore.thinkDelayed
     else privatemovers.restoreMoverState(entity, runtime.world) end if
     privateWorldReferences = privateWorldReferences + [

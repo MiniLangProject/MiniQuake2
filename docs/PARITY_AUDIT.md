@@ -75,7 +75,7 @@ uses the bundled Quake II 3.19 source at commit
   start-solid rejection, exact item effects/flags, random team-item exposure,
   one-shot target firing, cooperative Power-Cube masks and deathmatch item
   inhibition. `drop` and `invdrop` allocate real toss edicts, retain owner
-  immunity and deathmatch expiry, and persist across Private-Save v16.
+  immunity and deathmatch expiry, and persist across Private-Save v17.
 - `target_explosion` and `target_splash` now publish exact
   `TE_EXPLOSION1`/`TE_SPLASH` multicast payloads. Untargeted doors and plats
   create live engine-backed touch fields; `func_conveyor`, `trigger_gravity`,
@@ -123,18 +123,31 @@ uses the bundled Quake II 3.19 source at commit
 - BSP PVS submission now caches by cluster and area-bit contents. This removes
   the prior full retail-world surface walk on every frame while preserving
   door/area visibility invalidation.
+- Remote clients resolve DNS names through the existing native network bridge,
+  preserve fatal sign-on/checksum/download failures, pace keepalives separately
+  from approximately 90-Hz UserCmd delivery and reuse prediction scratch state.
+- Player Setup now renders the selected skin on the original rotating 144x168
+  MD2 preview. Reset Defaults and Go to Console execute their stock actions;
+  menu-first startup, Join/Start Server and DM options are product-level gates.
+- `MOVETYPE_BOUNCE` uses the stock 1.5 overbounce and floor-rest threshold.
+  Generic toss/bounce entities update water type/level and emit the original
+  transition sound. Private-Save v17 persists those fields while reading v7-v16
+  payloads with dry defaults; restored dynamic monster gibs retain `gib_die`.
+- BFG laser temp entities use the stock palette, `PMF_NO_PREDICTION` view angles
+  follow the server, and packet projectiles retain their original render flags
+  plus dynamic-light paths rather than a synthetic fullbright workaround.
+- The active render, visibility, snapshot, prediction, effect and audio paths
+  reuse bounded scratch storage. The pending-audio queue no longer scans every
+  pending entry for every mixed sample; its 327,680-frame/128-pending benchmark
+  improved from 229.36 ms to 16.89 ms (13.6x).
 
-## Remaining product limitations
+## Stock product parity status
 
-The audited stock gameplay and Protocol-34 blocks above are implemented. Three
-front-end differences remain visible but do not block campaign or network play:
-
-- data-root selection is automatic or CLI-driven rather than a native Windows
-  folder-picker dialog;
-- Player Setup shows the selected skin as a 2D icon instead of the original
-  rotating 3D player preview;
-- the Join page supports LAN broadcast, address-book and numeric IPv4 targets,
-  but not DNS-name resolution or an internet master-browser UI.
+No currently identified stock 3.19 front-end callback is missing. Data-root
+selection remains automatic or CLI-driven because a native folder picker was
+not part of the original product. Likewise, the original 3.19 Join Server menu
+provided LAN discovery/address-book entries rather than an internet master
+browser, so absence of a modern public-browser service is not a parity gap.
 
 ## Implemented behavior with evidence still open
 
@@ -159,8 +172,6 @@ the scoped Quake II 3.19 base-game port.
 ## Remaining closure order
 
 1. Run the external-process, full-campaign, visual and hardware evidence gates.
-2. Replace the three front-end limitations above if strict UI parity is made a
-   release requirement.
 
 Every functional block must retain the full MiniLang build, asset-free suite,
 relevant retail smoke and source-integrity manifest before it is marked closed.

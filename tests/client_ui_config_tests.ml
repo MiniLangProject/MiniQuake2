@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict persistent product settings/bindings round-trip and malformed gate. */
 package tests.client_ui_config_tests
 
@@ -20,7 +24,15 @@ uiConfigPath = "build/client_ui_config_tests.cfg"
 if uiconfigtestfs.exists(uiConfigPath) then uiconfigtestfs.delete(uiConfigPath) end if
 uiConfigInput = uiconfigtestkeys.createInputState()
 uiconfigtestkeys.bind(uiConfigInput, 119, "+forward")
-uiconfigtestkeys.bind(uiConfigInput, 200, "+attack")
+// Exercise the exact controls-menu mutation path: capture owns the next key,
+// replaces the prior command binding and leaves a dirty sentinel for the
+// product loop to persist before it creates the actual game InputState.
+uiconfigtestkeys.bind(uiConfigInput, 201, "+attack")
+uiconfigtestkeys.beginBindingCapture(uiConfigInput, "+attack")
+uiconfigtestkeys.captureBindingEvent(uiConfigInput, 200)
+uiConfigAssert(uiConfigInput.capturedKey == 200 and
+  uiconfigtestkeys.bindingFor(uiConfigInput, 201) == "",
+  "controls-menu capture did not replace the old binding")
 uiConfigInputSettings = uiConfigInput.config
 uiConfigInputSettings.sensitivity = 6.5
 uiConfigInputSettings.alwaysRun = true

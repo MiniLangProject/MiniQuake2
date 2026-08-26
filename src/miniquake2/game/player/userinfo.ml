@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* ClientConnect/ClientUserinfoChanged and persistent client initialization. */
 package miniquake2.game.player.userinfo
 

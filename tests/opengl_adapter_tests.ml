@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free contract test for the real OpenGL refexport adapter. */
 import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.byteio as oglbyteio
@@ -59,8 +63,9 @@ function testClassicDrawingHelpers()
   assertNear(raw.textureT, 2.0 / 256.0, 0.000001, "cinematic texture height")
 
   particlePixels = ogl.openGlParticlePixels()
-  assertEqual(len(particlePixels), 8 * 8 * 4, "particle texture size")
-  assertEqual(particlePixels[(1 * 8 + 2) * 4 + 3], 255, "particle dot alpha")
+  assertEqual(len(particlePixels), 16 * 16 * 4, "soft particle texture size")
+  assertEqual(particlePixels[(7 * 16 + 7) * 4 + 3], 253,
+    "soft particle center alpha")
   assertEqual(particlePixels[0 * 4 + 3], 0, "particle transparent alpha")
 
   beam = rt.emptyEntity()
@@ -117,9 +122,13 @@ function testClassicDrawingHelpers()
 
   shadow = rt.emptyEntity()
   shadow.origin = qt.vec3(4.0, 8.0, 64.0)
-  assertEqual(ogl.shadows(renderer), true, "modern MD2 shadows default enabled")
+  assertEqual(ogl.shadows(renderer), false,
+    "stock-compatible MD2 shadows default disabled")
+  assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
+    "disabled opaque alias does not cast shadow")
+  ogl.setShadows(renderer, true)
   assertEqual(ogl.md2ShadowEligible(renderer, shadow), true,
-    "opaque world alias casts shadow")
+    "enabled opaque world alias casts shadow")
   shadow.flags = rc.RF_TRANSLUCENT
   assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
     "translucent alias does not cast shadow")

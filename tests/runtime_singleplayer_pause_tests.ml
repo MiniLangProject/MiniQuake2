@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Authoritative single-player pause while server transport epochs stay live. */
 import miniquake2.game.null_game as pausetestgame
 import miniquake2.runtime.server_session as pausetestsession

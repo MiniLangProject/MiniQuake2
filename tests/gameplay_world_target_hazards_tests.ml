@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock g_target.c target_laser/target_earthquake regression tests. */
 import miniquake2.game.world.constants as hzconstants
 import miniquake2.game.world.core as hzcore

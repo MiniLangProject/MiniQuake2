@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* ClientSession UI command queue and exact cmd-2/cmd-1/cmd wire order. */
 import miniquake2.platform.system as csutime
 import miniquake2.platform.udp as csuudp
@@ -42,6 +46,10 @@ function decodeTriplet(payload)
   return [oldest, previous, current, checksum, lastFrame]
 end function
 
+cmdAssert(not csusession.movementDue(100, 110) and
+  csusession.movementDue(100, 111),
+  "classic 90-Hz client command pacing")
+
 serverSocket = csuudp.open("127.0.0.1", 0)
 session = csusession.create("127.0.0.1", serverSocket.port, "\\name\\CmdQueue", 0)
 session.integrated.network.client.state = csunc.CA_ACTIVE
@@ -74,6 +82,22 @@ cmdAssert(wire3[0].forwardMove == 111 and wire3[1].forwardMove == 221 and
 cmdAssert(session.previousCommand.forwardMove == 221 and session.lastCommand.forwardMove == 331,
   "client history did not shift")
 cmdAssert(csusession.pendingUserCmds(session) == 0, "queue did not drain")
+
+predictionScratch = session.predictionCommandScratch
+predictionScratchIdentity = nativeRawValue(predictionScratch)
+preview = csuqt.UserCmd(8, 0, [0, 0, 0], 440, 0, 0, 0, 0)
+predictionCount = csusession.fillPredictionCommands(session, preview,
+  predictionScratch)
+cmdAssert(predictionCount == 4,
+  "prediction scratch did not include three unacked commands and preview")
+preview.forwardMove = 441
+cmdAssert(predictionScratch[predictionCount - 1].forwardMove == 441,
+  "prediction preview should be consumed without a deep copy")
+predictionCount = csusession.fillPredictionCommands(session, preview,
+  session.predictionCommandScratch)
+cmdAssert(nativeRawValue(session.predictionCommandScratch) ==
+    predictionScratchIdentity and predictionCount == 4,
+  "remote session retains prediction command scratch identity")
 
 // The old headless behavior remains the deterministic fallback.
 csusession.sendMove(session, 13)

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Read-only executable behavior matrix for the 39 Classic baseq2 SP maps. */
 import miniquake2.qcommon.filesystem as campaigncoveragefilesystem
 import miniquake2.format.bsp as campaigncoveragebsp

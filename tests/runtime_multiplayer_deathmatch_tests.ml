@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real two-client UDP deathmatch session: signon, kill, score, respawn, snapshots. */
 import miniquake2.network.constants as mpdtestnetworkconstants
 import miniquake2.qcommon.constants as mpdtestqconstants

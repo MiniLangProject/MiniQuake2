@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Owned deterministic state for transient client effects. */
 package miniquake2.client.effects.types
 
@@ -104,5 +108,9 @@ struct State
   soundEvents
   angularVelocities
   entityTrails
+  renderParticles
+  renderDLights
+  entityLightScratch
+  entityLightOutput
   audio
 end struct

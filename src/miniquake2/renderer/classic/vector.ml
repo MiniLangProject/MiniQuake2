@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Vec3 math shared by classic light and sprite preparation. */
 package miniquake2.renderer.classic.vector
 

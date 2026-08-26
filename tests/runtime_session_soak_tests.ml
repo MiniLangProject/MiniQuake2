@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-shaped unpaced UDP/Game-API lifetime and throughput gate. */
 import miniquake2.network.constants as soaktestnc
 import miniquake2.qcommon.byteio as soaktestbyteio

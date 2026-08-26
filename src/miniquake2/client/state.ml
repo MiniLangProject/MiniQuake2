@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Client snapshot history, interpolation and renderer handoff. */
 package miniquake2.client.state
 
@@ -30,13 +34,18 @@ struct ClientRuntime
   lightStyles
   lightStyleMaps
   lightStyleOffset
+  entityLookup
+  entityLookupEpochs
+  entityLookupEpoch
+  renderEntities
 end struct
 
 function create()
   return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void,
     cqt.zeroVec3(), cqt.zeroVec3(), cqt.zeroVec3(), false,
     0.0, 0.0, 0.0, 0, false, -1, 0, crt.defaultLightStyles(),
-    array(qc.MAX_LIGHTSTYLES, ""), -1)
+    array(qc.MAX_LIGHTSTYLES, ""), -1, array(qc.MAX_EDICTS),
+    array(qc.MAX_EDICTS, 0), 0, [])
 end function
 
 // CL_SetLightstyle decodes CS_LIGHTS strings lazily at their 10 Hz playback
@@ -88,8 +97,34 @@ function acceptSnapshot(client, frame)
   client.serverFrame = frame.number
   client.serverTime = frame.number * 100
   client.snapshots[frame.number & qc.UPDATE_MASK] = frame
+  // Sound spatialization and other per-frame consumers query entities by
+  // protocol number. Publish the new snapshot into an epoch-indexed table so
+  // up to 32 live sound channels do not each rescan the entity array.
+  client.entityLookupEpoch = client.entityLookupEpoch + 1
+  if client.entityLookupEpoch >= 0x7fffffff then
+    client.entityLookupEpoch = 1
+    clearIndex = 0
+    while clearIndex < len(client.entityLookupEpochs)
+      client.entityLookupEpochs[clearIndex] = 0
+      clearIndex = clearIndex + 1
+    end while
+  end if
+  for each indexedEntity in frame.entities
+    if indexedEntity.number > 0 and indexedEntity.number < qc.MAX_EDICTS then
+      client.entityLookup[indexedEntity.number] = indexedEntity
+      client.entityLookupEpochs[indexedEntity.number] = client.entityLookupEpoch
+    end if
+  end for
   if client.state == "connected" then client.state = "active" end if
   return true
+end function
+
+function inline currentEntity(client, number)
+  if number <= 0 or number >= qc.MAX_EDICTS or
+      client.entityLookupEpochs[number] != client.entityLookupEpoch then
+    return void
+  end if
+  return client.entityLookup[number]
 end function
 
 function findEntity(entities, number)
@@ -432,13 +467,29 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
   if client.current.playerState.gunIndex > 0 then capacity = capacity + 1 end if
   if capacity > crc.MAX_ENTITIES then capacity = crc.MAX_ENTITIES end if
   if capacity == 0 then return [] end if
-  output = array(capacity)
+  output = client.renderEntities
+  if len(output) != capacity then
+    output = array(capacity, void)
+    client.renderEntities = output
+  end if
   outputIndex = 0
   index = 0
+  oldIndex = 0
   while index < len(client.current.entities)
     state = client.current.entities[index]
+    // Protocol-34 packet entities are sorted by entity number. Merge the old
+    // and current snapshots once instead of restarting a linear lookup for
+    // every rendered entity (O(n) rather than O(n^2) in busy scenes).
+    while oldIndex < len(oldEntities) and
+        oldEntities[oldIndex].number < state.number
+      oldIndex = oldIndex + 1
+    end while
+    oldState = void
+    if oldIndex < len(oldEntities) and
+        oldEntities[oldIndex].number == state.number then
+      oldState = oldEntities[oldIndex]
+    end if
     if state.number != localEntityNumber then
-      oldState = findEntity(oldEntities, state.number)
       lerpReset = entityRequiresLerpReset(oldState, state)
       outputIndex = appendModelEntity(output, outputIndex, state, oldState,
         state.modelIndex, 0, fraction, renderTime, assetResolvers,
@@ -608,7 +659,7 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
     viewOrigin.y + 0.0625, viewOrigin.z + 0.0625)
   return crt.refDef(0, 0, width, height, fov, fovY, renderViewOrigin, viewAngles,
     blend, renderTime * 0.001, player.rdFlags,
-    bytes(client.current.areaBits),
+    client.current.areaBits,
     client.lightStyles, buildEntities(client, fraction, assetResolvers,
     localEntityNumber, randomResolver, viewOrigin, viewAngles), [], [])
 end function

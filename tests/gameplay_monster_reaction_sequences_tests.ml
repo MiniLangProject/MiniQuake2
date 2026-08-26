@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock pain/death frame tables plus integrated sound/corpse lifecycle. */
 import miniquake2.game.ai.reaction_sequences as reactionsequences
 import miniquake2.game.ai.monster as reactionmonster

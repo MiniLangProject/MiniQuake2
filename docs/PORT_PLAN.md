@@ -37,7 +37,7 @@ Reachable secondary fidget/locomotion callbacks, pain/death frame sounds,
 Infantry/Soldier death fire and the exact Supertank/Boss2/Jorg explosion-entry
 frames execute live. Class-specific corpse bounds, stock organic/metallic gib
 inventories and the eight-explosion plus 14-gib terminal sequence are exported
-through real managed edicts and Protocol-34 effects; Private-Save v14 retains
+  through real managed edicts and Protocol-34 effects; Private-Save v17 retains
 in-flight attack/reaction, held death-fire state, boss-refire/aim, shared
 Win32-random state, Medic ownership, live turret AI/cooldown state and dynamic
 gib records plus lost-sight/pursuit movement state. The shared monster movement
@@ -91,7 +91,7 @@ versioned private save format. Coupled turret rigs carry their bounds, team,
 target references, lost-sight state, reaction cooldown, live difficulty,
 shared-CRT rocket damage, exact rocket speed, positioned muzzle sound, crush
 knockback and Infantry driver-gib lifecycle through the integrated world
-runtime and Private-Save v14. Targeted Game-API `unicast`, `cprintf` and
+  runtime and Private-Save v17. Targeted Game-API `unicast`, `cprintf` and
 `centerprintf` messages also
 reach exactly one transactional client UI handoff through bounded reliable or
 sequenced-unreliable queues. In addition, the bounded 2–8-client harness keeps

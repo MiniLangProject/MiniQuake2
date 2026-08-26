@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Native deterministic scenarios for the BaseQ2 player/client rules. */
 import miniquake2.game.ai.types as gaitypes
 import miniquake2.game.base.spawn as gplayerbasespawn

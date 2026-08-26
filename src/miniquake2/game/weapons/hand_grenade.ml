@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* The special cook/hold/release state from p_weapon.c:Weapon_Grenade. */
 package miniquake2.game.weapons.hand_grenade
 

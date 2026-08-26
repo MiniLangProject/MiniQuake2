@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Command, cvar and PAK search-service contracts. */
 import miniquake2.qcommon.constants as c
 import miniquake2.qcommon.byteio as bio

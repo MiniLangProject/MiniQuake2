@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Win32 C-runtime random sequence used by Quake II 3.19. */
 package miniquake2.game.random
 

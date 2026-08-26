@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real UDP UserCmd -> PMove/weapon/snapshot physical playtest gate. */
 import miniquake2.runtime.campaign_playtest as physicalinputplaytest
 import miniquake2.runtime.play_session as physicalinputsession

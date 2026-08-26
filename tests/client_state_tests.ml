@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic snapshot interpolation and refdef handoff tests. */
 import miniquake2.protocol.types as pt
 import miniquake2.renderer.types as rt
@@ -85,6 +89,8 @@ function testSnapshotsAndRefDef()
   first = ssnap.SnapshotFrame(10, -1, 0, bytes([]), firstPlayer, [makeEntity(0.0, 0)])
   assertEqual(cstate.acceptSnapshot(client, first), true, "first snapshot")
   assertEqual(client.state, "active", "first snapshot activates client")
+  assertEqual(cstate.currentEntity(client, 1).origin[0], 0.0,
+    "snapshot entity direct lookup")
 
   secondPlayer = pt.copyPlayerState(firstPlayer)
   secondPlayer.viewOffset = [1.0, 2.0, 3.0]
@@ -100,6 +106,8 @@ function testSnapshotsAndRefDef()
   secondPlayer.gunAngles = [4.0, 2.0, 2.0]
   second = ssnap.SnapshotFrame(11, 10, 0, bytes([]), secondPlayer, [makeEntity(8.0, 5)])
   assertEqual(cstate.acceptSnapshot(client, second), true, "second snapshot")
+  assertEqual(cstate.currentEntity(client, 1).origin[0], 8.0,
+    "direct lookup advances with snapshot epoch")
   assertEqual(cstate.acceptSnapshot(client, second), false, "duplicate snapshot ignored")
   frame = cstate.buildRefDef(client, 0.5, 640, 480, testResolvers, 0, testRandom)
   assertEqual(rval.validateRefDef(frame).valid, true, "generated refdef valid")
@@ -134,6 +142,16 @@ function testSnapshotsAndRefDef()
   assertEqual(bfgFrame.entities[0].flags & rc.RF_TRANSLUCENT, rc.RF_TRANSLUCENT,
     "BFG entity translucency")
   assertNear(bfgFrame.entities[0].alpha, 0.30, 0.0001, "BFG entity source alpha")
+
+  blasterClient = cstate.create()
+  blasterEntity = makeEntity(80.0, 0)
+  blasterEntity.effects = ceconstants.EF_BLASTER
+  cstate.acceptSnapshot(blasterClient, ssnap.SnapshotFrame(1, -1, 0, bytes([]),
+    firstPlayer, [blasterEntity]))
+  blasterFrame = cstate.buildRefDef(blasterClient, 1.0, 640, 480,
+    testResolvers, 0, testRandom)
+  assertEqual(blasterFrame.entities[0].flags & rc.RF_FULLBRIGHT, 0,
+    "packet projectile keeps stock renderfx without synthetic fullbright")
 
   effectPlayer = pt.zeroPlayerState()
   effectPlayer.fov = 90.0

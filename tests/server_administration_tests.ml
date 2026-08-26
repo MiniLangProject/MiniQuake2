@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Server administration, IP filtering, RCON and master lifecycle contracts. */
 import std.fs as admintestfs
 import miniquake2.qcommon.types as admintestqt

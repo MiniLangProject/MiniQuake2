@@ -26,6 +26,15 @@ end struct
 
 activePredictionWorld = void
 
+function createWorld()
+  return PredictionWorld(void, [], void, -1)
+end function
+
+function createPredictionWorkspace()
+  return pwprediction.createWorkspace(predictionTrace,
+    predictionPointContents)
+end function
+
 function inline vec(values)
   return pwqt.Vec3(values[0], values[1], values[2])
 end function
@@ -302,6 +311,28 @@ function predict(playerState, commands, collision, configStrings, snapshot,
   activePredictionWorld = world
   result = try(pwprediction.predict(playerState, commands, predictionTrace,
     predictionPointContents, airAcceleration))
+  activePredictionWorld = void
+  if result is error then return result end if
+  return result
+end function
+
+// Session-owned form for the render loop. Both the collision-world wrapper
+// and Pmove workspace retain identity across frames; only their live snapshot
+// references and scalar inputs are updated before synchronous replay.
+function predictInto(world, workspace, playerState, commands, commandCount,
+    collision, configStrings, snapshot, localEntityNumber, airAcceleration)
+  global activePredictionWorld
+  if typeof(world) != "struct" or typeof(configStrings) != "array" or
+      typeof(snapshot) != "struct" or typeof(localEntityNumber) != "int" then
+    return error(7666, "packet prediction inputs are malformed")
+  end if
+  world.collision = collision
+  world.configStrings = configStrings
+  world.snapshot = snapshot
+  world.localEntityNumber = localEntityNumber
+  activePredictionWorld = world
+  result = try(pwprediction.predictInto(workspace, playerState, commands,
+    commandCount, airAcceleration))
   activePredictionWorld = void
   if result is error then return result end if
   return result

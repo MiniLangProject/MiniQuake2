@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-shaped inline BSP (*n) registration, visibility and submission. */
 import miniquake2.format.constants as rbrushtestformatconstants
 import miniquake2.format.types as rbrushtestformattypes
@@ -168,7 +172,8 @@ function testProductShapedInlineBrushSubmission()
   assertEqual(worldHandle.generation, inlineHandle.generation, "shared registration generation")
   assertEqual(len(world.brushModels), 1, "prepared inline model table")
   assertEqual(len(world.brushModels[0].draws), 4, "inline face range only")
-  assertEqual(len(world.textures), 9, "animated world and inline shared lifecycle resources")
+  assertEqual(len(world.textures), 8,
+    "animated world and inline shared atlas lifecycle resources")
 
   frame = brushFrame(inlineHandle, rbrushtestqtypes.Vec3(64.0, 0.0, 0.0), rbrushtestqtypes.zeroVec3(), 0, 1.0)
   brushPlan = rbrushtestopengl.prepareClassicBrushFrame(renderer, world, frame)
@@ -243,7 +248,8 @@ function testProductShapedInlineBrushSubmission()
     soak = soak + 1
   end while
 
-  assertEqual(rbrushtestopengl.releaseClassicWorld(renderer, world), 9, "inline shared texture release")
+  assertEqual(rbrushtestopengl.releaseClassicWorld(renderer, world), 8,
+    "inline shared texture release")
   assertEqual(typeof(try(rbrushtestopengl.submitClassicWorld(renderer, world, frame))), "error", "released inline submission rejected")
   renderer.exports.Shutdown()
 end function

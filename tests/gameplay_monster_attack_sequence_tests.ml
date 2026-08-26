@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II 3.19 monster attack-frame, muzzle and live burst regression. */
 import miniquake2.game.ai.attack_sequences as attacksequences
 import miniquake2.game.ai.types as attacksequenceaitypes

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-root, endpoint, browser, profile and lifecycle policy tests. */
 import miniquake2.runtime.product_startup as productstartup
 import miniquake2.qcommon.info as productinfo
@@ -13,8 +17,10 @@ productStartupAssert(productStartupEndpoint.address == "127.0.0.1" and
 productStartupEndpoint = productstartup.parseEndpoint("192.168.1.4:27911")
 productStartupAssert(productstartup.endpointText(productStartupEndpoint) ==
   "192.168.1.4:27911", "explicit endpoint round trip")
-productStartupAssert(try(productstartup.parseEndpoint("localhost")) is error,
-  "hostnames rejected by numeric native transport")
+productStartupEndpoint = productstartup.parseEndpoint("localhost:27912")
+productStartupAssert(productStartupEndpoint.address == "127.0.0.1" and
+  productStartupEndpoint.port == 27912,
+  "host name resolved to stable numeric transport endpoint")
 productStartupAssert(try(productstartup.parseEndpoint("127.0.0.1:70000")) is error,
   "oversized endpoint port rejected")
 

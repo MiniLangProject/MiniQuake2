@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Player-facing g_main.c frame ordering: begin clients, rules, end clients. */
 package miniquake2.game.player.frame
 

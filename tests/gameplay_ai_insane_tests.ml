@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Classic 3.19 misc_insane archetype and lifecycle goldens. */
 import miniquake2.game.ai.archetypes as insanetestarchetypes
 import miniquake2.game.ai.constants as insanetestconstants

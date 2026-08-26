@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict server-message writers and client dispatch for protocol 34. */
 package miniquake2.network.runtime.messages
 

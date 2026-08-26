@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Linear mover support and BaseQ2 button, door, plat, train and timer logic. */
 package miniquake2.game.world.movers
 

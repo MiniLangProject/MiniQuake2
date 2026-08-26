@@ -1,4 +1,8 @@
 /*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
+/*
 Quake II BSP38 collision model. The public operations mirror the original
 CM_PointLeafnum, CM_PointContents, CM_BoxLeafnums, CM_BoxTrace and area-portal
 contracts while keeping all runtime state explicit and testable.

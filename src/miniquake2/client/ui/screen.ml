@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Screen composition for HUD, inventory, centerprint, notify and menus. */
 package miniquake2.client.ui.screen
 
@@ -8,8 +12,8 @@ import miniquake2.client.ui.menu as cuimenu
 import miniquake2.client.ui.types as cuitypes
 
 function create(console, menu)
-  return cuitypes.ScreenState(console, menu, "", 0, 0, "", "", [], "", [],
-    [], 0, false, 1, true)
+  return cuitypes.ScreenState(console, menu, "", 0, 0, "", "", [], [], "", [],
+    [], [], 0, false, 1, true)
 end function
 
 function crosshairPosition(screenWidth, screenHeight, pictureWidth, pictureHeight)
@@ -132,21 +136,27 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
       screen.statusbarText = statusbar
       screen.statusbarTokens = []
       if statusbar != "" then screen.statusbarTokens = clayout.tokenize(statusbar) end if
+      screen.statusbarCommands = array(len(screen.statusbarTokens) * 2)
     end if
     if len(screen.statusbarTokens) > 0 then
-      statusCommands = clayout.parseTokensContext(screen.statusbarTokens, stats,
-        configStrings, screenWidth, screenHeight, serverFrame, playerNumber)
-      count = count + clayout.draw(statusCommands, exports)
+      statusCommandCount = clayout.parseTokensContextInto(
+        screen.statusbarCommands, screen.statusbarTokens, stats, configStrings,
+        screenWidth, screenHeight, serverFrame, playerNumber)
+      count = count + clayout.drawCount(screen.statusbarCommands,
+        statusCommandCount, exports)
     end if
     if screen.layoutText != screen.layoutTokenText then
       screen.layoutTokenText = screen.layoutText
       screen.layoutTokens = []
       if screen.layoutText != "" then screen.layoutTokens = clayout.tokenize(screen.layoutText) end if
+      screen.layoutCommands = array(len(screen.layoutTokens) * 2)
     end if
     if len(screen.layoutTokens) > 0 then
-      commands = clayout.parseTokensContext(screen.layoutTokens, stats, configStrings,
-        screenWidth, screenHeight, serverFrame, playerNumber)
-      count = count + clayout.draw(commands, exports)
+      layoutCommandCount = clayout.parseTokensContextInto(screen.layoutCommands,
+        screen.layoutTokens, stats, configStrings, screenWidth, screenHeight,
+        serverFrame, playerNumber)
+      count = count + clayout.drawCount(screen.layoutCommands,
+        layoutCommandCount, exports)
     end if
   end if
   count = count + drawInventory(screen, screenWidth, screenHeight, exports)

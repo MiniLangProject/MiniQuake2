@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden coverage for sky, warp, flowing and translucent ClassicWorld paths. */
 import miniquake2.format.constants as rspecialtestconstants
 import miniquake2.format.types as rspecialtestformattypes

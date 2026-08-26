@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Append live effects to renderer.types.RefDef without proprietary assets. */
 package miniquake2.client.effects.handoff
 
@@ -53,7 +57,11 @@ end function
 
 function rendererParticles(state, now)
   if state.particleCount <= 0 then return [] end if
-  output = array(state.particleCount)
+  output = state.renderParticles
+  if len(output) != state.particleCount then
+    output = array(state.particleCount, void)
+    state.renderParticles = output
+  end if
   outputIndex = 0
   particleIndex = 0
   while particleIndex < state.particleCount
@@ -64,9 +72,25 @@ function rendererParticles(state, now)
     if instant then alpha = particle.alpha end if
     if alpha > 1.0 then alpha = 1.0 end if
     if alpha > 0.0 then
-      origin = particleOrigin(particle, now)
-      if instant then origin = cestate.copyVec(particle.origin) end if
-      output[outputIndex] = rt.particle(origin, particle.color & 255, alpha)
+      rendered = output[outputIndex]
+      if typeof(rendered) != "struct" then
+        rendered = rt.particle(qt.Vec3(0.0, 0.0, 0.0), 0, 0.0)
+        output[outputIndex] = rendered
+      end if
+      elapsedSquared = elapsed * elapsed
+      rendered.origin.x = particle.origin.x + particle.velocity.x * elapsed +
+        particle.acceleration.x * elapsedSquared
+      rendered.origin.y = particle.origin.y + particle.velocity.y * elapsed +
+        particle.acceleration.y * elapsedSquared
+      rendered.origin.z = particle.origin.z + particle.velocity.z * elapsed +
+        particle.acceleration.z * elapsedSquared
+      if instant then
+        rendered.origin.x = particle.origin.x
+        rendered.origin.y = particle.origin.y
+        rendered.origin.z = particle.origin.z
+      end if
+      rendered.color = particle.color & 255
+      rendered.alpha = alpha
       outputIndex = outputIndex + 1
     end if
     if instant then particle.alpha = 0.0; particle.alphaVelocity = 0.0 end if
@@ -77,11 +101,26 @@ end function
 
 function rendererDLights(state)
   if len(state.dLights) == 0 then return [] end if
-  output = array(len(state.dLights))
+  output = state.renderDLights
+  if len(output) != len(state.dLights) then
+    output = array(len(state.dLights), void)
+    state.renderDLights = output
+  end if
   outputIndex = 0
   for each light in state.dLights
-    color = qt.Vec3(light.color[0], light.color[1], light.color[2])
-    output[outputIndex] = rt.dLight(cestate.copyVec(light.origin), color, light.radius)
+    rendered = output[outputIndex]
+    if typeof(rendered) != "struct" then
+      rendered = rt.dLight(qt.Vec3(0.0, 0.0, 0.0),
+        qt.Vec3(0.0, 0.0, 0.0), 0.0)
+      output[outputIndex] = rendered
+    end if
+    rendered.origin.x = light.origin.x
+    rendered.origin.y = light.origin.y
+    rendered.origin.z = light.origin.z
+    rendered.color.x = light.color[0]
+    rendered.color.y = light.color[1]
+    rendered.color.z = light.color[2]
+    rendered.intensity = light.radius
     outputIndex = outputIndex + 1
   end for
   return trim(output, outputIndex)

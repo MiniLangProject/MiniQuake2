@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Managed gclient/private edict state for the BaseQ2 player port. */
 package miniquake2.game.player.types
 

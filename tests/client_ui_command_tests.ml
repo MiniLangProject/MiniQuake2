@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product UI command draining, local settings and forwarding policy tests. */
 import miniquake2.audio.mixer as uicmdtestmixer
 import miniquake2.qcommon.constants as uicmdtestqc
@@ -6,6 +10,7 @@ import miniquake2.client.ui.console as uicmdtestconsole
 import miniquake2.client.ui.keys as uicmdtestkeys
 import miniquake2.client.ui.menu as uicmdtestmenu
 import miniquake2.client.ui.screen as uicmdtestscreen
+import miniquake2.client.ui.constants as uicmdtestconstants
 
 function uiCommandAssert(value, name)
   if not value then return error(8289, name) end if
@@ -125,6 +130,42 @@ uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
 uiCommandAssert(try(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "m_invert 2")) is error and
   uiCommandInput.config.mousePitch < 0.0, "invalid mouse inversion rejected atomically")
+
+uicmdtestkeys.bind(uiCommandInput, 65, "+attack")
+uiCommandInput.config.sensitivity = 12.0
+uiCommandInput.config.alwaysRun = true
+uiCommandInput.config.mousePitch = -0.05
+uiCommandInput.config.hand = 2
+uiCommandMixer.masterVolume = 0.1
+uiCommandScreen.crosshair = 3
+uiCommandState.joystickEnabled = false
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "reset_defaults"),
+  "reset defaults handled locally")
+uiCommandAssert(uiCommandInput.config.sensitivity == 3.0 and
+  not uiCommandInput.config.alwaysRun and uiCommandInput.config.mousePitch == 0.022 and
+  uiCommandInput.config.hand == 0 and uiCommandMixer.masterVolume == 0.7 and
+  uiCommandScreen.crosshair == 1 and uiCommandState.joystickEnabled,
+  "reset defaults applies supported option values")
+uiCommandAssert(uicmdtestkeys.bindingFor(uiCommandInput, 119) == "+forward" and
+  uicmdtestkeys.bindingFor(uiCommandInput, 65) == "" and
+  uicmdtestmenu.itemById(uiCommandScreen.menu, "options", "sensitivity").value == 3.0 and
+  uicmdtestmenu.itemById(uiCommandScreen.menu, "options", "crosshair").value == 1,
+  "reset defaults rebuilds bindings and synchronizes menu values")
+
+uicmdtestconsole.appendLine(uiCommandScreen.console, "old notify", 123)
+uiCommandScreen.console.input = "partial"
+uiCommandScreen.console.cursor = 7
+uicmdtestmenu.open(uiCommandScreen.menu, "options")
+uicmdtestkeys.setDestination(uiCommandInput, uicmdtestconstants.KEY_MENU)
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "go_console"),
+  "go to console handled locally")
+uiCommandAssert(uiCommandInput.destination == uicmdtestconstants.KEY_CONSOLE and
+  not uiCommandScreen.menu.active and uiCommandScreen.console.visibleFraction == 0.5 and
+  uiCommandScreen.console.input == "" and uiCommandScreen.console.cursor == 0 and
+  uiCommandScreen.console.lines[len(uiCommandScreen.console.lines) - 1].time < 0,
+  "go to console clears typing/notify and transfers key destination")
 
 uiCommandInventoryValues = array(uicmdtestqc.MAX_ITEMS, 0)
 uiCommandInventoryValues[2] = 17

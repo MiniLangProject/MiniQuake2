@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* cl_fx.c-style allocation, deterministic particles and lifecycle. */
 package miniquake2.client.effects.state
 
@@ -11,7 +15,8 @@ import miniquake2.client.effects.audio as ceaudio
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
   return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [],
-    array(486, 0.0), array(ceconstants.MAX_ENTITY_TRAILS, false), audioCallbacks)
+    array(486, 0.0), array(ceconstants.MAX_ENTITY_TRAILS, false), [], [],
+    array(ceconstants.MAX_DLIGHTS, void), [], audioCallbacks)
 end function
 
 function createSilent(randomSeed)
@@ -574,8 +579,19 @@ end function
 function blasterTrail(state, startPosition, endPosition, green)
   color = 0xe0
   if green then color = 0xd0 end if
-  return simpleEntityTrail(state, startPosition, endPosition, color, 1.0, 5.0,
+  written = simpleEntityTrail(state, startPosition, endPosition, color, 1.0, 5.0,
     1.0, 0.3, 0.2, false)
+  // Interpolation can move a fast bolt by less than the stock five-unit trail
+  // spacing at high FPS. Add a short-lived core at the current endpoint so the
+  // actual projectile remains continuous instead of blinking between samples.
+  deltaX = endPosition.x - startPosition.x
+  deltaY = endPosition.y - startPosition.y
+  deltaZ = endPosition.z - startPosition.z
+  if deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ > 0.0001 then
+    if addParticle(state, endPosition, qt.zeroVec3(), qt.zeroVec3(), color,
+        1.0, -12.5) then written = written + 1 end if
+  end if
+  return written
 end function
 
 function flagTrail(state, startPosition, endPosition, color, inclusive)

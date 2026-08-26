@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Synthetic two-frame CIN golden, 14-fps timing, pause, loop and renderer tests. */
 import miniquake2.qcommon.byteio as qbio
 import miniquake2.format.cinematic as cinformat

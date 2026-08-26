@@ -25,10 +25,11 @@ const NA_BROADCAST_IPX = 4
 const MAX_CHALLENGES = 1024
 const MAX_MASTERS = 8
 const MAX_PARSE_ENTITIES = 1024
-// The 3.19 server reserves UPDATE_BACKUP * 64 entity states per client.  A
-// single frame must respect that packet-entity window even though the client
-// parser keeps a larger rolling capacity.
-const MAX_PACKET_ENTITIES = 64
+// Quake II reserves UPDATE_BACKUP * 64 states per client as an average-sized
+// circular history, not as a per-frame visibility cap. SV_BuildClientFrame
+// itself walks every edict. A hard 64-entity cutoff preferentially discarded
+// newly spawned, high-numbered missiles in ordinary retail scenes.
+const MAX_PACKET_ENTITIES = 1024
 const MAX_MAP_AREA_BYTES = 32
 const UPDATE_BACKUP = 16
 const UPDATE_MASK = 15

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II baseq2 gameplay constants from g_local.h. */
 package miniquake2.game.gameplay.constants
 

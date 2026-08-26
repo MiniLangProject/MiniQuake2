@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Strict RIFF/WAVE PCM loader compatible with Quake II's sound cache needs. */
 package miniquake2.audio.wav
 

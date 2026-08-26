@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* RefImport-backed model/picture registry tests without retail assets. */
 import miniquake2.qcommon.byteio as tbio
 import miniquake2.format.constants as fc
@@ -44,8 +48,16 @@ assertEqual(rassets.registerModel(registry, imports, "sprites/test.sp2").handle.
 picture = rassets.registerPicture(registry, imports, "pics/test.pcx")
 assertEqual(picture.kind, "pcx", "picture kind")
 assertEqual(picture.source.pixels[0], 7, "picture pixels")
+assertEqual(rassets.findModelByHandle(registry, sprite.handle).handle.id,
+  sprite.handle.id, "model direct handle lookup")
+assertEqual(rassets.findPictureByHandle(registry, picture.handle).handle.id,
+  picture.handle.id, "picture direct handle lookup")
 shortPicture = rassets.registerPicture(registry, imports, "test")
 assertEqual(shortPicture.kind, "pcx", "extension-less picture kind")
 assertEqual(shortPicture.handle.name, "test", "public picture name retained")
 assertEqual(typeof(try(rassets.registerModel(registry, imports, "models/missing.md2"))), "error", "missing model rejected")
+oldPictureHandle = picture.handle
+rassets.beginRegistration(registry)
+assertEqual(rassets.findPictureByHandle(registry, oldPictureHandle), void,
+  "stale generation handle rejected after direct-table reset")
 print("MiniQuake2 renderer asset tests passed: 1")

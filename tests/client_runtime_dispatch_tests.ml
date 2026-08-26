@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Integrated serverdata/config/baseline/download/effect and demo handoff tests. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.message as qmsg
@@ -8,6 +12,7 @@ import miniquake2.network.constants as nc
 import miniquake2.network.client as nclient
 import miniquake2.network.runtime.messages as rmessages
 import miniquake2.network.runtime.types as nrtypes
+import miniquake2.network.runtime.pump as crpump
 import miniquake2.client.demo as cdemo
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.state as cestate
@@ -74,6 +79,17 @@ clientRuntimeAssertEqual(clientRuntimeReplay.accepted, false, "duplicate packet 
 clientRuntimeAssertEqual(clientRuntimeReplay.reason, "stale-or-duplicate", "duplicate reason")
 clientRuntimeAssertEqual(len(clientRuntime.effects.explosions), 1, "duplicate effect suppressed")
 clientRuntimeAssertEqual(len(clientRuntimeDemo.packets), 1, "duplicate demo packet suppressed")
+
+// Malformed service payloads are ERR_DROP-equivalent, not stale packet noise.
+// The integrated network pump must surface them to its session/product owner.
+clientRuntimeFatal = try(crpump.dispatchIntegratedPayload(clientRuntime,
+  bytes([255]), 11, 2700))
+clientRuntimeAssertEqual(clientRuntimeFatal is error, true,
+  "malformed integrated payload is connection-fatal")
+clientRuntimeAssertEqual(clientRuntime.lastSequence, 10,
+  "fatal payload does not commit sequence state")
+clientRuntimeAssertEqual(len(clientRuntimeDemo.packets), 1,
+  "fatal payload does not enter demo stream")
 
 // The length-prefixed .dm2 handoff replays through the identical dispatcher.
 clientRuntimeEncoded = cdemo.encodeDemo(clientRuntimeDemo)

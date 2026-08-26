@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Goal-confirmed campaign progression for the two-client UDP session. */
 package miniquake2.runtime.multiplayer_campaign_session
 

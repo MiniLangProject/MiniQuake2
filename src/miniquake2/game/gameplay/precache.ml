@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Function-table driven implementation of g_items.c PrecacheItem. */
 package miniquake2.game.gameplay.precache
 

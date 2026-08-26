@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic textured MD2 registration, interpolation and lifecycle. */
 import miniquake2.format.constants as fc
 import miniquake2.native as md2testnative

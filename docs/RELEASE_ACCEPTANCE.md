@@ -4,6 +4,41 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+## 2026-08-26 full source/parity/performance audit
+
+Three parallel audits rechecked the client/download/prediction path, product UI
+and baseq2 gameplay, and server/audio/render hot paths against the pinned Quake
+II 3.19 source. The pass closes DNS connection handling, sign-on/download fatal
+error propagation, stock UserCmd/keepalive pacing, the rotating Player Setup MD2
+preview, Reset Defaults/Go to Console actions, exact bounce/rest and water
+transition behavior, restored gib callbacks, BFG laser color and
+`PMF_NO_PREDICTION` view-angle handling. Private-Save v17 adds toss/bounce water
+state while retaining v7-v16 readers.
+
+All 413 maintained code/tool files pass the English-comment and license-header
+auditor. The authoritative inventory contains 438 maintained files and 391
+MiniLang sources; the pinned reference ledger still matches 371 tracked source
+files, 4,525 C functions and commit
+`372afde46e7defc9dd2d719a1732b8ace1fa096e`. The complete Release build compiled
+and executed all 182 native MiniLang test programs successfully.
+
+The pending-audio benchmark improved from 229.36 ms to 16.89 ms for 327,680
+frames with 128 pending sounds (13.6x). Two final rendered 5,000-frame `base1`
+Retail runs measured 7,910.39 and 8,184.98 ms of frame work. The conservative
+second result is 20.9% below the 10,345.30-ms baseline; audio fell from
+1,419.82 to 1,088.20 ms (23.4%), client from 2,331.43 to 1,622.09 ms (30.4%)
+and world from 2,131.76 to 1,387.68 ms (34.9%). It completed with zero observed
+collections and zero missing assets. The separate
+100,000-frame Retail session soak passed 212,822/212,822 packets, zero rejects,
+zero pending sounds, zero queued map changes and an empty command buffer.
+
+Retail gates additionally pass all 47 maps with 36,404 raw/20,935 live entities
+and no skipped spawn, retained four-map BSP windows across 47 maps, the complete
+39-map product graph and Protocol-34 session, menu-first/video-restart, real
+movement/input and the server-to-render Blaster projectile visibility chain.
+Retail-scale test executables now use the product 2-GiB reserve/1,536-MiB
+collection contract instead of the harness-only 256-MiB cap.
+
 ## 2026-08-25 Quake II 3.19 source-parity follow-up
 
 Four independent source audits compared the MiniLang game/world, monster,
@@ -16,7 +51,7 @@ trigger-spawn/Brain power armor, per-frame sound spatialization with stock
 channel arbitration and sexed sounds, and `SV_RateDrop` with userinfo rate
 clamping.
 
-Private-Save v16 now retains dynamic dropped items, pending map items,
+Private-Save v16 introduced dynamic dropped items, pending map items,
 monster environment/power-armor state, world/player gravity and push sound/
 prediction debounce. New end-to-end Game-API coverage proves monster target
 activation, delayed trigger-spawn, KillBox publication, Brain absorption,

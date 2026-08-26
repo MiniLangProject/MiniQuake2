@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Frame→client.state/entity-event routing plus malformed/replay guards. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.sizebuf as qsz

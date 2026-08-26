@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Raw CIN PCM handoff and append-only bridge into the managed audio mixer. */
 package miniquake2.client.cinematic.audio
 
@@ -55,14 +59,16 @@ function submitToMixer(adapter, chunk)
     if chunk.sampleRate != adapter.sampleRate or chunk.sampleWidth != adapter.sampleWidth or chunk.channels != adapter.channels then
       return error(8333, "cinematic audio format changed during stream")
     end if
-    consumed = qbio.truncInt(adapter.channel.sourceFrame)
+    // Mixer channel cursors use Q16 source frames so the 44.1-kHz hot path
+    // stays allocation-free. Convert only at this low-frequency CIN append.
+    consumed = adapter.channel.sourceFrame >> 16
     if consumed > adapter.sound.sampleCount then consumed = adapter.sound.sampleCount end if
     if consumed > 0 then
       frameBytes = adapter.sampleWidth * adapter.channels
       remaining = adapter.sound.sampleCount - consumed
       adapter.sound.pcm = slice(adapter.sound.pcm, consumed * frameBytes, remaining * frameBytes)
       adapter.sound.sampleCount = remaining
-      adapter.channel.sourceFrame = adapter.channel.sourceFrame - consumed
+      adapter.channel.sourceFrame = adapter.channel.sourceFrame - (consumed << 16)
     end if
     adapter.sound.pcm = appendBytes(adapter.sound.pcm, chunk.data)
     adapter.sound.sampleCount = adapter.sound.sampleCount + chunk.sampleCount

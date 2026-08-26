@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Exact m_medic.c corpse selection, cable timeline and live resurrection. */
 import miniquake2.game.ai.attack_sequences as medicattack
 import miniquake2.game.ai.constants as medicaiconstants

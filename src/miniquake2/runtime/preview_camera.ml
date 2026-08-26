@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic free-camera adapter used by the retail BSP renderer preview. */
 package miniquake2.runtime.preview_camera
 

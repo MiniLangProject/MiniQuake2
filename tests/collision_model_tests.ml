@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Synthetic collision fixtures for the Quake II CM contract. */
 import miniquake2.format.constants as c
 import miniquake2.format.types as t

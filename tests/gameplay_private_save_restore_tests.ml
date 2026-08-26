@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Representative private World/Monster/Item/Player level-save restoration. */
 import std.fs as privatesaveexistsfs
 import std.fs as privatesavedeletefs

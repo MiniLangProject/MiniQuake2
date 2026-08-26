@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Real Protocol-34 string commands drive the stock player weapon state. */
 import miniquake2.game.null_game as wcgame
 import miniquake2.game.gameplay.item_rules as wcitems

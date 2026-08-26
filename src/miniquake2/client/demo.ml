@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II .dm2 packet stream recorder/player (length-prefixed messages). */
 package miniquake2.client.demo
 

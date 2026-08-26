@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Game-independent real UDP gate through the integrated client dispatcher. */
 import miniquake2.platform.system as nrfudp_system
 import miniquake2.platform.udp as nrfudp_udp

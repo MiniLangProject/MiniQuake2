@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Native deterministic scenarios for the managed baseq2 AI/monster core. */
 import miniquake2.game.ai.archetypes as gaiarchetypes
 import miniquake2.game.ai.constants as gaiconstants

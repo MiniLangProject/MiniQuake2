@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock stand/idle/walk/run MD2 cycle inventory and integrated projection. */
 import miniquake2.game.ai.locomotion_sequences as locomotionsequences
 import miniquake2.game.ai.archetypes as locomotionarchetypes

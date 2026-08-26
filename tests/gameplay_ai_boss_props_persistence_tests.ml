@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Integrated save/restore of scripted boss prop think/use phases. */
 import std.fs as bosspropsavefs
 import miniquake2.server.game_bridge as bosspropsavebridge

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Shared product window/renderer lifecycle for maps, CIN and PCX media. */
 package miniquake2.runtime.product_host
 

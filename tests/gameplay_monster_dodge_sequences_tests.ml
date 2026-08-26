@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Original check_dodge handoff and the six stock duck frame tables. */
 import miniquake2.game.ai.constants as dodgeconstants
 import miniquake2.game.ai.reaction_sequences as dodgesequences

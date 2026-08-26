@@ -270,21 +270,22 @@ function openGlViewAxes(viewAngles)
 end function
 
 function openGlParticlePixels()
-  mask = bytes([
-    0,0,0,0,0,0,0,0,
-    0,0,1,1,0,0,0,0,
-    0,1,1,1,1,0,0,0,
-    0,1,1,1,1,0,0,0,
-    0,0,1,1,0,0,0,0,
-    0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0])
-  rgba = bytes(8 * 8 * 4)
-  index = 0
-  while index < 64
-    rgba[index * 4] = 255; rgba[index * 4 + 1] = 255; rgba[index * 4 + 2] = 255
-    rgba[index * 4 + 3] = mask[index] * 255
-    index = index + 1
+  size = 16
+  rgba = bytes(size * size * 4)
+  y = 0
+  while y < size
+    x = 0
+    while x < size
+      dx = x - 7.5; dy = y - 7.5
+      alpha = 255 - ropenglbyteio.truncInt((dx * dx + dy * dy) * 4.5)
+      if alpha < 0 then alpha = 0 end if
+      if alpha > 255 then alpha = 255 end if
+      offset = (y * size + x) * 4
+      rgba[offset] = 255; rgba[offset + 1] = 255; rgba[offset + 2] = 255
+      rgba[offset + 3] = alpha
+      x = x + 1
+    end while
+    y = y + 1
   end while
   return rgba
 end function
@@ -327,7 +328,7 @@ function ensureOpenGlParticleTexture(backend)
   if backend.particleTextureId != 0 then record = findTextureRecord(backend, backend.particleTextureId) end if
   if record is void or record.released then
     record = allocateTextureRecord(backend, "***particle***", "particle",
-      backend.assets.generation, 8, 8)
+      backend.assets.generation, 16, 16)
     backend.particleTextureId = record.id
   end if
   if backend.contextActive and not record.uploaded then
@@ -336,7 +337,7 @@ function ensureOpenGlParticleTexture(backend)
     native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP)
     native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP)
-    native.glTexImage2D(GL_TEXTURE_2D, 0, 4, 8, 8, 0, GL_RGBA,
+    native.glTexImage2D(GL_TEXTURE_2D, 0, 4, 16, 16, 0, GL_RGBA,
       GL_UNSIGNED_BYTE, openGlParticlePixels())
     record.uploaded = true
   end if
@@ -360,7 +361,12 @@ function setup3d(frame)
   viewAngles = frame.viewAngles; viewOrigin = frame.viewOrigin
   angleX = viewAngles.x; angleY = viewAngles.y; angleZ = viewAngles.z
   originX = viewOrigin.x; originY = viewOrigin.y; originZ = viewOrigin.z
-  native.glViewport(viewportX, viewportY, viewportWidth, viewportHeight)
+  // RefDef uses Quake's top-left screen origin, while OpenGL viewports use a
+  // bottom-left origin. Full-screen frames mask the distinction; menu model
+  // previews and other subviews require the explicit conversion.
+  native.glViewport(viewportX,
+    native.winClientHeight() - viewportY - viewportHeight,
+    viewportWidth, viewportHeight)
   nearValue = 4.0
   halfX = fovX * DEG_TO_RAD * 0.5
   halfY = fovY * DEG_TO_RAD * 0.5
@@ -578,7 +584,7 @@ function drawParticles(backend, frame, axes)
   end while
   submitted = 0
   if batchCount > 0 then
-    submitted = native.glDrawParticleBatch(openGlParticleRecords, batchCount * 16,
+    submitted = native.glDrawParticleBatchStyled(openGlParticleRecords, batchCount * 16,
       bits(viewOrigin.x), bits(viewOrigin.y), bits(viewOrigin.z),
       bits(axes.forwardX), bits(axes.forwardY), bits(axes.forwardZ),
       bits(axes.upX), bits(axes.upY), bits(axes.upZ),
@@ -1453,6 +1459,29 @@ end function
 function openGlEndRegistration()
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "EndRegistration")
+  if backend.contextActive then
+    // Skin/picture conversion expands indexed PCX/WAL pixels to RGBA and the
+    // driver creates the texture on first upload. Doing that lazily made the
+    // second gameplay frame spend more than 200 ms inside RenderFrame. Finish
+    // all registered image work while the product loading screen is active;
+    // it also covers projectile particles before the first shot.
+    for each registeredPicture in backend.assets.pictures
+      uploadPicture(backend, registeredPicture)
+    end for
+    ensureOpenGlParticleTexture(backend)
+    // Alias-model lighting quantizes yaw into sixteen shadedot rows. Building
+    // the first row lazily was the remaining >200-ms second-frame stall, and
+    // later monster rotations could repeat it for the other rows. Generate the
+    // complete tiny lookup table plus packed normal vectors during loading.
+    shadeRowIndex = 0
+    while shadeRowIndex < len(backend.md2ShadeRows)
+      if backend.md2ShadeRows[shadeRowIndex] is void then
+        backend.md2ShadeRows[shadeRowIndex] = buildOpenGlMd2ShadeRow(shadeRowIndex)
+      end if
+      shadeRowIndex = shadeRowIndex + 1
+    end while
+    openGlMd2NormalVectors(backend)
+  end if
   backend.core.state.registrationOpen = false
 end function
 
@@ -1484,6 +1513,11 @@ function openGlRenderFrame(frame)
   backend.core.state.frameCount = backend.core.state.frameCount + 1
   if backend.contextActive then
     setup3d(frame)
+    if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
+      // A menu preview can follow the world view in the same BeginFrame. Drop
+      // its depth without erasing the already composed 2-D menu background.
+      native.glClear(GL_DEPTH_BUFFER_BIT)
+    end if
     frameState = openGlFrameSlot
     frameState.twoDimensional = false
     native.glEnable(GL_DEPTH_TEST)
@@ -1660,7 +1694,7 @@ end function
 
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1672,7 +1706,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, true, 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -1781,7 +1815,16 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
   if len(binding.state.batchRecords) < requiredBatchBytes then
     binding.state.batchRecords = bytes(requiredBatchBytes)
   end if
-  if binding.state.contextActive then precacheOpenGlClassicGeometry(world) end if
+  if binding.state.contextActive then
+    // Perform immutable WAL/lightmap uploads while the product still displays
+    // its loading screen and before waveOut is opened. Lazy first-frame uploads
+    // produced a 200+ ms hitch large enough to empty any low-latency audio
+    // queue and made the initial gameplay FPS visibly stutter.
+    for each preparedTexture in world.textures
+      uploadClassicTexture(binding, preparedTexture)
+    end for
+    precacheOpenGlClassicGeometry(world)
+  end if
   binding.state.activeWorld = world
   return world
 end function
@@ -2031,7 +2074,7 @@ function classicInlineModelIndex(modelAsset)
   return modelIndex
 end function
 
-function classicBrushDistanceSquared(submission, viewOrigin)
+function inline classicBrushDistanceSquared(submission, viewOrigin)
   origin = submission.entity.origin
   deltaX = origin.x - viewOrigin.x; deltaY = origin.y - viewOrigin.y; deltaZ = origin.z - viewOrigin.z
   return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
@@ -2051,6 +2094,23 @@ function sortClassicBrushSubmissions(submissions, viewOrigin)
     count = count + 1
   end for
   return sorted
+end function
+
+function sortClassicBrushSubmissionPrefix(submissions, count, viewOrigin)
+  index = 1
+  while index < count
+    candidate = submissions[index]
+    distance = classicBrushDistanceSquared(candidate, viewOrigin)
+    insert = index
+    while insert > 0 and distance >
+        classicBrushDistanceSquared(submissions[insert - 1], viewOrigin)
+      submissions[insert] = submissions[insert - 1]
+      insert = insert - 1
+    end while
+    submissions[insert] = candidate
+    index = index + 1
+  end while
+  return submissions
 end function
 
 function classicBrushLocalLights(entity, frame)
@@ -2125,13 +2185,14 @@ function prepareClassicBrushFrame(binding, world, frame)
     entityIndex = entityIndex + 1
   end while
   if submissionCount == 0 then return rclassictypes.ClassicBrushFramePlan(array(0), culledEntities, surfaces, triangles, dirtyLightmaps) end if
+  sortClassicBrushSubmissionPrefix(submissions, submissionCount,
+    frame.viewOrigin)
   exact = array(submissionCount)
   copyIndex = 0
   while copyIndex < submissionCount
     exact[copyIndex] = submissions[copyIndex]
     copyIndex = copyIndex + 1
   end while
-  exact = sortClassicBrushSubmissions(exact, frame.viewOrigin)
   return rclassictypes.ClassicBrushFramePlan(exact, culledEntities, surfaces, triangles, dirtyLightmaps)
 end function
 
@@ -2164,13 +2225,23 @@ end function
 function uploadClassicBrushLightmap(binding, brushLightmap)
   texture = brushLightmap.draw.lightmapTexture
   rgbaPixels = brushLightmap.rgbaPixels
-  if texture.rgbaPixels != rgbaPixels then
-    texture.rgbaPixels = rgbaPixels
-    texture.uploaded = false
-    record = findTextureRecord(binding.state, texture.id)
-    if record is not void then record.uploaded = false end if
-  end if
-  return uploadClassicTexture(binding, texture)
+  if not brushLightmap.dirty then return false end if
+  // Atlas objects remain resident. Update only this surface's rectangle and
+  // mirror it in the retained CPU payload for context-loss reconstruction.
+  width = brushLightmap.draw.surface.lightWidth
+  height = brushLightmap.draw.surface.lightHeight
+  x = brushLightmap.draw.lightmapX; y = brushLightmap.draw.lightmapY
+  row = 0
+  while row < height
+    copyBytes(texture.rgbaPixels, ((y + row) * texture.width + x) * 4,
+      rgbaPixels, row * width * 4, width * 4)
+    row = row + 1
+  end while
+  uploadClassicTexture(binding, texture)
+  native.glBindTexture(GL_TEXTURE_2D, texture.id)
+  native.glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, GL_RGBA,
+    GL_UNSIGNED_BYTE, rgbaPixels)
+  return true
 end function
 
 function drawOpenGlClassicBrushLightmaps(binding, submission, time)
@@ -2263,6 +2334,22 @@ function sortClassicTransparentDraws(draws)
   return sorted
 end function
 
+function sortClassicTransparentDrawsInPlace(draws, count)
+  index = 1
+  while index < count
+    candidate = draws[index]
+    insert = index
+    while insert > 0 and candidate.distanceSquared >
+        draws[insert - 1].distanceSquared
+      draws[insert] = draws[insert - 1]
+      insert = insert - 1
+    end while
+    draws[insert] = candidate
+    index = index + 1
+  end while
+  return draws
+end function
+
 function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
   capacity = len(worldPlan.transparentDraws)
   for each submission in brushFrame.submissions
@@ -2287,7 +2374,7 @@ function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
     end if
     count = appendClassicTransparentDraws(output, count, submission.plan.transparentDraws, entity, entityAlpha, true, frame.viewOrigin)
   end for
-  return sortClassicTransparentDraws(output)
+  return sortClassicTransparentDrawsInPlace(output, count)
 end function
 
 function classicTransparentFrameSignature(draws)

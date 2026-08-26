@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Atomic renderer/audio/UI-ready snapshot handoff without renderer coupling. */
 package miniquake2.client.runtime.handoff
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free core of BaseQ2 p_client.c, with injected engine callbacks. */
 package miniquake2.game.player.client
 

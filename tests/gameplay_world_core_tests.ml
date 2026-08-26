@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden tests for G_UseTargets, triggers and self-contained targets. */
 import miniquake2.qcommon.types as qt
 import miniquake2.game.world.constants as gwconstants

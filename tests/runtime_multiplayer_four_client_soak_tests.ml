@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Four-client UDP signon, snapshot, reconnect, map-change and soak gate. */
 import miniquake2.runtime.multiplayer_session as fourmpsession
 import miniquake2.network.constants as fourmpnetwork

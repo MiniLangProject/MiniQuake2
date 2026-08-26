@@ -12,6 +12,7 @@ import miniquake2.format.pcx as fpcx
 import miniquake2.format.wal as fwal
 import miniquake2.format.types as ft
 import miniquake2.qcommon.text as qtext
+import miniquake2.qcommon.byteio as rclassicworldbyteio
 import std.string as rclassicworldstring
 import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
@@ -20,6 +21,20 @@ import miniquake2.renderer.classic.scene as rclassicscene
 import miniquake2.renderer.classic.special as rclassicspecial
 
 const PALETTE_PATH = "pics/colormap.pcx"
+const LIGHTMAP_ATLAS_SIZE = 256
+
+struct LightmapAtlasState
+  textures
+  current
+  x
+  y
+  rowHeight
+  generation
+  faceTextures
+  faceX
+  faceY
+  facePacked
+end struct
 
 function readBytes(loadFile, path)
   data = loadFile(path)
@@ -113,18 +128,141 @@ function addWorldDraw(textures, draws, surface, generation)
   if surface.category == rclassicconstants.MATERIAL_OPAQUE then
     expected = surface.lightWidth * surface.lightHeight * 4
     if len(surface.lightmap) != expected then return error(9743, "invalid lightmap payload for BSP surface " + surface.index) end if
-    lightmapTexture = rclassictypes.ClassicTexture(
-      0, "@lightmap/" + surface.index, surface.lightWidth, surface.lightHeight,
-      surface.lightmap, "lightmap", generation, false, false
-    )
-    textures = textures + [lightmapTexture]
   end if
   vertices = rclassicspecial.classicSpecialDrawVertices(surface)
   triangleCount = len(vertices) / 3
   if triangleCount < 1 then return error(9744, "BSP surface has fewer than three render vertices") end if
   bounds = surfaceBounds(surface)
-  draw = rclassictypes.ClassicWorldDraw(surface, baseTexture, baseTextures, lightmapTexture, vertices, triangleCount, bounds[0], bounds[1])
+  centerX = rclassicworldbyteio.truncInt((bounds[0].x + bounds[1].x) * 0.5 *
+    rclassicconstants.CULL_COORD_SCALE)
+  centerY = rclassicworldbyteio.truncInt((bounds[0].y + bounds[1].y) * 0.5 *
+    rclassicconstants.CULL_COORD_SCALE)
+  centerZ = rclassicworldbyteio.truncInt((bounds[0].z + bounds[1].z) * 0.5 *
+    rclassicconstants.CULL_COORD_SCALE)
+  // One fixed unit of padding absorbs truncation toward zero and keeps the
+  // integer AABB test conservative at exact frustum boundaries.
+  extentX = rclassicworldbyteio.truncInt((bounds[1].x - bounds[0].x) * 0.5 *
+    rclassicconstants.CULL_COORD_SCALE) + 1
+  extentY = rclassicworldbyteio.truncInt((bounds[1].y - bounds[0].y) * 0.5 *
+    rclassicconstants.CULL_COORD_SCALE) + 1
+  extentZ = rclassicworldbyteio.truncInt((bounds[1].z - bounds[0].z) * 0.5 *
+    rclassicconstants.CULL_COORD_SCALE) + 1
+  planeNormalX = rclassicworldbyteio.truncInt(surface.plane.normal.x *
+    rclassicconstants.CULL_NORMAL_SCALE)
+  planeNormalY = rclassicworldbyteio.truncInt(surface.plane.normal.y *
+    rclassicconstants.CULL_NORMAL_SCALE)
+  planeNormalZ = rclassicworldbyteio.truncInt(surface.plane.normal.z *
+    rclassicconstants.CULL_NORMAL_SCALE)
+  planeDistance = rclassicworldbyteio.truncInt(surface.plane.distance *
+    rclassicconstants.CULL_PRODUCT_SCALE)
+  draw = rclassictypes.ClassicWorldDraw(surface, baseTexture, baseTextures,
+    lightmapTexture, 0, 0, vertices, triangleCount, bounds[0], bounds[1],
+    centerX, centerY, centerZ, extentX, extentY, extentZ,
+    planeNormalX, planeNormalY, planeNormalZ, planeDistance, surface.face.side)
   return [textures, draws + [draw]]
+end function
+
+function newLightmapAtlas(state)
+  index = len(state.textures)
+  texture = rclassictypes.ClassicTexture(0, "@lightmap/atlas" + index,
+    LIGHTMAP_ATLAS_SIZE, LIGHTMAP_ATLAS_SIZE,
+    bytes(LIGHTMAP_ATLAS_SIZE * LIGHTMAP_ATLAS_SIZE * 4), "lightmap",
+    state.generation, false, false)
+  state.textures = state.textures + [texture]
+  state.current = texture
+  state.x = 0; state.y = 0; state.rowHeight = 0
+  return texture
+end function
+
+function copyLightmapAtlasRow(destination, destinationPixel, source,
+    sourcePixel, pixels)
+  copyBytes(destination, destinationPixel * 4, source, sourcePixel * 4,
+    pixels * 4)
+  return pixels
+end function
+
+function copyLightmapIntoAtlas(texture, x, y, width, height, source)
+  destination = texture.rgbaPixels
+  row = 0
+  while row < height
+    destinationPixel = (y + row) * LIGHTMAP_ATLAS_SIZE + x
+    sourcePixel = row * width
+    copyLightmapAtlasRow(destination, destinationPixel, source, sourcePixel,
+      width)
+    // Duplicate edge texels into the one-pixel gutter used by GL_LINEAR.
+    copyLightmapAtlasRow(destination, destinationPixel - 1, source,
+      sourcePixel, 1)
+    copyLightmapAtlasRow(destination, destinationPixel + width, source,
+      sourcePixel + width - 1, 1)
+    row = row + 1
+  end while
+  topPixel = (y - 1) * LIGHTMAP_ATLAS_SIZE + x - 1
+  firstPixel = y * LIGHTMAP_ATLAS_SIZE + x - 1
+  bottomPixel = (y + height) * LIGHTMAP_ATLAS_SIZE + x - 1
+  lastPixel = (y + height - 1) * LIGHTMAP_ATLAS_SIZE + x - 1
+  copyLightmapAtlasRow(destination, topPixel, destination, firstPixel,
+    width + 2)
+  copyLightmapAtlasRow(destination, bottomPixel, destination, lastPixel,
+    width + 2)
+  return true
+end function
+
+function packLightmapDraw(state, draw)
+  if draw.surface.category != rclassicconstants.MATERIAL_OPAQUE then return false end if
+  faceIndex = draw.surface.index
+  if state.facePacked[faceIndex] then
+    draw.lightmapTexture = state.faceTextures[faceIndex]
+    draw.lightmapX = state.faceX[faceIndex]
+    draw.lightmapY = state.faceY[faceIndex]
+    return true
+  end if
+  width = draw.surface.lightWidth; height = draw.surface.lightHeight
+  paddedWidth = width + 2; paddedHeight = height + 2
+  if paddedWidth > LIGHTMAP_ATLAS_SIZE or
+      paddedHeight > LIGHTMAP_ATLAS_SIZE then
+    return error(9749, "BSP lightmap exceeds atlas size")
+  end if
+  if state.current is void then newLightmapAtlas(state) end if
+  if state.x + paddedWidth > LIGHTMAP_ATLAS_SIZE then
+    state.x = 0
+    state.y = state.y + state.rowHeight
+    state.rowHeight = 0
+  end if
+  if state.y + paddedHeight > LIGHTMAP_ATLAS_SIZE then
+    newLightmapAtlas(state)
+  end if
+  atlasX = state.x + 1; atlasY = state.y + 1
+  copyLightmapIntoAtlas(state.current, atlasX, atlasY, width, height,
+    draw.surface.lightmap)
+  draw.lightmapTexture = state.current
+  draw.lightmapX = atlasX; draw.lightmapY = atlasY
+  state.faceTextures[faceIndex] = state.current
+  state.faceX[faceIndex] = atlasX; state.faceY[faceIndex] = atlasY
+  state.facePacked[faceIndex] = true
+  // Triangle lists retain these SurfaceVertex records by reference, so update
+  // each source polygon vertex exactly once.
+  for each vertex in draw.surface.vertices
+    vertex.lightS = (atlasX + vertex.lightS * width) /
+      (LIGHTMAP_ATLAS_SIZE * 1.0)
+    vertex.lightT = (atlasY + vertex.lightT * height) /
+      (LIGHTMAP_ATLAS_SIZE * 1.0)
+  end for
+  state.x = state.x + paddedWidth
+  if paddedHeight > state.rowHeight then state.rowHeight = paddedHeight end if
+  return true
+end function
+
+function packLightmapAtlases(draws, brushModels, generation, faceCount)
+  state = LightmapAtlasState([], void, 0, 0, 0, generation,
+    array(faceCount), array(faceCount, 0), array(faceCount, 0),
+    array(faceCount, false))
+  for each draw in draws packLightmapDraw(state, draw) end for
+  for each brushModel in brushModels
+    for each brushDraw in brushModel.draws
+      packLightmapDraw(state, brushDraw)
+    end for
+  end for
+  return state.textures
 end function
 
 function classicWorldEntityValue(entityText, key)
@@ -247,6 +385,11 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
     brushModels[modelIndex - 1] = rclassictypes.ClassicBrushModel(modelIndex, map.models[modelIndex], brushResult[1])
     modelIndex = modelIndex + 1
   end while
+  lightmapAtlases = packLightmapAtlases(draws, brushModels, generation,
+    len(scene.surfaces))
+  for each lightmapAtlas in lightmapAtlases
+    textures = textures + [lightmapAtlas]
+  end for
   skyBox = rclassictypes.ClassicSkyBox("", 0.0, ft.Vec3(0.0, 0.0, 1.0), array(0), false)
   pointStackSize = len(map.nodes) + 1
   return rclassictypes.ClassicWorld(map.name, generation, map, scene, textures,

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* GameImport sound -> UDP/Netchan -> integrated client -> mixer loopback. */
 import miniquake2.qcommon.constants as nrsl_qc
 import miniquake2.qcommon.types as nrsl_qt

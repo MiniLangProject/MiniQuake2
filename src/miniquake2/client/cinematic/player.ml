@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* 14-fps Quake II CIN playback, palette lifecycle and safe API handoffs. */
 package miniquake2.client.cinematic.player
 

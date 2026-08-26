@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* WAL/PCX material conversion, flags and BSP texture animation. */
 package miniquake2.renderer.classic.materials
 

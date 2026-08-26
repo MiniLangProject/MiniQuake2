@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* End-to-end internal Game API v3 lifecycle through the server import table. */
 import miniquake2.game.constants as gc
 import miniquake2.game.null_game as nullGame

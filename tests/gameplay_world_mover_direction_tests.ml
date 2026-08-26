@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Vec3 producer-boundary regression for MoveInfo and legacy spawn arrays. */
 import miniquake2.game.world.core as moverdircore
 import miniquake2.game.world.movers as moverdirovers

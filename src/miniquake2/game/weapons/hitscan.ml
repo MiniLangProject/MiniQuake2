@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BaseQ2 fire_lead, fire_bullet, fire_shotgun and fire_rail. */
 package miniquake2.game.weapons.hitscan
 

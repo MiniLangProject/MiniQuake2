@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Conversion between WinSock text endpoints and managed netadr_t values. */
 package miniquake2.network.runtime.transport
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Protocol-34 golden parser vectors; no sound or model assets are loaded. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.sizebuf as qsz
@@ -147,6 +151,13 @@ function testTempEntities()
   assertEqual(state.explosions[1].flags & rc.RF_TRANSLUCENT,
     rc.RF_TRANSLUCENT, "BFG sprite translucency")
   assertNear(state.explosions[1].alpha, 0.30, 0.0001, "BFG sprite source alpha")
+
+  bfgLaser = bytes([ceconstants.TE_BFG_LASER,
+    0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0])
+  ceparser.parseTempEntity(state, reading(bfgLaser))
+  assertTrue(state.lasers[0].color >= 0xd0 and
+    state.lasers[0].color <= 0xd3,
+    "BFG laser selects one packed stock palette color")
 
   rail = bytes([ceconstants.TE_RAILTRAIL, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0])
   railStart = state.particleCount

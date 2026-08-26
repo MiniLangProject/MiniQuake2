@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Callback-driven port of g_monster.c frame and lifecycle machinery. */
 package miniquake2.game.ai.monster
 

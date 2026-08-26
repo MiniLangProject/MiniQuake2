@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Loopback-safe WinSock datagrams used by Quake II netchan. */
 package miniquake2.platform.udp
 
@@ -34,6 +38,17 @@ function enableBroadcast(socket)
     return error(2917, "could not enable UDP broadcast")
   end if
   return true
+end function
+
+function resolveName(name)
+  if typeof(name) != "string" or name == "" then
+    return error(2918, "UDP host name is empty")
+  end if
+  value = native.udpResolveName(name)
+  if value == "" then
+    return error(2918, "could not resolve UDP host name")
+  end if
+  return value
 end function
 
 function send(socket, address, port, data)

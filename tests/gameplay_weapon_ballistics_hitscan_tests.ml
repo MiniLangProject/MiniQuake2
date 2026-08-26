@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden deterministic scenarios for BaseQ2 lead, water, shotgun and rail. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt

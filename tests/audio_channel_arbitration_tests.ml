@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake-II S_PickChannel fixed-pool and priority parity. */
 import miniquake2.audio.wav as acatwav
 import miniquake2.audio.mixer as acatmixer

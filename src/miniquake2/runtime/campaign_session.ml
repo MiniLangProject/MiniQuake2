@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Goal-confirmed campaign progression over a persistent Protocol-34 session. */
 package miniquake2.runtime.campaign_session
 

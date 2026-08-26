@@ -1,4 +1,8 @@
 /*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
+/*
 Deterministic, asset-free implementation of Renderer API v3. Recording mode
 captures semantic calls; null mode executes the same validation and state
 transitions without retaining commands, making it suitable for headless runs.

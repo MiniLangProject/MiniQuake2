@@ -219,6 +219,7 @@ function classicSpecialTransparentBefore(candidate, previous, origin)
 end function
 
 function classicSpecialSortTransparent(draws, origin)
+  if len(draws) <= 1 then return draws end if
   sorted = array(len(draws))
   count = 0
   for each draw in draws
@@ -243,6 +244,9 @@ function classicSpecialPassPlanOrigin(draws, viewOrigin)
     else if category == rclassicconstants.MATERIAL_TRANSPARENT then transparentCount = transparentCount + 1
     end if
   end for
+  if opaqueCount == len(draws) then
+    return rclassictypes.ClassicSpecialPassPlan(draws, [], [], [])
+  end if
   // Count first and allocate the exact pass sizes. The old one-pass builder
   // allocated four arrays at the full visible-surface count and then sliced
   // all four, copying hundreds of references on every rendered frame.

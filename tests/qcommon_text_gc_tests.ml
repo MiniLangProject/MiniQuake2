@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Focused low-heap retention gate for qcommon ASCII text helpers. */
 import miniquake2.qcommon.text as qtextgc
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free .dm2 recorder/player and malformed corpus. */
 import miniquake2.client.demo as cdemo
 

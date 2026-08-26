@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Synthetic BSP38 PVS, marksurface, area, frustum and backface selection. */
 import miniquake2.format.types as ft
 import miniquake2.qcommon.types as qt
@@ -173,5 +177,18 @@ function testPvsDedupeAreasAndTransitions()
   renderer.exports.Shutdown()
 end function
 
+function testProtocolCoordinateFrustumBounds()
+  // Aim from the positive Protocol-34 coordinate boundary along the map
+  // diagonal.  The far plane is roughly -15286 units here; this reproduced
+  // the former fixed-point i32 conversion crash during interactive movement.
+  frame = viewFrame(qt.Vec3(4095.875, 4095.875, 4095.875))
+  frame.viewAngles = qt.Vec3(-35.2643897, 45.0, 0.0)
+  frustum = rclassicvisibility.classicVisibilityFrustum(frame)
+  assertEqual(len(frustum), 6, "protocol-boundary frustum plane count")
+  assertEqual(frustum[5].distance < 0, true,
+    "protocol-boundary far plane remains representable")
+end function
+
 testPvsDedupeAreasAndTransitions()
+testProtocolCoordinateFrustumBounds()
 print("renderer classic visibility tests passed")

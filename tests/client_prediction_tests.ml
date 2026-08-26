@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Exact CL_PredictMovement command replay over shared Pmove. */
 import miniquake2.client.prediction as cprediction
 import miniquake2.protocol.types as pt
@@ -37,6 +41,17 @@ localAngles = cprediction.localInputAngles(player)
 predictionAssertNear(localAngles[1], 0.0, 0.0001,
   "spawn delta removed from command angles")
 
+fallbackCommand = qt.UserCmd(16, 0, [0, 8192, 0], 0, 0, 0, 0, 0)
+fallbackAngles = cprediction.commandViewAngles(player, fallbackCommand)
+predictionAssertNear(fallbackAngles.y, 135.0, 0.0001,
+  "no-prediction branch retains live command view angle")
+player.pmove.deltaAngles[1] = 10000
+fallbackCommand.angles[1] = 30000
+fallbackAngles = cprediction.commandViewAngles(player, fallbackCommand)
+predictionAssertNear(fallbackAngles.y, -140.2734375, 0.0001,
+  "no-prediction command angle preserves signed-short wrap")
+player.pmove.deltaAngles[1] = 16384
+
 command = qt.UserCmd(100, 0, [0, 0, 0], 200, 0, 0, 0, 0)
 result = cprediction.predict(player, [command], predictionEmptyTrace,
   predictionEmptyContents, 0.0)
@@ -49,5 +64,25 @@ predictionAssertNear(result.viewAngles.y, 90.0, 0.0001,
   "delta angle applied by prediction")
 predictionAssertEqual(player.pmove.origin[1], 0,
   "authoritative player state remains immutable")
+
+// The product path owns one workspace for its whole play session. Replaying
+// through it must preserve the allocating API's exact fixed-point result and
+// must be safe to repeat after its previous output has been consumed.
+workspace = cprediction.createWorkspace(predictionEmptyTrace,
+  predictionEmptyContents)
+commandScratch = array(65, void)
+commandScratch[0] = command
+workspaceResult = cprediction.predictInto(workspace, player,
+  commandScratch, 1, 0.0)
+predictionAssertEqual(workspaceResult.state.origin[1], result.state.origin[1],
+  "workspace replay matches allocating replay")
+predictionAssertNear(workspaceResult.viewAngles.y, result.viewAngles.y, 0.0001,
+  "workspace view angles match allocating replay")
+workspaceResult = cprediction.predictInto(workspace, player,
+  commandScratch, 1, 0.0)
+predictionAssertEqual(workspaceResult.state.origin[1], 159,
+  "workspace replay resets from authoritative state")
+predictionAssertEqual(workspaceResult.commandsReplayed, 1,
+  "workspace reports bounded replay count")
 
 print("MiniQuake2 client prediction tests passed: 1")

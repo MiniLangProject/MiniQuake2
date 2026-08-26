@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BaseQ2 player-side constants from g_local.h/p_client.c. */
 package miniquake2.game.player.constants
 

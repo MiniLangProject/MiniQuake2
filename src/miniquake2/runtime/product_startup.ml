@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Persistent menu-first product startup, browser and player/server settings. */
 package miniquake2.runtime.product_startup
 
@@ -147,8 +151,14 @@ function parseEndpoint(value)
     address = decode(slice(source, 0, separator))
     port = parsePort(decode(slice(source, separator + 1, len(source) - separator - 1)))
   end if
-  // The native UDP layer intentionally accepts numeric IPv4 only.
-  octets = productstring.split(address, ".")
+  // NET_StringToSockaddr accepts both dotted IPv4 and DNS host names. Resolve
+  // once at the product boundary so the managed transport continues to own a
+  // stable numeric endpoint for sender comparisons and Netchan state.
+  resolvedAddress = try(productudp.resolveName(address))
+  if resolvedAddress is error then
+    return error(9957, "server host name could not be resolved")
+  end if
+  octets = productstring.split(resolvedAddress, ".")
   if typeof(octets) != "array" or len(octets) != 4 then return error(9957, "server address must be numeric IPv4") end if
   for each octet in octets
     parsed = try(toNumber(octet))
@@ -156,7 +166,7 @@ function parseEndpoint(value)
       return error(9957, "server address contains an invalid IPv4 octet")
     end if
   end for
-  return Endpoint(address, port)
+  return Endpoint(resolvedAddress, port)
 end function
 
 function endpointText(endpoint)

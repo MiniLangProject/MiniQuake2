@@ -1,6 +1,7 @@
 /*
 Copyright (C) 1990-2, RSA Data Security, Inc. All rights reserved.
 Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
 
 This is derived from the RSA Data Security, Inc. MD4 Message-Digest Algorithm.
 License to copy and use the original software is granted provided that it is

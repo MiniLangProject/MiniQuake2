@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-facing record/stop DM2 lifecycle with original startup state. */
 package miniquake2.client.demo_recording
 

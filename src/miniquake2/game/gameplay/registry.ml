@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Managed subset of baseq2's gitem_t registry: all stock weapons and ammo. */
 package miniquake2.game.gameplay.registry
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock Quake II corpse bounds, gib inventories and boss explosions. */
 package miniquake2.game.ai.death_effects
 

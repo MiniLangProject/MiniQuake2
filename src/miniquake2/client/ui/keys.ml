@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II key translation, destinations and command bindings. */
 package miniquake2.client.ui.keys
 
@@ -242,7 +246,11 @@ function handleEvent(state, event, time)
   return true
 end function
 
-function drainCommands(state)
+function inline drainCommands(state)
+  // The idle product loop drains all command sources every rendered frame.
+  // Retain the already allocated empty queue instead of replacing it with a
+  // fresh array when there is nothing to transfer.
+  if len(state.commands) == 0 then return state.commands end if
   output = state.commands
   state.commands = []
   return output

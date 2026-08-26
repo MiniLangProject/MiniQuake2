@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Owned state records for the asset-free client UX layer. */
 package miniquake2.client.ui.types
 
@@ -112,8 +116,10 @@ struct ScreenState
   layoutText
   statusbarText
   statusbarTokens
+  statusbarCommands
   layoutTokenText
   layoutTokens
+  layoutCommands
   inventory
   selectedInventory
   showInventory

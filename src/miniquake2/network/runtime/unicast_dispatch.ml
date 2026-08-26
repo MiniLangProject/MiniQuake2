@@ -1,6 +1,11 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Ordered, targeted GameImport unicast delivery over Protocol-34 Netchan. */
 package miniquake2.network.runtime.unicast_dispatch
 
+import std.array as nrtunicastarray
 import miniquake2.protocol.constants as nrtunicastpc
 import miniquake2.protocol.netchan as nrtunicastnetchan
 import miniquake2.network.constants as nrtunicastnc
@@ -39,21 +44,27 @@ function firstReliable(events)
 end function
 
 function packetize(events, last, maximumPayload)
-  packets = []
+  packets = array(last, void)
+  packetCount = 0
   buffer = nrtunicastsizebuf.alloc(maximumPayload)
   index = 0
   while index < last
     fragment = events[index].payload
     if len(fragment) > maximumPayload then return false end if
     if buffer.curSize + len(fragment) > maximumPayload then
-      packets = packets + [nrtunicastsizebuf.dataSlice(buffer)]
+      packets[packetCount] = nrtunicastsizebuf.dataSlice(buffer)
+      packetCount = packetCount + 1
       nrtunicastsizebuf.clear(buffer)
     end if
     nrtunicastsizebuf.writeBytes(buffer, fragment)
     index = index + 1
   end while
-  if buffer.curSize > 0 then packets = packets + [nrtunicastsizebuf.dataSlice(buffer)] end if
-  return packets
+  if buffer.curSize > 0 then
+    packets[packetCount] = nrtunicastsizebuf.dataSlice(buffer)
+    packetCount = packetCount + 1
+  end if
+  if packetCount == last then return packets end if
+  return nrtunicastarray.slice(packets, 0, packetCount)
 end function
 
 function buildPlan(runtime, slot, events)
@@ -82,11 +93,11 @@ function buildPlan(runtime, slot, events)
     if unreliablePackets == false then return false end if
   end if
 
-  reliableFragments = []
+  reliableFragments = array(len(events) - reliableStart, void)
   if reliableStart < len(events) then
     index = reliableStart
     while index < len(events)
-      reliableFragments = reliableFragments + [events[index].payload]
+      reliableFragments[index - reliableStart] = events[index].payload
       index = index + 1
     end while
     if not nrtunicastnetchan.canQueueReliableFragments(client.channel, reliableFragments) then return false end if
@@ -101,17 +112,23 @@ function dispatchRouted(runtime, socket, events, routedEvents, now)
   end if
   if len(events) == 0 then return UnicastDispatchResult(0, true, 0) end if
   nrtunicastmessages.validateUnicastAll(events)
-  plans = []
+  plans = array(runtime.server.maxClients, void)
+  planCount = 0
   slot = 0
   while slot < runtime.server.maxClients
     plan = buildPlan(runtime, slot, routedEvents[slot])
     if plan == false then return UnicastDispatchResult(0, false, len(events)) end if
-    if plan is not void then plans = plans + [plan] end if
+    if plan is not void then
+      plans[planCount] = plan
+      planCount = planCount + 1
+    end if
     slot = slot + 1
   end while
 
   sent = 0
-  for each plan in plans
+  planIndex = 0
+  while planIndex < planCount
+    plan = plans[planIndex]
     for each payload in plan.unreliablePackets
       stats = nrtunicastpump.sendServerPayload(runtime, socket, plan.slot, now, payload)
       if typeof(stats) != "struct" then return error(7302, "unicast recipient became unavailable") end if
@@ -125,6 +142,7 @@ function dispatchRouted(runtime, socket, events, routedEvents, now)
       if typeof(stats) != "struct" then return error(7302, "unicast recipient became unavailable") end if
       sent = sent + stats.sent
     end if
-  end for
+    planIndex = planIndex + 1
+  end while
   return UnicastDispatchResult(sent, true, 0)
 end function

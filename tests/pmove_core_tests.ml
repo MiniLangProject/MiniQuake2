@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Golden and deterministic replay tests for Quake II 3.19 PMove. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt

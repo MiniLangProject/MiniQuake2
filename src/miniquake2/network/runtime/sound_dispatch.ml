@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Ordered preflighted delivery of server sound fragments over Netchan. */
 package miniquake2.network.runtime.sound_dispatch
 

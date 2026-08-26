@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Nils Kopal
+# SPDX-License-Identifier: Apache-2.0
 """Read-only Quake II retail map inventory and MiniQuake2 campaign smoke.
 
 The tool never extracts or copies retail data.  It reads the PAK directory and

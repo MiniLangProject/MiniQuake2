@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Cross-map checkpoint orchestration through real Protocol-34 re-signon. */
 import std.fs as crosssavetestfs
 import miniquake2.network.constants as crosssavetestnetworkconstants

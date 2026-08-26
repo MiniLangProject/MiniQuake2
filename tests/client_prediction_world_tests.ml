@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Remote CL_ClipMoveToEntities parity for encoded boxes and inline BSPs. */
 import miniquake2.qcommon.constants as pwtqc
 import miniquake2.qcommon.types as pwtqt
@@ -110,5 +114,34 @@ predictionWorldNear(rotatedTrace.fraction, 0.37109375, 0.00001,
 predictionWorldAssert(rotatedTrace.entity.number == 8 and
   (pwtworld.pointContents(world, pwtqt.Vec3(10.0, -0.5, 0.0)) &
   pwtqc.CONTENTS_SOLID) != 0, "rotated mover trace and contents identity")
+
+// The remote product path must retain its world/Pmove/result graph while
+// remaining bit-identical to the original allocating prediction wrapper.
+reusePlayer = pwtpt.zeroPlayerState()
+reusePlayer.pmove.moveType = pwtqc.PM_SPECTATOR
+reuseSnapshot = pwtcrt.Snapshot(2, 1, 0, bytes(), reusePlayer, [])
+reuseCommand = pwtqt.UserCmd(100, 0, [0, 0, 0], 200, 0, 0, 0, 0)
+legacyResult = pwtworld.predict(reusePlayer, [reuseCommand], void,
+  configStrings, reuseSnapshot, 1, 0.0)
+reuseWorld = pwtworld.createWorld()
+reuseWorkspace = pwtworld.createPredictionWorkspace()
+reuseCommands = array(65, void)
+reuseCommands[0] = reuseCommand
+reuseResult = pwtworld.predictInto(reuseWorld, reuseWorkspace, reusePlayer,
+  reuseCommands, 1, void, configStrings, reuseSnapshot, 1, 0.0)
+predictionWorldAssert(reuseResult.state.origin[0] == legacyResult.state.origin[0] and
+  reuseResult.state.origin[1] == legacyResult.state.origin[1] and
+  reuseResult.state.origin[2] == legacyResult.state.origin[2],
+  "reused remote prediction matches allocating wrapper")
+reuseWorldIdentity = nativeRawValue(reuseWorld)
+reusePmoveIdentity = nativeRawValue(reuseWorkspace.pmove)
+reuseResultIdentity = nativeRawValue(reuseResult)
+reuseResult = pwtworld.predictInto(reuseWorld, reuseWorkspace, reusePlayer,
+  reuseCommands, 1, void, configStrings, reuseSnapshot, 1, 0.0)
+predictionWorldAssert(nativeRawValue(reuseWorld) == reuseWorldIdentity and
+  nativeRawValue(reuseWorkspace.pmove) == reusePmoveIdentity and
+  nativeRawValue(reuseResult) == reuseResultIdentity and
+  reuseResult.state.origin[1] == legacyResult.state.origin[1],
+  "remote prediction retains world, Pmove and result identity")
 
 print("client_prediction_world_tests: PASS")

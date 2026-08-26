@@ -66,7 +66,7 @@ function createHistory(maxClients)
     baselines[index] = baseline
     index = index + 1
   end while
-  return SnapshotHistory([], baselines, maxClients)
+  return SnapshotHistory(array(qc.UPDATE_BACKUP, void), baselines, maxClients)
 end function
 
 function setBaseline(history, state)
@@ -79,17 +79,17 @@ function addFrame(history, number, areaBits, playerState, entities)
   if typeof(areaBits) != "bytes" or len(areaBits) > 255 then return error(7505, "area bits exceed protocol byte count") end if
   validateEntities(entities, "addFrame")
   frame = SnapshotFrame(number, -1, 0, areaBits, pt.copyPlayerState(playerState), copyEntities(entities))
-  history.frames = history.frames + [frame]
-  if len(history.frames) > qc.UPDATE_BACKUP then history.frames = slice(history.frames, len(history.frames) - qc.UPDATE_BACKUP, qc.UPDATE_BACKUP) end if
+  // Protocol deltas only address the last UPDATE_BACKUP frames. Replacing the
+  // matching ring slot avoids copying and slicing the complete history on each
+  // server snapshot while every SnapshotFrame still owns its entity payload.
+  history.frames[number % qc.UPDATE_BACKUP] = frame
   return frame
 end function
 
 function findFrame(history, number)
-  index = 0
-  while index < len(history.frames)
-    if history.frames[index].number == number then return history.frames[index] end if
-    index = index + 1
-  end while
+  if number < 0 then return void end if
+  frame = history.frames[number % qc.UPDATE_BACKUP]
+  if frame is not void and frame.number == number then return frame end if
   return void
 end function
 

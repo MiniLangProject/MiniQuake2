@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Two-client goal route with same-map checkpoints across all retail SP BSPs. */
 import miniquake2.game.null_game as mpcpgame
 import miniquake2.game.constants as mpcpgameconstants

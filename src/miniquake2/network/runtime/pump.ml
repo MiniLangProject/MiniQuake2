@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Nonblocking UDP pump joining connection orchestration and pure Netchan. */
 package miniquake2.network.runtime.pump
 
@@ -43,6 +47,17 @@ function flushClient(runtime, socket, now, unreliable, stats)
   return true
 end function
 
+// CL_SendCmd throttles a connected (not yet active) client with no reliable
+// work to one keepalive per second. The lower-level flushClient deliberately
+// remains an unconditional Netchan transmit primitive for callers/tests.
+function flushClientForPump(runtime, socket, now, stats)
+  client = runtime.client
+  if client.state == nc.CA_CONNECTED and client.channel is not void and
+      not runtime.ackPending and not pnetchan.needReliable(client.channel) and
+      now - client.channel.lastSent <= 1000 then return false end if
+  return flushClient(runtime, socket, now, bytes(), stats)
+end function
+
 function pumpClient(runtime, socket, now, maximumPackets)
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7280, "client pump packet limit must be positive") end if
   stats = nrtypes.stats()
@@ -71,13 +86,22 @@ function pumpClient(runtime, socket, now, maximumPackets)
     count = count + 1
   end while
   nclient.checkTimeout(runtime.client, now)
-  flushClient(runtime, socket, now, bytes(), stats)
+  flushClientForPump(runtime, socket, now, stats)
   return stats
 end function
 
 // Product client path: identical transport/Netchan handling, with accepted
 // payloads committed through the transactional effects/snapshot/demo
 // dispatcher instead of the legacy protocol-only parser.
+function dispatchIntegratedPayload(integrated, payload, sequence, now)
+  dispatched = try(crdispatcher.dispatch(integrated, payload, sequence, now))
+  if dispatched is error then return dispatched end if
+  if not dispatched.accepted then return false end if
+  committed = try(crhandoff.commit(integrated, now))
+  if committed is error then return committed end if
+  return true
+end function
+
 function pumpIntegratedClient(integrated, socket, now, maximumPackets)
   runtime = integrated.network
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7280, "client pump packet limit must be positive") end if
@@ -100,10 +124,13 @@ function pumpIntegratedClient(integrated, socket, now, maximumPackets)
       if result.accepted then
         if header.reliable == 1 then runtime.ackPending = true end if
         if len(result.payload) > 0 then
-          dispatched = crdispatcher.dispatch(integrated, result.payload, header.sequence, now)
-          if dispatched is error or not dispatched.accepted then stats.rejected = stats.rejected + 1
-          else crhandoff.commit(integrated, now)
-          end if
+          acceptedPayload = try(dispatchIntegratedPayload(integrated,
+            result.payload, header.sequence, now))
+          // CL_ParseServerMessage raises ERR_DROP for malformed service data;
+          // checksum/precache errors have the same connection-fatal contract.
+          // Stale duplicate payloads remain ordinary rejected packets.
+          if acceptedPayload is error then return acceptedPayload end if
+          if not acceptedPayload then stats.rejected = stats.rejected + 1 end if
         end if
       else
         stats.rejected = stats.rejected + 1
@@ -112,7 +139,7 @@ function pumpIntegratedClient(integrated, socket, now, maximumPackets)
     count = count + 1
   end while
   nclient.checkTimeout(runtime.client, now)
-  flushClient(runtime, socket, now, bytes(), stats)
+  flushClientForPump(runtime, socket, now, stats)
   return stats
 end function
 

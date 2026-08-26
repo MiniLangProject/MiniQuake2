@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Primary Quake II 3.19 stand/idle/walk/run MD2 cycles for stock monsters. */
 package miniquake2.game.ai.locomotion_sequences
 

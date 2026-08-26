@@ -133,6 +133,11 @@ $PythonCommand = Resolve-Python $Python
 New-Item -ItemType Directory -Force -Path $Output | Out-Null
 $Verifier = Join-Path $Root "tools\verify_project.py"
 if (-not (Test-Path -LiteralPath $Verifier -PathType Leaf)) { throw "Project verifier missing: $Verifier" }
+$SourceHygieneVerifier = Join-Path $Root "tools\source_hygiene.py"
+$SourceHygieneTests = Join-Path $Root "tools\test_source_hygiene.py"
+if (-not (Test-Path -LiteralPath $SourceHygieneVerifier -PathType Leaf)) {
+  throw "Source hygiene verifier missing: $SourceHygieneVerifier"
+}
 
 if ($UpdateManifest) {
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--root", $Root, "--write-manifest", "--mode", "all")) -Label "manifest refresh"
@@ -141,8 +146,13 @@ if ($UpdateManifest) {
 if (-not $SkipPreflight) {
   Write-Host "[MiniQuake2] source, inventory, manifest and build-hygiene preflight"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--root", $Root, "--mode", "all", "--json", (Join-Path $Output "source-verification.json"))) -Label "project preflight; after intentional source changes run scripts\update_manifest.ps1"
+  $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneVerifier, "--root", $Root, "--json", (Join-Path $Output "source-hygiene.json"), "--quiet")) -Label "source license/comment hygiene"
   if (-not $SkipTests) {
     $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--self-test")) -Label "verifier self-test"
+    if (-not (Test-Path -LiteralPath $SourceHygieneTests -PathType Leaf)) {
+      throw "Source hygiene verifier tests missing: $SourceHygieneTests"
+    }
+    $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneTests)) -Label "source hygiene verifier tests"
   }
 }
 
@@ -181,13 +191,19 @@ $CompilerArguments = @(
   # expanded map geometry concurrently. Reserve address space generously while
   # keeping the initial physical commit modest; headless modes stay well below
   # this ceiling.
-  "--heap-reserve", "1g",
+  # Reserve is virtual address space, not committed RAM. Two GiB keeps normal
+  # frame allocation pressure away from the hard ceiling while periodic GC is
+  # still governed independently below.
+  "--heap-reserve", "2g",
   "--heap-commit", "32m",
   "--heap-grow", "16m",
-  # Retail rendering retains a large immutable BSP graph. A wider release GC
-  # interval avoids collecting that graph during ordinary frame bursts while
-  # keeping collections bounded well below the 1-GiB reserve.
-  "--gc-limit", "256m"
+  # Retail rendering retains a large immutable BSP graph plus packed lightmap
+  # atlases. Keep the live set comfortably below the release collection
+  # horizon so temporary frame data does not trigger a full-graph scan during
+  # ordinary play. Loading phases collect explicitly before audio starts;
+  # fixed-point audio and precomputed frustum bounds then keep the active-loop
+  # allocation rate low enough for this horizon below the 2-GiB reserve.
+  "--gc-limit", "1536m"
 )
 if ($Configuration -ieq "Debug") { $CompilerArguments += "--trace-calls" }
 if ($Listings) { $CompilerArguments += @("--asm", "--asm-pe", "--asm-data") }
@@ -216,20 +232,37 @@ if (-not $SkipTests) {
     $TestExe = Join-Path $Output ($TestName + ".exe")
     $TestPartial = $TestExe + "." + $PID + ".partial.exe"
     if (Test-Path -LiteralPath $TestPartial -PathType Leaf) { Remove-Item -Force -LiteralPath $TestPartial }
+    # These executables also serve as opt-in retail campaign gates. Their
+    # no-argument synthetic cases fit the compact test heap, but a caller that
+    # supplies a retail root retains several full BSP/collision graphs. Build
+    # them with the same memory contract as the product so the durable retail
+    # gate tests the engine instead of failing at the harness-only 256-MiB cap.
+    $RetailScaleTest = $TestName -in @(
+      "baseq2_campaign_retail_smoke_tests",
+      "baseq2_entity_parser_lifetime_tests",
+      "collision_bsp_product_graph_retention_tests",
+      "collision_bsp_retention_tests",
+      "network_runtime_campaign_unmasked_tests",
+      "runtime_session_soak_tests"
+    )
+    $TestHeapReserve = if ($RetailScaleTest) { "2g" } else { "256m" }
+    $TestHeapCommit = if ($RetailScaleTest) { "32m" } else { "64m" }
+    $TestHeapGrow = if ($RetailScaleTest) { "16m" } else { "4m" }
+    $TestGcLimit = if ($RetailScaleTest) { "1536m" } else { "32m" }
     $TestArguments = @(
       $TestSource.FullName, $TestPartial,
       "-I", $Source,
       "-I", $Native,
       "-I", $StdImportRoot,
       "--keep-going", "--max-errors", "50",
-      "--heap-reserve", "256m",
+      "--heap-reserve", $TestHeapReserve,
       # Several independent native graphs cross the 16-MiB growth guard while
       # constructing their fixtures. Tests are sequential, so a 64-MiB initial
       # commit removes that nondeterministic access violation without raising
       # the 256-MiB address-space reserve.
-      "--heap-commit", "64m",
-      "--heap-grow", "4m",
-      "--gc-limit", "32m"
+      "--heap-commit", $TestHeapCommit,
+      "--heap-grow", $TestHeapGrow,
+      "--gc-limit", $TestGcLimit
     )
     if ($Configuration -ieq "Debug") { $TestArguments += "--trace-calls" }
     if ($CompilerIsPython) {

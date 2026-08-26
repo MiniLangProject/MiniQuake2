@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* ASCII helpers used by command, cvar and filesystem paths. */
 package miniquake2.qcommon.text
 
@@ -19,9 +23,11 @@ end function
 
 function equalInsensitive(first, second)
   if typeof(first) != "string" or typeof(second) != "string" then return error(3261, "equalInsensitive requires text") end if
-  qtextEqualFirstHolder = lower(first)
-  qtextEqualSecondHolder = lower(second)
-  return qtextEqualFirstHolder == qtextEqualSecondHolder
+  // Use MiniLang's allocation-free native ASCII comparison. The former
+  // lower(first) == lower(second) path allocated two byte buffers, two output
+  // buffers and two strings per comparison. Picture lookup performs hundreds
+  // of thousands of these comparisons during ordinary HUD rendering.
+  return stringEqualsIgnoreCaseAscii(first, second)
 end function
 
 function fixedString(data, offset, capacity)

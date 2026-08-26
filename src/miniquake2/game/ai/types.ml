@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Managed records for callback-driven g_ai.c/g_monster.c behavior. */
 package miniquake2.game.ai.types
 

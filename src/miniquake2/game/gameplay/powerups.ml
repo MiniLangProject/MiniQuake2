@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock BaseQ2 armor, health, powerup, capacity and key rules from g_items.c. */
 package miniquake2.game.gameplay.powerups
 

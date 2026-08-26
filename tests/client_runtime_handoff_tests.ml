@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Atomic snapshot/effects/UI handoff and replay guard coverage. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.sizebuf as qsz

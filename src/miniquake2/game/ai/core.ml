@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic callback-based port of the central g_ai.c decisions. */
 package miniquake2.game.ai.core
 

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Managed state used by the BaseQ2 world state machines. */
 package miniquake2.game.world.types
 
@@ -115,6 +119,8 @@ struct WorldEntity
   aiFlags
   oldVelocity
   flySoundDebounceTime
+  waterType
+  waterLevel
 end struct
 
 struct WorldCallbacks
@@ -239,6 +245,6 @@ function createEntity(number, className)
     0.0, 0.0, 0.0, zeroMoveInfo(),
     0.0, 0.0, 0.0,
     "", "", void, void, void,
-    0, 0, 0, qt.zeroVec3(), 0.0
+    0, 0, 0, qt.zeroVec3(), 0.0, 0, 0
   )
 end function

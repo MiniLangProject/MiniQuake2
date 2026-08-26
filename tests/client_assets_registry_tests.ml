@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Asset-free model/sound registration, cache and generation tests. */
 import miniquake2.qcommon.constants as car_test_qc
 import miniquake2.renderer.types as car_test_rt

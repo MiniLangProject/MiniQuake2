@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic Protocol-34 server frame and packet-entity tests. */
 import miniquake2.qcommon.sizebuf as qsz
 import miniquake2.qcommon.message as qmsg

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Protocol-34 bytedirs table shared by MSG_WriteDir/MSG_ReadDir. */
 package miniquake2.qcommon.directions
 

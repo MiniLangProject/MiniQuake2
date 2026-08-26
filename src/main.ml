@@ -19,7 +19,7 @@ const PORT_STAGE = "integrated-runtime-foundation"
 // Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
-  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
+  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--projectile-visual-smoke ROOT [MAP] [FRAMES]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
   print ""
   print "  --version             print the port and compatibility target"
   print "  --data-root ROOT      remember retail data root and launch the menu-first product"
@@ -30,6 +30,7 @@ function printUsage()
   print "  --asset-smoke ROOT [MAP] validate retail PAK/BSP/MD2/WAV and one server frame"
   print "  --campaign-session-smoke ROOT [MAPS] rotate one UDP session through up to 39 retail maps"
   print "  --play-input-smoke ROOT [MAP] [STEPS] drive real UDP movement, weapon and snapshot input"
+  print "  --projectile-visual-smoke ROOT [MAP] [FRAMES] verify live Blaster snapshot/render/effect visibility"
   print "  --map-preview ROOT MAP [FRAMES] open a native OpenGL BSP38 preview"
   print "  --play ROOT MAP [FRAMES] run the interactive local vertical slice (FRAMES=0 until closed)"
   print "  --cinematic ROOT NAME [FRAMES] [LOOP] play a retail CIN (FRAMES=0 until completion, LOOP=0|1)"
@@ -185,9 +186,58 @@ function runPlay(args)
     print "  timing-ms present=" + result[15] + " audio=" + result[16] +
       " frame=" + result[17]
   end if
+  if len(result) >= 24 then
+    print "  audio-buffers submitted=" + result[20] +
+      " completed=" + result[21] + " underruns=" + result[22] +
+      " capacity=" + result[23]
+  end if
+  if len(result) >= 26 then
+    print "  max-frame-ms=" + result[24] +
+      " first-audio-underrun-frame=" + result[25]
+  end if
+  if len(result) >= 29 then
+    print "  heap-bytes current=" + result[26] + " maximum=" + result[27] +
+      " observed-collections=" + result[28]
+  end if
+  if len(result) >= 37 then
+    print "  max-frame-detail index=" + result[29] + " input=" + result[30] +
+      " client=" + result[31] + " world=" + result[32] + " entities=" + result[33] +
+      " hud=" + result[34] + " present=" + result[35] + " audio=" + result[36]
+  end if
+  if len(result) >= 43 then
+    print "  heap-growth input=" + result[37] + " client=" + result[38] +
+      " world=" + result[39] + " entities=" + result[40] + " hud=" + result[41] +
+      " audio=" + result[42]
+  end if
   if len(result) >= 15 and result[14] != "" then
     print "  missing-detail=" + result[14]
   end if
+  return 0
+end function
+
+function runProjectileVisualSmoke(args)
+  if len(args) < 2 or len(args) > 4 then
+    return error(9930, "--projectile-visual-smoke expects install root, optional map and optional frames")
+  end if
+  mapName = "base1"
+  frames = 360
+  if len(args) >= 3 then mapName = args[2] end if
+  if len(args) == 4 then frames = mainByteio.truncInt(toNumber(args[3])) end if
+  result = runtimeApplication.runProjectileVisualSmoke(args[1], mapName, frames)
+  if result[1] < 1 then return error(9931, "Automated blaster attack produced no network command") end if
+  if result[2] < 1 then return error(9932, "Blaster projectile was not spawned by the game") end if
+  if result[4] < 1 then return error(9933, "Blaster projectile did not survive its spawn frame; linked=" + result[2] + " freed=" + result[3]) end if
+  if result[5] < 1 then return error(9934, "Blaster projectile was not published as an export edict") end if
+  if result[6] < 1 then return error(9935, "Blaster projectile was removed by server visibility filtering: " + result[10]) end if
+  if result[7] < 1 then return error(9936, "Blaster projectile was lost during snapshot transport; attack=" + result[1] + " linked=" + result[2] + " freed=" + result[3] + " server=" + result[4] + " export=" + result[5] + " visible=" + result[6]) end if
+  if result[8] < 1 then return error(9937, "Blaster projectile never reached the render frame") end if
+  if result[9] < 1 then return error(9938, "Blaster projectile emitted no visible particles") end if
+  print "MiniQuake2 projectile visual smoke: PASS"
+  print "  attack-commands=" + result[1] + " linked=" + result[2] +
+    " freed=" + result[3] + " server-max=" + result[4] +
+    " export-max=" + result[5] + " visible-max=" + result[6] +
+    " snapshot-max=" + result[7] + " render-max=" + result[8] +
+    " particle-max=" + result[9]
   return 0
 end function
 
@@ -324,6 +374,7 @@ function main(args)
   if command == "--asset-smoke" then return runAssetSmoke(args) end if
   if command == "--campaign-session-smoke" then return runCampaignSessionSmoke(args) end if
   if command == "--play-input-smoke" then return runPlayInputSmoke(args) end if
+  if command == "--projectile-visual-smoke" then return runProjectileVisualSmoke(args) end if
   if command == "--map-preview" then return runMapPreview(args) end if
   if command == "--play" then return runPlay(args) end if
   if command == "--cinematic" then return runCinematic(args) end if

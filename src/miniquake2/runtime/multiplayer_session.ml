@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Bounded multi-client listen-server harness over real nonblocking UDP sessions. */
 package miniquake2.runtime.multiplayer_session
 

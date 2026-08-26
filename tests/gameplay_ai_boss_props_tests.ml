@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Classic boss3 stand and commander-body scripted prop goldens. */
 import miniquake2.game.ai.archetypes as bossproptestarchetypes
 import miniquake2.game.ai.constants as bossproptestconstants

@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Quake II colored static lightmaps plus ref_gl-style dynamic light samples. */
 package miniquake2.renderer.classic.lightmaps
 

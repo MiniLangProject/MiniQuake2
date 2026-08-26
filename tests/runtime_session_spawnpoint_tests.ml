@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Explicit $spawnpoint propagation through server and PlaySession factories. */
 import miniquake2.game.null_game as spawnpointtestgame
 import miniquake2.runtime.play_session as spawnpointtestplay

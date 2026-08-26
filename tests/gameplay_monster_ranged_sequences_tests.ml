@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Product-shaped stock ranged monster timeline and muzzle regression. */
 import miniquake2.game.ai.attack_sequences as rangedsequences
 import miniquake2.game.null_game as rangedgame

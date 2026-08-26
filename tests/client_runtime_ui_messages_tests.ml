@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Protocol-34 UI service framing, bounded handoff queues and malformed guards. */
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.message as qmsg

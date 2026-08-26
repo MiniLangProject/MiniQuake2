@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Stock monster combat-profile coverage plus integrated melee/projectile gates. */
 import miniquake2.game.ai.combat_profiles as monstercombatprofiles
 import miniquake2.game.null_game as monstercombatgame

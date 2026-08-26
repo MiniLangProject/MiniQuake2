@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Deterministic keyboard/mouse InputEvent to Protocol-34 UserCmd tests. */
 import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.keys as cuikeys

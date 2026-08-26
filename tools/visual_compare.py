@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Nils Kopal
+# SPDX-License-Identifier: Apache-2.0
 """Compare MiniQuake2/original-ref_gl TGA captures and emit stable JSON."""
 
 from __future__ import annotations

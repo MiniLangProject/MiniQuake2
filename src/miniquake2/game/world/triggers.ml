@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BaseQ2 g_trigger.c trigger_multiple/once/relay state machines. */
 package miniquake2.game.world.triggers
 

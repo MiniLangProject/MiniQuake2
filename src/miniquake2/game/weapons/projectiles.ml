@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* BaseQ2 blaster, grenade, rocket and BFG projectile state machines. */
 package miniquake2.game.weapons.projectiles
 

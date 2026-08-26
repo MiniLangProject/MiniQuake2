@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2026 Nils Kopal
+SPDX-License-Identifier: GPL-2.0-or-later
+*/
 /* Two-client coop skill, checkpoint, live-channel restore and friendly fire. */
 import miniquake2.network.constants as mpchecknetwork
 import miniquake2.protocol.netchan as mpchecknetchan

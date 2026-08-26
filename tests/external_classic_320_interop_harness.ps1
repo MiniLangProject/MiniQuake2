@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Nils Kopal
+# SPDX-License-Identifier: Apache-2.0
 param(
     [string]$ClassicRoot = 'C:\Program Files (x86)\Steam\steamapps\common\Quake 2',
     [string]$MiniQuake2Exe = '',
