@@ -10,6 +10,7 @@ import miniquake2.qcommon.filesystem as appfs
 import miniquake2.qcommon.text as apptext
 import miniquake2.format.bsp as appbsp
 import miniquake2.format.md2 as appmd2
+import miniquake2.format.cinematic as appcinformat
 import miniquake2.audio.wav as appwav
 import miniquake2.audio.device as appaudiodevice
 import miniquake2.audio.mixer as appaudiomixer
@@ -75,6 +76,20 @@ struct AssetSmokeResult
   playerFrames
   soundSamples
   pakCount
+end struct
+
+struct RetailMediaAudit
+  attractSequence
+  newGameSpecification
+  idlog
+  intro
+  demo1
+  demo2
+  levelTrack
+  musicPath
+  musicRate
+  musicChannels
+  musicFrames
 end struct
 
 struct ProductMenuSelection
@@ -406,11 +421,13 @@ end function
 // stretch, with the CIN PCM stream feeding the same managed mixer/device used
 // by gameplay. Escape opens/closes the existing menu and pauses/resumes both
 // video time and its mixer channel without losing the current frame.
-function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, productHost)
+function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping,
+    productHost, attractLoop)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9922, "cinematic requires the Quake II install root") end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9923, "cinematic frame limit outside [0,36000]") end if
   if typeof(looping) != "bool" then return error(9924, "cinematic looping flag must be boolean") end if
+  if typeof(attractLoop) != "bool" then return error(9924, "cinematic attract flag must be boolean") end if
   applicationCinematicFileSystemHolder = appfs.initialize(baseDirectory, "")
   previewFileSystem = applicationCinematicFileSystemHolder
   appproducthost.showProductLoading(productHost, "loading " + name)
@@ -436,8 +453,15 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, prod
   applicationCinematicStarted = appbyteio.truncInt(appsystem.milliseconds(applicationCinematicClockHolder))
   applicationCinematicPlaybackHolder = appcinplayer.start(applicationCinematicDataHolder,
     applicationCinematicStarted, looping, applicationCinematicMixerHandoffHolder.callbacks)
+  // SCR_PlayCinematic assigns cl.cinematictime only after Huff1TableInit and
+  // SCR_ReadNextFrame. Large ntro.cin tables must not count as dropped video.
+  applicationCinematicStarted = appbyteio.truncInt(
+    appsystem.milliseconds(applicationCinematicClockHolder))
+  applicationCinematicPlaybackHolder.startTime = applicationCinematicStarted
   applicationCinematicFrames = 0
   applicationCinematicWasPaused = false
+  applicationCinematicAttractInterrupted = false
+  applicationCinematicSkipped = false
   applicationCinematicStats = array(32, 0)
   applicationCinematicConfigStrings = array(0)
   while (frameLimit == 0 or applicationCinematicFrames < frameLimit) and
@@ -445,20 +469,32 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, prod
       not applicationCinematicCommandStateHolder.quitRequested and
       appwindow.poll(applicationCinematicWindowHolder)
     applicationCinematicNow = appbyteio.truncInt(appsystem.milliseconds(applicationCinematicClockHolder))
-    appuicontroller.poll(applicationCinematicInputHolder,
+    applicationCinematicInputEvents = appuicontroller.poll(applicationCinematicInputHolder,
       applicationCinematicScreenHolder, applicationCinematicNow)
+    if attractLoop and appmediaseq.attractInterrupted(
+        applicationCinematicInputHolder) then
+      applicationCinematicAttractInterrupted = true
+      break
+    end if
     appuicommands.drain(applicationCinematicCommandStateHolder,
       applicationCinematicInputHolder, applicationCinematicScreenHolder,
       applicationCinematicMixerHolder)
     applicationCinematicIgnoredCommands = appuicommands.takeForwarded(
       applicationCinematicCommandStateHolder)
-    applicationCinematicPaused = applicationCinematicScreenHolder.menu.active
+    applicationCinematicPaused = applicationCinematicScreenHolder.menu.active or
+      not applicationCinematicInputHolder.focused
     if applicationCinematicPaused and not applicationCinematicWasPaused then
       appcinplayer.pause(applicationCinematicPlaybackHolder, applicationCinematicNow)
     else if not applicationCinematicPaused and applicationCinematicWasPaused then
       appcinplayer.resume(applicationCinematicPlaybackHolder, applicationCinematicNow)
     end if
     applicationCinematicWasPaused = applicationCinematicPaused
+    if not attractLoop and not applicationCinematicPaused and
+        applicationCinematicNow - applicationCinematicStarted > 1000 and
+        appmediaseq.gameButtonDown(applicationCinematicInputHolder) then
+      applicationCinematicSkipped = true
+      break
+    end if
     if not applicationCinematicPaused then
       appcinplayer.update(applicationCinematicPlaybackHolder, applicationCinematicNow)
     end if
@@ -481,6 +517,11 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, prod
   end while
 
   applicationCinematicStatus = applicationCinematicPlaybackHolder.status
+  if applicationCinematicAttractInterrupted then
+    applicationCinematicStatus = "interrupted"
+  else if applicationCinematicSkipped then
+    applicationCinematicStatus = "skipped"
+  end if
   applicationCinematicStreamFrame = applicationCinematicPlaybackHolder.frameNumber
   applicationCinematicCompletions = applicationCinematicPlaybackHolder.completions
   applicationCinematicDropped = applicationCinematicPlaybackHolder.droppedFrames
@@ -494,14 +535,15 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping, prod
   return [applicationCinematicFrames, applicationCinematicStatus,
     applicationCinematicStreamFrame, applicationCinematicCompletions,
     applicationCinematicDropped, applicationCinematicPainted,
-    applicationCinematicDeviceOpened]
+    applicationCinematicDeviceOpened,
+    applicationCinematicCommandStateHolder.quitRequested]
 end function
 
 function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   applicationCinematicProductHost = appproducthost.openProductHost(
     "MiniQuake2 Cinematic - " + name, 0, false, applicationRendererImports())
   applicationCinematicProductResult = try(runRetailCinematicOnHost(baseDirectory,
-    name, frameLimit, looping, applicationCinematicProductHost))
+    name, frameLimit, looping, applicationCinematicProductHost, false))
   appproducthost.closeProductHost(applicationCinematicProductHost)
   if applicationCinematicProductResult is error then return applicationCinematicProductResult end if
   return applicationCinematicProductResult
@@ -529,6 +571,8 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
   applicationPictureScreenHolder = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
   applicationPictureCommandHolder = appuicommands.create()
   applicationPictureClockHolder = appsystem.createClock()
+  applicationPictureStarted = appbyteio.truncInt(
+    appsystem.milliseconds(applicationPictureClockHolder))
   applicationPictureFrames = 0
   applicationPictureAdvanced = false
   applicationPictureStats = array(32, 0)
@@ -543,10 +587,15 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
       applicationPictureScreenHolder, applicationPictureMixerHolder)
     applicationPictureForwarded = appuicommands.takeForwarded(applicationPictureCommandHolder)
     for each applicationPictureCommand in applicationPictureForwarded
-      if apptext.equalInsensitive(applicationPictureCommand, "nextserver") then
+      if applicationPictureNow - applicationPictureStarted > 1000 and
+          apptext.equalInsensitive(applicationPictureCommand, "nextserver") then
         applicationPictureAdvanced = true
       end if
     end for
+    if applicationPictureNow - applicationPictureStarted > 1000 and
+        appmediaseq.gameButtonDown(applicationPictureInputHolder) then
+      applicationPictureAdvanced = true
+    end if
     applicationPictureRendererHolder.exports.BeginFrame(0.0)
     if applicationPictureScreenHolder.menu.active then
       if applicationPicturePlaybackHolder.paletteActive then
@@ -602,13 +651,17 @@ end function
 // owns that isolated compatibility mode while all live networking remains 34.
 // Configstrings drive the same BSP/model/sound registration and frame/effect
 // handoff used by a connected game.
-function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
+function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
+    attractLoop)
   global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9949, "demo requires the Quake II install root")
   end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
     return error(9950, "demo frame limit outside [0,36000]")
+  end if
+  if typeof(attractLoop) != "bool" then
+    return error(9950, "demo attract flag must be boolean")
   end if
   applicationDemoFileSystemHolder = appfs.initialize(baseDirectory, "")
   previewFileSystem = applicationDemoFileSystemHolder
@@ -639,6 +692,9 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
   applicationDemoRenderedFrames = 0
   applicationDemoLastWorldStats = void
   applicationDemoStatus = "preview"
+  applicationDemoAttractInterrupted = false
+  applicationDemoMusicTrackValue = ""
+  applicationDemoMusicOpened = false
 
   while (frameLimit == 0 or applicationDemoRenderedFrames < frameLimit) and
       not applicationDemoSessionHolder.finished and
@@ -646,18 +702,47 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
       appwindow.poll(applicationDemoWindowHolder)
     applicationDemoStarted = appsystem.milliseconds(applicationDemoClockHolder)
     applicationDemoUiNow = appbyteio.truncInt(applicationDemoStarted)
-    appuicontroller.poll(applicationDemoInputHolder, applicationDemoScreenHolder,
+    applicationDemoInputEvents = appuicontroller.poll(
+      applicationDemoInputHolder, applicationDemoScreenHolder,
       applicationDemoUiNow)
+    if attractLoop and appmediaseq.attractInterrupted(
+        applicationDemoInputHolder) then
+      applicationDemoAttractInterrupted = true
+      break
+    end if
     appuicommands.drain(applicationDemoCommandHolder, applicationDemoInputHolder,
       applicationDemoScreenHolder, applicationDemoMixerHolder)
     applicationDemoIgnoredCommands = appuicommands.takeForwarded(
       applicationDemoCommandHolder)
-    if not applicationDemoScreenHolder.menu.active then
+    applicationDemoPaused = applicationDemoScreenHolder.menu.active or
+      not applicationDemoInputHolder.focused
+    if applicationDemoPaused then
+      appaudiomixer.pauseMusic(applicationDemoMixerHolder)
+    else
+      appaudiomixer.resumeMusic(applicationDemoMixerHolder)
+    end if
+    if not applicationDemoPaused then
       applicationDemoStepHolder = appdemosession.step(applicationDemoSessionHolder,
         applicationDemoSessionHolder.framesRead * 100)
       if applicationDemoStepHolder is void then break end if
       applyPlayHandoff(applicationDemoScreenHolder,
         applicationDemoStepHolder.handoff)
+
+      applicationDemoNextMusicTrackValue = applicationDemoSessionHolder.runtime.network.configStrings[
+        appqconstants.CS_CDTRACK]
+      if applicationDemoNextMusicTrackValue != applicationDemoMusicTrackValue then
+        applicationDemoMusicTrackValue = applicationDemoNextMusicTrackValue
+        applicationDemoMusicSync = try(appaudiomixer.synchronizeMusicTrack(
+          applicationDemoMixerHolder, applicationDemoFileSystemHolder,
+          applicationDemoMusicTrackValue))
+        if applicationDemoMusicSync is error then
+          appuiconsole.appendLine(applicationDemoScreenHolder.console,
+            "Music unavailable: " + applicationDemoMusicSync.message,
+            applicationDemoUiNow)
+        else if applicationDemoMixerHolder.music is not void then
+          applicationDemoMusicOpened = true
+        end if
+      end if
 
       applicationDemoNextMapPath = appdemosession.mapModelPath(
         applicationDemoSessionHolder)
@@ -755,10 +840,12 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
     end if
   end while
 
-  if applicationDemoSessionHolder.finished then applicationDemoStatus = "completed" end if
+  if applicationDemoSessionHolder.finished then applicationDemoStatus = "completed"
+  else if applicationDemoAttractInterrupted then applicationDemoStatus = "interrupted" end if
   applicationDemoRegisteredModels = 0
   applicationDemoRegisteredSounds = 0
   applicationDemoMissingAssets = 0
+  applicationDemoMissingAssetSummary = ""
   if applicationDemoAssetStateHolder is not void then
     applicationDemoRegisteredModels = countAvailableAssets(
       applicationDemoAssetStateHolder.modelEntries)
@@ -766,6 +853,8 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
       applicationDemoAssetStateHolder.soundEntries)
     applicationDemoMissingAssets = len(appclientassets.missingAssets(
       applicationDemoAssetStateHolder))
+    applicationDemoMissingAssetSummary = missingPlayAssetSummary(
+      applicationDemoAssetStateHolder)
   end if
   applicationDemoSubmittedEntities = applicationDemoRendererHolder.state.submittedEntities
   applicationDemoVisibleSurfaces = 0
@@ -797,17 +886,65 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost)
     applicationDemoPacketsRead, applicationDemoStatus,
     applicationDemoMapPathHolder, applicationDemoRegisteredModels,
     applicationDemoRegisteredSounds, applicationDemoMissingAssets,
-    applicationDemoSubmittedEntities, applicationDemoVisibleSurfaces]
+    applicationDemoSubmittedEntities, applicationDemoVisibleSurfaces,
+    applicationDemoMusicTrackValue,
+    applicationDemoMusicOpened,
+    applicationDemoCommandHolder.quitRequested,
+    applicationDemoMissingAssetSummary]
 end function
 
 function runRetailDemo(baseDirectory, name, frameLimit)
   applicationDemoProductHost = appproducthost.openProductHost(
     "MiniQuake2 Demo - " + name, 3, false, applicationRendererImports())
   applicationDemoProductResult = try(runRetailDemoOnHost(baseDirectory,
-    name, frameLimit, applicationDemoProductHost))
+    name, frameLimit, applicationDemoProductHost, false))
   appproducthost.closeProductHost(applicationDemoProductHost)
   if applicationDemoProductResult is error then return applicationDemoProductResult end if
   return applicationDemoProductResult
+end function
+
+// Qcommon_Init executes the stock d1 alias when no explicit +command was
+// supplied. Keep the four-entry alias cycle data-driven so any input can hand
+// control back to the persistent product menu without opening another host.
+function runStockAttractLoopOnHost(baseDirectory, productHost)
+  applicationAttractIndex = 0
+  applicationAttractCompleted = 0
+  while not productHost.window.closed
+    applicationAttractStep = appmediaseq.stockAttractStep(
+      applicationAttractIndex)
+    applicationAttractStatus = "preview"
+    applicationAttractQuit = false
+    if applicationAttractStep.kind == appmediaseq.MEDIA_CIN then
+      applicationAttractResult = runRetailCinematicOnHost(baseDirectory,
+        applicationAttractStep.name, 0, false, productHost, true)
+      applicationAttractStatus = applicationAttractResult[1]
+      applicationAttractQuit = applicationAttractResult[7]
+    else if applicationAttractStep.kind == appmediaseq.MEDIA_DM2 then
+      applicationAttractResult = runRetailDemoOnHost(baseDirectory,
+        applicationAttractStep.name, 0, productHost, true)
+      applicationAttractStatus = applicationAttractResult[2]
+      applicationAttractQuit = applicationAttractResult[11]
+    else
+      return error(9952, "stock attract step is not CIN or DM2")
+    end if
+    if applicationAttractQuit then
+      return [applicationAttractCompleted, "quit", applicationAttractIndex]
+    end if
+    if applicationAttractStatus == "interrupted" then
+      return [applicationAttractCompleted, "interrupted", applicationAttractIndex]
+    end if
+    if productHost.window.closed then
+      return [applicationAttractCompleted, "closed", applicationAttractIndex]
+    end if
+    if applicationAttractStatus != "completed" then
+      return [applicationAttractCompleted, applicationAttractStatus,
+        applicationAttractIndex]
+    end if
+    applicationAttractCompleted = applicationAttractCompleted + 1
+    applicationAttractIndex = appmediaseq.nextStockAttractIndex(
+      applicationAttractIndex)
+  end while
+  return [applicationAttractCompleted, "closed", applicationAttractIndex]
 end function
 
 // Execute the exact classic `map first+nextserver` media chain. A positive
@@ -837,7 +974,7 @@ function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
     end if
     if applicationMediaStepHolder.kind == appmediaseq.MEDIA_CIN then
       applicationMediaCinematicResult = runRetailCinematicOnHost(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit, false, productHost)
+        applicationMediaStepHolder.name, frameLimit, false, productHost, false)
       applicationMediaCinematics = applicationMediaCinematics + 1
       if frameLimit == 0 and applicationMediaCinematicResult[1] != "completed" then
         return [applicationMediaCompleted, applicationMediaCinematics,
@@ -860,7 +997,7 @@ function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
       applicationMediaMaps = applicationMediaMaps + 1
     else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2 then
       applicationMediaDemoResult = runRetailDemoOnHost(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit, productHost)
+        applicationMediaStepHolder.name, frameLimit, productHost, false)
       applicationMediaDemos = applicationMediaDemos + 1
       if frameLimit == 0 and applicationMediaDemoResult[2] != "completed" then
         return [applicationMediaCompleted, applicationMediaCinematics,
@@ -931,6 +1068,116 @@ function assetSmoke(baseDirectory, mapName)
     if searchPath.pack is not void then pakCount = pakCount + 1 end if
   end for
   return AssetSmokeResult(path, len(map.faces), len(map.leafs), parsed, spawnResult.skippedEntityCount, len(player.frames), menuSound.sampleCount, pakCount)
+end function
+
+function auditRetailCinematic(filesystem, name)
+  applicationAuditCinematicData = appfs.readFile(filesystem,
+    cinematicPath(name))
+  applicationAuditCinematicHeader = appcinformat.parseHeader(
+    applicationAuditCinematicData)
+  applicationAuditCinematicTables = appcinformat.buildTables(
+    applicationAuditCinematicHeader)
+  applicationAuditCinematicFrame = appcinformat.readFrame(
+    applicationAuditCinematicData,
+    applicationAuditCinematicHeader.frameDataOffset, 0,
+    applicationAuditCinematicHeader, applicationAuditCinematicTables)
+  applicationAuditCinematicFrameBytes = applicationAuditCinematicHeader.sampleWidth *
+    applicationAuditCinematicHeader.sampleChannels
+  return [name, applicationAuditCinematicHeader.width,
+    applicationAuditCinematicHeader.height,
+    applicationAuditCinematicHeader.sampleRate,
+    len(applicationAuditCinematicFrame.audio) /
+      applicationAuditCinematicFrameBytes,
+    len(applicationAuditCinematicFrame.pixels)]
+end function
+
+function auditRetailDemo(filesystem, name, randomSeed)
+  applicationAuditDemo = appdemosession.create(appfs.readFile(filesystem,
+    demoPath(name)), randomSeed)
+  applicationAuditDemoNow = 0
+  while not applicationAuditDemo.finished
+    applicationAuditDemoStep = appdemosession.step(applicationAuditDemo,
+      applicationAuditDemoNow)
+    applicationAuditDemoNow = applicationAuditDemoNow + 100
+  end while
+  applicationAuditDemoTrack = applicationAuditDemo.runtime.network.configStrings[
+    appqconstants.CS_CDTRACK]
+  applicationAuditDemoResult = [name, applicationAuditDemo.packetsRead,
+    applicationAuditDemo.framesRead,
+    appdemosession.mapModelPath(applicationAuditDemo),
+    applicationAuditDemoTrack]
+  appdemosession.release(applicationAuditDemo)
+  return applicationAuditDemoResult
+end function
+
+// Deterministic, headless retail gate for the media paths that otherwise need
+// interactive windows. It decodes one real frame from both stock CIN files,
+// replays both release DM2 streams through their Protocol-26 compatibility
+// dispatcher, publishes base1's worldspawn CD track through Game API v3, and
+// opens the matching OGG through the production Vorbis bridge.
+function runRetailMediaAudit(baseDirectory)
+  if not appstartup.retailRootValid(baseDirectory) then
+    return error(9953, "retail media audit requires a Quake II root")
+  end if
+  applicationAuditFileSystem = appfs.initialize(baseDirectory, "")
+  applicationAuditAttract = ""
+  applicationAuditAttractIndex = 0
+  while applicationAuditAttractIndex < appmediaseq.STOCK_ATTRACT_STEPS
+    if applicationAuditAttract != "" then
+      applicationAuditAttract = applicationAuditAttract + " -> "
+    end if
+    applicationAuditAttract = applicationAuditAttract +
+      appmediaseq.stockAttractStep(applicationAuditAttractIndex).name
+    applicationAuditAttractIndex = applicationAuditAttractIndex + 1
+  end while
+
+  applicationAuditIdlog = auditRetailCinematic(applicationAuditFileSystem,
+    "idlog.cin")
+  applicationAuditIntro = auditRetailCinematic(applicationAuditFileSystem,
+    "ntro.cin")
+  applicationAuditDemo1 = auditRetailDemo(applicationAuditFileSystem,
+    "demo1.dm2", 31901)
+  applicationAuditDemo2 = auditRetailDemo(applicationAuditFileSystem,
+    "demo2.dm2", 31902)
+
+  applicationAuditMapPath = mapPath("base1")
+  applicationAuditMapBytes = appfs.readFile(applicationAuditFileSystem,
+    applicationAuditMapPath)
+  applicationAuditMap = appbsp.parse(applicationAuditMapBytes,
+    applicationAuditMapPath)
+  applicationAuditBridge = appbridge.createRuntime(1)
+  applicationAuditBridge.collision = appcollision.create(applicationAuditMap)
+  applicationAuditGame = appgame.GetGameApi(
+    appbridge.makeImports(applicationAuditBridge))
+  applicationAuditBridge.game = applicationAuditGame
+  applicationAuditGame.init()
+  applicationAuditGame.spawnEntities("base1", applicationAuditMap.entityText, "")
+  applicationAuditLevelTrack = applicationAuditBridge.configStrings[
+    appqconstants.CS_CDTRACK]
+
+  applicationAuditMixer = appaudiomixer.create(44100)
+  applicationAuditMusicOpen = appaudiomixer.synchronizeMusicTrack(
+    applicationAuditMixer, applicationAuditFileSystem,
+    applicationAuditLevelTrack)
+  if not applicationAuditMusicOpen or applicationAuditMixer.music is void or
+      not applicationAuditMixer.music.playing then
+    return error(9953, "retail level OGG did not open")
+  end if
+  applicationAuditMusicPath = appfs.musicTrackPath(applicationAuditFileSystem,
+    applicationAuditMixer.music.number)
+  applicationAuditMusicRate = applicationAuditMixer.music.rate
+  applicationAuditMusicChannels = applicationAuditMixer.music.channels
+  applicationAuditMusicFrames = applicationAuditMixer.music.frames
+  appaudiomixer.stopMusic(applicationAuditMixer)
+  applicationAuditGame.shutdown()
+
+  return RetailMediaAudit(applicationAuditAttract,
+    appmediaseq.stockNewGameSpecification(),
+    applicationAuditIdlog, applicationAuditIntro,
+    applicationAuditDemo1, applicationAuditDemo2,
+    applicationAuditLevelTrack, applicationAuditMusicPath,
+    applicationAuditMusicRate, applicationAuditMusicChannels,
+    applicationAuditMusicFrames)
 end function
 
 function resultLines(result)
@@ -1529,6 +1776,10 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   global applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum
   global applicationProjectileParticleMaximum
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
+  // Loading owns several large graphs at once and already collects at explicit
+  // phase boundaries. Restore the release horizon in case a prior persistent
+  // session left the lower steady-state threshold active.
+  gc_set_limit(1536 * 1024 * 1024)
   filesystem = appfs.initialize(baseDirectory, "")
   previewFileSystem = filesystem
   appproducthost.showProductLoading(productHost, "loading " + mapName)
@@ -1633,6 +1884,12 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   // a simultaneous video and sound hitch even though the steady-state frame
   // loop is fast.
   gc_collect()
+  // Dense stock maps can allocate hundreds of MiB of short-lived protocol and
+  // render snapshots in only a few seconds. Waiting for the 1.5-GiB loading
+  // horizon forced multi-second heap-commit stalls on fact2/ware1/ware2. A
+  // 256-MiB gameplay horizon reclaims those snapshots while the eight-buffer
+  // audio queue still covers the measured collection tail.
+  gc_set_limit(256 * 1024 * 1024)
 
   audioMixer = appaudiomixer.create(44100)
   appaudiomixer.setMasterVolume(audioMixer, 0.7)
@@ -1768,6 +2025,7 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   applicationPerfPresent = 0
   applicationPerfAudio = 0
   applicationPerfFrame = 0
+  applicationPerfInput = 0
   applicationMaximumFrameMsec = 0.0
   applicationMaximumFrameIndex = -1
   applicationMaximumInputMsec = 0.0
@@ -2141,6 +2399,7 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     end if
 
     applicationPerfStart = appsystem.milliseconds(clock)
+    applicationPerfInput = applicationPerfInput + applicationPerfStart - started
     applicationHeapAfterInput = heap_bytes_used()
     if applicationHeapAfterInput > applicationHeapFrameStart then
       applicationHeapInputGrowth = applicationHeapInputGrowth +
@@ -2419,7 +2678,8 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     applicationMaximumPresentMsec, applicationMaximumAudioMsec,
     applicationHeapInputGrowth, applicationHeapClientGrowth,
     applicationHeapWorldGrowth, applicationHeapEntitiesGrowth,
-    applicationHeapHudGrowth, applicationHeapAudioGrowth]
+    applicationHeapHudGrowth, applicationHeapAudioGrowth,
+    applicationPerfInput]
 end function
 
 function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit,
@@ -3015,6 +3275,20 @@ function runProduct(baseDirectory, frameLimit)
   applicationPersistentMenuFrames = 0
   applicationPersistentGameplayFrames = 0
   applicationPersistentDone = false
+  applicationPersistentAttract = void
+  if frameLimit == 0 then
+    applicationPersistentAttract = try(runStockAttractLoopOnHost(
+      baseDirectory, applicationPersistentHost))
+    if applicationPersistentAttract is error then
+      applicationPersistentAttractClose = try(
+        appproducthost.closeProductHost(applicationPersistentHost))
+      return applicationPersistentAttract
+    end if
+    if applicationPersistentAttract[1] == "quit" or
+        applicationPersistentAttract[1] == "closed" then
+      applicationPersistentDone = true
+    end if
+  end if
   while not applicationPersistentDone
     applicationPersistentSelection = runProductMenuOnHost(baseDirectory,
       applicationPersistentHost, frameLimit, applicationPersistentProfile)
@@ -3054,6 +3328,28 @@ function runProduct(baseDirectory, frameLimit)
         applicationPersistentConnect[0]
       if applicationPersistentConnect[2] then applicationPersistentDone = true end if
       continue
+    end if
+    if applicationPersistentSelection.action == "local" then
+      applicationPersistentNewGame = appmediaseq.parse(
+        appmediaseq.stockNewGameSpecification())
+      applicationPersistentIntro = try(runRetailCinematicOnHost(
+        baseDirectory, applicationPersistentNewGame.steps[0].name,
+        0, false, applicationPersistentHost, false))
+      if applicationPersistentIntro is error then
+        if applicationPersistentHost.renderer.state.core.state.frameOpen then
+          applicationPersistentIntroEndFrame = try(
+            applicationPersistentHost.renderer.exports.EndFrame())
+        end if
+        applicationPersistentIntroClose = try(
+          appproducthost.closeProductHost(applicationPersistentHost))
+        return applicationPersistentIntro
+      end if
+      if applicationPersistentIntro[7] or
+          applicationPersistentHost.window.closed then
+        applicationPersistentDone = true
+        continue
+      end if
+      applicationPersistentSelection.mapName = applicationPersistentNewGame.steps[1].name
     end if
     applicationPersistentServerOptions = void
     if applicationPersistentSelection.action == "server" then

@@ -6,6 +6,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.runtime.media_sequence as mediatestseq
 import miniquake2.qcommon.cmd as mediatestcmd
 import miniquake2.qcommon.cvar as mediatestcvar
+import miniquake2.client.ui.keys as mediatestkeys
+import miniquake2.client.ui.constants as mediatestui
 
 function mediaSequenceAssert(value, name)
   if not value then return error(8499, name) end if
@@ -41,8 +43,34 @@ mediaSequenceAssert(try(mediatestseq.parse("../end.cin")) is error,
   "path traversal rejected")
 mediaSequenceAssert(try(mediatestseq.parse("movie.cin$spawn")) is error,
   "media spawn point rejected")
-mediaSequenceAssert(try(mediatestseq.parse("*movie.cin")) is error,
-  "media unit marker rejected")
+mediaNewGame = mediatestseq.parse(mediatestseq.stockNewGameSpecification())
+mediaSequenceAssert(len(mediaNewGame.steps) == 2 and
+  mediaNewGame.steps[0].kind == mediatestseq.MEDIA_CIN and
+  mediaNewGame.steps[0].name == "ntro.cin" and
+  mediaNewGame.steps[0].endOfUnit and
+  mediaNewGame.steps[1].name == "base1",
+  "stock new-game intro sequence")
+mediaSequenceAssert(mediatestseq.stockAttractStep(0).name == "idlog.cin" and
+  mediatestseq.stockAttractStep(1).name == "demo1.dm2" and
+  mediatestseq.stockAttractStep(2).name == "idlog.cin" and
+  mediatestseq.stockAttractStep(3).name == "demo2.dm2" and
+  mediatestseq.nextStockAttractIndex(3) == 0,
+  "stock d1 through d4 attract cycle")
+mediaAttractInput = mediatestkeys.createInputState()
+mediaSequenceAssert(not mediatestseq.attractInterrupted(mediaAttractInput),
+  "idle attract input retained")
+mediaAttractInput.keys[65] = true
+mediaSequenceAssert(mediatestseq.gameButtonDown(mediaAttractInput) and
+  mediatestseq.attractInterrupted(mediaAttractInput),
+  "ordinary attract key interrupts")
+mediaAttractInput.keys[65] = false
+mediaAttractInput.focused = false
+mediaAttractInput.destination = mediatestui.KEY_MENU
+mediaSequenceAssert(not mediatestseq.attractInterrupted(mediaAttractInput),
+  "focus loss does not masquerade as attract input")
+mediaAttractInput.focused = true
+mediaSequenceAssert(mediatestseq.attractInterrupted(mediaAttractInput),
+  "attract menu destination interrupts")
 
 mediaCommandSystem = mediatestcmd.create(mediatestcvar.createRegistry())
 mediatestcmd.addText(mediaCommandSystem, "gamemap \"eou2_.cin+*jail1\"\nstatus\n")

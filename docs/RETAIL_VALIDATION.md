@@ -8,6 +8,11 @@ copied into the project, build products, or release archives. The installation
 also contains a separate `rerelease` directory; all results below use the
 classic root and classic `baseq2` PAK files only.
 
+This is a chronological evidence log, so counts and timings belong to the
+build described by their surrounding dated paragraph. The latest audit section
+and current verifier output supersede older inventory totals without rewriting
+the historical measurements.
+
 The 2026-08-25 frame/audio pass replaced per-frame auto-sound channel
 allocation with inactive-channel reuse, added epoch-indexed entity and
 resource-handle lookup tables, packed BSP lightmaps into 256x256 atlases and
@@ -523,8 +528,9 @@ same 2,048 PCM bytes and FNV-1a `630146404` under the 4-MB GC profile.
 
 The product executable also plays the installed 3,159,828-byte
 `baseq2/video/idlog.cin` through its real Huffman/palette/OpenGL/mixer/device
-chain. The full run completed stream frame 81 exactly once with zero drops and
-254,976 mixed stereo frames. This retail gate exposed and fixed the original
+chain. The final full run completed stream frame 81 exactly once with one
+scheduler drop inside the explicit hardware limit and 269,312 mixed stereo
+frames. This retail gate exposed and fixed the original
 decoder's legal leaf-255 fallback for unused zero-count Huffman context rows.
 See [`CINEMATIC_ACCEPTANCE.md`](CINEMATIC_ACCEPTANCE.md).
 
@@ -655,7 +661,7 @@ sample; fixed-point mixing and reusable output/autosound storage remove adjacent
 hot-loop allocation.
 
 The long-running retail session gate completed 100,000 `base1` frames in
-459,794.86 ms (217.49 unpaced simulation frames/s): 212,822 packets sent and
+392,527.22 ms (254.76 unpaced simulation frames/s): 212,822 packets sent and
 received, zero rejects, zero pending sounds, zero queued map changes, an empty
 command buffer and a clean process exit. Additional retail results:
 
@@ -664,8 +670,9 @@ command buffer and a clean process exit. Additional retail results:
 - 47-map retained BSP/collision window and the complete 39-map product graph;
 - 39 consecutive Protocol-34 retail map sessions without a masked sign-on
   error;
-- 600-frame menu-first product and 1280x720 fullscreen video restart with
-  identical 68-surface visibility before/after restart;
+- 600-frame bounded menu smoke, normal stock-attract startup gate and 1280x720
+  fullscreen video restart with identical 68-surface visibility before/after
+  restart;
 - 600 real movement/weapon snapshots, 1,342 packets and zero rejects;
 - live Blaster chain with nine projectiles linked/freed and visibility at
   server export, snapshot, renderer and particle stages (1,183 particles max).
@@ -674,3 +681,16 @@ Retail-scale native test executables are now compiled with the same 2-GiB
 virtual reserve and 1,536-MiB collection horizon as the product. The earlier
 256-MiB test-only reserve could not retain four expanded BSP/collision graphs;
 with the product contract both 39/47-map retention gates pass.
+
+The 2026-08-26 whole-product performance audit additionally executes 500
+rendered frames on every one of the 47 installed BSPs. All maps pass with zero
+missing play assets and zero audio underruns; engine-work throughput ranges
+from 133.26 to 724.23 fps with a 457.31 median. The audit exposed and fixed
+multi-second heap-commit stalls on `fact2`, `ware1` and `ware2` by separating
+the loading allocation horizon from the bounded active-gameplay horizon. See
+[`ALL_LEVEL_FPS_2026-08-26.md`](ALL_LEVEL_FPS_2026-08-26.md).
+
+Startup/media parity now also has a deterministic product gate: the stock
+`d1` attract loop, `*ntro.cin+base1`, both complete release demos, campaign
+CIN previews and OGG level music all pass against the installed retail data.
+See [`MEDIA_STARTUP_AUDIT_2026-08-26.md`](MEDIA_STARTUP_AUDIT_2026-08-26.md).

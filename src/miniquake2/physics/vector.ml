@@ -8,9 +8,10 @@ package miniquake2.physics.vector
 import std.math as smath
 import miniquake2.qcommon.types as qt
 
-// Convert a dynamic Vec3-shaped value into scalars before any public helper
-// allocates or calls another mathematical operation.
-function physicsVectorComponents(value, operation)
+// Validate dynamic Vec3-shaped values without materializing a temporary
+// three-element array. Pmove calls dot/length/multiplyAdd hundreds of times
+// per prediction frame, so the former component array dominated its GC rate.
+function inline validatePhysicsVector(value, operation)
   if typeof(value) != "struct" then
     return error(2840, operation + ": Vec3-shaped value required")
   end if
@@ -23,80 +24,86 @@ function physicsVectorComponents(value, operation)
       (zType != "int" and zType != "float") then
     return error(2840, operation + ": numeric Vec3 components required")
   end if
-  components = array(3)
-  components[0] = x; components[1] = y; components[2] = z
-  return components
+  return true
+end function
+
+function physicsVectorComponents(value, operation)
+  valid = try(validatePhysicsVector(value, operation))
+  if valid is error then return valid end if
+  return [value.x, value.y, value.z]
 end function
 
 function copy(value)
-  components = physicsVectorComponents(value, "physics vector copy")
-  x = components[0]; y = components[1]; z = components[2]
-  result = qt.Vec3(x, y, z)
+  valid = try(validatePhysicsVector(value, "physics vector copy"))
+  if valid is error then return valid end if
+  result = qt.Vec3(value.x, value.y, value.z)
   return result
 end function
 
 function add(first, second)
-  firstComponents = physicsVectorComponents(first, "physics vector add first operand")
-  firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
-  secondComponents = physicsVectorComponents(second, "physics vector add second operand")
-  secondX = secondComponents[0]; secondY = secondComponents[1]; secondZ = secondComponents[2]
-  result = qt.Vec3(firstX + secondX, firstY + secondY, firstZ + secondZ)
+  valid = try(validatePhysicsVector(first, "physics vector add first operand"))
+  if valid is error then return valid end if
+  valid = try(validatePhysicsVector(second, "physics vector add second operand"))
+  if valid is error then return valid end if
+  result = qt.Vec3(first.x + second.x, first.y + second.y, first.z + second.z)
   return result
 end function
 
 function subtract(first, second)
-  firstComponents = physicsVectorComponents(first, "physics vector subtract first operand")
-  firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
-  secondComponents = physicsVectorComponents(second, "physics vector subtract second operand")
-  secondX = secondComponents[0]; secondY = secondComponents[1]; secondZ = secondComponents[2]
-  result = qt.Vec3(firstX - secondX, firstY - secondY, firstZ - secondZ)
+  valid = try(validatePhysicsVector(first, "physics vector subtract first operand"))
+  if valid is error then return valid end if
+  valid = try(validatePhysicsVector(second, "physics vector subtract second operand"))
+  if valid is error then return valid end if
+  result = qt.Vec3(first.x - second.x, first.y - second.y, first.z - second.z)
   return result
 end function
 
 function scale(value, amount)
-  components = physicsVectorComponents(value, "physics vector scale")
-  x = components[0]; y = components[1]; z = components[2]
-  result = qt.Vec3(x * amount, y * amount, z * amount)
+  valid = try(validatePhysicsVector(value, "physics vector scale"))
+  if valid is error then return valid end if
+  result = qt.Vec3(value.x * amount, value.y * amount, value.z * amount)
   return result
 end function
 
 function multiplyAdd(value, amount, direction)
-  valueComponents = physicsVectorComponents(value, "physics vector multiplyAdd value")
-  valueX = valueComponents[0]; valueY = valueComponents[1]; valueZ = valueComponents[2]
-  directionComponents = physicsVectorComponents(direction, "physics vector multiplyAdd direction")
-  directionX = directionComponents[0]; directionY = directionComponents[1]; directionZ = directionComponents[2]
+  valid = try(validatePhysicsVector(value, "physics vector multiplyAdd value"))
+  if valid is error then return valid end if
+  valid = try(validatePhysicsVector(direction,
+    "physics vector multiplyAdd direction"))
+  if valid is error then return valid end if
   result = qt.Vec3(
-    valueX + amount * directionX,
-    valueY + amount * directionY,
-    valueZ + amount * directionZ
+    value.x + amount * direction.x,
+    value.y + amount * direction.y,
+    value.z + amount * direction.z
   )
   return result
 end function
 
 function dot(first, second)
-  firstComponents = physicsVectorComponents(first, "physics vector dot first operand")
-  firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
-  secondComponents = physicsVectorComponents(second, "physics vector dot second operand")
-  secondX = secondComponents[0]; secondY = secondComponents[1]; secondZ = secondComponents[2]
-  return firstX * secondX + firstY * secondY + firstZ * secondZ
+  valid = try(validatePhysicsVector(first, "physics vector dot first operand"))
+  if valid is error then return valid end if
+  valid = try(validatePhysicsVector(second, "physics vector dot second operand"))
+  if valid is error then return valid end if
+  return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
 function cross(first, second)
-  firstComponents = physicsVectorComponents(first, "physics vector cross first operand")
-  firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
-  secondComponents = physicsVectorComponents(second, "physics vector cross second operand")
-  secondX = secondComponents[0]; secondY = secondComponents[1]; secondZ = secondComponents[2]
+  valid = try(validatePhysicsVector(first, "physics vector cross first operand"))
+  if valid is error then return valid end if
+  valid = try(validatePhysicsVector(second, "physics vector cross second operand"))
+  if valid is error then return valid end if
   result = qt.Vec3(
-    firstY * secondZ - firstZ * secondY,
-    firstZ * secondX - firstX * secondZ,
-    firstX * secondY - firstY * secondX
+    first.y * second.z - first.z * second.y,
+    first.z * second.x - first.x * second.z,
+    first.x * second.y - first.y * second.x
   )
   return result
 end function
 
 function length(value)
-  components = physicsVectorComponents(value, "physics vector length")
-  x = components[0]; y = components[1]; z = components[2]
+  valid = try(validatePhysicsVector(value, "physics vector length"))
+  if valid is error then return valid end if
+  x = value.x; y = value.y; z = value.z
   // Keep the axis-aligned cases exact. They dominate player input and avoid
   // turning a mathematically integral network velocity into the next lower
   // truncation bucket through a sub-ulp Newton approximation.
@@ -112,8 +119,9 @@ end function
 // Return [normalized vector, original length], matching VectorNormalize's
 // useful result without relying on reference parameters.
 function normalized(value)
-  components = physicsVectorComponents(value, "physics vector normalized")
-  x = components[0]; y = components[1]; z = components[2]
+  valid = try(validatePhysicsVector(value, "physics vector normalized"))
+  if valid is error then return valid end if
+  x = value.x; y = value.y; z = value.z
   magnitude = 0.0
   if y == 0.0 and z == 0.0 then
     magnitude = smath.abs(x)
@@ -139,11 +147,11 @@ function normalized(value)
 end function
 
 function component(value, axis)
-  components = physicsVectorComponents(value, "physics vector component")
-  x = components[0]; y = components[1]; z = components[2]
-  if axis == 0 then return x end if
-  if axis == 1 then return y end if
-  return z
+  valid = try(validatePhysicsVector(value, "physics vector component"))
+  if valid is error then return valid end if
+  if axis == 0 then return value.x end if
+  if axis == 1 then return value.y end if
+  return value.z
 end function
 
 function setComponent(value, axis, componentValue)
@@ -165,8 +173,9 @@ function setComponent(value, axis, componentValue)
 end function
 
 function angleVectors(angles)
-  components = physicsVectorComponents(angles, "physics angleVectors")
-  angleX = components[0]; angleY = components[1]; angleZ = components[2]
+  valid = try(validatePhysicsVector(angles, "physics angleVectors"))
+  if valid is error then return valid end if
+  angleX = angles.x; angleY = angles.y; angleZ = angles.z
   pitch = smath.degToRad(angleX)
   yaw = smath.degToRad(angleY)
   roll = smath.degToRad(angleZ)

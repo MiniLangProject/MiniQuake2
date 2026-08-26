@@ -25,12 +25,17 @@ The installed, user-owned fixture is read in place and never copied:
 |---|---:|---|
 | `baseq2/video/idlog.cin` | 3,159,828 | `D5177F538BE17641EF97D5D0D9CB5DEB80954447D430789858ACC32C1C6C0C43` |
 
-A complete native product run passed with:
+A final complete native product run passed with:
 
-- 368 rendered window frames;
+- 310 rendered window frames;
 - final CIN stream frame 81 and exactly one completion;
-- zero dropped CIN frames;
-- 254,976 stereo frames painted through an opened native audio device.
+- one scheduler-dropped CIN frame, within the explicit hardware limit;
+- 269,312 stereo frames painted through an opened native audio device.
+
+The deterministic two-frame preview reports zero drops. Real decode/render/
+mix previews also pass for `ntro`, `end` and all eight `eou` videos. The full
+inventory, demo, startup-attract and music evidence is recorded in
+[`MEDIA_STARTUP_AUDIT_2026-08-26.md`](MEDIA_STARTUP_AUDIT_2026-08-26.md).
 
 The first product attempt exposed a real compatibility defect: stock CIN files
 contain unused Huffman context rows with zero symbols. Original

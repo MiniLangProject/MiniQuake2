@@ -54,6 +54,11 @@ const RELIABLE_WORK_CONFIGSTRINGS = 1
 const RELIABLE_WORK_BASELINES = 2
 const RELIABLE_WORK_DOWNLOAD = 3
 
+// MSG_Write/ReadDeltaUsercmd never mutates its base command. Keep the stock
+// null command once instead of rebuilding its struct and angle array for every
+// 90-Hz client packet in both directions.
+networkRuntimeZeroUserCmd = qt.zeroUserCmd()
+
 function writeUserInfo(buffer, userInfo)
   if not qinfo.validate(userInfo) then return error(7250, "invalid clc_userinfo string") end if
   qmsg.writeByte(buffer, qc.CLC_USERINFO)
@@ -74,7 +79,7 @@ function writeMove(buffer, sequence, lastFrame, oldest, oldCommand, newCommand)
   checksumIndex = buffer.curSize
   qmsg.writeByte(buffer, 0)
   qmsg.writeLong(buffer, lastFrame)
-  pusercmd.writeDelta(buffer, qt.zeroUserCmd(), oldest)
+  pusercmd.writeDelta(buffer, networkRuntimeZeroUserCmd, oldest)
   pusercmd.writeDelta(buffer, oldest, oldCommand)
   pusercmd.writeDelta(buffer, oldCommand, newCommand)
   buffer.data[checksumIndex] = rchecksum.blockSequence(buffer.data, checksumIndex + 1,
@@ -423,7 +428,7 @@ function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
       checksumIndex = buffer.readCount
       checksum = pchecked.readByte(buffer, "move checksum")
       lastFrame = pchecked.readLong(buffer, "move last frame")
-      oldest = pusercmd.readDelta(buffer, qt.zeroUserCmd())
+      oldest = pusercmd.readDelta(buffer, networkRuntimeZeroUserCmd)
       oldCommand = pusercmd.readDelta(buffer, oldest)
       newCommand = pusercmd.readDelta(buffer, oldCommand)
       nserver.acknowledgeFrame(runtime.server, slot, lastFrame)

@@ -135,8 +135,13 @@ $Verifier = Join-Path $Root "tools\verify_project.py"
 if (-not (Test-Path -LiteralPath $Verifier -PathType Leaf)) { throw "Project verifier missing: $Verifier" }
 $SourceHygieneVerifier = Join-Path $Root "tools\source_hygiene.py"
 $SourceHygieneTests = Join-Path $Root "tools\test_source_hygiene.py"
+$MarkdownHygieneVerifier = Join-Path $Root "tools\markdown_hygiene.py"
+$MarkdownHygieneTests = Join-Path $Root "tools\test_markdown_hygiene.py"
 if (-not (Test-Path -LiteralPath $SourceHygieneVerifier -PathType Leaf)) {
   throw "Source hygiene verifier missing: $SourceHygieneVerifier"
+}
+if (-not (Test-Path -LiteralPath $MarkdownHygieneVerifier -PathType Leaf)) {
+  throw "Markdown hygiene verifier missing: $MarkdownHygieneVerifier"
 }
 
 if ($UpdateManifest) {
@@ -147,12 +152,17 @@ if (-not $SkipPreflight) {
   Write-Host "[MiniQuake2] source, inventory, manifest and build-hygiene preflight"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--root", $Root, "--mode", "all", "--json", (Join-Path $Output "source-verification.json"))) -Label "project preflight; after intentional source changes run scripts\update_manifest.ps1"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneVerifier, "--root", $Root, "--json", (Join-Path $Output "source-hygiene.json"), "--quiet")) -Label "source license/comment hygiene"
+  $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($MarkdownHygieneVerifier, "--root", $Root, "--json", (Join-Path $Output "markdown-hygiene.json"), "--quiet")) -Label "Markdown structure/link hygiene"
   if (-not $SkipTests) {
     $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--self-test")) -Label "verifier self-test"
     if (-not (Test-Path -LiteralPath $SourceHygieneTests -PathType Leaf)) {
       throw "Source hygiene verifier tests missing: $SourceHygieneTests"
     }
     $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneTests)) -Label "source hygiene verifier tests"
+    if (-not (Test-Path -LiteralPath $MarkdownHygieneTests -PathType Leaf)) {
+      throw "Markdown hygiene verifier tests missing: $MarkdownHygieneTests"
+    }
+    $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($MarkdownHygieneTests)) -Label "Markdown hygiene verifier tests"
   }
 }
 

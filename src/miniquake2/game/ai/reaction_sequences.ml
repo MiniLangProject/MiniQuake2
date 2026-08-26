@@ -142,6 +142,8 @@ function painVariantCount(className)
   return 0
 end function
 
+// Select the stock class-specific pain sequence from a zero-based variant.
+// Random selection stays with the caller, keeping this lookup deterministic.
 function painVariant(className, variant)
   if className == "monster_berserk" then
     if variant == 0 then return reactionPlan(className, "pain1", "pain", 199, 202, "berserk/berpain2.wav", 1, "run") end if

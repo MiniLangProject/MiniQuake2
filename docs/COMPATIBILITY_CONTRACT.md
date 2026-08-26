@@ -133,7 +133,9 @@ and requires legally obtained game data.
 - Software renderer parity and its x86 assembly optimizations.
 - Linux, IRIX, Solaris, Rhapsody/macOS, and other non-Windows targets.
 - Direct3D 9, Vulkan, high-resolution UI, enhanced lighting, texture
-  replacement/upscaling, OGG music, and other modernization features.
+  replacement/upscaling, music formats or playlist features beyond the
+  implemented `CS_CDTRACK` OGG replacement path, and other modernization
+  features.
 - Compatibility with later Quake II protocols, rereleases, or source ports
   unless separately profiled.
 

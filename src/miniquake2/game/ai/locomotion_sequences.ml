@@ -121,6 +121,8 @@ function makeStockMove(name, firstFrame, lastFrame, aiFunction, distances,
   return locomotiontypes.MonsterMove(name, firstFrame, lastFrame, frames, endFunction)
 end function
 
+// Return the immutable stock locomotion contract for one class and activity.
+// Unsupported combinations remain explicit instead of inventing frame ranges.
 function stockMove(className, moveKind, endFunction)
   soldierClass = className == "monster_soldier_light" or className == "monster_soldier" or className == "monster_soldier_ss"
   tankClass = className == "monster_tank" or className == "monster_tank_commander"

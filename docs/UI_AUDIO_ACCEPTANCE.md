@@ -11,7 +11,8 @@ Protocol-34 `clc_stringcmd` messages.
 - `sensitivity` and `cl_run` update live `UserCmd` generation;
 - Player Setup persists right/left/center handedness, applies it live to the
   view-weapon renderer and sends the same value through reliable
-  `clc_userinfo` to the Game API;
+  `clc_userinfo` to the Game API; model and skin selection use the rotating
+  144x168 MD2 preview;
 - `s_volume` changes a true mixer-wide gain and therefore affects channels
   that are already playing as well as future sounds;
 - `I` toggles the inventory assembled from the exact 256-short
@@ -23,8 +24,17 @@ Protocol-34 `clc_stringcmd` messages.
 - `vid_restart` recreates the selected window mode and OpenGL renderer, then
   re-registers the current BSP, textures, models and sounds without replacing
   the live network/Game session;
-- New Game Easy/Medium/Hard constructs a fresh `base1` Game API at skill 0/1/2
-  in the existing product host;
+- `vid_gamma` applies and restores the hardware ramp when the active display
+  supports it, with a deterministic validated fallback table;
+- `in_joystick` persists controller enablement; analog movement/look and menu
+  navigation share the same bounded dead-zone mapping;
+- `CS_CDTRACK` streams replacement OGG music across focus, pause, map change
+  and shutdown without rebuilding PCM buffers per frame;
+- `record`, `stop` and `screenshot` produce atomic DM2 recordings and
+  collision-free TGA captures through the product command policy;
+- New Game Easy/Medium/Hard runs the skippable stock `*ntro.cin+base1`
+  sequence, then constructs a fresh `base1` Game API at skill 0/1/2 in the
+  existing product host;
 - sensitivity, always-run, handedness, volume, video choices and the complete binding table
   round-trip through the bounded, strictly parsed `miniquake2.cfg` format;
 - three save slots call the failure-atomic `WriteGame` + `WriteLevel` session
@@ -32,8 +42,9 @@ Protocol-34 `clc_stringcmd` messages.
   their map and loaded through same-map or cross-map re-signon as required.
 
 The save images are written to the user's existing `baseq2` directory as
-`miniquake2_slotN_{game,level}.sav`. Private-Save v8 retains the selected
-difficulty; v7 images remain readable and default to Medium.
+`miniquake2_slotN_{game,level}.sav`. Private-Save v17 retains the selected
+difficulty and current gameplay state; v7-v16 images remain readable. Each
+slot also stores validated map/frame/timestamp and screenshot metadata.
 
 ## Executable evidence
 
@@ -43,16 +54,21 @@ difficulty; v7 images remain readable and default to Medium.
   fixed FNV-1a checksum `630146404` under a 4-MB GC limit;
 - `client_ui_command_tests.ml`: three-source drain, local/forward policy,
   settings, save request, quit and compact inventory conversion;
-- `client_ui_menu_tests.ml`: eleven-page navigation, Player Setup and slot commands;
+- `client_ui_menu_tests.ml`: complete menu-tree navigation, Player Setup and
+  slot commands;
 - `client_ui_input_tests.ml`: key destinations, release safety and UserCmd;
 - `client_ui_config_tests.ml`: disk roundtrip, live apply and malformed config;
 - `runtime_product_host_tests.ml`: one shared lifecycle, loading frames and
   exact restart ownership;
 - `runtime_new_game_skill_tests.ml`: fresh Easy/Hard session construction;
 - `client_runtime_ui_messages_tests.ml`: strict Protocol-34 UI framing;
-- `runtime_active_session_persistence_tests.ml`: atomic live save/restore.
+- `runtime_active_session_persistence_tests.ml`: atomic live save/restore;
 - `play_session_loopback_tests.ml`: live handedness userinfo reaches both the
-  server slot and `ClientUserinfoChanged`.
+  server slot and `ClientUserinfoChanged`;
+- `audio_music_tests.ml`, `platform_gamma_tests.ml` and
+  `client_ui_gamepad_tests.ml`: music, display-ramp and controller contracts;
+- `client_demo_recording_tests.ml` and `client_screenshot_tests.ml`: bounded
+  recording and capture output.
 
 `scripts/renderer_audio_acceptance.ps1` combines the PCM gate with three
 installed-original renderer pairs and four exact MiniQuake2 renderer replays,
@@ -60,12 +76,9 @@ emitting one JSON acceptance report below `build/`.
 
 ## Remaining boundary
 
-`vid_gamma` is persisted but does not yet drive a hardware gamma ramp. Level
-music/CD-track semantics are also not connected to the gameplay product.
-Save slots intentionally show map names only; classic screenshots/timestamps
-are a presentation enhancement, not a restore gap. The current host passes
-real fullscreen GL restart and default-device cinematic audio; additional
-GPUs, explicit endpoint selection, hot-unplug and manual latency remain
-external as listed in [`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md). The
-remaining functional product surface is tracked in
-[`PARITY_AUDIT.md`](PARITY_AUDIT.md).
+The local functional UI/audio surface is closed. The current host passes real
+fullscreen GL restart, hardware-gamma lifecycle and default-device cinematic
+and level audio. Additional GPUs, explicit endpoint selection, controller
+hardware, hot-unplug and manual latency remain external evidence as listed in
+[`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md). Broader product parity and
+original-process evidence are tracked in [`PARITY_AUDIT.md`](PARITY_AUDIT.md).

@@ -504,6 +504,10 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   statusBar = SINGLE_STATUSBAR
   if playerContext.deathmatch then statusBar = DEATHMATCH_STATUSBAR end if
   activeImports.configString(qc.CS_STATUSBAR, statusBar)
+  // SP_worldspawn publishes the authored `sounds` field as the looping CD
+  // track. The client maps this protocol configstring to trackNN.ogg.
+  activeImports.configString(qc.CS_CDTRACK,
+    "" + spawnedEdicts[0].component.sounds)
   activeImports.imageIndex("i_health")
   activeImports.imageIndex("i_help")
   ngbaseq2.precacheSpawned(activeBaseRuntime, playerContext)
@@ -1024,6 +1028,8 @@ function executeItemDrop(slot, player, context, item)
   return action.success
 end function
 
+// Dispatch the complete stock baseq2 client-command surface. Intermission and
+// cheat gates are checked here so individual command helpers cannot bypass them.
 function ClientCommand(entity)
   global activeImports, activeExport, activePlayerContext, clientCommandCount
   slot = checkedClientEdict(entity, "ClientCommand")

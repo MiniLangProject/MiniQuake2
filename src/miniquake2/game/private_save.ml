@@ -105,6 +105,8 @@ function itemByIndex(registry, index)
   return void
 end function
 
+// Encode the pointer-free private payload in one fixed field order. New fields
+// are append-only within their versioned record so older readers stay explicit.
 function encode(runtime, playerContext, entityString, spawnPoint)
   if runtime is void then return bytes(0) end if
   playerCount = 0

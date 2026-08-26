@@ -4,6 +4,10 @@ This document records the reproducible local acceptance gate for the current
 `0.5.0-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
+Entries are ordered newest first. Counts, timings and hashes in older dated
+sections describe those exact historical builds. Machine-readable verifier
+output generated for a particular checkout is authoritative for that tree.
+
 ## 2026-08-26 full source/parity/performance audit
 
 Three parallel audits rechecked the client/download/prediction path, product UI
@@ -15,12 +19,12 @@ transition behavior, restored gib callbacks, BFG laser color and
 `PMF_NO_PREDICTION` view-angle handling. Private-Save v17 adds toss/bounce water
 state while retaining v7-v16 readers.
 
-All 413 maintained code/tool files pass the English-comment and license-header
-auditor. The authoritative inventory contains 438 maintained files and 391
+All 420 maintained code/tool files pass the English-comment and license-header
+auditor. The authoritative inventory contains 445 maintained files and 393
 MiniLang sources; the pinned reference ledger still matches 371 tracked source
 files, 4,525 C functions and commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. The complete Release build compiled
-and executed all 182 native MiniLang test programs successfully.
+and executed all 184 native MiniLang test programs successfully.
 
 The pending-audio benchmark improved from 229.36 ms to 16.89 ms for 327,680
 frames with 128 pending sounds (13.6x). Two final rendered 5,000-frame `base1`
@@ -34,7 +38,8 @@ zero pending sounds, zero queued map changes and an empty command buffer.
 
 Retail gates additionally pass all 47 maps with 36,404 raw/20,935 live entities
 and no skipped spawn, retained four-map BSP windows across 47 maps, the complete
-39-map product graph and Protocol-34 session, menu-first/video-restart, real
+39-map product graph and Protocol-34 session, stock-attract startup/video
+restart, real
 movement/input and the server-to-render Blaster projectile visibility chain.
 Retail-scale test executables now use the product 2-GiB reserve/1,536-MiB
 collection contract instead of the harness-only 256-MiB cap.

@@ -253,6 +253,26 @@ function loadSkinAsset(state, name)
   return entry
 end function
 
+// CL_LoadClientinfo probes an authored player skin, optionally retries that
+// skin on the male model, and finally uses male/grunt. The first two misses are
+// normal fallback control flow and must not pollute the precache-missing list.
+function loadOptionalSkinAsset(state, name)
+  existing = cached(state.namedSkins, name, state.generation)
+  if existing is not void then return existing end if
+  if typeof(name) != "string" or name == "" or not safeRegularName(name) then
+    return cartypes.AssetEntry("skin", -1, name, void, state.generation,
+      false, "unsafe-name")
+  end if
+  loaded = try(state.loaders.loadSkin(name))
+  available = loaded is not error and loaded is not void and validSkin(loaded)
+  reason = ""
+  if not available then reason = "optional-not-found"; loaded = void end if
+  entry = cartypes.AssetEntry("skin", -1, name, loaded, state.generation,
+    available, reason)
+  ignored = cacheNamed(state, "skin", entry)
+  return entry
+end function
+
 function inline textSlice(value, start, count)
   if count <= 0 then return "" end if
   return decode(slice(bytes(value), start, count))
@@ -296,11 +316,13 @@ function loadClientInfo(state, value)
     modelName = "male"
     modelEntry = loadModelAsset(state, -1, "players/male/tris.md2")
   end if
-  skinEntry = loadSkinAsset(state, "players/" + modelName + "/" + skinName + ".pcx")
+  skinEntry = loadOptionalSkinAsset(state,
+    "players/" + modelName + "/" + skinName + ".pcx")
   if not skinEntry.available and not cartext.equalInsensitive(modelName, "male") then
     modelName = "male"
     modelEntry = loadModelAsset(state, -1, "players/male/tris.md2")
-    skinEntry = loadSkinAsset(state, "players/male/" + skinName + ".pcx")
+    skinEntry = loadOptionalSkinAsset(state,
+      "players/male/" + skinName + ".pcx")
   end if
   if not skinEntry.available then
     skinEntry = loadSkinAsset(state, "players/" + modelName + "/grunt.pcx")

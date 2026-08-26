@@ -1,8 +1,8 @@
 # MiniQuake2
 
 MiniQuake2 is an executable Windows x64 port of Quake II 3.19 to MiniLang.
-The engine, client, server, renderer front end, and `baseq2` game logic are to
-be implemented in MiniLang. Native code is restricted to thin operating-system
+The engine, client, server, renderer front end, and `baseq2` game logic are
+implemented in MiniLang. Native code is restricted to thin operating-system
 and device bridges.
 
 > [!IMPORTANT]
@@ -91,9 +91,13 @@ edicts, and reproduce the eight-step boss explosion sequence before the final
 movement now follows the original collision-bound `m_move.c` path against BSP,
 inline brushes and dynamic boxes. Lost enemies are pursued through the original
 eight-marker PlayerTrail and left/right course correction rather than a direct
-transform. The physical retail path sustains 190.20 unpaced server frames/s in
-the accepted 5,000-frame `base1` gate and 68.31 frames/s across 500 frames in
-the dense `lab` map. Swept traces use Quake II's near-first BSP hull walk on a
+transform. The final Release product passes all 47 installed retail maps at
+133.26 minimum, 457.31 median and 724.23 maximum measured engine-work frames/s
+over 500 real product frames per map, with zero missing play assets and zero
+audio underruns. See
+[`docs/ALL_LEVEL_FPS_2026-08-26.md`](docs/ALL_LEVEL_FPS_2026-08-26.md) for the
+complete per-level table and measurement method. Swept traces use Quake II's
+near-first BSP hull walk on a
 fixed stack, and inline brushes are rejected by cached swept bounds before any
 model transform or hull trace. Fixed sound storage also avoids array
 concatenation and drains transient/PHS-filtered events without backlog.
@@ -211,8 +215,9 @@ v17 adds generic toss/bounce water type and level while retaining the v7-v16
 readers with dry defaults for older payloads.
 The product `--cinematic` path now plays installed retail CIN files through
 the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
-managed PCM mixer/native device lifecycle. A complete `idlog.cin` run reached
-frame 81 once with zero drops and restored the game palette on completion.
+managed PCM mixer/native device lifecycle. Full `idlog.cin` runs reach frame
+81, complete within the explicit one-drop hardware policy and restore the game
+palette on completion.
 Classic `+nextserver` strings now drive CIN, PCX and named-spawn map steps;
 the interactive loop consumes the validated `gamemap` queued at intermission.
 The same executor now plays the installed release DM2 files through the live
@@ -220,13 +225,17 @@ snapshot/effect/renderer/audio path. `demo1.dm2` completes all 696 packets and
 688 rendered frames on `base2`; its historical Protocol-26 frame layout is
 accepted only inside the demo session, while every network connection remains
 strict Protocol 34. Heavyweight DM2-to-map chains preserve the window and GL
-context but reset renderer-owned managed state between BSPs.
+context but reset renderer-owned managed state between BSPs. Normal startup
+executes the stock `d1` attract loop, New Game runs `*ntro.cin+base1`, and
+installed OGG music follows `CS_CDTRACK`; see
+[`docs/MEDIA_STARTUP_AUDIT_2026-08-26.md`](docs/MEDIA_STARTUP_AUDIT_2026-08-26.md).
 The same product UI now applies mouse sensitivity, always-run and mixer volume
 live, renders named `svc_inventory` contents, forwards game/chat commands, and
 provides three failure-atomic persistent Save/Load slots, live video-mode
-restart, arbitrary key capture and difficulty-aware New Game reconstruction. See
+restart, arbitrary key capture and a difficulty-aware `*ntro.cin+base1` New
+Game sequence. See
 [`docs/UI_AUDIO_ACCEPTANCE.md`](docs/UI_AUDIO_ACCEPTANCE.md) for the exact
-remaining hardware-gamma and save-slot presentation boundary. Product settings
+local UI/audio evidence and remaining external-device boundary. Product settings
 and bindings persist through a strict, bounded `miniquake2.cfg` format.
 An independent raw Protocol-34 peer validates both client and server wire
 directions. Deterministic OpenGL readback produces stable TGA captures, and a
@@ -235,27 +244,27 @@ at matching cameras. The paired `base1`, `waste1` and `cool1`
 world/water/alpha/MD2 scenes
 pass their documented 0.4% mean-error ceiling after restoring the original
 `intensity=2` material rule; JSON metrics and heatmaps remain build artifacts.
-The unpaced full retail session now passes 20,000 frames at 43.89 frames/s with
-40,740 accepted packets, zero rejected packets, a zero-byte engine-command
-buffer and bounded diagnostic/event histories. The local RTX-5080/Windows host
+The unpaced full retail session now passes 100,000 `base1` frames at 254.76
+simulation frames/s with 212,822 accepted packets, zero rejected packets, a
+zero-byte engine-command buffer and bounded diagnostic/event histories. The
+local RTX-5080/Windows host
 also passes a real 640x480-window to 1280x720-fullscreen GL restart and complete
 native-device `idlog.cin` playback; see
 [`docs/HARDWARE_ACCEPTANCE.md`](docs/HARDWARE_ACCEPTANCE.md).
 
-These results are strong vertical-slice and compatibility evidence, not a claim
-that every original product function, campaign behavior or pixel is already
-identical. The current code audit also identifies concrete remaining product
-work: the Game API client-command surface, menu-first startup and full
-multiplayer/player-setup UI, integrated client downloads, server administration
-and discovery, level music, single-player pause, demo recording/screenshots and
-hardware gamma/controller completion. Separate evidence remains open for
-original-process interoperability (the installed 3.20 executable exits before
-networking on this host), paired player view-model/recoil captures, full
-encounter traces, broader multi-host GPU/device coverage and manual device
-acceptance. Retail class, stock monster damage-emission, pain/death movement
-and reachable secondary callback coverage are closed, but that is deliberately
-narrower than a full campaign playthrough or frame-for-frame whole-session AI
-parity claim. See [`docs/PARITY_AUDIT.md`](docs/PARITY_AUDIT.md).
+These results are strong compatibility evidence, not a claim that every
+campaign encounter or rendered pixel is already identical. The formerly open
+product blocks—client commands, stock-attract startup, multiplayer/player setup,
+downloads, administration/discovery, level music, pause, demo recording,
+screenshots, hardware gamma and controller input—are implemented and covered
+by local functional tests. Separate evidence remains open for original-process
+interoperability (the installed 3.20 executable exits before networking on
+this host), paired player view-model/recoil captures, full encounter traces,
+broader multi-host GPU/device coverage and manual device acceptance. Retail
+class, stock monster damage-emission, pain/death movement and reachable
+secondary callback coverage are closed, but that is deliberately narrower
+than a normal human-driven campaign or frame-for-frame whole-session AI parity
+claim. See [`docs/PARITY_AUDIT.md`](docs/PARITY_AUDIT.md).
 
 The canonical local reference remains commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. Its 4,525 C definitions remain in
@@ -298,14 +307,16 @@ With a legal Quake II installation root containing `baseq2\pak0.pak`:
 .\MiniQuake2\build\MiniQuake2.exe --play "C:\Games\Quake2" base1 0
 .\MiniQuake2\build\MiniQuake2.exe --cinematic "C:\Games\Quake2" idlog 0 0
 .\MiniQuake2\build\MiniQuake2.exe --demo "C:\Games\Quake2" demo1.dm2 0
+.\MiniQuake2\build\MiniQuake2.exe --media-audit "C:\Games\Quake2"
 .\MiniQuake2\build\MiniQuake2.exe --media-sequence "C:\Games\Quake2" "end.cin+victory.pcx" 0
 .\MiniQuake2\build\MiniQuake2.exe --dedicated "C:\Games\Quake2" base1 27910 0
 .\MiniQuake2\build\MiniQuake2.exe --listen "C:\Games\Quake2" base1 600
 .\MiniQuake2\build\MiniQuake2.exe --connect 127.0.0.1 27910 600
 .\MiniQuake2\scripts\campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
 .\MiniQuake2\scripts\physical_campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
-.\MiniQuake2\scripts\session_soak.ps1 -Quake2Root "C:\Games\Quake2" -Frames 10000
-.\MiniQuake2\scripts\hardware_acceptance.ps1 -Quake2Root "C:\Games\Quake2" -SoakFrames 20000
+.\MiniQuake2\scripts\session_soak.ps1 -Quake2Root "C:\Games\Quake2" -Frames 100000
+.\MiniQuake2\scripts\hardware_acceptance.ps1 -Quake2Root "C:\Games\Quake2" -SoakFrames 100000
+py -3 .\MiniQuake2\tools\retail_fps_report.py "C:\Games\Quake2" --exe .\MiniQuake2\build\MiniQuake2.exe --frames 500 --scope all
 ```
 
 The first command validates a real PAK/BSP38/MD2/WAV set and executes one

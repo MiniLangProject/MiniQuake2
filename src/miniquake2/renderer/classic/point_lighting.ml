@@ -30,15 +30,15 @@ function inline pointStyleRgb(lightStyles, styleIndex)
   return [1.0, 1.0, 1.0]
 end function
 
-// Iterative equivalent of ref_gl RecursiveLightPoint. Each crossing saves one
-// post-node surface check and far segment. ClassicWorld owns the fixed stacks,
-// so every alias-light query remains allocation-free until its three-float
-// result record is returned.
+// Construct the no-hit or fullbright sample without temporary vector records.
 function inline emptyPointSample(red, green, blue)
   return rpointtypes.ClassicPointLight(
     red, green, blue, 0.0, 0.0, 0.0, false)
 end function
 
+// Iterative equivalent of ref_gl RecursiveLightPoint. Each crossing saves one
+// post-node surface check and far segment. ClassicWorld owns the fixed stacks,
+// so every alias-light query remains allocation-free until its result is returned.
 function staticPointLightSample(world, lightStyles, origin)
   map = world.map
   if len(map.nodes) == 0 or len(map.models) == 0 then

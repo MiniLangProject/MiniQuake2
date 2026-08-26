@@ -14,6 +14,7 @@ const MEDIA_CIN = 1
 const MEDIA_PCX = 2
 const MEDIA_DM2 = 3
 const MAX_MEDIA_STEPS = 16
+const STOCK_ATTRACT_STEPS = 4
 
 struct MediaStep
   kind
@@ -93,10 +94,60 @@ function parseStep(component)
   if endsWithInsensitive(mediaseqLevel, ".cin") then mediaseqKind = MEDIA_CIN
   else if endsWithInsensitive(mediaseqLevel, ".pcx") then mediaseqKind = MEDIA_PCX
   else if endsWithInsensitive(mediaseqLevel, ".dm2") then mediaseqKind = MEDIA_DM2 end if
-  if mediaseqKind != MEDIA_MAP and (mediaseqSpawn != "" or mediaseqEndOfUnit) then
-    return error(8494, "media step cannot carry a spawn point or end-of-unit flag")
+  if mediaseqKind != MEDIA_MAP and mediaseqSpawn != "" then
+    return error(8494, "media step cannot carry a spawn point")
   end if
   return MediaStep(mediaseqKind, mediaseqLevel, mediaseqSpawn, mediaseqEndOfUnit)
+end function
+
+// Stock Quake II 3.19 obtains these four entries from the d1..d4 aliases in
+// baseq2/default.cfg. There is no demos.lst lookup in the original client.
+function stockAttractStep(index)
+  if typeof(index) != "int" or index < 0 or index >= STOCK_ATTRACT_STEPS then
+    return error(8499, "stock attract index outside [0,3]")
+  end if
+  if index == 0 or index == 2 then return parseStep("idlog.cin") end if
+  if index == 1 then return parseStep("demo1.dm2") end if
+  return parseStep("demo2.dm2")
+end function
+
+function nextStockAttractIndex(index)
+  stockAttractStep(index)
+  return (index + 1) % STOCK_ATTRACT_STEPS
+end function
+
+// The stock New Game alias is `map *ntro.cin+base1`. The leading star is
+// legal for every SV_Map media kind and marks a new unit/save epoch before
+// SV_Map strips it and classifies the .cin extension.
+function stockNewGameSpecification()
+  return "*ntro.cin+base1"
+end function
+
+function gameButtonDown(input)
+  if input is void or typeof(input.keys) != "array" or
+      typeof(input.controllerButtons) != "int" then
+    return error(8500, "media input state is invalid")
+  end if
+  if input.destination != 0 or not input.focused then return false end if
+  if input.controllerButtons != 0 then return true end if
+  mediaseqKeyIndex = 0
+  while mediaseqKeyIndex < len(input.keys)
+    if input.keys[mediaseqKeyIndex] then return true end if
+    mediaseqKeyIndex = mediaseqKeyIndex + 1
+  end while
+  return false
+end function
+
+// keys.c maps any press during cl.attractloop to Escape. Grave/Escape may
+// already have changed key_dest before this check, while ordinary buttons are
+// represented by the held-key table.
+function attractInterrupted(input)
+  if input is void or typeof(input.focused) != "bool" then
+    return error(8500, "media input state is invalid")
+  end if
+  if not input.focused then return false end if
+  if input.destination != 0 then return true end if
+  return gameButtonDown(input)
 end function
 
 function parse(specification)

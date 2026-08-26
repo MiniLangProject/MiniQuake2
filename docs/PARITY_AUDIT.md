@@ -128,7 +128,8 @@ uses the bundled Quake II 3.19 source at commit
   from approximately 90-Hz UserCmd delivery and reuse prediction scratch state.
 - Player Setup now renders the selected skin on the original rotating 144x168
   MD2 preview. Reset Defaults and Go to Console execute their stock actions;
-  menu-first startup, Join/Start Server and DM options are product-level gates.
+  the stock attract loop plus input-to-menu handoff, Join/Start Server and DM
+  options are product-level gates.
 - `MOVETYPE_BOUNCE` uses the stock 1.5 overbounce and floor-rest threshold.
   Generic toss/bounce entities update water type/level and emit the original
   transition sound. Private-Save v17 persists those fields while reading v7-v16

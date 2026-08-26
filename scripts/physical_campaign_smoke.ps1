@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Nils Kopal
 # SPDX-License-Identifier: Apache-2.0
+# Run the installed-retail campaign through the physical product input path.
 
 [CmdletBinding()]
 param(

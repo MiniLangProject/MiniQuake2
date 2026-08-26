@@ -98,9 +98,21 @@ rider.origin = pushertestqtypes.Vec3(0.0, 0.0, 1.0)
 pushertestworld.addEntity(runtime.world, moving)
 pushertestworld.addEntity(runtime.world, rider)
 state = pushertestphysics.capture(runtime)
+pusherCaptureIdentity = nativeRawValue(state)
+pusherArrayIdentity = nativeRawValue(state.pushers)
+pusherSnapshotIdentity = nativeRawValue(state.pushers[0])
+bodyArrayIdentity = nativeRawValue(state.bodies)
+bodySnapshotIdentity = nativeRawValue(state.bodies[0])
 pushertestworld.runFrame(runtime.world)
 pushertestphysics.resolve(runtime, state)
 pusherAssert(moving.origin.x == 1.0 and rider.origin.x == 1.0, "linear platform carries standing rider")
+reusedState = pushertestphysics.capture(runtime)
+pusherAssert(nativeRawValue(reusedState) == pusherCaptureIdentity and
+    nativeRawValue(reusedState.pushers) == pusherArrayIdentity and
+    nativeRawValue(reusedState.pushers[0]) == pusherSnapshotIdentity and
+    nativeRawValue(reusedState.bodies) == bodyArrayIdentity and
+    nativeRawValue(reusedState.bodies[0]) == bodySnapshotIdentity,
+  "stable pusher/body topology replaced frame scratch storage")
 
 runtime = emptyRuntime()
 rotating = platform(20)

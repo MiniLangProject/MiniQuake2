@@ -27,6 +27,21 @@ uiScreenAssertEqual(cuiconsole.drainCommands(uiScreenConsole)[0], "map base1", "
 cuiconsole.editKey(uiScreenConsole, 128)
 uiScreenAssertEqual(uiScreenConsole.input, "map base1", "console history recall")
 
+uiScreenHistoryIndex = 0
+while uiScreenHistoryIndex < 40
+  uiScreenConsole.input = "cmd" + uiScreenHistoryIndex
+  uiScreenConsole.cursor = len(bytes(uiScreenConsole.input))
+  cuiconsole.editKey(uiScreenConsole, 13)
+  cuiconsole.drainCommands(uiScreenConsole)
+  uiScreenHistoryIndex = uiScreenHistoryIndex + 1
+end while
+uiScreenAssertEqual(len(uiScreenConsole.history), 32,
+  "console retains stock 32-entry history bound")
+uiScreenAssertEqual(uiScreenConsole.history[0], "cmd8",
+  "console history drops oldest command at stock bound")
+uiScreenAssertEqual(uiScreenConsole.history[31], "cmd39",
+  "console history retains newest command")
+
 uiScreenMenu = cuimenu.create()
 uiScreenState = cuiscreen.create(uiScreenConsole, uiScreenMenu)
 uiScreenCrosshairPosition = cuiscreen.crosshairPosition(640, 480, 24, 24)

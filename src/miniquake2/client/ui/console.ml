@@ -57,6 +57,27 @@ function clearNotify(console)
   return true
 end function
 
+function appendHistory(console, value)
+  if len(console.history) < cuic.MAX_CONSOLE_HISTORY then
+    output = array(len(console.history) + 1, void)
+    index = 0
+    while index < len(console.history)
+      output[index] = console.history[index]
+      index = index + 1
+    end while
+    output[len(output) - 1] = value
+    console.history = output
+    return len(output)
+  end if
+  index = 1
+  while index < len(console.history)
+    console.history[index - 1] = console.history[index]
+    index = index + 1
+  end while
+  console.history[len(console.history) - 1] = value
+  return len(console.history)
+end function
+
 function insertByte(console, value)
   if value < 32 or value > 126 then return false end if
   data = bytes(console.input)
@@ -82,8 +103,7 @@ function editKey(console, key)
   else if key == cuic.K_ENTER then
     if len(data) > 0 then
       console.commands = console.commands + [console.input]
-      console.history = console.history + [console.input]
-      console.historyIndex = len(console.history)
+      console.historyIndex = appendHistory(console, console.input)
     end if
     console.input = ""; console.cursor = 0
   else if key == cuic.K_UPARROW and len(console.history) > 0 then

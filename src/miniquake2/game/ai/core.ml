@@ -416,6 +416,8 @@ function ai_run_slide(actor, distance, context)
   return walkMove(actor, actor.idealYaw - offset, distance, context)
 end function
 
+// Port the stock ai_run pursuit state machine. Lost-sight flags and temporary
+// goals change in stock order so trail markers are consumed at most once.
 function ai_run(actor, distance, context)
   if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then
     return moveToGoal(actor, distance, context)

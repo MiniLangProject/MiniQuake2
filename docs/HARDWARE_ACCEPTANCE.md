@@ -12,7 +12,7 @@ run:
 ```powershell
 .\scripts\hardware_acceptance.ps1 `
   -Quake2Root "C:\Games\Quake2" `
-  -Map base1 -Cinematic idlog -SoakFrames 20000
+  -Map base1 -Cinematic idlog -SoakFrames 100000
 ```
 
 `-SkipCinematic` and `-SkipSoak` provide a short GL-only rerun. The cinematic
@@ -20,7 +20,7 @@ gate allows at most one scheduler drop by default; `-MaximumCinematicDrops`
 can tighten that policy. Decode errors, incomplete playback and failure to open
 the native audio device always fail.
 
-## Accepted host (2026-08-22)
+## Accepted host (updated 2026-08-26)
 
 | Component | Local evidence |
 |---|---|
@@ -41,11 +41,12 @@ claim that playback ran through each one.
 - `base1` BSP/WAL/lightmap/model resources were registered again;
 - visible world surfaces were exactly `60` before and after restart;
 - installed `idlog.cin` reached stream frame 81 and completed exactly once;
-- the accepted rerun rendered 358 host frames, dropped zero stream frames,
-  mixed 254,976 stereo frames and reported `audio-device=true`;
-- a separate same-build run observed one scheduler drop while still completing
-  and producing 258,048 mixed frames, which establishes the bounded one-drop
-  host policy rather than hiding timing variance.
+- the final full run rendered 310 host frames, reached stream frame 81,
+  completed exactly once, mixed 269,312 stereo frames and reported
+  `audio-device=true`;
+- that run observed one scheduler drop, while the deterministic preview
+  reported zero, which establishes the bounded one-drop host policy rather
+  than hiding timing variance.
 
 Focused low-heap regressions also pass for scan-key/mouse/wheel/focus-release
 input, renderer/window ownership and deterministic mixer replay. The audio
@@ -58,15 +59,15 @@ The unpaced product-shaped listen session completed:
 | Metric | Result |
 |---|---:|
 | Retail map | `base1` |
-| Frames | 20,000 |
-| Server frame | 20,014 |
-| Elapsed | 455,711.083 ms |
-| Throughput | 43.887 fps |
-| UDP packets | 40,740 sent / 40,740 received |
+| Frames | 100,000 |
+| Server frame | 100,012 |
+| Elapsed | 392,527.224 ms |
+| Throughput | 254.759 fps |
+| UDP packets | 212,822 sent / 212,822 received |
 | Rejected packets | 0 |
 | First Winsock handle delta | +3 |
 | Final server command bytes | 0 |
-| Validated load-menu commands | 987 |
+| Validated load-menu commands | 4,988 |
 | Bridge diagnostic history | bounded at 1,024 entries |
 
 The 20,000-frame extension exposed a harness/product integration defect that
@@ -80,7 +81,8 @@ command and proves a zero-byte command buffer at completion.
 
 The local gate does not close testing on a second physical GPU/driver family,
 explicit selection of every enumerated audio endpoint, controller hardware,
-device hot-unplug/loss, alt-tab latency, manual end-to-end input latency or the
-persisted-but-unimplemented hardware gamma ramp. Those require additional hosts
-or manual device intervention and remain release-handoff items rather than
-being inferred from this one machine.
+device hot-unplug/loss, alt-tab latency, manual end-to-end input latency or
+hardware-gamma behavior across additional displays. The ramp is implemented
+and covered by deterministic lifecycle tests, but those device-specific claims
+require additional hosts or manual intervention rather than inference from
+this one machine.

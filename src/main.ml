@@ -19,7 +19,7 @@ const PORT_STAGE = "integrated-runtime-foundation"
 // Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
-  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--projectile-visual-smoke ROOT [MAP] [FRAMES]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
+  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--media-audit ROOT|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--projectile-visual-smoke ROOT [MAP] [FRAMES]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
   print ""
   print "  --version             print the port and compatibility target"
   print "  --data-root ROOT      remember retail data root and launch the menu-first product"
@@ -28,6 +28,7 @@ function printUsage()
   print "  --diagnostics         print the current bootstrap contract"
   print "  --capabilities        list linked Quake II port subsystems"
   print "  --asset-smoke ROOT [MAP] validate retail PAK/BSP/MD2/WAV and one server frame"
+  print "  --media-audit ROOT    validate stock startup CIN/DM2/music media without a window"
   print "  --campaign-session-smoke ROOT [MAPS] rotate one UDP session through up to 39 retail maps"
   print "  --play-input-smoke ROOT [MAP] [STEPS] drive real UDP movement, weapon and snapshot input"
   print "  --projectile-visual-smoke ROOT [MAP] [FRAMES] verify live Blaster snapshot/render/effect visibility"
@@ -209,6 +210,9 @@ function runPlay(args)
       " world=" + result[39] + " entities=" + result[40] + " hud=" + result[41] +
       " audio=" + result[42]
   end if
+  if len(result) >= 44 then
+    print "  timing-ms input-total=" + result[43]
+  end if
   if len(result) >= 15 and result[14] != "" then
     print "  missing-detail=" + result[14]
   end if
@@ -281,6 +285,33 @@ function runDemo(args)
   print "  models=" + demoResult[4] + " sounds=" + demoResult[5] +
     " missing-assets=" + demoResult[6] + " submitted-entities=" + demoResult[7] +
     " visible-surfaces=" + demoResult[8]
+  print "  cdtrack=" + demoResult[9] + " ogg-active=" + demoResult[10]
+  if demoResult[12] != "" then print "  missing-detail=" + demoResult[12] end if
+  return 0
+end function
+
+function runMediaAudit(args)
+  if len(args) != 2 then
+    return error(9953, "--media-audit expects one Quake II install root")
+  end if
+  mediaAudit = runtimeApplication.runRetailMediaAudit(args[1])
+  print "MiniQuake2 retail media audit: PASS"
+  print "  startup=" + mediaAudit.attractSequence
+  print "  newgame=" + mediaAudit.newGameSpecification
+  print "  idlog=" + mediaAudit.idlog[1] + "x" + mediaAudit.idlog[2] +
+    " rate=" + mediaAudit.idlog[3] + " first-audio=" + mediaAudit.idlog[4]
+  print "  ntro=" + mediaAudit.intro[1] + "x" + mediaAudit.intro[2] +
+    " rate=" + mediaAudit.intro[3] + " first-audio=" + mediaAudit.intro[4]
+  print "  demo1 packets=" + mediaAudit.demo1[1] + " frames=" +
+    mediaAudit.demo1[2] + " map=" + mediaAudit.demo1[3] +
+    " cdtrack=" + mediaAudit.demo1[4]
+  print "  demo2 packets=" + mediaAudit.demo2[1] + " frames=" +
+    mediaAudit.demo2[2] + " map=" + mediaAudit.demo2[3] +
+    " cdtrack=" + mediaAudit.demo2[4]
+  print "  base1-cdtrack=" + mediaAudit.levelTrack + " ogg=" +
+    mediaAudit.musicPath + " rate=" + mediaAudit.musicRate +
+    " channels=" + mediaAudit.musicChannels +
+    " frames=" + mediaAudit.musicFrames
   return 0
 end function
 
@@ -372,6 +403,7 @@ function main(args)
   if command == "--diagnostics" and len(args) == 1 then printDiagnostics(); return 0 end if
   if command == "--capabilities" and len(args) == 1 then printCapabilities(); return 0 end if
   if command == "--asset-smoke" then return runAssetSmoke(args) end if
+  if command == "--media-audit" then return runMediaAudit(args) end if
   if command == "--campaign-session-smoke" then return runCampaignSessionSmoke(args) end if
   if command == "--play-input-smoke" then return runPlayInputSmoke(args) end if
   if command == "--projectile-visual-smoke" then return runProjectileVisualSmoke(args) end if

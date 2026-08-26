@@ -119,22 +119,43 @@ class SourceHygieneTests(unittest.TestCase):
             files = source_hygiene.maintained_source_files(root)
             self.assertEqual([root / "src" / "in_scope.ml"], files)
 
+    def test_checks_maintained_c_tool_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "tools" / "helper.c"
+            path.parent.mkdir(parents=True)
+            path.write_text(
+                "/*\n"
+                "Copyright (c) 2026 Nils Kopal\n"
+                "SPDX-License-Identifier: GPL-2.0-or-later\n"
+                "*/\n"
+                "// Deterministic helper.\n"
+                "int helper(void) { return 1; }\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([path], source_hygiene.maintained_source_files(root))
+            self.assertEqual([], source_hygiene.check_file(root, path))
+
     def test_fix_adds_language_defaults_and_preserves_python_preamble(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            c_path = root / "tools" / "bare.c"
             ml_path = root / "src" / "bare.ml"
             py_path = root / "tools" / "bare.py"
             ps_path = root / "scripts" / "bare.ps1"
-            for path in (ml_path, py_path, ps_path):
+            for path in (c_path, ml_path, py_path, ps_path):
                 path.parent.mkdir(parents=True, exist_ok=True)
+            c_path.write_text("int main(void) { return 0; }\n", encoding="utf-8")
             ml_path.write_text("package bare\n", encoding="utf-8")
             py_path.write_bytes(b"#!/usr/bin/env python3\r\nprint('ok')\r\n")
             ps_path.write_text("Write-Output 'ok'\n", encoding="utf-8")
 
             self.assertTrue(source_hygiene.fix_file(root, ml_path))
+            self.assertTrue(source_hygiene.fix_file(root, c_path))
             self.assertTrue(source_hygiene.fix_file(root, py_path))
             self.assertTrue(source_hygiene.fix_file(root, ps_path))
             self.assertIn("SPDX-License-Identifier: GPL-2.0-or-later", ml_path.read_text())
+            self.assertIn("SPDX-License-Identifier: GPL-2.0-or-later", c_path.read_text())
             py_bytes = py_path.read_bytes()
             self.assertTrue(
                 py_bytes.startswith(

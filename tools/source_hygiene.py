@@ -3,10 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Verify objective source-header and comment-language hygiene rules.
 
-This checker is intentionally independent of the regular build verifier while
-the repository still contains legacy files without license headers. It scans
-only maintained MiniQuake2 source and test code; imported reference source and
-generated build trees are outside its scope.
+This checker is intentionally independent of the regular build verifier. It
+scans maintained MiniQuake2 source, test and tool code; imported reference
+source and generated build trees are outside its scope.
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ from typing import Iterable, Iterator
 
 
 ALLOWED_LICENSES = frozenset({"Apache-2.0", "GPL-2.0-or-later"})
-SOURCE_SUFFIXES = frozenset({".ml", ".py", ".ps1"})
+SOURCE_SUFFIXES = frozenset({".c", ".ml", ".py", ".ps1"})
 SOURCE_DIRS = ("src", "tests", "tools", "scripts")
 EXTRA_SOURCE_FILES = ("build.ps1", "docs/reference/generate_port_ledger.py")
 HEADER_LINE_LIMIT = 16
@@ -193,7 +192,7 @@ def _powershell_comments(text: str) -> Iterator[tuple[int, str]]:
 def comments_for(path: Path, text: str) -> Iterable[tuple[int, str]]:
     """Dispatch comment extraction according to the source language."""
     suffix = path.suffix.lower()
-    if suffix == ".ml":
+    if suffix in {".c", ".ml"}:
         return _ml_comments(text)
     if suffix == ".py":
         return _python_comments(text)
@@ -210,7 +209,7 @@ def _header_text(path: Path, text: str) -> str:
 
 def _generated_header(suffix: str, newline: str) -> str:
     """Build the repository-default legal header for a previously bare file."""
-    if suffix == ".ml":
+    if suffix in {".c", ".ml"}:
         lines = [
             "/*",
             "Copyright (c) 2026 Nils Kopal",

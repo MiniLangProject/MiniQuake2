@@ -95,6 +95,8 @@ function registerResource(state, kind, name)
   return handle
 end function
 
+// Build a complete Renderer API v3 recorder around one shared lifecycle state.
+// Nested callbacks deliberately retain that state instead of copying resources.
 function makeExports(state)
   function rendererInit(hinstance, wndproc)
     if state.initialized then return true end if

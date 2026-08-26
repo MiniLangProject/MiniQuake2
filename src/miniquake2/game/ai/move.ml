@@ -190,6 +190,8 @@ function M_DropToFloor(actor, context)
   return actor.groundEntity is not void
 end function
 
+// Apply one stock M_MoveStep attempt without publishing a partial transform.
+// Ground, fly/swim and water branches commit only after their trace checks pass.
 function MoveStep(actor, moveX, moveY, moveZ, relink, context)
   origin = actor.edict.state.origin
   oldX = origin.x; oldY = origin.y; oldZ = origin.z

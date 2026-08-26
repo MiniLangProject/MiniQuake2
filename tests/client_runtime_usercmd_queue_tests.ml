@@ -55,6 +55,13 @@ session = csusession.create("127.0.0.1", serverSocket.port, "\\name\\CmdQueue", 
 session.integrated.network.client.state = csunc.CA_ACTIVE
 session.integrated.network.client.channel = csunetchan.setup(csupc.NS_CLIENT,
   session.integrated.network.client.serverAddress, session.integrated.network.client.qport, 0)
+pendingArrayIdentity = nativeRawValue(session.pendingCommands)
+pendingZeroIdentity = nativeRawValue(session.pendingCommands[0])
+historyArrayIdentity = nativeRawValue(session.commandHistory)
+historyOneIdentity = nativeRawValue(session.commandHistory[1])
+previousIdentity = nativeRawValue(session.previousCommand)
+lastIdentity = nativeRawValue(session.lastCommand)
+moveBufferIdentity = nativeRawValue(session.moveBuffer)
 
 first = csuqt.UserCmd(11, 1, [101, 102, 103], 111, 112, 113, 2, 3)
 second = csuqt.UserCmd(22, 4, [201, 202, 203], 221.75, 222.5, 223.25, 5, 6)
@@ -104,6 +111,23 @@ csusession.sendMove(session, 13)
 wire4 = decodeTriplet(receivePayload(serverSocket))
 cmdAssert(wire4[0].forwardMove == 221 and wire4[1].forwardMove == 331 and
   wire4[2].msec == 100 and wire4[2].forwardMove == 0, "headless fallback mismatch")
+cmdAssert(nativeRawValue(session.pendingCommands) == pendingArrayIdentity and
+    nativeRawValue(session.pendingCommands[0]) == pendingZeroIdentity and
+    nativeRawValue(session.commandHistory) == historyArrayIdentity and
+    nativeRawValue(session.commandHistory[1]) == historyOneIdentity and
+    nativeRawValue(session.previousCommand) == previousIdentity and
+    nativeRawValue(session.lastCommand) == lastIdentity and
+    nativeRawValue(session.moveBuffer) == moveBufferIdentity,
+  "90-Hz usercmd path replaced session-owned scratch storage")
+
+csusession.resetMapInput(session)
+cmdAssert(nativeRawValue(session.pendingCommands) == pendingArrayIdentity and
+    nativeRawValue(session.pendingCommands[0]) == pendingZeroIdentity and
+    nativeRawValue(session.commandHistory) == historyArrayIdentity and
+    nativeRawValue(session.commandHistory[1]) == historyOneIdentity and
+    nativeRawValue(session.previousCommand) == previousIdentity and
+    nativeRawValue(session.lastCommand) == lastIdentity,
+  "map input reset replaced reusable command storage")
 
 csusession.shutdown(session)
 attempt = 0

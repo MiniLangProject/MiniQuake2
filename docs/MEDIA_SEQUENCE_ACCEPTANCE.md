@@ -8,8 +8,9 @@ MiniQuake2 implements the original `SV_Map` level-string grammar:
 
 Every `+` component is parsed before execution, bounded to 16 steps and
 classified as map, CIN, PCX or DM2. Empty components, traversal, path
-separators, duplicate `$`, media spawn points and media end-of-unit markers
-are rejected before any asset or session is opened.
+separators, duplicate `$` and media spawn points are rejected before any asset
+or session is opened. A leading `*` is legal for both maps and media and marks
+the end-of-unit transition used by stock New Game.
 
 The product command executes the resulting chain in order:
 
@@ -19,8 +20,9 @@ The product command executes the resulting chain in order:
 ```
 
 - CIN uses the retail Huffman/palette/PCM/device player;
-- PCX uses the same palette and `DrawStretchRaw` renderer contract, waiting
-  for Space/Enter when `FRAMES=0`;
+- PCX uses the same palette and `DrawStretchRaw` renderer contract. With
+  `FRAMES=0`, any gameplay key/controller input advances after the one-second
+  accidental-skip guard; `nextserver` can advance it directly;
 - map steps create the real UDP PlaySession and preserve `$spawnpoint` through
   `SpawnEntities` and `PutClientInServer`;
 - `*` is retained as the end-of-unit property; a new sequence session already
@@ -36,6 +38,7 @@ Two installed-data product chains pass without copying assets:
 
 | Sequence | Result |
 |---|---|
+| `*ntro.cin+base1` | stock New Game intro followed by a fresh `base1` session at the selected skill |
 | `eou1_.cin+*bunk1$start` | CIN frame presentation, `bunk1` load, named `start` spawn and one rendered game frame |
 | `end.cin+victory.pcx` | one CIN step plus the decoded/paletted terminal picture; two steps completed |
 | `demo1.dm2` | 696 packets, 688 rendered frames, `base2`, status `completed` |

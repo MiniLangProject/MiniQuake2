@@ -34,11 +34,20 @@ end struct
 struct PusherCapture
   pushers
   bodies
+  masters
 end struct
 
 function pushCopy(value)
   if typeof(value) != "struct" then return error(9694, "pusher Vec3 value required") end if
   return pushqtypes.Vec3(value.x, value.y, value.z)
+end function
+
+function inline pushCopyInto(output, value)
+  if typeof(output) != "struct" or typeof(value) != "struct" then
+    return error(9694, "pusher Vec3 value required")
+  end if
+  output.x = value.x; output.y = value.y; output.z = value.z
+  return output
 end function
 
 function isPusher(entity)
@@ -78,69 +87,122 @@ function assembleTeams(world)
   return true
 end function
 
-function worldBody(entity)
-  bodyOrigin = pushCopy(entity.origin)
-  bodyAngles = pushCopy(entity.angles)
-  bodyMins = pushCopy(entity.mins)
-  bodyMaxs = pushCopy(entity.maxs)
-  return BodySnapshot("world", entity, void, entity.number, bodyOrigin, bodyAngles,
-    bodyMins, bodyMaxs, entity.solid, -1)
+function bodySnapshotInto(snapshot, kind, value, edict, number, origin, angles,
+    mins, maxs, solid, groundNumber)
+  if snapshot is void then
+    snapshot = BodySnapshot(kind, value, edict, number,
+      pushqtypes.zeroVec3(), pushqtypes.zeroVec3(), pushqtypes.zeroVec3(),
+      pushqtypes.zeroVec3(), solid, groundNumber)
+  end if
+  snapshot.kind = kind; snapshot.value = value; snapshot.edict = edict
+  snapshot.number = number; snapshot.solid = solid
+  snapshot.groundNumber = groundNumber
+  pushCopyInto(snapshot.origin, origin); pushCopyInto(snapshot.angles, angles)
+  pushCopyInto(snapshot.mins, mins); pushCopyInto(snapshot.maxs, maxs)
+  return snapshot
 end function
 
-function playerBody(player)
+function worldBodyInto(snapshot, entity)
+  return bodySnapshotInto(snapshot, "world", entity, void, entity.number,
+    entity.origin, entity.angles, entity.mins, entity.maxs, entity.solid, -1)
+end function
+
+function playerBodyInto(snapshot, player)
   playerEdict = player.edict
   playerState = playerEdict.state
   groundNumber = -1
   if player.groundEntity is not void then groundNumber = player.groundEntity.state.number end if
-  bodyOrigin = pushCopy(playerState.origin)
-  bodyAngles = pushCopy(playerState.angles)
-  bodyMins = pushCopy(playerEdict.mins)
-  bodyMaxs = pushCopy(playerEdict.maxs)
-  return BodySnapshot("player", player, playerEdict, playerState.number, bodyOrigin, bodyAngles,
-    bodyMins, bodyMaxs, playerEdict.solid, groundNumber)
+  return bodySnapshotInto(snapshot, "player", player, playerEdict,
+    playerState.number, playerState.origin, playerState.angles,
+    playerEdict.mins, playerEdict.maxs, playerEdict.solid, groundNumber)
 end function
 
-function monsterBody(actor)
+function monsterBodyInto(snapshot, actor)
   monsterEdict = actor.edict
   monsterState = monsterEdict.state
-  bodyOrigin = pushCopy(monsterState.origin)
-  bodyAngles = pushCopy(monsterState.angles)
-  bodyMins = pushCopy(monsterEdict.mins)
-  bodyMaxs = pushCopy(monsterEdict.maxs)
-  return BodySnapshot("monster", actor, monsterEdict, monsterState.number, bodyOrigin, bodyAngles,
-    bodyMins, bodyMaxs, monsterEdict.solid, -1)
+  return bodySnapshotInto(snapshot, "monster", actor, monsterEdict,
+    monsterState.number, monsterState.origin, monsterState.angles,
+    monsterEdict.mins, monsterEdict.maxs, monsterEdict.solid, -1)
+end function
+
+function pusherSnapshotInto(snapshot, entity)
+  if snapshot is void then
+    snapshot = PusherSnapshot(entity, pushqtypes.zeroVec3(),
+      pushqtypes.zeroVec3())
+  end if
+  snapshot.entity = entity
+  pushCopyInto(snapshot.origin, entity.origin)
+  pushCopyInto(snapshot.angles, entity.angles)
+  return snapshot
 end function
 
 function capture(runtime)
-  pushers = []
-  bodies = []
+  pusherCount = 0
+  bodyCount = 0
+  for each countedEntity in runtime.world.entities
+    if isPusher(countedEntity) then pusherCount = pusherCount + 1 end if
+    if countedEntity.number > 0 and countedEntity.inUse and
+        countedEntity.solid != pushworldconstants.SOLID_NOT and
+        countedEntity.solid != pushworldconstants.SOLID_TRIGGER then
+      bodyCount = bodyCount + 1
+    end if
+  end for
+  if runtime.playerContext is not void then
+    for each countedPlayer in runtime.playerContext.players
+      if countedPlayer.edict.inUse and
+          countedPlayer.edict.solid != pushworldconstants.SOLID_NOT then
+        bodyCount = bodyCount + 1
+      end if
+    end for
+  end if
+  for each countedActor in runtime.monsters
+    if countedActor.edict.inUse and
+        countedActor.edict.solid != pushworldconstants.SOLID_NOT then
+      bodyCount = bodyCount + 1
+    end if
+  end for
+  captureState = runtime.pusherCapture
+  if captureState is void then
+    captureState = PusherCapture(array(pusherCount, void),
+      array(bodyCount, void), array(pusherCount, -1))
+    runtime.pusherCapture = captureState
+  end if
+  if len(captureState.pushers) != pusherCount then
+    captureState.pushers = array(pusherCount, void)
+    captureState.masters = array(pusherCount, -1)
+  end if
+  if len(captureState.bodies) != bodyCount then
+    captureState.bodies = array(bodyCount, void)
+  end if
+  pushers = captureState.pushers
+  bodies = captureState.bodies
+  pusherIndex = 0
+  bodyIndex = 0
   for each entity in runtime.world.entities
     if isPusher(entity) then
-      pusherOrigin = pushCopy(entity.origin)
-      pusherAngles = pushCopy(entity.angles)
-      pusherSnapshot = PusherSnapshot(entity, pusherOrigin, pusherAngles)
-      pushers = pushers + [pusherSnapshot]
+      pushers[pusherIndex] = pusherSnapshotInto(pushers[pusherIndex], entity)
+      pusherIndex = pusherIndex + 1
     end if
     if entity.number > 0 and entity.inUse and entity.solid != pushworldconstants.SOLID_NOT and entity.solid != pushworldconstants.SOLID_TRIGGER then
-      worldSnapshot = worldBody(entity)
-      bodies = bodies + [worldSnapshot]
+      bodies[bodyIndex] = worldBodyInto(bodies[bodyIndex], entity)
+      bodyIndex = bodyIndex + 1
     end if
   end for
   if runtime.playerContext is not void then
     for each player in runtime.playerContext.players
       if player.edict.inUse and player.edict.solid != pushworldconstants.SOLID_NOT then
-        playerSnapshot = playerBody(player)
-        bodies = bodies + [playerSnapshot]
+        bodies[bodyIndex] = playerBodyInto(bodies[bodyIndex], player)
+        bodyIndex = bodyIndex + 1
       end if
     end for
   end if
   for each actor in runtime.monsters
     if actor.edict.inUse and actor.edict.solid != pushworldconstants.SOLID_NOT then
-      monsterSnapshot = monsterBody(actor)
-      bodies = bodies + [monsterSnapshot]
+      bodies[bodyIndex] = monsterBodyInto(bodies[bodyIndex], actor)
+      bodyIndex = bodyIndex + 1
     end if
   end for
-  return PusherCapture(pushers, bodies)
+  return captureState
 end function
 
 function moved(snapshot)
@@ -265,12 +327,23 @@ function proxyFor(body)
 end function
 
 function resolveTeam(runtime, captureState, masterNumber)
-  team = []
+  teamCount = 0
   anyMoved = false
-  for each snapshot in captureState.pushers
-    if pusherMasterNumber(snapshot.entity) == masterNumber then team = team + [snapshot]; if moved(snapshot) then anyMoved = true end if end if
+  for each countedSnapshot in captureState.pushers
+    if pusherMasterNumber(countedSnapshot.entity) == masterNumber then
+      teamCount = teamCount + 1
+      if moved(countedSnapshot) then anyMoved = true end if
+    end if
   end for
   if anyMoved == false then return false end if
+  team = array(teamCount, void)
+  teamIndex = 0
+  for each snapshot in captureState.pushers
+    if pusherMasterNumber(snapshot.entity) == masterNumber then
+      team[teamIndex] = snapshot
+      teamIndex = teamIndex + 1
+    end if
+  end for
 
   blocker = void
   blockedPusher = void
@@ -326,16 +399,20 @@ function resolveTeam(runtime, captureState, masterNumber)
 end function
 
 function resolve(runtime, captureState)
-  masters = []
+  masters = captureState.masters
+  masterCount = 0
   movedTeams = 0
   for each snapshot in captureState.pushers
     masterNumber = pusherMasterNumber(snapshot.entity)
     seen = false
-    for each prior in masters
-      if prior == masterNumber then seen = true end if
-    end for
+    priorIndex = 0
+    while priorIndex < masterCount
+      if masters[priorIndex] == masterNumber then seen = true end if
+      priorIndex = priorIndex + 1
+    end while
     if seen == false then
-      masters = masters + [masterNumber]
+      masters[masterCount] = masterNumber
+      masterCount = masterCount + 1
       if resolveTeam(runtime, captureState, masterNumber) then movedTeams = movedTeams + 1 end if
     end if
   end for

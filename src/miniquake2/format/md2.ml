@@ -84,7 +84,15 @@ function parse(data, name)
     j = 0
     while j < numXyz
       vertexAt = at + 40 + j * 4
-      vertices[j] = ft.Md2Vertex(data[vertexAt], data[vertexAt + 1], data[vertexAt + 2], data[vertexAt + 3])
+      normalIndex = data[vertexAt + 3]
+      // ref_gl indexes its fixed 162-entry anorms table directly. Reject a
+      // corrupt byte here so malformed external MD2 data cannot become a
+      // renderer out-of-bounds access later in the frame loop.
+      if normalIndex >= fc.NUMVERTEXNORMALS then
+        return error(2308, "MD2 vertex normal index outside anorms table")
+      end if
+      vertices[j] = ft.Md2Vertex(data[vertexAt], data[vertexAt + 1],
+        data[vertexAt + 2], normalIndex)
       j = j + 1
     end while
     frameName = fbio.fixedString(data, at + 24, 16)

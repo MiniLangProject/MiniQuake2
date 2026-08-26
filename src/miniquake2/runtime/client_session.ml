@@ -55,6 +55,8 @@ struct ClientSession
   predictionCommandScratch
   predictionWorld
   predictionWorkspace
+  idleCommand
+  moveBuffer
 end struct
 
 const MAX_PENDING_USERCMDS = 64
@@ -64,6 +66,26 @@ const CLIENT_COMMAND_MSEC = 11
 
 function movementDue(previousTime, now)
   return now - previousTime >= CLIENT_COMMAND_MSEC
+end function
+
+function makeUserCmdScratch(count)
+  values = array(count, void)
+  index = 0
+  while index < count
+    values[index] = csqtypes.zeroUserCmd()
+    index = index + 1
+  end while
+  return values
+end function
+
+function makeOriginScratch(count)
+  values = array(count, void)
+  index = 0
+  while index < count
+    values[index] = [0, 0, 0]
+    index = index + 1
+  end while
+  return values
 end function
 
 function create(serverAddress, serverPort, userInfo, localPort)
@@ -76,11 +98,12 @@ function create(serverAddress, serverPort, userInfo, localPort)
   predictionWorld = cspredictionworld.createWorld()
   return ClientSession(integrated, socket, cssystem.createClock(), 0, 0,
     csqtypes.zeroUserCmd(), csqtypes.zeroUserCmd(),
-    array(MAX_PENDING_USERCMDS, void), 0, 0,
-    array(CMD_BACKUP, void), array(CMD_BACKUP, -1),
-    array(CMD_BACKUP, void), array(CMD_BACKUP, -1), -1,
+    makeUserCmdScratch(MAX_PENDING_USERCMDS), 0, 0,
+    makeUserCmdScratch(CMD_BACKUP), array(CMD_BACKUP, -1),
+    makeOriginScratch(CMD_BACKUP), array(CMD_BACKUP, -1), -1,
     0, 0, 0, false, createPredictionCommandScratch(), predictionWorld,
-    cspredictionworld.createPredictionWorkspace())
+    cspredictionworld.createPredictionWorkspace(), csqtypes.zeroUserCmd(),
+    csqsz.alloc(256))
 end function
 
 function validatedMovement(value)
@@ -94,7 +117,29 @@ function validatedMovement(value)
   return encoded
 end function
 
-function validateUserCmd(command)
+function copyUserCmdInto(output, command)
+  output.msec = command.msec
+  output.buttons = command.buttons
+  output.angles[0] = command.angles[0]
+  output.angles[1] = command.angles[1]
+  output.angles[2] = command.angles[2]
+  output.forwardMove = command.forwardMove
+  output.sideMove = command.sideMove
+  output.upMove = command.upMove
+  output.impulse = command.impulse
+  output.lightLevel = command.lightLevel
+  return output
+end function
+
+function resetUserCmd(output, msec)
+  output.msec = msec; output.buttons = 0
+  output.angles[0] = 0; output.angles[1] = 0; output.angles[2] = 0
+  output.forwardMove = 0; output.sideMove = 0; output.upMove = 0
+  output.impulse = 0; output.lightLevel = 0
+  return output
+end function
+
+function validateUserCmdInto(output, command)
   if typeof(command) != "struct" then return error(9992, "client usercmd must be a struct") end if
   if typeof(command.msec) != "int" or command.msec < 0 or command.msec > 255 then
     return error(9993, "client usercmd msec outside byte range")
@@ -115,9 +160,18 @@ function validateUserCmd(command)
   forwardMove = validatedMovement(command.forwardMove)
   sideMove = validatedMovement(command.sideMove)
   upMove = validatedMovement(command.upMove)
-  return csqtypes.UserCmd(command.msec, command.buttons,
-    [command.angles[0], command.angles[1], command.angles[2]],
-    forwardMove, sideMove, upMove, command.impulse, command.lightLevel)
+  output.msec = command.msec; output.buttons = command.buttons
+  output.angles[0] = command.angles[0]
+  output.angles[1] = command.angles[1]
+  output.angles[2] = command.angles[2]
+  output.forwardMove = forwardMove; output.sideMove = sideMove
+  output.upMove = upMove; output.impulse = command.impulse
+  output.lightLevel = command.lightLevel
+  return output
+end function
+
+function validateUserCmd(command)
+  return validateUserCmdInto(csqtypes.zeroUserCmd(), command)
 end function
 
 // Queue preserves every input sample. The bounded backlog prevents a paused
@@ -126,7 +180,8 @@ function queueUserCmd(session, command)
   if session.closed then return error(9998, "client session is closed") end if
   if session.pendingCommandCount >= MAX_PENDING_USERCMDS then return error(9999, "client usercmd queue is full") end if
   slot = (session.pendingCommandHead + session.pendingCommandCount) & (MAX_PENDING_USERCMDS - 1)
-  session.pendingCommands[slot] = validateUserCmd(command)
+  validated = try(validateUserCmdInto(session.pendingCommands[slot], command))
+  if validated is error then return validated end if
   session.pendingCommandCount = session.pendingCommandCount + 1
   return session.pendingCommandCount
 end function
@@ -135,9 +190,10 @@ end function
 // where old unsent mouse deltas must not be replayed later.
 function setUserCmd(session, command)
   if session.closed then return error(9998, "client session is closed") end if
+  validated = try(validateUserCmdInto(session.pendingCommands[0], command))
+  if validated is error then return validated end if
   session.pendingCommandHead = 0
   session.pendingCommandCount = 1
-  session.pendingCommands[0] = validateUserCmd(command)
   return true
 end function
 
@@ -147,9 +203,7 @@ end function
 
 function nextUserCmd(session)
   if session.pendingCommandCount == 0 then
-    command = csqtypes.zeroUserCmd()
-    command.msec = 100
-    return command
+    return resetUserCmd(session.idleCommand, 100)
   end if
   command = session.pendingCommands[session.pendingCommandHead]
   session.pendingCommandHead = (session.pendingCommandHead + 1) & (MAX_PENDING_USERCMDS - 1)
@@ -237,7 +291,9 @@ end function
 function storePredictedOrigin(session, sequence, fixedOrigin)
   if sequence < 0 then return false end if
   slot = sequence & CMD_MASK
-  session.predictedOrigins[slot] = [fixedOrigin[0], fixedOrigin[1], fixedOrigin[2]]
+  session.predictedOrigins[slot][0] = fixedOrigin[0]
+  session.predictedOrigins[slot][1] = fixedOrigin[1]
+  session.predictedOrigins[slot][2] = fixedOrigin[2]
   session.predictedSequences[slot] = sequence
   return true
 end function
@@ -341,15 +397,20 @@ function signonCommand(text)
 end function
 
 function resetMapInput(session)
-  session.previousCommand = csqtypes.zeroUserCmd()
-  session.lastCommand = csqtypes.zeroUserCmd()
-  session.pendingCommands = array(MAX_PENDING_USERCMDS, void)
+  resetUserCmd(session.previousCommand, 0)
+  resetUserCmd(session.lastCommand, 0)
   session.pendingCommandHead = 0
   session.pendingCommandCount = 0
-  session.commandHistory = array(CMD_BACKUP, void)
-  session.commandSequences = array(CMD_BACKUP, -1)
-  session.predictedOrigins = array(CMD_BACKUP, void)
-  session.predictedSequences = array(CMD_BACKUP, -1)
+  resetIndex = 0
+  while resetIndex < CMD_BACKUP
+    resetUserCmd(session.commandHistory[resetIndex], 0)
+    session.commandSequences[resetIndex] = -1
+    session.predictedOrigins[resetIndex][0] = 0
+    session.predictedOrigins[resetIndex][1] = 0
+    session.predictedOrigins[resetIndex][2] = 0
+    session.predictedSequences[resetIndex] = -1
+    resetIndex = resetIndex + 1
+  end while
   session.lastPredictionAck = -1
   csstate.clearPrediction(session.integrated.client)
   return true
@@ -426,16 +487,17 @@ function sendMove(session, now)
   command = nextUserCmd(session)
   sequence = network.client.channel.outgoingSequence
   historySlot = sequence & CMD_MASK
-  session.commandHistory[historySlot] = cspt.copyUserCmd(command)
+  copyUserCmdInto(session.commandHistory[historySlot], command)
   session.commandSequences[historySlot] = sequence
-  buffer = csqsz.alloc(256)
+  buffer = session.moveBuffer
+  csqsz.clear(buffer)
   cscommands.writeMove(buffer, sequence, lastFrame,
     session.previousCommand, session.lastCommand, command)
   stats = csnrtypes.stats()
   cspump.flushClient(network, session.socket, now, csqsz.dataSlice(buffer), stats)
   session.packetsSent = session.packetsSent + stats.sent
-  session.previousCommand = session.lastCommand
-  session.lastCommand = cspt.copyUserCmd(command)
+  copyUserCmdInto(session.previousCommand, session.lastCommand)
+  copyUserCmdInto(session.lastCommand, command)
   return true
 end function
 

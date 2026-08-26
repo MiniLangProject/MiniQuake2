@@ -46,7 +46,7 @@ function protocolEntity(state)
   )
 end function
 
-fixture = "{ \"classname\" \"worldspawn\" }\n" +
+fixture = "{ \"classname\" \"worldspawn\" \"sounds\" \"7\" }\n" +
   "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" }\n" +
   "{ \"classname\" \"weapon_machinegun\" \"origin\" \"48 0 8\" }\n" +
   "{ \"classname\" \"ammo_shells\" \"origin\" \"80 256 64\" \"target\" \"item_help\" }\n" +
@@ -89,6 +89,8 @@ runtime = sppgameapi.baseRuntime()
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + 1], "maps/base1.bsp", "reserved map model configstring")
 assertTrue(server.configStrings[sppqconstants.CS_STATUSBAR] != "",
   "stock statusbar configstring")
+assertEqual(server.configStrings[sppqconstants.CS_CDTRACK], "7",
+  "worldspawn music track configstring")
 assertEqual(api.edicts[0].state.modelIndex, 1, "world keeps reserved map model index")
 machineModel = findName(server.modelNames, "models/weapons/g_machn/tris.md2")
 soldierModel = findName(server.modelNames, "models/monsters/soldier/tris.md2")

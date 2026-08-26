@@ -15,3 +15,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Root-level leftovers from interrupted persistence and atomic-write tests.
+# Intentional fixtures remain visible when stored below tests/ or docs/.
+/*.sav
+/*.tmp

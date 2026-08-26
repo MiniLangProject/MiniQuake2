@@ -33,6 +33,8 @@ end function
 function fakeLoadSkin(name)
   global skinCalls, loaderGeneration, nextModelId
   skinCalls = skinCalls + [name]
+  if name == "players/female/missing.pcx" or
+      name == "players/male/missing.pcx" then return void end if
   value = car_test_rt.ResourceHandle("skin", nextModelId, name, loaderGeneration)
   nextModelId = nextModelId + 1
   return value
@@ -107,6 +109,15 @@ registryAssert(car_test_registry.refreshClientInfos(state, configStrings) == 1 a
 registryAssert(len(car_test_registry.missingAssets(state)) ==
   missingBeforeSexedFallback,
   "normal sexed-sound fallback was reported as a missing asset")
+missingBeforeSkinFallback = len(car_test_registry.missingAssets(state))
+configStrings[car_test_qc.CS_PLAYERSKINS] = "Unit\\female/missing"
+registryAssert(car_test_registry.refreshClientInfos(state, configStrings) == 1 and
+    bindings.playerModel(0).name == "players/male/tris.md2" and
+    bindings.playerSkin(0).name == "players/male/grunt.pcx",
+  "missing authored skin did not use stock male/grunt fallback")
+registryAssert(len(car_test_registry.missingAssets(state)) ==
+  missingBeforeSkinFallback,
+  "normal player-skin fallback was reported as a missing precache asset")
 configStrings[car_test_qc.CS_PLAYERSKINS] = "Unit\\male/grunt"
 registryAssert(car_test_registry.refreshClientInfos(state, configStrings) == 1 and
   bindings.playerModel(0).name == "players/male/tris.md2",

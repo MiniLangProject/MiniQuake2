@@ -71,6 +71,7 @@ struct IntegratedBaseQ2
   dynamicSolidCount
   dynamicSolidFrame
   dynamicSolidNumEdicts
+  pusherCapture
 end struct
 
 struct IntegratedDynamicClip
@@ -1355,6 +1356,8 @@ function clipWorldLaserBounds(start, finish, origin, mins, maxs)
   return clip.hit
 end function
 
+// Merge the engine world trace with managed player, monster and world bounds.
+// The nearest eligible hit wins; scratch records are reused on the server thread.
 function integratedWorldLaserTrace(start, finish, ignore)
   global activeIntegrationRuntime, worldLaserTraceScratch, worldLaserEndScratch
   global worldLaserNormalScratch, worldLaserPlayerProxy, worldLaserBlockProxy
@@ -2479,6 +2482,8 @@ function prepareMonsterRuntimeState(actor)
   return actor
 end function
 
+// Construct every world, item and monster record before callbacks can observe
+// the runtime. Parsed edict numbers remain authoritative across proxy tables.
 function create(spawnResult)
   global activeIntegrationRuntime, integratedProjectileLinkTotal, integratedProjectileFreeTotal
   integratedProjectileLinkTotal = 0
@@ -2592,7 +2597,8 @@ function create(spawnResult)
   playerTrail = ibaitrail.create(true)
   dynamicSolidEdicts = array(ibqconstants.MAX_EDICTS)
   runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void,
-    ibCreateRandomStateHolder, playerTrail, false, dynamicSolidEdicts, 0, -1, -1)
+    ibCreateRandomStateHolder, playerTrail, false, dynamicSolidEdicts, 0, -1, -1,
+    void)
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
   for each preparedActor in runtime.monsters
