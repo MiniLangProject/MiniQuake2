@@ -51,7 +51,7 @@ function productConfigValidate(config)
       typeof(config.hand) != "int" or config.hand < 0 or config.hand > 2 or
       (typeof(config.volume) != "int" and typeof(config.volume) != "float") or
       config.volume < 0.0 or config.volume > 1.0 or
-      typeof(config.videoMode) != "int" or config.videoMode < 0 or config.videoMode > 3 or
+      typeof(config.videoMode) != "int" or config.videoMode < 0 or config.videoMode > 7 or
       typeof(config.fullScreen) != "bool" or
       (typeof(config.brightness) != "int" and typeof(config.brightness) != "float") or
       config.brightness < 0.5 or config.brightness > 2.0 or

@@ -118,7 +118,7 @@ function testExploboxLifecycle()
   rwcore.advance(world, 0.4)
   assertTrue(barrel.inUse == false, "barrel explosion frees entity")
   assertEqual(retailWorldRadius, 150, "barrel radius damage")
-  assertEqual(retailWorldEffects, 3, "barrel debris/explosion effects")
+  assertEqual(retailWorldEffects, 15, "barrel debris/explosion effects")
   return true
 end function
 

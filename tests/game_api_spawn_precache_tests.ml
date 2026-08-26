@@ -66,6 +66,7 @@ fixture = "{ \"classname\" \"worldspawn\" \"sounds\" \"7\" }\n" +
   "{ \"classname\" \"monster_boss2\" \"origin\" \"768 0 8\" }\n" +
   "{ \"classname\" \"func_door\" \"targetname\" \"sound_door\" \"origin\" \"256 0 0\" }\n" +
   "{ \"classname\" \"func_door_secret\" \"targetname\" \"secret_sound_door\" \"sounds\" \"1\" \"origin\" \"320 0 0\" }\n" +
+  "{ \"classname\" \"func_water\" \"targetname\" \"sound_water\" \"sounds\" \"1\" \"origin\" \"352 0 0\" }\n" +
   "{ \"classname\" \"target_speaker\" \"noise\" \"world/amb10\" \"spawnflags\" \"1\" \"volume\" \"0.4\" \"attenuation\" \"-1\" }\n" +
   "{ \"classname\" \"target_speaker\" \"noise\" \"misc/talk\" \"spawnflags\" \"4\" \"volume\" \"0.25\" \"attenuation\" \"3\" }\n" +
   "{ \"classname\" \"target_laser\" \"origin\" \"1024 1024 1024\" \"angle\" \"0\" \"spawnflags\" \"66\" }\n" +
@@ -393,6 +394,16 @@ assertEqual(secretDoor.soundIndex, doorMiddleSound,
 sppworld.useEntity(runtime.world, secretDoor, secretDoor, secretDoor)
 assertEqual(secretDoor.loopSound, doorMiddleSound,
   "secret door movement starts stock middle loop even with sounds 1")
+water = sppintegration.findWorldByClass(runtime, "func_water")
+waterSoundBefore = len(sppsounds.pendingSnapshot(server))
+sppworld.useEntity(runtime.world, water, water, water)
+waterEvents = sppsounds.pendingSnapshot(server)
+waterEvent = waterEvents[waterSoundBefore]
+assertEqual(waterEvent.channelFlags,
+  sppgameconstants.CHAN_NO_PHS_ADD | sppgameconstants.CHAN_VOICE,
+  "func_water sound uses stock no-PHS voice channel")
+assertEqual(waterEvent.attenuation, sppgameconstants.ATTN_STATIC,
+  "func_water sound uses stock static attenuation")
 
 entities = [
   protocolEntity(player.edict.state),

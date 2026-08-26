@@ -25,8 +25,18 @@ function create(title, width, height, fullscreen)
   if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
   fullscreenValue = 0
   if fullscreen then fullscreenValue = 1 end if
+  // mq_win_create only chooses the borderless window style.  Configure the
+  // requested Win32 display mode first so fullscreen also owns the selected
+  // resolution instead of occupying just that many pixels on a larger desktop.
+  if native.winConfigureDisplayMode(width, height, 32, 0,
+      fullscreenValue, 0) == 0 then
+    return error(2923, "requested fullscreen display mode is unavailable")
+  end if
   nativeHandle = native.winCreate(title, width, height, fullscreenValue)
-  if nativeHandle is void or nativeHandle == 0 then return error(2921, "window creation failed") end if
+  if nativeHandle is void or nativeHandle == 0 then
+    native.winRestoreDisplayMode()
+    return error(2921, "window creation failed")
+  end if
   return Window(nativeHandle, native.winClientWidth(), native.winClientHeight(), fullscreen, false)
 end function
 

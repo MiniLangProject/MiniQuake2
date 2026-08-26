@@ -5,6 +5,11 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Real UDP UserCmd -> PMove/weapon/snapshot physical playtest gate. */
 import miniquake2.runtime.campaign_playtest as physicalinputplaytest
 import miniquake2.runtime.play_session as physicalinputsession
+import miniquake2.game.null_game as physicalinputgame
+import miniquake2.game.integration.baseq2 as physicalinputintegration
+import miniquake2.game.world.constants as physicalinputworldconstants
+import miniquake2.qcommon.constants as physicalinputqconstants
+import miniquake2.game.weapons.constants as physicalinputweaponconstants
 
 function physicalInputAssert(value, message)
   if value != true then return error(8494, message) end if
@@ -43,6 +48,67 @@ function physicalInputRetail(baseDirectory)
   physicalinputsession.runUntilActive(physicalInputRetailSession, 512)
   physicalInputRetailReport = physicalinputplaytest.drive(physicalInputRetailSession, 48)
   physicalInputCheck(physicalInputRetailReport, "retail base1 physical input")
+  // Exercise the shipped base1 entity graph, not only synthetic doors and
+  // barrels. Untargeted func_door teams must own linked touch fields around
+  // their real BSP bounds, and a stock explobox must publish BecomeExplosion2.
+  physicalInputRetailRuntime = physicalinputgame.baseRuntime()
+  physicalInputRetailPlayer = physicalinputgame.playerContext().players[0]
+  physicalInputRetailDoorTrigger = void
+  physicalInputRetailBarrel = void
+  physicalInputRetailDoorTriggerCount = 0
+  for each physicalInputRetailEntity in physicalInputRetailRuntime.world.entities
+    if physicalInputRetailEntity.className == "door_trigger" then
+      physicalInputRetailDoorTriggerCount = physicalInputRetailDoorTriggerCount + 1
+      if physicalInputRetailDoorTrigger is void then
+        physicalInputRetailDoorTrigger = physicalInputRetailEntity
+      end if
+    else if physicalInputRetailEntity.className == "misc_explobox" and
+        physicalInputRetailBarrel is void then
+      physicalInputRetailBarrel = physicalInputRetailEntity
+    end if
+  end for
+  physicalInputAssert(physicalInputRetailDoorTriggerCount >= 2 and
+    physicalInputRetailDoorTrigger is not void and
+    physicalInputRetailDoorTrigger.owner is not void,
+    "retail base1 did not create its automatic door touch fields")
+  physicalInputRetailDoor = physicalInputRetailDoorTrigger.owner
+  physicalInputAssert(physicalInputRetailDoor.absoluteMaxs.x >
+      physicalInputRetailDoor.absoluteMins.x and
+    physicalInputRetailDoorTrigger.mins.x <=
+      physicalInputRetailDoor.absoluteMins.x - 60.0,
+    "retail base1 door touch field does not enclose its linked BSP bounds")
+  physicalInputAssert(physicalinputintegration.touchWorld(
+      physicalInputRetailRuntime, physicalInputRetailDoorTrigger,
+      physicalInputRetailPlayer) and
+    physicalInputRetailDoor.moveInfo.state ==
+      physicalinputworldconstants.STATE_UP,
+    "retail base1 automatic door did not open on player touch")
+
+  physicalInputAssert(physicalInputRetailBarrel is not void,
+    "retail base1 contains no explobox regression target")
+  physicalInputRetailPlayerProxy = physicalinputintegration.playerWorldProxy(
+    physicalInputRetailPlayer)
+  physicalInputRetailMulticastBefore = len(
+    physicalInputRetailSession.server.bridgeRuntime.pendingMulticasts)
+  physicalinputintegration.integratedWorldDamage(physicalInputRetailBarrel,
+    physicalInputRetailPlayerProxy, physicalInputRetailPlayerProxy, 15,
+    physicalinputworldconstants.MOD_EXPLOSIVE)
+  physicalInputAssert(physicalInputRetailBarrel.health <= 0 and
+    physicalInputRetailBarrel.inUse,
+    "retail base1 barrel did not enter its delayed explosion")
+  physicalinputgame.RunFrame()
+  physicalinputgame.RunFrame()
+  physicalInputRetailMulticasts = physicalInputRetailSession.server.bridgeRuntime.pendingMulticasts
+  physicalInputAssert(not physicalInputRetailBarrel.inUse and
+    len(physicalInputRetailMulticasts) > physicalInputRetailMulticastBefore,
+    "retail base1 barrel did not complete a visible explosion")
+  physicalInputRetailExplosion = physicalInputRetailMulticasts[
+    len(physicalInputRetailMulticasts) - 1]
+  physicalInputAssert(physicalInputRetailExplosion.payload[0] ==
+      physicalinputqconstants.SVC_TEMP_ENTITY and
+    physicalInputRetailExplosion.payload[1] ==
+      physicalinputweaponconstants.TE_EXPLOSION2,
+    "retail base1 barrel emitted the wrong explosion protocol event")
   print("runtime_campaign_physical_input_tests: retail base1 PASS" +
     " displacement2=" + physicalInputRetailReport.planarDisplacement +
     " fire=" + physicalInputRetailReport.fireCount +

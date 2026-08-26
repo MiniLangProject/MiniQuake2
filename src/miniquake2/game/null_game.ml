@@ -98,7 +98,8 @@ function baseWorldSound(entity, soundName)
   if entity.className == "func_button" or entity.className == "func_door" or
       entity.className == "func_door_rotating" or
       entity.className == "func_door_secret" or
-      entity.className == "func_plat" or entity.className == "func_train" then
+      entity.className == "func_plat" or entity.className == "func_train" or
+      entity.className == "func_water" then
     return activeImports.sound(target, gc.CHAN_NO_PHS_ADD | gc.CHAN_VOICE,
       soundIndex, 1.0, gc.ATTN_STATIC, 0.0)
   end if
@@ -178,7 +179,15 @@ function baseWorldLink(entity)
   ngLinkTargetHolder.maxs = ngLinkMaxsHolder
   ngLinkTargetHolder.solid = entity.solid
   gt.stabilizeEdict(ngLinkTargetHolder)
-  return activeImports.linkEntity(ngLinkTargetHolder)
+  ngLinkResultHolder = activeImports.linkEntity(ngLinkTargetHolder)
+  // In the original engine the game and server share one edict, so
+  // gi.linkentity writes absmin/absmax and size straight back into the game
+  // object. The managed bridge uses separate records and must mirror those
+  // derived bounds explicitly. Door touch fields depend on the linked values.
+  entity.size = ngLinkTargetHolder.size
+  entity.absoluteMins = ngLinkTargetHolder.absoluteMins
+  entity.absoluteMaxs = ngLinkTargetHolder.absoluteMaxs
+  return ngLinkResultHolder
 end function
 
 function aiTraceVisible(actor, other)

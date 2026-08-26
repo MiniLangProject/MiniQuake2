@@ -91,8 +91,13 @@ shipModel = findName(server.modelNames, "models/ships/strogg1/tris.md2")
 gibModel = findName(server.modelNames, "models/objects/gibs/head/tris.md2")
 assertTrue(barrelModel > 0 and wallModel > 0 and rotatingModel > 0, "functional models precached")
 assertTrue(bannerModel > 0 and corpseModel > 0 and shipModel > 0 and gibModel > 0, "decorative models precached")
-assertTrue(findName(server.modelNames, "models/objects/debris3/tris.md2") > 0, "barrel debris precached")
-assertTrue(findName(server.soundNames, "tank/pain.wav") > 0, "barrel sound precached")
+debris1Model = findName(server.modelNames, "models/objects/debris1/tris.md2")
+debris2Model = findName(server.modelNames, "models/objects/debris2/tris.md2")
+debris3Model = findName(server.modelNames, "models/objects/debris3/tris.md2")
+assertTrue(debris1Model > 0 and debris2Model > 0 and debris3Model > 0,
+  "barrel debris precached")
+assertEqual(findName(server.soundNames, "tank/pain.wav"), 0,
+  "barrel does not claim commander-body tank audio")
 assertTrue(findName(server.soundNames, "misc/udeath.wav") > 0, "dead soldier sound precached")
 assertEqual(api.edicts[barrel.number].state.modelIndex, barrelModel, "barrel snapshot model index")
 assertEqual(api.edicts[wall.number].state.modelIndex, wallModel, "wall snapshot model index")
@@ -137,10 +142,32 @@ api.clientThink(client, command(0))
 api.runFrame()
 assertTrue(barrel.health <= 0, "player projectile damages barrel")
 assertTrue(barrel.inUse, "barrel uses delayed explosion think")
+barrelTempBefore = len(server.pendingMulticasts)
 api.runFrame()
 api.runFrame()
 assertTrue(barrel.inUse == false, "barrel explosion lifecycle completed")
 assertTrue(api.edicts[barrel.number].inUse == false, "barrel free synced to Game API")
+debris1Count = 0; debris2Count = 0; debris3Count = 0
+debrisIndex = 1
+while debrisIndex < api.numEdicts
+  debrisEdict = api.edicts[debrisIndex]
+  if debrisEdict.inUse and debrisEdict.solid == rwigameconstants.SOLID_NOT then
+    if debrisEdict.state.modelIndex == debris1Model then debris1Count = debris1Count + 1 end if
+    if debrisEdict.state.modelIndex == debris2Model then debris2Count = debris2Count + 1 end if
+    if debrisEdict.state.modelIndex == debris3Model then debris3Count = debris3Count + 1 end if
+  end if
+  debrisIndex = debrisIndex + 1
+end while
+assertEqual(debris1Count, 2, "barrel large debris edict count")
+assertEqual(debris2Count, 8, "barrel small debris edict count")
+assertEqual(debris3Count, 4, "barrel corner debris edict count")
+assertTrue(len(server.pendingMulticasts) > barrelTempBefore,
+  "barrel explosion queues a visible temp entity")
+barrelExplosionWire = server.pendingMulticasts[len(server.pendingMulticasts) - 1]
+assertTrue(barrelExplosionWire.payload[0] == rwiqconstants.SVC_TEMP_ENTITY and
+  barrelExplosionWire.payload[1] ==
+    miniquake2.game.weapons.constants.TE_EXPLOSION2,
+  "barrel explosion uses stock grounded explosion wire type")
 
 api.clientDisconnect(client)
 api.shutdown()

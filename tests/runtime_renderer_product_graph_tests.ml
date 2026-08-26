@@ -14,6 +14,18 @@ end function
 function main(args)
   assertTrue(productdiagnostics.verifyLinkClosure(), "product linker closure")
   assertTrue(typeof(productapplication.previewMap) == "function", "application preview link")
+  protectedSettings = productapplication.productSettingsDirectoryFrom(
+    "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Quake 2",
+    "C:\\Users\\Tester\\AppData\\Local", "C:\\Program Files",
+    "C:\\Program Files (x86)")
+  portableSettings = productapplication.productSettingsDirectoryFrom(
+    "D:\\Games\\Quake 2", "C:\\Users\\Tester\\AppData\\Local",
+    "C:\\Program Files", "C:\\Program Files (x86)")
+  assertTrue(protectedSettings ==
+    "C:\\Users\\Tester\\AppData\\Local\\MiniQuake2",
+    "protected retail root uses per-user settings")
+  assertTrue(portableSettings == "D:\\Games\\Quake 2\\baseq2",
+    "portable retail root keeps local settings")
   renderer = productopengl.createOpenGlRenderer(false)
   assertTrue(typeof(renderer) == "struct", "product-graph renderer binding")
   assertTrue(typeof(renderer.state) == "struct", "product-graph renderer state")

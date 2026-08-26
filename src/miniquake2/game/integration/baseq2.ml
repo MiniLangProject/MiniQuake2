@@ -672,6 +672,131 @@ function integratedAIDeathEffect(actor, effect)
   return true
 end function
 
+// Reuse a freed non-player edict before extending the protocol-visible table.
+// Short-lived debris can otherwise exhaust MAX_EDICTS after several barrels.
+function reserveWorldEffectEdict(runtime)
+  ibWorldEffectExportHolder = runtime.exportTable
+  ibWorldEffectCandidate = 1
+  while ibWorldEffectCandidate < ibWorldEffectExportHolder.numEdicts
+    ibWorldEffectReserved = false
+    for each ibWorldEffectPlayerHolder in runtime.playerContext.players
+      if ibWorldEffectPlayerHolder.edict.state.number == ibWorldEffectCandidate then
+        ibWorldEffectReserved = true
+      end if
+    end for
+    // Monster and item adapters synchronize their retained edict records after
+    // world entities, even once inactive. Never let that later pass overwrite
+    // a newly reused debris slot.
+    for each ibWorldEffectMonsterHolder in runtime.monsters
+      if ibWorldEffectMonsterHolder.edict.state.number == ibWorldEffectCandidate then
+        ibWorldEffectReserved = true
+      end if
+    end for
+    for each ibWorldEffectItemHolder in runtime.items
+      if ibWorldEffectItemHolder.edict.state.number == ibWorldEffectCandidate then
+        ibWorldEffectReserved = true
+      end if
+    end for
+    if not ibWorldEffectReserved and
+        not ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate].inUse then
+      ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate] = ibgametypes.zeroEdict(
+        ibWorldEffectCandidate)
+      ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate].inUse = true
+      return ibWorldEffectCandidate
+    end if
+    ibWorldEffectCandidate = ibWorldEffectCandidate + 1
+  end while
+  if ibWorldEffectExportHolder.numEdicts >= ibWorldEffectExportHolder.maxEdicts then
+    return error(9713, "world effect exceeds edict capacity")
+  end if
+  ibWorldEffectCandidate = ibWorldEffectExportHolder.numEdicts
+  ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate] = ibgametypes.zeroEdict(
+    ibWorldEffectCandidate)
+  ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate].inUse = true
+  ibWorldEffectExportHolder.numEdicts = ibWorldEffectCandidate + 1
+  return ibWorldEffectCandidate
+end function
+
+// Match g_misc.c ThrowDebris: model-backed, non-solid bounce entities with a
+// five-to-ten-second lifetime. Unlike monster gibs they carry no EF_GIB trail.
+function integratedWorldDebris(kind, origin, speed, count)
+  global activeIntegrationRuntime
+  ibWorldDebrisRuntimeHolder = activeIntegrationRuntime
+  if ibWorldDebrisRuntimeHolder is void or
+      ibWorldDebrisRuntimeHolder.playerContext is void or
+      ibWorldDebrisRuntimeHolder.exportTable is void then return true end if
+  ibWorldDebrisModelName = ""
+  if kind == "barrel-debris1" then
+    ibWorldDebrisModelName = "models/objects/debris1/tris.md2"
+  else if kind == "barrel-debris2" then
+    ibWorldDebrisModelName = "models/objects/debris2/tris.md2"
+  else if kind == "barrel-debris3" then
+    ibWorldDebrisModelName = "models/objects/debris3/tris.md2"
+  else
+    return false
+  end if
+  ibWorldDebrisIndex = 0
+  while ibWorldDebrisIndex < count
+    ibWorldDebrisNumber = reserveWorldEffectEdict(ibWorldDebrisRuntimeHolder)
+    if ibWorldDebrisNumber is error then return ibWorldDebrisNumber end if
+    ibWorldDebrisHolder = ibwtypes.createEntity(ibWorldDebrisNumber, "debris")
+    ibWorldDebrisHolder.model = ibWorldDebrisModelName
+    ibWorldDebrisHolder.modelIndex = ibWorldDebrisRuntimeHolder.playerContext.imports.modelIndex(
+      ibWorldDebrisModelName)
+    ibWorldDebrisHolder.origin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    ibWorldDebrisHolder.oldOrigin = ibqtypes.Vec3(origin.x, origin.y, origin.z)
+    ibWorldDebrisHolder.velocity = ibqtypes.Vec3(
+      100.0 * integratedRandomSigned() * speed,
+      100.0 * integratedRandomSigned() * speed,
+      (100.0 + 100.0 * integratedRandomSigned()) * speed)
+    ibWorldDebrisHolder.angularVelocity = ibqtypes.Vec3(
+      (integratedRandomSigned() + 1.0) * 300.0,
+      (integratedRandomSigned() + 1.0) * 300.0,
+      (integratedRandomSigned() + 1.0) * 300.0)
+    ibWorldDebrisHolder.moveType = ibworldconstants.MOVETYPE_BOUNCE
+    ibWorldDebrisHolder.clipMask = ibqconstants.MASK_SOLID
+    ibWorldDebrisHolder.solid = ibworldconstants.SOLID_NOT
+    ibWorldDebrisHolder.takeDamage = ibworldconstants.DAMAGE_YES
+    ibWorldDebrisHolder.die = ibmisc.debrisDie
+    ibWorldDebrisHolder.think = ibworld.freeThink
+    ibWorldDebrisHolder.nextThink = ibWorldDebrisRuntimeHolder.world.time +
+      7.5 + integratedRandomSigned() * 2.5
+    ibworld.addEntity(ibWorldDebrisRuntimeHolder.world, ibWorldDebrisHolder)
+    ibWorldDebrisRuntimeHolder.world.callbacks.linkEntity(ibWorldDebrisHolder)
+    ibWorldDebrisIndex = ibWorldDebrisIndex + 1
+  end while
+  return true
+end function
+
+// World state machines use this callback for stock temp entities and visible
+// barrel debris. Permanent protocol edicts are allocated only for the chunks.
+function integratedWorldEffect(kind, origin, style, count)
+  global activeIntegrationRuntime
+  ibWorldEffectRuntimeHolder = activeIntegrationRuntime
+  if ibWorldEffectRuntimeHolder is void or
+      ibWorldEffectRuntimeHolder.playerContext is void then return true end if
+  if kind == "barrel-debris1" or kind == "barrel-debris2" or
+      kind == "barrel-debris3" then
+    return integratedWorldDebris(kind, origin, style, count)
+  end if
+  ibWorldEffectType = -1
+  if kind == "barrel-explosion" or kind == "explosion2" then
+    ibWorldEffectType = ibwpconstants.TE_EXPLOSION2
+  else if kind == "explosion" then
+    ibWorldEffectType = ibwpconstants.TE_EXPLOSION1
+  else if kind == "teleport" then
+    ibWorldEffectType = ibwpconstants.TE_TELEPORT_EFFECT
+  else
+    return true
+  end if
+  ibWorldEffectImportsHolder = ibWorldEffectRuntimeHolder.playerContext.imports
+  ibWorldEffectImportsHolder.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  ibWorldEffectImportsHolder.writeByte(ibWorldEffectType)
+  ibWorldEffectImportsHolder.writePosition(origin)
+  return ibWorldEffectImportsHolder.multicast(origin,
+    ibgconstants.MULTICAST_PVS)
+end function
+
 function integratedMedicCorpseVisible(runtime, medic, patient)
   if runtime.playerContext is void then return true end if
   ibMedicSightStartHolder = ibqtypes.Vec3(medic.edict.state.origin.x,
@@ -1047,10 +1172,11 @@ function monsterWeaponTarget(actor)
   target.maxs = weaponVector(actor.edict.maxs)
   target.isMonster = true
   target.flags = actor.flags
-  target.inUse = actor.edict.inUse and actor.health > 0
+  target.inUse = actor.edict.inUse
   target.combatant.edict = actor.edict
   target.combatant.health = actor.health
-  target.combatant.takeDamage = actor.takeDamage != 0 and actor.deadFlag == ibaiconstants.DEAD_NO
+  target.combatant.takeDamage = actor.takeDamage != 0
+  target.combatant.dead = actor.deadFlag != ibaiconstants.DEAD_NO
   target.combatant.flags = actor.flags
   target.combatant.moveType = actor.moveType
   target.combatant.mass = actor.mass
@@ -1103,7 +1229,7 @@ function integratedWeaponTargets(runtime)
     end for
   end if
   for each actor in runtime.monsters
-    if actor.edict.inUse and actor.health > 0 then
+    if actor.edict.inUse and actor.takeDamage != 0 then
       targets[targetCount] = monsterWeaponTarget(actor); targetCount = targetCount + 1
     end if
   end for
@@ -1216,9 +1342,9 @@ function integratedWeaponDamage(combatant, request)
   actor = integratedMonsterByNumber(runtime, number)
   worldEntity = ibworld.findByNumber(runtime.world, number)
   if player is not void and player.deadFlag != ibplayerconstants.DEAD_NO then return false end if
-  if actor is not void and actor.health <= 0 then return false end if
   powerArmorSaved = 0
-  if actor is not void and actor.powerArmorPower > 0 and
+  if actor is not void and actor.deadFlag == ibaiconstants.DEAD_NO and
+      actor.powerArmorPower > 0 and
       actor.powerArmorType != ibaiconstants.POWER_ARMOR_NONE and
       (request.flags & ibgpconstants.DAMAGE_NO_ARMOR) == 0 then
     damagePerCell = 1
@@ -2504,6 +2630,7 @@ function create(spawnResult)
   world.callbacks.fireBlaster = integratedWorldFireBlaster
   world.callbacks.killBox = integratedWorldKillBox
   world.callbacks.spawnExternal = integratedWorldSpawnExternal
+  world.callbacks.effect = integratedWorldEffect
   world.callbacks.randomSigned = integratedRandomSigned
   world.callbacks.randomIndex = integratedRandomIndex
   aiContext = ibaitypes.defaultContext()
@@ -2775,8 +2902,6 @@ function precacheSpawned(runtime, playerContext)
       imports.modelIndex("models/objects/debris1/tris.md2")
       imports.modelIndex("models/objects/debris2/tris.md2")
       imports.modelIndex("models/objects/debris3/tris.md2")
-      imports.soundIndex("tank/thud.wav")
-      imports.soundIndex("tank/pain.wav")
     else if entity.inUse and entity.className == "misc_deadsoldier" then
       imports.modelIndex("models/objects/gibs/sm_meat/tris.md2")
       imports.modelIndex("models/objects/gibs/head2/tris.md2")
@@ -4894,7 +5019,7 @@ function damageMonster(runtime, monsterIndex, attacker, damage)
   if typeof(monsterIndex) != "int" or monsterIndex < 0 or monsterIndex >= len(runtime.monsters) then return error(9690, "damageMonster: monster index out of range") end if
   if typeof(damage) != "int" or damage < 0 then return error(9691, "damageMonster: non-negative integer damage required") end if
   actor = runtime.monsters[monsterIndex]
-  if actor.health <= 0 then return false end if
+  if not actor.edict.inUse or actor.takeDamage == 0 then return false end if
   actor.health = actor.health - damage
   if actor.health <= 0 then return ibmonster.DispatchDie(actor, attacker, damage, runtime.aiContext) end if
   return ibmonster.DispatchPain(actor, attacker, damage, runtime.aiContext)

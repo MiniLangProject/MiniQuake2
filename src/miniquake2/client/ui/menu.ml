@@ -55,7 +55,9 @@ function defaultPages()
     action("new_hard", "hard", "newgame hard"), action("load", "load game", "menu:load"),
     action("save", "save game", "menu:save"), action("credits", "credits", "menu:credits")])
   video = cuitypes.MenuPage("video", "VIDEO", "main", [
-    choice("mode", "video mode", 0, ["640x480", "800x600", "1024x768", "1280x720"], "vid_mode"),
+    choice("mode", "video mode", 0, ["640x480", "800x600", "1024x768",
+      "1280x720", "1600x900", "1920x1080 (Full HD)", "2560x1440",
+      "3840x2160 (4K)"], "vid_mode"),
     toggle("fullscreen", "fullscreen", 0, "vid_fullscreen"),
     slider("brightness", "brightness", 1.0, 0.5, 2.0, 0.1, "vid_gamma"),
     action("apply", "apply", "vid_restart")])

@@ -57,6 +57,12 @@ cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_ENTER)
 uiMenuAssertEqual(uiMenuState.currentPage, "video", "submenu activation")
+uiMenuModeItem = cuimenu.itemById(uiMenuState, "video", "mode")
+uiMenuAssertEqual(len(uiMenuModeItem.choices), 8, "modern video mode count")
+uiMenuAssertEqual(uiMenuModeItem.choices[5], "1920x1080 (Full HD)",
+  "Full HD video mode label")
+uiMenuAssertEqual(uiMenuModeItem.choices[7], "3840x2160 (4K)",
+  "4K video mode label")
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
 uiMenuCommands = cuimenu.drainCommands(uiMenuState)

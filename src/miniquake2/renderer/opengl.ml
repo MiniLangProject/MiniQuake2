@@ -2016,6 +2016,129 @@ function submitOpenGlClassicDraw(draw, lightmap, time)
   return false
 end function
 
+function createOpenGlSkyBounds()
+  return rclassictypes.ClassicSkyBounds(array(6, 9999.0),
+    array(6, 9999.0), array(6, -9999.0), array(6, -9999.0))
+end function
+
+function openGlSkyClipDistance(value, stage)
+  if stage == 0 then return value.x + value.y end if
+  if stage == 1 then return value.x - value.y end if
+  if stage == 2 then return -value.y + value.z end if
+  if stage == 3 then return value.y + value.z end if
+  if stage == 4 then return value.x + value.z end if
+  return -value.x + value.z
+end function
+
+function projectOpenGlSkyPolygon(bounds, vertices, count)
+  sumX = 0.0; sumY = 0.0; sumZ = 0.0
+  vertexIndex = 0
+  while vertexIndex < count
+    value = vertices[vertexIndex]
+    sumX = sumX + value.x; sumY = sumY + value.y; sumZ = sumZ + value.z
+    vertexIndex = vertexIndex + 1
+  end while
+  absoluteX = rmath.abs(sumX); absoluteY = rmath.abs(sumY)
+  absoluteZ = rmath.abs(sumZ)
+  axis = 4
+  if absoluteX > absoluteY and absoluteX > absoluteZ then
+    axis = 0; if sumX < 0.0 then axis = 1 end if
+  else if absoluteY > absoluteZ and absoluteY > absoluteX then
+    axis = 2; if sumY < 0.0 then axis = 3 end if
+  else if sumZ < 0.0 then axis = 5 end if
+
+  vertexIndex = 0
+  while vertexIndex < count
+    value = vertices[vertexIndex]
+    divisor = value.x; s = -value.y; t = value.z
+    if axis == 1 then divisor = -value.x; s = value.y; t = value.z
+    else if axis == 2 then divisor = value.y; s = value.x; t = value.z
+    else if axis == 3 then divisor = -value.y; s = -value.x; t = value.z
+    else if axis == 4 then divisor = value.z; s = -value.y; t = -value.x
+    else if axis == 5 then divisor = -value.z; s = -value.y; t = value.x
+    end if
+    if divisor >= 0.001 then
+      s = s / divisor; t = t / divisor
+      if s < bounds.minimumS[axis] then bounds.minimumS[axis] = s end if
+      if t < bounds.minimumT[axis] then bounds.minimumT[axis] = t end if
+      if s > bounds.maximumS[axis] then bounds.maximumS[axis] = s end if
+      if t > bounds.maximumT[axis] then bounds.maximumT[axis] = t end if
+    end if
+    vertexIndex = vertexIndex + 1
+  end while
+  return true
+end function
+
+// Exact managed port of ref_gl's six-plane ClipSkyPolygon. Sky surfaces are
+// already triangle lists, so even the worst split remains well below 64 verts.
+function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
+  if count < 3 then return false end if
+  if stage == 6 then return projectOpenGlSkyPolygon(bounds, vertices, count) end if
+  distances = array(count, 0.0); sides = array(count, 0)
+  front = false; back = false
+  vertexIndex = 0
+  while vertexIndex < count
+    distance = openGlSkyClipDistance(vertices[vertexIndex], stage)
+    distances[vertexIndex] = distance
+    if distance > 0.1 then sides[vertexIndex] = 1; front = true
+    else if distance < -0.1 then sides[vertexIndex] = -1; back = true end if
+    vertexIndex = vertexIndex + 1
+  end while
+  if not front or not back then
+    return clipOpenGlSkyPolygon(bounds, vertices, count, stage + 1)
+  end if
+
+  frontVertices = array(66); backVertices = array(66)
+  frontCount = 0; backCount = 0
+  vertexIndex = 0
+  while vertexIndex < count
+    nextIndex = vertexIndex + 1
+    if nextIndex == count then nextIndex = 0 end if
+    value = vertices[vertexIndex]
+    side = sides[vertexIndex]
+    if side >= 0 then
+      frontVertices[frontCount] = value; frontCount = frontCount + 1
+    end if
+    if side <= 0 then
+      backVertices[backCount] = value; backCount = backCount + 1
+    end if
+    nextSide = sides[nextIndex]
+    if side != 0 and nextSide != 0 and nextSide != side then
+      fraction = distances[vertexIndex] /
+        (distances[vertexIndex] - distances[nextIndex])
+      nextValue = vertices[nextIndex]
+      intersection = ropenglqtypes.Vec3(
+        value.x + fraction * (nextValue.x - value.x),
+        value.y + fraction * (nextValue.y - value.y),
+        value.z + fraction * (nextValue.z - value.z))
+      frontVertices[frontCount] = intersection; frontCount = frontCount + 1
+      backVertices[backCount] = intersection; backCount = backCount + 1
+    end if
+    vertexIndex = vertexIndex + 1
+  end while
+  clipOpenGlSkyPolygon(bounds, frontVertices, frontCount, stage + 1)
+  clipOpenGlSkyPolygon(bounds, backVertices, backCount, stage + 1)
+  return true
+end function
+
+function openGlSkyBounds(draws, viewOrigin)
+  bounds = createOpenGlSkyBounds()
+  for each draw in draws
+    count = len(draw.surface.vertices)
+    translated = array(count)
+    vertexIndex = 0
+    while vertexIndex < count
+      position = draw.surface.vertices[vertexIndex].position
+      translated[vertexIndex] = ropenglqtypes.Vec3(
+        position.x - viewOrigin.x, position.y - viewOrigin.y,
+        position.z - viewOrigin.z)
+      vertexIndex = vertexIndex + 1
+    end while
+    clipOpenGlSkyPolygon(bounds, translated, count, 0)
+  end for
+  return bounds
+end function
+
 function emitOpenGlSkyVertex(s, t, axis, texture)
   x = 0.0; y = 0.0; z = 0.0
   scaledS = s * 2300.0; scaledT = t * 2300.0
@@ -2037,9 +2160,10 @@ function emitOpenGlSkyVertex(s, t, axis, texture)
   native.glVertex3(bits(x), bits(y), bits(z))
 end function
 
-function drawOpenGlSkyBox(binding, world, frame)
+function drawOpenGlSkyBox(binding, world, frame, draws)
   if not world.skyBox.active then return 0 end if
   textureOrder = [0, 2, 1, 3, 4, 5]
+  bounds = openGlSkyBounds(draws, frame.viewOrigin)
   uploaded = 0
   native.glPushMatrix()
   native.glTranslate(bits(frame.viewOrigin.x), bits(frame.viewOrigin.y), bits(frame.viewOrigin.z))
@@ -2048,14 +2172,27 @@ function drawOpenGlSkyBox(binding, world, frame)
   end if
   axis = 0
   while axis < 6
+    minimumS = bounds.minimumS[axis]; minimumT = bounds.minimumT[axis]
+    maximumS = bounds.maximumS[axis]; maximumT = bounds.maximumT[axis]
+    if world.skyBox.rotate != 0.0 then
+      minimumS = -1.0; minimumT = -1.0; maximumS = 1.0; maximumT = 1.0
+    end if
+    if minimumS >= maximumS or minimumT >= maximumT then
+      axis = axis + 1
+      continue
+    end if
+    if minimumS < -1.0 then minimumS = -1.0 end if
+    if minimumT < -1.0 then minimumT = -1.0 end if
+    if maximumS > 1.0 then maximumS = 1.0 end if
+    if maximumT > 1.0 then maximumT = 1.0 end if
     texture = world.skyBox.textures[textureOrder[axis]]
     if uploadClassicTexture(binding, texture) then uploaded = uploaded + 1 end if
     native.glBindTexture(GL_TEXTURE_2D, texture.id)
     native.glBegin(GL_QUADS)
-    emitOpenGlSkyVertex(-1.0, -1.0, axis, texture)
-    emitOpenGlSkyVertex(-1.0, 1.0, axis, texture)
-    emitOpenGlSkyVertex(1.0, 1.0, axis, texture)
-    emitOpenGlSkyVertex(1.0, -1.0, axis, texture)
+    emitOpenGlSkyVertex(minimumS, minimumT, axis, texture)
+    emitOpenGlSkyVertex(minimumS, maximumT, axis, texture)
+    emitOpenGlSkyVertex(maximumS, maximumT, axis, texture)
+    emitOpenGlSkyVertex(maximumS, minimumT, axis, texture)
     native.glEnd()
     axis = axis + 1
   end while
@@ -2515,7 +2652,7 @@ function submitClassicWorld(binding, world, frame)
   // follow ref_gl's rt/bk/lf/ft/up/dn naming and skytexorder. Missing optional
   // environments retain the deterministic fullbright portal-WAL fallback.
   if len(plan.skyDraws) > 0 and world.skyBox.active then
-    uploaded = uploaded + drawOpenGlSkyBox(binding, world, frame)
+    uploaded = uploaded + drawOpenGlSkyBox(binding, world, frame, plan.skyDraws)
   else
     lastTexture = -1
     for each draw in plan.skyDraws

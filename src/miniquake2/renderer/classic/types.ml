@@ -136,6 +136,16 @@ struct ClassicSkyBox
   active
 end struct
 
+// Per-view projected portal extents for Quake II's six environment faces.
+// Keeping four fixed arrays mirrors ref_gl's skymins/skymaxs layout and lets
+// the backend skip hidden cube regions instead of exposing depth seams.
+struct ClassicSkyBounds
+  minimumS
+  minimumT
+  maximumS
+  maximumT
+end struct
+
 // One BSP inline model (*n), sharing its parent world's texture resources.
 struct ClassicBrushModel
   modelIndex

@@ -242,8 +242,8 @@ function localAction(commandState, input, screen, mixer, command)
   if cuicmdName == "vid_mode" then
     cuicmdModeValue = numericArgument(cuicmdArguments, cuicmdName)
     cuicmdMode = cuicmdbyteio.truncInt(cuicmdModeValue)
-    if cuicmdModeValue != cuicmdMode or cuicmdMode < 0 or cuicmdMode > 3 then
-      return error(8284, "vid_mode outside [0,3]")
+    if cuicmdModeValue != cuicmdMode or cuicmdMode < 0 or cuicmdMode > 7 then
+      return error(8284, "vid_mode outside [0,7]")
     end if
     commandState.videoMode = cuicmdMode
     commandState.configDirty = true

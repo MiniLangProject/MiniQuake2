@@ -270,6 +270,30 @@ for each expiredGib in runtime.world.entities
   end if
 end for
 
+// A completed monster death remains a MASK_SHOT target like stock Quake II.
+// Ordinary corpse damage must not restart its death animation, while crossing
+// gib_health replaces the corpse with the class-specific physical gib set.
+gunnerIndex = deathEffectMonsterIndex(runtime, "monster_gunner")
+gunner = runtime.monsters[gunnerIndex]
+gunnerTarget = deatheffectintegration.monsterWeaponTarget(gunner)
+deathEffectAssert(gunner.activity == "corpse" and gunnerTarget.inUse and
+  gunnerTarget.combatant.takeDamage and gunnerTarget.combatant.dead,
+  "completed corpse remains a shootable dead-monster target")
+gunnerCorpseHealth = gunner.health
+deatheffectintegration.damageMonster(runtime, gunnerIndex, void, 10)
+deathEffectAssert(gunner.health == gunnerCorpseHealth - 10 and
+  gunner.activity == "corpse" and gunner.edict.inUse,
+  "non-gib corpse damage preserves the terminal corpse")
+gibsBefore = deathEffectWorldGibs(runtime, true)
+corpseGibDamage = gunner.health - gunner.gibHealth
+deathEffectAssert(deatheffectintegration.damageMonster(runtime, gunnerIndex,
+  void, corpseGibDamage), "corpse crossing gib_health dispatches stock gibs")
+deathEffectAssert(deathEffectWorldGibs(runtime, true) - gibsBefore == 7 and
+  gunner.takeDamage == 0, "gunner corpse becomes seven shootable gib edicts")
+api.runFrame(); api.runFrame()
+deathEffectAssert(gunner.activity == "gib" and not gunner.edict.inUse,
+  "gibbed corpse leaves the Protocol snapshot")
+
 api.shutdown()
 deatheffectfs.delete(deathEffectSavePath)
 print "gameplay_monster_death_effects_tests: PASS"

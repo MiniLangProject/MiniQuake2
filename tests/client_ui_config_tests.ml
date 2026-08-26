@@ -39,7 +39,7 @@ uiConfigInputSettings.alwaysRun = true
 uiConfigInputSettings.mousePitch = -0.022
 uiConfigInputSettings.hand = 1
 uiConfigState = uiconfigtestcommands.create()
-uiConfigState.videoMode = 2
+uiConfigState.videoMode = 7
 uiConfigState.fullScreen = true
 uiConfigState.brightness = 1.2
 uiConfigState.joystickEnabled = false
@@ -53,7 +53,7 @@ uiConfigCaptured = uiconfigtestconfig.captureProductConfig(uiConfigInput,
   uiConfigState, uiConfigMixer, uiConfigScreen)
 uiconfigtestconfig.saveProductConfig(uiConfigPath, uiConfigCaptured)
 uiConfigLoaded = uiconfigtestconfig.loadProductConfig(uiConfigPath)
-uiConfigAssert(uiConfigLoaded.videoMode == 2 and uiConfigLoaded.fullScreen and
+uiConfigAssert(uiConfigLoaded.videoMode == 7 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.brightness == 1.2 and uiConfigLoaded.sensitivity == 6.5 and
   uiConfigLoaded.alwaysRun and uiConfigLoaded.invertMouse and
   uiConfigLoaded.hand == 1 and uiConfigLoaded.crosshair == 3 and
@@ -74,7 +74,7 @@ uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, 55) == "use Rocket Launcher" and
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, miniquake2.client.ui.constants.K_MWHEELUP) == "weapnext" and
   uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
-  uiConfigApplyState.videoMode == 2 and uiConfigApplyMixer.masterVolume == 0.4 and
+  uiConfigApplyState.videoMode == 7 and uiConfigApplyMixer.masterVolume == 0.4 and
   not uiConfigApplyState.joystickEnabled and
   uiConfigApplyScreen.crosshair == 3,
   "config applied to live product state")

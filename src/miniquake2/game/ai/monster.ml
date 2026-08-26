@@ -1079,18 +1079,51 @@ end function
 
 function DispatchDie(actor, attacker, damage, context)
   if gaimonsterprops.isProp(actor) then actor.health = actor.maxHealth; return false end if
-  if actor.deathUseComplete then return false end if
   if typeof(actor.die) != "function" then return false end if
-  result = actor.die(actor, attacker, damage, context)
-  plan = gaireactions.selectDeathPlan(actor.className, actor.edict.state.number,
-    actor.dieCount, actor.health <= actor.gibHealth)
+  alreadyDead = actor.deathUseComplete
+  gibbed = actor.health <= actor.gibHealth
+  plan = void
+  result = true
+  if alreadyDead then
+    // Stock monster die callbacks ignore further corpse damage until it
+    // crosses gib_health. Classes with special exploding deaths never enter
+    // the generic gib path.
+    if not gibbed then return false end if
+    if actor.className == "misc_insane" then
+      result = actor.die(actor, attacker, damage, context)
+      gaiInsaneGibResult = gaideatheffects.emitMonsterGibs(actor, damage, context)
+      if gaiInsaneGibResult is error then return gaiInsaneGibResult end if
+      actor.takeDamage = 0
+      actor.edict.inUse = false
+      return result
+    end if
+    plan = gaireactions.selectDeathPlan(actor.className,
+      actor.edict.state.number, actor.dieCount, true)
+    if plan is void or plan.terminalKind != "gib" then return false end if
+  else
+    result = actor.die(actor, attacker, damage, context)
+    plan = gaireactions.selectDeathPlan(actor.className,
+      actor.edict.state.number, actor.dieCount, gibbed)
+    if actor.className == "misc_insane" and gibbed then
+      // Keep m_insane.c's dedicated sound/activity callback while adding the
+      // same physical gib inventory used by the integrated monster path.
+      gaiInsaneGibResult = gaideatheffects.emitMonsterGibs(actor, damage, context)
+      if gaiInsaneGibResult is error then return gaiInsaneGibResult end if
+      actor.takeDamage = 0
+      actor.edict.inUse = false
+    end if
+  end if
   if plan is not void then
     StartReaction(actor, plan, context)
     if plan.terminalKind == "gib" then
       gaiGibResult = gaideatheffects.emitMonsterGibs(actor, damage, context)
       if gaiGibResult is error then return gaiGibResult end if
+      // The emitted head/gib edicts remain independently shootable. Remove
+      // the original corpse from targeting immediately to prevent duplicates.
+      actor.takeDamage = 0
     end if
   end if
+  if alreadyDead then return result end if
   MonsterDeathUse(actor, context)
   actor.deathUseComplete = true
   // Jorg's BSP target is a two-count trigger_counter.  The original death

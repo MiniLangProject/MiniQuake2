@@ -246,8 +246,45 @@ end function
 
 function barrelExplode(entity, world)
   world.callbacks.radiusDamage(entity, entity.activator, entity.damage, entity.damage + 40, wmconstants.MOD_BARREL)
-  world.callbacks.effect("barrel-debris-large", entity.origin, 1, 6)
-  world.callbacks.effect("barrel-debris-small", entity.origin, 2, 8)
+  // g_misc.c emits two random large chunks, four debris3 bottom corners and
+  // eight random small chunks. Keep the exact model split so the integration
+  // layer can publish real bouncing edicts rather than only an explosion.
+  center = wmqtypes.Vec3(
+    entity.absoluteMins.x + entity.size.x * 0.5,
+    entity.absoluteMins.y + entity.size.y * 0.5,
+    entity.absoluteMins.z + entity.size.z * 0.5)
+  largeSpeed = 1.5 * entity.damage / 200.0
+  smallSpeed = 2.0 * entity.damage / 200.0
+  index = 0
+  while index < 2
+    debrisOrigin = wmqtypes.Vec3(
+      center.x + world.callbacks.randomSigned() * entity.size.x,
+      center.y + world.callbacks.randomSigned() * entity.size.y,
+      center.z + world.callbacks.randomSigned() * entity.size.z)
+    world.callbacks.effect("barrel-debris1", debrisOrigin, largeSpeed, 1)
+    index = index + 1
+  end while
+  cornerSpeed = 1.75 * entity.damage / 200.0
+  world.callbacks.effect("barrel-debris3", entity.absoluteMins, cornerSpeed, 1)
+  world.callbacks.effect("barrel-debris3", wmqtypes.Vec3(
+    entity.absoluteMins.x + entity.size.x, entity.absoluteMins.y,
+    entity.absoluteMins.z), cornerSpeed, 1)
+  world.callbacks.effect("barrel-debris3", wmqtypes.Vec3(
+    entity.absoluteMins.x, entity.absoluteMins.y + entity.size.y,
+    entity.absoluteMins.z), cornerSpeed, 1)
+  world.callbacks.effect("barrel-debris3", wmqtypes.Vec3(
+    entity.absoluteMins.x + entity.size.x,
+    entity.absoluteMins.y + entity.size.y, entity.absoluteMins.z),
+    cornerSpeed, 1)
+  index = 0
+  while index < 8
+    debrisOrigin = wmqtypes.Vec3(
+      center.x + world.callbacks.randomSigned() * entity.size.x,
+      center.y + world.callbacks.randomSigned() * entity.size.y,
+      center.z + world.callbacks.randomSigned() * entity.size.z)
+    world.callbacks.effect("barrel-debris2", debrisOrigin, smallSpeed, 1)
+    index = index + 1
+  end while
   world.callbacks.effect("barrel-explosion", entity.origin, 0, 1)
   return wmcore.freeEntity(world, entity)
 end function
@@ -369,6 +406,12 @@ end function
 
 function gibDie(entity, inflictor, attacker, damage, point, world)
   world.callbacks.effect("gib-destroyed", entity.origin, 0, 1)
+  return wmcore.freeEntity(world, entity)
+end function
+
+// ThrowDebris uses a quiet damage callback: shooting a chunk removes it but
+// must not create a blood/gib effect.
+function debrisDie(entity, inflictor, attacker, damage, point, world)
   return wmcore.freeEntity(world, entity)
 end function
 

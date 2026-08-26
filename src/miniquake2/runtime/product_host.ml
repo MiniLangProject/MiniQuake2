@@ -55,13 +55,17 @@ function productHostDefaultCallbacks()
 end function
 
 function productHostDimensions(videoMode)
-  if typeof(videoMode) != "int" or videoMode < 0 or videoMode > 3 then
-    return error(9931, "product video mode outside [0,3]")
+  if typeof(videoMode) != "int" or videoMode < 0 or videoMode > 7 then
+    return error(9931, "product video mode outside [0,7]")
   end if
   if videoMode == 0 then return [640, 480] end if
   if videoMode == 1 then return [800, 600] end if
   if videoMode == 2 then return [1024, 768] end if
-  return [1280, 720]
+  if videoMode == 3 then return [1280, 720] end if
+  if videoMode == 4 then return [1600, 900] end if
+  if videoMode == 5 then return [1920, 1080] end if
+  if videoMode == 6 then return [2560, 1440] end if
+  return [3840, 2160]
 end function
 
 function productHostRequireCallbacks(callbacks)

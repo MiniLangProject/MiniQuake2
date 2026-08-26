@@ -248,7 +248,7 @@ The unpaced full retail session now passes 100,000 `base1` frames at 254.76
 simulation frames/s with 212,822 accepted packets, zero rejected packets, a
 zero-byte engine-command buffer and bounded diagnostic/event histories. The
 local RTX-5080/Windows host
-also passes a real 640x480-window to 1280x720-fullscreen GL restart and complete
+also passes a real 640x480-window to 1920x1080-exclusive-fullscreen GL restart and complete
 native-device `idlog.cin` playback; see
 [`docs/HARDWARE_ACCEPTANCE.md`](docs/HARDWARE_ACCEPTANCE.md).
 

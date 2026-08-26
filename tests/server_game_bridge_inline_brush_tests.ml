@@ -158,6 +158,28 @@ inlineAssert(brush.numClusters == 1 and brush.clusterNumbers[0] == 0,
   "linked inline brush caches its complete-bounds PVS cluster")
 inlineAssert(brush.state.solid == 31,
   "linked inline brush publishes Protocol-34 BSP solidity")
+inlineManagedRuntime = ingameapi.baseRuntime()
+inlineManagedDoor = void
+for each inlineManagedEntity in inlineManagedRuntime.world.entities
+  if inlineManagedEntity.className == "func_door" then
+    inlineManagedDoor = inlineManagedEntity
+  end if
+end for
+inlineAssert(inlineManagedDoor is not void and
+  inlineManagedDoor.absoluteMins.x == 8.0 and
+  inlineManagedDoor.absoluteMaxs.x == 12.0,
+  "managed door did not retain linked absolute BSP bounds")
+game.runFrame()
+inlineDoorTrigger = void
+for each inlineManagedEntity in inlineManagedRuntime.world.entities
+  if inlineManagedEntity.className == "door_trigger" then
+    inlineDoorTrigger = inlineManagedEntity
+  end if
+end for
+inlineAssert(inlineDoorTrigger is not void and
+  inlineDoorTrigger.mins.x == -52.0 and inlineDoorTrigger.maxs.x == 72.0 and
+  runtime.triggerCount == 1,
+  "door touch field was not built around the linked brush bounds")
 
 // The origin lies in hidden cluster 1/area 2, while the complete brush
 // bounds straddle into visible cluster 0/area 1. Point-origin culling used to

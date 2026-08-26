@@ -148,6 +148,18 @@ function testSpecialWorldPlanAndGoldenCoordinates()
   nearAlpha.mins.x = 40.0; nearAlpha.maxs.x = 40.0
   farAlpha.mins.x = 80.0; farAlpha.maxs.x = 80.0
   plan = rspecialtestspecial.classicSpecialPassPlan(world.draws, frame)
+  skyBounds = rspecialtestopengl.openGlSkyBounds(plan.skyDraws,
+    frame.viewOrigin)
+  assertNear(skyBounds.minimumS[0], -0.25, 0.000001,
+    "sky portal minimum s")
+  assertNear(skyBounds.maximumS[0], 0.25, 0.000001,
+    "sky portal maximum s")
+  assertNear(skyBounds.minimumT[0], -0.25, 0.000001,
+    "sky portal minimum t")
+  assertNear(skyBounds.maximumT[0], 0.25, 0.000001,
+    "sky portal maximum t")
+  assertEqual(skyBounds.minimumS[1] >= skyBounds.maximumS[1], true,
+    "hidden sky cube face stays clipped")
   assertEqual(plan.transparentDraws[0].surface.index, 4, "alpha far surface first")
   assertEqual(plan.transparentDraws[1].surface.index, 3, "alpha near surface last")
 

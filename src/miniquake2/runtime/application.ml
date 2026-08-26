@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 package miniquake2.runtime.application
 
 import std.fs as appnativefs
+import std.process as appprocess
 import miniquake2.qcommon.filesystem as appfs
 import miniquake2.qcommon.text as apptext
 import miniquake2.format.bsp as appbsp
@@ -66,6 +67,8 @@ import miniquake2.client.screenshot as appscreenshot
 import miniquake2.runtime.pause_policy as apppause
 import miniquake2.runtime.save_metadata as appsavemetadata
 import miniquake2.native as appnative
+
+extern function CreateDirectoryW(path as wstr, security as ptr) from "kernel32.dll" returns bool
 
 struct AssetSmokeResult
   mapPath
@@ -324,12 +327,65 @@ function playSavePaths(baseDirectory, slot)
     appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_level.sav")]
 end function
 
-function playConfigPath(baseDirectory)
+function productPathInside(baseDirectory, parentDirectory)
+  if typeof(baseDirectory) != "string" or typeof(parentDirectory) != "string" or
+      parentDirectory == "" then return false end if
+  applicationProductBaseLower = apptext.lower(baseDirectory)
+  applicationProductParentLower = apptext.lower(parentDirectory)
+  return applicationProductBaseLower == applicationProductParentLower or
+    apptext.startsWith(applicationProductBaseLower,
+      applicationProductParentLower + "\\")
+end function
+
+// Keep portable installs self-contained, but never try to persist settings
+// below a protected Program Files/Steam data root.  This mirrors modern
+// Windows game behavior while leaving the retail assets read-only.
+function productSettingsDirectoryFrom(baseDirectory, localAppData,
+    programFiles, programFilesX86)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
-    return error(9942, "product config requires the Quake II install root")
+    return error(9942, "product settings require the Quake II install root")
   end if
-  return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
-    appfs.BASE_DIRECTORY_NAME), "miniquake2.cfg")
+  applicationProductProtected = productPathInside(baseDirectory, programFiles) or
+    productPathInside(baseDirectory, programFilesX86)
+  if applicationProductProtected and typeof(localAppData) == "string" and
+      localAppData != "" then
+    return appnativefs.joinPath(localAppData, "MiniQuake2")
+  end if
+  return appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
+end function
+
+function productSettingsDirectory(baseDirectory)
+  applicationLocalAppData = appprocess.environment("LOCALAPPDATA")
+  applicationProgramFiles = appprocess.environment("ProgramFiles")
+  applicationProgramFilesX86 = appprocess.environment("ProgramFiles(x86)")
+  if typeof(applicationLocalAppData) != "string" then applicationLocalAppData = "" end if
+  if typeof(applicationProgramFiles) != "string" then applicationProgramFiles = "" end if
+  if typeof(applicationProgramFilesX86) != "string" then applicationProgramFilesX86 = "" end if
+  applicationSettingsDirectory = productSettingsDirectoryFrom(baseDirectory,
+    applicationLocalAppData, applicationProgramFiles, applicationProgramFilesX86)
+  if not appnativefs.isDir(applicationSettingsDirectory) then
+    if appnativefs.exists(applicationSettingsDirectory) then
+      return error(9943, "product settings path is not a directory")
+    end if
+    if not CreateDirectoryW(applicationSettingsDirectory, 0) and
+        not appnativefs.isDir(applicationSettingsDirectory) then
+      return error(9944, "could not create product settings directory")
+    end if
+  end if
+  return applicationSettingsDirectory
+end function
+
+function playConfigPath(baseDirectory)
+  applicationSettingsDirectory = productSettingsDirectory(baseDirectory)
+  if applicationSettingsDirectory is error then return applicationSettingsDirectory end if
+  return appnativefs.joinPath(applicationSettingsDirectory, "miniquake2.cfg")
+end function
+
+function playPreferencesPath(baseDirectory)
+  applicationSettingsDirectory = productSettingsDirectory(baseDirectory)
+  if applicationSettingsDirectory is error then return applicationSettingsDirectory end if
+  return appnativefs.joinPath(applicationSettingsDirectory,
+    "miniquake2_multiplayer.cfg")
 end function
 
 function playSaveMetadataPath(baseDirectory, slot)
@@ -1447,8 +1503,25 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   applicationVideoSmokeRenderer.exports.EndFrame()
   appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
 
+  // Exercise a non-desktop-sized exclusive mode first. Matching Win32 desktop
+  // metrics prove that ChangeDisplaySettingsW ran; a borderless 1920x1080
+  // window on a 4K desktop would fail this gate while still reporting the
+  // requested client dimensions.
   appproducthost.restartProductHost(applicationVideoSmokeHost,
-    "MiniQuake2 Video Restart", 3, true, applicationRendererImports())
+    "MiniQuake2 Video Restart", 5, true, applicationRendererImports())
+  applicationVideoSmokeFullHdWidth = applicationVideoSmokeHost.window.width
+  applicationVideoSmokeFullHdHeight = applicationVideoSmokeHost.window.height
+  applicationVideoSmokeDesktopWidth = appnative.winDesktopWidth()
+  applicationVideoSmokeDesktopHeight = appnative.winDesktopHeight()
+  if applicationVideoSmokeFullHdWidth != 1920 or
+      applicationVideoSmokeFullHdHeight != 1080 or
+      applicationVideoSmokeDesktopWidth != 1920 or
+      applicationVideoSmokeDesktopHeight != 1080 then
+    appproducthost.closeProductHost(applicationVideoSmokeHost)
+    previewFileSystem = void
+    return error(9945, "exclusive fullscreen did not apply its Win32 display mode")
+  end if
+
   appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
   applicationVideoSmokeRenderer = applicationVideoSmokeHost.renderer
   applicationVideoSmokeRenderer.exports.BeginRegistration(applicationVideoSmokePath)
@@ -1475,8 +1548,8 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
   appproducthost.closeProductHost(applicationVideoSmokeHost)
   previewFileSystem = void
-  if applicationVideoSmokeGeneration != 2 or applicationVideoSmokeWidth != 1280 or
-      applicationVideoSmokeHeight != 720 or applicationVideoSmokeLoadingFrames != 2 or
+  if applicationVideoSmokeGeneration != 2 or applicationVideoSmokeWidth != 1920 or
+      applicationVideoSmokeHeight != 1080 or applicationVideoSmokeLoadingFrames != 2 or
       not applicationVideoSmokeFullScreen then
     return error(9939, "video restart host lifecycle mismatch")
   end if
@@ -1554,9 +1627,7 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
   if applicationProductAudioResult is not error then
     applicationProductDevice = applicationProductAudioResult
   end if
-  applicationProductPreferencesPath = appnativefs.joinPath(
-    appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME),
-    "miniquake2_multiplayer.cfg")
+  applicationProductPreferencesPath = playPreferencesPath(baseDirectory)
   applicationProductPreferencesResult = try(appstartup.loadPreferences(
     applicationProductPreferencesPath))
   applicationProductPreferences = appstartup.defaultPreferences()
@@ -1633,10 +1704,24 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     appuiconfig.applyProductConfig(applicationProductConfigLoad,
       applicationProductInput, applicationProductCommands,
       applicationProductMixer, applicationProductScreen)
+    if applicationProductCommands.videoMode != productHost.videoMode or
+        applicationProductCommands.fullScreen != productHost.fullScreen then
+      applicationProductCommands.videoRestartRequested = true
+    end if
     applicationProductProfile.hand = applicationProductInput.config.hand
     appuimenu.setItemValue(applicationProductScreen.menu, "player", "hand",
       applicationProductProfile.hand)
   end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "video", "mode",
+    applicationProductCommands.videoMode)
+  applicationProductFullscreenValue = 0
+  if applicationProductCommands.fullScreen then
+    applicationProductFullscreenValue = 1
+  end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "video", "fullscreen",
+    applicationProductFullscreenValue)
+  appuimenu.setItemValue(applicationProductScreen.menu, "video", "brightness",
+    applicationProductCommands.brightness)
   appuicontroller.configureGamepad(
     applicationProductCommands.joystickEnabled)
   applicationProductJoystickValue = 0
@@ -1668,6 +1753,29 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
       applicationProductNow)
     appuicommands.drain(applicationProductCommands, applicationProductInput,
       applicationProductScreen, applicationProductMixer)
+    if applicationProductCommands.videoRestartRequested then
+      applicationProductCommands.videoRestartRequested = false
+      applicationProductVideoRestartResult = try(
+        appproducthost.restartProductHost(productHost,
+          "MiniQuake2 - Main Menu", applicationProductCommands.videoMode,
+          applicationProductCommands.fullScreen, applicationRendererImports()))
+      if applicationProductVideoRestartResult is error then
+        appuiconsole.appendLine(applicationProductScreen.console,
+          "Video restart failed: " + applicationProductVideoRestartResult.message,
+          appbyteio.truncInt(applicationProductNow))
+        applicationProductAction = "quit"
+        continue
+      end if
+      applicationProductWindow = productHost.window
+      applicationProductRenderer = productHost.renderer
+      appwindow.setMouseCapture(false)
+      appwindow.setTitle(applicationProductWindow,
+        "MiniQuake2 - Main Menu - FPS --")
+      appuiconsole.appendLine(applicationProductScreen.console,
+        "Video restarted: " + applicationProductWindow.width + "x" +
+          applicationProductWindow.height,
+        appbyteio.truncInt(applicationProductNow))
+    end if
     appuicontroller.configureGamepad(
       applicationProductCommands.joystickEnabled)
     appproducthost.applyProductGamma(productHost,
@@ -1721,6 +1829,11 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
         applicationProductConfigPath, appuiconfig.captureProductConfig(
           applicationProductInput, applicationProductCommands,
           applicationProductMixer, applicationProductScreen)))
+      if applicationProductConfigSave is error then
+        appuiconsole.appendLine(applicationProductScreen.console,
+          "Config save failed: " + applicationProductConfigSave.message,
+          appbyteio.truncInt(applicationProductNow))
+      end if
       applicationProductInput.capturedKey = -1
     end if
     applicationProductRenderer.exports.BeginFrame(0.0)
@@ -2956,6 +3069,11 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
         applicationRemoteConfigPath, appuiconfig.captureProductConfig(
           applicationRemoteInput, applicationRemoteCommands,
           applicationRemoteMixer, applicationRemoteScreen)))
+      if applicationRemoteConfigSave is error then
+        appuiconsole.appendLine(applicationRemoteScreen.console,
+          "Config save failed: " + applicationRemoteConfigSave.message,
+          appbyteio.truncInt(applicationRemoteStarted))
+      end if
       applicationRemoteInput.capturedKey = -1
     end if
     if appuicommands.takePlayerDirty(applicationRemoteCommands) then

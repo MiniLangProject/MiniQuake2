@@ -123,9 +123,14 @@ productHostAssert(productHost.window.width == 800 and productHost.window.height 
 productHostAssert(fakeProductCreates == 2 and fakeProductInits == 3 and
   fakeProductDestroys == 1 and fakeProductShutdowns == 2,
   "restart replaces exactly one window and renderer")
+testproducthost.restartProductHost(productHost, "MiniQuake2", 7, false, void)
+productHostAssert(productHost.window.width == 3840 and
+  productHost.window.height == 2160 and not productHost.fullScreen and
+  productHost.videoMode == 7 and productHost.generation == 4,
+  "4K video restart applies modern mode")
 productHostAssert(testproducthost.closeProductHost(productHost), "first close")
 productHostAssert(not testproducthost.closeProductHost(productHost), "idempotent close")
-productHostAssert(fakeProductDestroys == 2 and fakeProductShutdowns == 3,
+productHostAssert(fakeProductDestroys == 3 and fakeProductShutdowns == 4,
   "one final shutdown")
 
 print "runtime_product_host_tests: PASS"

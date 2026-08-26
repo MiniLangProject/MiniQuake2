@@ -36,10 +36,11 @@ claim that playback ran through each one.
 
 ## Product results
 
-- the live renderer changed from a 640x480 window to 1280x720 fullscreen;
+- the live renderer changed from a 640x480 window to 1920x1080 exclusive fullscreen;
 - the native window and GL context were destroyed and recreated exactly once;
 - `base1` BSP/WAL/lightmap/model resources were registered again;
-- visible world surfaces were exactly `60` before and after restart;
+- Win32 desktop metrics changed to 1920x1080 for the exclusive mode and were restored on shutdown;
+- visible world surfaces were exactly `68` before and after restart;
 - installed `idlog.cin` reached stream frame 81 and completed exactly once;
 - the final full run rendered 310 host frames, reached stream frame 81,
   completed exactly once, mixed 269,312 stereo frames and reported

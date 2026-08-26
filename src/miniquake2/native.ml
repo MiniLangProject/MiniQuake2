@@ -20,11 +20,15 @@ extern function processHandleCount() from "miniquake_native.dll" symbol "mq_proc
 extern function winSleep(milliseconds as u32) from "miniquake_native.dll" symbol "mq_win_sleep" returns void
 
 extern function winCreate(title as wstr, width as i32, height as i32, fullscreen as i32) from "miniquake_native.dll" symbol "mq_win_create" returns ptr
+extern function winConfigureDisplayMode(width as i32, height as i32, bpp as i32, frequency as i32, fullscreen as i32, useCurrent as i32) from "miniquake_native.dll" symbol "mq_win_configure_display_mode" returns i32
+extern function winRestoreDisplayMode() from "miniquake_native.dll" symbol "mq_win_restore_display_mode" returns void
 extern function winDestroy() from "miniquake_native.dll" symbol "mq_win_destroy" returns void
 extern function winPoll() from "miniquake_native.dll" symbol "mq_win_poll" returns i32
 extern function winSwap() from "miniquake_native.dll" symbol "mq_win_swap" returns void
 extern function winClientWidth() from "miniquake_native.dll" symbol "mq_win_client_width" returns i32
 extern function winClientHeight() from "miniquake_native.dll" symbol "mq_win_client_height" returns i32
+extern function winDesktopWidth() from "miniquake_native.dll" symbol "mq_win_desktop_width" returns i32
+extern function winDesktopHeight() from "miniquake_native.dll" symbol "mq_win_desktop_height" returns i32
 extern function winHasFocus() from "miniquake_native.dll" symbol "mq_win_has_focus" returns i32
 extern function winSetTitle(title as wstr) from "miniquake_native.dll" symbol "mq_win_set_title" returns void
 extern function winSetCursorCapture(enabled as i32) from "miniquake_native.dll" symbol "mq_win_set_cursor_capture" returns void

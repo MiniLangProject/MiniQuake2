@@ -539,9 +539,9 @@ The original `SV_Map` grammar is additionally exercised with the installed
 and named map spawn all pass through one product-owned window/renderer
 lifecycle; `end.cin+victory.pcx` reports generation 1 and two loading frames.
 The native `--video-restart-smoke` replaces a 640x480 windowed renderer with a
-1280x720 fullscreen window and GL context,
-re-registers `base1`, and produces the same 60 visible surfaces before and
-after restart; see
+1920x1080 exclusive fullscreen window, verifies matching Win32 desktop metrics,
+re-registers `base1`, and produces the same visible surfaces before and after
+the renderer change; see
 [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
 
 The combined one-command host gate, hardware inventory, native audio result and
@@ -670,7 +670,7 @@ command buffer and a clean process exit. Additional retail results:
 - 47-map retained BSP/collision window and the complete 39-map product graph;
 - 39 consecutive Protocol-34 retail map sessions without a masked sign-on
   error;
-- 600-frame bounded menu smoke, normal stock-attract startup gate and 1280x720
+- 600-frame bounded menu smoke, normal stock-attract startup gate and 1920x1080
   fullscreen video restart with identical 68-surface visibility before/after
   restart;
 - 600 real movement/weapon snapshots, 1,342 packets and zero rejects;
