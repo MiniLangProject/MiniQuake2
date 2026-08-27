@@ -152,7 +152,8 @@ function testClientAndFrameCallbacks(api)
   assertTrue(api.clientConnect(clientEntity, "\\name\\Ranger"), "ClientConnect dispatch")
   assertTrue(api.clientBegin(clientEntity), "ClientBegin dispatch")
   assertEqual(api.edicts[2].inUse, true, "client active")
-  assertEqual(api.numEdicts, 3, "high-water edict count")
+  assertEqual(api.numEdicts, 13,
+    "client and fixed body-queue high-water edict count")
   assertTrue(api.clientUserinfoChanged(clientEntity, "\\name\\Bitterman"), "ClientUserinfoChanged dispatch")
   assertTrue(api.clientCommand(clientEntity), "ClientCommand dispatch")
 

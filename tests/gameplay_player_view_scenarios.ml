@@ -236,6 +236,17 @@ function testOffsetsBlendEffectsAnimationAndIntegration()
   bfgSound = gplayerview.G_SetClientSound(context, player)
   assertTrue(bfgSound > 0, "BFG loop sound")
   player.gameplay.currentWeapon = miniquake2.game.gameplay.item_rules.findByPickupName(context.registry, "Blaster")
+  context.helpChanged = 2
+  context.frameNumber = 64
+  player.persistent.gameHelpChanged = 1
+  player.persistent.helpChanged = 0
+  gplayerview.G_SetClientSound(context, player)
+  assertEqual(player.persistent.gameHelpChanged, 2,
+    "player help generation acknowledgement")
+  assertEqual(player.persistent.helpChanged, 2,
+    "player help reminder cadence")
+  assertTrue(contains(view.runtime.soundNames, "misc/pc_up.wav"),
+    "player-specific help reminder sound")
   player.view.xySpeed = 120.0
   player.view.animPriority = gplayerconstants.ANIM_BASIC
   player.view.animRun = false

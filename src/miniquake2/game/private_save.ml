@@ -22,10 +22,11 @@ import miniquake2.game.world.turret as privateturret
 import miniquake2.game.world.types as privateworldtypes
 import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
+import miniquake2.game.player.constants as privateplayerconstants
 import miniquake2.game.gameplay.types as privategameplaytypes
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 18
+const PRIVATE_VERSION = 19
 
 // Store private restore data.
 struct PrivateRestore
@@ -143,6 +144,18 @@ function encode(runtime, playerContext, entityString, spawnPoint)
   privatemessage.writeLong(buffer, runtime.world.totalSecrets); privatemessage.writeLong(buffer, runtime.world.foundSecrets)
   privatemessage.writeLong(buffer, runtime.world.totalGoals); privatemessage.writeLong(buffer, runtime.world.foundGoals)
   privateWriteBool(buffer, runtime.world.intermission)
+  privatemessage.writeLong(buffer, runtime.bodyQueueIndex)
+  privateFreeTimeCount = 0
+  if runtime.exportTable is not void then
+    privateFreeTimeCount = runtime.exportTable.numEdicts
+  end if
+  privatemessage.writeLong(buffer, privateFreeTimeCount)
+  privateFreeTimeIndex = 0
+  while privateFreeTimeIndex < privateFreeTimeCount
+    privatemessage.writeFloat(buffer,
+      runtime.edictFreeTimes[privateFreeTimeIndex])
+    privateFreeTimeIndex = privateFreeTimeIndex + 1
+  end while
 
   privatemessage.writeLong(buffer, len(runtime.world.entities))
   for each entity in runtime.world.entities
@@ -192,6 +205,9 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privatemessage.writeFloat(buffer, entity.flySoundDebounceTime)
     privatemessage.writeLong(buffer, entity.waterType)
     privatemessage.writeLong(buffer, entity.waterLevel)
+    privateWriteVec(buffer, entity.mins)
+    privateWriteVec(buffer, entity.maxs)
+    privatemessage.writeLong(buffer, entity.style)
   end for
 
   privatemessage.writeLong(buffer, len(runtime.monsters))
@@ -264,6 +280,8 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       privatemessage.writeString(buffer, player.persistent.userInfo); privatemessage.writeString(buffer, player.persistent.netName); privatemessage.writeString(buffer, player.persistent.skin)
       privateWriteBool(buffer, player.persistent.connected); privateWriteBool(buffer, player.persistent.spectator)
       privatemessage.writeLong(buffer, player.persistent.score); privatemessage.writeLong(buffer, player.respawn.score)
+      privatemessage.writeLong(buffer, player.persistent.gameHelpChanged)
+      privatemessage.writeLong(buffer, player.persistent.helpChanged)
       privatemessage.writeLong(buffer, len(player.gameplay.inventory.counts))
       for each count in player.gameplay.inventory.counts
         privatemessage.writeLong(buffer, count)
@@ -304,36 +322,28 @@ end function
 // Find monster.
 function findMonster(runtime, number)
   for each actor in runtime.monsters
-    if actor.edict.state.number == number then return actor end if
-  end for
-  return void
-end function
-
-// Find item.
-function findItem(runtime, number)
-  for each itemEntity in runtime.items
-    if itemEntity.edict.state.number == number then return itemEntity end if
+    if actor.edict.inUse and actor.edict.state.number == number then return actor end if
   end for
   return void
 end function
 
 // Find private world.
 function privateFindWorld(runtime, number, className)
-  privateWorldNumberFallback = void
   for each entity in runtime.world.entities
-    if entity.number == number then
-      if privateWorldNumberFallback is void then
-        privateWorldNumberFallback = entity
-      end if
-      if entity.className == className then return entity end if
-    end if
+    if entity.inUse and entity.number == number and
+        entity.className != "ai_prop_target_proxy" and
+        entity.className != "ai_monster_target_proxy" and
+        entity.itemName != "__item_target_proxy" and
+        (className == "" or entity.className == className) then return entity end if
   end for
-  return privateWorldNumberFallback
+  return void
 end function
 
 // Resolve private world reference.
 function privateResolveWorldReference(runtime, playerContext, number, label)
   if number < 0 then return void end if
+  // Resolve the current slot owner in stock edict order: reserved client,
+  // active monster, active item adapter, then an authoritative world record.
   for each privateReferencePlayer in playerContext.players
     if privateReferencePlayer.edict.state.number == number then
       return privateintegration.playerWorldProxy(privateReferencePlayer)
@@ -353,10 +363,24 @@ function privateResolveWorldReference(runtime, playerContext, number, label)
     privateMonsterProxy.mass = privateReferenceMonster.mass
     return privateMonsterProxy
   end if
-  privateReferenceWorld = privateworldcore.findByNumber(runtime.world, number)
-  if privateReferenceWorld is void then
-    privateReferenceWorld = privateFindWorld(runtime, number, "")
-  end if
+  for each privateReferenceItem in runtime.items
+    if privateReferenceItem.edict.inUse and
+        privateReferenceItem.edict.state.number == number then
+      if privateReferenceItem.worldTarget is not void then
+        return privateReferenceItem.worldTarget
+      end if
+      privateItemProxy = privateworldtypes.createEntity(number,
+        privateReferenceItem.item.className)
+      privateItemProxy.origin = privateReferenceItem.edict.state.origin
+      privateItemProxy.angles = privateReferenceItem.edict.state.angles
+      privateItemProxy.mins = privateReferenceItem.edict.mins
+      privateItemProxy.maxs = privateReferenceItem.edict.maxs
+      privateItemProxy.serverFlags = privateReferenceItem.edict.serverFlags
+      privateItemProxy.solid = privateReferenceItem.edict.solid
+      return privateItemProxy
+    end if
+  end for
+  privateReferenceWorld = privateFindWorld(runtime, number, "")
   if privateReferenceWorld is not void then return privateReferenceWorld end if
   return error(3890, "private world " + label + " is unavailable: " + number)
 end function
@@ -446,7 +470,12 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   index = 0
   while index < len(restoredBaseEdicts)
     number = 0
-    if index > 0 then number = maxClients + index end if
+    if index > 0 then
+      if privateSaveVersion >= 19 then
+        number = maxClients + privateplayerconstants.BODY_QUEUE_SIZE + index
+      else number = maxClients + index
+      end if
+    end if
     restoredBaseEdict = restoredBaseEdicts[index]
     restoredEngineEdict = restoredBaseEdict.edict
     restoredBaseEdict.number = number
@@ -454,6 +483,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     index = index + 1
   end while
   runtime = privateintegration.create(spawnResult)
+  privateintegration.initializeEdictAllocator(runtime, exportTable, maxClients)
   runtime.aiContext.skill = privateSavedSkill
   runtime.randomState.seed = privateSavedRandomSeed
   runtime.exportTable = exportTable
@@ -462,10 +492,32 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   runtime.world.totalSecrets = privatechecked.readLong(buffer, "private total secrets"); runtime.world.foundSecrets = privatechecked.readLong(buffer, "private found secrets")
   runtime.world.totalGoals = privatechecked.readLong(buffer, "private total goals"); runtime.world.foundGoals = privatechecked.readLong(buffer, "private found goals")
   runtime.world.intermission = privateReadBool(buffer, "private intermission")
+  privateSavedBodyQueueIndex = 0
+  if privateSaveVersion >= 19 then
+    privateSavedBodyQueueIndex = privatechecked.readLong(buffer,
+      "private body queue index")
+    if privateSavedBodyQueueIndex < 0 or
+        privateSavedBodyQueueIndex >= privateplayerconstants.BODY_QUEUE_SIZE then
+      return error(3893, "private body queue index outside ring")
+    end if
+    privateFreeTimeCount = privatechecked.readLong(buffer,
+      "private edict free-time count")
+    if privateFreeTimeCount < 0 or
+        privateFreeTimeCount > exportTable.numEdicts then
+      return error(3894, "private edict free-time count outside table")
+    end if
+    privateFreeTimeIndex = 0
+    while privateFreeTimeIndex < privateFreeTimeCount
+      runtime.edictFreeTimes[privateFreeTimeIndex] = privateReadFloat(buffer,
+        "private edict free time")
+      privateFreeTimeIndex = privateFreeTimeIndex + 1
+    end while
+  end if
 
   worldCount = privatechecked.readLong(buffer, "private world count")
   if worldCount < len(runtime.world.entities) then return error(3874, "private world entity count mismatch") end if
   privateWorldReferences = []
+  privateDecodedWorldEntities = []
   while worldCount > 0
     number = privatechecked.readLong(buffer, "private world number")
     className = privatemessage.readString(buffer)
@@ -515,13 +567,26 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateWorldWait = privateReadFloat(buffer, "private world wait")
       privateWorldSpeed = privateReadFloat(buffer, "private world speed")
     end if
-    entity = privateFindWorld(runtime, number, className)
-    if entity is not void and entity.className != className and
-        (className == "monster_gib" or className == "DelayedUse") then
-      entity = void
-    end if
+    entity = void
+    for each privateWorldCandidate in runtime.world.entities
+      privateWorldCandidateDecoded = false
+      for each privateDecodedWorldEntity in privateDecodedWorldEntities
+        if nativeRawValue(privateWorldCandidate) ==
+            nativeRawValue(privateDecodedWorldEntity) then
+          privateWorldCandidateDecoded = true
+        end if
+      end for
+      if not privateWorldCandidateDecoded and
+          privateWorldCandidate.number == number and
+          privateWorldCandidate.className == className then
+        entity = privateWorldCandidate
+        break
+      end if
+    end for
     if entity is void then
-      if className != "monster_gib" and className != "DelayedUse" and
+      if className != "monster_gib" and className != "body_gib" and
+          className != "debris" and className != "bodyque" and
+          className != "DelayedUse" and
           privateWorldInUse then
         return error(3875, "active private world entity missing at " + number +
           ": saved=" + className)
@@ -578,9 +643,17 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       entity.waterType = privatechecked.readLong(buffer, "private world water type")
       entity.waterLevel = privatechecked.readLong(buffer, "private world water level")
     end if
-    if entity.className == "monster_gib" then
+    if privateSaveVersion >= 19 then
+      entity.mins = privateReadVec(buffer, "private world mins")
+      entity.maxs = privateReadVec(buffer, "private world maxs")
+      entity.style = privatechecked.readLong(buffer, "private world style")
+    end if
+    if entity.className == "monster_gib" or entity.className == "body_gib" then
       entity.think = privateworldcore.freeThink
       entity.die = privateworldmisc.gibDie
+    else if entity.className == "debris" then
+      entity.think = privateworldcore.freeThink
+      entity.die = privateworldmisc.debrisDie
     else if entity.className == "DelayedUse" then entity.think = privateworldcore.thinkDelayed
     else privatemovers.restoreMoverState(entity, runtime.world) end if
     privateWorldReferences = privateWorldReferences + [
@@ -589,6 +662,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
         privateWorldTeamChainNumber, privateWorldTargetEntityNumber,
         privateWorldEnemyNumber, privateWorldOldEnemyNumber,
         privateWorldGroundEntityNumber)]
+    privateDecodedWorldEntities = privateDecodedWorldEntities + [entity]
     if entity.number >= runtime.world.nextEntityNumber then runtime.world.nextEntityNumber = entity.number + 1 end if
     worldCount = worldCount - 1
   end while
@@ -596,12 +670,31 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   monsterCount = privatechecked.readLong(buffer, "private monster count")
   if monsterCount < len(runtime.monsters) then return error(3876, "private monster count mismatch") end if
   privateMonsterReferences = []
+  privateDecodedMonsters = []
   privateMonstersRemaining = monsterCount
   privateMonsterRegistryHolder = privatesaveaiarchetypes.defaultRegistry()
   while privateMonstersRemaining > 0
     privateMonsterNumber = privatechecked.readLong(buffer, "private monster number")
     privateMonsterClassName = privatemessage.readString(buffer)
-    actor = findMonster(runtime, privateMonsterNumber)
+    privateMonsterInUse = privateReadBool(buffer, "private monster inuse")
+    // A freed slot may already belong to a later live record. Match each saved
+    // record once so an inactive historical actor cannot claim that live slot.
+    actor = void
+    for each privateMonsterCandidate in runtime.monsters
+      privateMonsterCandidateDecoded = false
+      for each privateDecodedMonster in privateDecodedMonsters
+        if nativeRawValue(privateMonsterCandidate) ==
+            nativeRawValue(privateDecodedMonster) then
+          privateMonsterCandidateDecoded = true
+        end if
+      end for
+      if not privateMonsterCandidateDecoded and
+          privateMonsterCandidate.edict.state.number == privateMonsterNumber and
+          privateMonsterCandidate.className == privateMonsterClassName then
+        actor = privateMonsterCandidate
+        break
+      end if
+    end for
     if actor is void then
       if privateMonsterNumber <= 0 or privateMonsterNumber >= exportTable.numEdicts then return error(3877, "private dynamic monster outside edict table") end if
       if privatesaveaiarchetypes.find(privateMonsterRegistryHolder, privateMonsterClassName) is void then return error(3883, "private dynamic monster class is unavailable") end if
@@ -610,12 +703,14 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       runtime.monsters = runtime.monsters + [privateDynamicActorHolder]
       actor = privateDynamicActorHolder
       if privateMonsterNumber >= runtime.world.nextEntityNumber then runtime.world.nextEntityNumber = privateMonsterNumber + 1 end if
-    else if actor.className != privateMonsterClassName then
-      return error(3884, "private monster classname mismatch")
     end if
-    actor.edict = exportTable.edicts[privateMonsterNumber]
+    if privateMonsterInUse then
+      actor.edict = exportTable.edicts[privateMonsterNumber]
+    else
+      actor.edict = privatesavegametypes.zeroEdict(privateMonsterNumber)
+    end if
     privatesavegametypes.stabilizeEdict(actor.edict)
-    actor.edict.inUse = privateReadBool(buffer, "private monster inuse")
+    actor.edict.inUse = privateMonsterInUse
     actor.health = privatechecked.readLong(buffer, "private monster health"); actor.maxHealth = privatechecked.readLong(buffer, "private monster max health")
     actor.deadFlag = privatechecked.readLong(buffer, "private monster deadflag"); actor.flags = privatechecked.readLong(buffer, "private monster flags")
     actor.moveType = privatechecked.readLong(buffer, "private monster movetype"); actor.takeDamage = privatechecked.readLong(buffer, "private monster takedamage")
@@ -711,6 +806,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     privateMonsterReferences = privateMonsterReferences + [PrivateMonsterReference(
       actor, enemyNumber, privateMonsterOldEnemyNumber, privateMonsterOwnerNumber,
       privateMonsterGoalEntityNumber, privateMonsterMoveTargetNumber)]
+    privateDecodedMonsters = privateDecodedMonsters + [actor]
     privateMonstersRemaining = privateMonstersRemaining - 1
   end while
   if len(runtime.monsters) != monsterCount then return error(3885, "private restored monster count mismatch") end if
@@ -744,13 +840,33 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if privateSaveVersion < 16 and itemCount != len(runtime.items) then return error(3878, "private item count mismatch") end if
   privateItemOwners = []
   privateItemOwnerNumbers = []
+  privateDecodedItems = []
   while itemCount > 0
     privateItemNumber = privatechecked.readLong(buffer, "private item number")
     privateItemIndex = 0
     if privateSaveVersion >= 16 then
       privateItemIndex = privatechecked.readLong(buffer, "private item definition")
     end if
-    itemEntity = findItem(runtime, privateItemNumber)
+    privateItemInUse = privateReadBool(buffer, "private item inuse")
+    // Preserve duplicate historical slot identities just as the monster restore
+    // path does; only an active record may bind the shared engine-edict entry.
+    itemEntity = void
+    for each privateItemCandidate in runtime.items
+      privateItemCandidateDecoded = false
+      for each privateDecodedItem in privateDecodedItems
+        if nativeRawValue(privateItemCandidate) ==
+            nativeRawValue(privateDecodedItem) then
+          privateItemCandidateDecoded = true
+        end if
+      end for
+      if not privateItemCandidateDecoded and
+          privateItemCandidate.edict.state.number == privateItemNumber and
+          (privateSaveVersion < 16 or
+            privateItemCandidate.item.index == privateItemIndex) then
+        itemEntity = privateItemCandidate
+        break
+      end if
+    end for
     if itemEntity is void and privateSaveVersion >= 16 then
       if privateItemNumber < 0 or privateItemNumber >= exportTable.numEdicts then
         return error(3879, "private dynamic item outside edict table")
@@ -769,11 +885,14 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     if privateSaveVersion >= 16 and itemEntity.item.index != privateItemIndex then
       return error(3879, "private item definition mismatch")
     end if
-    if privateSaveVersion >= 16 and privateItemNumber >= 0 and
+    if privateItemInUse and privateItemNumber >= 0 and
         privateItemNumber < exportTable.numEdicts then
       itemEntity.edict = exportTable.edicts[privateItemNumber]
+    else if not privateItemInUse then
+      itemEntity.edict = privatesavegametypes.zeroEdict(privateItemNumber)
     end if
-    itemEntity.edict.inUse = privateReadBool(buffer, "private item inuse")
+    privatesavegametypes.stabilizeEdict(itemEntity.edict)
+    itemEntity.edict.inUse = privateItemInUse
     itemEntity.hidden = privateReadBool(buffer, "private item hidden"); itemEntity.freed = privateReadBool(buffer, "private item freed"); itemEntity.decaying = privateReadBool(buffer, "private item decaying")
     itemEntity.count = privatechecked.readLong(buffer, "private item count field"); itemEntity.spawnFlags = privatechecked.readLong(buffer, "private item spawnflags")
     itemEntity.nextThink = privateReadFloat(buffer, "private item nextthink"); itemEntity.respawnAt = privateReadFloat(buffer, "private item respawn")
@@ -785,6 +904,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       itemEntity.spawnPending = privateReadBool(buffer,
         "private item spawn pending")
     end if
+    privateDecodedItems = privateDecodedItems + [itemEntity]
     itemCount = itemCount - 1
   end while
 
@@ -799,6 +919,12 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     player.persistent.userInfo = privatemessage.readString(buffer); player.persistent.netName = privatemessage.readString(buffer); player.persistent.skin = privatemessage.readString(buffer)
     player.persistent.connected = privateReadBool(buffer, "private player connected"); player.persistent.spectator = privateReadBool(buffer, "private player spectator")
     player.persistent.score = privatechecked.readLong(buffer, "private player score"); player.respawn.score = privatechecked.readLong(buffer, "private player respawn score")
+    if privateSaveVersion >= 19 then
+      player.persistent.gameHelpChanged = privatechecked.readLong(buffer,
+        "private player game help counter")
+      player.persistent.helpChanged = privatechecked.readLong(buffer,
+        "private player help reminder counter")
+    end if
     inventoryCount = privatechecked.readLong(buffer, "private inventory count")
     if inventoryCount != len(player.gameplay.inventory.counts) then return error(3881, "private inventory size mismatch") end if
     inventoryIndex = 0
@@ -916,5 +1042,9 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     end for
   end if
   if buffer.readCount != buffer.curSize then return error(3882, "trailing private BaseQ2 save data") end if
+  if privateSaveVersion >= 19 then
+    privateintegration.restoreBodyQueue(runtime)
+    runtime.bodyQueueIndex = privateSavedBodyQueueIndex
+  end if
   return PrivateRestore(runtime, spawnResult, entityString, spawnPoint, privateSavedSkill)
 end function

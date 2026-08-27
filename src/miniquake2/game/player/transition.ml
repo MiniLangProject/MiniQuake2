@@ -31,6 +31,8 @@ struct PlayerLevelHandover
   powerCubes
   persistentScore
   respawnScore
+  gameHelpChanged
+  playerHelpChanged
   serverFlags
   helpMessage1
   helpMessage2
@@ -91,6 +93,8 @@ function capture(playerContext, runtime, playerIndex)
     transitionCapturePlayer.gameplay.powerCubes,
     transitionCapturePlayer.persistent.score,
     transitionCapturePlayer.respawn.score,
+    transitionCapturePlayer.persistent.gameHelpChanged,
+    transitionCapturePlayer.persistent.helpChanged,
     runtime.world.serverFlags,
     runtime.world.helpMessage1,
     runtime.world.helpMessage2,
@@ -132,6 +136,8 @@ function restore(playerContext, runtime, playerIndex, handover)
   transitionRestorePlayer.persistent.selectedItem = handover.selectedItem
   transitionRestorePlayer.persistent.score = handover.persistentScore
   transitionRestorePlayer.respawn.score = handover.respawnScore
+  transitionRestorePlayer.persistent.gameHelpChanged = handover.gameHelpChanged
+  transitionRestorePlayer.persistent.helpChanged = handover.playerHelpChanged
   transitionRestorePlayer.gameplay.health = handover.health
   transitionRestorePlayer.gameplay.maxHealth = handover.maxHealth
   transitionRestorePlayer.gameplay.currentWeapon = transitionRestoreCurrent

@@ -8,6 +8,30 @@ Entries are ordered newest first. Counts, timings and hashes in older dated
 sections describe those exact historical builds. Machine-readable verifier
 output generated for a particular checkout is authoritative for that tree.
 
+## 2026-08-27 final bounded gameplay parity closures
+
+Private-Save v19 and the integrated gameplay runtime close the four bounded
+differences left by the previous source audit. The client range is followed by
+the original eight reserved Body Queue edicts; corpse copies retain their
+network state, collision, damage and gib lifecycle. Dynamic monsters, items,
+projectiles, spawner output, debris and gibs now share a generic freed-edict
+pool with the original 0.5-second reuse rule.
+
+The pusher transaction now includes stationary `FLYMISSILE` projectiles and
+defers due team thinks until movement succeeds. A blocked team restores every
+participant and advances scheduled thinks by one frame before calling the
+blocked callback. Player-persistent help generations and reminder counters now
+drive the stock acknowledgement, blinking icon and three `misc/pc_up.wav`
+notifications independently for every client. Focused Game API, scheduler,
+view/HUD, handover and private-save regressions cover these paths.
+
+The final retail physical-input rerun also exposed a stock `func_killbox`
+detail: its inline hull is a hidden use-time volume, not a linked BSP obstacle.
+Clearing the generic `func_*` solidity/movetype defaults unblocked the shipped
+`biggun$bstart` spawn. The 48-command physical matrix then passed all 39
+single-player maps, while the retail inventory/asset gate passed all 47 shipped
+maps with 36,404 parsed entities, 138 classes, zero skips and zero failures.
+
 ## 2026-08-26 full source/parity/performance audit
 
 Three parallel audits rechecked the client/download/prediction path, product UI
@@ -51,8 +75,9 @@ The current retail closure additionally passes a real `base1 -> base2`
 successor session with owned gameplay/config handoff, a 39-map/34,298-entity
 classname-registration matrix, authoritative movement with dynamic BBOX
 collision, Blaster snapshot/render/particle visibility and three completed
-mouse-wheel weapon transitions. Known scoped deviations are recorded in
-`ORIGINAL_PARITY_AUDIT_2026-08-26.md`; this matrix is not presented as a
+mouse-wheel weapon transitions. The bounded deviations recorded in
+`ORIGINAL_PARITY_AUDIT_2026-08-26.md` were closed by the 2026-08-27 follow-up;
+this matrix is not presented as a
 completed human campaign or frame-for-frame original trace.
 
 ## 2026-08-25 Quake II 3.19 source-parity follow-up

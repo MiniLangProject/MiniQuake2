@@ -114,9 +114,10 @@ invalidFixture = "{\"classname\" \"worldspawn\"}" +
 api.spawnEntities("actor-invalid", invalidFixture, "")
 runtime = actorlivegame.baseRuntime()
 actorLiveEqual(len(runtime.monsters), 0, "malformed actors are freed during spawn")
-// GameExport retains world + four reserved client slots before the sole
-// info_player_start edict. The two freed actors must not raise that floor.
-actorLiveEqual(api.numEdicts, 6, "malformed actors consume no live edict slots")
+// GameExport retains world + four client slots + eight body-queue slots before
+// the sole info_player_start edict. The two freed actors must not raise it.
+actorLiveEqual(api.numEdicts, 14,
+  "malformed actors consume no live edict slots")
 
 api.shutdown()
 print("game_api_actor_integration_tests: PASS")

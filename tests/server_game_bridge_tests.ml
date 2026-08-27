@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* End-to-end internal Game API v3 lifecycle through the server import table. */
 import miniquake2.game.constants as gc
 import miniquake2.game.null_game as nullGame
+import miniquake2.game.player.constants as playerconstants
 import miniquake2.server.game_bridge as bridge
 import miniquake2.collision.model as collision
 import miniquake2.format.types as ft
@@ -29,7 +30,9 @@ runtime.game = game
 assertEqual(game.apiVersion, gc.GAME_API_VERSION, "Game API version")
 game.init()
 game.spawnEntities("base1", "{\n\"classname\" \"worldspawn\"\n}\n", "")
-assertEqual(game.numEdicts, 1, "world edict after spawn")
+assertEqual(game.numEdicts,
+  1 + runtime.maxClients + playerconstants.BODY_QUEUE_SIZE,
+  "world, client and body-queue edicts after spawn")
 collisionHit = collision.Trace(false, false, 0.5, ft.Vec3(1.0, 2.0, 3.0),
   collision.TracePlane(ft.Vec3(0.0, 0.0, 1.0), 4.0, 2),
   collision.CollisionSurface("floor", 7, 8), 1)

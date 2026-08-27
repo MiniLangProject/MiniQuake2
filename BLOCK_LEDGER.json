@@ -199,7 +199,7 @@
       "id": "G09",
       "plan_point": 9,
       "title": "complete baseq2 game matrix",
-      "status": "broad_baseq2_coverage_passed_with_body_queue_edict_reuse_flymissile_pusher_and_help_counter_deviations_tracked",
+      "status": "complete_baseq2_coverage_with_body_queue_generic_edict_reuse_flymissile_pusher_and_per_player_help_counters_passed",
       "evidence": [
         "src/miniquake2/game/base/",
         "src/miniquake2/game/gameplay/",

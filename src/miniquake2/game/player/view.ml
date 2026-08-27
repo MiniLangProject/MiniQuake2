@@ -411,6 +411,21 @@ end function
 
 // Set g client sound.
 function G_SetClientSound(context, player)
+  // p_view.c keeps acknowledgement and reminder cadence in client->pers.
+  // A target_help update therefore notifies every connected player exactly
+  // once, without one player's F1 action acknowledging it for everybody.
+  if player.persistent.gameHelpChanged != context.helpChanged then
+    player.persistent.gameHelpChanged = context.helpChanged
+    player.persistent.helpChanged = 1
+  end if
+  if player.persistent.helpChanged != 0 and
+      player.persistent.helpChanged <= 3 and
+      (context.frameNumber & 63) == 0 then
+    player.persistent.helpChanged = player.persistent.helpChanged + 1
+    context.imports.sound(player.edict, miniquake2.game.constants.CHAN_VOICE,
+      context.imports.soundIndex("misc/pc_up.wav"), 1.0,
+      miniquake2.game.constants.ATTN_STATIC, 0.0)
+  end if
   weaponClass = ""
   if player.gameplay.currentWeapon is not void then weaponClass = player.gameplay.currentWeapon.className end if
   if player.waterLevel != 0 and (player.waterType & (qconstants.CONTENTS_LAVA | qconstants.CONTENTS_SLIME)) != 0 then player.edict.state.sound = context.imports.soundIndex("player/fry.wav")

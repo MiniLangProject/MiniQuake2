@@ -84,7 +84,9 @@ function G_SetStats(context, player)
   stats[miniquake2.game.constants.STAT_LAYOUTS] = layout
   stats[miniquake2.game.constants.STAT_FRAGS] = player.respawn.score
 
-  if player.showHelp and (context.frameNumber & 8) != 0 then stats[miniquake2.game.constants.STAT_HELPICON] = imageIndex(context, "i_help")
+  if player.persistent.helpChanged != 0 and
+      (context.frameNumber & 8) != 0 then
+    stats[miniquake2.game.constants.STAT_HELPICON] = imageIndex(context, "i_help")
   else if player.gameplay.currentWeapon is not void and (player.persistent.hand == 2 or player.edict.client.playerState.fov > 91.0) then stats[miniquake2.game.constants.STAT_HELPICON] = imageIndex(context, player.gameplay.currentWeapon.icon)
   else stats[miniquake2.game.constants.STAT_HELPICON] = 0
   end if

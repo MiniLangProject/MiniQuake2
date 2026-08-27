@@ -12,6 +12,7 @@ import miniquake2.server.sound_events as sppsounds
 import miniquake2.game.constants as sppgameconstants
 import miniquake2.game.integration.baseq2 as sppintegration
 import miniquake2.game.world.core as sppworld
+import miniquake2.game.world.types as sppworldtypes
 import miniquake2.game.weapons.constants as sppweaponconstants
 import miniquake2.game.gameplay.constants as sppgameplayconstants
 
@@ -92,6 +93,17 @@ server.game = api
 api.init()
 api.spawnEntities("base1", fixture, "")
 runtime = sppgameapi.baseRuntime()
+assertEqual(len(runtime.bodyQueue), 8, "fixed body queue size")
+assertEqual(runtime.bodyQueue[0].number, 5, "first reserved body edict")
+assertEqual(runtime.bodyQueue[7].number, 12, "last reserved body edict")
+assertEqual(sppgameapi.baseEdicts()[1].number, 13,
+  "map edicts start after clients and body queue")
+bodySlotIndex = 5
+while bodySlotIndex <= 12
+  assertTrue(api.edicts[bodySlotIndex].inUse,
+    "body queue protocol slot reserved")
+  bodySlotIndex = bodySlotIndex + 1
+end while
 
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + 1], "maps/base1.bsp", "reserved map model configstring")
 assertTrue(server.configStrings[sppqconstants.CS_STATUSBAR] != "",
@@ -476,6 +488,80 @@ assertTrue((frame.entities[9].renderFx & sppgameconstants.RF_BEAM) != 0,
   "snapshot preserves target_laser beam render flag")
 assertEqual(frame.entities[9].skinNum, 0xf2f2f0f0,
   "snapshot preserves target_laser color")
+
+// CopyToBodyQue keeps the player EntityState in a stable reserved slot and
+// advances the original eight-entry ring.
+player.health = -12
+player.edict.state.frame = 173
+player.edict.state.skinNumber = 7
+copiedBody = sppintegration.copyPlayerBody(runtime, player)
+assertEqual(copiedBody.number, 5, "first body queue copy slot")
+assertEqual(runtime.bodyQueueIndex, 1, "body queue ring advance")
+assertTrue(copiedBody.takeDamage != 0 and copiedBody.health == -12 and
+  api.edicts[5].state.frame == 173 and api.edicts[5].state.skinNumber == 7,
+  "body queue copies damage and presentation state")
+bodyGibsBefore = 0
+for each bodyGibCandidate in runtime.world.entities
+  if bodyGibCandidate.inUse and bodyGibCandidate.className == "body_gib" then
+    bodyGibsBefore = bodyGibsBefore + 1
+  end if
+end for
+sppintegration.damageWorldEntity(runtime, copiedBody.number, void, 40)
+bodyGibsAfter = 0
+for each bodyGibCandidate in runtime.world.entities
+  if bodyGibCandidate.inUse and bodyGibCandidate.className == "body_gib" then
+    bodyGibsAfter = bodyGibsAfter + 1
+  end if
+end for
+assertTrue(copiedBody.takeDamage == 0 and copiedBody.solid == 0 and
+  copiedBody.model == "models/objects/gibs/head2/tris.md2" and
+  bodyGibsAfter == bodyGibsBefore + 4,
+  "body queue corpse damage produces four gibs and a client head")
+
+// G_Spawn does not reuse an ordinary freed slot for 0.5 seconds once the
+// relaxed first-two-seconds startup interval has elapsed.
+runtime.world.time = 100.0
+firstReusable = sppintegration.reserveEdict(runtime)
+assertTrue(sppintegration.releaseEdict(runtime, firstReusable),
+  "ordinary dynamic edict release")
+runtime.world.time = 100.1
+lockedReplacement = sppintegration.reserveEdict(runtime)
+assertTrue(lockedReplacement != firstReusable,
+  "freed edict 0.5-second reuse lock")
+sppintegration.releaseEdict(runtime, lockedReplacement)
+runtime.world.time = 100.6
+assertEqual(sppintegration.reserveEdict(runtime), firstReusable,
+  "freed edict becomes reusable after 0.5 seconds")
+
+// Retained history may share a number with its new live owner. Synchronizing
+// the inactive record must not free or overwrite that reused engine slot.
+historyReuseSlot = sppintegration.reserveEdict(runtime)
+historyRecord = sppworldtypes.createEntity(historyReuseSlot,
+  "inactive_history_probe")
+historyRecord.inUse = false
+liveReuseRecord = sppworldtypes.createEntity(historyReuseSlot,
+  "live_reuse_probe")
+liveReuseRecord.modelIndex = 77
+runtime.world.entities = runtime.world.entities + [historyRecord,
+  liveReuseRecord]
+sppintegration.syncGameEdicts(runtime, api)
+assertTrue(api.edicts[historyReuseSlot].inUse and
+  api.edicts[historyReuseSlot].state.modelIndex == 77 and
+  runtime.edictUseHistory[historyReuseSlot],
+  "inactive history preserves reused live edict")
+
+// Item and export records alias the same Edict. The independent live-history
+// bit must still timestamp that shared record's active-to-free transition.
+runtime.world.time = 201.0
+sharedItemSlot = spawnedItem.edict.state.number
+spawnedItem.edict.inUse = false
+if spawnedItem.worldTarget is not void then
+  spawnedItem.worldTarget.inUse = false
+end if
+sppintegration.syncGameEdicts(runtime, api)
+assertTrue(not runtime.edictUseHistory[sharedItemSlot] and
+  runtime.edictFreeTimes[sharedItemSlot] == 201.0,
+  "shared item free transition records allocator time")
 
 api.clientDisconnect(client)
 api.shutdown()

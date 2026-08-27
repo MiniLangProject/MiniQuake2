@@ -139,25 +139,21 @@ preventing recursive first-death handling.
 - target-changelevel policy and live weapon/Quad/cooked-grenade death drops;
 - private-save v18 round-trip and legacy-version defaults.
 
-## Known scoped deviations after this pass
+## Gameplay deviations closed on 2026-08-27
 
-The audit records remaining differences instead of treating a class count or a
-successful goal-route smoke as proof of complete 1:1 behavior:
+The four bounded differences identified by this audit are now implemented:
 
-- the original eight-entry Body Queue is not yet modeled as reserved engine
-  edicts; a correct implementation must keep numbering, snapshots, collision,
-  corpse damage, and save/restore consistent;
-- generic `G_Spawn` reuse of freed edicts is not yet safe because the managed
-  world/item collections and private saves retain record and number identity;
-  projectile allocation already reuses bounded free export slots;
-- the player-persistent `game_helpchanged`/`helpchanged` counters are not yet
-  separate fields, although global help text and `helpChanged` now survive a
-  map change;
-- pusher behavior for a mover entering a stationary `FLYMISSILE` and the
-  ordering of a due mover think on the exact blocked frame require a shared
-  projectile/pusher/scheduler transaction; projectiles currently use private
-  records paired with engine edicts, so a partial rollback hook would be
-  unsafe;
+- eight fixed Body Queue edicts with corpse damage/gibs and private-save state;
+- generic freed-edict reuse with inactive-history isolation and the original
+  timing guard;
+- separate player-persistent `game_helpchanged`/`helpchanged` counters;
+- shared `FLYMISSILE`/pusher rollback plus success/blocked mover-think ordering.
+
+Focused regressions cover live Game API numbering and corpse copies, allocator
+reuse timing, save/restore, per-player help reminders, missile displacement,
+successful post-move thinks and blocked-frame think deferral. The remaining
+declared scope boundaries are unchanged:
+
 - foreign native `gamex86.dll` and renderer DLL loading, the software renderer,
   CTF, non-Windows platforms, and additional rendering backends remain the
   previously declared out-of-scope or deferred targets.

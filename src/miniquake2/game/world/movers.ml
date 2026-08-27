@@ -1419,6 +1419,11 @@ function spawnKillBox(entity, world)
     return false
   end if
   world.callbacks.setModel(entity, entity.model)
+  // Stock SP_func_killbox keeps the inline hull as an invisible use-time
+  // volume; it is never a linked BSP obstacle. The generic func_* parser
+  // defaults must therefore be cleared explicitly.
+  entity.solid = gwconstants.SOLID_NOT
+  entity.moveType = gwconstants.MOVETYPE_NONE
   entity.use = killBoxUse
   entity.serverFlags = gwconstants.SVF_NOCLIENT
   return entity

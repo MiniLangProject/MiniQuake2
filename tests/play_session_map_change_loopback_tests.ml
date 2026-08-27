@@ -54,7 +54,14 @@ soldierIndex = findName(session.server.bridgeRuntime.modelNames, soldierName)
 playMapAssert(soldierIndex > 1 and
   session.client.integrated.network.configStrings[plmap_qc.CS_MODELS + soldierIndex] == soldierName,
   "old-map-only model did not reach the client")
-playMapAssert(session.client.integrated.network.baselines[3].modelIndex == soldierIndex,
+// Stock body-queue reservations deliberately move map entities above the
+// client and corpse slots, so discover the soldier's protocol baseline.
+soldierBaselineNumber = 1
+while soldierBaselineNumber < len(session.client.integrated.network.baselines) and
+    session.client.integrated.network.baselines[soldierBaselineNumber].modelIndex != soldierIndex
+  soldierBaselineNumber = soldierBaselineNumber + 1
+end while
+playMapAssert(soldierBaselineNumber < len(session.client.integrated.network.baselines),
   "old monster baseline missing before transition")
 
 oldSpawn = session.server.networkRuntime.spawnCount
@@ -110,8 +117,8 @@ playMapAssert(session.client.integrated.network.spawnCount == oldSpawn + 1 and
 playMapAssert(findName(session.server.bridgeRuntime.modelNames, soldierName) == 0 and
   findName(session.client.integrated.network.configStrings, soldierName) == 0,
   "old-map-only configstring survived reset")
-playMapAssert(session.server.networkRuntime.baselines[3].modelIndex == 0 and
-  session.client.integrated.network.baselines[3].modelIndex == 0,
+playMapAssert(session.server.networkRuntime.baselines[soldierBaselineNumber].modelIndex == 0 and
+  session.client.integrated.network.baselines[soldierBaselineNumber].modelIndex == 0,
   "old monster baseline survived map reset")
 playMapAssert(session.client.lastCommand.msec == 0 and session.client.previousCommand.msec == 0 and
   plmap_session.pendingUserCmds(session) == 0,

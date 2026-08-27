@@ -70,6 +70,11 @@ struct IntegratedBaseQ2
   playerTrail
   collisionWorldReady
   pusherCapture
+  maxClients
+  bodyQueue
+  bodyQueueIndex
+  edictFreeTimes
+  edictUseHistory
 end struct
 
 // Store integrated dynamic clip data.
@@ -96,6 +101,239 @@ end function
 // Release projectile count.
 function projectileFreeCount()
   return integratedProjectileFreeTotal
+end function
+
+// Report whether a protocol slot still belongs to a live managed record.
+function managedEdictSlotActive(runtime, number)
+  for each entity in runtime.world.entities
+    if entity.number == number and entity.inUse and
+        entity.className != "ai_prop_target_proxy" and
+        entity.className != "ai_monster_target_proxy" and
+        entity.itemName != "__item_target_proxy" then return true end if
+  end for
+  for each actor in runtime.monsters
+    if actor.edict.state.number == number and actor.edict.inUse then return true end if
+  end for
+  for each item in runtime.items
+    if item.edict.state.number == number and item.edict.inUse then return true end if
+  end for
+  for each projectile in runtime.weaponContext.projectiles
+    if projectile.engineNumber == number and projectile.inUse then return true end if
+  end for
+  if runtime.playerContext is not void then
+    for each player in runtime.playerContext.players
+      if player.edict.state.number == number and player.edict.inUse then return true end if
+    end for
+  end if
+  return false
+end function
+
+// Initialize the level-owned allocator state used by every dynamic entity.
+function initializeEdictAllocator(runtime, exportTable, maxClients)
+  runtime.exportTable = exportTable
+  runtime.maxClients = maxClients
+  if len(runtime.edictFreeTimes) != exportTable.maxEdicts then
+    runtime.edictFreeTimes = array(exportTable.maxEdicts, 0.0)
+  end if
+  runtime.edictUseHistory = array(exportTable.maxEdicts, false)
+  historyIndex = 0
+  while historyIndex < exportTable.numEdicts
+    runtime.edictUseHistory[historyIndex] = exportTable.edicts[historyIndex].inUse
+    historyIndex = historyIndex + 1
+  end while
+  return true
+end function
+
+// G_Spawn: reuse only eligible freed edicts, then extend globals.num_edicts.
+function reserveEdict(runtime)
+  if runtime.exportTable is void then
+    number = runtime.world.nextEntityNumber
+    runtime.world.nextEntityNumber = number + 1
+    return number
+  end if
+  exportTable = runtime.exportTable
+  candidate = runtime.maxClients + 1
+  while candidate < exportTable.numEdicts
+    freeTime = runtime.edictFreeTimes[candidate]
+    if not exportTable.edicts[candidate].inUse and
+        not managedEdictSlotActive(runtime, candidate) and
+        (freeTime < 2.0 or runtime.world.time - freeTime > 0.5) then
+      exportTable.edicts[candidate] = ibgametypes.zeroEdict(candidate)
+      exportTable.edicts[candidate].inUse = true
+      runtime.edictFreeTimes[candidate] = 0.0
+      runtime.edictUseHistory[candidate] = true
+      return candidate
+    end if
+    candidate = candidate + 1
+  end while
+  if exportTable.numEdicts >= exportTable.maxEdicts then
+    return error(9713, "G_Spawn: no free edicts")
+  end if
+  candidate = exportTable.numEdicts
+  exportTable.edicts[candidate] = ibgametypes.zeroEdict(candidate)
+  exportTable.edicts[candidate].inUse = true
+  exportTable.numEdicts = candidate + 1
+  runtime.edictFreeTimes[candidate] = 0.0
+  runtime.edictUseHistory[candidate] = true
+  if candidate >= runtime.world.nextEntityNumber then
+    runtime.world.nextEntityNumber = candidate + 1
+  end if
+  return candidate
+end function
+
+// G_FreeEdict: preserve client and body-queue reservations and timestamp frees.
+function releaseEdict(runtime, number)
+  if runtime.exportTable is void or number < 0 or
+      number >= runtime.exportTable.numEdicts then return false end if
+  if number <= runtime.maxClients + ibplayerconstants.BODY_QUEUE_SIZE then
+    return false
+  end if
+  oldEdict = runtime.exportTable.edicts[number]
+  if runtime.playerContext is not void then
+    runtime.playerContext.imports.unlinkEntity(oldEdict)
+  end if
+  runtime.exportTable.edicts[number] = ibgametypes.zeroEdict(number)
+  runtime.edictFreeTimes[number] = runtime.world.time
+  runtime.edictUseHistory[number] = false
+  return true
+end function
+
+// Handle damage to a corpse copied into the fixed body queue.
+function bodyQueueDie(entity, inflictor, attacker, damage, point, world)
+  global activeIntegrationRuntime
+  if entity.health >= -40 then return false end if
+  world.callbacks.sound(entity, "misc/udeath.wav")
+  world.callbacks.effect("body-gibs", entity.origin, damage, 4)
+  entity.origin.z = entity.origin.z - 16.0
+  entity.model = "models/objects/gibs/head2/tris.md2"
+  entity.modelIndex = activeIntegrationRuntime.playerContext.imports.modelIndex(
+    entity.model)
+  entity.frame = 0
+  entity.mins = ibqtypes.Vec3(-16.0, -16.0, 0.0)
+  entity.maxs = ibqtypes.Vec3(16.0, 16.0, 16.0)
+  entity.takeDamage = ibworldconstants.DAMAGE_NO
+  entity.solid = ibworldconstants.SOLID_NOT
+  entity.effects = ibgconstants.EF_GIB
+  entity.loopSound = 0
+  entity.moveType = ibworldconstants.MOVETYPE_BOUNCE
+  entity.think = void
+  entity.nextThink = 0.0
+  world.callbacks.linkEntity(entity)
+  ibBodyHeadEdictHolder = activeIntegrationRuntime.exportTable.edicts[
+    entity.number]
+  ibBodyHeadEdictHolder.state.modelIndex2 = 0
+  ibBodyHeadEdictHolder.state.modelIndex3 = 0
+  ibBodyHeadEdictHolder.state.modelIndex4 = 0
+  ibBodyHeadEdictHolder.state.skinNumber = 1
+  return true
+end function
+
+// Reserve the eight body edicts immediately after the client range.
+function initializeBodyQueue(runtime)
+  bodyCount = ibplayerconstants.BODY_QUEUE_SIZE
+  runtime.bodyQueue = array(bodyCount, void)
+  runtime.bodyQueueIndex = 0
+  index = 0
+  while index < bodyCount
+    number = runtime.maxClients + index + 1
+    body = ibwtypes.createEntity(number, "bodyque")
+    body.solid = ibworldconstants.SOLID_NOT
+    body.takeDamage = ibworldconstants.DAMAGE_NO
+    runtime.bodyQueue[index] = body
+    runtime.world.entities = runtime.world.entities + [body]
+    if runtime.exportTable is not void then
+      runtime.exportTable.edicts[number] = ibgametypes.zeroEdict(number)
+      runtime.exportTable.edicts[number].inUse = true
+      runtime.edictUseHistory[number] = true
+      if number >= runtime.exportTable.numEdicts then
+        runtime.exportTable.numEdicts = number + 1
+      end if
+    end if
+    index = index + 1
+  end while
+  return bodyCount
+end function
+
+// Rebind body-queue records decoded from a private level save.
+function restoreBodyQueue(runtime)
+  bodyCount = ibplayerconstants.BODY_QUEUE_SIZE
+  runtime.bodyQueue = array(bodyCount, void)
+  index = 0
+  while index < bodyCount
+    number = runtime.maxClients + index + 1
+    body = void
+    for each candidate in runtime.world.entities
+      if candidate.number == number and candidate.className == "bodyque" then
+        body = candidate
+        break
+      end if
+    end for
+    if body is void then
+      body = ibwtypes.createEntity(number, "bodyque")
+      body.solid = ibworldconstants.SOLID_NOT
+      body.takeDamage = ibworldconstants.DAMAGE_NO
+      runtime.world.entities = runtime.world.entities + [body]
+    else
+      body.die = bodyQueueDie
+    end if
+    runtime.bodyQueue[index] = body
+    index = index + 1
+  end while
+  return bodyCount
+end function
+
+// CopyToBodyQue: snapshot the dead player into the next fixed corpse slot.
+function copyPlayerBody(runtime, player)
+  if len(runtime.bodyQueue) != ibplayerconstants.BODY_QUEUE_SIZE then
+    return error(9714, "body queue is not initialized")
+  end if
+  index = runtime.bodyQueueIndex
+  body = runtime.bodyQueue[index]
+  runtime.bodyQueueIndex = (index + 1) % ibplayerconstants.BODY_QUEUE_SIZE
+  if runtime.playerContext is not void then
+    runtime.playerContext.imports.unlinkEntity(player.edict)
+    runtime.playerContext.imports.unlinkEntity(runtime.exportTable.edicts[body.number])
+  end if
+  playerState = player.edict.state
+  body.inUse = true
+  body.origin = ibqtypes.Vec3(playerState.origin.x, playerState.origin.y,
+    playerState.origin.z)
+  body.oldOrigin = ibqtypes.Vec3(playerState.oldOrigin.x,
+    playerState.oldOrigin.y, playerState.oldOrigin.z)
+  body.angles = ibqtypes.Vec3(playerState.angles.x, playerState.angles.y,
+    playerState.angles.z)
+  body.modelIndex = playerState.modelIndex
+  body.frame = playerState.frame
+  body.effects = playerState.effects
+  body.renderFx = playerState.renderFx
+  body.style = playerState.skinNumber
+  body.loopSound = playerState.sound
+  body.serverFlags = player.edict.serverFlags
+  body.mins = ibqtypes.Vec3(player.edict.mins.x, player.edict.mins.y,
+    player.edict.mins.z)
+  body.maxs = ibqtypes.Vec3(player.edict.maxs.x, player.edict.maxs.y,
+    player.edict.maxs.z)
+  body.solid = player.edict.solid
+  body.clipMask = player.edict.clipMask
+  body.moveType = player.moveType
+  body.velocity = ibqtypes.Vec3(player.velocity[0], player.velocity[1],
+    player.velocity[2])
+  body.health = player.health
+  body.maxHealth = player.maxHealth
+  body.mass = 200
+  body.die = bodyQueueDie
+  body.takeDamage = ibworldconstants.DAMAGE_YES
+  runtime.world.callbacks.linkEntity(body)
+  if runtime.exportTable is not void then
+    bodyEdict = runtime.exportTable.edicts[body.number]
+    bodyEdict.state.modelIndex2 = playerState.modelIndex2
+    bodyEdict.state.modelIndex3 = playerState.modelIndex3
+    bodyEdict.state.modelIndex4 = playerState.modelIndex4
+    bodyEdict.state.skinNumber = playerState.skinNumber
+    bodyEdict.state.sound = playerState.sound
+    bodyEdict.owner = player.edict.owner
+  end if
+  return body
 end function
 
 // Exact m_medic.c attack42-relative cable offsets. Package-rooted scalar
@@ -545,10 +783,8 @@ function integratedAIDeathEffect(actor, effect)
   if effect.kind != "gib" then return error(9708, "unsupported monster death effect " + effect.kind) end if
   if ibDeathRuntimeHolder.exportTable is void or ibDeathRuntimeHolder.playerContext is void then return true end if
   ibDeathExportHolder = ibDeathRuntimeHolder.exportTable
-  ibDeathGibNumber = ibDeathExportHolder.numEdicts
-  if ibDeathGibNumber < 1 or ibDeathGibNumber >= ibDeathExportHolder.maxEdicts then
-    return error(9709, "monster gib exceeds edict capacity")
-  end if
+  ibDeathGibNumber = reserveEdict(ibDeathRuntimeHolder)
+  if ibDeathGibNumber is error then return ibDeathGibNumber end if
 
   ibDeathGibHolder = ibwtypes.createEntity(ibDeathGibNumber, "monster_gib")
   ibDeathGibHolder.model = effect.modelName
@@ -589,7 +825,6 @@ function integratedAIDeathEffect(actor, effect)
   ibDeathGibEdictHolder.mins = ibqtypes.Vec3(0.0, 0.0, 0.0)
   ibDeathGibEdictHolder.maxs = ibqtypes.Vec3(0.0, 0.0, 0.0)
   ibDeathExportHolder.edicts[ibDeathGibNumber] = ibDeathGibEdictHolder
-  ibDeathExportHolder.numEdicts = ibDeathGibNumber + 1
   ibDeathRuntimeHolder.playerContext.imports.setModel(ibDeathGibEdictHolder, effect.modelName)
   ibDeathGibEdictHolder.state.modelIndex = ibDeathGibHolder.modelIndex
   ibDeathExportHolder.edicts[ibDeathGibNumber] = ibgametypes.stabilizeEdict(ibDeathGibEdictHolder)
@@ -600,46 +835,7 @@ end function
 // Reuse a freed non-player edict before extending the protocol-visible table.
 // Short-lived debris can otherwise exhaust MAX_EDICTS after several barrels.
 function reserveWorldEffectEdict(runtime)
-  ibWorldEffectExportHolder = runtime.exportTable
-  ibWorldEffectCandidate = 1
-  while ibWorldEffectCandidate < ibWorldEffectExportHolder.numEdicts
-    ibWorldEffectReserved = false
-    for each ibWorldEffectPlayerHolder in runtime.playerContext.players
-      if ibWorldEffectPlayerHolder.edict.state.number == ibWorldEffectCandidate then
-        ibWorldEffectReserved = true
-      end if
-    end for
-    // Monster and item adapters synchronize their retained edict records after
-    // world entities, even once inactive. Never let that later pass overwrite
-    // a newly reused debris slot.
-    for each ibWorldEffectMonsterHolder in runtime.monsters
-      if ibWorldEffectMonsterHolder.edict.state.number == ibWorldEffectCandidate then
-        ibWorldEffectReserved = true
-      end if
-    end for
-    for each ibWorldEffectItemHolder in runtime.items
-      if ibWorldEffectItemHolder.edict.state.number == ibWorldEffectCandidate then
-        ibWorldEffectReserved = true
-      end if
-    end for
-    if not ibWorldEffectReserved and
-        not ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate].inUse then
-      ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate] = ibgametypes.zeroEdict(
-        ibWorldEffectCandidate)
-      ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate].inUse = true
-      return ibWorldEffectCandidate
-    end if
-    ibWorldEffectCandidate = ibWorldEffectCandidate + 1
-  end while
-  if ibWorldEffectExportHolder.numEdicts >= ibWorldEffectExportHolder.maxEdicts then
-    return error(9713, "world effect exceeds edict capacity")
-  end if
-  ibWorldEffectCandidate = ibWorldEffectExportHolder.numEdicts
-  ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate] = ibgametypes.zeroEdict(
-    ibWorldEffectCandidate)
-  ibWorldEffectExportHolder.edicts[ibWorldEffectCandidate].inUse = true
-  ibWorldEffectExportHolder.numEdicts = ibWorldEffectCandidate + 1
-  return ibWorldEffectCandidate
+  return reserveEdict(runtime)
 end function
 
 // Match g_misc.c ThrowDebris: model-backed, non-solid bounce entities with a
@@ -693,6 +889,65 @@ function integratedWorldDebris(kind, origin, speed, count)
   return true
 end function
 
+// Spawn the four organic chunks emitted by p_client.c::body_die.
+function integratedBodyGibs(origin, damage, count)
+  global activeIntegrationRuntime
+  ibBodyGibRuntimeHolder = activeIntegrationRuntime
+  if ibBodyGibRuntimeHolder is void or
+      ibBodyGibRuntimeHolder.playerContext is void or
+      ibBodyGibRuntimeHolder.exportTable is void then return true end if
+  ibBodyGibIndex = 0
+  while ibBodyGibIndex < count
+    ibBodyGibNumber = reserveEdict(ibBodyGibRuntimeHolder)
+    if ibBodyGibNumber is error then return ibBodyGibNumber end if
+    ibBodyGibHolder = ibwtypes.createEntity(ibBodyGibNumber, "body_gib")
+    ibBodyGibHolder.model = "models/objects/gibs/sm_meat/tris.md2"
+    ibBodyGibHolder.modelIndex = ibBodyGibRuntimeHolder.playerContext.imports.modelIndex(
+      ibBodyGibHolder.model)
+    ibBodyGibSeed = ibBodyGibNumber * 41 + ibBodyGibIndex * 73 + 19
+    ibBodyGibHolder.origin = ibqtypes.Vec3(
+      origin.x + ((ibBodyGibSeed % 25) - 12),
+      origin.y + (((ibBodyGibSeed * 3) % 25) - 12),
+      origin.z + (((ibBodyGibSeed * 7) % 21) - 4))
+    ibBodyGibHolder.oldOrigin = ibqtypes.Vec3(ibBodyGibHolder.origin.x,
+      ibBodyGibHolder.origin.y, ibBodyGibHolder.origin.z)
+    ibBodyGibVelocityBonus = damage
+    if ibBodyGibVelocityBonus < 50 then ibBodyGibVelocityBonus = 50 end if
+    if ibBodyGibVelocityBonus > 300 then ibBodyGibVelocityBonus = 300 end if
+    ibBodyGibHolder.velocity = ibqtypes.Vec3(
+      (((ibBodyGibSeed * 17) % 401) - 200) * 0.5,
+      (((ibBodyGibSeed * 29) % 401) - 200) * 0.5,
+      200.0 + ((ibBodyGibSeed * 11) % 301) +
+        ibBodyGibVelocityBonus * 0.25)
+    ibBodyGibHolder.angularVelocity = ibqtypes.Vec3(
+      (ibBodyGibSeed * 31) % 600, (ibBodyGibSeed * 47) % 600,
+      (ibBodyGibSeed * 59) % 600)
+    ibBodyGibHolder.effects = ibgconstants.EF_GIB
+    ibBodyGibHolder.solid = ibworldconstants.SOLID_NOT
+    ibBodyGibHolder.moveType = ibworldconstants.MOVETYPE_TOSS
+    ibBodyGibHolder.takeDamage = ibworldconstants.DAMAGE_YES
+    ibBodyGibHolder.die = ibmisc.gibDie
+    ibBodyGibHolder.think = ibworld.freeThink
+    ibBodyGibHolder.nextThink = ibBodyGibRuntimeHolder.world.time + 10.0 +
+      (ibBodyGibSeed % 10)
+    ibworld.addEntity(ibBodyGibRuntimeHolder.world, ibBodyGibHolder)
+    ibBodyGibEdictHolder = ibBodyGibRuntimeHolder.exportTable.edicts[
+      ibBodyGibNumber]
+    ibBodyGibEdictHolder.inUse = true
+    ibBodyGibEdictHolder.solid = ibBodyGibHolder.solid
+    ibBodyGibEdictHolder.state.origin = ibBodyGibHolder.origin
+    ibBodyGibEdictHolder.state.oldOrigin = ibBodyGibHolder.oldOrigin
+    ibBodyGibEdictHolder.state.effects = ibBodyGibHolder.effects
+    ibBodyGibRuntimeHolder.playerContext.imports.setModel(ibBodyGibEdictHolder,
+      ibBodyGibHolder.model)
+    ibBodyGibEdictHolder.state.modelIndex = ibBodyGibHolder.modelIndex
+    ibBodyGibRuntimeHolder.playerContext.imports.linkEntity(
+      ibBodyGibEdictHolder)
+    ibBodyGibIndex = ibBodyGibIndex + 1
+  end while
+  return true
+end function
+
 // World state machines use this callback for stock temp entities and visible
 // barrel debris. Permanent protocol edicts are allocated only for the chunks.
 function integratedWorldEffect(kind, origin, style, count)
@@ -703,6 +958,9 @@ function integratedWorldEffect(kind, origin, style, count)
   if kind == "barrel-debris1" or kind == "barrel-debris2" or
       kind == "barrel-debris3" then
     return integratedWorldDebris(kind, origin, style, count)
+  end if
+  if kind == "body-gibs" then
+    return integratedBodyGibs(origin, style, count)
   end if
   ibWorldEffectType = -1
   if kind == "barrel-explosion" or kind == "explosion2" then
@@ -1023,8 +1281,8 @@ function integratedSpawnMonster(className, parent)
     if ibBossItemProbe.edict.state.number >= ibBossNumber then ibBossNumber = ibBossItemProbe.edict.state.number + 1 end if
   end for
   if ibBossRuntimeHolder.exportTable is not void then
-    ibBossNumber = ibBossRuntimeHolder.exportTable.numEdicts
-    if ibBossNumber >= ibBossRuntimeHolder.exportTable.maxEdicts then return error(9697, "dynamic monster spawn exceeds edict capacity") end if
+    ibBossNumber = reserveEdict(ibBossRuntimeHolder)
+    if ibBossNumber is error then return ibBossNumber end if
   end if
 
   ibBossActorHolder = ibarchetypes.SpawnMonster(ibBossRegistryHolder, className, ibBossNumber, ibBossRuntimeHolder.aiContext)
@@ -1056,7 +1314,6 @@ function integratedSpawnMonster(className, parent)
     ibBossStoredEdictHolder.mins = ibBossActorMinsHolder
     ibBossStoredEdictHolder.maxs = ibBossActorMaxsHolder
     ibgametypes.stabilizeEdict(ibBossStoredEdictHolder)
-    ibBossExportHolder.numEdicts = ibBossNumber + 1
   end if
   if ibBossRuntimeHolder.playerContext is not void then
     ibBossImportsHolder = ibBossRuntimeHolder.playerContext.imports
@@ -1085,7 +1342,9 @@ end function
 // Return the integrated monster by number.
 function integratedMonsterByNumber(runtime, number)
   for each actor in runtime.monsters
-    if actor.edict.state.number == number then return actor end if
+    if actor.edict.inUse and actor.edict.state.number == number then
+      return actor
+    end if
   end for
   return void
 end function
@@ -1705,32 +1964,12 @@ end function
 
 // Reserve spawner edict.
 function reserveSpawnerEdict(runtime)
-  number = runtime.world.nextEntityNumber
-  if runtime.exportTable is not void then
-    number = runtime.exportTable.numEdicts
-    if number >= runtime.exportTable.maxEdicts then
-      return error(9699, "target_spawner exceeds edict capacity")
-    end if
-    runtime.exportTable.edicts[number] = ibgametypes.zeroEdict(number)
-    runtime.exportTable.edicts[number].inUse = true
-    runtime.exportTable.numEdicts = number + 1
-  end if
-  if number >= runtime.world.nextEntityNumber then
-    runtime.world.nextEntityNumber = number + 1
-  end if
-  return number
+  return reserveEdict(runtime)
 end function
 
 // Release reserved edict.
 function releaseReservedEdict(runtime, number)
-  if runtime.exportTable is not void and number >= 0 and
-      number < runtime.exportTable.numEdicts then
-    runtime.exportTable.edicts[number].inUse = false
-    if runtime.playerContext is not void then
-      runtime.playerContext.imports.unlinkEntity(runtime.exportTable.edicts[number])
-    end if
-  end if
-  return true
+  return releaseEdict(runtime, number)
 end function
 
 // Complete Drop_Item's engine-facing half after the item-specific callback
@@ -2084,7 +2323,10 @@ function integratedWorldActor(number)
   ibWorldActorRuntimeHolder = activeIntegrationRuntime
   if ibWorldActorRuntimeHolder is void then return void end if
   for each ibWorldActorHolder in ibWorldActorRuntimeHolder.monsters
-    if ibWorldActorHolder.edict.state.number == number then return ibWorldActorHolder end if
+    if ibWorldActorHolder.edict.inUse and
+        ibWorldActorHolder.edict.state.number == number then
+      return ibWorldActorHolder
+    end if
   end for
   return void
 end function
@@ -2366,25 +2608,8 @@ function integratedWeaponLink(entity)
   ibProjectileExportHolder = ibProjectileRuntimeHolder.exportTable
   ibProjectileEngineNumber = entity.engineNumber
   if ibProjectileEngineNumber < 0 then
-    ibProjectileCandidate = 1
-    ibProjectileEngineNumber = -1
-    while ibProjectileCandidate < ibProjectileExportHolder.numEdicts and ibProjectileEngineNumber < 0
-      ibProjectileReserved = false
-      for each ibProjectilePlayerHolder in ibProjectileRuntimeHolder.playerContext.players
-        if ibProjectilePlayerHolder.edict.state.number == ibProjectileCandidate then ibProjectileReserved = true end if
-      end for
-      if not ibProjectileReserved and not ibProjectileExportHolder.edicts[ibProjectileCandidate].inUse then
-        ibProjectileEngineNumber = ibProjectileCandidate
-      end if
-      ibProjectileCandidate = ibProjectileCandidate + 1
-    end while
-    if ibProjectileEngineNumber < 0 then
-      ibProjectileEngineNumber = ibProjectileExportHolder.numEdicts
-      if ibProjectileEngineNumber >= ibProjectileExportHolder.maxEdicts then
-        return error(9694, "projectile export edict limit reached")
-      end if
-      ibProjectileExportHolder.numEdicts = ibProjectileExportHolder.numEdicts + 1
-    end if
+    ibProjectileEngineNumber = reserveEdict(ibProjectileRuntimeHolder)
+    if ibProjectileEngineNumber is error then return ibProjectileEngineNumber end if
     entity.engineNumber = ibProjectileEngineNumber
   end if
   ibProjectileEdictHolder = ibgametypes.zeroEdict(ibProjectileEngineNumber)
@@ -2427,12 +2652,7 @@ function integratedWeaponFree(entity)
   if ibProjectileFreeRuntimeHolder is void or ibProjectileFreeRuntimeHolder.exportTable is void or
       ibProjectileFreeRuntimeHolder.playerContext is void or entity.engineNumber < 0 or
       entity.engineNumber >= ibProjectileFreeRuntimeHolder.exportTable.numEdicts then return true end if
-  ibProjectileFreeEdictHolder = ibProjectileFreeRuntimeHolder.exportTable.edicts[entity.engineNumber]
-  ibProjectileFreeRuntimeHolder.playerContext.imports.unlinkEntity(ibProjectileFreeEdictHolder)
-  ibProjectileFreeEdictHolder.inUse = false
-  ibProjectileFreeEdictHolder.solid = ibgconstants.SOLID_NOT
-  ibProjectileFreeRuntimeHolder.exportTable.edicts[entity.engineNumber] = ibProjectileFreeEdictHolder
-  return true
+  return releaseEdict(ibProjectileFreeRuntimeHolder, entity.engineNumber)
 end function
 
 // Return the integrated player noise value.
@@ -3001,7 +3221,7 @@ function create(spawnResult)
   end if
   playerTrail = ibaitrail.create(true)
   runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void,
-    ibCreateRandomStateHolder, playerTrail, false, void)
+    ibCreateRandomStateHolder, playerTrail, false, void, 0, [], 0, [], [])
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
   for each preparedActor in runtime.monsters
@@ -3264,7 +3484,13 @@ end function
 
 // Find world by number.
 function findWorldByNumber(runtime, number)
-  return ibworld.findByNumber(runtime.world, number)
+  for each entity in runtime.world.entities
+    if entity.inUse and entity.number == number and
+        entity.className != "ai_prop_target_proxy" and
+        entity.className != "ai_monster_target_proxy" and
+        entity.itemName != "__item_target_proxy" then return entity end if
+  end for
+  return void
 end function
 
 // Find world by class.
@@ -3278,7 +3504,7 @@ end function
 // Find item by number.
 function findItemByNumber(runtime, number)
   for each item in runtime.items
-    if item.edict.state.number == number then return item end if
+    if item.edict.inUse and item.edict.state.number == number then return item end if
   end for
   return void
 end function
@@ -3461,6 +3687,7 @@ end function
 // Synchronize players.
 function syncPlayers(runtime, playerContext)
   runtime.playerContext = playerContext
+  playerContext.helpChanged = runtime.world.helpChanged
   runtime.collisionWorldReady = playerContext.imports.collisionWorldReady()
   runtime.weaponContext.deathmatch = playerContext.deathmatch
   runtime.playerTrail.active = not playerContext.deathmatch
@@ -4993,7 +5220,7 @@ end function
 
 // Return the integrated world collision proxy value.
 function integratedWorldCollisionProxy(runtime, number)
-  entity = ibworld.findByNumber(runtime.world, number)
+  entity = findWorldByNumber(runtime, number)
   if entity is not void then return entity end if
   player = integratedPlayerByNumber(runtime, number)
   if player is not void then return playerWorldProxy(player) end if
@@ -5354,6 +5581,8 @@ end function
 // Run frame.
 function runFrame(runtime)
   pusherState = ibpusher.capture(runtime)
+  ibpusher.deferDueThinks(pusherState,
+    runtime.world.time + runtime.world.frameTime)
   ibworld.runFrame(runtime.world)
   ibpusher.resolve(runtime, pusherState)
   advanceWorldTossEntities(runtime)
@@ -5424,12 +5653,23 @@ end function
 
 // Synchronize game edicts.
 function syncGameEdicts(runtime, exportTable)
+  if runtime.exportTable is void or
+      len(runtime.edictUseHistory) != exportTable.maxEdicts then
+    initializeEdictAllocator(runtime, exportTable, runtime.maxClients)
+  end if
   for each entity in runtime.world.entities
+    if not entity.inUse and
+        entity.number > runtime.maxClients + ibplayerconstants.BODY_QUEUE_SIZE and
+        entity.number < exportTable.numEdicts and
+        runtime.edictUseHistory[entity.number] and
+        not managedEdictSlotActive(runtime, entity.number) then
+      releaseEdict(runtime, entity.number)
+    end if
     // AI prop target proxies deliberately share the actor's edict number so
     // G_UseTargets can find them.  They are dispatch-only records and must
     // never overwrite the authoritative actor EntityState through the shared
     // export-edict reference.
-    if entity.className != "ai_prop_target_proxy" and
+    if entity.inUse and entity.className != "ai_prop_target_proxy" and
         entity.className != "ai_monster_target_proxy" and
         entity.itemName != "__item_target_proxy" and
         entity.number >= 0 and entity.number < exportTable.numEdicts then
@@ -5448,7 +5688,9 @@ function syncGameEdicts(runtime, exportTable)
       ibSyncTargetHolder.state.effects = entity.effects
       ibSyncTargetHolder.state.renderFx = entity.renderFx
       ibSyncTargetHolder.state.frame = entity.frame
-      if entity.className == "target_laser" then ibSyncTargetHolder.state.skinNumber = entity.style end if
+      if entity.className == "target_laser" or entity.className == "bodyque" then
+        ibSyncTargetHolder.state.skinNumber = entity.style
+      end if
       ibSyncTargetHolder.state.sound = entity.loopSound
       ibSyncTargetHolder.serverFlags = entity.serverFlags
       ibSyncTargetHolder.solid = entity.solid
@@ -5456,10 +5698,18 @@ function syncGameEdicts(runtime, exportTable)
       ibSyncTargetHolder.mins = ibSyncMinsHolder
       ibSyncTargetHolder.maxs = ibSyncMaxsHolder
       ibgametypes.stabilizeEdict(ibSyncTargetHolder)
+      runtime.edictUseHistory[entity.number] = true
     end if
   end for
   for each actor in runtime.monsters
-    if actor.edict.state.number < exportTable.numEdicts then
+    if not actor.edict.inUse and actor.edict.state.number >= 0 and
+        actor.edict.state.number < exportTable.numEdicts and
+        runtime.edictUseHistory[actor.edict.state.number] and
+        not managedEdictSlotActive(runtime, actor.edict.state.number) then
+      releaseEdict(runtime, actor.edict.state.number)
+    end if
+    if actor.edict.inUse and actor.edict.state.number >= 0 and
+        actor.edict.state.number < exportTable.numEdicts then
       if actor.edict.state.modelIndex <= 0 and actor.model != "" and runtime.playerContext is not void then
         ibSyncActorStateHolder = actor.edict.state
         ibSyncActorStateHolder.modelIndex = runtime.playerContext.imports.modelIndex(actor.model)
@@ -5478,10 +5728,18 @@ function syncGameEdicts(runtime, exportTable)
       ibStoredActorEdictHolder.mins = ibActorEdictHolder.mins
       ibStoredActorEdictHolder.maxs = ibActorEdictHolder.maxs
       ibgametypes.stabilizeEdict(ibStoredActorEdictHolder)
+      runtime.edictUseHistory[actor.edict.state.number] = true
     end if
   end for
   for each item in runtime.items
-    if item.edict.state.number < exportTable.numEdicts then
+    if not item.edict.inUse and item.edict.state.number >= 0 and
+        item.edict.state.number < exportTable.numEdicts and
+        runtime.edictUseHistory[item.edict.state.number] and
+        not managedEdictSlotActive(runtime, item.edict.state.number) then
+      releaseEdict(runtime, item.edict.state.number)
+    end if
+    if item.edict.inUse and item.edict.state.number >= 0 and
+        item.edict.state.number < exportTable.numEdicts then
       ibItemEdictHolder = ibgametypes.stabilizeEdict(item.edict)
       exportTable.edicts[item.edict.state.number] = ibItemEdictHolder
       ibStoredItemEdictHolder = exportTable.edicts[item.edict.state.number]
@@ -5489,6 +5747,7 @@ function syncGameEdicts(runtime, exportTable)
       ibStoredItemEdictHolder.mins = ibItemEdictHolder.mins
       ibStoredItemEdictHolder.maxs = ibItemEdictHolder.maxs
       ibgametypes.stabilizeEdict(ibStoredItemEdictHolder)
+      runtime.edictUseHistory[item.edict.state.number] = true
     end if
   end for
   for each ibSyncProjectileHolder in runtime.weaponContext.projectiles
@@ -5528,6 +5787,7 @@ function syncGameEdicts(runtime, exportTable)
       exportTable.edicts[ibSyncProjectileHolder.engineNumber] = ibSyncProjectileEdictHolder
       ibSyncStoredProjectileHolder = exportTable.edicts[ibSyncProjectileHolder.engineNumber]
       ibgametypes.stabilizeEdict(ibSyncStoredProjectileHolder)
+      runtime.edictUseHistory[ibSyncProjectileHolder.engineNumber] = true
       if runtime.playerContext is not void then runtime.playerContext.imports.linkEntity(ibSyncStoredProjectileHolder) end if
     end if
   end for

@@ -290,11 +290,15 @@ function baseWorldLink(entity)
   ngLinkTargetHolder.state.effects = entity.effects
   ngLinkTargetHolder.state.renderFx = entity.renderFx
   ngLinkTargetHolder.state.frame = entity.frame
+  if entity.className == "bodyque" then
+    ngLinkTargetHolder.state.skinNumber = entity.style
+  end if
   ngLinkTargetHolder.state.sound = entity.loopSound
   ngLinkTargetHolder.serverFlags = entity.serverFlags
   ngLinkTargetHolder.mins = ngLinkMinsHolder
   ngLinkTargetHolder.maxs = ngLinkMaxsHolder
   ngLinkTargetHolder.solid = entity.solid
+  ngLinkTargetHolder.clipMask = entity.clipMask
   gt.stabilizeEdict(ngLinkTargetHolder)
   ngLinkResultHolder = activeImports.linkEntity(ngLinkTargetHolder)
   // In the original engine the game and server share one edict, so
@@ -377,6 +381,13 @@ function playerDamage(context, player, amount, damageFlags, meansOfDeath)
   return result.taken
 end function
 
+// Copy the dead client into BaseQ2's fixed eight-entry body queue.
+function playerCopyBody(player)
+  global activeBaseRuntime
+  if activeBaseRuntime is void then return false end if
+  return ngbaseq2.copyPlayerBody(activeBaseRuntime, player)
+end function
+
 // Configure integrated runtime.
 function configureIntegratedRuntime(runtime, playerContext)
   runtime.world.callbacks.log = baseWorldLog
@@ -399,6 +410,7 @@ function configureIntegratedRuntime(runtime, playerContext)
   playerContext.deathDrop = ngbaseq2.tossClientDeathItems
   playerContext.deathGrenade = ngbaseq2.tossClientHeldGrenade
   playerContext.damagePlayer = playerDamage
+  playerContext.copyBody = playerCopyBody
   return true
 end function
 
@@ -610,7 +622,10 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   spawned = bspawn.SpawnEntitiesForMode(mapName, entityString, spawnPoint,
     activeSkill, activePlayerContext.deathmatch)
   spawnedEdicts = spawned.edicts
-  if len(spawnedEdicts) + activeMaxClients > qc.MAX_EDICTS then return error(3809, "SpawnEntities: parsed edict count exceeds engine limit") end if
+  if len(spawnedEdicts) + activeMaxClients +
+      ngplayerconstants.BODY_QUEUE_SIZE > qc.MAX_EDICTS then
+    return error(3809, "SpawnEntities: parsed edict count exceeds engine limit")
+  end if
   // Extract the small player-spawn view before integrated world/item/monster
   // construction allocates the rest of the level graph.
   levelSpawnSpots = ngplayerspawn.spotsFromBaseEdicts(spawnedEdicts)
@@ -625,7 +640,9 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   index = 0
   while index < len(spawnedEdicts)
     number = 0
-    if index > 0 then number = activeMaxClients + index end if
+    if index > 0 then
+      number = activeMaxClients + ngplayerconstants.BODY_QUEUE_SIZE + index
+    end if
     spawnedBaseEdict = spawnedEdicts[index]
     ngSpawnEngineEdictHolder = gt.stabilizeEdict(spawnedBaseEdict.edict)
     spawnedBaseEdict.number = number
@@ -643,6 +660,9 @@ function SpawnEntities(mapName, entityString, spawnPoint)
     index = index + 1
   end while
   activeBaseRuntime = ngbaseq2.create(spawned)
+  ngbaseq2.initializeEdictAllocator(activeBaseRuntime, exportTable,
+    activeMaxClients)
+  ngbaseq2.initializeBodyQueue(activeBaseRuntime)
   ngSkillRuntimeHolder = activeBaseRuntime
   ngSkillAiContextHolder = ngSkillRuntimeHolder.aiContext
   ngSkillAiContextHolder.skill = activeSkill
@@ -767,6 +787,8 @@ function restoreManagedImage(image)
       restoredSpawnSpots)
   end if
   activeBaseRuntime = restoredRuntime
+  ngbaseq2.initializeEdictAllocator(activeBaseRuntime, exportTable,
+    activeMaxClients)
   spawnedBaseEdicts = restoredBaseEdicts
   lastSpawnResult = restoredSpawnResult
   currentSpawnPoint = restored.spawnPoint

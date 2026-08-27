@@ -213,7 +213,15 @@ function toggleHelp(player, context)
   if context.deathmatch then return toggleScore(player, context) end if
   player.showInventory = false
   player.showScores = false
-  player.showHelp = not player.showHelp
+  // Cmd_Help_f closes an already acknowledged page; otherwise it opens the
+  // newest global help text and acknowledges it for this client only.
+  if player.showHelp and
+      player.persistent.gameHelpChanged == context.helpChanged then
+    player.showHelp = false
+    return false
+  end if
+  player.showHelp = true
+  player.persistent.helpChanged = 0
   return player.showHelp
 end function
 

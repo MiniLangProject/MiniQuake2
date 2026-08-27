@@ -10,6 +10,8 @@ import miniquake2.game.world.constants as elevatortestconstants
 import miniquake2.game.types as elevatortestgametypes
 import miniquake2.qcommon.constants as elevatortestqconstants
 import miniquake2.qcommon.types as elevatortestqtypes
+import miniquake2.game.weapons.types as elevatortestweapontypes
+import miniquake2.game.weapons.constants as elevatortestweaponconstants
 
 // Store elevator runtime data.
 struct ElevatorRuntime
@@ -18,6 +20,7 @@ struct ElevatorRuntime
   monsters
   pusherCapture
   exportTable
+  weaponContext
 end struct
 
 // Store elevator imports data.
@@ -35,6 +38,18 @@ end struct
 // Store elevator export data.
 struct ElevatorExport
   edicts
+  numEdicts
+end struct
+
+// Store the narrow weapon callback surface used by projectile pusher tests.
+struct ElevatorWeaponCallbacks
+  linkEntity
+end struct
+
+// Store projectile records visible to the pusher transaction.
+struct ElevatorWeaponContext
+  projectiles
+  callbacks
 end struct
 
 // Store elevator player data.
@@ -51,6 +66,8 @@ elevatorTraceCount = 0
 elevatorTraceStationary = true
 elevatorTracePassNumber = -1
 elevatorTraceMask = 0
+elevatorThinkCount = 0
+elevatorThinkOrigin = 0.0
 
 // Assert the elevator test condition.
 function elevatorAssert(value, message)
@@ -82,6 +99,8 @@ function elevatorTrace(start, mins, maxs, finish, passEntity, mask)
   // Mode 1 models a downward elevator whose carried destination is obstructed
   // while the translation-only fallback remains clear.
   if elevatorTraceMode == 1 and elevatorTraceCount == 1 then startSolid = true end if
+  if elevatorTraceMode == 2 then startSolid = true end if
+  if elevatorTraceMode == 3 and elevatorTraceCount == 1 then startSolid = true end if
   return elevatortestqtypes.Trace(false, startSolid, 1.0, finish,
     elevatortestqtypes.Plane(elevatortestqtypes.zeroVec3(), 0.0, 0, 0),
     elevatortestqtypes.CollisionSurface("", 0, 0), 0, void)
@@ -92,9 +111,23 @@ function ignoreElevatorEdictLink(entity)
   return true
 end function
 
+// Record the stock post-move pusher think position.
+function recordElevatorThink(entity, world)
+  global elevatorThinkCount, elevatorThinkOrigin
+  elevatorThinkCount = elevatorThinkCount + 1
+  elevatorThinkOrigin = entity.origin.x
+  return true
+end function
+
+// Return an empty projectile context.
+function emptyWeaponContext()
+  return ElevatorWeaponContext([], ElevatorWeaponCallbacks(
+    ignoreElevatorEdictLink))
+end function
+
 world = elevatortestworld.createWorld(void)
 world.callbacks.linkEntity = recordElevatorLink
-runtime = ElevatorRuntime(world, void, [], void, void)
+runtime = ElevatorRuntime(world, void, [], void, void, emptyWeaponContext())
 elevator = elevatortesttypes.createEntity(10, "func_train")
 elevator.solid = elevatortestconstants.SOLID_BSP
 elevator.moveType = elevatortestconstants.MOVETYPE_PUSH
@@ -144,7 +177,7 @@ fallbackEdicts[21] = elevatortestgametypes.zeroEdict(21)
 fallbackImports = ElevatorImports(elevatorTrace, ignoreElevatorEdictLink)
 fallbackContext = ElevatorPlayerContext(fallbackImports, [])
 fallbackRuntime = ElevatorRuntime(fallbackWorld, fallbackContext, [], void,
-  ElevatorExport(fallbackEdicts))
+  ElevatorExport(fallbackEdicts, 22), emptyWeaponContext())
 elevatorTraceMode = 1; elevatorTraceCount = 0
 elevatorTraceStationary = true; elevatorTracePassNumber = -1
 fallbackCapture = elevatortestpusher.capture(fallbackRuntime)
@@ -179,7 +212,8 @@ elevatortestworld.addEntity(yawWorld, yawTrain)
 yawEdicts = array(32, void); yawEdicts[30] = elevatortestgametypes.zeroEdict(30)
 yawEdicts[31] = yawEdict
 yawContext = ElevatorPlayerContext(fallbackImports, [yawPlayer])
-yawRuntime = ElevatorRuntime(yawWorld, yawContext, [], void, ElevatorExport(yawEdicts))
+yawRuntime = ElevatorRuntime(yawWorld, yawContext, [], void,
+  ElevatorExport(yawEdicts, 32), emptyWeaponContext())
 elevatorTraceMode = 0; elevatorTraceCount = 0
 yawCapture = elevatortestpusher.capture(yawRuntime)
 elevatortestworld.runFrame(yawWorld)
@@ -208,11 +242,100 @@ stopRider.origin = elevatortestqtypes.Vec3(0.0, 0.0, 1.0)
 stopRider.groundEntity = stopElevator
 elevatortestworld.addEntity(stopWorld, stopElevator)
 elevatortestworld.addEntity(stopWorld, stopRider)
-stopRuntime = ElevatorRuntime(stopWorld, void, [], void, void)
+stopRuntime = ElevatorRuntime(stopWorld, void, [], void, void,
+  emptyWeaponContext())
 stopCapture = elevatortestpusher.capture(stopRuntime)
 elevatortestworld.runFrame(stopWorld)
 elevatorAssert(elevatortestpusher.resolve(stopRuntime, stopCapture) == 1 and
   stopElevator.origin.z == 1.0 and stopRider.origin.z == 2.0,
   "MOVETYPE_STOP did not carry its explicit groundentity rider")
+
+// A stationary missile contacted by a PUSH brush participates in the same
+// pushed[] transaction before its own missile physics runs.
+missileWorld = elevatortestworld.createWorld(void)
+missileWorld.callbacks.linkEntity = recordElevatorLink
+missileTrain = elevatortesttypes.createEntity(50, "func_train")
+missileTrain.solid = elevatortestconstants.SOLID_BSP
+missileTrain.moveType = elevatortestconstants.MOVETYPE_PUSH
+missileTrain.mins = elevatortestqtypes.Vec3(-8.0, -8.0, -8.0)
+missileTrain.maxs = elevatortestqtypes.Vec3(8.0, 8.0, 8.0)
+missileTrain.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+missile = elevatortestweapontypes.createProjectile(1, "rocket")
+missile.engineNumber = 51
+missile.moveType = elevatortestweaponconstants.MOVETYPE_FLYMISSILE
+missile.solid = elevatortestweaponconstants.SOLID_BBOX
+missile.origin = elevatortestqtypes.Vec3(7.5, 0.0, 0.0)
+missile.mins = elevatortestqtypes.Vec3(-0.5, -0.5, -0.5)
+missile.maxs = elevatortestqtypes.Vec3(0.5, 0.5, 0.5)
+elevatortestworld.addEntity(missileWorld, missileTrain)
+missileEdicts = array(52, void)
+missileEdicts[50] = elevatortestgametypes.zeroEdict(50)
+missileEdicts[51] = elevatortestgametypes.zeroEdict(51)
+missileRuntime = ElevatorRuntime(missileWorld, fallbackContext, [], void,
+  ElevatorExport(missileEdicts, 52), ElevatorWeaponContext([missile],
+    ElevatorWeaponCallbacks(ignoreElevatorEdictLink)))
+elevatorTraceMode = 3; elevatorTraceCount = 0
+missileCapture = elevatortestpusher.capture(missileRuntime)
+elevatortestworld.runFrame(missileWorld)
+elevatorAssert(elevatortestpusher.resolve(missileRuntime, missileCapture) == 1 and
+  missile.origin.x == 8.5,
+  "MOVETYPE_FLYMISSILE did not join the pusher transaction")
+
+// Due mover thinks run after a successful push, at the final transform.
+thinkWorld = elevatortestworld.createWorld(void)
+thinkWorld.callbacks.linkEntity = recordElevatorLink
+thinkTrain = elevatortesttypes.createEntity(60, "func_train")
+thinkTrain.moveType = elevatortestconstants.MOVETYPE_PUSH
+thinkTrain.solid = elevatortestconstants.SOLID_BSP
+thinkTrain.mins = elevatortestqtypes.Vec3(-8.0, -8.0, -8.0)
+thinkTrain.maxs = elevatortestqtypes.Vec3(8.0, 8.0, 8.0)
+thinkTrain.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+thinkTrain.think = recordElevatorThink
+thinkTrain.nextThink = 0.1
+elevatortestworld.addEntity(thinkWorld, thinkTrain)
+thinkRuntime = ElevatorRuntime(thinkWorld, void, [], void, void,
+  emptyWeaponContext())
+elevatorThinkCount = 0; elevatorThinkOrigin = 0.0
+thinkCapture = elevatortestpusher.capture(thinkRuntime)
+elevatortestpusher.deferDueThinks(thinkCapture, 0.1)
+elevatortestworld.runFrame(thinkWorld)
+elevatortestpusher.resolve(thinkRuntime, thinkCapture)
+elevatorAssert(elevatorThinkCount == 1 and elevatorThinkOrigin == 1.0,
+  "due pusher think did not run after successful movement")
+
+// A blocked transaction rolls the team back, delays every scheduled think by
+// one server frame, and does not execute the due callback on the blocked frame.
+blockedWorld = elevatortestworld.createWorld(void)
+blockedWorld.callbacks.linkEntity = recordElevatorLink
+blockedTrain = elevatortesttypes.createEntity(70, "func_train")
+blockedTrain.moveType = elevatortestconstants.MOVETYPE_PUSH
+blockedTrain.solid = elevatortestconstants.SOLID_BSP
+blockedTrain.mins = elevatortestqtypes.Vec3(-8.0, -8.0, -1.0)
+blockedTrain.maxs = elevatortestqtypes.Vec3(8.0, 8.0, 1.0)
+blockedTrain.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+blockedTrain.think = recordElevatorThink
+blockedTrain.nextThink = 0.1
+blockedRider = elevatortesttypes.createEntity(71, "blocked-rider")
+blockedRider.solid = elevatortestconstants.SOLID_BBOX
+blockedRider.moveType = elevatortestconstants.MOVETYPE_TOSS
+blockedRider.mins = elevatortestqtypes.Vec3(-1.0, -1.0, 0.0)
+blockedRider.maxs = elevatortestqtypes.Vec3(1.0, 1.0, 2.0)
+blockedRider.origin = elevatortestqtypes.Vec3(0.0, 0.0, 1.0)
+blockedRider.groundEntity = blockedTrain
+elevatortestworld.addEntity(blockedWorld, blockedTrain)
+elevatortestworld.addEntity(blockedWorld, blockedRider)
+blockedEdicts = array(72, void)
+blockedEdicts[70] = elevatortestgametypes.zeroEdict(70)
+blockedEdicts[71] = elevatortestgametypes.zeroEdict(71)
+blockedRuntime = ElevatorRuntime(blockedWorld, fallbackContext, [], void,
+  ElevatorExport(blockedEdicts, 72), emptyWeaponContext())
+elevatorTraceMode = 2; elevatorTraceCount = 0; elevatorThinkCount = 0
+blockedCapture = elevatortestpusher.capture(blockedRuntime)
+elevatortestpusher.deferDueThinks(blockedCapture, 0.1)
+elevatortestworld.runFrame(blockedWorld)
+elevatorAssert(elevatortestpusher.resolve(blockedRuntime, blockedCapture) == 0 and
+  blockedTrain.origin.x == 0.0 and elevatorThinkCount == 0 and
+  blockedTrain.nextThink == 0.2,
+  "blocked pusher did not roll back and delay its due think")
 
 print "gameplay_elevator_pusher_tests: PASS"

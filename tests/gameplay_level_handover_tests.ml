@@ -65,6 +65,8 @@ handoverSourcePlayer.gameplay.flags = handoverSourcePlayer.flags
 handoverSourcePlayer.gameplay.powerCubes = 0x15
 handoverSourcePlayer.persistent.score = 9
 handoverSourcePlayer.respawn.score = 17
+handoverSourcePlayer.persistent.gameHelpChanged = 3
+handoverSourcePlayer.persistent.helpChanged = 2
 handoverSourceRuntime.world.serverFlags = 0x2a
 handoverSourceRuntime.world.helpMessage1 = "find the warehouse data cd"
 handoverSourceRuntime.world.helpMessage2 = "use security terminals"
@@ -113,6 +115,9 @@ handoverAssert(handoverTargetPlayer.gameplay.powerCubes == 0x15,
   "power cube handover")
 handoverAssert(handoverTargetPlayer.persistent.score == 9 and
   handoverTargetPlayer.respawn.score == 17, "score handover")
+handoverAssert(handoverTargetPlayer.persistent.gameHelpChanged == 3 and
+  handoverTargetPlayer.persistent.helpChanged == 2,
+  "player help counters handover")
 handoverAssert(handoverTargetRuntime.world.serverFlags == 0x2a,
   "server flags handover")
 handoverAssert(handoverTargetRuntime.world.helpMessage1 ==

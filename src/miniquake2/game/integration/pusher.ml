@@ -18,6 +18,9 @@ struct PusherSnapshot
   entity
   origin
   angles
+  nextThink
+  think
+  thinkDue
 end struct
 
 // Store body snapshot data.
@@ -60,9 +63,16 @@ end function
 
 // Report whether is pusher.
 function isPusher(entity)
-  return entity.number > 0 and entity.inUse and entity.solid == pushworldconstants.SOLID_BSP and
-    (entity.moveType == pushworldconstants.MOVETYPE_PUSH or entity.moveType == pushworldconstants.MOVETYPE_STOP) and
-    entity.maxs.x > entity.mins.x and entity.maxs.y > entity.mins.y and entity.maxs.z > entity.mins.z
+  return entity.number > 0 and entity.inUse and
+    (entity.moveType == pushworldconstants.MOVETYPE_PUSH or
+     entity.moveType == pushworldconstants.MOVETYPE_STOP)
+end function
+
+// Report whether this mover has a linked brush volume that can contact bodies.
+function pusherCanContactBodies(entity)
+  return entity.solid == pushworldconstants.SOLID_BSP and
+    entity.maxs.x > entity.mins.x and entity.maxs.y > entity.mins.y and
+    entity.maxs.z > entity.mins.z
 end function
 
 // Return the pusher master number.
@@ -161,15 +171,31 @@ function monsterBodyInto(snapshot, actor)
     bodyGroundNumber(actor.groundEntity), monsterEdict.clipMask, 0)
 end function
 
+// Populate a MOVETYPE_FLYMISSILE/BOUNCE projectile body destination.
+function projectileBodyInto(snapshot, runtime, projectile)
+  projectileEdict = void
+  if runtime.exportTable is not void and projectile.engineNumber >= 0 and
+      projectile.engineNumber < runtime.exportTable.numEdicts then
+    projectileEdict = runtime.exportTable.edicts[projectile.engineNumber]
+  end if
+  return bodySnapshotInto(snapshot, "projectile", projectile,
+    projectileEdict, projectile.engineNumber, projectile.origin,
+    projectile.angles, projectile.mins, projectile.maxs, projectile.solid,
+    bodyGroundNumber(projectile.groundEntity), projectile.clipMask, 0)
+end function
+
 // Populate the pusher snapshot destination.
 function pusherSnapshotInto(snapshot, entity)
   if snapshot is void then
     snapshot = PusherSnapshot(entity, pushqtypes.zeroVec3(),
-      pushqtypes.zeroVec3())
+      pushqtypes.zeroVec3(), 0.0, void, false)
   end if
   snapshot.entity = entity
   pushCopyInto(snapshot.origin, entity.origin)
   pushCopyInto(snapshot.angles, entity.angles)
+  snapshot.nextThink = entity.nextThink
+  snapshot.think = entity.think
+  snapshot.thinkDue = false
   return snapshot
 end function
 
@@ -208,6 +234,13 @@ function capture(runtime)
   for each countedActor in runtime.monsters
     if countedActor.edict.inUse and
         countedActor.edict.solid != pushworldconstants.SOLID_NOT then
+      bodyCount = bodyCount + 1
+    end if
+  end for
+  for each countedProjectile in runtime.weaponContext.projectiles
+    if countedProjectile.inUse and
+        countedProjectile.engineNumber >= 0 and
+        countedProjectile.solid != pushworldconstants.SOLID_NOT then
       bodyCount = bodyCount + 1
     end if
   end for
@@ -255,7 +288,29 @@ function capture(runtime)
       bodyIndex = bodyIndex + 1
     end if
   end for
+  for each projectile in runtime.weaponContext.projectiles
+    if projectile.inUse and projectile.engineNumber >= 0 and
+        projectile.solid != pushworldconstants.SOLID_NOT then
+      bodies[bodyIndex] = projectileBodyInto(bodies[bodyIndex], runtime,
+        projectile)
+      bodyIndex = bodyIndex + 1
+    end if
+  end for
   return captureState
+end function
+
+// Defer due mover thinks until the enclosing SV_Push transaction succeeds.
+function deferDueThinks(captureState, targetTime)
+  deferred = 0
+  for each snapshot in captureState.pushers
+    if snapshot.nextThink > 0.0 and snapshot.nextThink <= targetTime and
+        snapshot.think is not void then
+      snapshot.thinkDue = true
+      snapshot.entity.nextThink = 0.0
+      deferred = deferred + 1
+    end if
+  end for
+  return deferred
 end function
 
 // Report whether moved.
@@ -323,13 +378,17 @@ end function
 
 // Return the current origin.
 function currentOrigin(body)
-  if body.kind == "world" then return body.value.origin end if
+  if body.kind == "world" or body.kind == "projectile" then
+    return body.value.origin
+  end if
   return body.edict.state.origin
 end function
 
 // Return the current angles.
 function currentAngles(body)
-  if body.kind == "world" then return body.value.angles end if
+  if body.kind == "world" or body.kind == "projectile" then
+    return body.value.angles
+  end if
   return body.edict.state.angles
 end function
 
@@ -345,7 +404,8 @@ end function
 
 // Report whether body can be pushed.
 function bodyCanBePushed(body)
-  if body.kind == "player" or body.kind == "monster" then return true end if
+  if body.kind == "player" or body.kind == "monster" or
+      body.kind == "projectile" then return true end if
   if body.kind != "world" then return false end if
   return worldBodyCanBePushed(body.value)
 end function
@@ -367,7 +427,8 @@ end function
 function setBody(body, origin, angles)
   newOrigin = pushCopy(origin)
   newAngles = pushCopy(angles)
-  if body.kind == "world" then body.value.origin = newOrigin; body.value.angles = newAngles
+  if body.kind == "world" or body.kind == "projectile" then
+    body.value.origin = newOrigin; body.value.angles = newAngles
   else body.edict.state.origin = newOrigin; body.edict.state.angles = newAngles
   end if
   return true
@@ -387,6 +448,8 @@ function linkBody(runtime, body)
   if runtime.playerContext is void or runtime.exportTable is void then return true end if
   if body.kind == "world" then
     runtime.world.callbacks.linkEntity(body.value)
+  else if body.kind == "projectile" then
+    runtime.weaponContext.callbacks.linkEntity(body.value)
   else
     runtime.playerContext.imports.linkEntity(body.edict)
   end if
@@ -448,7 +511,8 @@ end function
 // Clear ground unless riding.
 function clearGroundUnlessRiding(body, pusherSnapshot)
   if body.groundNumber == pusherSnapshot.entity.number then return false end if
-  if body.kind == "world" then body.value.groundEntity = void
+  if body.kind == "world" or body.kind == "projectile" then
+    body.value.groundEntity = void
   else body.value.groundEntity = void
   end if
   return true
@@ -528,6 +592,29 @@ function proxyFor(body)
   return proxy
 end function
 
+// Finish a pusher team's deferred thinks with g_phys.c ordering.
+function finishTeamThinks(runtime, team, blocked)
+  if blocked then
+    for each snapshot in team
+      if snapshot.nextThink > 0.0 then
+        snapshot.entity.nextThink = snapshot.nextThink +
+          runtime.world.frameTime
+      end if
+    end for
+    return false
+  end if
+  for each snapshot in team
+    if snapshot.thinkDue and snapshot.entity.inUse and
+        snapshot.think is not void then
+      snapshot.entity.nextThink = 0.0
+      runtime.world.currentEntity = snapshot.entity
+      snapshot.think(snapshot.entity, runtime.world)
+      runtime.world.currentEntity = void
+    end if
+  end for
+  return true
+end function
+
 // Resolve team.
 function resolveTeam(runtime, captureState, masterNumber)
   teamCount = 0
@@ -538,7 +625,6 @@ function resolveTeam(runtime, captureState, masterNumber)
       if moved(countedSnapshot) then anyMoved = true end if
     end if
   end for
-  if anyMoved == false then return false end if
   team = array(teamCount, void)
   teamIndex = 0
   for each snapshot in captureState.pushers
@@ -547,6 +633,10 @@ function resolveTeam(runtime, captureState, masterNumber)
       teamIndex = teamIndex + 1
     end if
   end for
+  if anyMoved == false then
+    finishTeamThinks(runtime, team, false)
+    return false
+  end if
 
   // g_phys.c::SV_Push publishes every moving team part before it tests riders.
   // Body traces must see the final inline hull, and a successful transaction
@@ -561,7 +651,11 @@ function resolveTeam(runtime, captureState, masterNumber)
     if teamHas(team, body.number) == false then
       rider = void
       for each pusherSnapshot in team
-        if standingOn(body, pusherSnapshot) then rider = pusherSnapshot; break end if
+        if pusherCanContactBodies(pusherSnapshot.entity) and
+            standingOn(body, pusherSnapshot) then
+          rider = pusherSnapshot
+          break
+        end if
       end for
       if rider is not void then
         destination = carryOrigin(body, rider)
@@ -581,8 +675,13 @@ function resolveTeam(runtime, captureState, masterNumber)
         liveBodyAngles = currentAngles(body)
         bodyBox = bodyBoundsAt(body, liveBodyOrigin, liveBodyAngles)
         for each pusherSnapshot in team
-          pusherBox = rotatedBounds(pusherSnapshot.entity.origin, pusherSnapshot.entity.angles, pusherSnapshot.entity.mins, pusherSnapshot.entity.maxs)
-          if strictOverlap(bodyBox, pusherBox) then
+          pusherBox = void
+          if pusherCanContactBodies(pusherSnapshot.entity) then
+            pusherBox = rotatedBounds(pusherSnapshot.entity.origin,
+              pusherSnapshot.entity.angles, pusherSnapshot.entity.mins,
+              pusherSnapshot.entity.maxs)
+          end if
+          if pusherBox is not void and strictOverlap(bodyBox, pusherBox) then
             if bodyIntersectsFinalPusher(runtime, body) == false then
               continue
             else if pushBody(runtime, body, pusherSnapshot) then
@@ -598,7 +697,10 @@ function resolveTeam(runtime, captureState, masterNumber)
     end if
     if blocker is not void then break end if
   end for
-  if blocker is void then return true end if
+  if blocker is void then
+    finishTeamThinks(runtime, team, false)
+    return true
+  end if
 
   for each snapshot in team
     restoredOrigin = pushCopy(snapshot.origin)
@@ -615,6 +717,7 @@ function resolveTeam(runtime, captureState, masterNumber)
     restorePlayerDeltaYaw(body)
   end for
   blockerProxy = proxyFor(blocker)
+  finishTeamThinks(runtime, team, true)
   pushworldcore.blockedEntity(runtime.world, blockedPusher, blockerProxy)
   return false
 end function

@@ -31,8 +31,10 @@ function main(args)
     "Authored Unit", "worldspawn level title survives session synchronization")
   assertEqual(tsession.run(session, 2), 2, "fixed-step run")
   assertEqual(session.frameNumber, 2, "server frame count")
-  assertEqual(session.gameExport.numEdicts, 5, "client-slot-aware map edicts")
-  assertEqual(session.gameExport.edicts[4].state.number, 4, "monster edict mapping")
+  assertEqual(session.gameExport.numEdicts, 13,
+    "client/body-queue-aware map edicts")
+  assertEqual(session.gameExport.edicts[12].state.number, 12,
+    "monster edict mapping")
   checksumBytes = bytes([1, 2, 3, 4, 5, 6, 7, 8])
   expectedChecksum = tchecksum.blockChecksum(checksumBytes, 0,
     len(checksumBytes)) + ""

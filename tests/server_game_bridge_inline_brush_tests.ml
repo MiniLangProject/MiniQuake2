@@ -8,6 +8,7 @@ import miniquake2.game.null_game as ingameapi
 import miniquake2.game.ai.constants as inaiconstants
 import miniquake2.game.constants as ingameconstants
 import miniquake2.game.types as ingametypes
+import miniquake2.game.player.constants as inplayerconstants
 import miniquake2.collision.model as incollision
 import miniquake2.format.constants as informatconstants
 import miniquake2.format.types as informattypes
@@ -102,6 +103,7 @@ end function
 // Return the inline repeated brush lifetime value.
 function inlineRepeatedBrushLifetime(runtime, imports, game)
   entityText = inlineRepeatedBrushText()
+  firstMapEdict = 2 + inplayerconstants.BODY_QUEUE_SIZE
   iteration = 0
   while iteration < 96
     // Match the per-level bridge tables discarded by resetBridgeLevel while
@@ -111,8 +113,9 @@ function inlineRepeatedBrushLifetime(runtime, imports, game)
     runtime.soundNames = array(inqconstants.MAX_SOUNDS, "")
     runtime.imageNames = array(inqconstants.MAX_IMAGES, "")
     game.spawnEntities("inline-repeat-" + iteration, entityText, "")
-    inlineAssert(game.numEdicts == 34, "repeated brush edict count changed")
-    index = 2
+    inlineAssert(game.numEdicts == firstMapEdict + 32,
+      "repeated brush edict count changed")
+    index = firstMapEdict
     while index < game.numEdicts
       brush = game.edicts[index]
       inlineAssert(typeof(brush) == "struct" and typeof(brush.state) == "struct",
@@ -146,15 +149,19 @@ runtime.game = game
 ingameapi.configureMaxClients(1)
 game.init()
 game.spawnEntities("inline-fixture", "{\"classname\" \"worldspawn\"}{\"classname\" \"func_door\" \"model\" \"*1\" \"origin\" \"10 0 0\" \"angle\" \"0\"}", "")
-brush = game.edicts[2]
+firstMapEdict = 2 + inplayerconstants.BODY_QUEUE_SIZE
+brush = game.edicts[firstMapEdict]
 
 inlineAssert(brush.headNode == 1, "setmodel adopts inline hull headnode")
 inlineAssert(brush.mins.x == -1.0 and brush.maxs.x == 1.0, "setmodel adopts inline hull bounds")
-inlineAssert(brush.size.x == 2.0 and brush.areaNumber == 1 and game.numEdicts == 3,
-  "Game API binds compact brush edict and BSP area")
+inlineAssert(brush.size.x == 2.0 and brush.areaNumber == 1 and
+  game.numEdicts == firstMapEdict + 1,
+  "Game API binds stock body queue plus brush edict and BSP area")
 hit = imports.trace(inqtypes.Vec3(14.0, 0.0, 0.0), inqtypes.zeroVec3(), inqtypes.zeroVec3(),
   inqtypes.Vec3(6.0, 0.0, 0.0), void, inqconstants.MASK_SOLID)
-inlineAssert(hit.entity is not void and hit.entity.state.number == 2, "trace hits dynamic inline brush edict")
+inlineAssert(hit.entity is not void and
+  hit.entity.state.number == firstMapEdict,
+  "trace hits dynamic inline brush edict")
 inlineNear(hit.endPosition.x, 11.03125, 0.0001, "translated inline brush hit position")
 inlineAssert(hit.surface.name == "inline/brush", "inline brush surface propagated")
 inlineAssert((imports.pointContents(inqtypes.Vec3(9.5, 0.0, 0.0)) & informatconstants.CONTENTS_SOLID) != 0, "dynamic inline brush contributes point contents")
@@ -271,7 +278,7 @@ aiClient = game.edicts[1]
 inlineAssert(game.clientConnect(aiClient, "\\name\\InlineRanger\\skin\\male/grunt"),
   "inline AI client connect")
 inlineAssert(game.clientBegin(aiClient), "inline AI client begin")
-aiDoor = game.edicts[3]
+aiDoor = game.edicts[firstMapEdict + 1]
 aiDoor.mins = inqtypes.Vec3(-1.0, -32.0, -64.0)
 aiDoor.maxs = inqtypes.Vec3(1.0, 32.0, 64.0)
 imports.linkEntity(aiDoor)
@@ -331,8 +338,9 @@ moverFixture = "{\"classname\" \"worldspawn\"}" +
   "{\"classname\" \"func_rotating\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
   "{\"classname\" \"func_train\" \"model\" \"*1\" \"origin\" \"10 0 0\"}"
 game.spawnEntities("inline-mover-families", moverFixture, "")
-inlineAssert(game.numEdicts == 8, "moving-brush family edict count")
-moverIndex = 2
+inlineAssert(game.numEdicts == firstMapEdict + 6,
+  "moving-brush family edict count")
+moverIndex = firstMapEdict
 while moverIndex < game.numEdicts
   mover = game.edicts[moverIndex]
   inlineAssert(mover.state.modelIndex > 0 and mover.numClusters == 1 and

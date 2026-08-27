@@ -148,8 +148,14 @@ function testKillBoxAndInfoNotNull()
   world = stockRareWorld()
   killbox = stockrarecore.spawnEntity(world, "func_killbox")
   killbox.model = "*7"
+  killbox.solid = stockrareconstants.SOLID_BSP
+  killbox.moveType = stockrareconstants.MOVETYPE_PUSH
   stockRareAssert(stockraremovers.spawnKillBox(killbox, world) == killbox, "func_killbox spawns")
   stockRareAssertEqual(killbox.serverFlags, stockrareconstants.SVF_NOCLIENT, "func_killbox is hidden")
+  stockRareAssertEqual(killbox.solid, stockrareconstants.SOLID_NOT,
+    "func_killbox is not a movement obstacle")
+  stockRareAssertEqual(killbox.moveType, stockrareconstants.MOVETYPE_NONE,
+    "func_killbox is stationary")
   stockRareAssert(killbox.modelIndex > 0, "func_killbox model callback")
   stockrarecore.useEntity(world, killbox, void, killbox)
   stockRareAssertEqual(stockRareKillBoxes, 1, "func_killbox use delegates KillBox")

@@ -58,8 +58,9 @@ function main(args)
   api.init()
   api.spawnEntities("base1", entityText(), "")
   assertEqual(api.edicts[0].state.number, 0, "world edict")
-  assertEqual(api.edicts[5].state.number, 5, "map entities follow client slots")
-  assertEqual(api.edicts[8].state.number, 8, "monster edict mapping")
+  assertEqual(api.edicts[13].state.number, 13,
+    "map entities follow client and body-queue slots")
+  assertEqual(api.edicts[16].state.number, 16, "monster edict mapping")
 
   client = e2egame.edictAt(1)
   assertTrue(api.clientConnect(client, "\\name\\Ranger\\skin\\male/grunt"), "client connect")
@@ -77,7 +78,7 @@ function main(args)
   assertEqual(base.monsters[0].thinkKind, "monster-think", "monster frame")
   assertEqual(players.frameNumber, 1, "player frame")
   assertTrue(client.state.origin.x != 16.0 or client.state.origin.y != 24.0, "PMove handoff")
-  assertEqual(api.numEdicts, 16, "dynamic door trigger owns an engine edict")
+  assertEqual(api.numEdicts, 24, "dynamic door trigger owns an engine edict")
   assertTrue(e2eintegration.findWorldByClass(base, "door_trigger") is not void,
     "untargeted door creates its live trigger")
 

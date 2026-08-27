@@ -37,6 +37,8 @@ struct PlayerPersistent
   maxHealth
   score
   selectedItem
+  gameHelpChanged
+  helpChanged
 end struct
 
 // Store player respawn data.
@@ -165,6 +167,7 @@ struct PlayerContext
   dmFlags
   time
   frameNumber
+  helpChanged
   gravity
   intermissionTime
   exitIntermission
@@ -231,7 +234,8 @@ end function
 
 // Return the zero persistent value.
 function zeroPersistent()
-  return PlayerPersistent("", "unnamed", "male/grunt", false, 0, false, 0, 100, 0, 0)
+  return PlayerPersistent("", "unnamed", "male/grunt", false, 0, false,
+    0, 100, 0, 0, 0, 0)
 end function
 
 // Return the zero respawn value.
@@ -294,7 +298,7 @@ end function
 function createContext(imports, registry, pmoveTrace)
   return PlayerContext(
     imports, registry, [], [], false, false, 0,
-    0.0, 0, gplayerconstants.DEFAULT_GRAVITY, 0.0, false, "",
+    0.0, 0, 0, gplayerconstants.DEFAULT_GRAVITY, 0.0, false, "",
     "", "", 4, 0, 0.0, "", "", "",
     void, void, pmoveTrace, imports.pointContents, imports.pmove,
     void, void, void, void, void, void, void, [], defaultViewSettings(), void

@@ -132,6 +132,11 @@ player.gameplay.inventory.selectedItem = 2
 player.gameplay.silencerShots = 17
 player.gameplay.powerCubes = 5
 player.respawn.cooperativeInventory[2] = 11
+player.persistent.gameHelpChanged = 4
+player.persistent.helpChanged = 2
+player.edict.state.frame = 166
+privateSavedBody = privaterestoreintegration.copyPlayerBody(runtime, player)
+context.imports.linkEntity(player.edict)
 privateSaveShells = privaterestoreitems.findByPickupName(context.registry,
   "Shells")
 player.gameplay.inventory.counts[privateSaveShells.index] = 20
@@ -262,6 +267,14 @@ restoreAssert(restoredPlayer.gameplay.inventory.maxBullets == 300 and
   "private v18 restores complete item rule state")
 restoreAssert(restoredPlayer.gameplay.inventory.counts[privateSaveShells.index] == 10,
   "dropped-item inventory persisted")
+restoreAssert(restoredRuntime.bodyQueueIndex == 1 and
+  restoredRuntime.bodyQueue[0].number == 5 and
+  restoredRuntime.bodyQueue[0].inUse and
+  api.edicts[5].state.frame == 166,
+  "private v19 restores body queue ring and corpse state")
+restoreAssert(restoredPlayer.persistent.gameHelpChanged == 4 and
+  restoredPlayer.persistent.helpChanged == 2,
+  "private v19 restores player help counters")
 api.runFrame(); api.runFrame(); api.runFrame()
 restoreAssert(restoredDoor.angles.y != savedDoorAngle, "restored mover continues simulation")
 privateMedicResumeFrames = 0

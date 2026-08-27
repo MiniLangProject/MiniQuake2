@@ -1555,7 +1555,18 @@ function runPlayInputSmoke(baseDirectory, mapName, commandSteps)
   appplay.runUntilActive(appPhysicalInputSession, 512)
   appPhysicalInputReport = appcampaignplaytest.drive(appPhysicalInputSession, commandSteps)
   appplay.shutdown(appPhysicalInputSession)
-  if appPhysicalInputReport.planarDisplacement <= 64.0 then return error(9923, "play input smoke did not move") end if
+  if appPhysicalInputReport.planarDisplacement <= 64.0 then
+    return error(9923, "play input smoke did not move: start=" +
+      appPhysicalInputReport.startOrigin.x + "," +
+      appPhysicalInputReport.startOrigin.y + "," +
+      appPhysicalInputReport.startOrigin.z + " end=" +
+      appPhysicalInputReport.endOrigin.x + "," +
+      appPhysicalInputReport.endOrigin.y + "," +
+      appPhysicalInputReport.endOrigin.z + " health=" +
+      appPhysicalInputReport.health + " fire=" +
+      appPhysicalInputReport.fireCount + " snapshots=" +
+      appPhysicalInputReport.snapshots)
+  end if
   if appPhysicalInputReport.fireCount < 1 then return error(9924, "play input smoke did not fire") end if
   if appPhysicalInputReport.snapshots < 1 then return error(9925, "play input smoke did not receive snapshots") end if
   if appPhysicalInputReport.rejectedPackets != 0 then return error(9926, "play input smoke rejected packets") end if

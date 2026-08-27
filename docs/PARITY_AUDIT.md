@@ -156,7 +156,7 @@ Server menu provided LAN discovery/address-book entries rather than an
 internet master browser, so absence of a modern public-browser service is not
 a parity gap.
 
-## Implemented behavior with evidence still open
+## Locally implemented; external evidence still open
 
 The following areas still need broader evidence before a 1:1 claim:
 
@@ -175,14 +175,30 @@ renderer, non-Windows targets and additional modern render backends remain
 outside the baseq2 compatibility release. They must not be counted as gaps in
 the scoped Quake II 3.19 base-game port.
 
-## Remaining closure order
+## Closed in the 2026-08-27 gameplay follow-up
 
-1. Integrate the eight reserved Body Queue edicts and generic freed-edict reuse
-   with numbering, snapshots, collision, references and private saves.
-2. Put `FLYMISSILE` projectiles and due mover-think ordering into the shared
-   pusher rollback transaction.
-3. Add separate player-persistent help-change counters.
-4. Run the external-process, full-campaign, visual and hardware evidence gates.
+- The eight-entry Body Queue now occupies the original fixed range immediately
+  after the client edicts. Corpse copies retain presentation, bounds, collision,
+  damage and gib behavior; the ring position survives private saves.
+- All dynamic gameplay paths use one `G_Spawn`/`G_FreeEdict`-equivalent pool.
+  Freed slots retain the original startup relaxation and 0.5-second reuse
+  delay. Inactive managed records retain their historical number for private
+  save reconstruction but are excluded from live lookup and publication when
+  that number is reused.
+- `FLYMISSILE` projectiles participate in the same pusher transaction as
+  players, monsters and toss bodies. Due mover thinks execute only after a
+  successful push; a blocked team rolls back and delays its scheduled thinks
+  by one server frame.
+- `game_helpchanged` and `helpchanged` are player-persistent fields. Help-page
+  acknowledgement, blinking F1 icon and the three reminder sounds no longer
+  share one global client state and survive save/restore and level handover.
+- Stock `func_killbox` inline models retain bounds for use-time telefragging but
+  stay `SOLID_NOT`/`MOVETYPE_NONE`; they no longer block the retail
+  `biggun$bstart` player hull.
+
+## Remaining external validation
+
+1. Run the external-process, full-campaign, visual and hardware evidence gates.
 
 Every functional block must retain the full MiniLang build, asset-free suite,
 relevant retail smoke and source-integrity manifest before it is marked closed.
