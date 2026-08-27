@@ -7,16 +7,19 @@ import miniquake2.network.constants as tcsnc
 import miniquake2.runtime.client_session as tclient
 import miniquake2.runtime.server_session as tserver
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9995, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9996, name + ": expected true") end if
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 client/server session tests starting: 1"
   text = "{ \"classname\" \"worldspawn\" } " +

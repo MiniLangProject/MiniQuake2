@@ -14,6 +14,7 @@ import miniquake2.format.wal as fwal
 import miniquake2.renderer.geometry as rgeom
 import miniquake2.renderer.types as rt
 
+// Store model asset data.
 struct ModelAsset
   handle
   kind
@@ -23,6 +24,7 @@ struct ModelAsset
   frameBounds
 end struct
 
+// Store picture asset data.
 struct PictureAsset
   handle
   kind
@@ -33,6 +35,7 @@ struct PictureAsset
   usage
 end struct
 
+// Store asset registry data.
 struct AssetRegistry
   generation
   nextId
@@ -43,10 +46,12 @@ end struct
 
 const MAX_REGISTERED_RESOURCES = 4096
 
+// Create state.
 function create()
   return AssetRegistry(1, 1, [], [], array(MAX_REGISTERED_RESOURCES))
 end function
 
+// Return the ends with value.
 function endsWith(value, suffix)
   left = bytes(qtext.lower(value))
   right = bytes(qtext.lower(suffix))
@@ -60,12 +65,14 @@ function endsWith(value, suffix)
   return true
 end function
 
+// Handle next.
 function nextHandle(registry, kind, name)
   handle = rt.ResourceHandle(kind, registry.nextId, name, registry.generation)
   registry.nextId = registry.nextId + 1
   return handle
 end function
 
+// Find model.
 function findModel(registry, name)
   for each asset in registry.models
     if qtext.equalInsensitive(asset.handle.name, name) then return asset end if
@@ -73,6 +80,7 @@ function findModel(registry, name)
   return void
 end function
 
+// Find picture.
 function findPicture(registry, name)
   for each asset in registry.pictures
     if qtext.equalInsensitive(asset.handle.name, name) then return asset end if
@@ -80,6 +88,7 @@ function findPicture(registry, name)
   return void
 end function
 
+// Return the store resource value.
 function storeResource(registry, asset)
   id = asset.handle.id
   if id <= 0 or id >= len(registry.resourcesById) then
@@ -89,6 +98,7 @@ function storeResource(registry, asset)
   return asset
 end function
 
+// Find model by handle.
 function inline findModelByHandle(registry, handle)
   if typeof(handle) != "struct" or handle.kind != "model" or handle.generation != registry.generation then return void end if
   if handle.id <= 0 or handle.id >= len(registry.resourcesById) then return void end if
@@ -98,12 +108,14 @@ function inline findModelByHandle(registry, handle)
   return asset
 end function
 
+// Handle model for.
 function modelForHandle(registry, handle)
   asset = findModelByHandle(registry, handle)
   if asset is void then return error(9653, "renderer model handle is stale or unknown") end if
   return asset
 end function
 
+// Find picture by handle.
 function inline findPictureByHandle(registry, handle)
   if typeof(handle) != "struct" or handle.kind != "pic" or handle.generation != registry.generation then return void end if
   if handle.id <= 0 or handle.id >= len(registry.resourcesById) then return void end if
@@ -113,12 +125,14 @@ function inline findPictureByHandle(registry, handle)
   return asset
 end function
 
+// Handle picture for.
 function pictureForHandle(registry, handle)
   asset = findPictureByHandle(registry, handle)
   if asset is void then return error(9654, "renderer picture handle is stale or unknown") end if
   return asset
 end function
 
+// Register md 2 skins.
 function registerMd2Skins(registry, imports, model)
   skins = array(len(model.skins))
   skinIndex = 0
@@ -132,6 +146,7 @@ function registerMd2Skins(registry, imports, model)
   return skins
 end function
 
+// Register sprite frames.
 function registerSpriteFrames(registry, imports, model)
   frames = array(len(model.frames))
   frameIndex = 0
@@ -146,6 +161,7 @@ function registerSpriteFrames(registry, imports, model)
   return frames
 end function
 
+// Return the md 2 frame bounds.
 function md2FrameBounds(model)
   bounds = array(len(model.frames))
   frameIndex = 0
@@ -156,6 +172,7 @@ function md2FrameBounds(model)
   return bounds
 end function
 
+// Return the adopt bsp model value.
 function adoptBspModel(registry, map, name)
   existing = findModel(registry, name)
   if existing is not void then
@@ -172,6 +189,7 @@ function adoptBspModel(registry, map, name)
   return asset
 end function
 
+// Load bytes.
 function loadBytes(imports, name)
   data = imports.fsLoadFile(name)
   if typeof(data) != "bytes" then return error(9650, "renderer file not found: " + name) end if
@@ -187,7 +205,9 @@ function pictureFileName(name)
   return "pics/" + name + ".pcx"
 end function
 
+// Register model.
 function registerModel(registry, imports, name)
+  // Keep register model phases explicit: validate inputs, update owned state, then publish the result.
   existing = findModel(registry, name)
   if existing is not void then return existing end if
   asset = void
@@ -229,6 +249,7 @@ function registerModel(registry, imports, name)
   return asset
 end function
 
+// Register picture.
 function registerPicture(registry, imports, name)
   existing = findPicture(registry, name)
   if existing is not void then return existing end if
@@ -247,6 +268,7 @@ function registerPicture(registry, imports, name)
   return asset
 end function
 
+// Begin registration.
 function beginRegistration(registry)
   registry.generation = registry.generation + 1
   registry.nextId = 1

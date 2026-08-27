@@ -15,6 +15,7 @@ import miniquake2.qcommon.types as soakqt
 import miniquake2.runtime.media_sequence as soakmedia
 import miniquake2.runtime.play_session as soakplay
 
+// Store session soak result data.
 struct SessionSoakResult
   frames
   elapsedMilliseconds
@@ -31,6 +32,7 @@ struct SessionSoakResult
   commandBufferBytes
 end struct
 
+// Return the command for frame value.
 function commandForFrame(frame)
   forwardMove = 200
   sideMove = 0
@@ -44,6 +46,7 @@ function commandForFrame(frame)
     forwardMove, sideMove, 0, 0, 0)
 end function
 
+// Run owned.
 function runOwned(session, frameLimit, handlesBefore)
   if typeof(frameLimit) != "int" or frameLimit < 1 or frameLimit > 1000000 then
     return error(9930, "session soak frame count outside [1,1000000]")
@@ -115,6 +118,7 @@ function runOwned(session, frameLimit, handlesBefore)
     commandBufferBytes)
 end function
 
+// Run core.
 function runCore(mapName, entityText, collision, frameLimit)
   handlesBefore = soaksystem.handleCount()
   session = soakplay.createCore(mapName, entityText, collision,
@@ -122,6 +126,7 @@ function runCore(mapName, entityText, collision, frameLimit)
   return runOwned(session, frameLimit, handlesBefore)
 end function
 
+// Run retail.
 function runRetail(baseDirectory, mapName, frameLimit)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9934, "retail session soak requires an install root")

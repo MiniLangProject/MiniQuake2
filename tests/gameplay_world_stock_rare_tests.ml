@@ -19,20 +19,24 @@ stockRareRadiusAmount = 0
 stockRareEffects = []
 stockRareTargetUses = 0
 
+// Assert the stock rare test condition.
 function stockRareAssert(condition, label)
   if condition == false then return error(9970, label) end if
 end function
 
+// Assert the stock rare equal test condition.
 function stockRareAssertEqual(actual, expected, label)
   if actual != expected then return error(9971, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the stock rare near test condition.
 function stockRareAssertNear(actual, expected, tolerance, label)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
   if difference > tolerance then return error(9972, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Set stock rare model.
 function stockRareSetModel(entity, modelName)
   global stockRareModels
   stockRareModels = stockRareModels + [[entity.number, modelName]]
@@ -40,24 +44,28 @@ function stockRareSetModel(entity, modelName)
   return true
 end function
 
+// Link stock rare.
 function stockRareLink(entity)
   global stockRareLinks
   stockRareLinks = stockRareLinks + 1
   return true
 end function
 
+// Kill stock rare box.
 function stockRareKillBox(entity)
   global stockRareKillBoxes
   stockRareKillBoxes = stockRareKillBoxes + 1
   return true
 end function
 
+// Return the stock rare light style value.
 function stockRareLightStyle(style, pattern)
   global stockRareLightStyles
   stockRareLightStyles = stockRareLightStyles + [[style, pattern]]
   return true
 end function
 
+// Return the stock rare radius value.
 function stockRareRadius(inflictor, attacker, amount, radius, means)
   global stockRareRadiusMeans, stockRareRadiusAmount
   stockRareRadiusMeans = means
@@ -65,18 +73,21 @@ function stockRareRadius(inflictor, attacker, amount, radius, means)
   return true
 end function
 
+// Return the stock rare effect value.
 function stockRareEffect(kind, origin, style, count)
   global stockRareEffects
   stockRareEffects = stockRareEffects + [[kind, style, count]]
   return true
 end function
 
+// Use stock rare.
 function stockRareUse(entity, other, activator, world)
   global stockRareTargetUses
   stockRareTargetUses = stockRareTargetUses + 1
   return true
 end function
 
+// Return the stock rare world value.
 function stockRareWorld()
   callbacks = stockrarecore.defaultCallbacks()
   callbacks.setModel = stockRareSetModel
@@ -88,6 +99,7 @@ function stockRareWorld()
   return stockrarecore.createWorld(callbacks)
 end function
 
+// Verify target light ramp.
 function testTargetLightRamp()
   global stockRareLightStyles
   stockRareLightStyles = []
@@ -129,6 +141,7 @@ function testTargetLightRamp()
   stockRareAssertEqual(stockraretargets.spawnTargetLightRamp(deathmatch, world, true), false, "deathmatch lightramp removed")
 end function
 
+// Verify kill box and info not null.
 function testKillBoxAndInfoNotNull()
   global stockRareKillBoxes
   stockRareKillBoxes = 0
@@ -151,6 +164,7 @@ function testKillBoxAndInfoNotNull()
   stockRareAssert(marker.absoluteMins != marker.origin, "info_notnull stores a stable vector copy")
 end function
 
+// Verify animated set pieces.
 function testAnimatedSetPieces()
   global stockRareModels
   stockRareModels = []
@@ -192,6 +206,7 @@ function testAnimatedSetPieces()
   stockRareAssertEqual(len(stockRareModels), 6, "all animated set-piece models registered")
 end function
 
+// Verify viper bomb lifecycle.
 function testViperBombLifecycle()
   global stockRareRadiusMeans, stockRareRadiusAmount, stockRareEffects, stockRareTargetUses
   stockRareRadiusMeans = ""; stockRareRadiusAmount = 0; stockRareEffects = []; stockRareTargetUses = 0
@@ -244,6 +259,7 @@ function testViperBombLifecycle()
   stockRareAssertEqual(stockraremisc.spawnViper(badViper, emptyWorld), false, "misc_viper missing path rejected")
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   testTargetLightRamp()
   testKillBoxAndInfoNotNull()

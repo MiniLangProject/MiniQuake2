@@ -10,6 +10,7 @@ import miniquake2.game.player.constants as gplayerconstants
 import miniquake2.game.player.hud as gplayerhud
 import miniquake2.game.player.rules as gplayerrules
 
+// Run player frame.
 function RunPlayerFrame(context)
   context.frameNumber = context.frameNumber + 1
   context.time = context.frameNumber * gplayerconstants.FRAME_TIME

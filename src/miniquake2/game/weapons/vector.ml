@@ -28,6 +28,7 @@ function weaponVectorComponents(value, operation)
   return components
 end function
 
+// Copy state.
 function copy(value)
   components = weaponVectorComponents(value, "weapon vector copy")
   x = components[0]; y = components[1]; z = components[2]
@@ -35,6 +36,7 @@ function copy(value)
   return result
 end function
 
+// Add state.
 function add(first, second)
   firstComponents = weaponVectorComponents(first, "weapon vector add first operand")
   firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
@@ -44,6 +46,7 @@ function add(first, second)
   return result
 end function
 
+// Subtract state.
 function subtract(first, second)
   firstComponents = weaponVectorComponents(first, "weapon vector subtract first operand")
   firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
@@ -53,6 +56,7 @@ function subtract(first, second)
   return result
 end function
 
+// Scale state.
 function scale(value, amount)
   components = weaponVectorComponents(value, "weapon vector scale")
   x = components[0]; y = components[1]; z = components[2]
@@ -60,6 +64,7 @@ function scale(value, amount)
   return result
 end function
 
+// Add multiply.
 function multiplyAdd(value, amount, direction)
   valueComponents = weaponVectorComponents(value, "weapon vector multiplyAdd value")
   valueX = valueComponents[0]; valueY = valueComponents[1]; valueZ = valueComponents[2]
@@ -73,6 +78,7 @@ function multiplyAdd(value, amount, direction)
   return result
 end function
 
+// Compute state.
 function dot(first, second)
   firstComponents = weaponVectorComponents(first, "weapon vector dot first operand")
   firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
@@ -81,6 +87,7 @@ function dot(first, second)
   return firstX * secondX + firstY * secondY + firstZ * secondZ
 end function
 
+// Return the length.
 function length(value)
   components = weaponVectorComponents(value, "weapon vector length")
   x = components[0]; y = components[1]; z = components[2]
@@ -88,6 +95,7 @@ function length(value)
   return smath.sqrt(squared)
 end function
 
+// Return the normalized value.
 function normalized(value)
   components = weaponVectorComponents(value, "weapon vector normalized")
   x = components[0]; y = components[1]; z = components[2]
@@ -104,6 +112,7 @@ function normalized(value)
   return result
 end function
 
+// Return the midpoint value.
 function midpoint(target)
   if typeof(target) != "struct" then return error(9481, "weapon midpoint: target record required") end if
   origin = try(target.origin)
@@ -126,6 +135,7 @@ function midpoint(target)
   return result
 end function
 
+// Return the to array value.
 function toArray(value)
   components = weaponVectorComponents(value, "weapon vector toArray")
   x = components[0]; y = components[1]; z = components[2]
@@ -134,6 +144,7 @@ function toArray(value)
   return result
 end function
 
+// Return the vector to angles.
 function vectorToAngles(direction)
   components = weaponVectorComponents(direction, "weapon vectorToAngles")
   directionX = components[0]; directionY = components[1]; directionZ = components[2]
@@ -152,6 +163,7 @@ function vectorToAngles(direction)
   return result
 end function
 
+// Return the angle vectors value.
 function angleVectors(angles)
   components = weaponVectorComponents(angles, "weapon angleVectors")
   angleX = components[0]; angleY = components[1]; angleZ = components[2]

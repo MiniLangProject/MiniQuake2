@@ -18,11 +18,13 @@ import miniquake2.network.runtime.types as nrkeep_rtypes
 import miniquake2.network.runtime.game_adapter as nrkeep_adapter
 import miniquake2.network.runtime.pump as nrkeep_pump
 
+// Assert the keepalive test condition.
 function keepaliveAssert(value, name)
   if not value then return error(8500, name) end if
   return true
 end function
 
+// Receive one.
 function receiveOne(socket)
   attempt = 0
   while not nrkeep_udp.pending(socket) and attempt < 100
@@ -33,6 +35,7 @@ function receiveOne(socket)
   return nrkeep_udp.receive(socket, nrkeep_pconstants.MAX_MSGLEN)
 end function
 
+// Report whether wait pending.
 function waitPending(socket)
   attempt = 0
   while not nrkeep_udp.pending(socket) and attempt < 100
@@ -43,6 +46,7 @@ function waitPending(socket)
   return true
 end function
 
+// Create pair.
 function makePair(clientSocket, serverSocket)
   clientAddress = nrkeep_qtypes.NetAddress(nrkeep_nconstants.NA_IP,
     [127, 0, 0, 1], array(10, 0), clientSocket.port)
@@ -64,6 +68,7 @@ function makePair(clientSocket, serverSocket)
   return [clientRuntime, serverRuntime]
 end function
 
+// Send client.
 function sendClient(runtime, socket, now)
   stats = nrkeep_rtypes.stats()
   keepaliveAssert(nrkeep_pump.flushClient(runtime, socket, now, bytes(), stats),
@@ -71,6 +76,7 @@ function sendClient(runtime, socket, now)
   return stats
 end function
 
+// Send server.
 function sendServer(runtime, socket, now)
   stats = nrkeep_rtypes.stats()
   keepaliveAssert(nrkeep_pump.flushServerClient(runtime, socket, 0, now, stats),

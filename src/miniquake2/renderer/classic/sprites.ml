@@ -9,10 +9,12 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.vector as rclassicvector
 
+// Return the sprite vertex value.
 function spriteVertex(position, s, t)
   return rclassictypes.SpriteVertex(rclassicvector.copy(position), s, t)
 end function
 
+// Return the frame index.
 function frameIndex(model, requestedFrame)
   if len(model.frames) == 0 then return error(9730, "sprite has no frames") end if
   selected = requestedFrame % len(model.frames)
@@ -20,6 +22,7 @@ function frameIndex(model, requestedFrame)
   return selected
 end function
 
+// Prepare state.
 function prepare(model, entity, cameraUp, cameraRight)
   selected = frameIndex(model, entity.frame)
   frame = model.frames[selected]

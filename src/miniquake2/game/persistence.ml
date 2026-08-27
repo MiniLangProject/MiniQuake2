@@ -18,6 +18,7 @@ import miniquake2.game.types as gt
 const SAVE_MAGIC = "MQ2SAVE1"
 const SAVE_VERSION = 2
 
+// Save format.
 function saveFormat(data)
   if typeof(data) != "bytes" or len(data) < len(bytes(SAVE_MAGIC)) + 1 then
     return "truncated"
@@ -32,6 +33,7 @@ function saveFormat(data)
   return "miniquake2"
 end function
 
+// Store save image data.
 struct SaveImage
   kind
   mapName
@@ -41,21 +43,25 @@ struct SaveImage
   privateData
 end struct
 
+// Write vec 3.
 function writeVec3(buffer, value)
   qmsg.writeFloat(buffer, value.x)
   qmsg.writeFloat(buffer, value.y)
   qmsg.writeFloat(buffer, value.z)
 end function
 
+// Read float.
 function readFloat(buffer, operation)
   pchecked.require(buffer, 4, operation)
   return qmsg.readFloat(buffer)
 end function
 
+// Read vec 3.
 function readVec3(buffer, operation)
   return miniquake2.qcommon.types.Vec3(readFloat(buffer, operation + " x"), readFloat(buffer, operation + " y"), readFloat(buffer, operation + " z"))
 end function
 
+// Write pmove state.
 function writePmoveState(buffer, state)
   qmsg.writeLong(buffer, state.moveType)
   index = 0
@@ -70,6 +76,7 @@ function writePmoveState(buffer, state)
   qmsg.writeLong(buffer, state.gravity)
 end function
 
+// Read pmove state.
 function readPmoveState(buffer)
   state = gt.zeroPmoveState()
   state.moveType = pchecked.readLong(buffer, "save pmove type")
@@ -86,6 +93,7 @@ function readPmoveState(buffer)
   return state
 end function
 
+// Write player state.
 function writePlayerState(buffer, state)
   writePmoveState(buffer, state.pmove)
   writeVec3(buffer, state.viewAngles); writeVec3(buffer, state.viewOffset)
@@ -104,6 +112,7 @@ function writePlayerState(buffer, state)
   end while
 end function
 
+// Read player state.
 function readPlayerState(buffer)
   state = gt.zeroPlayerState()
   state.pmove = readPmoveState(buffer)
@@ -124,6 +133,7 @@ function readPlayerState(buffer)
   return state
 end function
 
+// Write entity state.
 function writeEntityState(buffer, state)
   qmsg.writeLong(buffer, state.number)
   writeVec3(buffer, state.origin); writeVec3(buffer, state.angles); writeVec3(buffer, state.oldOrigin)
@@ -134,6 +144,7 @@ function writeEntityState(buffer, state)
   qmsg.writeLong(buffer, state.solid); qmsg.writeLong(buffer, state.sound); qmsg.writeLong(buffer, state.event)
 end function
 
+// Read entity state.
 function readEntityState(buffer, expectedNumber)
   number = pchecked.readLong(buffer, "save entity number")
   if number != expectedNumber then return error(3850, "save edict numbering is not contiguous") end if
@@ -152,6 +163,7 @@ function readEntityState(buffer, expectedNumber)
   return gt.stabilizeEntityState(gpersistStateHolder)
 end function
 
+// Encode save image with private.
 function encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, privateData)
   if kind != "game" and kind != "level" then return error(3851, "invalid save kind") end if
   if exportTable.numEdicts < 1 or exportTable.numEdicts > exportTable.maxEdicts then return error(3852, "invalid exported edict count") end if
@@ -188,15 +200,19 @@ function encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, pri
   return qsz.dataSlice(buffer)
 end function
 
+// Encode state.
 function encode(exportTable, kind, mapName, frameNumber)
   return encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, bytes(0))
 end function
 
+// Encode with private.
 function encodeWithPrivate(exportTable, kind, mapName, frameNumber, privateData)
   return encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, privateData)
 end function
 
+// Decode save image.
 function decodeSaveImage(data, maxEdicts)
+  // Keep decode save image phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(data) != "bytes" or len(data) < 20 then return error(3853, "save image is truncated") end if
   if saveFormat(data) != "miniquake2" then
     return error(3854, "original Quake II native saves are machine-layout dumps and cannot be imported safely; use a MiniQuake2 save slot")
@@ -269,20 +285,24 @@ function decodeSaveImage(data, maxEdicts)
   return SaveImage(kind, mapName, frameNumber, numEdicts, edicts, privateData)
 end function
 
+// Decode state.
 function decode(data, maxEdicts)
   return decodeSaveImage(data, maxEdicts)
 end function
 
+// Write file.
 function writeFile(exportTable, kind, mapName, frameNumber, filename)
   if typeof(filename) != "string" or filename == "" then return error(3860, "empty save filename") end if
   return savefs.writeAllBytes(filename, encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, bytes(0)))
 end function
 
+// Write file with private.
 function writeFileWithPrivate(exportTable, kind, mapName, frameNumber, privateData, filename)
   if typeof(filename) != "string" or filename == "" then return error(3860, "empty save filename") end if
   return savefs.writeAllBytes(filename, encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, privateData))
 end function
 
+// Read file.
 function readFile(filename, maxEdicts)
   if typeof(filename) != "string" or filename == "" then return error(3860, "empty save filename") end if
   return decodeSaveImage(savefs.readAllBytes(filename), maxEdicts)

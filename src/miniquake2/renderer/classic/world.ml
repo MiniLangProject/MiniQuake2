@@ -23,6 +23,7 @@ import miniquake2.renderer.classic.special as rclassicspecial
 const PALETTE_PATH = "pics/colormap.pcx"
 const LIGHTMAP_ATLAS_SIZE = 256
 
+// Store lightmap atlas state data.
 struct LightmapAtlasState
   textures
   current
@@ -36,22 +37,26 @@ struct LightmapAtlasState
   facePacked
 end struct
 
+// Read bytes.
 function readBytes(loadFile, path)
   data = loadFile(path)
   if typeof(data) != "bytes" then return error(9740, "classic renderer file not found: " + path) end if
   return data
 end function
 
+// Return the quake palette value.
 function quakePalette(loadFile)
   pcx = fpcx.parse(readBytes(loadFile, PALETTE_PATH))
   if len(pcx.palette) != 768 then return error(9741, "pics/colormap.pcx has no Quake II palette") end if
   return pcx.palette
 end function
 
+// Return the texture path.
 function texturePath(name)
   return "textures/" + name + ".wal"
 end function
 
+// Load images.
 function loadImages(map, loadFile, palette)
   images = []
   for each texInfo in map.texInfo
@@ -67,6 +72,7 @@ function loadImages(map, loadFile, palette)
   return images
 end function
 
+// Find texture.
 function findTexture(textures, role, name)
   for each texture in textures
     if texture.role == role and qtext.equalInsensitive(texture.name, name) then return texture end if
@@ -74,6 +80,7 @@ function findTexture(textures, role, name)
   return void
 end function
 
+// Add base texture.
 function addBaseTexture(textures, image, generation)
   existing = findTexture(textures, "base", image.name)
   if existing is not void then return [textures, existing] end if
@@ -85,6 +92,7 @@ function addBaseTexture(textures, image, generation)
   return [textures + [texture], texture]
 end function
 
+// Return the surface bounds.
 function surfaceBounds(surface)
   if len(surface.vertices) < 3 then return error(9745, "classic surface bounds require at least three vertices") end if
   first = surface.vertices[0].position
@@ -107,6 +115,7 @@ function surfaceBounds(surface)
   ]
 end function
 
+// Add world draw.
 function addWorldDraw(textures, draws, surface, generation)
   animationCount = len(surface.animationImages)
   if animationCount == 0 then animationCount = 1 end if
@@ -162,6 +171,7 @@ function addWorldDraw(textures, draws, surface, generation)
   return [textures, draws + [draw]]
 end function
 
+// Return the new lightmap atlas value.
 function newLightmapAtlas(state)
   index = len(state.textures)
   texture = rclassictypes.ClassicTexture(0, "@lightmap/atlas" + index,
@@ -174,6 +184,7 @@ function newLightmapAtlas(state)
   return texture
 end function
 
+// Copy lightmap atlas row.
 function copyLightmapAtlasRow(destination, destinationPixel, source,
     sourcePixel, pixels)
   copyBytes(destination, destinationPixel * 4, source, sourcePixel * 4,
@@ -181,6 +192,7 @@ function copyLightmapAtlasRow(destination, destinationPixel, source,
   return pixels
 end function
 
+// Copy lightmap into atlas.
 function copyLightmapIntoAtlas(texture, x, y, width, height, source)
   destination = texture.rgbaPixels
   row = 0
@@ -207,6 +219,7 @@ function copyLightmapIntoAtlas(texture, x, y, width, height, source)
   return true
 end function
 
+// Pack lightmap draw.
 function packLightmapDraw(state, draw)
   if draw.surface.category != rclassicconstants.MATERIAL_OPAQUE then return false end if
   faceIndex = draw.surface.index
@@ -252,6 +265,7 @@ function packLightmapDraw(state, draw)
   return true
 end function
 
+// Pack lightmap atlases.
 function packLightmapAtlases(draws, brushModels, generation, faceCount)
   state = LightmapAtlasState([], void, 0, 0, 0, generation,
     array(faceCount), array(faceCount, 0), array(faceCount, 0),
@@ -265,6 +279,7 @@ function packLightmapAtlases(draws, brushModels, generation, faceCount)
   return state.textures
 end function
 
+// Return the classic world entity value.
 function classicWorldEntityValue(entityText, key)
   if typeof(entityText) != "string" or entityText == "" then return "" end if
   parts = rclassicworldstring.split(entityText, "\"")
@@ -276,6 +291,7 @@ function classicWorldEntityValue(entityText, key)
   return ""
 end function
 
+// Return the classic world sky axis value.
 function classicWorldSkyAxis(entityText)
   text = classicWorldEntityValue(entityText, "skyaxis")
   if text == "" then return ft.Vec3(0.0, 0.0, 1.0) end if
@@ -295,6 +311,7 @@ function classicWorldSkyAxis(entityText)
   return ft.Vec3(values[0], values[1], values[2])
 end function
 
+// Rotate classic world sky.
 function classicWorldSkyRotate(entityText)
   text = classicWorldEntityValue(entityText, "skyrotate")
   if text == "" then return 0.0 end if
@@ -303,6 +320,7 @@ function classicWorldSkyRotate(entityText)
   return parsed
 end function
 
+// Return the classic world sky texture value.
 function classicWorldSkyTexture(loadFile, skyName, suffix, generation, fallbackPalette)
   path = "env/" + skyName + suffix + ".pcx"
   data = loadFile(path)
@@ -315,6 +333,7 @@ function classicWorldSkyTexture(loadFile, skyName, suffix, generation, fallbackP
   return rclassictypes.ClassicTexture(0, "@sky/" + skyName + suffix, pcx.width, pcx.height, rgba, "sky", generation, false, false)
 end function
 
+// Configure sky.
 function configureSky(world, loadFile, name, rotate, axis)
   if name == "" or len(world.scene.skySurfaces) == 0 then return false end if
   suffixes = ["rt", "bk", "lf", "ft", "up", "dn"]
@@ -332,6 +351,7 @@ function configureSky(world, loadFile, name, rotate, axis)
   return true
 end function
 
+// Build model draws.
 function buildModelDraws(scene, textures, generation, model)
   firstFace = model.firstFace
   endFace = firstFace + model.numFaces
@@ -361,6 +381,7 @@ function buildModelDraws(scene, textures, generation, model)
   return [textures, draws]
 end function
 
+// Find brush model.
 function findBrushModel(world, modelIndex)
   for each brushModel in world.brushModels
     if brushModel.modelIndex == modelIndex then return brushModel end if
@@ -368,6 +389,7 @@ function findBrushModel(world, modelIndex)
   return void
 end function
 
+// Build state.
 function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
   palette = quakePalette(loadFile)
   images = loadImages(map, loadFile, palette)
@@ -400,6 +422,7 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
     array(pointStackSize, 0.0), array(pointStackSize, 0.0))
 end function
 
+// Return the triangle count.
 function triangleCount(world)
   total = 0
   for each draw in world.draws
@@ -408,6 +431,7 @@ function triangleCount(world)
   return total
 end function
 
+// Return the plan signature value.
 function planSignature(world)
   // Compact deterministic replay signature used by tests and diagnostics.
   result = world.name + ":" + len(world.draws) + ":" + triangleCount(world)

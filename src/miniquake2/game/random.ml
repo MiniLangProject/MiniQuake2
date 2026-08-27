@@ -5,15 +5,18 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Deterministic Win32 C-runtime random sequence used by Quake II 3.19. */
 package miniquake2.game.random
 
+// Store random state data.
 struct RandomState
   seed
 end struct
 
+// Create state.
 function create(seed)
   if typeof(seed) != "int" then return error(9820, "game random seed must be an integer") end if
   return RandomState(seed & 0xffffffff)
 end function
 
+// Return the next integer value.
 function nextInteger(state)
   if typeof(state) != "struct" or typeof(state.seed) != "int" then
     return error(9821, "game random state is malformed")
@@ -25,10 +28,12 @@ function nextInteger(state)
   return (state.seed >> 16) & 0x7fff
 end function
 
+// Return the unit value.
 function unit(state)
   return nextInteger(state) / 32767.0
 end function
 
+// Return the signed value.
 function signed(state)
   return 2.0 * (unit(state) - 0.5)
 end function

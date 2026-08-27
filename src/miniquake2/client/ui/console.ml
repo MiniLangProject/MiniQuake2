@@ -9,12 +9,14 @@ import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
 import std.math as smath
 
+// Create state.
 function create(widthChars)
   if widthChars < 1 then widthChars = 1 end if
   return cuitypes.ConsoleState([], "", 0, [], 0, widthChars, 0.0,
     cuic.DEFAULT_NOTIFY_LINES, cuic.DEFAULT_NOTIFY_MSEC, [])
 end function
 
+// Append line.
 function appendLine(console, text, time)
   console.lines = console.lines + [cuitypes.ConsoleLine(text, time)]
   if len(console.lines) > cuic.MAX_CONSOLE_LINES then
@@ -22,6 +24,7 @@ function appendLine(console, text, time)
   end if
 end function
 
+// Append text.
 function appendText(console, text, time)
   data = bytes(text)
   start = 0
@@ -44,12 +47,14 @@ function appendText(console, text, time)
   return true
 end function
 
+// Clear typing.
 function clearTyping(console)
   console.input = ""
   console.cursor = 0
   return true
 end function
 
+// Clear notify.
 function clearNotify(console)
   for each consoleNotifyLine in console.lines
     consoleNotifyLine.time = -2147483647
@@ -57,6 +62,7 @@ function clearNotify(console)
   return true
 end function
 
+// Append history.
 function appendHistory(console, value)
   if len(console.history) < cuic.MAX_CONSOLE_HISTORY then
     output = array(len(console.history) + 1, void)
@@ -78,6 +84,7 @@ function appendHistory(console, value)
   return len(console.history)
 end function
 
+// Insert byte.
 function insertByte(console, value)
   if value < 32 or value > 126 then return false end if
   data = bytes(console.input)
@@ -89,6 +96,7 @@ function insertByte(console, value)
   return true
 end function
 
+// Return the edit key value.
 function editKey(console, key)
   data = bytes(console.input)
   if key == cuic.K_BACKSPACE and console.cursor > 0 then
@@ -121,6 +129,7 @@ function editKey(console, key)
   return true
 end function
 
+// Drain commands.
 function inline drainCommands(console)
   // Preserve the reusable empty queue on idle frames. A non-empty queue is
   // still transferred by ownership so command execution sees a stable array.
@@ -130,6 +139,7 @@ function inline drainCommands(console)
   return output
 end function
 
+// Draw text.
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -139,6 +149,7 @@ function drawText(exports, x, y, text)
   end while
 end function
 
+// Notify state.
 function notify(console, now, exports)
   first = len(console.lines) - console.notifyLines
   if first < 0 then first = 0 end if
@@ -153,6 +164,7 @@ function notify(console, now, exports)
   return count
 end function
 
+// Draw state.
 function draw(console, screenWidth, screenHeight, exports)
   height = smath.floor(screenHeight * console.visibleFraction)
   if height <= 0 then return 0 end if

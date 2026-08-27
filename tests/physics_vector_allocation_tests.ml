@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.qcommon.types as pvallocqt
 import miniquake2.physics.vector as pvallocvector
 
+// Assert the pvalloc test condition.
 function pvallocAssert(value, name)
   if not value then return error(2851, name) end if
   return true

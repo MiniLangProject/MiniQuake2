@@ -6,12 +6,14 @@ package tests.runtime_product_host_tests
 
 import miniquake2.runtime.product_host as testproducthost
 
+// Store fake window data.
 struct FakeWindow
   width
   height
   closed
 end struct
 
+// Store fake exports data.
 struct FakeExports
   Init
   Shutdown
@@ -21,6 +23,7 @@ struct FakeExports
   DrawChar
 end struct
 
+// Store fake renderer data.
 struct FakeRenderer
   exports
 end struct
@@ -31,45 +34,58 @@ fakeProductInits = 0
 fakeProductShutdowns = 0
 fakeProductFrames = 0
 fakeProductCharacters = 0
+fakeProductFailNextCreate = false
 
+// Initialize fake product.
 function fakeProductInit(first, second)
   global fakeProductInits
   fakeProductInits = fakeProductInits + 1
   return true
 end function
 
+// Shut down fake product.
 function fakeProductShutdown()
   global fakeProductShutdowns
   fakeProductShutdowns = fakeProductShutdowns + 1
   return true
 end function
 
+// Begin fake product frame.
 function fakeProductBeginFrame(separation)
   return true
 end function
 
+// End fake product frame.
 function fakeProductEndFrame()
   global fakeProductFrames
   fakeProductFrames = fakeProductFrames + 1
   return true
 end function
 
+// Return the fake product fade value.
 function fakeProductFade()
   return true
 end function
 
+// Draw fake product char.
 function fakeProductDrawChar(x, y, value)
   global fakeProductCharacters
   fakeProductCharacters = fakeProductCharacters + 1
   return true
 end function
 
+// Create fake product window.
 function fakeProductCreateWindow(title, width, height, fullScreen)
-  global fakeProductCreates
+  global fakeProductCreates, fakeProductFailNextCreate
   fakeProductCreates = fakeProductCreates + 1
+  if fakeProductFailNextCreate then
+    fakeProductFailNextCreate = false
+    return error(9944, "injected window failure")
+  end if
   return FakeWindow(width, height, false)
 end function
 
+// Return the fake product destroy window value.
 function fakeProductDestroyWindow(window)
   global fakeProductDestroys
   fakeProductDestroys = fakeProductDestroys + 1
@@ -77,20 +93,24 @@ function fakeProductDestroyWindow(window)
   return true
 end function
 
+// Create fake product renderer.
 function fakeProductCreateRenderer(imports, contextActive)
   return FakeRenderer(FakeExports(fakeProductInit, fakeProductShutdown,
     fakeProductBeginFrame, fakeProductEndFrame, fakeProductFade,
     fakeProductDrawChar))
 end function
 
+// Initialize fake product renderer.
 function fakeProductInitRenderer(renderer)
   return renderer.exports.Init(void, void)
 end function
 
+// Shut down fake product renderer.
 function fakeProductShutdownRenderer(renderer)
   return renderer.exports.Shutdown()
 end function
 
+// Assert the product host test condition.
 function productHostAssert(condition, message)
   if not condition then return error(9936, message) end if
   return true
@@ -128,9 +148,17 @@ productHostAssert(productHost.window.width == 3840 and
   productHost.window.height == 2160 and not productHost.fullScreen and
   productHost.videoMode == 7 and productHost.generation == 4,
   "4K video restart applies modern mode")
+fakeProductFailNextCreate = true
+failedProductRestart = try(testproducthost.restartProductHost(productHost,
+  "MiniQuake2", 5, true, void))
+productHostAssert(failedProductRestart is error and not productHost.closed and
+  productHost.videoMode == 7 and not productHost.fullScreen and
+  productHost.window.width == 3840 and productHost.window.height == 2160 and
+  not productHost.window.closed and productHost.generation == 5,
+  "failed video restart restores the last known-good host")
 productHostAssert(testproducthost.closeProductHost(productHost), "first close")
 productHostAssert(not testproducthost.closeProductHost(productHost), "idempotent close")
-productHostAssert(fakeProductDestroys == 3 and fakeProductShutdowns == 4,
+productHostAssert(fakeProductDestroys == 4 and fakeProductShutdowns == 5,
   "one final shutdown")
 
 print "runtime_product_host_tests: PASS"

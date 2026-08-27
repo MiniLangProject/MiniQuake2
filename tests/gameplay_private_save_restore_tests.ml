@@ -15,11 +15,13 @@ import miniquake2.game.ai.constants as privaterestoreaiconstants
 import miniquake2.qcommon.constants as privaterestoreqconstants
 import miniquake2.qcommon.types as privaterestoreqtypes
 
+// Assert the restore test condition.
 function restoreAssert(value, message)
   if value != true then return error(9897, message) end if
   return true
 end function
 
+// Find private save monster.
 function findPrivateSaveMonster(runtime, className)
   for each candidate in runtime.monsters
     if candidate.className == className then return candidate end if
@@ -120,6 +122,16 @@ item = runtime.items[0]; item.hidden = true; item.nextThink = 12.5; item.count =
 player = context.players[0]; player.health = 73; player.maxHealth = 125; player.gameplay.inventory.counts[2] = 17
 player.powerups.quadFrame = 321; player.persistent.score = 6
 player.gravity = 0.5; player.flySoundDebounceTime = 6.25
+player.gameplay.inventory.maxBullets = 300
+player.gameplay.inventory.maxShells = 200
+player.gameplay.inventory.maxRockets = 100
+player.gameplay.inventory.maxGrenades = 100
+player.gameplay.inventory.maxCells = 300
+player.gameplay.inventory.maxSlugs = 100
+player.gameplay.inventory.selectedItem = 2
+player.gameplay.silencerShots = 17
+player.gameplay.powerCubes = 5
+player.respawn.cooperativeInventory[2] = 11
 privateSaveShells = privaterestoreitems.findByPickupName(context.registry,
   "Shells")
 player.gameplay.inventory.counts[privateSaveShells.index] = 20
@@ -237,6 +249,17 @@ restoreAssert(restoredPlayer.gravity == 0.5 and
   restoredPlayer.flySoundDebounceTime == 6.25,
   "private v16 restores player gravity/push debounce")
 restoreAssert(restoredPlayer.gameplay.inventory.counts[2] == 17 and restoredPlayer.powerups.quadFrame == 321 and restoredPlayer.persistent.score == 6, "inventory/powerup/score restored")
+restoreAssert(restoredPlayer.gameplay.inventory.maxBullets == 300 and
+  restoredPlayer.gameplay.inventory.maxShells == 200 and
+  restoredPlayer.gameplay.inventory.maxRockets == 100 and
+  restoredPlayer.gameplay.inventory.maxGrenades == 100 and
+  restoredPlayer.gameplay.inventory.maxCells == 300 and
+  restoredPlayer.gameplay.inventory.maxSlugs == 100 and
+  restoredPlayer.gameplay.inventory.selectedItem == 2 and
+  restoredPlayer.gameplay.silencerShots == 17 and
+  restoredPlayer.gameplay.powerCubes == 5 and
+  restoredPlayer.respawn.cooperativeInventory[2] == 11,
+  "private v18 restores complete item rule state")
 restoreAssert(restoredPlayer.gameplay.inventory.counts[privateSaveShells.index] == 10,
   "dropped-item inventory persisted")
 api.runFrame(); api.runFrame(); api.runFrame()

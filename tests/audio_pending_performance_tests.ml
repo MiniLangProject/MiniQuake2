@@ -7,6 +7,7 @@ import miniquake2.audio.wav as pendingperfavaw
 import miniquake2.audio.mixer as pendingperfamix
 import miniquake2.platform.system as pendingperfsystem
 
+// Assert the pending perf test condition.
 function pendingPerfAssert(value, message)
   if not value then return error(9985, message) end if
   return true

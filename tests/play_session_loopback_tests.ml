@@ -15,6 +15,7 @@ import miniquake2.runtime.server_session as plservertest
 import miniquake2.runtime.play_session as playsession
 import miniquake2.game.null_game as playgame
 
+// Assert the play test condition.
 function playAssert(value, name)
   if not value then return error(8396, name) end if
   return true

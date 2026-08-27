@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.runtime.product_startup as productstartup
 import miniquake2.qcommon.info as productinfo
 
+// Assert the product startup test condition.
 function productStartupAssert(value, name)
   if not value then return error(9964, "product startup: " + name) end if
   return true

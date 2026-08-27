@@ -15,17 +15,20 @@ import miniquake2.network.runtime.pump as rpump
 
 pingUpdates = []
 
+// Record ping.
 function recordPing(slot, ping)
   global pingUpdates
   pingUpdates = pingUpdates + [[slot, ping]]
   return true
 end function
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7931, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Write frame at.
 function writeFrameAt(runtime, frameNumber, now)
   runtime.server.realTime = now
   frame = nsnapshot.createFrame(frameNumber, bytes(), pt.zeroPlayerState(), [])
@@ -34,6 +37,7 @@ function writeFrameAt(runtime, frameNumber, now)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   global pingUpdates
   callbacks = rgame.permissive()

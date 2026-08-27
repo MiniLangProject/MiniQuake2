@@ -10,27 +10,32 @@ import miniquake2.qcommon.cmd as cmd
 import miniquake2.qcommon.filesystem as filesystem
 import miniquake2.qcommon.info as info
 
+// Store recorder data.
 struct Recorder
   calls
 end struct
 
 recorder = Recorder([])
 
+// Record state.
 function record(arguments)
   recorder.calls = recorder.calls + [arguments]
   return true
 end function
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9930, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9931, name + ": expected true") end if
   return true
 end function
 
+// Verify cvars.
 function testCvars()
   registry = cvar.createRegistry()
   cvar.get(registry, "name", "unnamed", c.CVAR_USERINFO)
@@ -46,6 +51,7 @@ function testCvars()
   return true
 end function
 
+// Verify commands.
 function testCommands()
   registry = cvar.createRegistry()
   system = cmd.create(registry)
@@ -63,6 +69,7 @@ function testCommands()
   return true
 end function
 
+// Verify pack.
 function testPack()
   data = bytes(12 + 3 + 64)
   bio.putU32(data, 0, 0x4b434150)
@@ -95,6 +102,7 @@ function testPack()
   return true
 end function
 
+// Verify info strings.
 function testInfoStrings()
   value = info.setValueForKey("", "name", "Ranger")
   value = info.setValueForKey(value, "rate", "25000")

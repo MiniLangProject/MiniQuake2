@@ -35,6 +35,7 @@ if (-not (Test-Path -LiteralPath $Quake2Root -PathType Container)) {
 if (-not (Test-Path -LiteralPath $Executable -PathType Leaf)) {
   throw "MiniQuake2 executable not found: $Executable"
 }
+# Perform invoke acceptance command processing.
 
 function Invoke-AcceptanceCommand {
   param(

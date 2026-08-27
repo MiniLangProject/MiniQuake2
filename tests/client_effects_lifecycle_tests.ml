@@ -21,39 +21,47 @@ import miniquake2.client.effects.mixer_adapter as cemixer
 
 testSound = void
 
+// Resolve sound index.
 function resolveSoundIndex(index)
   global testSound
   return testSound
 end function
 
+// Resolve sound name.
 function resolveSoundName(name)
   global testSound
   return testSound
 end function
 
+// Resolve entity sound.
 function resolveEntitySound(entityNumber, soundIndex, soundName)
   global testSound
   return testSound
 end function
 
+// Resolve entity position.
 function resolveEntityPosition(entity)
   return qt.Vec3(10.0, 0.0, 0.0)
 end function
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(8010, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(8011, name + ": expected true") end if
   return true
 end function
 
+// Resolve model.
 function resolveModel(name)
   return rt.ResourceHandle("model", len(bytes(name)), name, 1)
 end function
 
+// Build state.
 function buildState(seed)
   state = cestate.createSilent(seed)
   origin = qt.Vec3(1.0, 2.0, 3.0)

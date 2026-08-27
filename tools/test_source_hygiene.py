@@ -18,10 +18,13 @@ GPL_HEADER = """// Copyright (c) 2026 Nils Kopal
 
 
 class SourceHygieneTests(unittest.TestCase):
+    """Store source hygiene tests data."""
     def issue_rules(self, root: Path, relative: str) -> list[str]:
+        """Return the issue rules value."""
         return [issue.rule for issue in source_hygiene.check_file(root, root / relative)]
 
     def test_accepts_complete_header_and_english_comment(self) -> None:
+        """Verify accepts complete header and english comment."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "src" / "good.ml"
@@ -33,6 +36,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual([], source_hygiene.check_file(root, path))
 
     def test_reports_missing_header_fields(self) -> None:
+        """Report whether test reports missing header fields."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "tests" / "missing.ml"
@@ -41,6 +45,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual(["copyright", "spdx"], sorted(self.issue_rules(root, "tests/missing.ml")))
 
     def test_reports_only_real_non_english_comments(self) -> None:
+        """Verify reports only real non english comments."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "tools" / "language.py"
@@ -58,6 +63,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual(4, issues[0].line)
 
     def test_reports_minilang_block_comment_at_its_actual_line(self) -> None:
+        """Verify reports minilang block comment at its actual line."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "src" / "block.ml"
@@ -75,6 +81,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual(4, issues[0].line)
 
     def test_powershell_ignores_strings_and_checks_block_comments(self) -> None:
+        """Verify powershell ignores strings and checks block comments."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "scripts" / "language.ps1"
@@ -91,6 +98,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual(5, issues[0].line)
 
     def test_reports_unsupported_and_duplicate_spdx(self) -> None:
+        """Verify reports unsupported and duplicate spdx."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "scripts" / "bad.ps1"
@@ -106,6 +114,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertIn("multiple", issues[0].message)
 
     def test_scope_excludes_reference_and_build_trees(self) -> None:
+        """Verify scope excludes reference and build trees."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             for relative in (
@@ -120,6 +129,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual([root / "src" / "in_scope.ml"], files)
 
     def test_checks_maintained_c_tool_source(self) -> None:
+        """Verify checks maintained c tool source."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "tools" / "helper.c"
@@ -137,6 +147,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual([], source_hygiene.check_file(root, path))
 
     def test_fix_adds_language_defaults_and_preserves_python_preamble(self) -> None:
+        """Verify fix adds language defaults and preserves python preamble."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             c_path = root / "tools" / "bare.c"
@@ -168,6 +179,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertFalse(source_hygiene.fix_file(root, ml_path))
 
     def test_fix_never_overwrites_existing_or_partial_header(self) -> None:
+        """Verify fix never overwrites existing or partial header."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             existing = root / "src" / "existing.ml"
@@ -191,6 +203,7 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual(before_partial, partial.read_bytes())
 
     def test_fix_adds_only_spdx_inside_checksum_special_notice(self) -> None:
+        """Report whether test fix adds only spdx inside checksum special notice."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / source_hygiene.SPECIAL_CHECKSUM_PATH

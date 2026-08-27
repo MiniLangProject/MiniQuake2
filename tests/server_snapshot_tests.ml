@@ -8,10 +8,12 @@ import miniquake2.qcommon.message as qmsg
 import miniquake2.protocol.types as pt
 import miniquake2.server.snapshot as ssnap
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7960, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Return the entity value.
 function entity(number, model, x)
   value = pt.zeroEntityState()
   value.number = number
@@ -20,6 +22,7 @@ function entity(number, model, x)
   return value
 end function
 
+// Verify full and delta frames.
 function testFullAndDeltaFrames()
   history = ssnap.createHistory(4)
   baseline2 = entity(2, 2, 0.0)
@@ -57,6 +60,7 @@ function testFullAndDeltaFrames()
   assertEqual(decoded2.entities[1].origin[0], 16.0, "new entity delta decoded")
 end function
 
+// Verify history and validation.
 function testHistoryAndValidation()
   history = ssnap.createHistory(1)
   player = pt.zeroPlayerState()

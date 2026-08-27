@@ -10,11 +10,13 @@ import miniquake2.game.ai.monster as bosspropsavemonster
 import miniquake2.game.ai.constants as bosspropsaveconstants
 import miniquake2.game.integration.baseq2 as bosspropsaveintegration
 
+// Assert the boss prop save test condition.
 function bossPropSaveAssert(value, message)
   if value != true then return error(9629, message) end if
   return true
 end function
 
+// Save boss prop actor.
 function bossPropSaveActor(runtime, className)
   for each bossPropSaveCandidate in runtime.monsters
     if bossPropSaveCandidate.className == className then return bossPropSaveCandidate end if
@@ -22,6 +24,7 @@ function bossPropSaveActor(runtime, className)
   return void
 end function
 
+// Save boss prop find name.
 function bossPropSaveFindName(values, name)
   bossPropSaveIndex = 0
   while bossPropSaveIndex < len(values)

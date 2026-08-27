@@ -9,6 +9,7 @@ import miniquake2.game.constants as mprotategameconstants
 import miniquake2.game.null_game as mprotategame
 import miniquake2.runtime.multiplayer_session as mprotatesession
 
+// Assert the mprotate test condition.
 function mprotateAssert(value, name)
   if not value then return error(8422, name) end if
   return true

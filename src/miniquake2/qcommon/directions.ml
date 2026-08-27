@@ -173,6 +173,7 @@ normals = [
   [-0.688191, -0.587785, -0.425325],
 ]
 
+// Encode direction.
 function encodeDirection(direction)
   bestIndex = 0
   bestDot = 0.0
@@ -189,27 +190,32 @@ function encodeDirection(direction)
   return bestIndex
 end function
 
+// Decode direction.
 function decodeDirection(index)
   if typeof(index) != "int" or index < 0 or index >= len(normals) then return error(2340, "MSG_ReadDir: direction index out of range") end if
   normal = normals[index]
   return qt.Vec3(normal[0], normal[1], normal[2])
 end function
 
+// Write direction.
 function writeDirection(buffer, direction)
   qmsg.writeByte(buffer, encodeDirection(direction))
   return buffer
 end function
 
+// Read direction.
 function readDirection(buffer)
   index = qmsg.readByte(buffer)
   if index < 0 then return error(2341, "MSG_ReadDir: truncated direction") end if
   return decodeDirection(index)
 end function
 
+// Write msg dir.
 function MSG_WriteDir(buffer, direction)
   return writeDirection(buffer, direction)
 end function
 
+// Read msg dir.
 function MSG_ReadDir(buffer)
   return readDirection(buffer)
 end function

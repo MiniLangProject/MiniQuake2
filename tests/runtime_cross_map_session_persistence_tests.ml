@@ -12,11 +12,13 @@ import miniquake2.game.null_game as crosssavetestgameapi
 import miniquake2.runtime.play_session as crosssavetestplaysession
 import miniquake2.runtime.session_persistence as crosssavetestpersistence
 
+// Assert the cross save test condition.
 function crossSaveAssert(value, name)
   if not value then return error(8470, name) end if
   return true
 end function
 
+// Compute save map a.
 function crossSaveMapA(mapName)
   if mapName != "cross_a" then return error(8471, "unexpected core map request") end if
   crossSaveAEntities = "{\n\"classname\" \"worldspawn\"\n\"message\" \"Checkpoint A\"\n}\n" +
@@ -24,14 +26,17 @@ function crossSaveMapA(mapName)
   return crosssavetestpersistence.coreMapSource(crossSaveAEntities, void)
 end function
 
+// Compute save reject resolver.
 function crossSaveRejectResolver(mapName)
   return error(8472, "synthetic map resolver failure")
 end function
 
+// Compute save broken map.
 function crossSaveBrokenMap(mapName)
   return crosssavetestpersistence.coreMapSource("{", void)
 end function
 
+// Compute save find bytes.
 function crossSaveFindBytes(data, pattern)
   crossSaveFindOffset = 0
   while crossSaveFindOffset + len(pattern) <= len(data)

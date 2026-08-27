@@ -14,6 +14,7 @@ const METADATA_HEADER = "MiniQuake2Slot 1"
 
 extern function GetLocalTime(systemTime as bytes) from "kernel32.dll" returns void
 
+// Store save slot metadata data.
 struct SaveSlotMetadata
   mapName
   frameNumber
@@ -21,6 +22,7 @@ struct SaveSlotMetadata
   screenshot
 end struct
 
+// Return the two digits value.
 function twoDigits(saveMetadataTwoValue)
   saveMetadataTwoText = "" + saveMetadataTwoValue
   if saveMetadataTwoValue < 10 then
@@ -29,6 +31,7 @@ function twoDigits(saveMetadataTwoValue)
   return saveMetadataTwoText
 end function
 
+// Return the four digits value.
 function fourDigits(saveMetadataFourValue)
   saveMetadataFourText = "" + saveMetadataFourValue
   while len(bytes(saveMetadataFourText)) < 4
@@ -37,6 +40,7 @@ function fourDigits(saveMetadataFourValue)
   return saveMetadataFourText
 end function
 
+// Return the current timestamp value.
 function currentTimestamp()
   saveMetadataTimeBytes = bytes(16)
   GetLocalTime(saveMetadataTimeBytes)
@@ -53,6 +57,7 @@ function currentTimestamp()
     twoDigits(saveMetadataTimeSecond)
 end function
 
+// Return the safe token value.
 function safeToken(saveMetadataSafeValue)
   if typeof(saveMetadataSafeValue) != "string" or
       saveMetadataSafeValue == "" or
@@ -65,6 +70,7 @@ function safeToken(saveMetadataSafeValue)
   return true
 end function
 
+// Validate state.
 function validate(saveMetadataValidateValue)
   if typeof(saveMetadataValidateValue) != "struct" or
       not safeToken(saveMetadataValidateValue.mapName) or
@@ -78,6 +84,7 @@ function validate(saveMetadataValidateValue)
   return saveMetadataValidateValue
 end function
 
+// Encode state.
 function encode(saveMetadataEncodeInput)
   saveMetadataEncodeValue = validate(saveMetadataEncodeInput)
   saveMetadataEncodeScreenshot = "-"
@@ -90,7 +97,9 @@ function encode(saveMetadataEncodeInput)
     saveMetadataEncodeScreenshot + "\n"
 end function
 
+// Decode state.
 function decode(saveMetadataDecodeText)
+  // Keep decode phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(saveMetadataDecodeText) != "string" or
       len(bytes(saveMetadataDecodeText)) > 4096 then
     return error(8491, "save-slot metadata text is invalid")
@@ -153,6 +162,7 @@ function decode(saveMetadataDecodeText)
   return validate(saveMetadataDecodeValue)
 end function
 
+// Save state.
 function save(saveMetadataSavePath, saveMetadataSaveValue)
   if typeof(saveMetadataSavePath) != "string" or
       saveMetadataSavePath == "" then

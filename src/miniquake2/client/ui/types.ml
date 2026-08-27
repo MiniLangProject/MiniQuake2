@@ -5,17 +5,20 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Owned state records for the asset-free client UX layer. */
 package miniquake2.client.ui.types
 
+// Store binding data.
 struct Binding
   key
   command
 end struct
 
+// Store action state data.
 struct ActionState
   name
   down
   pressed
 end struct
 
+// Store input config data.
 struct InputConfig
   forwardSpeed
   sideSpeed
@@ -32,6 +35,7 @@ struct InputConfig
   mouseSide
 end struct
 
+// Store input state data.
 struct InputState
   destination
   focused
@@ -54,11 +58,13 @@ struct InputState
   controllerButtons
 end struct
 
+// Store console line data.
 struct ConsoleLine
   text
   time
 end struct
 
+// Store console state data.
 struct ConsoleState
   lines
   input
@@ -72,12 +78,14 @@ struct ConsoleState
   commands
 end struct
 
+// Store inventory item data.
 struct InventoryItem
   index
   name
   count
 end struct
 
+// Store menu item data.
 struct MenuItem
   id
   label
@@ -91,6 +99,7 @@ struct MenuItem
   enabled
 end struct
 
+// Store menu page data.
 struct MenuPage
   id
   title
@@ -98,6 +107,7 @@ struct MenuPage
   items
 end struct
 
+// Store menu state data.
 struct MenuState
   pages
   currentPage
@@ -107,6 +117,7 @@ struct MenuState
   commandCount
 end struct
 
+// Store screen state data.
 struct ScreenState
   console
   menu

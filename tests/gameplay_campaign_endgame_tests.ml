@@ -9,6 +9,7 @@ import miniquake2.game.integration.baseq2 as endgameintegration
 import miniquake2.game.world.constants as endgameworldconstants
 import std.string as endgamestring
 
+// Assert the endgame test condition.
 function endgameAssert(value, message)
   if value != true then return error(9845, message) end if
   return true

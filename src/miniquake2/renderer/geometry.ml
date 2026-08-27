@@ -9,29 +9,34 @@ import std.math as rgeometrymath
 import miniquake2.format.types as ft
 import miniquake2.qcommon.directions as rgeometrydirections
 
+// Store mesh vertex data.
 struct MeshVertex
   position
   s
   t
 end struct
 
+// Store triangle mesh data.
 struct TriangleMesh
   name
   vertices
   triangleCount
 end struct
 
+// Store mesh bounds data.
 struct MeshBounds
   mins
   maxs
   radius
 end struct
 
+// Return the mesh vertex value.
 function meshVertex(position, s, t)
   copiedPosition = ft.Vec3(position.x, position.y, position.z)
   return MeshVertex(copiedPosition, s, t)
 end function
 
+// Return the face vertex value.
 function faceVertex(map, face, edgeOffset)
   surfaceEdgeIndex = face.firstEdge + edgeOffset
   if surfaceEdgeIndex < 0 or surfaceEdgeIndex >= len(map.surfaceEdges) then return error(9630, "BSP face surface-edge range outside table") end if
@@ -50,6 +55,7 @@ function faceVertex(map, face, edgeOffset)
   return meshVertex(position, s, t)
 end function
 
+// Return the bsp model mesh value.
 function bspModelMesh(map, modelIndex)
   if modelIndex < 0 or modelIndex >= len(map.models) then return error(9633, "BSP model index outside table") end if
   model = map.models[modelIndex]
@@ -91,6 +97,7 @@ function bspModelMesh(map, modelIndex)
   return TriangleMesh(map.name + "#" + modelIndex, vertices, triangleCount)
 end function
 
+// Return the md 2 position.
 function md2Position(frame, vertexIndex)
   if vertexIndex < 0 or vertexIndex >= len(frame.vertices) then return error(9636, "MD2 vertex outside frame") end if
   packed = frame.vertices[vertexIndex]
@@ -101,6 +108,7 @@ function md2Position(frame, vertexIndex)
   )
 end function
 
+// Interpolate state.
 function interpolate(first, second, backLerp)
   frontLerp = 1.0 - backLerp
   return ft.Vec3(
@@ -110,6 +118,7 @@ function interpolate(first, second, backLerp)
   )
 end function
 
+// Return the md 2 frame bounds.
 function md2FrameBounds(model, frameIndex, oldFrameIndex, backLerp)
   if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or oldFrameIndex >= len(model.frames) then
     return error(9640, "MD2 bounds frame outside table")
@@ -143,6 +152,7 @@ function md2FrameBounds(model, frameIndex, oldFrameIndex, backLerp)
   return MeshBounds(mins, maxs, radius)
 end function
 
+// Return the md 2 frame mesh value.
 function md2FrameMesh(model, frameIndex, oldFrameIndex, backLerp)
   if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or oldFrameIndex >= len(model.frames) then
     return error(9637, "MD2 animation frame outside table")
@@ -181,6 +191,7 @@ end function
 // second traversal for every visible alias model on every frame.
 function md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
     backLerp, normalOffset)
+  // Keep md 2 frame scalars with normal offset phases explicit: validate inputs, update owned state, then publish the result.
   if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or
       oldFrameIndex >= len(model.frames) then
     return error(9643, "MD2 scalar frame outside table")
@@ -239,11 +250,13 @@ function md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
   return scalars
 end function
 
+// Return the md 2 frame scalars value.
 function md2FrameScalars(model, frameIndex, oldFrameIndex, backLerp)
   return md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
     backLerp, 0.0)
 end function
 
+// Return the md 2 power shell frame scalars value.
 function md2PowerShellFrameScalars(model, frameIndex, oldFrameIndex, backLerp)
   // POWERSUIT_SCALE from ref_gl/gl_mesh.c.
   return md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,

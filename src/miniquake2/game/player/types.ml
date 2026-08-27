@@ -10,6 +10,7 @@ import miniquake2.game.gameplay.types as gptypes
 import miniquake2.game.player.constants as gplayerconstants
 import miniquake2.game.types as gtypes
 
+// Store spawn spot data.
 struct SpawnSpot
   className
   targetName
@@ -17,12 +18,14 @@ struct SpawnSpot
   angles
 end struct
 
+// Store spawn selection data.
 struct SpawnSelection
   spot
   origin
   angles
 end struct
 
+// Store player persistent data.
 struct PlayerPersistent
   userInfo
   netName
@@ -36,6 +39,7 @@ struct PlayerPersistent
   selectedItem
 end struct
 
+// Store player respawn data.
 struct PlayerRespawn
   score
   enterFrame
@@ -44,6 +48,7 @@ struct PlayerRespawn
   cooperativeInventory
 end struct
 
+// Store player powerups data.
 struct PlayerPowerups
   quadFrame
   invincibleFrame
@@ -51,6 +56,7 @@ struct PlayerPowerups
   breatherFrame
 end struct
 
+// Store player view data.
 struct PlayerView
   oldVelocity
   oldViewAngles
@@ -91,6 +97,7 @@ struct PlayerView
   machinegunShots
 end struct
 
+// Store view settings data.
 struct ViewSettings
   rollAngle
   rollSpeed
@@ -104,6 +111,7 @@ struct ViewSettings
   gunZ
 end struct
 
+// Store player data data.
 struct PlayerData
   edict
   gameplay
@@ -146,6 +154,7 @@ struct PlayerData
   flySoundDebounceTime
 end struct
 
+// Store player context data.
 struct PlayerContext
   imports
   registry
@@ -178,17 +187,21 @@ struct PlayerContext
   weaponThink
   killBox
   copyBody
+  deathDrop
+  deathGrenade
   messages
   viewSettings
   damagePlayer
 end struct
 
+// Store connect result data.
 struct ConnectResult
   accepted
   userInfo
   rejection
 end struct
 
+// Store death result data.
 struct DeathResult
   message
   victimScore
@@ -196,6 +209,7 @@ struct DeathResult
   friendlyFire
 end struct
 
+// Store frame result data.
 struct FrameResult
   moved
   fired
@@ -203,24 +217,29 @@ struct FrameResult
   exitIntermission
 end struct
 
+// Store rule result data.
 struct RuleResult
   ended
   reason
   nextMap
 end struct
 
+// Spawn spot.
 function spawnSpot(className, targetName, origin, angles)
   return SpawnSpot(className, targetName, origin, angles)
 end function
 
+// Return the zero persistent value.
 function zeroPersistent()
   return PlayerPersistent("", "unnamed", "male/grunt", false, 0, false, 0, 100, 0, 0)
 end function
 
+// Return the zero respawn value.
 function zeroRespawn(itemSlots)
   return PlayerRespawn(0, 0, false, [0.0, 0.0, 0.0], array(itemSlots, 0))
 end function
 
+// Return the zero player view value.
 function zeroPlayerView()
   oldVelocity = [0.0, 0.0, 0.0]
   oldViewAngles = miniquake2.qcommon.types.Vec3(0.0, 0.0, 0.0)
@@ -238,10 +257,12 @@ function zeroPlayerView()
   )
 end function
 
+// Return the default view settings value.
 function defaultViewSettings()
   return ViewSettings(2.0, 200.0, 0.002, 0.005, 0.002, 0.002, 0.005, 0.0, 0.0, 0.0)
 end function
 
+// Create player.
 function createPlayer(number, registry)
   itemSlots = gpregistry.inventorySlots(registry)
   edict = gtypes.zeroEdict(number)
@@ -269,16 +290,18 @@ function createPlayer(number, registry)
   )
 end function
 
+// Create context.
 function createContext(imports, registry, pmoveTrace)
   return PlayerContext(
     imports, registry, [], [], false, false, 0,
     0.0, 0, gplayerconstants.DEFAULT_GRAVITY, 0.0, false, "",
     "", "", 4, 0, 0.0, "", "", "",
     void, void, pmoveTrace, imports.pointContents, imports.pmove,
-    void, void, void, void, void, [], defaultViewSettings(), void
+    void, void, void, void, void, void, void, [], defaultViewSettings(), void
   )
 end function
 
+// Connect result.
 function connectResult(accepted, userInfo, rejection)
   return ConnectResult(accepted, userInfo, rejection)
 end function

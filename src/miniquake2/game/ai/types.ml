@@ -9,12 +9,14 @@ import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.types as gtypes
 import miniquake2.qcommon.types as gaiqtypes
 
+// Store monster frame data.
 struct MonsterFrame
   aiFunction
   distance
   thinkFunction
 end struct
 
+// Store monster move data.
 struct MonsterMove
   name
   firstFrame
@@ -23,6 +25,7 @@ struct MonsterMove
   endFunction
 end struct
 
+// Store monster info data.
 struct MonsterInfo
   currentMove
   nextFrame
@@ -50,6 +53,7 @@ struct MonsterInfo
   checkAttack
 end struct
 
+// Store ai actor data.
 struct AIActor
   edict
   className
@@ -126,6 +130,7 @@ struct AIActor
   gravity
 end struct
 
+// Store ai context data.
 struct AIContext
   time
   frameNumber
@@ -171,13 +176,16 @@ struct AIContext
   killBox
   soundIndex
   log
+  actorChat
 end struct
 
+// Store target selection data.
 struct TargetSelection
   candidate
   heard
 end struct
 
+// Store monster archetype data.
 struct MonsterArchetype
   className
   model
@@ -192,15 +200,18 @@ struct MonsterArchetype
   scale
 end struct
 
+// Store archetype registry data.
 struct ArchetypeRegistry
   entries
   campaignEntries
 end struct
 
+// Report whether no operation.
 function noOperation()
   return true
 end function
 
+// Return the default monster info value.
 function defaultMonsterInfo()
   lastSighting = [0.0, 0.0, 0.0]
   savedGoal = [0.0, 0.0, 0.0]
@@ -211,6 +222,7 @@ function defaultMonsterInfo()
   )
 end function
 
+// Create actor.
 function createActor(number, className)
   edict = gtypes.zeroEdict(number)
   edict.inUse = true
@@ -246,6 +258,7 @@ function createActor(number, className)
   return actor
 end function
 
+// Create client target.
 function createClientTarget(number)
   actor = createActor(number, "player")
   actor.isClient = true
@@ -256,6 +269,7 @@ function createClientTarget(number)
   return actor
 end function
 
+// Return the default context value.
 function defaultContext()
   return AIContext(
     0.0, 0, 1, false, false,
@@ -264,6 +278,6 @@ function defaultContext()
     void, void, void, void,
     void, void, void, void, void, void, void, void, void, void, void, void, void,
     void, void, void, void, void, void,
-    void, void, void, void, void
+    void, void, void, void, void, void
   )
 end function

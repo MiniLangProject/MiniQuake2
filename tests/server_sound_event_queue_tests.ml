@@ -10,6 +10,7 @@ import miniquake2.server.game_bridge as sseq_test_bridge
 import miniquake2.server.sound_events as sseq_test_events
 import miniquake2.server.types as sseq_test_types
 
+// Assert the sound queue test condition.
 function soundQueueAssert(value, name)
   if not value then return error(8450, name) end if
   return true
@@ -27,6 +28,32 @@ soundQueueAssert(sseq_test_events.encode(event) == golden,
   "Protocol-34 svc_sound golden fragment mismatch")
 soundQueueAssert(runtime.pendingSoundCount == 1 and runtime.nextSoundSerial == 1,
   "sound queue sequencing mismatch")
+
+// SV_StartSound spatializes inline brush models at their bbox midpoint rather
+// than at the mapper-defined model origin. This keeps large mover volume and
+// panning faithful to the original client.
+bspEntity = sseq_test_gt.zeroEdict(9)
+bspEntity.solid = sseq_test_gc.SOLID_BSP
+bspEntity.state.origin = sseq_test_qt.vec3(100.0, 200.0, 300.0)
+bspEntity.mins = sseq_test_qt.vec3(-16.0, -8.0, -4.0)
+bspEntity.maxs = sseq_test_qt.vec3(48.0, 24.0, 12.0)
+bspEvent = imports.sound(bspEntity, sseq_test_gc.CHAN_BODY, 8, 1.0, 1.0, 0.0)
+soundQueueAssert(bspEvent.position.x == 116.0 and
+  bspEvent.position.y == 208.0 and bspEvent.position.z == 304.0,
+  "inline BSP sound did not use its bounds midpoint")
+noClientEntity = sseq_test_gt.zeroEdict(10)
+noClientEntity.serverFlags = sseq_test_gc.SVF_NOCLIENT
+noClientEntity.state.origin = sseq_test_qt.vec3(-10.0, 20.0, 30.0)
+noClientEvent = imports.sound(noClientEntity, sseq_test_gc.CHAN_AUTO, 9,
+  1.0, 1.0, 0.0)
+soundQueueAssert(noClientEvent.position.x == -10.0 and
+  noClientEvent.position.y == 20.0 and noClientEvent.position.z == 30.0,
+  "SVF_NOCLIENT sound did not carry an explicit origin")
+ordinaryEntity = sseq_test_gt.zeroEdict(11)
+ordinaryEvent = imports.sound(ordinaryEntity, sseq_test_gc.CHAN_AUTO, 10,
+  1.0, 1.0, 0.0)
+soundQueueAssert(ordinaryEvent.position is void,
+  "ordinary entity sound unexpectedly froze its snapshot origin")
 
 // Validation is performed before append; every malformed call leaves the
 // queue and serial untouched.

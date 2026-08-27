@@ -7,18 +7,22 @@ import miniquake2.format.types as ft
 import miniquake2.renderer.opengl as ropengl
 import miniquake2.renderer.assets as rassets
 
+// Store adoption test imports data.
 struct AdoptionTestImports
   fsLoadFile
 end struct
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7994, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Reject file load.
 function rejectFileLoad(path)
   return error(7995, "adopted BSP unexpectedly reloaded: " + path)
 end function
 
+// Map adoption.
 function adoptionMap()
   vertices = [
     ft.BspVertex(ft.Vec3(0.0, 0.0, 0.0)), ft.BspVertex(ft.Vec3(8.0, 0.0, 0.0)),
@@ -32,6 +36,7 @@ function adoptionMap()
   return ft.BspMap("maps/adopted.bsp", bytes(0), [], "", [], vertices, void, [], [texInfo], [face], bytes(0), [], [], [], edges, [0, 1, 2, 3], [world, inlineModel], [], [], [], [])
 end function
 
+// Verify adoption cache inline and generation.
 function testAdoptionCacheInlineAndGeneration()
   renderer = ropengl.createOpenGlRenderer(false)
   renderer.exports.Init(void, void)

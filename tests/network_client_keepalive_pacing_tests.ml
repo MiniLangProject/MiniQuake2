@@ -12,6 +12,7 @@ import miniquake2.network.client as nckpclient
 import miniquake2.network.runtime.types as nckptypes
 import miniquake2.network.runtime.pump as nckppump
 
+// Assert the nckp test condition.
 function nckpAssert(value, name)
   if not value then return error(7285, "client keepalive pacing: " + name) end if
   return true

@@ -5,11 +5,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Focused low-heap retention gate for qcommon ASCII text helpers. */
 import miniquake2.qcommon.text as qtextgc
 
+// Assert the text gc test condition.
 function textGcAssert(actual, expected, label)
   if actual != expected then return error(3980, label + ": unexpected value") end if
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   qtextGcRetained = array(64)
   qtextGcIteration = 0

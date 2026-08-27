@@ -7,11 +7,13 @@ import miniquake2.network.constants as soaktestnc
 import miniquake2.qcommon.byteio as soaktestbyteio
 import miniquake2.runtime.soak as soaktest
 
+// Assert the soak test condition.
 function soakAssert(value, message)
   if not value then return error(9936, message) end if
   return true
 end function
 
+// Verify state.
 function verify(result, expectedFrames, label)
   soakAssert(result.frames == expectedFrames, label + " frame count")
   soakAssert(result.clientState == soaktestnc.CA_ACTIVE, label + " client state")
@@ -38,6 +40,7 @@ function verify(result, expectedFrames, label)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) == 0 then
     entities = "{\n\"classname\" \"worldspawn\"\n}\n" +

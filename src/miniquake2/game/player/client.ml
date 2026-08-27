@@ -16,6 +16,7 @@ import miniquake2.qcommon.info as qinfo
 import miniquake2.qcommon.types as qtypes
 import std.math as gplayermath
 
+// Copy pmove state.
 function copyPmoveState(state)
   return qtypes.PmoveState(state.moveType,
     [state.origin[0], state.origin[1], state.origin[2]],
@@ -24,18 +25,32 @@ function copyPmoveState(state)
     [state.deltaAngles[0], state.deltaAngles[1], state.deltaAngles[2]])
 end function
 
+// Return the angle to short value.
 function angleToShort(angle)
   value = qbyteio.truncInt(angle * 65536.0 / 360.0) & 65535
   if value >= 32768 then value = value - 65536 end if
   return value
 end function
 
+// Return the short to angle value.
 function shortToAngle(value)
   signed = value & 65535
   if signed >= 32768 then signed = signed - 65536 end if
   return signed * (360.0 / 65536.0)
 end function
 
+// Copy inventory counts.
+function copyInventoryCounts(counts)
+  copied = array(len(counts), 0)
+  index = 0
+  while index < len(counts)
+    copied[index] = counts[index]
+    index = index + 1
+  end while
+  return copied
+end function
+
+// Run weapon.
 function ThinkWeapon(context, player)
   // p_weapon.c does not run the active weapon state machine for a dead
   // client.  In particular, Weapon_Generic must not consume BUTTON_ATTACK:
@@ -54,6 +69,7 @@ function ThinkWeapon(context, player)
   return result
 end function
 
+// Write client in server.
 function PutClientInServer(context, player)
   selection = gplayerspawn.SelectSpawnPoint(context, player)
   savedUserInfo = player.persistent.userInfo
@@ -65,9 +81,18 @@ function PutClientInServer(context, player)
   else if context.cooperative then
     player.respawn = savedRespawn
     if len(savedRespawn.cooperativeInventory) == len(player.gameplay.inventory.counts) then
-      player.gameplay.inventory.counts = savedRespawn.cooperativeInventory
+      // InitClientResp stores a value snapshot.  A direct array assignment
+      // aliases the checkpoint in MiniLang, allowing later pickups to mutate
+      // what the next cooperative respawn should restore.
+      player.gameplay.inventory.counts = copyInventoryCounts(
+        savedRespawn.cooperativeInventory)
     end if
     if savedRespawn.score > player.persistent.score then player.persistent.score = savedRespawn.score end if
+    if player.gameplay.currentWeapon is void or
+        player.gameplay.inventory.counts[player.gameplay.currentWeapon.index] <= 0 then
+      player.gameplay.currentWeapon = gplayerweapons.findByPickupName(
+        context.registry, "Blaster")
+    end if
   else
     player.respawn = gplayertypes.zeroRespawn(len(player.gameplay.inventory.counts))
   end if
@@ -133,17 +158,27 @@ function PutClientInServer(context, player)
   return selection
 end function
 
+// Begin client.
 function ClientBegin(context, player)
   if player.persistent.connected != true then return error(9720, "ClientBegin: player is not connected") end if
   if player.edict.inUse != true or context.deathmatch then
     player.respawn = gplayertypes.zeroRespawn(len(player.gameplay.inventory.counts))
     player.respawn.enterFrame = context.frameNumber
+    // p_client.c::InitClientResp snapshots client->pers for cooperative
+    // respawns.  In particular this retains the initial blaster while death
+    // updates only the key slots in the checkpoint.
+    if context.cooperative then
+      player.respawn.cooperativeInventory = copyInventoryCounts(
+        player.gameplay.inventory.counts)
+      player.respawn.score = player.persistent.score
+    end if
     PutClientInServer(context, player)
   end if
   context.messages = context.messages + [player.persistent.netName + " entered the game"]
   return true
 end function
 
+// Return the respawn value.
 function respawn(context, player)
   if context.deathmatch or context.cooperative then
     if player.moveType != gplayerconstants.MOVETYPE_NOCLIP and context.copyBody is not void then context.copyBody(player) end if
@@ -159,6 +194,42 @@ function respawn(context, player)
   return false
 end function
 
+// p_hud.c::MoveClientToIntermission. The caller owns map-change timing and
+// point selection; this routine only applies the stock client-visible state.
+function MoveClientToIntermission(context, player, spot)
+  if spot is void then return error(9723,
+    "MoveClientToIntermission: no intermission spawn point") end if
+  if context.deathmatch or context.cooperative then player.showScores = true end if
+  player.edict.state.origin = qtypes.Vec3(spot.origin[0], spot.origin[1],
+    spot.origin[2])
+  state = player.edict.client.playerState
+  state.pmove.origin = [qbyteio.truncInt(spot.origin[0] * 8.0),
+    qbyteio.truncInt(spot.origin[1] * 8.0),
+    qbyteio.truncInt(spot.origin[2] * 8.0)]
+  state.viewAngles = qtypes.Vec3(spot.angles[0], spot.angles[1],
+    spot.angles[2])
+  state.pmove.moveType = miniquake2.game.constants.PM_FREEZE
+  state.gunIndex = 0
+  state.blend[3] = 0.0
+  state.rdFlags = state.rdFlags & ~miniquake2.game.constants.RDF_UNDERWATER
+  player.powerups.quadFrame = 0
+  player.powerups.invincibleFrame = 0
+  player.powerups.breatherFrame = 0
+  player.powerups.enviroFrame = 0
+  player.handGrenadeState = void
+  player.viewHeight = 0.0
+  player.edict.state.modelIndex = 0
+  player.edict.state.modelIndex2 = 0
+  player.edict.state.modelIndex3 = 0
+  player.edict.state.modelIndex4 = 0
+  player.edict.state.effects = 0
+  player.edict.state.sound = 0
+  player.view.weaponSound = 0
+  player.edict.solid = miniquake2.game.constants.SOLID_NOT
+  return true
+end function
+
+// Return the spectator respawn value.
 function spectator_respawn(context, player)
   if player.persistent.spectator then
     value = qinfo.valueForKey(player.persistent.userInfo, "spectator")
@@ -189,6 +260,7 @@ function spectator_respawn(context, player)
   return true
 end function
 
+// Return the chase candidate value.
 function chaseCandidate(context, player)
   for each candidate in context.players
     if nativeRawValue(candidate) != nativeRawValue(player) and candidate.edict.inUse and candidate.respawn.spectator != true then return candidate end if
@@ -196,7 +268,9 @@ function chaseCandidate(context, player)
   return void
 end function
 
+// Run client.
 function ClientThink(context, player, command)
+  // Keep client think phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(command) != "struct" then return error(9721, "ClientThink: user command required") end if
   if context.intermissionTime > 0.0 then
     player.edict.client.playerState.pmove.moveType = miniquake2.game.constants.PM_FREEZE
@@ -275,6 +349,7 @@ function ClientThink(context, player, command)
   return gplayertypes.FrameResult(moved, fired, false, context.exitIntermission)
 end function
 
+// Begin client server frame.
 function ClientBeginServerFrame(context, player)
   if context.intermissionTime > 0.0 then return gplayertypes.FrameResult(false, false, false, false) end if
   if context.deathmatch and player.persistent.spectator != player.respawn.spectator and context.time - player.respawnTime >= 5.0 then

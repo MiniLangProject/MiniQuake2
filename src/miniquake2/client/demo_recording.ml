@@ -15,6 +15,7 @@ import miniquake2.client.runtime.dispatcher as demorecorddispatcher
 
 extern function CreateDirectoryW(path as wstr, security as ptr) from "kernel32.dll" returns bool
 
+// Store demo recording data.
 struct DemoRecording
   runtime
   directory
@@ -24,6 +25,7 @@ struct DemoRecording
   active
 end struct
 
+// Create state.
 function create(runtime, directory)
   if runtime is void or typeof(directory) != "string" or directory == "" then
     return error(7710, "demo recording runtime/directory unavailable")
@@ -31,6 +33,7 @@ function create(runtime, directory)
   return DemoRecording(runtime, directory, "", "", void, false)
 end function
 
+// Return the safe name.
 function safeName(name)
   if typeof(name) != "string" or len(bytes(name)) < 1 or len(bytes(name)) > 48 then
     return false
@@ -44,6 +47,7 @@ function safeName(name)
   return true
 end function
 
+// Ensure directory.
 function ensureDirectory(path)
   if demorecordfs.isDir(path) then return true end if
   if demorecordfs.exists(path) then return error(7711, "demo directory path is not a directory") end if
@@ -53,12 +57,14 @@ function ensureDirectory(path)
   return true
 end function
 
+// Append buffer.
 function appendBuffer(demo, buffer)
   data = demorecordsizebuf.dataSlice(buffer)
   if len(data) > 0 then demorecorddemo.append(demo, data) end if
   return true
 end function
 
+// Append startup.
 function appendStartup(recording)
   runtime = recording.runtime
   network = runtime.network
@@ -96,6 +102,7 @@ function appendStartup(recording)
   return true
 end function
 
+// Start state.
 function start(recording, name)
   if recording.active then return error(7713, "already recording a demo") end if
   if not safeName(name) then return error(7714, "demo name must use letters, digits, '-' or '_'") end if
@@ -114,6 +121,7 @@ function start(recording, name)
   return recording.path
 end function
 
+// Stop state.
 function stop(recording)
   if not recording.active then return error(7716, "not recording a demo") end if
   demorecorddispatcher.setDemoRecorder(recording.runtime, void)
@@ -133,6 +141,7 @@ function stop(recording)
   return recording.path
 end function
 
+// Shut down state.
 function shutdown(recording)
   if recording is void then return false end if
   if recording.active then return stop(recording) end if

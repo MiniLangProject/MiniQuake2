@@ -10,6 +10,7 @@ import miniquake2.game.constants as attackconstants
 
 const FRAME_TIME = 0.1
 
+// Store monster attack plan data.
 struct MonsterAttackPlan
   className
   name
@@ -73,15 +74,26 @@ tankRocketPostDistances = [0.0, -1.0, -1.0, 0.0, 2.0, 3.0, 4.0, 2.0,
   0.0, 0.0, 0.0, -9.0, -8.0, -7.0, -1.0, -1.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0]
 
+// Run bounded offset.
 function boundedAttackOffset(plan, timelineOffset)
   if timelineOffset < 0 then return 0 end if
   if timelineOffset >= plan.durationFrames then return plan.durationFrames - 1 end if
   return timelineOffset
 end function
 
+// Return the movement distance for the requested position.
 function movementDistanceAt(plan, timelineOffset)
+  // Keep movement distance at phases explicit: validate inputs, update owned state, then publish the result.
   offset = boundedAttackOffset(plan, timelineOffset)
   name = plan.name
+  if name == "misc_actor-single" then
+    shots = len(plan.frameOffsets)
+    if offset < shots then return -2.0 end if
+    tail = offset - shots
+    if tail == 0 then return -2.0 end if
+    if tail == 1 then return 3.0 end if
+    return 2.0
+  end if
   if name == "infantry-machinegun" then
     shots = len(plan.frameOffsets)
     if offset <= 10 then return infantryMachinegunDistances[offset] end if
@@ -149,6 +161,7 @@ function movementDistanceAt(plan, timelineOffset)
   return 0.0
 end function
 
+// Return the movement ai for the requested position.
 function movementAiAt(plan, timelineOffset)
   offset = boundedAttackOffset(plan, timelineOffset)
   name = plan.name
@@ -178,7 +191,9 @@ function movementAiAt(plan, timelineOffset)
   return ATTACK_AI_CHARGE
 end function
 
+// Return the frame sound for the requested position.
 function frameSoundAt(plan, timelineOffset)
+  // Keep frame sound at phases explicit: validate inputs, update owned state, then publish the result.
   offset = boundedAttackOffset(plan, timelineOffset)
   name = plan.name
   if name == "berserk-spike" and offset == 2 then return "berserk/attack.wav" end if
@@ -228,6 +243,7 @@ function frameSoundAt(plan, timelineOffset)
   return ""
 end function
 
+// Return the frame sound channel for the requested position.
 function frameSoundChannelAt(plan, timelineOffset)
   soundName = frameSoundAt(plan, timelineOffset)
   if soundName == "gunner/gunatck1.wav" or soundName == "chick/chkatck1.wav" or
@@ -241,6 +257,7 @@ function frameSoundChannelAt(plan, timelineOffset)
   return attackconstants.CHAN_WEAPON
 end function
 
+// Return the frame sound attenuation for the requested position.
 function frameSoundAttenuationAt(plan, timelineOffset)
   if frameSoundAt(plan, timelineOffset) == "gunner/gunatck1.wav" then
     return attackconstants.ATTN_IDLE
@@ -248,6 +265,7 @@ function frameSoundAttenuationAt(plan, timelineOffset)
   return attackconstants.ATTN_NORM
 end function
 
+// Run plan.
 function attackPlan(className, name, attackKind, damage, knockback, speed, splashRadius,
     maximumRange, count, frameOffsets, muzzleFlashes, durationFrames)
   return MonsterAttackPlan(className, name, attackKind, damage, knockback, speed,
@@ -255,6 +273,29 @@ function attackPlan(className, name, attackKind, damage, knockback, speed, splas
     durationFrames * FRAME_TIME)
 end function
 
+// Return the actor machinegun plan shots value.
+function actorMachinegunPlanShots(shotCount)
+  if shotCount < 10 then shotCount = 10 end if
+  if shotCount > 25 then shotCount = 25 end if
+  offsets = array(shotCount)
+  flashes = array(shotCount)
+  shot = 0
+  while shot < shotCount
+    // actor_fire holds FRAME_attak01 and is called once per 0.1-second frame.
+    offsets[shot] = shot
+    flashes[shot] = 63
+    shot = shot + 1
+  end while
+  return attackPlan("misc_actor", "misc_actor-single", "bullet", 3, 4,
+    0.0, 0.0, 2048.0, 1, offsets, flashes, shotCount + 3)
+end function
+
+// Return the actor machinegun plan value.
+function actorMachinegunPlan(raw)
+  return actorMachinegunPlanShots(10 + (raw & 15))
+end function
+
+// Return the deterministic value.
 function deterministicValue(actorNumber, attackCount, salt, modulus)
   if modulus <= 0 then return 0 end if
   value = actorNumber * 97 + attackCount * 53 + salt * 31 + 17
@@ -262,6 +303,7 @@ function deterministicValue(actorNumber, attackCount, salt, modulus)
   return value % modulus
 end function
 
+// Return the repeated cycle count.
 function repeatedCycleCount(actorNumber, attackCount, salt, chancePercent, maximumCycles)
   cycles = 1
   while cycles < maximumCycles and deterministicValue(actorNumber, attackCount, salt + cycles, 100) < chancePercent
@@ -270,6 +312,7 @@ function repeatedCycleCount(actorNumber, attackCount, salt, chancePercent, maxim
   return cycles
 end function
 
+// Return the infantry plan shots value.
 function infantryPlanShots(shotCount)
   if shotCount < 10 then shotCount = 10 end if
   if shotCount > 25 then shotCount = 25 end if
@@ -285,12 +328,14 @@ function infantryPlanShots(shotCount)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 15 + shotCount - 1)
 end function
 
+// Return the infantry plan value.
 function infantryPlan(actorNumber, attackCount)
   // Legacy deterministic construction for isolated callers. The integrated
   // runtime consumes rand() at FRAME_attak104 and stores the exact shot count.
   return infantryPlanShots(10 + deterministicValue(actorNumber, attackCount, 11, 16))
 end function
 
+// Return the gunner chain plan cycles value.
 function gunnerChainPlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles * 8)
@@ -310,25 +355,30 @@ function gunnerChainPlanCycles(cycles)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 22 + (cycles - 1) * 8)
 end function
 
+// Return the gunner chain plan value.
 function gunnerChainPlan(actorNumber, attackCount)
   return gunnerChainPlanCycles(repeatedCycleCount(actorNumber, attackCount, 29, 50, 8))
 end function
 
+// Return the gunner grenade plan value.
 function gunnerGrenadePlan()
   return attackPlan("monster_gunner", "gunner-grenade", "grenade", 50, 0,
     600.0, 0.0, 2048.0, 1, [4, 7, 10, 13], [53, 54, 55, 56], 21)
 end function
 
+// Return the gladiator rail plan value.
 function gladiatorRailPlan()
   return attackPlan("monster_gladiator", "gladiator-rail", "rail", 50, 100,
     0.0, 0.0, 2048.0, 1, [3], [61], 9)
 end function
 
+// Return the gladiator melee plan value.
 function gladiatorMeleePlan()
   return attackPlan("monster_gladiator", "gladiator-cleaver", "melee", 22, 300,
     0.0, 0.0, 112.0, 1, [6, 13], [0, 0], 17)
 end function
 
+// Return the berserk melee plan value.
 function berserkMeleePlan(actorNumber, attackCount)
   if deterministicValue(actorNumber, attackCount, 117, 2) == 0 then
     return attackPlan("monster_berserk", "berserk-spike", "melee", 18, 400,
@@ -338,11 +388,13 @@ function berserkMeleePlan(actorNumber, attackCount)
     0.0, 0.0, 80.0, 1, [8], [0], 12)
 end function
 
+// Return the infantry melee plan value.
 function infantryMeleePlan()
   return attackPlan("monster_infantry", "infantry-punch", "melee", 7, 50,
     0.0, 0.0, 80.0, 1, [5], [0], 8)
 end function
 
+// Return the chick melee plan cycles value.
 function chickMeleePlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles)
@@ -357,10 +409,12 @@ function chickMeleePlanCycles(cycles)
     0.0, 0.0, 80.0, 1, offsets, flashes, 16 + (cycles - 1) * 9)
 end function
 
+// Return the chick melee plan value.
 function chickMeleePlan(actorNumber, attackCount)
   return chickMeleePlanCycles(repeatedCycleCount(actorNumber, attackCount, 119, 90, 8))
 end function
 
+// Return the flyer melee plan cycles value.
 function flyerMeleePlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles * 2)
@@ -378,15 +432,18 @@ function flyerMeleePlanCycles(cycles)
     0.0, 0.0, 80.0, 1, offsets, flashes, 21 + (cycles - 1) * 12)
 end function
 
+// Return the flyer melee plan value.
 function flyerMeleePlan()
   return flyerMeleePlanCycles(8)
 end function
 
+// Return the brain claw plan value.
 function brainClawPlan()
   return attackPlan("monster_brain", "brain-claws", "melee", 17, 40,
     0.0, 0.0, 80.0, 1, [7, 11], [0, 0], 18)
 end function
 
+// Return the brain tentacle plan value.
 function brainTentaclePlan(skill)
   if skill <= 0 then
     return attackPlan("monster_brain", "brain-tentacle", "melee", 12, -600,
@@ -399,16 +456,19 @@ function brainTentaclePlan(skill)
     0.0, 0.0, 80.0, 1, [6, 18, 22], [0, 0, 0], 29)
 end function
 
+// Return the floater wham plan value.
 function floaterWhamPlan()
   return attackPlan("monster_floater", "floater-wham", "melee", 8, -50,
     0.0, 0.0, 80.0, 1, [11], [0], 25)
 end function
 
+// Return the floater zap plan value.
 function floaterZapPlan()
   return attackPlan("monster_floater", "floater-zap", "melee", 8, -10,
     0.0, 0.0, 80.0, 1, [8], [0], 34)
 end function
 
+// Return the mutant melee plan cycles value.
 function mutantMeleePlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles * 2)
@@ -426,10 +486,12 @@ function mutantMeleePlanCycles(cycles)
     0.0, 0.0, 80.0, 1, offsets, flashes, cycles * 7)
 end function
 
+// Return the mutant melee plan value.
 function mutantMeleePlan()
   return mutantMeleePlanCycles(8)
 end function
 
+// Return the mutant jump plan value.
 function mutantJumpPlan()
   // attack03 launches; attack05 is a live landing check that holds while the
   // MOVETYPE_STEP body remains airborne.
@@ -437,17 +499,20 @@ function mutantJumpPlan()
     600.0, 0.0, 2048.0, 1, [2, 4], [0, 0], 8)
 end function
 
+// Drain parasite plan.
 function parasiteDrainPlan()
   return attackPlan("monster_parasite", "parasite-drain", "drain", 2, 0,
     0.0, 0.0, 256.0, 1, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 18)
 end function
 
+// Return the flipper bite plan value.
 function flipperBitePlan()
   return attackPlan("monster_flipper", "flipper-bites", "melee", 5, 0,
     0.0, 0.0, 80.0, 1, [13, 18], [0, 0], 20)
 end function
 
+// Return the medic blaster plan continue value.
 function medicBlasterPlanContinue(includeHyper)
   eventCount = 2
   if includeHyper then eventCount = 14 end if
@@ -471,10 +536,12 @@ function medicBlasterPlanContinue(includeHyper)
     1000.0, 0.0, 2048.0, 1, offsets, flashes, duration)
 end function
 
+// Return the medic blaster plan value.
 function medicBlasterPlan(actorNumber, attackCount)
   return medicBlasterPlanContinue(deterministicValue(actorNumber, attackCount, 83, 100) < 95)
 end function
 
+// Return the medic cable plan value.
 function medicCablePlan()
   // attack42 launches, attack43..51 update the cable, and attack52 retracts.
   return attackPlan("monster_medic", "medic-cable", "medic-cable", 0, 0,
@@ -483,6 +550,7 @@ function medicCablePlan()
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 28)
 end function
 
+// Return the chick rocket plan cycles value.
 function chickRocketPlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles)
@@ -497,21 +565,25 @@ function chickRocketPlanCycles(cycles)
     500.0, 70.0, 2048.0, 1, offsets, flashes, 32 + (cycles - 1) * 14)
 end function
 
+// Return the chick rocket plan value.
 function chickRocketPlan(actorNumber, attackCount)
   return chickRocketPlanCycles(repeatedCycleCount(actorNumber, attackCount, 89, 60, 8))
 end function
 
+// Return the flyer blaster plan value.
 function flyerBlasterPlan()
   return attackPlan("monster_flyer", "flyer-blasters", "blaster", 1, 0,
     1000.0, 0.0, 2048.0, 1,
     [3, 4, 5, 6, 7, 8, 9, 10], [58, 59, 58, 59, 58, 59, 58, 59], 17)
 end function
 
+// Return the floater blaster plan value.
 function floaterBlasterPlan()
   return attackPlan("monster_floater", "floater-blasters", "blaster", 1, 0,
     1000.0, 0.0, 2048.0, 1, [3, 4, 5, 6, 7, 8, 9], [82, 82, 82, 82, 82, 82, 82], 14)
 end function
 
+// Return the hover blaster plan cycles value.
 function hoverBlasterPlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles * 2)
@@ -529,10 +601,12 @@ function hoverBlasterPlanCycles(cycles)
     1000.0, 0.0, 2048.0, 1, offsets, flashes, 8 + (cycles - 1) * 3)
 end function
 
+// Return the hover blaster plan value.
 function hoverBlasterPlan(actorNumber, attackCount)
   return hoverBlasterPlanCycles(repeatedCycleCount(actorNumber, attackCount, 97, 60, 8))
 end function
 
+// Return the supertank machinegun plan cycles value.
 function supertankMachinegunPlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles * 6)
@@ -552,15 +626,18 @@ function supertankMachinegunPlanCycles(cycles)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 20 + (cycles - 1) * 6)
 end function
 
+// Return the supertank machinegun plan value.
 function supertankMachinegunPlan(actorNumber, attackCount)
   return supertankMachinegunPlanCycles(repeatedCycleCount(actorNumber, attackCount, 101, 90, 8))
 end function
 
+// Return the supertank rocket plan value.
 function supertankRocketPlan()
   return attackPlan("monster_supertank", "supertank-rockets", "rocket", 50, 0,
     500.0, 70.0, 2048.0, 1, [7, 10, 13], [70, 71, 72], 27)
 end function
 
+// Return the tank machinegun plan value.
 function tankMachinegunPlan(className)
   offsets = array(19)
   flashes = array(19)
@@ -574,6 +651,7 @@ function tankMachinegunPlan(className)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 29)
 end function
 
+// Return the tank blaster plan cycles value.
 function tankBlasterPlanCycles(className, cycles, allowRefire)
   if cycles < 1 then cycles = 1 end if
   planName = "tank-blasters"
@@ -596,12 +674,14 @@ function tankBlasterPlanCycles(className, cycles, allowRefire)
     800.0, 0.0, 2048.0, 1, offsets, flashes, 22 + (cycles - 1) * 6)
 end function
 
+// Return the tank blaster plan value.
 function tankBlasterPlan(className, actorNumber, attackCount, skill)
   cycles = 1
   if skill >= 2 then cycles = repeatedCycleCount(actorNumber, attackCount, 107, 60, 8) end if
   return tankBlasterPlanCycles(className, cycles, skill >= 2)
 end function
 
+// Return the tank rocket plan cycles value.
 function tankRocketPlanCycles(className, cycles, allowRefire)
   if cycles < 1 then cycles = 1 end if
   planName = "tank-rockets"
@@ -623,12 +703,14 @@ function tankRocketPlanCycles(className, cycles, allowRefire)
     550.0, 70.0, 2048.0, 1, offsets, flashes, 53 + (cycles - 1) * 9)
 end function
 
+// Return the tank rocket plan value.
 function tankRocketPlan(className, actorNumber, attackCount, skill)
   cycles = 1
   if skill >= 2 then cycles = repeatedCycleCount(actorNumber, attackCount, 109, 40, 8) end if
   return tankRocketPlanCycles(className, cycles, skill >= 2)
 end function
 
+// Return the tank plan with roll value.
 function tankPlanWithRoll(className, actorNumber, attackCount, distance, skill, roll)
   if distance <= 125.0 then
     if roll < 0.4 then return tankMachinegunPlan(className) end if
@@ -643,11 +725,13 @@ function tankPlanWithRoll(className, actorNumber, attackCount, distance, skill, 
   return tankBlasterPlanCycles(className, 1, skill >= 2)
 end function
 
+// Return the tank plan value.
 function tankPlan(className, actorNumber, attackCount, distance, skill)
   roll = deterministicValue(actorNumber, attackCount, 113, 100) / 100.0
   return tankPlanWithRoll(className, actorNumber, attackCount, distance, skill, roll)
 end function
 
+// Return the soldier light plan cycles value.
 function soldierLightPlanCycles(className, secondAttack, cycles)
   if cycles < 1 then cycles = 1 end if
   firstOffset = 2
@@ -672,6 +756,7 @@ function soldierLightPlanCycles(className, secondAttack, cycles)
     600.0, 0.0, 2048.0, 1, offsets, flashes, duration)
 end function
 
+// Return the soldier shotgun plan cycles value.
 function soldierShotgunPlanCycles(className, secondAttack, cycles)
   if cycles < 1 then cycles = 1 end if
   firstOffset = 2
@@ -698,6 +783,7 @@ function soldierShotgunPlanCycles(className, secondAttack, cycles)
     0.0, 0.0, 2048.0, 12, offsets, flashes, duration)
 end function
 
+// Return the soldier plan variant value.
 function soldierPlanVariant(className, actorNumber, attackCount, secondAttack)
   if className == "monster_soldier_light" then
     return soldierLightPlanCycles(className, secondAttack, 1)
@@ -709,6 +795,7 @@ function soldierPlanVariant(className, actorNumber, attackCount, secondAttack)
     3 + deterministicValue(actorNumber, attackCount, 43, 8))
 end function
 
+// Return the soldier machinegun plan shots value.
 function soldierMachinegunPlanShots(className, shotCount)
   // m_soldier.c attack4 holds FRAME_attak403 for 3..10 shots and uses
   // machinegun_flash[3] (MZ2_SOLDIER_MACHINEGUN_4 == 88).
@@ -726,6 +813,7 @@ function soldierMachinegunPlanShots(className, shotCount)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 6 + shotCount - 1)
 end function
 
+// Run soldier flash.
 function soldierAttackFlash(className, flashNumber)
   if flashNumber == 2 then
     if className == "monster_soldier_light" then return 83 end if
@@ -737,6 +825,7 @@ function soldierAttackFlash(className, flashNumber)
   return 100
 end function
 
+// Return the soldier special plan value.
 function soldierSpecialPlan(className, name, offsets, flashes, duration)
   if className == "monster_soldier_light" then
     return attackPlan(className, name, "blaster", 5, 0,
@@ -750,12 +839,14 @@ function soldierSpecialPlan(className, name, offsets, flashes, duration)
     0.0, 0.0, 2048.0, 1, offsets, flashes, duration)
 end function
 
+// Return the soldier duck shoot plan value.
 function soldierDuckShootPlan(className)
   flash = soldierAttackFlash(className, 2)
   return soldierSpecialPlan(className, "soldier-duck-shoot", [2, 6],
     [flash, flash], 13)
 end function
 
+// Run soldier shoot plan cycles.
 function soldierRunShootPlanCycles(className, cycles)
   if cycles < 1 then cycles = 1 end if
   offsets = array(cycles)
@@ -771,17 +862,20 @@ function soldierRunShootPlanCycles(className, cycles)
     14 + (cycles - 1) * 12)
 end function
 
+// Run soldier dodge uses.
 function inline soldierDodgeUsesAttack(skill, roll)
   if skill <= 0 then return false end if
   if skill == 1 then return roll <= 0.33 end if
   return roll <= 0.66
 end function
 
+// Return the soldier plan value.
 function soldierPlan(className, actorNumber, attackCount)
   secondAttack = deterministicValue(actorNumber, attackCount, 41, 2) == 1
   return soldierPlanVariant(className, actorNumber, attackCount, secondAttack)
 end function
 
+// Return the jorg plan cycles value.
 function jorgPlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   eventCount = cycles * 12
@@ -804,17 +898,20 @@ function jorgPlanCycles(cycles)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 18 + (cycles - 1) * 6)
 end function
 
+// Return the jorg plan value.
 function jorgPlan(actorNumber, attackCount)
   // Legacy deterministic construction remains available to unit callers;
   // the integrated runtime grows one cycle at each original refire callback.
   return jorgPlanCycles(repeatedCycleCount(actorNumber, attackCount, 59, 90, 8))
 end function
 
+// Return the jorg bfg plan value.
 function jorgBfgPlan()
   return attackPlan("monster_jorg", "jorg-bfg", "bfg", 50, 100,
     300.0, 200.0, 2048.0, 1, [6], [132], 13)
 end function
 
+// Return the boss 2 machinegun plan cycles value.
 function boss2MachinegunPlanCycles(cycles)
   if cycles < 1 then cycles = 1 end if
   eventCount = cycles * 10
@@ -839,20 +936,24 @@ function boss2MachinegunPlanCycles(cycles)
     0.0, 0.0, 2048.0, 1, offsets, flashes, 19 + (cycles - 1) * 6)
 end function
 
+// Return the boss 2 machinegun plan value.
 function boss2MachinegunPlan(actorNumber, attackCount)
   return boss2MachinegunPlanCycles(repeatedCycleCount(actorNumber, attackCount, 71, 70, 8))
 end function
 
+// Return the boss 2 rocket plan value.
 function boss2RocketPlan()
   return attackPlan("monster_boss2", "boss2-rockets", "rocket", 50, 0,
     500.0, 70.0, 2048.0, 1, [12, 12, 12, 12], [78, 79, 80, 81], 21)
 end function
 
+// Return the makron bfg plan value.
 function makronBfgPlan()
   return attackPlan("monster_makron", "makron-bfg", "bfg", 50, 100,
     300.0, 300.0, 2048.0, 1, [3], [101], 8)
 end function
 
+// Return the makron hyperblaster plan value.
 function makronHyperblasterPlan()
   offsets = array(17)
   flashes = array(17)
@@ -866,11 +967,13 @@ function makronHyperblasterPlan()
     1000.0, 0.0, 2048.0, 1, offsets, flashes, 26)
 end function
 
+// Return the makron rail plan value.
 function makronRailPlan()
   return attackPlan("monster_makron", "makron-rail", "rail", 50, 100,
     0.0, 0.0, 2048.0, 1, [8], [119], 16)
 end function
 
+// Return the fallback plan value.
 function fallbackPlan(className)
   profile = attackprofiles.stockProfile(className)
   if profile is void then return void end if
@@ -884,7 +987,12 @@ function fallbackPlan(className)
   return plan
 end function
 
+// Select plan.
 function selectPlan(className, actorNumber, attackCount, distance, skill)
+  // Keep select plan phases explicit: validate inputs, update owned state, then publish the result.
+  if className == "misc_actor" then
+    return actorMachinegunPlan(actorNumber * 97 + attackCount * 53 + 17)
+  end if
   if className == "monster_berserk" then return berserkMeleePlan(actorNumber, attackCount) end if
   if className == "monster_gladiator" then
     if distance <= 112.0 then return gladiatorMeleePlan() end if
@@ -953,8 +1061,10 @@ function selectPlan(className, actorNumber, attackCount, distance, skill)
   return fallbackPlan(className)
 end function
 
+// Return the selection random kind value.
 function selectionRandomKind(className, distance)
   // 0 = no selection draw, 1 = random()/unit draw, 2 = raw rand() draw.
+  if className == "misc_actor" then return 2 end if
   if className == "monster_berserk" then return 2 end if
   if className == "monster_gunner" and distance >= 80.0 then return 1 end if
   if className == "monster_soldier_light" or className == "monster_soldier" then return 1 end if
@@ -968,6 +1078,7 @@ function selectionRandomKind(className, distance)
   return 0
 end function
 
+// Return the berserk plan with raw value.
 function berserkPlanWithRaw(raw)
   if raw % 2 == 0 then
     return attackPlan("monster_berserk", "berserk-spike", "melee", 18, 400,
@@ -977,11 +1088,13 @@ function berserkPlanWithRaw(raw)
     0.0, 0.0, 80.0, 1, [8], [0], 12)
 end function
 
+// Return the gunner plan with roll value.
 function gunnerPlanWithRoll(actorNumber, attackCount, distance, roll)
   if distance >= 80.0 and roll <= 0.5 then return gunnerGrenadePlan() end if
   return gunnerChainPlanCycles(1)
 end function
 
+// Return the soldier plan with roll value.
 function soldierPlanWithRoll(className, actorNumber, attackCount, roll)
   if className == "monster_soldier_ss" then
     return soldierPlanVariant(className, actorNumber, attackCount, false)
@@ -989,6 +1102,7 @@ function soldierPlanWithRoll(className, actorNumber, attackCount, roll)
   return soldierPlanVariant(className, actorNumber, attackCount, roll >= 0.5)
 end function
 
+// Return the brain plan with roll value.
 function brainPlanWithRoll(skill, roll)
   if roll <= 0.5 then return brainClawPlan() end if
   // Whether attack2 chains is decided later by the real fire_hit result, not
@@ -996,34 +1110,44 @@ function brainPlanWithRoll(skill, roll)
   return brainTentaclePlan(0)
 end function
 
+// Return the floater plan with roll value.
 function floaterPlanWithRoll(distance, roll)
   if distance >= 80.0 then return floaterBlasterPlan() end if
   if roll < 0.5 then return floaterZapPlan() end if
   return floaterWhamPlan()
 end function
 
+// Return the supertank plan with roll value.
 function supertankPlanWithRoll(actorNumber, attackCount, distance, roll)
   if distance <= 160.0 or roll < 0.3 then return supertankMachinegunPlanCycles(1) end if
   return supertankRocketPlan()
 end function
 
+// Return the jorg plan with roll value.
 function jorgPlanWithRoll(actorNumber, attackCount, roll)
   if roll <= 0.75 then return jorgPlanCycles(1) end if
   return jorgBfgPlan()
 end function
 
+// Return the boss 2 plan with roll value.
 function boss2PlanWithRoll(actorNumber, attackCount, distance, roll)
   if distance <= 125.0 or roll <= 0.6 then return boss2MachinegunPlanCycles(1) end if
   return boss2RocketPlan()
 end function
 
+// Return the makron plan with roll value.
 function makronPlanWithRoll(roll)
   if roll <= 0.3 then return makronBfgPlan() end if
   if roll <= 0.6 then return makronHyperblasterPlan() end if
   return makronRailPlan()
 end function
 
+// Return the plan by name.
 function planByName(className, name, actorNumber, attackCount)
+  // Keep plan by name phases explicit: validate inputs, update owned state, then publish the result.
+  if name == "misc_actor-single" then
+    return actorMachinegunPlan(actorNumber * 97 + attackCount * 53 + 17)
+  end if
   if name == "berserk-spike" or name == "berserk-club" then return berserkMeleePlan(actorNumber, attackCount) end if
   if name == "gladiator-rail" then return gladiatorRailPlan() end if
   if name == "gladiator-cleaver" then return gladiatorMeleePlan() end if
@@ -1082,7 +1206,12 @@ function planByName(className, name, actorNumber, attackCount)
   return void
 end function
 
+// Return the plan by name cycles value.
 function planByNameCycles(className, name, actorNumber, attackCount, cycles)
+  // Keep plan by name cycles phases explicit: validate inputs, update owned state, then publish the result.
+  if name == "misc_actor-single" and cycles >= 10 then
+    return actorMachinegunPlanShots(cycles)
+  end if
   if name == "infantry-machinegun" and cycles >= 10 then return infantryPlanShots(cycles) end if
   if name == "soldier-ss-machinegun" and cycles >= 3 then
     return soldierMachinegunPlanShots(className, cycles)
@@ -1122,17 +1251,20 @@ function planByNameCycles(className, name, actorNumber, attackCount, cycles)
   return planByName(className, name, actorNumber, attackCount)
 end function
 
+// Return the event damage value.
 function inline eventDamage(plan, eventIndex)
   if plan.name == "parasite-drain" and eventIndex == 0 then return 5 end if
   if plan.name == "brain-tentacle-claws" and eventIndex == 0 then return 12 end if
   return plan.damage
 end function
 
+// Return the event knockback value.
 function inline eventKnockback(plan, eventIndex)
   if plan.name == "brain-tentacle-claws" and eventIndex == 0 then return -600 end if
   return plan.knockback
 end function
 
+// Return the event source flash value.
 function inline eventSourceFlash(plan, eventIndex)
   // Makron's 3.19 hyperblaster projects each bolt from the consecutive
   // MZ2_MAKRON_BLASTER_1..17 offsets but deliberately sends the constant
@@ -1141,6 +1273,7 @@ function inline eventSourceFlash(plan, eventIndex)
   return plan.muzzleFlashes[eventIndex]
 end function
 
+// Return the event uses hyperblaster effect value.
 function inline eventUsesHyperblasterEffect(plan, eventIndex)
   if plan.name == "flyer-blasters" then return eventIndex == 0 or eventIndex == 3 or eventIndex == 6 end if
   if plan.name == "floater-blasters" then return eventIndex == 0 or eventIndex == 3 end if
@@ -1152,12 +1285,14 @@ function inline eventUsesHyperblasterEffect(plan, eventIndex)
   return false
 end function
 
+// Clamp timeline offset.
 function clampTimelineOffset(plan, timelineOffset)
   if timelineOffset < 0 then return 0 end if
   if timelineOffset >= plan.durationFrames then return plan.durationFrames - 1 end if
   return timelineOffset
 end function
 
+// Return the model frame for the requested position.
 function modelFrameAt(plan, timelineOffset)
   // Translate the deterministic event timeline back to the stock MD2 frame.
   // Several C moves hold or loop a short frame range while firing; a simple
@@ -1165,6 +1300,11 @@ function modelFrameAt(plan, timelineOffset)
   // animation frames during those refire cycles.
   offset = clampTimelineOffset(plan, timelineOffset)
   name = plan.name
+  if name == "misc_actor-single" then
+    actorShots = len(plan.frameOffsets)
+    if offset < actorShots then return 0 end if
+    return 1 + offset - actorShots
+  end if
   if name == "berserk-spike" then return 76 + offset end if
   if name == "berserk-club" then return 84 + offset end if
   if name == "gladiator-rail" then return 46 + offset end if
@@ -1322,6 +1462,7 @@ function modelFrameAt(plan, timelineOffset)
   return offset
 end function
 
+// Validate plan.
 function validatePlan(plan)
   if plan is void or plan.className == "" or plan.name == "" or len(plan.frameOffsets) == 0 or
       len(plan.frameOffsets) != len(plan.muzzleFlashes) or plan.durationFrames <= 0 or plan.cooldown <= 0.0 then

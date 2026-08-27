@@ -12,17 +12,20 @@ import miniquake2.network.runtime.pump as rpump
 
 disconnectSlots = []
 
+// Record disconnect.
 function recordDisconnect(slot)
   global disconnectSlots
   disconnectSlots = disconnectSlots + [slot]
   return true
 end function
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7930, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   global disconnectSlots
   callbacks = rgame.createWithDisconnect(rgame.allowConnect, rgame.ignoreUserinfo,

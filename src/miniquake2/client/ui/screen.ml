@@ -11,15 +11,18 @@ import miniquake2.client.ui.console as cuiconsole
 import miniquake2.client.ui.menu as cuimenu
 import miniquake2.client.ui.types as cuitypes
 
+// Create state.
 function create(console, menu)
   return cuitypes.ScreenState(console, menu, "", 0, 0, "", "", [], [], "", [],
     [], [], 0, false, 1, true)
 end function
 
+// Return the crosshair position.
 function crosshairPosition(screenWidth, screenHeight, pictureWidth, pictureHeight)
   return [(screenWidth - pictureWidth) / 2, (screenHeight - pictureHeight) / 2]
 end function
 
+// Draw crosshair.
 function drawCrosshair(screen, screenWidth, screenHeight, exports)
   if not screen.showHud or screen.crosshair <= 0 or screen.menu.active or
       screen.console.visibleFraction > 0.0 then return 0 end if
@@ -31,6 +34,7 @@ function drawCrosshair(screen, screenWidth, screenHeight, exports)
   return 1
 end function
 
+// Print center.
 function centerPrint(screen, text, now, duration)
   if duration < 0 then return error(8240, "negative centerprint duration") end if
   screen.centerText = text
@@ -39,6 +43,7 @@ function centerPrint(screen, text, now, duration)
   return true
 end function
 
+// Set inventory.
 function setInventory(screen, items, selected)
   screen.inventory = items
   screen.selectedInventory = selected
@@ -79,6 +84,7 @@ function updateInventory(screen, values, configStrings, selected)
   return len(cuiscreenInventoryItems)
 end function
 
+// Draw text.
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -87,6 +93,7 @@ function drawText(exports, x, y, text)
   end while
 end function
 
+// Draw centered lines.
 function drawCenteredLines(exports, screenWidth, startY, text)
   data = bytes(text)
   start = 0
@@ -104,6 +111,7 @@ function drawCenteredLines(exports, screenWidth, startY, text)
   return count
 end function
 
+// Draw inventory.
 function drawInventory(screen, screenWidth, screenHeight, exports)
   if screen.showInventory == false then return 0 end if
   x = screenWidth / 2 - 120
@@ -122,8 +130,10 @@ function drawInventory(screen, screenWidth, screenHeight, exports)
   return count
 end function
 
+// Draw state.
 function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
     serverFrame, playerNumber, exports)
+  // Keep draw phases explicit: validate inputs, update owned state, then publish the result.
   count = 0
   count = count + drawCrosshair(screen, screenWidth, screenHeight, exports)
   if screen.showHud then

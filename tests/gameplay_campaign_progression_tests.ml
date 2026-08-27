@@ -8,6 +8,7 @@ import miniquake2.game.null_game as goalgame
 import miniquake2.server.game_bridge as goalbridge
 import miniquake2.runtime.play_session as goalplay
 
+// Assert the goal test condition.
 function goalAssert(value, message)
   if value != true then return error(9975, message) end if
   return true
@@ -43,6 +44,7 @@ goalAssert(goalgame.playerContext().nextMap == "eou1_.cin+*bunk1$start",
 goalApi.clientDisconnect(goalClient)
 goalApi.shutdown()
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) > 1 then return error(9976, "expected optional Quake II install root") end if
   if len(args) == 1 then

@@ -22,6 +22,7 @@ FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 @dataclass(frozen=True)
 class Issue:
+    """Store issue data."""
     path: str
     line: int
     rule: str
@@ -122,6 +123,7 @@ def verify(root: Path) -> tuple[list[Path], list[Issue]]:
 
 
 def main() -> int:
+    """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--json", type=Path, help="write the complete report as JSON")

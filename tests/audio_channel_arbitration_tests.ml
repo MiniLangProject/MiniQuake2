@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.audio.wav as acatwav
 import miniquake2.audio.mixer as acatmixer
 
+// Assert the acat test condition.
 function acatAssert(value, message)
   if value != true then return error(10222, message) end if
   return true

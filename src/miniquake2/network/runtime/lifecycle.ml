@@ -12,6 +12,7 @@ import miniquake2.network.constants as nrlifecyclenc
 import miniquake2.network.runtime.messages as nrlifecyclemessages
 import miniquake2.network.runtime.types as nrlifecyclertypes
 
+// Store server level plan data.
 struct ServerLevelPlan
   ready
   deferred
@@ -23,6 +24,7 @@ struct ServerLevelPlan
   reason
 end struct
 
+// Return the transition payload value.
 function transitionPayload()
   buffer = nrlifecycleqsz.alloc(64)
   nrlifecyclemessages.writeStuffText(buffer, "changing\n")
@@ -30,6 +32,7 @@ function transitionPayload()
   return nrlifecycleqsz.dataSlice(buffer)
 end function
 
+// Prepare server level.
 function prepareServerLevel(runtime, levelName)
   if typeof(levelName) != "string" or levelName == "" or
       len(bytes(levelName)) >= nrlifecycleqc.MAX_QPATH then
@@ -69,6 +72,7 @@ function prepareServerLevel(runtime, levelName)
     payload, slots, "ready")
 end function
 
+// Commit server level.
 function commitServerLevel(runtime, plan)
   if typeof(plan) != "struct" or not plan.ready or plan.deferred then
     return error(7293, "map transition plan is not committable")
@@ -112,6 +116,7 @@ function commitServerLevel(runtime, plan)
   return true
 end function
 
+// Reset client level.
 function resetClientLevel(runtime)
   runtime.configStrings = array(nrlifecycleqc.MAX_CONFIGSTRINGS, "")
   runtime.baselines = nrlifecyclertypes.makeBaselines()

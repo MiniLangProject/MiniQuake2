@@ -22,11 +22,13 @@ lifecycleLinks = 0
 lifecycleTargets = []
 lifecycleLogs = []
 
+// Assert the lifecycle test condition.
 function lifecycleAssert(value, message)
   if value != true then return error(9890, message) end if
   return true
 end function
 
+// Return the lifecycle damage value.
 function lifecycleDamage(actor, amount, flags, meansOfDeath)
   global lifecycleDamageCount, lifecycleLastDamage, lifecycleLastDamageFlags, lifecycleLastMod
   lifecycleDamageCount = lifecycleDamageCount + 1
@@ -37,17 +39,20 @@ function lifecycleDamage(actor, amount, flags, meansOfDeath)
   return amount
 end function
 
+// Play lifecycle sound.
 function lifecyclePlaySound(actor, soundName, channel, attenuation)
   global lifecycleSounds
   lifecycleSounds = lifecycleSounds + [soundName]
   return true
 end function
 
+// Return the lifecycle sound index.
 function lifecycleSoundIndex(soundName)
   if soundName == "infantry/inflies1.wav" then return 91 end if
   return 0
 end function
 
+// Return the lifecycle random value.
 function lifecycleRandom()
   global lifecycleRandomValues, lifecycleRandomIndex
   if lifecycleRandomIndex >= len(lifecycleRandomValues) then return 0.0 end if
@@ -56,35 +61,41 @@ function lifecycleRandom()
   return value
 end function
 
+// Kill lifecycle box.
 function lifecycleKillBox(actor)
   global lifecycleKillBoxes
   lifecycleKillBoxes = lifecycleKillBoxes + 1
   return true
 end function
 
+// Link lifecycle.
 function lifecycleLink(actor)
   global lifecycleLinks
   lifecycleLinks = lifecycleLinks + 1
   return true
 end function
 
+// Find lifecycle targets.
 function lifecycleFindTargets(targetName)
   global lifecycleTargets
   return lifecycleTargets
 end function
 
+// Choose lifecycle target.
 function lifecyclePickTarget(targetName)
   global lifecycleTargets
   if len(lifecycleTargets) == 0 then return void end if
   return lifecycleTargets[0]
 end function
 
+// Return the lifecycle log value.
 function lifecycleLog(message)
   global lifecycleLogs
   lifecycleLogs = lifecycleLogs + [message]
   return true
 end function
 
+// Return the lifecycle context value.
 function lifecycleContext()
   context = lifecycletypes.defaultContext()
   context.damage = lifecycleDamage
@@ -99,6 +110,7 @@ function lifecycleContext()
   return context
 end function
 
+// Reset damage.
 function resetDamage()
   global lifecycleDamageCount, lifecycleLastDamage, lifecycleLastDamageFlags, lifecycleLastMod
   lifecycleDamageCount = 0
@@ -108,6 +120,7 @@ function resetDamage()
   return true
 end function
 
+// Verify world effects.
 function testWorldEffects()
   global lifecycleSounds
   context = lifecycleContext()
@@ -184,6 +197,7 @@ function testWorldEffects()
   return true
 end function
 
+// Verify corpse flies and effects.
 function testCorpseFliesAndEffects()
   global lifecycleRandomValues, lifecycleRandomIndex
   context = lifecycleContext()
@@ -226,6 +240,7 @@ function testCorpseFliesAndEffects()
   return true
 end function
 
+// Verify triggered spawn lifecycle.
 function testTriggeredSpawnLifecycle()
   global lifecycleKillBoxes, lifecycleLinks, lifecycleTargets
   lifecycleKillBoxes = 0
@@ -264,6 +279,7 @@ function testTriggeredSpawnLifecycle()
   return true
 end function
 
+// Verify combat point normalization.
 function testCombatPointNormalization()
   global lifecycleTargets, lifecycleLogs
   context = lifecycleContext()

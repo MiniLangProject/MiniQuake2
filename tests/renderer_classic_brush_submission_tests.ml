@@ -12,39 +12,50 @@ import miniquake2.renderer.opengl as rbrushtestopengl
 import miniquake2.renderer.classic.visibility as rbrushtestvisibility
 import miniquake2.renderer.classic.special as rbrushtestspecial
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7999, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, epsilon, name)
   delta = actual - expected
   if delta < 0.0 then delta = -delta end if
   if delta > epsilon then return error(8000, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Report whether brush no result 0.
 function brushNoResult0()
 end function
+// Report whether brush no result 1.
 function brushNoResult1(a)
 end function
+// Report whether brush no result 2.
 function brushNoResult2(a, b)
 end function
+// Report whether brush no result 3.
 function brushNoResult3(a, b, c)
 end function
+// Return brush zero 0.
 function brushReturnZero0()
   return 0
 end function
+// Report whether brush return empty 1.
 function brushReturnEmpty1(a)
   return ""
 end function
+// Return brush mode 1.
 function brushReturnMode1(mode)
   return rbrushtestrenderertypes.VideoModeInfo(false, 0, 0)
 end function
 
+// Write brush u 32.
 function brushPutU32(data, offset, value)
   data[offset] = value & 255; data[offset + 1] = (value >> 8) & 255
   data[offset + 2] = (value >> 16) & 255; data[offset + 3] = (value >> 24) & 255
 end function
 
+// Write brush text.
 function brushPutText(data, offset, value)
   encoded = bytes(value)
   index = 0
@@ -54,6 +65,7 @@ function brushPutText(data, offset, value)
   end while
 end function
 
+// Return the brush palette pcx value.
 function brushPalettePcx()
   data = bytes(899)
   data[0] = 0x0a; data[1] = 5; data[2] = 1; data[3] = 8
@@ -63,6 +75,7 @@ function brushPalettePcx()
   return data
 end function
 
+// Return the brush wal value.
 function brushWal(name)
   data = bytes(107)
   brushPutText(data, 0, name)
@@ -74,6 +87,7 @@ function brushWal(name)
   return data
 end function
 
+// Load brush file.
 function loadBrushFile(path)
   if path == "pics/colormap.pcx" then return brushPalettePcx() end if
   if path == "textures/world.wal" then return brushWal("world") end if
@@ -86,6 +100,7 @@ function loadBrushFile(path)
   return void
 end function
 
+// Return the brush imports value.
 function brushImports()
   return rbrushtestrenderertypes.RefImport(
     brushNoResult2, brushNoResult2, brushNoResult1, brushReturnZero0,
@@ -95,6 +110,7 @@ function brushImports()
   )
 end function
 
+// Map brush.
 function brushMap()
   vertices = [
     rbrushtestformattypes.BspVertex(rbrushtestformattypes.Vec3(8.0, -8.0, -8.0)),
@@ -145,6 +161,7 @@ function brushMap()
   )
 end function
 
+// Return the brush frame value.
 function brushFrame(handle, origin, angles, flags, alpha)
   entity = rbrushtestrenderertypes.entity(
     handle, angles, origin, 0, origin, 0, 0.0, 0, 0, alpha, void, flags
@@ -157,7 +174,9 @@ function brushFrame(handle, origin, angles, flags, alpha)
   )
 end function
 
+// Verify product shaped inline brush submission.
 function testProductShapedInlineBrushSubmission()
+  // Keep test product shaped inline brush submission phases explicit: validate inputs, update owned state, then publish the result.
   renderer = rbrushtestopengl.getRefAPI(brushImports(), false)
   renderer.exports.Init(void, void)
   renderer.exports.BeginRegistration("maps/brush.bsp")

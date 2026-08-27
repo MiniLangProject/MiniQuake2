@@ -14,11 +14,13 @@ import miniquake2.network.runtime.game_adapter as rgame
 import miniquake2.network.runtime.commands as rcommands
 import miniquake2.network.runtime.pump as rpump
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7990, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7991, name + ": expected true") end if
   return true

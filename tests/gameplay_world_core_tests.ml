@@ -13,11 +13,13 @@ import miniquake2.game.world.vector as gwtestvector
 
 callbackEvents = []
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9960, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -25,97 +27,131 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Record state.
 function record(kind, value)
   global callbackEvents
   callbackEvents = callbackEvents + [[kind, value]]
   return true
 end function
+// Return the callback log value.
 function callbackLog(message)
   return record("log", message)
 end function
+// Return the callback center value.
 function callbackCenter(entity, message)
   return record("center", message)
 end function
+// Return the callback sound value.
 function callbackSound(entity, soundName)
   return record("sound", soundName)
 end function
+// Return the callback portal value.
 function callbackPortal(style, isOpen)
   return record("portal", [style, isOpen])
 end function
+// Return the callback damage value.
 function callbackDamage(target, inflictor, attacker, amount, means)
   return record("damage", [target.number, amount, means])
 end function
+// Return the callback radius value.
 function callbackRadius(inflictor, attacker, amount, radius, means)
   return record("radius", [amount, radius, means])
 end function
+// Return the callback effect value.
 function callbackEffect(kind, origin, style, count)
   return record("effect", [kind, style, count])
 end function
-function callbackChange(entity, mapName)
-  return record("change", mapName)
+// Return the callback change value.
+function callbackChange(entity, other, activator, mapName)
+  otherNumber = -1
+  activatorNumber = -1
+  if other is not void then otherNumber = other.number end if
+  if activator is not void then activatorNumber = activator.number end if
+  return record("change", [mapName, otherNumber, activatorNumber])
 end function
+// Spawn callback.
 function callbackSpawn(className, origin, angles, velocity)
   return record("spawn", className)
 end function
+// Link callback.
 function callbackLink(entity)
   return record("link", entity.number)
 end function
+// Kill callback box.
 function callbackKillBox(entity)
   return record("killbox", entity.number)
 end function
+// Return the callback random signed value.
 function callbackRandomSigned()
   return 0.0
 end function
+// Return the callback random index.
 function callbackRandomIndex(count)
   return 0
 end function
+// Resolve callback key.
 function callbackResolveKey(itemClassName)
   return void
 end function
+// Report whether callback has key.
 function callbackHasKey(activator, itemClassName)
   return false
 end function
+// Consume callback key.
 function callbackConsumeKey(activator, itemClassName)
   return false
 end function
+// Return the callback actor message value.
 function callbackActorMessage(actor, message)
   return true
 end function
+// Return the callback actor transition value.
 function callbackActorTransition(actor, waypoint, action, actionTarget, nextTarget, wait, flags)
   return true
 end function
+// Return the callback combat point transition value.
 function callbackCombatPointTransition(actor, point, nextTarget, hold, clearCombatPoint)
   return true
 end function
+// Return the callback clock seconds value.
 function callbackClockSeconds()
   return 0
 end function
+// Set callback model.
 function callbackSetModel(entity, modelName)
   return true
 end function
+// Return the callback light style value.
 function callbackLightStyle(style, pattern)
   return true
 end function
+// Trace callback line.
 function callbackTraceLine(start, finish, ignore)
   return gwtypes.WorldTrace(false, finish, qt.zeroVec3(), void)
 end function
+// Return the callback laser sparks value.
 function callbackLaserSparks(origin, normal, count, color)
   return true
 end function
+// Return the callback earthquake value.
 function callbackEarthquake(entity, speed, playSound)
   return 0
 end function
+// Fire callback blaster.
 function callbackFireBlaster(entity, direction, damage, speed)
   return void
 end function
+// Return the callback target explosion value.
 function callbackTargetExplosion(origin)
   return record("target-explosion", [origin.x, origin.y, origin.z])
 end function
+// Return the callback target splash value.
 function callbackTargetSplash(origin, direction, count, sounds)
   return record("target-splash", [origin.x, origin.y, origin.z,
     direction.x, direction.y, direction.z, count, sounds])
 end function
 
+// Create world.
 function makeWorld()
   global callbackEvents
   callbackEvents = []
@@ -133,11 +169,13 @@ function makeWorld()
   return gwcore.createWorld(callbacks)
 end function
 
+// Return the count uses value.
 function countUses(entity, other, activator, world)
   entity.count = entity.count + 1
   return true
 end function
 
+// Verify use targets and delay.
 function testUseTargetsAndDelay()
   world = makeWorld()
   activator = gwcore.spawnEntity(world, "player")
@@ -169,6 +207,7 @@ function testUseTargetsAndDelay()
   return true
 end function
 
+// Verify multiple once relay.
 function testMultipleOnceRelay()
   world = makeWorld()
   target = gwcore.spawnEntity(world, "receiver")
@@ -216,6 +255,7 @@ function testMultipleOnceRelay()
   return true
 end function
 
+// Verify push and monster jump.
 function testPushAndMonsterJump()
   world = makeWorld()
   player = gwcore.spawnEntity(world, "player")
@@ -280,6 +320,7 @@ function testPushAndMonsterJump()
   return true
 end function
 
+// Verify targets.
 function testTargets()
   world = makeWorld()
   activator = gwcore.spawnEntity(world, "player")
@@ -352,9 +393,14 @@ function testTargets()
   gwcore.useEntity(world, change, activator, activator)
   assertEqual(world.intermission, true, "changelevel enters intermission")
   assertEqual(world.serverFlags, 0, "new unit clears cross triggers")
+  changeEvent = callbackEvents[len(callbackEvents) - 1]
+  assertEqual(changeEvent[0], "change", "changelevel callback event")
+  assertEqual(changeEvent[1], ["*unit2", activator.number,
+    activator.number], "changelevel forwards other and activator")
   return true
 end function
 
+// Verify cross level.
 function testCrossLevel()
   world = makeWorld()
   receiver = gwcore.spawnEntity(world, "receiver")
@@ -376,9 +422,21 @@ function testCrossLevel()
   assertEqual(checker.inUse, false, "crosslevel source frees after check")
   gwcore.advance(world, 0.4)
   assertEqual(receiver.count, 1, "crosslevel target fires")
+
+  unsatisfied = gwcore.spawnEntity(world, "target_crosslevel_target")
+  unsatisfied.spawnFlags = 8
+  unsatisfied.target = "cross-out"
+  unsatisfied.delay = 0.1
+  gwtargets.spawnCrossLevelTarget(unsatisfied, world)
+  gwcore.advance(world, 0.5)
+  assertEqual(unsatisfied.inUse, false,
+    "unsatisfied crosslevel target is still a one-shot check")
+  assertEqual(receiver.count, 1,
+    "unsatisfied crosslevel target does not fire")
   return true
 end function
 
+// Verify world vector gc soak.
 function testWorldVectorGcSoak()
   iteration = 0
   while iteration < 4096
@@ -420,6 +478,7 @@ function testWorldVectorGcSoak()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   testUseTargetsAndDelay()
   testMultipleOnceRelay()

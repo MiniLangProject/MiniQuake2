@@ -16,11 +16,13 @@ import miniquake2.client.effects.state as cestate
 import miniquake2.client.runtime.dispatcher as crdispatcher
 import miniquake2.client.state as cstate
 
+// Assert the client frame equal test condition.
 function clientFrameAssertEqual(actual, expected, name)
   if actual != expected then return error(8310, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Create client frame.
 function clientFrameCreate()
   networkClient = nclient.create(0x1111, 5000)
   networkClient.state = nc.CA_CONNECTED

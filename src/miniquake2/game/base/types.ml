@@ -12,22 +12,26 @@ package miniquake2.game.base.types
 import miniquake2.game.types as gtypes
 import miniquake2.qcommon.types as bqtypes
 
+// Store entity token data.
 struct EntityToken
   kind
   text
   offset
 end struct
 
+// Store entity scanner data.
 struct EntityScanner
   data
   offset
 end struct
 
+// Store entity pair data.
 struct EntityPair
   key
   value
 end struct
 
+// Store parsed entity data.
 struct ParsedEntity
   pairs
 end struct
@@ -101,20 +105,24 @@ struct BaseEdict
   component
 end struct
 
+// Store spawn entry data.
 struct SpawnEntry
   className
   spawn
 end struct
 
+// Store spawn registry data.
 struct SpawnRegistry
   entries
 end struct
 
+// Store skipped class count data.
 struct SkippedClassCount
   className
   count
 end struct
 
+// Store spawn result data.
 struct SpawnResult
   mapName
   spawnPoint
@@ -126,11 +134,13 @@ struct SpawnResult
   inhibitedEntityCount
 end struct
 
+// Spawn zero temp.
 function zeroSpawnTemp()
   skyAxis = [0.0, 0.0, 0.0]
   return SpawnTemp(0, 0, 0, "", 0.0, "", "", "", 0.0, skyAxis, 0.0, 0.0, 0.0, 0.0, "")
 end function
 
+// Return the zero base entity value.
 function zeroBaseEntity()
   origin = [0.0, 0.0, 0.0]
   angles = [0.0, 0.0, 0.0]
@@ -147,6 +157,7 @@ function zeroBaseEntity()
   )
 end function
 
+// Create base edict.
 function makeBaseEdict(number, sourceIndex, component)
   if typeof(component) != "struct" then return error(9079, "makeBaseEdict requires a BaseEntity component") end if
   componentHolder = component

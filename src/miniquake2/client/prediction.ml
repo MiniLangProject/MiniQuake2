@@ -15,6 +15,7 @@ import miniquake2.protocol.types as cppt
 import miniquake2.physics.pmove as cppmove
 import miniquake2.physics.types as cplocal
 
+// Store movement prediction data.
 struct MovementPrediction
   state
   viewAngles
@@ -32,12 +33,14 @@ struct PredictionWorkspace
   result
 end struct
 
+// Create workspace.
 function createWorkspace(traceCallback, pointContentsCallback)
   pmove = cppmove.create(traceCallback, pointContentsCallback)
   result = MovementPrediction(pmove.state, pmove.viewAngles, 0, [0, 0, 0])
   return PredictionWorkspace(pmove, cplocal.createLocal(), result)
 end function
 
+// Populate the copy pmove state destination.
 function copyPmoveStateInto(output, input)
   if typeof(input) != "struct" or typeof(input.origin) != "array" or
       len(input.origin) != 3 or typeof(input.velocity) != "array" or
@@ -59,6 +62,7 @@ function copyPmoveStateInto(output, input)
   return output
 end function
 
+// Populate the copy user cmd destination.
 function copyUserCmdInto(output, input)
   if typeof(input) != "struct" or typeof(input.angles) != "array" or
       len(input.angles) != 3 then
@@ -77,6 +81,7 @@ function copyUserCmdInto(output, input)
   return output
 end function
 
+// Populate the predict destination.
 function predictInto(workspace, playerState, commands, commandCount,
     airAcceleration)
   if typeof(workspace) != "struct" or typeof(playerState) != "struct" then
@@ -114,6 +119,7 @@ function predictInto(workspace, playerState, commands, commandCount,
   return workspace.result
 end function
 
+// Return the short to angle value.
 function inline shortToAngle(value)
   return value * (360.0 / 65536.0)
 end function
@@ -127,6 +133,7 @@ function localInputAngles(playerState)
     playerState.viewAngles[2] - shortToAngle(playerState.pmove.deltaAngles[2])]
 end function
 
+// Return the signed short value.
 function inline signedShort(value)
   while value > 32767
     value = value - 65536
@@ -158,6 +165,7 @@ function commandViewAngles(playerState, command)
       playerState.pmove.deltaAngles[2])))
 end function
 
+// Return the predict value.
 function predict(playerState, commands, traceCallback, pointContentsCallback,
     airAcceleration)
   if typeof(playerState) != "struct" then return error(7650, "prediction requires player state") end if
@@ -187,6 +195,7 @@ function predict(playerState, commands, traceCallback, pointContentsCallback,
     len(commands), previousOrigin)
 end function
 
+// Report whether prediction enabled.
 function predictionEnabled(playerState)
   return (playerState.pmove.flags & cpqc.PMF_NO_PREDICTION) == 0
 end function

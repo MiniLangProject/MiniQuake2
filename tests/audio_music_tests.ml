@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.audio.mixer as musictestmixer
 import miniquake2.qcommon.filesystem as musictestfs
 
+// Assert the music test condition.
 function musicAssert(actual, expected, label)
   if actual != expected then return error(9974, label + ": expected " + expected + ", got " + actual) end if
 end function

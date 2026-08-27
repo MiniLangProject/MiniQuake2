@@ -10,6 +10,7 @@ import miniquake2.game.null_game as campaignplaytestgame
 import miniquake2.qcommon.types as campaignplaytestqtypes
 import miniquake2.runtime.play_session as campaignplaytestsession
 
+// Store physical playtest report data.
 struct PhysicalPlaytestReport
   mapName
   commandSteps
@@ -24,6 +25,7 @@ struct PhysicalPlaytestReport
   rejectedPackets
 end struct
 
+// Return the campaign playtest inventory total value.
 function campaignPlaytestInventoryTotal(player)
   campaignPlaytestInventorySum = 0
   for each campaignPlaytestInventoryCount in player.gameplay.inventory.counts
@@ -32,10 +34,12 @@ function campaignPlaytestInventoryTotal(player)
   return campaignPlaytestInventorySum
 end function
 
+// Return the campaign playtest squared value.
 function campaignPlaytestSquared(value)
   return value * value
 end function
 
+// Return the drive value.
 function drive(session, commandSteps)
   if session is void or session.closed then return error(8490, "physical playtest session is closed") end if
   if typeof(commandSteps) != "int" or commandSteps < 8 or commandSteps > 10000 then

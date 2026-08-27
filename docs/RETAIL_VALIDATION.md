@@ -541,7 +541,11 @@ lifecycle; `end.cin+victory.pcx` reports generation 1 and two loading frames.
 The native `--video-restart-smoke` replaces a 640x480 windowed renderer with a
 1920x1080 exclusive fullscreen window, verifies matching Win32 desktop metrics,
 re-registers `base1`, and produces the same visible surfaces before and after
-the renderer change; see
+the renderer change. Its optional mode argument additionally proves that a
+3840x2160 request on the current 2560x1440 output uses desktop fullscreen
+without exiting, preserves all 68 visible surfaces, and restores the desktop
+on shutdown. A focused lifecycle regression injects a failed replacement
+window and verifies reconstruction of the last known-good renderer; see
 [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
 
 The combined one-command host gate, hardware inventory, native audio result and
@@ -562,6 +566,9 @@ The interactive product loop also consumes the complete UI handoff and command
 surface: inventory rows use retail `CS_ITEMS` names, mixer gain changes live,
 and the three menu slots discover durable pairs and exercise atomic same- or
 cross-map session restore. New Game applies skill before spawn, v8 persists it,
+the live skill-0 damage boundary applies Quake II's half-damage/minimum-one
+rule, and a `base1` retail audit observes 17 unique runtime monsters on both
+Easy and Medium versus 19 on Hard with no duplicate materialization.
 Controls captures a replacement binding, and the complete settings/binding
 table passes a validated config-file roundtrip. The focused
 acceptance and remaining application boundaries are recorded in

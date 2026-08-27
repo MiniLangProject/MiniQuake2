@@ -7,6 +7,7 @@ package miniquake2.runtime.pause_policy
 
 import miniquake2.client.ui.constants as pauseconstants
 
+// Report whether should pause.
 function shouldPause(maxClients, serverActive, destination)
   if typeof(maxClients) != "int" or maxClients < 1 then
     return error(8496, "pause maxClients must be positive")

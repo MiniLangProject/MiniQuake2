@@ -13,6 +13,7 @@ import miniquake2.qcommon.constants as reactionprotocolconstants
 import miniquake2.qcommon.types as reactionqtypes
 import miniquake2.server.game_bridge as reactionbridge
 
+// Assert the reaction test condition.
 function reactionAssert(value, message)
   if value != true then return error(9976, message) end if
   return true
@@ -193,6 +194,7 @@ reactionAssert(reactionsequences.externalFrameEventAt(
 reactionRecordedFrameSounds = []
 reactionRecordedRandomCalls = 0
 
+// Record reaction frame sound.
 function reactionRecordFrameSound(actor, soundName, channel, attenuation)
   global reactionRecordedFrameSounds
   reactionRecordedFrameSounds = reactionRecordedFrameSounds + [
@@ -200,6 +202,7 @@ function reactionRecordFrameSound(actor, soundName, channel, attenuation)
   return true
 end function
 
+// Return the reaction fixed frame random value.
 function reactionFixedFrameRandom()
   global reactionRecordedRandomCalls
   reactionRecordedRandomCalls = reactionRecordedRandomCalls + 1
@@ -229,6 +232,7 @@ reactionAssert(len(reactionRecordedFrameSounds) == 3 and
   reactionRecordedRandomCalls == 1,
   "live Makron sequence emits exact sounds and consumes one random value")
 
+// Collect integrated reaction.
 function collectIntegratedReaction(api, actor, plan)
   frames = [actor.edict.state.frame]
   steps = 0
@@ -311,6 +315,7 @@ reactionAssert(reactionDeathDeltaError > -0.001 and reactionDeathDeltaError < 0.
 reactionApi.clientDisconnect(reactionClient)
 reactionApi.shutdown()
 
+// Return the reaction muzzle flash count.
 function reactionMuzzleFlashCount(events, flash)
   reactionMuzzleCount = 0
   for each reactionMuzzleEvent in events

@@ -15,6 +15,7 @@ import miniquake2.renderer.constants as crc
 import miniquake2.renderer.types as crt
 import miniquake2.client.effects.constants as cseconstants
 
+// Store client runtime data.
 struct ClientRuntime
   state
   snapshots
@@ -40,6 +41,7 @@ struct ClientRuntime
   renderEntities
 end struct
 
+// Create state.
 function create()
   return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void,
     cqt.zeroVec3(), cqt.zeroVec3(), cqt.zeroVec3(), false,
@@ -63,6 +65,7 @@ function setLightStyle(client, index, pattern)
   return true
 end function
 
+// Run light styles.
 function runLightStyles(client, renderTime)
   offset = cstatemath.floor(renderTime / 100.0)
   if offset == client.lightStyleOffset then return false end if
@@ -82,6 +85,7 @@ function runLightStyles(client, renderTime)
   return true
 end function
 
+// Set connection state.
 function setConnectionState(client, state)
   if state != "disconnected" and state != "connecting" and state != "connected" and state != "active" then
     return error(7600, "invalid client connection state")
@@ -89,6 +93,7 @@ function setConnectionState(client, state)
   client.state = state
 end function
 
+// Accept snapshot.
 function acceptSnapshot(client, frame)
   if frame.number < 0 then return error(7601, "negative snapshot number") end if
   if client.current is not void and frame.number <= client.current.number then return false end if
@@ -119,6 +124,7 @@ function acceptSnapshot(client, frame)
   return true
 end function
 
+// Return the current entity value.
 function inline currentEntity(client, number)
   if number <= 0 or number >= qc.MAX_EDICTS or
       client.entityLookupEpochs[number] != client.entityLookupEpoch then
@@ -127,6 +133,7 @@ function inline currentEntity(client, number)
   return client.entityLookup[number]
 end function
 
+// Find entity.
 function findEntity(entities, number)
   index = 0
   while index < len(entities)
@@ -137,12 +144,14 @@ function findEntity(entities, number)
   return void
 end function
 
+// Clamp fraction.
 function inline clampFraction(value)
   if value < 0.0 then return 0.0 end if
   if value > 1.0 then return 1.0 end if
   return value
 end function
 
+// Return the lerp value.
 function inline lerp(first, second, fraction)
   return first + (second - first) * fraction
 end function
@@ -156,6 +165,7 @@ function inline lerpAngle(first, second, fraction)
   return first + fraction * delta
 end function
 
+// Return the interpolation player value.
 function interpolationPlayer(client)
   player = client.current.playerState
   if client.previous is void or client.previous.number != client.current.number - 1 then
@@ -170,6 +180,7 @@ function interpolationPlayer(client)
   return previous
 end function
 
+// Return the interpolated origin.
 function interpolatedOrigin(oldState, currentState, fraction)
   if oldState is void then
     return cqt.vec3(currentState.origin[0], currentState.origin[1], currentState.origin[2])
@@ -181,6 +192,7 @@ function interpolatedOrigin(oldState, currentState, fraction)
   )
 end function
 
+// Return the interpolated angles.
 function interpolatedAngles(oldState, currentState, fraction)
   if oldState is void then return cqt.vec3(currentState.angles[0], currentState.angles[1], currentState.angles[2]) end if
   return cqt.vec3(
@@ -211,6 +223,7 @@ function inline entityRequiresLerpReset(oldState, state)
     state.event == cseconstants.EV_OTHER_TELEPORT
 end function
 
+// Render entity origin.
 function inline entityRenderOrigin(oldState, state, fraction, reset)
   if not reset then return interpolatedOrigin(oldState, state, fraction) end if
   first = state.oldOrigin
@@ -221,11 +234,13 @@ function inline entityRenderOrigin(oldState, state, fraction, reset)
     lerp(first[2], state.origin[2], fraction))
 end function
 
+// Render entity angles.
 function inline entityRenderAngles(oldState, state, fraction, reset)
   if reset then return cqt.vec3(state.angles[0], state.angles[1], state.angles[2]) end if
   return interpolatedAngles(oldState, state, fraction)
 end function
 
+// Return the effective effects value.
 function inline effectiveEffects(state)
   effects = state.effects
   if (effects & cseconstants.EF_PENT) != 0 then
@@ -243,6 +258,7 @@ function inline effectiveEffects(state)
   return effects
 end function
 
+// Render effective fx.
 function inline effectiveRenderFx(state)
   flags = state.renderFx
   if (state.effects & cseconstants.EF_PENT) != 0 then flags = flags | crc.RF_SHELL_RED end if
@@ -252,6 +268,7 @@ function inline effectiveRenderFx(state)
   return flags
 end function
 
+// Return the state model count.
 function inline stateModelCount(state)
   count = 0
   if state.modelIndex > 0 then count = count + 1 end if
@@ -268,6 +285,7 @@ function inline stateModelCount(state)
   return count
 end function
 
+// Return the animated frame value.
 function inline animatedFrame(state, effects, renderTime)
   autoAnimation = cstatemath.floor(2.0 * renderTime / 1000.0)
   if (effects & cseconstants.EF_ANIM01) != 0 then return autoAnimation & 1 end if
@@ -279,6 +297,7 @@ function inline animatedFrame(state, effects, renderTime)
   return state.frame
 end function
 
+// Render angles.
 function renderAngles(oldState, state, effects, fraction, renderTime, lerpReset)
   if (effects & cseconstants.EF_ROTATE) != 0 then
     yaw = renderTime / 10.0
@@ -293,6 +312,7 @@ function renderAngles(oldState, state, effects, fraction, renderTime, lerpReset)
   return entityRenderAngles(oldState, state, fraction, lerpReset)
 end function
 
+// Return the disguise family value.
 function inline disguiseFamily(skin)
   if skin is void or typeof(skin) != "struct" or
       typeof(skin.name) != "string" then return "" end if
@@ -303,8 +323,10 @@ function inline disguiseFamily(skin)
   return ""
 end function
 
+// Append model entity.
 function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
     part, fraction, renderTime, assetResolvers, randomResolver, lerpReset)
+  // Keep append model entity phases explicit: validate inputs, update owned state, then publish the result.
   if modelIndex <= 0 then return outputIndex end if
   if outputIndex >= len(output) then return outputIndex end if
   effects = effectiveEffects(state)
@@ -372,6 +394,7 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
   return outputIndex + 1
 end function
 
+// Append color shell.
 function appendColorShell(output, outputIndex, state, oldState, fraction,
     renderTime, assetResolvers, lerpReset)
   effects = effectiveEffects(state)
@@ -409,6 +432,7 @@ function appendColorShell(output, outputIndex, state, oldState, fraction,
   return outputIndex + 1
 end function
 
+// Append power screen.
 function appendPowerScreen(output, outputIndex, state, oldState, fraction,
     renderTime, assetResolvers, lerpReset)
   effects = effectiveEffects(state)
@@ -427,6 +451,7 @@ function appendPowerScreen(output, outputIndex, state, oldState, fraction,
   return outputIndex + 1
 end function
 
+// Append view weapon.
 function appendViewWeapon(output, outputIndex, client, fraction, assetResolvers,
     viewOrigin, viewAngles)
   player = client.current.playerState
@@ -451,6 +476,7 @@ function appendViewWeapon(output, outputIndex, client, fraction, assetResolvers,
   return outputIndex + 1
 end function
 
+// Build entities.
 function buildEntities(client, fraction, assetResolvers, localEntityNumber,
     randomResolver, viewOrigin, viewAngles)
   if client.current is void then return [] end if
@@ -523,6 +549,7 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
   return compact
 end function
 
+// Update prediction error.
 function updatePredictionError(client, predictedFixedOrigin)
   if client.current is void then return cqt.zeroVec3() end if
   server = client.current.playerState.pmove.origin
@@ -537,6 +564,7 @@ function updatePredictionError(client, predictedFixedOrigin)
   return client.predictionError
 end function
 
+// Accept prediction.
 function acceptPrediction(client, fixedOrigin, angles)
   if typeof(fixedOrigin) != "array" or len(fixedOrigin) != 3 then
     return error(7603, "prediction requires a fixed-point origin")
@@ -552,6 +580,7 @@ function acceptPrediction(client, fixedOrigin, angles)
   return true
 end function
 
+// Set prediction real time.
 function setPredictionRealTime(client, now)
   if typeof(now) != "int" and typeof(now) != "float" then
     return error(7606, "prediction real time must be numeric")
@@ -588,6 +617,7 @@ function notePredictionStep(client, previousFixedOrigin, currentFixedOrigin,
   return true
 end function
 
+// Clear prediction.
 function clearPrediction(client)
   client.predictionValid = false
   client.predictionError = cqt.zeroVec3()
@@ -599,6 +629,7 @@ function clearPrediction(client)
   return true
 end function
 
+// Build ref def internal.
 function buildRefDefInternal(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, usePrediction)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
@@ -672,6 +703,7 @@ function buildRefDef(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, false)
 end function
 
+// Build predicted ref def.
 function buildPredictedRefDef(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver)
   return buildRefDefInternal(client, fraction, width, height, assetResolvers,

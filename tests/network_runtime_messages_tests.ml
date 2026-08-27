@@ -25,24 +25,28 @@ beginCalls = 0
 vetoCalls = 0
 lastCommandText = ""
 
+// Report whether on connect.
 function onConnect(slot, userInfo)
   global connectCalls
   connectCalls = connectCalls + 1
   return true
 end function
 
+// Report whether on userinfo.
 function onUserinfo(slot, userInfo)
   global userinfoCalls
   userinfoCalls = userinfoCalls + 1
   return true
 end function
 
+// Report whether on think.
 function onThink(slot, command)
   global thinkCalls
   thinkCalls = thinkCalls + 1
   return true
 end function
 
+// Report whether on command.
 function onCommand(slot, text)
   global commandCalls, lastCommandText
   commandCalls = commandCalls + 1
@@ -50,28 +54,33 @@ function onCommand(slot, text)
   return true
 end function
 
+// Report whether on begin.
 function onBegin(slot)
   global beginCalls
   beginCalls = beginCalls + 1
   return true
 end function
 
+// Connect veto.
 function vetoConnect(slot, userInfo)
   global vetoCalls
   vetoCalls = vetoCalls + 1
   return false
 end function
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7980, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7981, name + ": expected true") end if
   return true
 end function
 
+// Create server runtime.
 function makeServerRuntime()
   server = nserver.create(2, "Runtime Test", "unit1", "\\hostname\\Runtime Test", false, false)
   callbacks = rgame.create(onConnect, onUserinfo, onThink, onCommand, onBegin)
@@ -80,6 +89,7 @@ function makeServerRuntime()
   return runtime
 end function
 
+// Verify server message codecs.
 function testServerMessageCodecs()
   client = nclient.create(0x1234, 5000)
   runtime = nrtypes.createClient(client)
@@ -108,6 +118,7 @@ function testServerMessageCodecs()
   return true
 end function
 
+// Verify commands and move.
 function testCommandsAndMove()
   global userinfoCalls, thinkCalls, commandCalls, beginCalls
   runtime = makeServerRuntime()
@@ -151,6 +162,7 @@ function testCommandsAndMove()
   return true
 end function
 
+// Verify connect veto.
 function testConnectVeto()
   global vetoCalls
   server = nserver.create(1, "Veto", "unit1", "\\hostname\\Veto", false, false)
@@ -167,6 +179,7 @@ function testConnectVeto()
   return true
 end function
 
+// Verify downloads.
 function testDownloads()
   runtime = makeServerRuntime()
   client = runtime.server.clients[0]

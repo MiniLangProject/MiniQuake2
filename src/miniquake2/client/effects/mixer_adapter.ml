@@ -28,16 +28,19 @@ loopSoundRight = array(qconstants.MAX_SOUNDS, 0)
 loopSoundResolved = array(qconstants.MAX_SOUNDS, void)
 loopSoundAvailable = array(qconstants.MAX_SOUNDS, false)
 
+// Resolve index.
 function resolveIndex(index)
   global indexResolver
   return indexResolver(index)
 end function
 
+// Resolve name.
 function resolveName(name)
   global nameResolver
   return nameResolver(name)
 end function
 
+// Play state.
 function play(event, sound)
   global activeMixer, entitySoundResolver, entityPositionResolver, listenerOrigin, listenerRight, listenerEntityNumber
   if activeMixer is void then return error(7340, "effect mixer adapter is not installed") end if
@@ -79,6 +82,7 @@ function play(event, sound)
   return channel
 end function
 
+// Return the respatialize dynamic value.
 function respatializeDynamic(mixer, entityPositionCallback, origin, right,
     localEntityNumber)
   if mixer is void or typeof(entityPositionCallback) != "function" or
@@ -138,6 +142,7 @@ function respatializeDynamic(mixer, entityPositionCallback, origin, right,
   return updated
 end function
 
+// Set listener entity.
 function setListenerEntity(number)
   global activeMixer, listenerEntityNumber
   if typeof(number) != "int" or number < 1 then
@@ -216,6 +221,7 @@ function syncEntityLoops(mixer, snapshot)
   return started
 end function
 
+// Install state.
 function install(mixer, resolveIndexCallback, resolveNameCallback, resolveEntitySoundCallback, entityPositionCallback, origin, right)
   global activeMixer, indexResolver, nameResolver, entitySoundResolver, entityPositionResolver, listenerOrigin, listenerRight
   if typeof(resolveIndexCallback) != "function" or typeof(resolveNameCallback) != "function" or
@@ -237,6 +243,7 @@ function install(mixer, resolveIndexCallback, resolveNameCallback, resolveEntity
   return ceaudio.callbacks(resolveIndex, resolveName, play)
 end function
 
+// Release state.
 function release()
   global activeMixer, indexResolver, nameResolver, entitySoundResolver, entityPositionResolver, listenerOrigin, listenerRight, listenerEntityNumber
   activeMixer = void

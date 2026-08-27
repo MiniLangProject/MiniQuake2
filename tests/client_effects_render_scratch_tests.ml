@@ -7,6 +7,7 @@ import miniquake2.qcommon.types as effectscratchtypes
 import miniquake2.client.effects.state as effectscratchstate
 import miniquake2.client.effects.handoff as effectscratchhandoff
 
+// Assert the effect scratch test condition.
 function effectScratchAssert(value, message)
   if not value then return error(9986, message) end if
   return true

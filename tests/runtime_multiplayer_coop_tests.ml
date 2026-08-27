@@ -8,6 +8,7 @@ import miniquake2.game.null_game as mpctestgameapi
 import miniquake2.game.integration.baseq2 as mpctestbaseq2
 import miniquake2.runtime.multiplayer_session as mpctestsession
 
+// Assert the mpc test condition.
 function mpcAssert(value, name)
   if not value then return error(8430, name) end if
   return true

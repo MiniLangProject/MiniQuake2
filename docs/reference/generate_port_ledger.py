@@ -47,10 +47,12 @@ TEXT_EXTENSIONS = {".txt", ".cfg", ""}
 
 
 def sha256_bytes(data: bytes) -> str:
+    """Perform sha 256 bytes processing."""
     return hashlib.sha256(data).hexdigest()
 
 
 def run_git(root: Path, *args: str) -> str:
+    """Run git."""
     return subprocess.check_output(
         ["git", "-C", str(root), *args],
         text=True,
@@ -60,12 +62,15 @@ def run_git(root: Path, *args: str) -> str:
 
 
 def tracked_files(root: Path) -> list[str]:
+    """Perform tracked files processing."""
     paths = [line for line in run_git(root, "ls-files").splitlines() if line]
     return sorted(path.replace("\\", "/") for path in paths)
 
 
 def strip_comments_preserve_lines(text: str) -> str:
+    """Perform strip comments preserve lines processing."""
     def block(match: re.Match[str]) -> str:
+        """Perform block processing."""
         return "\n" * match.group(0).count("\n")
 
     text = re.sub(r"/\*.*?\*/", block, text, flags=re.S)
@@ -73,6 +78,7 @@ def strip_comments_preserve_lines(text: str) -> str:
 
 
 def file_kind(path: str, raw: bytes) -> str:
+    """Perform file kind processing."""
     suffix = Path(path).suffix.lower()
     if suffix == ".c":
         return "c_translation_unit"
@@ -135,6 +141,7 @@ def classify(path: str) -> tuple[str, int, str, str]:
 
 
 def extract_definitions(path: Path, relative: str) -> list[dict[str, object]]:
+    """Perform extract definitions processing."""
     text = path.read_text(encoding="latin-1", errors="replace")
     clean = strip_comments_preserve_lines(text)
     subsystem, point, scope, disposition = classify(relative)
@@ -158,6 +165,7 @@ def extract_definitions(path: Path, relative: str) -> list[dict[str, object]]:
 
 
 def make_ledger(reference_root: Path) -> dict[str, object]:
+    """Create ledger."""
     commit = run_git(reference_root, "rev-parse", "HEAD")
     if commit != EXPECTED_COMMIT:
         raise RuntimeError(
@@ -271,6 +279,7 @@ def make_ledger(reference_root: Path) -> dict[str, object]:
 
 
 def validate(ledger: dict[str, object]) -> None:
+    """Validate state."""
     reference = ledger["reference"]
     files = ledger["files"]
     functions = ledger["functions"]
@@ -290,6 +299,7 @@ def validate(ledger: dict[str, object]) -> None:
 
 
 def main() -> int:
+    """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--reference-root", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)

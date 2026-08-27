@@ -18,6 +18,7 @@ import std.string as bstring
 const MOVETYPE_NONE = 0
 const MOVETYPE_PUSH = 7
 
+// Spawn worldspawn.
 function SP_worldspawn(entity)
   entity.spawnKind = "worldspawn"
   entity.moveType = MOVETYPE_PUSH
@@ -25,6 +26,7 @@ function SP_worldspawn(entity)
   return ""
 end function
 
+// Spawn info player start.
 function SP_info_player_start(entity)
   entity.spawnKind = "info-player-start"
   entity.moveType = MOVETYPE_NONE
@@ -32,6 +34,7 @@ function SP_info_player_start(entity)
   return ""
 end function
 
+// Spawn info player.
 function SP_info_player(entity)
   entity.spawnKind = "info-player:" + entity.className
   entity.moveType = MOVETYPE_NONE
@@ -39,6 +42,7 @@ function SP_info_player(entity)
   return ""
 end function
 
+// Spawn func door.
 function SP_func_door(entity)
   entity.spawnKind = "mover-door"
   entity.moveType = MOVETYPE_PUSH
@@ -52,6 +56,7 @@ function SP_func_door(entity)
   return ""
 end function
 
+// Spawn trigger once.
 function SP_trigger_once(entity)
   entity.spawnKind = "trigger-once"
   entity.moveType = MOVETYPE_NONE
@@ -64,6 +69,7 @@ function SP_trigger_once(entity)
   return ""
 end function
 
+// Spawn target speaker.
 function SP_target_speaker(entity)
   entity.spawnKind = "target-speaker"
   entity.moveType = MOVETYPE_NONE
@@ -83,6 +89,7 @@ function SP_target_speaker(entity)
   return ""
 end function
 
+// Spawn gameplay item.
 function SP_gameplay_item(entity)
   item = gprules.findByClassName(gpregistry.stockRegistry(), entity.className)
   if item is void then return "unregistered gameplay item " + entity.className end if
@@ -92,6 +99,7 @@ function SP_gameplay_item(entity)
   return ""
 end function
 
+// Spawn world component.
 function SP_world_component(entity)
   entity.spawnKind = "world:" + entity.className
   entity.moveType = MOVETYPE_NONE
@@ -101,6 +109,7 @@ function SP_world_component(entity)
   return ""
 end function
 
+// Spawn consumed.
 function SP_consumed(entity)
   entity.spawnKind = "consumed:" + entity.className
   entity.moveType = MOVETYPE_NONE
@@ -108,6 +117,7 @@ function SP_consumed(entity)
   return ""
 end function
 
+// Spawn light.
 function SP_light(entity)
   // g_misc.c frees un-targeted static lights; the BSP lightmaps already own
   // their illumination.  Targeted lights remain live for style switching.
@@ -115,6 +125,7 @@ function SP_light(entity)
   return SP_world_component(entity)
 end function
 
+// Spawn brush component.
 function SP_brush_component(entity)
   entity.spawnKind = "world:" + entity.className
   entity.moveType = MOVETYPE_PUSH
@@ -122,6 +133,7 @@ function SP_brush_component(entity)
   return ""
 end function
 
+// Spawn func water.
 function SP_func_water(entity)
   SP_func_door(entity)
   entity.spawnKind = "world:func_water"
@@ -129,6 +141,7 @@ function SP_func_water(entity)
   return ""
 end function
 
+// Spawn monster.
 function SP_monster(entity)
   archetype = gaiarchetypes.find(gaiarchetypes.defaultRegistry(), entity.className)
   if archetype is void then return "unregistered monster " + entity.className end if
@@ -141,10 +154,27 @@ function SP_monster(entity)
   return ""
 end function
 
+// Spawn misc actor.
+function SP_misc_actor(entity)
+  // SP_misc_actor frees malformed scripted actors immediately; keeping an
+  // inert edict would change target selection and campaign entity numbering.
+  if entity.targetName == "" then
+    SP_consumed(entity)
+    return "untargeted misc_actor"
+  end if
+  if entity.target == "" then
+    SP_consumed(entity)
+    return "misc_actor with no target"
+  end if
+  return SP_monster(entity)
+end function
+
+// Create registry.
 function createRegistry()
   return btypes.SpawnRegistry([])
 end function
 
+// Find state.
 function find(registry, className)
   for each entry in registry.entries
     if entry.className == className then return entry end if
@@ -152,6 +182,7 @@ function find(registry, className)
   return void
 end function
 
+// Register state.
 function register(registry, className, spawnFunction)
   if typeof(registry) != "struct" then return error(9050, "spawn registry required") end if
   if typeof(className) != "string" or len(bytes(className)) == 0 then return error(9051, "spawn classname required") end if
@@ -161,6 +192,7 @@ function register(registry, className, spawnFunction)
   return registry
 end function
 
+// Return the default registry value.
 function defaultRegistry()
   registry = createRegistry()
   register(registry, "worldspawn", SP_worldspawn)
@@ -183,7 +215,9 @@ function defaultRegistry()
     "target_blaster", "target_crosslevel_trigger", "target_crosslevel_target",
     "func_areaportal", "path_corner", "point_combat", "info_notnull",
     "func_wall", "func_rotating", "misc_explobox",
-    "misc_banner", "misc_deadsoldier", "misc_strogg_ship", "misc_gib_head",
+    "viewthing", "light_mine1", "misc_bigviper",
+    "misc_banner", "misc_deadsoldier", "misc_strogg_ship",
+    "misc_gib_head", "misc_gib_arm", "misc_gib_leg",
   ]
   for each className in worldClasses
     register(registry, className, SP_world_component)
@@ -209,6 +243,7 @@ function defaultRegistry()
   for each className in campaignClasses
     register(registry, className, SP_world_component)
   end for
+  register(registry, "misc_actor", SP_misc_actor)
   monsterRegistry = gaiarchetypes.defaultRegistry()
   for each archetype in monsterRegistry.entries
     register(registry, archetype.className, SP_monster)

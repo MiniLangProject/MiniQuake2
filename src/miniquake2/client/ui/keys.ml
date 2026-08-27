@@ -9,17 +9,20 @@ import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
 import miniquake2.platform.window as pwindow
 
+// Return the action names value.
 function actionNames()
   return ["forward", "back", "moveleft", "moveright", "left", "right",
     "lookup", "lookdown", "moveup", "movedown", "attack", "use",
     "speed", "strafe", "klook"]
 end function
 
+// Return the default config value.
 function defaultConfig()
   return cuitypes.InputConfig(200.0, 200.0, 200.0, 140.0, 150.0, 1.5,
     false, 0, 3.0, 0.022, 0.022, 1.0, 1.0)
 end function
 
+// Create input state.
 function createInputState()
   actions = []
   for each name in actionNames()
@@ -59,12 +62,14 @@ function bindDefaultGame(state)
   return state
 end function
 
+// Set destination.
 function setDestination(state, destination)
   if destination < cuic.KEY_GAME or destination > cuic.KEY_MENU then return error(8200, "invalid key destination") end if
   state.destination = destination
   return destination
 end function
 
+// Find binding.
 function findBinding(state, key)
   for each binding in state.bindings
     if binding.key == key then return binding end if
@@ -72,6 +77,7 @@ function findBinding(state, key)
   return void
 end function
 
+// Bind state.
 function bind(state, key, command)
   if key < 0 or key >= cuic.MAX_KEYS then return error(8201, "binding key outside table") end if
   if len(bytes(command)) == 0 then return unbind(state, key) end if
@@ -82,6 +88,7 @@ function bind(state, key, command)
   return true
 end function
 
+// Unbind state.
 function unbind(state, key)
   output = []
   for each binding in state.bindings
@@ -91,12 +98,14 @@ function unbind(state, key)
   return true
 end function
 
+// Return the binding for the requested input.
 function bindingFor(state, key)
   binding = findBinding(state, key)
   if binding is void then return "" end if
   return binding.command
 end function
 
+// Begin binding capture.
 function beginBindingCapture(state, command)
   if typeof(command) != "string" or command == "" then
     return error(8203, "binding capture requires a command")
@@ -106,12 +115,14 @@ function beginBindingCapture(state, command)
   return true
 end function
 
+// Cancel binding capture.
 function cancelBindingCapture(state)
   state.captureCommand = ""
   state.capturedKey = -2
   return true
 end function
 
+// Unbind command.
 function unbindCommand(state, command)
   cuikeysRemainingBindings = []
   for each cuikeysExistingBinding in state.bindings
@@ -123,6 +134,7 @@ function unbindCommand(state, command)
   return true
 end function
 
+// Capture binding event.
 function captureBindingEvent(state, key)
   if state.captureCommand == "" then return false end if
   if key == cuic.K_ESCAPE then return cancelBindingCapture(state) end if
@@ -134,6 +146,7 @@ function captureBindingEvent(state, key)
   return true
 end function
 
+// Find action.
 function findAction(state, name)
   for each action in state.actions
     if action.name == name then return action end if
@@ -141,6 +154,7 @@ function findAction(state, name)
   return void
 end function
 
+// Set action.
 function setAction(state, name, down)
   action = findAction(state, name)
   if action is void then return false end if
@@ -149,12 +163,14 @@ function setAction(state, name, down)
   return true
 end function
 
+// Return the command action value.
 function commandAction(command)
   data = bytes(command)
   if len(data) < 2 or data[0] != 43 then return "" end if
   return decode(slice(data, 1, len(data) - 1))
 end function
 
+// Scan key.
 function scanKey(scan)
   if scan == 1 then return cuic.K_ESCAPE end if
   if scan >= 2 and scan <= 10 then return 47 + scan end if
@@ -189,6 +205,7 @@ function scanKey(scan)
   return 0
 end function
 
+// Return the event key value.
 function eventKey(event)
   if event.type == cuic.EVENT_SCAN_KEY then return scanKey(event.code) end if
   if event.type == cuic.EVENT_KEY then
@@ -205,6 +222,27 @@ function eventKey(event)
   return 0
 end function
 
+// Queue discrete command.
+function inline queueDiscreteCommand(state, command)
+  // A wheel can report several detents before the next rendered frame. The
+  // game processes all of those commands against the same current weapon, so
+  // only the last adjacent cycle direction can affect newWeapon. Coalesce that
+  // run in place to avoid repeatedly copying a growing MiniLang array.
+  if command == "weapnext" or command == "weapprev" then
+    count = len(state.commands)
+    if count > 0 then
+      previous = state.commands[count - 1]
+      if previous == "weapnext" or previous == "weapprev" then
+        state.commands[count - 1] = command
+        return true
+      end if
+    end if
+  end if
+  state.commands = state.commands + [command]
+  return true
+end function
+
+// Queue binding.
 function queueBinding(state, key, down, time)
   command = bindingFor(state, key)
   if command == "" then return false end if
@@ -214,11 +252,12 @@ function queueBinding(state, key, down, time)
     if down then state.commands = state.commands + [command + " " + key + " " + time]
     else state.commands = state.commands + ["-" + actionName + " " + key + " " + time]
     end if
-  else if down then state.commands = state.commands + [command]
+  else if down then queueDiscreteCommand(state, command)
   end if
   return true
 end function
 
+// Handle event.
 function handleEvent(state, event, time)
   if event.type == cuic.EVENT_FOCUS then
     state.focused = event.value != 0
@@ -246,6 +285,7 @@ function handleEvent(state, event, time)
   return true
 end function
 
+// Drain commands.
 function inline drainCommands(state)
   // The idle product loop drains all command sources every rendered frame.
   // Retain the already allocated empty queue instead of replacing it with a

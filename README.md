@@ -1,385 +1,222 @@
 # MiniQuake2
 
-MiniQuake2 is an executable Windows x64 port of Quake II 3.19 to MiniLang.
-The engine, client, server, renderer front end, and `baseq2` game logic are
-implemented in MiniLang. Native code is restricted to thin operating-system
-and device bridges.
+MiniQuake2 is an unofficial Windows x64 port of the original Quake II 3.19
+engine and `baseq2` game to
+[MiniLang](https://github.com/MiniLangProject). The project aims to preserve
+Quake II's gameplay, data formats, Game API v3 semantics and Protocol 34 while
+providing a modern, self-contained desktop build.
 
 > [!IMPORTANT]
 > MiniQuake2 does not include Quake II game data. You must own and supply a
-> legal Quake II installation containing `baseq2/pak0.pak`. Retail maps,
-> models, textures, sounds, cinematics, music, player data, and CTF data must
-> never be committed to or distributed with this project.
+> legal installation containing `baseq2/pak0.pak`.
 
-## Current status
+## Screenshots
 
-The integrated native MiniLang executable now links the qcommon foundation,
-strict retail-format loaders, BSP38 collision/visibility, Win32 platform
-bridges, PCM mixer, Protocol 34/Netchan and UDP runtime, snapshot client/server,
-PMove, Renderer API v3 plus an OpenGL 1.1 asset/geometry path, Game API v3,
-entity spawning, persistence, player/view/environment logic,
-items/weapons/ballistics/combat, movers/targets, and the data-driven monster/AI
-core. A transactional client dispatcher joins snapshots, effects, demos,
-downloads, console/HUD messages and UI; real loopback UDP tests complete the
-challenge/connect/configstring/baseline/begin/snapshot path. Every maintained
-MiniLang test is compiled and executed by `build.ps1`; no proprietary data is
-required for that suite.
+| Outer Base (`base1`) | Receiving Center (`fact3`) |
+| --- | --- |
+| [![MiniQuake2 running base1](docs/screenshots/levels/base1.jpg)](docs/screenshots/levels/base1.jpg) | [![MiniQuake2 running fact3](docs/screenshots/levels/fact3.jpg)](docs/screenshots/levels/fact3.jpg) |
 
-The current product vertical slice loads the user-owned classic PAKs, prepares
-a BSP with WAL textures and static lightmaps, starts an internal
-Protocol-34 listen server through Game API v3, reaches `CA_ACTIVE`, registers
-configstring-driven MD2/PCX models and WAV sounds, submits snapshots/effects/UI
-to the renderer and mixer, and accepts live movement commands. BSP PVS,
-frustum, area and backface selection now bound the submitted world surfaces;
-sky, warp/turbulence, flowing, translucent world passes and transformed inline
-brush models are integrated. The read-only campaign gate now parses and spawns
-all 47 classic retail BSPs (39 single-player and 8 deathmatch): 36,404 source
-entities across all 138 stock class names produce 20,935 live edicts with zero
-unknown or skipped classes. Normal map changes retain Netchan sequencing and
-perform a complete reconnect/signon; server restarts establish a fresh sequence
-generation. A persistent internal UDP session now loads, spawns, signs on and
-changes through all 39 single-player maps; three fresh product runs completed
-the earlier lifecycle trace without a failure. The current complete attack-timeline
-build completes in 689 steps and 3,376 processed packets after restoring exact
-boss refires, aim state and monster muzzle/effect behavior while publishing the
-complete stock gib-model inventory. An executable
-goal-route gate additionally visits all 39 unique BSPs in their canonical
-branched order through 51 real objective-confirmed map changes, retaining one
-Protocol-34 session and completing every re-signon without a direct
-`target_changelevel` fallback. It drives the existing key, counter, timer,
-trigger, monster-death and boss state machines and terminates at `victory.pcx`;
-it intentionally abstracts player navigation and uses deterministic damage for
-goal-bound monsters. An executable campaign matrix covers every retail classname and proves the `boss2`
-Jorg-to-Makron-to-changelevel chain across a versioned save/restore boundary.
-The retail behavior matrix now classifies `point_combat`, `trigger_key`,
-`target_actor`, `target_character`, `target_string`, `func_clock` and
-`trigger_elevator` as functional world state machines. The following stock pass
-also closes `target_lightramp`, `func_killbox`, the Viper/bomb set piece, the
-remaining decorative thinkers, `info_notnull`, `light_mine2`, and all 60
-`misc_insane` entities. Scripted boss props and the coupled
-`turret_base`/`turret_breach`/`turret_driver` rigs close the final retail
-class-state-machine tail: the 39-map behavior matrix now reports zero
-explicitly simplified instances or classes. Their live Game-API path now uses
-the current skill for stock reaction time and 550/600/650/700 rocket speed,
-consumes the shared CRT stream for damage, positions the launch sound at the
-muzzle, retains crush knockback 10, accepts `DAMAGE_AIM` combat and emits the
-Infantry seven-gib inventory on driver death. All 21 combat-capable monster
-classes present in those BSPs, plus the dynamically spawned Makron, now route
- through validated 3.19 damage/speed profiles and real MiniLang melee, hitscan,
- rail, blaster or rocket emission. Every combat-capable family now uses a stock
- frame-relative attack, melee or drain timeline with projected MD2 frames. This
- includes live Gunner, Medic, Chick, Flyer, Hover, Tank, Soldier, Supertank and
- boss refire callbacks, the conditional Brain tentacle chain, the Mutant jump,
- the Gladiator's saved rail aim, all close-combat loops and the Parasite's
- ordered damage/beam frames. The attack tables also execute their exact 3.19
- `ai_charge`/`ai_move` distance columns, held-frame rules and mechanical sound
- callbacks; every spawned stock monster publishes its original sound inventory
- before signon, including the Makron assets needed by a dying Jorg. The same stock
-layer now covers 63 pain variants, 43 normal-death variants, the original
-duck/dodge ranges for the six supporting families, and stand, idle, walk and run
-MD2 ranges for all 22 combat entries. All 1,813 pain/death frames execute their
-original movement columns. Their live callbacks reproduce the Tank, Jorg and
-Makron step/thud/taunt/terminal sounds, Infantry's twelve-frame death machinegun
-sweep, the three Soldier death-weapon families and the exact Supertank, Boss2
-and Jorg explosion-entry frames. All reachable secondary stock locomotion/
-fidget callbacks are active as well, including Soldier idle/walk branches,
-Medic corpse scans, Parasite taps/scratch loops, Jorg steps and Tank run start.
-Stock terminal deaths apply the original class-specific corpse bounds, export
-the original organic and metallic gib-model inventories as timed physics
-edicts, and reproduce the eight-step boss explosion sequence before the final
-14-part breakup. Ground, step, partial-ground, fly/swim and water-boundary
-movement now follows the original collision-bound `m_move.c` path against BSP,
-inline brushes and dynamic boxes. Lost enemies are pursued through the original
-eight-marker PlayerTrail and left/right course correction rather than a direct
-transform. The final Release product passes all 47 installed retail maps at
-133.26 minimum, 457.31 median and 724.23 maximum measured engine-work frames/s
-over 500 real product frames per map, with zero missing play assets and zero
-audio underruns. See
-[`docs/ALL_LEVEL_FPS_2026-08-26.md`](docs/ALL_LEVEL_FPS_2026-08-26.md) for the
-complete per-level table and measurement method. Swept traces use Quake II's
-near-first BSP hull walk on a
-fixed stack, and inline brushes are rejected by cached swept bounds before any
-model transform or hull trace. Fixed sound storage also avoids array
-concatenation and drains transient/PHS-filtered events without backlog.
-Private-Save v17 resumes attacks and active reactions at their next
-frame, preserves held death-fire bursts, live refire, jump, saved-aim,
-shared-random, Medic ownership, live turret sight/reaction state and all
-lost-sight pursuit fields, and round-trips live dynamic gib and dropped-item
-records. It also retains monster air/damage/power-armor state, per-entity
-gravity, trigger-push prediction/debounce and generic toss/bounce water state.
-The reader remains compatible with v7-v16 private saves. Client
-impact feedback follows the Quake II 3.19 temp-entity and muzzleflash switches:
-smoke/flash pairs, directional blaster models, explosion model/frame/base
-variants, layered player-weapon sounds, monster-family sounds, attenuation and
-Rogue effects are covered by Protocol-34 goldens. Transient particles append
-into one reusable 4,096-slot pool instead of copying the live array for every
-effect. Rail/Debug/Forcewall/Bubble trails, Steam/Smoke, login/logout/item
-respawn, teleports, Widow splash and Widow/Nuke sustained effects now use their
-stock spatial, gravity, color and alpha algorithms on the original Win32 CRT
-random sequence; one-frame particles are consumed after renderer handoff.
-Moving snapshot entities now add their stock Rocket/Blaster/grenade/gib/flag/
-Tag/Tracker/Ion trails and projectile lights from a fixed per-client trail
-table, while BFG/Plasma/sphere translucency follows the original effect bits.
-Color-Shell/Powerscreen overlays, isolated linked-model flags, automatic
-animation/rotation and the BFG/Fly/Trap/persistent-Teleporter/spinning-light
-tail are also active without per-frame particle-array concatenation. The
-player renderer now consumes live player configstrings for custom MD2/PCX
-model/skin pairs, resolves the stock `#w_*.md2` visible-weapon table from the
-packed snapshot skin word, uses original packed `RF_BEAM` color selection and
-applies the Rogue male/female/cyborg disguise override. It hides the local
-third-person player plus linked weapon while retaining the
-first-person view weapon. A two-client UDP arsenal gate proves the visible
-weapon index for every stock weapon in both reconstructed snapshots. The
-first-person weapon retains the exact snapshot offset, wrapped-angle recoil,
-old-frame reset, wide-FOV suppression and depth-hack flags. Player Setup now
-persists right/left/center handedness, mirrors only the left-hand weapon
-projection, hides the center-hand weapon and publishes changes through live
-`clc_userinfo` to the Game API.
-MD2 aliases now sample BSP light data with Quake II's near-first
-`R_LightPoint` traversal, add frame dynamic lights and apply the original
-Fullbright, Minlight, Glow, shell and IR-goggle policies. Fixed world-owned
-trace stacks avoid MiniLang recursion and per-query array growth; the sampled
-view-weapon maximum reaches the next Protocol-34 UserCmd as `lightLevel`.
-Ordinary aliases retain their validated compact MD2 bytes and apply the
-original 162 vertex normals against 16 yaw-quantized shadedot rows. Native
-frame interpolation expands only missing quantized animation states into a
-bounded VBO cache, so the render loop no longer constructs or concatenates
-expanded MiniLang arrays. The accepted 100-frame retail `base1` run submitted
-2,400 entities in 376.70 ms of measured entity-renderer time, 38.7 percent
-below the preceding 614.28-ms flat-lighting acceptance result.
-Classic 3.19 planar alias shadows now reuse that interpolated MD2 cache. The
-same BSP light sample supplies the receiver `lightspot`, the projection follows
-entity yaw and height, and translucent or view-weapon models are excluded in a
-separate post-opaque-world pass. Shadows are enabled by default for the modern
-port and remain independently switchable. A grounded `base1` on/off capture
-changes 2,058 pixels while preserving identical world, brush and MD2 counts;
-the final 100-frame retail run completed with zero missing assets and measured
-82.52/1,941.62/91.31/51.40 ms for client/world/entities/HUD.
-The original class-level sight/search callback inventory, sound
-channels/attenuation and callback-local random branches are active, including
-Makron's silent 13-frame activation, Mutant's CRT-driven step choice and
-Soldier's sight-triggered `attack6` plus dodge-triggered `attack3` timelines.
-Medic corpse selection follows the original 1,024-unit visible/unowned
-strongest-patient rule and runs the full `attack33..60` cable, sound,
-Protocol-34 beam and in-place resurrection path.
- Muzzle and beam events travel through the typed
-Game-API multicast queue, PVS/PHS routing and real Protocol-34 UDP into client
-DLight/sound handoff; `misc_insane` and the two scripted props are intentionally
-non-combat states. The complete stock player-weapon set now uses its original
-fire-frame boundaries, handed muzzle offsets, recoil, damage split, PlayerNoise,
-silencing and Protocol-34 muzzle/impact feedback. Cooked hand grenades are live,
-and bolts, grenades, rockets and BFG shots own reusable networked engine edicts
-with model/effect/loop-sound state. Two real local UDP clients
-complete cooperative item/disconnect/reconnect scenarios; the deathmatch gate
-now sees a moving Blaster bolt in both snapshots, kills a 100-health peer
-through seven genuine UDP Blaster commands, observes muzzle/sound/blood
-handoffs on both clients and respawns through the normal attack latch. A second
-two-client gate performs a reliable spectator-to-player transition, frag-limit
-maplist rotation, full re-signon and a 500-frame post-change soak without
-rewinding the live Netchans. A complete UDP arsenal matrix fires all ten stock
-guns plus the cooked hand grenade, checking bilateral effects/projectile
-visibility, ammo consumption and a 300-frame transport tail.
-The same harness now scales from two through eight local peers; its four-client
-gate covers simultaneous signon/telefrag recovery, two disconnect/reconnect
-cycles, full snapshot visibility, a channel-preserving four-player checkpoint,
-map re-signon and a 500-frame steady-state tail.
-Game-API `unicast`, `cprintf` and `centerprintf` now use a separate bounded
-per-client queue: reliable text is ACK-retained, unreliable service commands
-remain sequenced, and transactional client handoff exposes prints only to the
-target slot.
-An active-session persistence gate writes and restores both Game and Level
-images without resetting the live UDP/Netchan sequence, then proves the next
-snapshot and failure-atomic rollback after a deliberately corrupted private
-payload.
-Cross-map checkpoints additionally perform a transactional map change, full
-Protocol-34 re-signon, Game+Level restore and a valid next snapshot; a failed
-target restore returns to the source map with a new legal spawn epoch while
-Netchan sequences only move forward.
-The same persistence boundary now also saves and restores both players in a
-live cooperative session without replacing either client or server Netchan;
-skill endpoints, shared key state, teammate damage and a post-restore UDP soak
-are covered by a dedicated native gate. A full installed-retail matrix extends
-that evidence across 39 campaign BSPs, 51 goal-confirmed transitions and 39
-two-player checkpoints. v10 introduced length-prefixed retail entity text and
-dynamic world references; v11 added in-flight boss aim/refire plus Win32
-random-stream state; v12 added transient monster AI, old-enemy and owner
-references required to resume a Medic cable safely; v13 added the world
-combat/AI/cooldown fields required to resume a coupled turret without resetting
-its target cadence; v14 added collision movement,
-velocity, last-sighting, trail and temporary pursuit-goal state.
-v15 retains v7-v14 readers and additionally persists the original chat flood
-ring, head and lockout timestamp. v16 adds dynamic dropped items, pending map
-item spawn state, monster environment/power-armor fields and world/player
-gravity plus push debounce state while retaining the v7-v15 readers.
-v17 adds generic toss/bounce water type and level while retaining the v7-v16
-readers with dry defaults for older payloads.
-The product `--cinematic` path now plays installed retail CIN files through
-the original 14-fps timing, palette upload, OpenGL raw-frame presentation and
-managed PCM mixer/native device lifecycle. Full `idlog.cin` runs reach frame
-81, complete within the explicit one-drop hardware policy and restore the game
-palette on completion.
-Classic `+nextserver` strings now drive CIN, PCX and named-spawn map steps;
-the interactive loop consumes the validated `gamemap` queued at intermission.
-The same executor now plays the installed release DM2 files through the live
-snapshot/effect/renderer/audio path. `demo1.dm2` completes all 696 packets and
-688 rendered frames on `base2`; its historical Protocol-26 frame layout is
-accepted only inside the demo session, while every network connection remains
-strict Protocol 34. Heavyweight DM2-to-map chains preserve the window and GL
-context but reset renderer-owned managed state between BSPs. Normal startup
-executes the stock `d1` attract loop, New Game runs `*ntro.cin+base1`, and
-installed OGG music follows `CS_CDTRACK`; see
-[`docs/MEDIA_STARTUP_AUDIT_2026-08-26.md`](docs/MEDIA_STARTUP_AUDIT_2026-08-26.md).
-The same product UI now applies mouse sensitivity, always-run and mixer volume
-live, renders named `svc_inventory` contents, forwards game/chat commands, and
-provides three failure-atomic persistent Save/Load slots, live video-mode
-restart, arbitrary key capture and a difficulty-aware `*ntro.cin+base1` New
-Game sequence. See
-[`docs/UI_AUDIO_ACCEPTANCE.md`](docs/UI_AUDIO_ACCEPTANCE.md) for the exact
-local UI/audio evidence and remaining external-device boundary. Product settings
-and bindings persist through a strict, bounded `miniquake2.cfg` format.
-An independent raw Protocol-34 peer validates both client and server wire
-directions. Deterministic OpenGL readback produces stable TGA captures, and a
-native x86 API-v3 host now drives the installed unmodified classic `ref_gl.dll`
-at matching cameras. The paired `base1`, `waste1` and `cool1`
-world/water/alpha/MD2 scenes
-pass their documented 0.4% mean-error ceiling after restoring the original
-`intensity=2` material rule; JSON metrics and heatmaps remain build artifacts.
-The unpaced full retail session now passes 100,000 `base1` frames at 254.76
-simulation frames/s with 212,822 accepted packets, zero rejected packets, a
-zero-byte engine-command buffer and bounded diagnostic/event histories. The
-local RTX-5080/Windows host
-also passes a real 640x480-window to 1920x1080-exclusive-fullscreen GL restart and complete
-native-device `idlog.cin` playback; see
-[`docs/HARDWARE_ACCEPTANCE.md`](docs/HARDWARE_ACCEPTANCE.md).
+### Complete campaign gallery
 
-These results are strong compatibility evidence, not a claim that every
-campaign encounter or rendered pixel is already identical. The formerly open
-product blocks—client commands, stock-attract startup, multiplayer/player setup,
-downloads, administration/discovery, level music, pause, demo recording,
-screenshots, hardware gamma and controller input—are implemented and covered
-by local functional tests. Separate evidence remains open for original-process
-interoperability (the installed 3.20 executable exits before networking on
-this host), paired player view-model/recoil captures, full encounter traces,
-broader multi-host GPU/device coverage and manual device acceptance. Retail
-class, stock monster damage-emission, pain/death movement and reachable
-secondary callback coverage are closed, but that is deliberately narrower
-than a normal human-driven campaign or frame-for-frame whole-session AI parity
-claim. See [`docs/PARITY_AUDIT.md`](docs/PARITY_AUDIT.md).
+The gallery covers all 39 single-player BSPs in MiniQuake2's canonical
+campaign matrix. Every image is a full 1920x1080 product frame captured at the
+authored level start after the view weapon has settled. The captures exercise
+the live server, Game API, snapshot, client, renderer and HUD path and contain
+no missing assets. JPEG previews are progressive and open at full resolution.
 
-The canonical local reference remains commit
-`372afde46e7defc9dd2d719a1732b8ace1fa096e`. Its 4,525 C definitions remain in
-[`PORT_LEDGER.json`](PORT_LEDGER.json) as a reference inventory; implementation
-gate status and remaining interoperability/visual/campaign evidence are tracked
-separately in [`BLOCK_LEDGER.json`](BLOCK_LEDGER.json); the player-facing
-scenario baseline is [`docs/PLAYABILITY_MATRIX.md`](docs/PLAYABILITY_MATRIX.md).
-A green unit suite is
-not by itself a claim of complete original-client/server, visual, or campaign
-parity.
+<details>
+<summary><strong>Quake II — 39 campaign maps</strong></summary>
 
-The first playable release targets:
+| | | |
+| --- | --- | --- |
+| **BASE1**<br>[![BASE1](docs/screenshots/levels/base1.jpg)](docs/screenshots/levels/base1.jpg) | **BASE2**<br>[![BASE2](docs/screenshots/levels/base2.jpg)](docs/screenshots/levels/base2.jpg) | **BASE3**<br>[![BASE3](docs/screenshots/levels/base3.jpg)](docs/screenshots/levels/base3.jpg) |
+| **BIGGUN**<br>[![BIGGUN](docs/screenshots/levels/biggun.jpg)](docs/screenshots/levels/biggun.jpg) | **BOSS1**<br>[![BOSS1](docs/screenshots/levels/boss1.jpg)](docs/screenshots/levels/boss1.jpg) | **BOSS2**<br>[![BOSS2](docs/screenshots/levels/boss2.jpg)](docs/screenshots/levels/boss2.jpg) |
+| **BUNK1**<br>[![BUNK1](docs/screenshots/levels/bunk1.jpg)](docs/screenshots/levels/bunk1.jpg) | **CITY1**<br>[![CITY1](docs/screenshots/levels/city1.jpg)](docs/screenshots/levels/city1.jpg) | **CITY2**<br>[![CITY2](docs/screenshots/levels/city2.jpg)](docs/screenshots/levels/city2.jpg) |
+| **CITY3**<br>[![CITY3](docs/screenshots/levels/city3.jpg)](docs/screenshots/levels/city3.jpg) | **COMMAND**<br>[![COMMAND](docs/screenshots/levels/command.jpg)](docs/screenshots/levels/command.jpg) | **COOL1**<br>[![COOL1](docs/screenshots/levels/cool1.jpg)](docs/screenshots/levels/cool1.jpg) |
+| **FACT1**<br>[![FACT1](docs/screenshots/levels/fact1.jpg)](docs/screenshots/levels/fact1.jpg) | **FACT2**<br>[![FACT2](docs/screenshots/levels/fact2.jpg)](docs/screenshots/levels/fact2.jpg) | **FACT3**<br>[![FACT3](docs/screenshots/levels/fact3.jpg)](docs/screenshots/levels/fact3.jpg) |
+| **HANGAR1**<br>[![HANGAR1](docs/screenshots/levels/hangar1.jpg)](docs/screenshots/levels/hangar1.jpg) | **HANGAR2**<br>[![HANGAR2](docs/screenshots/levels/hangar2.jpg)](docs/screenshots/levels/hangar2.jpg) | **JAIL1**<br>[![JAIL1](docs/screenshots/levels/jail1.jpg)](docs/screenshots/levels/jail1.jpg) |
+| **JAIL2**<br>[![JAIL2](docs/screenshots/levels/jail2.jpg)](docs/screenshots/levels/jail2.jpg) | **JAIL3**<br>[![JAIL3](docs/screenshots/levels/jail3.jpg)](docs/screenshots/levels/jail3.jpg) | **JAIL4**<br>[![JAIL4](docs/screenshots/levels/jail4.jpg)](docs/screenshots/levels/jail4.jpg) |
+| **JAIL5**<br>[![JAIL5](docs/screenshots/levels/jail5.jpg)](docs/screenshots/levels/jail5.jpg) | **LAB**<br>[![LAB](docs/screenshots/levels/lab.jpg)](docs/screenshots/levels/lab.jpg) | **MINE1**<br>[![MINE1](docs/screenshots/levels/mine1.jpg)](docs/screenshots/levels/mine1.jpg) |
+| **MINE2**<br>[![MINE2](docs/screenshots/levels/mine2.jpg)](docs/screenshots/levels/mine2.jpg) | **MINE3**<br>[![MINE3](docs/screenshots/levels/mine3.jpg)](docs/screenshots/levels/mine3.jpg) | **MINE4**<br>[![MINE4](docs/screenshots/levels/mine4.jpg)](docs/screenshots/levels/mine4.jpg) |
+| **MINTRO**<br>[![MINTRO](docs/screenshots/levels/mintro.jpg)](docs/screenshots/levels/mintro.jpg) | **POWER1**<br>[![POWER1](docs/screenshots/levels/power1.jpg)](docs/screenshots/levels/power1.jpg) | **POWER2**<br>[![POWER2](docs/screenshots/levels/power2.jpg)](docs/screenshots/levels/power2.jpg) |
+| **SECURITY**<br>[![SECURITY](docs/screenshots/levels/security.jpg)](docs/screenshots/levels/security.jpg) | **SPACE**<br>[![SPACE](docs/screenshots/levels/space.jpg)](docs/screenshots/levels/space.jpg) | **STRIKE**<br>[![STRIKE](docs/screenshots/levels/strike.jpg)](docs/screenshots/levels/strike.jpg) |
+| **TRAIN**<br>[![TRAIN](docs/screenshots/levels/train.jpg)](docs/screenshots/levels/train.jpg) | **WARE1**<br>[![WARE1](docs/screenshots/levels/ware1.jpg)](docs/screenshots/levels/ware1.jpg) | **WARE2**<br>[![WARE2](docs/screenshots/levels/ware2.jpg)](docs/screenshots/levels/ware2.jpg) |
+| **WASTE1**<br>[![WASTE1](docs/screenshots/levels/waste1.jpg)](docs/screenshots/levels/waste1.jpg) | **WASTE2**<br>[![WASTE2](docs/screenshots/levels/waste2.jpg)](docs/screenshots/levels/waste2.jpg) | **WASTE3**<br>[![WASTE3](docs/screenshots/levels/waste3.jpg)](docs/screenshots/levels/waste3.jpg) |
 
-- Quake II 3.19 behavior and Protocol 34.
-- BSP version 38 and the original Quake II asset formats.
-- Game API v3 and Renderer API v3 semantics through internal MiniLang records.
-- Original 3.19 client/server interoperability.
-- The complete `baseq2` campaign, save/load, cooperative play, and deathmatch.
-- Windows x64, an OpenGL compatibility renderer, and listen/dedicated servers.
+</details>
 
-CTF, native `gamex86.dll`/renderer DLL compatibility, the software renderer,
-non-Windows targets, and additional graphics backends are explicitly deferred
-until the base compatibility release is closed.
+## Highlights
 
-## Build and run
+- Engine, client, server, renderer front end and `baseq2` game logic written in
+  MiniLang.
+- Original PAK, BSP38, MD2, SP2, WAL, PCX, CIN, WAV, DM2 and private-save
+  format support.
+- Single-player campaign, cooperative play, deathmatch, save/load, inventory,
+  weapons, movers, monsters, cinematics, demos and attract mode.
+- Protocol 34 networking with prediction, downloads, listen servers and
+  dedicated servers.
+- Classic lightmaps, sky, warp, flowing and translucent surfaces, inline brush
+  models, MD2 interpolation, view weapons, particles and shadows.
+- Native Windows x64 window, raw input, controller, UDP, PCM audio and OpenGL
+  bridges behind MiniLang-owned runtime state.
+- Resolution-aware menus and HUD, windowed/fullscreen modes through 4K, mouse
+  inversion, rebinding and persistent `miniquake2.cfg` settings.
+- OGG music discovery for classic and Steam rerelease layouts, plus original
+  CIN and DM2 playback timing.
 
-From the workspace root:
+## Project status
+
+MiniQuake2 is playable and under active development. Its automated suite covers
+all 39 campaign maps, the stock spawn table, Game API behavior, networking,
+rendering, audio, persistence and long-running sessions. This is strong
+compatibility evidence, not a claim that every encounter, rendered pixel or
+hardware configuration is already identical to Quake II 3.19.
+
+The concise maintained overview is the
+[parity audit](docs/PARITY_AUDIT.md). Detailed source comparisons and acceptance
+evidence remain available under [`docs`](docs/), while known limitations are
+tracked in [`BLOCK_LEDGER.json`](BLOCK_LEDGER.json).
+
+## Quick start
+
+Build MiniQuake2, then point it at the directory containing `baseq2`:
 
 ```powershell
-.\MiniQuake2\build.ps1 -UpdateManifest
-.\MiniQuake2\build\MiniQuake2.exe --capabilities
-.\MiniQuake2\scripts\package.ps1 -SkipBuild
+$Quake2Base = "C:\Program Files (x86)\Steam\steamapps\common\Quake 2"
+& .\build\MiniQuake2.exe --data-root $Quake2Base
 ```
 
-With a legal Quake II installation root containing `baseq2\pak0.pak`:
+`--data-root` validates and remembers the installation, then opens the main
+menu. Later launches need no arguments:
 
 ```powershell
-.\MiniQuake2\build\MiniQuake2.exe --asset-smoke "C:\Games\Quake2" base1
-.\MiniQuake2\build\MiniQuake2.exe --map-preview "C:\Games\Quake2" base1 600
-.\MiniQuake2\build\MiniQuake2.exe --play "C:\Games\Quake2" base1 0
-.\MiniQuake2\build\MiniQuake2.exe --cinematic "C:\Games\Quake2" idlog 0 0
-.\MiniQuake2\build\MiniQuake2.exe --demo "C:\Games\Quake2" demo1.dm2 0
-.\MiniQuake2\build\MiniQuake2.exe --media-audit "C:\Games\Quake2"
-.\MiniQuake2\build\MiniQuake2.exe --media-sequence "C:\Games\Quake2" "end.cin+victory.pcx" 0
-.\MiniQuake2\build\MiniQuake2.exe --dedicated "C:\Games\Quake2" base1 27910 0
-.\MiniQuake2\build\MiniQuake2.exe --listen "C:\Games\Quake2" base1 600
-.\MiniQuake2\build\MiniQuake2.exe --connect 127.0.0.1 27910 600
-.\MiniQuake2\scripts\campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
-.\MiniQuake2\scripts\physical_campaign_smoke.ps1 -Quake2Root "C:\Games\Quake2"
-.\MiniQuake2\scripts\session_soak.ps1 -Quake2Root "C:\Games\Quake2" -Frames 100000
-.\MiniQuake2\scripts\hardware_acceptance.ps1 -Quake2Root "C:\Games\Quake2" -SoakFrames 100000
-py -3 .\MiniQuake2\tools\retail_fps_report.py "C:\Games\Quake2" --exe .\MiniQuake2\build\MiniQuake2.exe --frames 500 --scope all
+& .\build\MiniQuake2.exe
 ```
 
-The first command validates a real PAK/BSP38/MD2/WAV set and executes one
-server/Game-API frame. The second opens the free-camera OpenGL BSP preview. The
-third starts the interactive local vertical slice; `0` keeps it open until the
-window is closed. Controls are `W/A/S/D`, mouse look, `Space`/`C` for vertical
-movement, `Shift` for speed, mouse button 1 to attack, and `E` to use.
-The demo command plays an installed DM2 to completion; a positive frame count
-is a deterministic visual preview gate.
-The package script emits deterministic, asset-scanned binary and corresponding
-source ZIPs, then extracts and starts the shipped executable for diagnostics and
-CLI smoke checks. The source archive also carries the exact shared native-bridge
-sources used by the two DLLs.
-
-The campaign script never extracts or copies retail data. It inventories map
-and classname counts directly from the PAK/BSP directories, self-tests that
-parser, then runs every discovered BSP through the built executable's
-Game-API/asset smoke. By default any failed map or skipped entity fails the
-gate; `-AllowSkipped` is available only for diagnostic work on incomplete
-branches. A machine-readable report can be requested with `-Json PATH`.
-
-The physical campaign smoke starts a fresh real UDP client/server session for
-each of the 39 stock single-player BSPs. Every map must accept decoded movement
-and attack UserCmds, produce PMove displacement, fire through Weapon_Generic,
-publish snapshots and reject zero packets. It records item deltas and deaths
-without treating an expected combat/environment death as a transport failure.
-
-## Project contracts
-
-- [Compatibility, scope, and asset contract](docs/COMPATIBILITY_CONTRACT.md)
-- [Architecture decisions](docs/ARCHITECTURE.md)
-- [Ten-point implementation and acceptance plan](docs/PORT_PLAN.md)
-- [Release, Debug and deterministic package acceptance](docs/RELEASE_ACCEPTANCE.md)
-- [Player-facing playability and parity matrix](docs/PLAYABILITY_MATRIX.md)
-- [Current functional and evidence parity audit](docs/PARITY_AUDIT.md)
-- [Reference inventory method and counts](docs/reference/README.md)
-- [Known risks and release-blocking gates](BLOCK_LEDGER.json)
-- [License terms](LICENSE.md) and [retained notices](NOTICE.md)
-
-## Rebuilding the reference ledger
-
-From the workspace root:
+Start a map directly when required:
 
 ```powershell
-python MiniQuake2\docs\reference\generate_port_ledger.py `
-  --reference-root MiniQuake2\Quake-2-original-source `
-  --output MiniQuake2\PORT_LEDGER.json
-
-python MiniQuake2\docs\reference\generate_port_ledger.py `
-  --reference-root MiniQuake2\Quake-2-original-source `
-  --output MiniQuake2\PORT_LEDGER.json `
-  --check
+& .\build\MiniQuake2.exe --play $Quake2Base base1 0
 ```
 
-The generator refuses a different reference commit or a dirty reference
-worktree. This keeps source-to-port accountability deterministic.
+The final `0` keeps the interactive session open until the window is closed.
 
-## Licensing and attribution
+## Building
 
-The reference source is licensed by id Software under GPL-2.0-or-later. A port
-derived from it must retain the applicable notices and satisfy the GPL source
-distribution obligations. The MD4 implementation also carries an RSA Data
-Security notice which must be retained wherever that implementation is used.
-Quake II game data remains under its original proprietary terms and is not
-covered by the source-code license. MiniQuake2 is unofficial and is not
-affiliated with or endorsed by id Software or ZeniMax Media.
+Requirements:
+
+- Windows x64 and PowerShell.
+- Python 3.
+- The Python MiniLang compiler and standard library. A sibling checkout named
+  `MiniLangCompilerPy` is detected automatically.
+- A legal Quake II installation is required only for retail validation and
+  playing, never for the asset-free build and unit suite.
+
+From the repository root:
+
+```powershell
+.\build.ps1
+```
+
+Explicit compiler locations can be supplied when the repositories are not
+siblings:
+
+```powershell
+.\build.ps1 `
+  -Compiler C:\path\to\MiniLangCompilerPy\mlc_win64.py `
+  -StdLib C:\path\to\MiniLangCompilerPy
+```
+
+The release executable is written to `build/MiniQuake2.exe`.
+
+## Default controls
+
+| Action | Default input |
+| --- | --- |
+| Move | `W`, `A`, `S`, `D` |
+| Look | Mouse |
+| Attack | Left mouse button |
+| Jump | `Space` |
+| Crouch | `C` |
+| Run | `Shift` |
+| Use | `E` |
+| Inventory | `I` |
+| Previous/next weapon | Mouse wheel |
+| Select weapon | `0` through `9` |
+| Main menu | `Esc` |
+
+Bindings, sensitivity, vertical-axis inversion, always-run, handedness,
+controller input and display settings are available from the menus and persist
+in `baseq2/miniquake2.cfg`.
+
+## Media and display
+
+The Video menu supports 640x480 through 3840x2160, windowed or fullscreen.
+Unavailable exclusive modes fall back safely to a supported desktop mode.
+Display changes rebuild the live window, OpenGL context and map resources
+without discarding gameplay settings.
+
+MiniQuake2 searches for OGG music below both classic `baseq2/music` and Steam
+rerelease layouts. Stock cinematics and demos are read directly from the
+user-owned PAK files and follow their original timing and next-server chains.
+
+## Tests and verification
+
+The complete source, build and compiled MiniLang test suite has one entry
+point:
+
+```powershell
+.\scripts\test.ps1
+```
+
+Useful retail gates include:
+
+```powershell
+.\scripts\campaign_smoke.ps1 -Quake2Root $Quake2Base
+.\scripts\physical_campaign_smoke.ps1 -Quake2Root $Quake2Base
+.\scripts\session_soak.ps1 -Quake2Root $Quake2Base -Frames 100000
+.\scripts\hardware_acceptance.ps1 -Quake2Root $Quake2Base
+```
+
+Rebuild the complete README gallery from authored gameplay starts with:
+
+```powershell
+.\scripts\capture_level_gallery.ps1 -Quake2Root $Quake2Base
+```
+
+The capture workflow never extracts or copies proprietary retail assets; only
+rendered JPEG screenshots are written to `docs/screenshots/levels`.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `src/` | MiniLang engine, client, server, game, renderer and platform logic |
+| `native/` | Narrow prebuilt Windows x64 runtime bridges |
+| `tests/` | Deterministic unit, integration, protocol and retail test programs |
+| `tools/` | Verification, capture, comparison and evidence utilities |
+| `scripts/` | Build, packaging and retail-acceptance workflows |
+| `docs/` | Architecture, parity and release evidence plus screenshots |
+
+## Documentation
+
+- [Compatibility and asset contract](docs/COMPATIBILITY_CONTRACT.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Current parity audit](docs/PARITY_AUDIT.md)
+- [Detailed original-source audit](docs/ORIGINAL_PARITY_AUDIT_2026-08-26.md)
+- [Playability matrix](docs/PLAYABILITY_MATRIX.md)
+- [Release acceptance](docs/RELEASE_ACCEPTANCE.md)
+- [Retail FPS report](docs/ALL_LEVEL_FPS_2026-08-26.md)
+
+## Legal and licensing
+
+MiniQuake2 is an independent project and is not affiliated with or endorsed by
+id Software, Bethesda Softworks or ZeniMax Media. Quake II names and game
+assets remain the property of their respective owners. Do not commit or
+redistribute proprietary PAK files, maps, textures, music, cinematics or other
+retail data with this repository.
+
+Quake II-derived work is distributed under GPL-2.0-or-later. Independently
+authored build and verification tooling may use Apache-2.0. See
+[`LICENSE.md`](LICENSE.md), [`NOTICE.md`](NOTICE.md) and each file's SPDX
+identifier for the applicable terms and retained notices.

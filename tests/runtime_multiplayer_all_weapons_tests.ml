@@ -19,11 +19,13 @@ import miniquake2.client.effects.entity as mpweaponentityeffects
 import miniquake2.client.effects.handoff as mpweaponeffecthandoff
 import miniquake2.renderer.types as mpweaponrenderertypes
 
+// Assert the mpweapon test condition.
 function mpweaponAssert(value, name)
   if not value then return error(8424, name) end if
   return true
 end function
 
+// Return the mpweapon equip value.
 function mpweaponEquip(player, registry, className, ammunition)
   mpweaponEquipped = mpweaponitems.findByClassName(registry, className)
   if mpweaponEquipped is void then return error(8425, "missing stock weapon " + className) end if
@@ -54,6 +56,7 @@ function mpweaponEquip(player, registry, className, ammunition)
   return mpweaponEquipped
 end function
 
+// Return the mpweapon snapshot skin value.
 function mpweaponSnapshotSkin(session, clientIndex, entityNumber)
   mpweaponFrame = session.clients[clientIndex].integrated.network.client.currentFrame
   if mpweaponFrame is void then return -1 end if
@@ -63,6 +66,7 @@ function mpweaponSnapshotSkin(session, clientIndex, entityNumber)
   return -1
 end function
 
+// Return the mpweapon snapshot entity value.
 function mpweaponSnapshotEntity(session, clientIndex, entityNumber)
   mpweaponEntityFrame = session.clients[clientIndex].integrated.network.client.currentFrame
   if mpweaponEntityFrame is void then return void end if
@@ -72,6 +76,7 @@ function mpweaponSnapshotEntity(session, clientIndex, entityNumber)
   return void
 end function
 
+// Return the mpweapon new projectile value.
 function mpweaponNewProjectile(runtime, minimumNumber, className)
   for each mpweaponProjectileValue in runtime.weaponContext.projectiles
     if mpweaponProjectileValue.number >= minimumNumber and
@@ -82,6 +87,7 @@ function mpweaponNewProjectile(runtime, minimumNumber, className)
   return void
 end function
 
+// Return the mpweapon saw muzzle value.
 function mpweaponSawMuzzle(session, clientIndex, entityNumber)
   for each mpweaponHandoff in session.clients[clientIndex].integrated.frameHandoffs
     for each mpweaponLight in mpweaponHandoff.dLights
@@ -91,44 +97,53 @@ function mpweaponSawMuzzle(session, clientIndex, entityNumber)
   return false
 end function
 
+// Resolve mpweapon model.
 function mpweaponResolveModel(index)
   return mpweaponrenderertypes.ResourceHandle("model", index,
     "model" + index, 1)
 end function
 
+// Resolve mpweapon named model.
 function mpweaponResolveNamedModel(name)
   return mpweaponrenderertypes.ResourceHandle("model", 4096 + len(bytes(name)),
     name, 1)
 end function
 
+// Resolve mpweapon named skin.
 function mpweaponResolveNamedSkin(name)
   return mpweaponrenderertypes.ResourceHandle("skin", 8192 + len(bytes(name)),
     name, 1)
 end function
 
+// Resolve mpweapon nothing.
 function mpweaponResolveNothing(value)
   return void
 end function
 
+// Resolve mpweapon entity sound.
 function mpweaponResolveEntitySound(entityNumber, soundIndex, soundName)
   return void
 end function
 
+// Resolve mpweapon player model.
 function mpweaponResolvePlayerModel(index)
   return mpweaponrenderertypes.ResourceHandle("model", 12288 + index,
     "players/test/tris.md2", 1)
 end function
 
+// Resolve mpweapon player skin.
 function mpweaponResolvePlayerSkin(index)
   return mpweaponrenderertypes.ResourceHandle("skin", 16384 + index,
     "players/test/skin.pcx", 1)
 end function
 
+// Resolve mpweapon player weapon.
 function mpweaponResolvePlayerWeapon(index, weaponIndex)
   return mpweaponrenderertypes.ResourceHandle("model", 20480 + weaponIndex,
     "players/test/weapon.md2", 1)
 end function
 
+// Return the mpweapon visual random value.
 function mpweaponVisualRandom()
   return 0
 end function

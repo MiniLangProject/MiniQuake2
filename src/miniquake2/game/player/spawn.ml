@@ -9,6 +9,7 @@ import miniquake2.game.player.types as gplayertypes
 import miniquake2.qcommon.text as qtext
 import std.math as gplayermath
 
+// Return the spots from base edicts.
 function spotsFromBaseEdicts(baseEdicts)
   if typeof(baseEdicts) != "array" then return error(9712, "spawnpoint scan requires a BaseEdict array") end if
   spots = []
@@ -17,7 +18,9 @@ function spotsFromBaseEdicts(baseEdicts)
     component = baseEdict.component
     if typeof(component) != "struct" then return error(9714, "spawnpoint scan encountered a malformed BaseEntity component") end if
     className = component.className
-    if className == "info_player_start" or className == "info_player_coop" or className == "info_player_deathmatch" then
+    if className == "info_player_start" or className == "info_player_coop" or
+        className == "info_player_deathmatch" or
+        className == "info_player_intermission" then
       componentOrigin = component.origin
       componentAngles = component.angles
       if typeof(componentOrigin) != "array" or len(componentOrigin) != 3 or
@@ -34,6 +37,60 @@ function spotsFromBaseEdicts(baseEdicts)
   return spots
 end function
 
+// Map stock coop fix.
+function stockCoopFixMap(mapName)
+  return qtext.equalInsensitive(mapName, "jail2") or
+    qtext.equalInsensitive(mapName, "jail4") or
+    qtext.equalInsensitive(mapName, "mine1") or
+    qtext.equalInsensitive(mapName, "mine2") or
+    qtext.equalInsensitive(mapName, "mine3") or
+    qtext.equalInsensitive(mapName, "mine4") or
+    qtext.equalInsensitive(mapName, "lab") or
+    qtext.equalInsensitive(mapName, "boss1") or
+    qtext.equalInsensitive(mapName, "fact3") or
+    qtext.equalInsensitive(mapName, "biggun") or
+    qtext.equalInsensitive(mapName, "space") or
+    qtext.equalInsensitive(mapName, "command") or
+    qtext.equalInsensitive(mapName, "power2") or
+    qtext.equalInsensitive(mapName, "strike")
+end function
+
+// Stock p_client.c applies these corrections one frame after entity spawn.
+// The managed layer extracts immutable spawn records before clients begin, so
+// applying the same map-specific data correction here is equivalent and keeps
+// the live BaseEdict graph untouched.
+function ApplyStockCoopSpawnFixups(mapName, spots)
+  if typeof(spots) != "array" then return error(9722,
+    "cooperative spawn fixups require a SpawnSpot array") end if
+  if qtext.equalInsensitive(mapName, "security") then
+    spots = spots + [
+      gplayertypes.spawnSpot("info_player_coop", "jail3",
+        [124.0, -164.0, 80.0], [0.0, 90.0, 0.0]),
+      gplayertypes.spawnSpot("info_player_coop", "jail3",
+        [252.0, -164.0, 80.0], [0.0, 90.0, 0.0]),
+      gplayertypes.spawnSpot("info_player_coop", "jail3",
+        [316.0, -164.0, 80.0], [0.0, 90.0, 0.0])
+    ]
+    return spots
+  end if
+  if not stockCoopFixMap(mapName) then return spots end if
+  for each coopSpot in spots
+    if coopSpot.className == "info_player_coop" then
+      fixed = false
+      for each startSpot in spots
+        if not fixed and startSpot.className == "info_player_start" and
+            startSpot.targetName != "" and
+            distance(coopSpot.origin, startSpot.origin) < 384.0 then
+          coopSpot.targetName = startSpot.targetName
+          fixed = true
+        end if
+      end for
+    end if
+  end for
+  return spots
+end function
+
+// Return the distance value.
 function distance(first, second)
   dx = first[0] - second[0]
   dy = first[1] - second[1]
@@ -41,6 +98,7 @@ function distance(first, second)
   return gplayermath.sqrt(dx * dx + dy * dy + dz * dz)
 end function
 
+// Return the nearest player distance value.
 function nearestPlayerDistance(context, spot, spawningPlayer)
   nearest = 999999999.0
   found = false
@@ -56,6 +114,7 @@ function nearestPlayerDistance(context, spot, spawningPlayer)
   return nearest
 end function
 
+// Return the deathmatch spots value.
 function deathmatchSpots(context)
   result = []
   for each spot in context.spawnSpots
@@ -64,6 +123,7 @@ function deathmatchSpots(context)
   return result
 end function
 
+// Select farthest deathmatch spawn point.
 function SelectFarthestDeathmatchSpawnPoint(context, player)
   selected = void
   bestDistance = -1.0
@@ -74,6 +134,7 @@ function SelectFarthestDeathmatchSpawnPoint(context, player)
   return selected
 end function
 
+// Return the deterministic index.
 function deterministicIndex(context, count)
   if count <= 0 then return 0 end if
   index = context.frameNumber % count
@@ -82,6 +143,30 @@ function deterministicIndex(context, count)
   return index
 end function
 
+// Select intermission point.
+function SelectIntermissionPoint(context)
+  intermissionSpots = []
+  firstStart = void
+  firstDeathmatch = void
+  for each spot in context.spawnSpots
+    if spot.className == "info_player_intermission" then
+      intermissionSpots = intermissionSpots + [spot]
+    else if spot.className == "info_player_start" and firstStart is void then
+      firstStart = spot
+    else if spot.className == "info_player_deathmatch" and
+        firstDeathmatch is void then firstDeathmatch = spot
+    end if
+  end for
+  if len(intermissionSpots) > 0 then
+    // BaseQ2 chooses rand() & 3 and wraps when fewer than four spots exist.
+    return intermissionSpots[deterministicIndex(context, 4) %
+      len(intermissionSpots)]
+  end if
+  if firstStart is not void then return firstStart end if
+  return firstDeathmatch
+end function
+
+// Select random deathmatch spawn point.
 function SelectRandomDeathmatchSpawnPoint(context, player)
   spots = deathmatchSpots(context)
   if len(spots) <= 2 then
@@ -113,11 +198,13 @@ function SelectRandomDeathmatchSpawnPoint(context, player)
   return eligible[deterministicIndex(context, len(eligible))]
 end function
 
+// Select deathmatch spawn point.
 function SelectDeathmatchSpawnPoint(context, player)
   if (context.dmFlags & miniquake2.game.constants.DF_SPAWN_FARTHEST) != 0 then return SelectFarthestDeathmatchSpawnPoint(context, player) end if
   return SelectRandomDeathmatchSpawnPoint(context, player)
 end function
 
+// Select coop spawn point.
 function SelectCoopSpawnPoint(context, player)
   clientIndex = player.edict.state.number - 1
   if clientIndex <= 0 then return void end if
@@ -136,6 +223,7 @@ function SelectCoopSpawnPoint(context, player)
   return void
 end function
 
+// Select single player spawn point.
 function SelectSinglePlayerSpawnPoint(context)
   fallback = void
   for each spot in context.spawnSpots
@@ -154,6 +242,7 @@ function SelectSinglePlayerSpawnPoint(context)
   return void
 end function
 
+// Select spawn point.
 function SelectSpawnPoint(context, player)
   spot = void
   if context.deathmatch then spot = SelectDeathmatchSpawnPoint(context, player)

@@ -9,6 +9,7 @@ import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.sizebuf as sizebuf
 import miniquake2.qcommon.message as message
+import miniquake2.qcommon.byteio as sgbbyteio
 import miniquake2.qcommon.directions as qdir
 import miniquake2.qcommon.cvar as cvars
 import miniquake2.qcommon.cmd as commands
@@ -26,6 +27,7 @@ import miniquake2.physics.vector as sgbvector
 gameBridgeActiveRuntime = void
 const MAX_GAME_BRIDGE_LOGS = 1024
 
+// Append game bridge log.
 function gameBridgeAppendLog(context, value)
   if len(context.logs) < MAX_GAME_BRIDGE_LOGS then
     context.logs = context.logs + [value]
@@ -42,6 +44,7 @@ function gameBridgeAppendLog(context, value)
   return true
 end function
 
+// Report whether require active.
 function requireActive(operation)
   global gameBridgeActiveRuntime
   if gameBridgeActiveRuntime is void then return error(3900, operation + ": server bridge is not installed") end if
@@ -58,19 +61,23 @@ function activateRuntime(context)
   return context
 end function
 
+// Append log.
 function appendLog(level, value)
   context = requireActive("print")
   return gameBridgeAppendLog(context, [level, value])
 end function
 
+// Return the bprintf value.
 function bprintf(value)
   return appendLog("broadcast", value)
 end function
 
+// Return the dprintf value.
 function dprintf(value)
   return appendLog("debug", value)
 end function
 
+// Return the cprintf value.
 function cprintf(entity, level, value)
   if typeof(level) != "int" or level < qc.PRINT_LOW or level > qc.PRINT_CHAT then
     return error(3956, "client print level outside Protocol-34 range")
@@ -89,6 +96,7 @@ function cprintf(entity, level, value)
   return event
 end function
 
+// Return the centerprintf value.
 function centerprintf(entity, value)
   context = requireActive("centerprintf")
   targetNumber = try(sgmessages.unicastEntityNumber(context, entity))
@@ -105,13 +113,34 @@ function centerprintf(entity, value)
   return event
 end function
 
+// Return the sound value.
 function sound(entity, channel, soundIndex, volume, attenuation, timeOffset)
   context = requireActive("sound")
-  event = ssoundevents.enqueue(context, void, entity, channel, soundIndex, volume, attenuation, timeOffset)
+  soundPosition = void
+  if entity is not void and ((entity.serverFlags & gc.SVF_NOCLIENT) != 0 or
+      entity.solid == gc.SOLID_BSP) then
+    entityOrigin = entity.state.origin
+    if entity.solid == gc.SOLID_BSP then
+      // SV_StartSound sends an explicit midpoint for inline brush models.
+      // Their model origins are mapper-defined and can be far from the audible
+      // door, platform or train, so entity-origin attenuation is incorrect.
+      soundPosition = qt.Vec3(
+        entityOrigin.x + 0.5 * (entity.mins.x + entity.maxs.x),
+        entityOrigin.y + 0.5 * (entity.mins.y + entity.maxs.y),
+        entityOrigin.z + 0.5 * (entity.mins.z + entity.maxs.z)
+      )
+    else
+      // The client has no snapshot origin for SVF_NOCLIENT entities.
+      soundPosition = qt.Vec3(entityOrigin.x, entityOrigin.y, entityOrigin.z)
+    end if
+  end if
+  event = ssoundevents.enqueue(context, soundPosition, entity, channel,
+    soundIndex, volume, attenuation, timeOffset)
   gameBridgeAppendLog(context, ["sound", soundIndex])
   return event
 end function
 
+// Return the positioned sound value.
 function positionedSound(origin, entity, channel, soundIndex, volume, attenuation, timeOffset)
   context = requireActive("positioned-sound")
   event = ssoundevents.enqueue(context, origin, entity, channel, soundIndex, volume, attenuation, timeOffset)
@@ -119,6 +148,7 @@ function positionedSound(origin, entity, channel, soundIndex, volume, attenuatio
   return event
 end function
 
+// Return the config string value.
 function configString(index, value)
   context = requireActive("configstring")
   if index < 0 or index >= len(context.configStrings) then return error(3901, "configstring index outside table") end if
@@ -129,10 +159,12 @@ function configString(index, value)
   return true
 end function
 
+// Return the fail value.
 function fail(value)
   return error(3902, value)
 end function
 
+// Find index.
 function findIndex(values, name, create)
   if name == "" then return 0 end if
   i = 1
@@ -149,6 +181,7 @@ function findIndex(values, name, create)
   return error(3903, "config index table is full")
 end function
 
+// Return the bridge model index.
 function bridgeModelIndex(name)
   context = requireActive("modelindex")
   index = findIndex(context.modelNames, name, true)
@@ -156,6 +189,7 @@ function bridgeModelIndex(name)
   return index
 end function
 
+// Return the bridge sound index.
 function bridgeSoundIndex(name)
   context = requireActive("soundindex")
   index = findIndex(context.soundNames, name, true)
@@ -163,6 +197,7 @@ function bridgeSoundIndex(name)
   return index
 end function
 
+// Return the bridge image index.
 function bridgeImageIndex(name)
   context = requireActive("imageindex")
   index = findIndex(context.imageNames, name, true)
@@ -170,6 +205,7 @@ function bridgeImageIndex(name)
   return index
 end function
 
+// Return the inline model number.
 function inlineModelNumber(name)
   source = bytes(name)
   if len(source) < 2 or source[0] != 42 then return -1 end if
@@ -183,6 +219,7 @@ function inlineModelNumber(name)
   return value
 end function
 
+// Set model.
 function setModel(entity, name)
   sgbSetModelContextHolder = requireActive("setmodel")
   sgbSetModelEntityHolder = entity
@@ -243,6 +280,7 @@ function setModel(entity, name)
   return true
 end function
 
+// Trace adapt collision with entity.
 function adaptCollisionTraceWithEntity(context, result, hitEntity)
   signBits = 0
   if result.plane.normal.x < 0.0 then signBits = signBits | 1 end if
@@ -254,6 +292,7 @@ function adaptCollisionTraceWithEntity(context, result, hitEntity)
     plane, surface, result.contents, hitEntity)
 end function
 
+// Trace adapt collision.
 function adaptCollisionTrace(context, result)
   hitEntity = void
   if (result.fraction < 1.0 or result.startSolid or result.allSolid) and context.game is not void and context.game.numEdicts > 0 then
@@ -262,15 +301,18 @@ function adaptCollisionTrace(context, result)
   return adaptCollisionTraceWithEntity(context, result, hitEntity)
 end function
 
+// Trace dot.
 function traceDot(first, second)
   return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
+// Trace to model.
 function traceToModel(point, origin, basis)
   relative = qt.Vec3(point.x - origin.x, point.y - origin.y, point.z - origin.z)
   return qt.Vec3(traceDot(relative, basis[0]), -traceDot(relative, basis[1]), traceDot(relative, basis[2]))
 end function
 
+// Trace normal to world.
 function traceNormalToWorld(normal, basis)
   return qt.Vec3(
     basis[0].x * normal.x - basis[1].x * normal.y + basis[2].x * normal.z,
@@ -279,24 +321,175 @@ function traceNormalToWorld(normal, basis)
   )
 end function
 
+// Trace same entity.
 function sameTraceEntity(first, second)
   if first is void or second is void then return false end if
   return first.state.number == second.state.number
 end function
 
+// Trace entity excluded.
+function traceEntityExcluded(entity, passEntity, contentMask)
+  if sameTraceEntity(entity, passEntity) then return true end if
+  if passEntity is not void then
+    // SV_ClipMoveToEntities ignores both directions of the owner relation:
+    // missiles do not hit their owner and owners do not hit their missiles.
+    if sameTraceEntity(entity.owner, passEntity) then return true end if
+    if sameTraceEntity(passEntity.owner, entity) then return true end if
+  end if
+  if (contentMask & qc.CONTENTS_DEADMONSTER) == 0 and
+      (entity.serverFlags & gc.SVF_DEADMONSTER) != 0 then return true end if
+  return false
+end function
+
+// Report whether empty bridge trace.
+function emptyBridgeTrace(finish)
+  return qt.Trace(false, false, 1.0,
+    qt.Vec3(finish.x, finish.y, finish.z),
+    qt.Plane(qt.zeroVec3(), 0.0, 0, 0),
+    qt.CollisionSurface("", 0, 0), 0, void)
+end function
+
+// CM_HeadnodeForBox + CM_TransformedBoxTrace for a linked SOLID_BBOX. The
+// original collision model implements this as a temporary BSP hull; scalar
+// Minkowski slabs are identical and avoid rebuilding or allocating that hull
+// in every authoritative Pmove trace.
+function solidBoxTrace(start, mins, maxs, finish, entity)
+  entityOrigin = entity.state.origin
+  minimumX = entityOrigin.x + entity.mins.x - maxs.x
+  minimumY = entityOrigin.y + entity.mins.y - maxs.y
+  minimumZ = entityOrigin.z + entity.mins.z - maxs.z
+  maximumX = entityOrigin.x + entity.maxs.x - mins.x
+  maximumY = entityOrigin.y + entity.maxs.y - mins.y
+  maximumZ = entityOrigin.z + entity.maxs.z - mins.z
+  output = emptyBridgeTrace(finish)
+  startInside = start.x >= minimumX and start.x <= maximumX and
+    start.y >= minimumY and start.y <= maximumY and
+    start.z >= minimumZ and start.z <= maximumZ
+  if startInside then
+    output.startSolid = true
+    output.allSolid = finish.x >= minimumX and finish.x <= maximumX and
+      finish.y >= minimumY and finish.y <= maximumY and
+      finish.z >= minimumZ and finish.z <= maximumZ
+    // CM_BoxTrace's stationary CM_TestBoxInBrush path returns fraction zero.
+    if start.x == finish.x and start.y == finish.y and start.z == finish.z then
+      output.fraction = 0.0
+    end if
+    output.contents = qc.CONTENTS_MONSTER
+    output.entity = entity
+    return output
+  end if
+
+  enterFraction = -99999999.0
+  leaveFraction = 1.0
+  hitAxis = -1
+  hitSign = 0
+  axisEnter = 0.0
+  axisLeave = 0.0
+  axisSign = 0
+  delta = finish.x - start.x
+  if delta == 0.0 then
+    if start.x < minimumX or start.x > maximumX then return output end if
+  else
+    if delta > 0.0 then
+      axisEnter = (minimumX - start.x - collision.DIST_EPSILON) / delta
+      axisLeave = (maximumX - start.x + collision.DIST_EPSILON) / delta
+      axisSign = -1
+    else
+      axisEnter = (maximumX - start.x + collision.DIST_EPSILON) / delta
+      axisLeave = (minimumX - start.x - collision.DIST_EPSILON) / delta
+      axisSign = 1
+    end if
+    if axisEnter > enterFraction then
+      enterFraction = axisEnter; hitAxis = 0; hitSign = axisSign
+    end if
+    if axisLeave < leaveFraction then leaveFraction = axisLeave end if
+  end if
+  delta = finish.y - start.y
+  if delta == 0.0 then
+    if start.y < minimumY or start.y > maximumY then return output end if
+  else
+    if delta > 0.0 then
+      axisEnter = (minimumY - start.y - collision.DIST_EPSILON) / delta
+      axisLeave = (maximumY - start.y + collision.DIST_EPSILON) / delta
+      axisSign = -1
+    else
+      axisEnter = (maximumY - start.y + collision.DIST_EPSILON) / delta
+      axisLeave = (minimumY - start.y - collision.DIST_EPSILON) / delta
+      axisSign = 1
+    end if
+    if axisEnter > enterFraction then
+      enterFraction = axisEnter; hitAxis = 1; hitSign = axisSign
+    end if
+    if axisLeave < leaveFraction then leaveFraction = axisLeave end if
+  end if
+  delta = finish.z - start.z
+  if delta == 0.0 then
+    if start.z < minimumZ or start.z > maximumZ then return output end if
+  else
+    if delta > 0.0 then
+      axisEnter = (minimumZ - start.z - collision.DIST_EPSILON) / delta
+      axisLeave = (maximumZ - start.z + collision.DIST_EPSILON) / delta
+      axisSign = -1
+    else
+      axisEnter = (maximumZ - start.z + collision.DIST_EPSILON) / delta
+      axisLeave = (minimumZ - start.z - collision.DIST_EPSILON) / delta
+      axisSign = 1
+    end if
+    if axisEnter > enterFraction then
+      enterFraction = axisEnter; hitAxis = 2; hitSign = axisSign
+    end if
+    if axisLeave < leaveFraction then leaveFraction = axisLeave end if
+  end if
+  if enterFraction > leaveFraction or leaveFraction < 0.0 or
+      enterFraction > 1.0 then return output end if
+  if enterFraction < 0.0 then enterFraction = 0.0 end if
+  output.fraction = enterFraction
+  output.endPosition = qt.Vec3(
+    start.x + enterFraction * (finish.x - start.x),
+    start.y + enterFraction * (finish.y - start.y),
+    start.z + enterFraction * (finish.z - start.z))
+  normal = qt.zeroVec3()
+  if hitAxis == 0 then normal.x = hitSign * 1.0 end if
+  if hitAxis == 1 then normal.y = hitSign * 1.0 end if
+  if hitAxis == 2 then normal.z = hitSign * 1.0 end if
+  signBits = 0
+  if normal.x < 0.0 then signBits = signBits | 1 end if
+  if normal.y < 0.0 then signBits = signBits | 2 end if
+  if normal.z < 0.0 then signBits = signBits | 4 end if
+  planeType = hitAxis
+  planeDistance = 0.0
+  if hitSign < 0 then
+    planeType = 3 + hitAxis
+    if hitAxis == 0 then planeDistance = -entity.mins.x end if
+    if hitAxis == 1 then planeDistance = -entity.mins.y end if
+    if hitAxis == 2 then planeDistance = -entity.mins.z end if
+  else
+    if hitAxis == 0 then planeDistance = entity.maxs.x end if
+    if hitAxis == 1 then planeDistance = entity.maxs.y end if
+    if hitAxis == 2 then planeDistance = entity.maxs.z end if
+  end if
+  output.plane = qt.Plane(normal, planeDistance, planeType, signBits)
+  output.contents = qc.CONTENTS_MONSTER
+  output.entity = entity
+  return output
+end function
+
+// Trace state.
 function trace(start, mins, maxs, finish, passEntity, contentMask)
   context = requireActive("trace")
-  if context.collision is void then
-    plane = qt.Plane(qt.zeroVec3(), 0.0, 0, 0)
-    surface = qt.CollisionSurface("", 0, 0)
-    return qt.Trace(false, false, 1.0, finish, plane, surface, 0, void)
-  end if
   worldEntity = void
+  best = void
   if context.game is not void and context.game.numEdicts > 0 then worldEntity = context.game.edicts[0] end if
-  worldResult = collision.boxTrace(context.collision, start, finish, mins, maxs, 0, contentMask)
-  worldHit = void
-  if worldResult.fraction < 1.0 or worldResult.startSolid or worldResult.allSolid then worldHit = worldEntity end if
-  best = adaptCollisionTraceWithEntity(context, worldResult, worldHit)
+  if context.collision is not void then
+    worldResult = collision.boxTrace(context.collision, start, finish, mins, maxs, 0, contentMask)
+    worldHit = void
+    if worldResult.fraction < 1.0 or worldResult.startSolid or worldResult.allSolid then worldHit = worldEntity end if
+    best = adaptCollisionTraceWithEntity(context, worldResult, worldHit)
+    // The original SV_Trace never clips entities after a fraction-zero world hit.
+    if best.fraction == 0.0 then return best end if
+  else
+    best = emptyBridgeTrace(finish)
+  end if
 
   // SV_ClipMoveToEntities: inline BSP edicts have their own hull headnode and
   // are traced in model-local coordinates. SV_AreaEdicts first restricts the
@@ -321,42 +514,74 @@ function trace(start, mins, maxs, finish, passEntity, contentMask)
     traceMinZ = traceMinZ - 1.0
     traceMaxX = traceMaxX + 1.0; traceMaxY = traceMaxY + 1.0
     traceMaxZ = traceMaxZ + 1.0
-    index = 0
-    while index < context.inlineBrushCount
-      entity = context.inlineBrushes[index]
-      eligible = entity.inUse and entity.solid == gc.SOLID_BSP and sameTraceEntity(entity, passEntity) != true
-      if eligible then
-        entityMins = entity.absoluteMins; entityMaxs = entity.absoluteMaxs
-        eligible = entityMaxs.x >= traceMinX and entityMins.x <= traceMaxX and
-          entityMaxs.y >= traceMinY and entityMins.y <= traceMaxY and
-          entityMaxs.z >= traceMinZ and entityMins.z <= traceMaxZ
-      end if
-      inlineNumber = context.inlineBrushModelNumbers[index]
-      if eligible and inlineNumber >= 0 and inlineNumber < len(context.collision.map.models) then
-        basis = sgbvector.angleVectors(entity.state.angles)
-        localStart = traceToModel(start, entity.state.origin, basis)
-        localFinish = traceToModel(finish, entity.state.origin, basis)
-        inlineResult = collision.boxTrace(context.collision, localStart, localFinish, mins, maxs, entity.headNode, contentMask)
-        if inlineResult.fraction < best.fraction or inlineResult.startSolid or inlineResult.allSolid then
-          inlineResult.endPosition = qt.Vec3(
-            start.x + inlineResult.fraction * (finish.x - start.x),
-            start.y + inlineResult.fraction * (finish.y - start.y),
-            start.z + inlineResult.fraction * (finish.z - start.z)
-          )
-          worldNormal = traceNormalToWorld(inlineResult.plane.normal, basis)
-          inlineResult.plane.normal = worldNormal
-          inlineResult.plane.distance = inlineResult.plane.distance + traceDot(worldNormal, entity.state.origin)
-          previousStartSolid = best.startSolid
-          best = adaptCollisionTraceWithEntity(context, inlineResult, entity)
-          if previousStartSolid then best.startSolid = true end if
+    if context.collision is not void then
+      index = 0
+      while index < context.inlineBrushCount and best.allSolid != true
+        entity = context.inlineBrushes[index]
+        eligible = entity.inUse and entity.solid == gc.SOLID_BSP and
+          traceEntityExcluded(entity, passEntity, contentMask) != true
+        if eligible then
+          entityMins = entity.absoluteMins; entityMaxs = entity.absoluteMaxs
+          eligible = entityMaxs.x >= traceMinX and entityMins.x <= traceMaxX and
+            entityMaxs.y >= traceMinY and entityMins.y <= traceMaxY and
+            entityMaxs.z >= traceMinZ and entityMins.z <= traceMaxZ
         end if
-      end if
-      index = index + 1
-    end while
+        inlineNumber = context.inlineBrushModelNumbers[index]
+        if eligible and inlineNumber >= 0 and inlineNumber < len(context.collision.map.models) then
+          basis = sgbvector.angleVectors(entity.state.angles)
+          localStart = traceToModel(start, entity.state.origin, basis)
+          localFinish = traceToModel(finish, entity.state.origin, basis)
+          inlineResult = collision.boxTrace(context.collision, localStart, localFinish, mins, maxs, entity.headNode, contentMask)
+          if inlineResult.fraction < best.fraction or inlineResult.startSolid or inlineResult.allSolid then
+            inlineResult.endPosition = qt.Vec3(
+              start.x + inlineResult.fraction * (finish.x - start.x),
+              start.y + inlineResult.fraction * (finish.y - start.y),
+              start.z + inlineResult.fraction * (finish.z - start.z)
+            )
+            worldNormal = traceNormalToWorld(inlineResult.plane.normal, basis)
+            inlineResult.plane.normal = worldNormal
+            inlineResult.plane.distance = inlineResult.plane.distance + traceDot(worldNormal, entity.state.origin)
+            previousStartSolid = best.startSolid
+            best = adaptCollisionTraceWithEntity(context, inlineResult, entity)
+            if previousStartSolid then best.startSolid = true end if
+          end if
+        end if
+        index = index + 1
+      end while
+    end if
+
+    // CM_HeadnodeForBox gives every non-BSP solid CONTENTS_MONSTER. Iterate
+    // only the linked SOLID_BBOX index, matching SV_AreaEdicts without a full
+    // allocated-edict scan in each player/monster movement trace.
+    if (contentMask & qc.CONTENTS_MONSTER) != 0 then
+      index = 0
+      while index < context.solidBoxCount and best.allSolid != true
+        entity = context.solidBoxEdicts[index]
+        eligible = entity.inUse and entity.solid == gc.SOLID_BBOX and
+          traceEntityExcluded(entity, passEntity, contentMask) != true
+        if eligible then
+          entityMins = entity.absoluteMins; entityMaxs = entity.absoluteMaxs
+          eligible = entityMaxs.x >= traceMinX and entityMins.x <= traceMaxX and
+            entityMaxs.y >= traceMinY and entityMins.y <= traceMaxY and
+            entityMaxs.z >= traceMinZ and entityMins.z <= traceMaxZ
+        end if
+        if eligible then
+          boxResult = solidBoxTrace(start, mins, maxs, finish, entity)
+          if boxResult.allSolid or boxResult.startSolid or
+              boxResult.fraction < best.fraction then
+            previousStartSolid = best.startSolid
+            best = boxResult
+            if previousStartSolid then best.startSolid = true end if
+          end if
+        end if
+        index = index + 1
+      end while
+    end if
   end if
   return best
 end function
 
+// Return the point contents value.
 function pointContents(point)
   context = requireActive("pointcontents")
   if context.collision is void then return 0 end if
@@ -382,6 +607,7 @@ function pointContents(point)
   return contents
 end function
 
+// Return the in pvs value.
 function inPVS(first, second)
   context = requireActive("inPVS")
   if context.collision is void then return true end if
@@ -395,6 +621,7 @@ function inPVS(first, second)
   return visible and collision.areasConnected(context.collision, context.collision.map.leafs[firstLeaf].area, context.collision.map.leafs[secondLeaf].area)
 end function
 
+// Return the in phs value.
 function inPHS(first, second)
   context = requireActive("inPHS")
   if context.collision is void then return true end if
@@ -407,24 +634,29 @@ function inPHS(first, second)
   return (row[secondCluster >> 3] & (1 << (secondCluster & 7))) != 0
 end function
 
+// Set area portal state.
 function setAreaPortalState(portalNumber, isOpen)
   context = requireActive("SetAreaPortalState")
   if context.collision is void then return error(3904, "no collision map loaded") end if
   return collision.setAreaPortalState(context.collision, portalNumber, isOpen)
 end function
 
+// Report whether areas connected.
 function areasConnected(first, second)
   context = requireActive("AreasConnected")
   if context.collision is void then return true end if
   return collision.areasConnected(context.collision, first, second)
 end function
 
+// Report whether collision world ready.
 function collisionWorldReady()
   context = requireActive("collisionWorldReady")
   return context.collision is not void
 end function
 
+// Return the transformed entity bounds.
 function transformedEntityBounds(entity)
+  // Keep transformed entity bounds phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(entity) != "struct" then return error(3930, "transformed bounds require an Edict") end if
   sgbBoundsEntityHolder = entity
   sgbBoundsStateHolder = sgbBoundsEntityHolder.state
@@ -468,6 +700,7 @@ function transformedEntityBounds(entity)
   return [sgbBoundsResultMinsHolder, sgbBoundsResultMaxsHolder]
 end function
 
+// Cache inline brush index.
 function inlineBrushCacheIndex(context, entity)
   number = entity.state.number
   if number < 0 or number >= len(context.inlineBrushPositions) then return -1 end if
@@ -516,6 +749,7 @@ function updateInlineBrushCache(context, entity, linked)
   return true
 end function
 
+// Cache trigger index.
 function triggerCacheIndex(context, entity)
   number = entity.state.number
   if number < 0 or number >= len(context.triggerPositions) then return -1 end if
@@ -556,6 +790,47 @@ function updateTriggerCache(context, entity, linked)
   return true
 end function
 
+// Cache solid box index.
+function solidBoxCacheIndex(context, entity)
+  number = entity.state.number
+  if number < 0 or number >= len(context.solidBoxPositions) then return -1 end if
+  index = context.solidBoxPositions[number] - 1
+  if index >= 0 and index < context.solidBoxCount and
+      context.solidBoxEdicts[index].state.number == number then return index end if
+  return -1
+end function
+
+// AREA_SOLID is a spatial linked list in BaseQ2. Keep the dynamic BBOX subset
+// as an allocation-free indexed set so the authoritative PMove hot path visits
+// only currently linked players, monsters and other box solids.
+function updateSolidBoxCache(context, entity, linked)
+  existing = solidBoxCacheIndex(context, entity)
+  eligible = linked and entity.inUse and entity.state.number > 0 and
+    entity.solid == gc.SOLID_BBOX
+  if eligible then
+    if existing < 0 then
+      if context.solidBoxCount >= len(context.solidBoxEdicts) then
+        return error(3939, "solid box cache overflow")
+      end if
+      context.solidBoxEdicts[context.solidBoxCount] = entity
+      context.solidBoxPositions[entity.state.number] = context.solidBoxCount + 1
+      context.solidBoxCount = context.solidBoxCount + 1
+    else
+      context.solidBoxEdicts[existing] = entity
+    end if
+  else if existing >= 0 then
+    last = context.solidBoxCount - 1
+    context.solidBoxPositions[entity.state.number] = 0
+    if existing != last then
+      moved = context.solidBoxEdicts[last]
+      context.solidBoxEdicts[existing] = moved
+      context.solidBoxPositions[moved.state.number] = existing + 1
+    end if
+    context.solidBoxCount = last
+  end if
+  return true
+end function
+
 // SV_LinkEdict records every distinct PVS cluster touched by the complete
 // linked bounds, not merely the leaf containing s.origin.  Inline BSP origins
 // commonly lie in solid or on the far side of an area boundary, so a point
@@ -564,6 +839,7 @@ end function
 // traversal.  MAX_ENT_CLUSTERS overflow retains Quake II's -1 sentinel; the
 // per-client snapshot path then tests all leaves covered by the cached bounds.
 function collectLinkedEntityVisibility(context, nodeNumber, mins, maxs, entity)
+  // Keep collect linked entity visibility phases explicit: validate inputs, update owned state, then publish the result.
   if nodeNumber < 0 then
     sgbAreaLeafNumber = -1 - nodeNumber
     if sgbAreaLeafNumber < 0 or sgbAreaLeafNumber >= len(context.collision.map.leafs) then
@@ -612,6 +888,7 @@ function collectLinkedEntityVisibility(context, nodeNumber, mins, maxs, entity)
   return true
 end function
 
+// Link entity.
 function linkEntity(entity)
   sgbLinkContextHolder = requireActive("linkentity")
   if typeof(entity) != "struct" then return error(3930, "transformed bounds require an Edict") end if
@@ -644,6 +921,22 @@ function linkEntity(entity)
     sgbLinkEntityHolder.absoluteMaxs = sgbLinkAbsoluteMaxsHolder
   else
     sgbLinkEntityHolder.state.solid = 0
+    if sgbLinkEntityHolder.solid == gc.SOLID_BBOX and
+        (sgbLinkEntityHolder.serverFlags & gc.SVF_DEADMONSTER) == 0 then
+      // Protocol 34 packs horizontal radius, downward extent and upward
+      // extent exactly as SV_LinkEdict; remote prediction decodes this value.
+      sgbSolidHorizontal = sgbbyteio.truncInt(sgbLinkMaxsHolder.x / 8.0)
+      if sgbSolidHorizontal < 1 then sgbSolidHorizontal = 1 end if
+      if sgbSolidHorizontal > 31 then sgbSolidHorizontal = 31 end if
+      sgbSolidDown = sgbbyteio.truncInt((-sgbLinkMinsHolder.z) / 8.0)
+      if sgbSolidDown < 1 then sgbSolidDown = 1 end if
+      if sgbSolidDown > 31 then sgbSolidDown = 31 end if
+      sgbSolidUp = sgbbyteio.truncInt((sgbLinkMaxsHolder.z + 32.0) / 8.0)
+      if sgbSolidUp < 1 then sgbSolidUp = 1 end if
+      if sgbSolidUp > 63 then sgbSolidUp = 63 end if
+      sgbLinkEntityHolder.state.solid = (sgbSolidUp << 10) |
+        (sgbSolidDown << 5) | sgbSolidHorizontal
+    end if
     sgbLinkOriginHolder = sgbLinkEntityHolder.state.origin
     sgbLinkAbsoluteMinsHolder.x = sgbLinkOriginHolder.x + sgbLinkMinsHolder.x - 1.0
     sgbLinkAbsoluteMinsHolder.y = sgbLinkOriginHolder.y + sgbLinkMinsHolder.y - 1.0
@@ -668,18 +961,22 @@ function linkEntity(entity)
   end if
   updateInlineBrushCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)
   updateTriggerCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)
+  updateSolidBoxCache(sgbLinkContextHolder, sgbLinkEntityHolder, true)
   return true
 end function
 
+// Return the unlink entity value.
 function unlinkEntity(entity)
   context = requireActive("unlinkentity")
   updateInlineBrushCache(context, entity, false)
   updateTriggerCache(context, entity, false)
+  updateSolidBoxCache(context, entity, false)
   entity.area.previous = void
   entity.area.next = void
   return true
 end function
 
+// Return the box edicts value.
 function boxEdicts(mins, maxs, areaType)
   context = requireActive("BoxEdicts")
   if context.game is void then return [] end if
@@ -719,10 +1016,12 @@ function boxEdicts(mins, maxs, areaType)
   return output
 end function
 
+// Return the pmove value.
 function pmove(value)
   return phmove.move(value)
 end function
 
+// Return the multicast value.
 function multicast(origin, destination)
   context = requireActive("multicast")
   payload = sizebuf.dataSlice(context.multicastBuffer)
@@ -732,6 +1031,7 @@ function multicast(origin, destination)
   return true
 end function
 
+// Return the unicast value.
 function unicast(entity, reliable)
   context = requireActive("unicast")
   payload = sizebuf.dataSlice(context.multicastBuffer)
@@ -741,89 +1041,110 @@ function unicast(entity, reliable)
   return true
 end function
 
+// Write char.
 function writeChar(value)
   return message.writeChar(requireActive("WriteChar").multicastBuffer, value)
 end function
 
+// Write byte.
 function writeByte(value)
   return message.writeByte(requireActive("WriteByte").multicastBuffer, value)
 end function
 
+// Write short.
 function writeShort(value)
   return message.writeShort(requireActive("WriteShort").multicastBuffer, value)
 end function
 
+// Write long.
 function writeLong(value)
   return message.writeLong(requireActive("WriteLong").multicastBuffer, value)
 end function
 
+// Write float.
 function writeFloat(value)
   return message.writeFloat(requireActive("WriteFloat").multicastBuffer, value)
 end function
 
+// Write string.
 function writeString(value)
   return message.writeString(requireActive("WriteString").multicastBuffer, value)
 end function
 
+// Write position.
 function writePosition(value)
   return message.writePos(requireActive("WritePosition").multicastBuffer, value)
 end function
 
+// Write direction.
 function writeDirection(value)
   return qdir.writeDirection(requireActive("WriteDir").multicastBuffer, value)
 end function
 
+// Write angle.
 function writeAngle(value)
   return message.writeAngle(requireActive("WriteAngle").multicastBuffer, value)
 end function
 
+// Return the tag malloc value.
 function tagMalloc(size, tag)
   if size < 0 then return error(3907, "negative TagMalloc size") end if
   return bytes(size)
 end function
 
+// Release tag.
 function tagFree(value)
   return true
 end function
 
+// Release tags.
 function freeTags(tag)
   return true
 end function
 
+// Return the game cvar value.
 function gameCvar(name, value, flags)
   return cvars.get(requireActive("cvar").cvars, name, value, flags)
 end function
 
+// Set game cvar.
 function gameCvarSet(name, value)
   return cvars.set(requireActive("cvar_set").cvars, name, value)
 end function
 
+// Set game cvar force.
 function gameCvarForceSet(name, value)
   return cvars.forceSet(requireActive("cvar_forceset").cvars, name, value)
 end function
 
+// Return the argc value.
 function argc()
   return len(requireActive("argc").commands.arguments)
 end function
 
+// Return the argv value.
 function argv(index)
   context = requireActive("argv")
   if index < 0 or index >= len(context.commands.arguments) then return "" end if
   return context.commands.arguments[index]
 end function
 
+// Return the args value.
 function args()
   return requireActive("args").commands.argumentTail
 end function
 
+// Add command string.
 function addCommandString(value)
   return commands.addText(requireActive("AddCommandString").commands, value)
 end function
 
+// Return the debug graph value.
 function debugGraph(value, color)
   return true
 end function
 
+// Create runtime.
 function createRuntime(maxClients)
   if maxClients <= 0 or maxClients > qc.MAX_CLIENTS then return error(3908, "maxclients outside range") end if
   registry = cvars.createRegistry()
@@ -842,9 +1163,11 @@ function createRuntime(maxClients)
     [], registry, commandSystem, void, void,
     array(qc.MAX_EDICTS, void), 0, array(qc.MAX_EDICTS, 0),
     array(qc.MAX_EDICTS, -1),
+    array(qc.MAX_EDICTS, void), array(qc.MAX_EDICTS, 0), 0,
     array(qc.MAX_EDICTS, void), array(qc.MAX_EDICTS, 0), 0)
 end function
 
+// Create imports.
 function makeImports(context)
   activateRuntime(context)
   return gt.GameImport(

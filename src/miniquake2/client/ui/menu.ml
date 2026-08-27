@@ -17,32 +17,39 @@ const MAX_MENU_COMMANDS = 16
 menuPlayerPreviewLightStyles = void
 menuEmptyCommands = []
 
+// Return the action value.
 function action(id, label, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], command, true)
 end function
 
+// Toggle state.
 function toggle(id, label, value, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_TOGGLE, value, 0.0, 1.0, 1.0, ["off", "on"], command, true)
 end function
 
+// Return the slider value.
 function slider(id, label, value, minimum, maximum, step, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_SLIDER, value, minimum, maximum, step, [], command, true)
 end function
 
+// Return the choice value.
 function choice(id, label, value, choices, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_CHOICE, value, 0.0, len(choices) - 1, 1.0, choices, command, true)
 end function
 
+// Return the field value.
 function field(id, label, value, maximumLength, command)
   if typeof(value) != "string" then value = "" end if
   return cuitypes.MenuItem(id, label, cuic.MENU_FIELD, value, 0, maximumLength,
     1, [], command, true)
 end function
 
+// Return the label value.
 function label(id, text)
   return cuitypes.MenuItem(id, text, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], "", false)
 end function
 
+// Return the default pages value.
 function defaultPages()
   main = cuitypes.MenuPage("main", "QUAKE II", "", [
     action("game", "game", "menu:game"),
@@ -164,11 +171,13 @@ function defaultPages()
     player, join, addressbook, start, dmoptions, downloads]
 end function
 
+// Create state.
 function create()
   return cuitypes.MenuState(defaultPages(), "main", 0, false,
     array(MAX_MENU_COMMANDS), 0)
 end function
 
+// Queue command.
 function queueCommand(menu, command)
   if menu.commandCount >= len(menu.commands) then return error(8234, "menu command queue full") end if
   menu.commands[menu.commandCount] = command
@@ -176,6 +185,7 @@ function queueCommand(menu, command)
   return true
 end function
 
+// Return the page value.
 function page(menu)
   for each value in menu.pages
     if value.id == menu.currentPage then return value end if
@@ -183,6 +193,7 @@ function page(menu)
   return void
 end function
 
+// Open state.
 function open(menu, id)
   for each value in menu.pages
     if value.id == id then menu.currentPage = id; menu.cursor = 0; menu.active = true; return true end if
@@ -190,6 +201,7 @@ function open(menu, id)
   return error(8230, "unknown menu page")
 end function
 
+// Set item label.
 function setItemLabel(menu, pageId, itemId, text)
   if typeof(text) != "string" then return error(8232, "menu label must be text") end if
   for each menuLabelPage in menu.pages
@@ -203,6 +215,7 @@ function setItemLabel(menu, pageId, itemId, text)
   return error(8230, "unknown menu page")
 end function
 
+// Set item value.
 function setItemValue(menu, pageId, itemId, value)
   if (typeof(value) != "int" and typeof(value) != "float") or
       value != value then return error(8232, "menu value must be finite") end if
@@ -228,6 +241,7 @@ function setItemValue(menu, pageId, itemId, value)
   return error(8230, "unknown page")
 end function
 
+// Set item text.
 function setItemText(menu, pageId, itemId, value)
   if typeof(value) != "string" then return error(8232, "menu field value must be text") end if
   for each menuTextPage in menu.pages
@@ -246,6 +260,7 @@ function setItemText(menu, pageId, itemId, value)
   return error(8230, "unknown page")
 end function
 
+// Set action command.
 function setActionCommand(menu, pageId, itemId, text, command, enabled)
   if typeof(text) != "string" or typeof(command) != "string" or typeof(enabled) != "bool" then
     return error(8232, "menu action update is invalid")
@@ -267,6 +282,7 @@ function setActionCommand(menu, pageId, itemId, text, command, enabled)
   return error(8230, "unknown page")
 end function
 
+// Return the item by id value.
 function itemById(menu, pageId, itemId)
   for each menuFindPage in menu.pages
     if menuFindPage.id == pageId then
@@ -279,6 +295,7 @@ function itemById(menu, pageId, itemId)
   return void
 end function
 
+// Return the player skin choices value.
 function playerSkinChoices(modelName)
   if modelName == "female" then
     return ["athena", "brianna", "cobalt", "ensign", "jezebel", "jungle",
@@ -290,6 +307,7 @@ function playerSkinChoices(modelName)
     "scout", "sniper", "viper"]
 end function
 
+// Synchronize player skins.
 function synchronizePlayerSkins(menu)
   modelItem = itemById(menu, "player", "model")
   skinItem = itemById(menu, "player", "skin")
@@ -303,6 +321,7 @@ function synchronizePlayerSkins(menu)
   return true
 end function
 
+// Move state.
 function move(menu, direction)
   current = page(menu)
   if current is void or len(current.items) == 0 then return false end if
@@ -312,6 +331,7 @@ function move(menu, direction)
   return true
 end function
 
+// Adjust state.
 function adjust(menu, direction)
   current = page(menu)
   if current is void or menu.cursor < 0 or menu.cursor >= len(current.items) then return false end if
@@ -332,6 +352,7 @@ function adjust(menu, direction)
   return true
 end function
 
+// Activate state.
 function activate(menu)
   current = page(menu)
   if current is void or menu.cursor < 0 or menu.cursor >= len(current.items) then return false end if
@@ -349,6 +370,7 @@ function activate(menu)
   return true
 end function
 
+// Handle key.
 function handleKey(menu, key)
   if menu.active == false then return false end if
   if menu.currentPage == "quit" then
@@ -384,6 +406,7 @@ function handleKey(menu, key)
   return false
 end function
 
+// Return the item value.
 function itemValue(item)
   if item.kind == cuic.MENU_TOGGLE or item.kind == cuic.MENU_CHOICE then return item.choices[item.value] end if
   if item.kind == cuic.MENU_SLIDER then return item.value + "" end if
@@ -391,6 +414,7 @@ function itemValue(item)
   return ""
 end function
 
+// Return the player preview path.
 function playerPreviewPath(menu)
   modelItem = itemById(menu, "player", "model")
   skinItem = itemById(menu, "player", "skin")
@@ -399,12 +423,14 @@ function playerPreviewPath(menu)
     skinItem.choices[skinItem.value] + "_i.pcx"
 end function
 
+// Return the player preview model path.
 function playerPreviewModelPath(menu)
   modelItem = itemById(menu, "player", "model")
   if modelItem is void then return "" end if
   return "players/" + modelItem.choices[modelItem.value] + "/tris.md2"
 end function
 
+// Return the player preview skin path.
 function playerPreviewSkinPath(menu)
   modelItem = itemById(menu, "player", "model")
   skinItem = itemById(menu, "player", "skin")
@@ -445,6 +471,7 @@ function drawPlayerPreview(menu, screenWidth, screenHeight, now, exports)
   return 1
 end function
 
+// Draw text.
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -453,6 +480,7 @@ function drawText(exports, x, y, text)
   end while
 end function
 
+// Draw alt text.
 function drawAltText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -461,6 +489,7 @@ function drawAltText(exports, x, y, text)
   end while
 end function
 
+// Return the banner name.
 function bannerName(pageId)
   if pageId == "game" then return "m_banner_game" end if
   if pageId == "multiplayer" then return "m_banner_multiplayer" end if
@@ -472,16 +501,19 @@ function bannerName(pageId)
   return ""
 end function
 
+// Return the main cursor name.
 function mainCursorName(now)
   cursorFrame = cuimenubyteio.truncInt(now / 100.0) % 15
   return "m_cursor" + cursorFrame
 end function
 
+// Return the menu cursor glyph value.
 function menuCursorGlyph(now)
   cursorFrame = cuimenubyteio.truncInt(now / 250.0) % 2
   return 12 + cursorFrame
 end function
 
+// Draw main.
 function drawMain(menu, screenWidth, screenHeight, now, exports)
   names = ["m_main_game", "m_main_multiplayer", "m_main_options",
     "m_main_video", "m_main_quit"]
@@ -510,7 +542,9 @@ function drawMain(menu, screenWidth, screenHeight, now, exports)
   return len(names) + 1
 end function
 
+// Draw state.
 function draw(menu, screenWidth, screenHeight, now, exports)
+  // Keep draw phases explicit: validate inputs, update owned state, then publish the result.
   if menu.active == false then return 0 end if
   current = page(menu)
   if current is void then return error(8231, "active menu page missing") end if
@@ -550,6 +584,7 @@ function draw(menu, screenWidth, screenHeight, now, exports)
   return len(current.items) + 1
 end function
 
+// Drain commands.
 function drainCommands(menu)
   // Keep the public state record compatible with callers which replace the
   // historic dynamic command array directly (tests, embedders and restored

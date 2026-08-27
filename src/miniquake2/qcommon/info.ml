@@ -7,6 +7,7 @@ package miniquake2.qcommon.info
 
 import miniquake2.qcommon.constants as qc
 
+// Report whether component valid.
 function componentValid(value)
   if len(bytes(value)) >= qc.MAX_INFO_KEY then return false end if
   data = bytes(value)
@@ -18,6 +19,7 @@ function componentValid(value)
   return true
 end function
 
+// Return the pairs value.
 function pairs(info)
   data = bytes(info)
   result = []
@@ -43,12 +45,14 @@ function pairs(info)
   return result
 end function
 
+// Validate state.
 function validate(info)
   if typeof(info) != "string" or len(bytes(info)) >= qc.MAX_INFO_STRING then return false end if
   parsed = try(pairs(info))
   return parsed is not error
 end function
 
+// Return the value for key value.
 function valueForKey(info, requestedKey)
   parsed = pairs(info)
   for each pair in parsed
@@ -57,6 +61,7 @@ function valueForKey(info, requestedKey)
   return ""
 end function
 
+// Remove key.
 function removeKey(info, requestedKey)
   if componentValid(requestedKey) == false then return error(3242, "invalid userinfo key") end if
   parsed = pairs(info)
@@ -67,6 +72,7 @@ function removeKey(info, requestedKey)
   return output
 end function
 
+// Set value for key.
 function setValueForKey(info, key, value)
   if componentValid(key) == false or componentValid(value) == false or key == "" then return error(3243, "invalid userinfo key/value") end if
   output = removeKey(info, key)

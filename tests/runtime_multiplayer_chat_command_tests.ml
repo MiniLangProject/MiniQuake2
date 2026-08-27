@@ -10,11 +10,13 @@ import miniquake2.runtime.client_session as mccclient
 import miniquake2.runtime.multiplayer_session as mccsession
 import miniquake2.platform.system as mccsystem
 
+// Assert the mcc test condition.
 function mccAssert(value, name)
   if not value then return error(8471, name) end if
   return true
 end function
 
+// Send mcc.
 function mccSend(session, clientIndex, text)
   before = mccgame.lifecycleSnapshot()[6]
   mccAssert(mccclient.sendStringCommand(session.clients[clientIndex], text, 0),
@@ -29,6 +31,7 @@ function mccSend(session, clientIndex, text)
   return true
 end function
 
+// Print mcc saw.
 function mccSawPrint(session, clientIndex, text)
   for each value in session.clients[clientIndex].integrated.prints
     if value.text == text then return true end if
@@ -41,6 +44,7 @@ function mccSawPrint(session, clientIndex, text)
   return false
 end function
 
+// Print mcc wait for.
 function mccWaitForPrint(session, clientIndex, text)
   steps = 0
   while not mccSawPrint(session, clientIndex, text) and steps < 512
@@ -51,6 +55,7 @@ function mccWaitForPrint(session, clientIndex, text)
   return mccSawPrint(session, clientIndex, text)
 end function
 
+// Return the mcc wait reliable idle value.
 function mccWaitReliableIdle(session)
   steps = 0
   idle = false
@@ -75,6 +80,7 @@ function mccWaitReliableIdle(session)
   return idle
 end function
 
+// Return the mcc log count.
 function mccLogCount(session, text)
   count = 0
   for each entry in session.server.bridgeRuntime.logs

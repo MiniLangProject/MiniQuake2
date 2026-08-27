@@ -11,6 +11,7 @@ import miniquake2.qcommon.byteio as rpointbyteio
 import miniquake2.renderer.classic.constants as rpointconstants
 import miniquake2.renderer.classic.types as rpointtypes
 
+// Return the point plane distance value.
 function inline pointPlaneDistance(x, y, z, plane)
   if plane.type == 0 then return x - plane.distance end if
   if plane.type == 1 then return y - plane.distance end if
@@ -19,10 +20,12 @@ function inline pointPlaneDistance(x, y, z, plane)
   return x * normal.x + y * normal.y + z * normal.z - plane.distance
 end function
 
+// Return the point projected value.
 function inline pointProjected(x, y, z, vector)
   return x * vector[0] + y * vector[1] + z * vector[2] + vector[3]
 end function
 
+// Return the point style rgb value.
 function inline pointStyleRgb(lightStyles, styleIndex)
   if styleIndex >= 0 and styleIndex < len(lightStyles) then
     return lightStyles[styleIndex].rgb
@@ -40,6 +43,7 @@ end function
 // post-node surface check and far segment. ClassicWorld owns the fixed stacks,
 // so every alias-light query remains allocation-free until its result is returned.
 function staticPointLightSample(world, lightStyles, origin)
+  // Keep static point light sample phases explicit: validate inputs, update owned state, then publish the result.
   map = world.map
   if len(map.nodes) == 0 or len(map.models) == 0 then
     return emptyPointSample(0.0, 0.0, 0.0)
@@ -164,10 +168,12 @@ function staticPointLightSample(world, lightStyles, origin)
   end while
 end function
 
+// Return the static point light value.
 function staticPointLight(world, lightStyles, origin)
   return staticPointLightSample(world, lightStyles, origin)
 end function
 
+// Sample point light.
 function pointLightSample(world, frame, origin)
   if world is void or world.released or world.map is void or
       len(world.map.lighting) == 0 then
@@ -196,6 +202,7 @@ function pointLightSample(world, frame, origin)
   return sample
 end function
 
+// Return the point light value.
 function pointLight(world, frame, origin)
   return pointLightSample(world, frame, origin)
 end function

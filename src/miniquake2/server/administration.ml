@@ -19,11 +19,13 @@ const DEFAULT_MASTER_PORT = 27900
 
 activeAdministration = void
 
+// Store ip filter data.
 struct IpFilter
   mask
   compare
 end struct
 
+// Store administration data.
 struct Administration
   filters
   filterBan
@@ -36,10 +38,12 @@ struct Administration
   rconRejected
 end struct
 
+// Create state.
 function create()
   return Administration([], true, "", [], false, "", "", 0, 0)
 end function
 
+// Activate state.
 function activate(state)
   global activeAdministration
   if typeof(state) != "struct" then return error(7606, "invalid administration state") end if
@@ -47,12 +51,14 @@ function activate(state)
   return state
 end function
 
+// Report whether active.
 function active()
   global activeAdministration
   if activeAdministration is void then activeAdministration = create() end if
   return activeAdministration
 end function
 
+// Return the decimal octet value.
 function decimalOctet(source, start, endIndex)
   if start >= endIndex or endIndex - start > 3 then
     return error(7600, "bad filter address")
@@ -101,6 +107,7 @@ function parseFilter(value)
   return IpFilter(mask, compare)
 end function
 
+// Filter same.
 function sameFilter(first, second)
   index = 0
   while index < 4
@@ -111,11 +118,13 @@ function sameFilter(first, second)
   return true
 end function
 
+// Filter text.
 function filterText(filter)
   return filter.compare[0] + "." + filter.compare[1] + "." +
     filter.compare[2] + "." + filter.compare[3]
 end function
 
+// Add ip.
 function addIp(state, value)
   filter = try(parseFilter(value))
   if filter is error then return "Bad filter address: " + value + "\n" end if
@@ -124,6 +133,7 @@ function addIp(state, value)
   return ""
 end function
 
+// Remove ip.
 function removeIp(state, value)
   filter = try(parseFilter(value))
   if filter is error then return "Bad filter address: " + value + "\n" end if
@@ -148,6 +158,7 @@ function removeIp(state, value)
   return "Removed.\n"
 end function
 
+// Return the list ip value.
 function listIp(state)
   output = "Filter list:\n"
   for each filter in state.filters
@@ -156,6 +167,7 @@ function listIp(state)
   return output
 end function
 
+// Return the config text value.
 function configText(state)
   value = 0
   if state.filterBan then value = 1 end if
@@ -166,6 +178,7 @@ function configText(state)
   return output
 end function
 
+// Set write path.
 function setWritePath(state, path)
   if typeof(path) != "string" then return error(7601, "listip path must be text") end if
   state.writePath = path
@@ -193,6 +206,7 @@ function writeIp(state)
   return "Writing " + state.writePath + ".\n"
 end function
 
+// Return the matches value.
 function matches(filter, address)
   if address is void or address.type != adminnc.NA_IP or len(address.ip) != 4 then
     return false
@@ -218,12 +232,14 @@ function filterPacket(state, address)
   return not state.filterBan
 end function
 
+// Set filter ban.
 function setFilterBan(state, value)
   if value == "0" then state.filterBan = false; return true end if
   if value == "1" then state.filterBan = true; return true end if
   return error(7602, "filterban must be 0 or 1")
 end function
 
+// Return the printable password value.
 function printablePassword(value)
   data = bytes(value)
   index = 0
@@ -248,6 +264,7 @@ function setRconPassword(state, value)
   return true
 end function
 
+// Report whether constant time equal.
 function constantTimeEqual(first, second)
   firstData = bytes(first)
   secondData = bytes(second)
@@ -266,11 +283,13 @@ function constantTimeEqual(first, second)
   return difference == 0
 end function
 
+// Report whether rcon valid.
 function rconValid(state, supplied)
   if state.rconPassword == "" then return false end if
   return constantTimeEqual(state.rconPassword, supplied)
 end function
 
+// Parse endpoint.
 function parseEndpoint(value)
   if typeof(value) != "string" or value == "" then return error(7605, "bad master address") end if
   source = bytes(value)
@@ -315,6 +334,7 @@ function parseEndpoint(value)
   return adminqtypes.NetAddress(adminnc.NA_IP, compare, array(10, 0), port)
 end function
 
+// Configure masters.
 function configureMasters(state, arguments, startIndex)
   masters = []
   index = startIndex
@@ -334,12 +354,14 @@ function configureMasters(state, arguments, startIndex)
   return output
 end function
 
+// Consume master ping.
 function takeMasterPing(state)
   if not state.masterPingPending then return false end if
   state.masterPingPending = false
   return true
 end function
 
+// Return the server command value.
 function serverCommand(state, arguments)
   if len(arguments) < 2 then
     state.lastOutput = "Unknown server command \"\"\n"

@@ -11,17 +11,20 @@ import miniquake2.qcommon.filesystem as bspretfilesystem
 import miniquake2.format.types as bsprettypes
 import miniquake2.collision.model as bspretcollision
 
+// Assert the retention test condition.
 function retentionAssert(value, message)
   if not value then return error(9896, message) end if
   return true
 end function
 
+// Set lump.
 function setLump(data, index, offset, length)
   bspretbinary.putU32(data, 8 + index * 8, offset)
   bspretbinary.putU32(data, 12 + index * 8, length)
   return true
 end function
 
+// Write plane.
 function writePlane(data, offset, x, y, z, distance, planeType)
   bspretbyteio.putF32(data, offset, x)
   bspretbyteio.putF32(data, offset + 4, y)
@@ -31,6 +34,7 @@ function writePlane(data, offset, x, y, z, distance, planeType)
   return true
 end function
 
+// Write short vec.
 function writeShortVec(data, offset, x, y, z)
   bspretbinary.putU16(data, offset, x)
   bspretbinary.putU16(data, offset + 2, y)
@@ -38,6 +42,7 @@ function writeShortVec(data, offset, x, y, z)
   return true
 end function
 
+// Write float vec.
 function writeFloatVec(data, offset, x, y, z)
   bspretbyteio.putF32(data, offset, x)
   bspretbyteio.putF32(data, offset + 4, y)
@@ -45,6 +50,7 @@ function writeFloatVec(data, offset, x, y, z)
   return true
 end function
 
+// Return the synthetic bsp bytes value.
 function syntheticBspBytes()
   headerBytes = 8 + bspretconstants.HEADER_LUMPS * 8
   planeOffset = headerBytes
@@ -131,6 +137,7 @@ function syntheticBspBytes()
   return data
 end function
 
+// Validate retained map.
 function validateRetainedMap(model, label)
   retentionAssert(typeof(model) == "struct" and typeof(model.map) == "struct", label + ": collision model lost")
   map = model.map
@@ -163,6 +170,7 @@ function validateRetainedMap(model, label)
   return true
 end function
 
+// Return the synthetic retention soak value.
 function syntheticRetentionSoak()
   retained = array(96)
   iteration = 0
@@ -185,6 +193,7 @@ function syntheticRetentionSoak()
   return true
 end function
 
+// Map retail names.
 function retailMapNames()
   return [
     "base1", "base2", "base3", "biggun", "boss1", "boss2", "bunk1", "city1", "city2", "city3",
@@ -195,6 +204,7 @@ function retailMapNames()
   ]
 end function
 
+// Return the retail retention soak value.
 function retailRetentionSoak(root)
   filesystem = bspretfilesystem.initialize(root, "")
   retained = array(4, void)
@@ -216,6 +226,7 @@ function retailRetentionSoak(root)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   syntheticRetentionSoak()
   if len(args) == 1 then

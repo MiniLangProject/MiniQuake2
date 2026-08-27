@@ -18,7 +18,9 @@ SPEC.loader.exec_module(visual_compare)
 
 
 class VisualCompareTests(unittest.TestCase):
+    """Store visual compare tests data."""
     def test_round_trip_and_metrics(self) -> None:
+        """Verify round trip and metrics."""
         expected = visual_compare.Image(
             2,
             1,
@@ -43,6 +45,7 @@ class VisualCompareTests(unittest.TestCase):
     def test_original_ref_gl_bottom_left_24_bit(self) -> None:
         # Original Quake II GL_ScreenShot_f writes descriptor 0 and BGR rows
         # from glReadPixels, hence bottom row first.
+        """Verify original ref gl bottom left 24 bit."""
         header = bytearray(18)
         header[2] = 2
         header[12:14] = (1).to_bytes(2, "little")

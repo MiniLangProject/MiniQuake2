@@ -9,6 +9,7 @@ import miniquake2.qcommon.cmd as lcmd
 import miniquake2.qcommon.constants as lqc
 import miniquake2.game.constants as lgc
 
+// Store layout command data.
 struct LayoutCommand
   operation
   x
@@ -19,26 +20,31 @@ struct LayoutCommand
   style
 end struct
 
+// Return the integer value.
 function integer(token, operation)
   value = toNumber(token)
   if typeof(value) != "int" then return error(7750, operation + ": integer required") end if
   return value
 end function
 
+// Return the stat value.
 function stat(stats, index)
   if index < 0 or index >= len(stats) then return error(7751, "layout stat index outside table") end if
   return stats[index]
 end function
 
+// Require token.
 function requireToken(tokens, index, operation)
   if index >= len(tokens) then return error(7752, operation + ": missing argument") end if
   return tokens[index]
 end function
 
+// Return the tokenize value.
 function tokenize(layout)
   return lcmd.tokenize(layout)
 end function
 
+// Return the player identity value.
 function playerIdentity(configStrings, playerIndex)
   identity = array(2)
   identity[0] = "unnamed"
@@ -64,6 +70,7 @@ function playerIdentity(configStrings, playerIndex)
   return identity
 end function
 
+// Pad left 3.
 function padLeft3(value)
   text = value + ""
   if len(bytes(text)) >= 3 then return text end if
@@ -71,6 +78,7 @@ function padLeft3(value)
   return "  " + text
 end function
 
+// Return the fixed player name.
 function fixedPlayerName(name)
   data = bytes(name)
   if len(data) > 12 then return decode(slice(data, 0, 12)) end if
@@ -81,6 +89,7 @@ function fixedPlayerName(name)
   return output
 end function
 
+// Populate the parse tokens context destination.
 function parseTokensContextInto(commands, tokens, stats, configStrings,
     screenWidth, screenHeight, serverFrame, playerNumber)
   // Flash fields and client blocks can emit multiple draws. Callers provide a
@@ -214,6 +223,7 @@ function parseTokensContextInto(commands, tokens, stats, configStrings,
   return commandCount
 end function
 
+// Parse tokens context.
 function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHeight,
     serverFrame, playerNumber)
   commands = array(len(tokens) * 2)
@@ -233,20 +243,24 @@ function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHei
   return compact
 end function
 
+// Parse tokens.
 function parseTokens(tokens, stats, configStrings, screenWidth, screenHeight)
   return parseTokensContext(tokens, stats, configStrings, screenWidth, screenHeight, 0, -1)
 end function
 
+// Parse at frame.
 function parseAtFrame(layout, stats, configStrings, screenWidth, screenHeight,
     serverFrame, playerNumber)
   return parseTokensContext(tokenize(layout), stats, configStrings, screenWidth,
     screenHeight, serverFrame, playerNumber)
 end function
 
+// Parse state.
 function parse(layout, stats, configStrings, screenWidth, screenHeight)
   return parseTokens(tokenize(layout), stats, configStrings, screenWidth, screenHeight)
 end function
 
+// Draw text.
 function drawText(exports, x, y, text, style)
   data = bytes(text)
   index = 0
@@ -256,6 +270,7 @@ function drawText(exports, x, y, text, style)
   end while
 end function
 
+// Draw number.
 function drawNumber(exports, x, y, value, width, color)
   if width > 5 then width = 5 end if
   if width < 1 then return 0 end if
@@ -280,10 +295,12 @@ function drawNumber(exports, x, y, value, width, color)
   return count
 end function
 
+// Draw state.
 function draw(commands, exports)
   return drawCount(commands, len(commands), exports)
 end function
 
+// Draw count.
 function drawCount(commands, commandCount, exports)
   index = 0
   while index < commandCount

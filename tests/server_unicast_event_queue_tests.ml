@@ -8,6 +8,7 @@ import miniquake2.game.types as suq_gtypes
 import miniquake2.server.game_bridge as suq_bridge
 import miniquake2.server.game_messages as suq_messages
 
+// Assert the unicast queue test condition.
 function unicastQueueAssert(value, label)
   if value != true then return error(8468, label) end if
   return true

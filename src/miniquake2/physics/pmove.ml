@@ -17,10 +17,12 @@ import miniquake2.physics.constants as phc
 import miniquake2.physics.types as pht
 import miniquake2.physics.vector as phv
 
+// Create state.
 function create(traceCallback, pointContentsCallback)
   return gt.zeroPmove(traceCallback, pointContentsCallback)
 end function
 
+// Clip velocity.
 function clipVelocity(inputVelocity, normal, overbounce)
   backoff = phv.dot(inputVelocity, normal) * overbounce
   output = qt.Vec3(
@@ -34,6 +36,7 @@ function clipVelocity(inputVelocity, normal, overbounce)
   return output
 end function
 
+// Add touch.
 function addTouch(pmove, entity)
   if entity is not void and pmove.numTouch < gc.MAXTOUCH then
     pmove.touchEntities[pmove.numTouch] = entity
@@ -42,6 +45,7 @@ function addTouch(pmove, entity)
   return true
 end function
 
+// Advance slide move core.
 function stepSlideMoveCore(pmove, localState)
   primalVelocity = phv.copy(localState.velocity)
   // One Pmove reuses its private plane slots for every slide attempt.  The
@@ -117,6 +121,7 @@ function stepSlideMoveCore(pmove, localState)
   return true
 end function
 
+// Advance slide move.
 function stepSlideMove(pmove, localState)
   startOrigin = phv.copy(localState.origin)
   startVelocity = phv.copy(localState.velocity)
@@ -158,6 +163,7 @@ function stepSlideMove(pmove, localState)
   return true
 end function
 
+// Return the friction value.
 function friction(pmove, localState)
   speed = phv.length(localState.velocity)
   if speed < 1.0 then
@@ -187,6 +193,7 @@ function friction(pmove, localState)
   return true
 end function
 
+// Return the accelerate value.
 function accelerate(localState, wishDirection, wishSpeed, acceleration)
   currentSpeed = phv.dot(localState.velocity, wishDirection)
   addSpeed = wishSpeed - currentSpeed
@@ -197,6 +204,7 @@ function accelerate(localState, wishDirection, wishSpeed, acceleration)
   return true
 end function
 
+// Return the air accelerate value.
 function airAccelerate(localState, wishDirection, wishSpeed, acceleration)
   clampedWishSpeed = wishSpeed
   if clampedWishSpeed > 30.0 then clampedWishSpeed = 30.0 end if
@@ -209,7 +217,9 @@ function airAccelerate(localState, wishDirection, wishSpeed, acceleration)
   return true
 end function
 
+// Add currents.
 function addCurrents(pmove, localState, wishVelocity)
+  // Keep add currents phases explicit: validate inputs, update owned state, then publish the result.
   if localState.ladder and (localState.velocity.z >= -200.0 and localState.velocity.z <= 200.0) then
     if pmove.viewAngles.x <= -15.0 and pmove.command.forwardMove > 0 then
       wishVelocity.z = 200.0
@@ -255,6 +265,7 @@ function addCurrents(pmove, localState, wishVelocity)
   return wishVelocity
 end function
 
+// Move water.
 function waterMove(pmove, localState)
   wishVelocity = qt.Vec3(
     localState.forward.x * pmove.command.forwardMove + localState.right.x * pmove.command.sideMove,
@@ -281,6 +292,7 @@ function waterMove(pmove, localState)
   return true
 end function
 
+// Move air.
 function airMove(pmove, localState, airAcceleration)
   wishVelocity = qt.Vec3(
     localState.forward.x * pmove.command.forwardMove + localState.right.x * pmove.command.sideMove,
@@ -334,7 +346,9 @@ function airMove(pmove, localState, airAcceleration)
   return true
 end function
 
+// Return the categorize position.
 function categorizePosition(pmove, localState)
+  // Keep categorize position phases explicit: validate inputs, update owned state, then publish the result.
   samplePoint = qt.Vec3(localState.origin.x, localState.origin.y, localState.origin.z - 0.25)
   if localState.velocity.z > 180.0 then
     pmove.state.flags = pmove.state.flags & ~gc.PMF_ON_GROUND
@@ -387,6 +401,7 @@ function categorizePosition(pmove, localState)
   return true
 end function
 
+// Validate jump.
 function checkJump(pmove, localState)
   if (pmove.state.flags & gc.PMF_TIME_LAND) != 0 then return true end if
   if pmove.command.upMove < 10 then
@@ -417,6 +432,7 @@ function checkJump(pmove, localState)
   return true
 end function
 
+// Validate special movement.
 function checkSpecialMovement(pmove, localState)
   if pmove.state.time != 0 then return true end if
   localState.ladder = false
@@ -443,7 +459,9 @@ function checkSpecialMovement(pmove, localState)
   return true
 end function
 
+// Move fly.
 function flyMove(pmove, localState, doClip)
+  // Keep fly move phases explicit: validate inputs, update owned state, then publish the result.
   pmove.viewHeight = 22.0
   speed = phv.length(localState.velocity)
   if speed < 1.0 then
@@ -492,6 +510,7 @@ function flyMove(pmove, localState, doClip)
   return true
 end function
 
+// Validate duck.
 function checkDuck(pmove, localState)
   pmove.mins.x = -16.0
   pmove.mins.y = -16.0
@@ -526,6 +545,7 @@ function checkDuck(pmove, localState)
   return true
 end function
 
+// Move dead.
 function deadMove(pmove, localState)
   if pmove.groundEntity is void then return true end if
   forwardSpeed = phv.length(localState.velocity) - 20.0
@@ -538,6 +558,7 @@ function deadMove(pmove, localState)
   return true
 end function
 
+// Return the good position.
 function goodPosition(pmove)
   if pmove.state.moveType == gc.PM_SPECTATOR then return true end if
   origin = qt.Vec3(pmove.state.origin[0] * 0.125, pmove.state.origin[1] * 0.125, pmove.state.origin[2] * 0.125)
@@ -545,6 +566,7 @@ function goodPosition(pmove)
   return positionTrace.allSolid == false
 end function
 
+// Return the snap position.
 function snapPosition(pmove, localState)
   // pmove_state_t stores signed C shorts. Preserve their wrap semantics even
   // though the managed ABI uses general MiniLang integer array elements.
@@ -585,6 +607,7 @@ function snapPosition(pmove, localState)
   return false
 end function
 
+// Return the initial snap position.
 function initialSnapPosition(pmove, localState)
   base = [signedShort(pmove.state.origin[0]), signedShort(pmove.state.origin[1]), signedShort(pmove.state.origin[2])]
   offsets = [0, -1, 1]
@@ -611,16 +634,19 @@ function initialSnapPosition(pmove, localState)
   return false
 end function
 
+// Return the signed short value.
 function signedShort(value)
   wrapped = value & 65535
   if wrapped >= 32768 then return wrapped - 65536 end if
   return wrapped
 end function
 
+// Return the short to angle value.
 function shortToAngle(value)
   return value * (360.0 / 65536.0)
 end function
 
+// Clamp angles.
 function clampAngles(pmove, localState)
   if (pmove.state.flags & gc.PMF_TIME_TELEPORT) != 0 then
     pmove.viewAngles.x = 0.0
@@ -647,6 +673,7 @@ end function
 // The caller-supplied private state makes high-frequency client prediction
 // allocation-stable. Server/game callers retain the owning wrapper below.
 function moveWithAirAccelerationUsingLocal(pmove, airAcceleration, localState)
+  // Keep move with air acceleration using local phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(localState) != "struct" or
       typeof(localState.clipPlanes) != "array" or
       len(localState.clipPlanes) < phc.MAX_CLIP_PLANES then
@@ -734,11 +761,13 @@ function moveWithAirAccelerationUsingLocal(pmove, airAcceleration, localState)
   return pmove
 end function
 
+// Move with air acceleration.
 function moveWithAirAcceleration(pmove, airAcceleration)
   return moveWithAirAccelerationUsingLocal(pmove, airAcceleration,
     pht.createLocal())
 end function
 
+// Move state.
 function move(pmove)
   return moveWithAirAcceleration(pmove, phc.DEFAULT_AIR_ACCELERATE)
 end function

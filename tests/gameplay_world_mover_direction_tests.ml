@@ -8,16 +8,19 @@ import miniquake2.game.world.movers as moverdirovers
 import miniquake2.game.world.types as moverdiretypes
 import miniquake2.game.world.constants as moverdirconstants
 
+// Assert the mover direction test condition.
 function moverDirectionAssert(value, message)
   if value != true then return error(9195, message) end if
   return true
 end function
 
+// Return the mover direction done value.
 function moverDirectionDone(entity, world)
   entity.count = entity.count + 1
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   moverDirectionWorldHolder = moverdircore.createWorld(moverdircore.defaultCallbacks())
   moverDirectionEntityHolder = moverdircore.spawnEntity(moverDirectionWorldHolder, "func_door")

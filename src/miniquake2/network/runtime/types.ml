@@ -15,6 +15,7 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.server.administration as nradmin
 
+// Store game callbacks data.
 struct GameCallbacks
   clientConnect
   clientUserinfoChanged
@@ -25,23 +26,27 @@ struct GameCallbacks
   clientPing
 end struct
 
+// Store download file data.
 struct DownloadFile
   name
   data
 end struct
 
+// Store download transfer data.
 struct DownloadTransfer
   name
   data
   offset
 end struct
 
+// Store deferred reliable work data.
 struct DeferredReliableWork
   kind
   first
   second
 end struct
 
+// Store client runtime data.
 struct ClientRuntime
   client
   protocol
@@ -60,6 +65,7 @@ struct ClientRuntime
   parsedMessages
 end struct
 
+// Store server runtime data.
 struct ServerRuntime
   server
   spawnCount
@@ -78,12 +84,14 @@ struct ServerRuntime
   administration
 end struct
 
+// Store pump stats data.
 struct PumpStats
   received
   sent
   rejected
 end struct
 
+// Create baselines.
 function makeBaselines()
   values = array(pc.MAX_EDICTS, void)
   index = 0
@@ -96,6 +104,7 @@ function makeBaselines()
   return values
 end function
 
+// Create commands.
 function makeCommands(count)
   values = array(count, void)
   index = 0
@@ -106,6 +115,7 @@ function makeCommands(count)
   return values
 end function
 
+// Create transfers.
 function makeTransfers(count)
   values = array(count, void)
   index = 0
@@ -116,6 +126,7 @@ function makeTransfers(count)
   return values
 end function
 
+// Create deferred reliable.
 function makeDeferredReliable(count)
   values = array(count, void)
   index = 0
@@ -126,12 +137,14 @@ function makeDeferredReliable(count)
   return values
 end function
 
+// Create client.
 function createClient(client)
   return ClientRuntime(client, 0, 0, false, "", -1, "",
     array(qc.MAX_CONFIGSTRINGS, ""), makeBaselines(), [], bytes(), 0, false,
     false, 0)
 end function
 
+// Create server.
 function createServer(server, spawnCount, gameDir, levelName, callbacks)
   if typeof(spawnCount) != "int" then return error(7200, "runtime spawn count must be an integer") end if
   if typeof(gameDir) != "string" or typeof(levelName) != "string" then return error(7201, "runtime server strings must be text") end if
@@ -145,6 +158,7 @@ function createServer(server, spawnCount, gameDir, levelName, callbacks)
     makeDeferredReliable(count), nradmin.create())
 end function
 
+// Return the stats value.
 function stats()
   return PumpStats(0, 0, 0)
 end function

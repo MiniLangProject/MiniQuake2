@@ -22,11 +22,13 @@ import miniquake2.client.effects.state as nrfudp_effects
 import miniquake2.client.runtime.dispatcher as nrfudp_dispatcher
 import miniquake2.server.types as nrfudp_stypes
 
+// Assert the fragment udp test condition.
 function fragmentUdpAssert(value, name)
   if not value then return error(8499, name) end if
   return true
 end function
 
+// Return the udp text value.
 function udpText(count, character)
   output = bytes(count)
   index = 0
@@ -37,6 +39,7 @@ function udpText(count, character)
   return decode(output)
 end function
 
+// Return the udp pattern value.
 function udpPattern(count)
   output = bytes(count)
   index = 0

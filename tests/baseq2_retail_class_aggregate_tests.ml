@@ -5,11 +5,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Golden aggregate for the nine formerly skipped retail base1 classnames. */
 import miniquake2.game.base.spawn as rcaspawn
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9990, name + ": values differ") end if
   return true
 end function
 
+// Append entities.
 function appendEntities(text, className, count)
   index = 0
   while index < count
@@ -19,6 +21,7 @@ function appendEntities(text, className, count)
   return text
 end function
 
+// Return the class count.
 function classCount(result, className)
   count = 0
   for each edict in result.edicts

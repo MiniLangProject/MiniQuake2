@@ -19,6 +19,7 @@ import miniquake2.qcommon.types as turretqtypes
 const TURRET_FIRE_REQUEST = 65536
 const TURRET_NO_KNOCKBACK = 0x00000800
 
+// Return the turret control value.
 function turretControl(entity)
   control = entity.item
   if typeof(control) != "struct" then return error(9550, entity.className + " has no TurretControl") end if
@@ -26,6 +27,7 @@ function turretControl(entity)
   return control
 end function
 
+// Attach turret control.
 function turretAttachControl(entity, control)
   configuredItem = entity.item
   if typeof(configuredItem) == "string" and configuredItem != "" and entity.itemName == "" then
@@ -35,6 +37,7 @@ function turretAttachControl(entity, control)
   return control
 end function
 
+// Return the turret current skill value.
 function inline turretCurrentSkill(control)
   skill = control.callbacks.skillValue()
   if typeof(skill) != "int" and typeof(skill) != "float" then skill = control.skill end if
@@ -43,6 +46,7 @@ function inline turretCurrentSkill(control)
   return skill
 end function
 
+// Normalize turret angle.
 function turretNormalizeAngle(value)
   while value > 360.0
     value = value - 360.0
@@ -53,18 +57,21 @@ function turretNormalizeAngle(value)
   return value
 end function
 
+// Return the turret shortest delta value.
 function turretShortestDelta(value)
   if value < -180.0 then return value + 360.0 end if
   if value > 180.0 then return value - 360.0 end if
   return value
 end function
 
+// Return the turret snap to eighth value.
 function turretSnapToEighth(value)
   scaled = value * 8.0
   if scaled > 0.0 then scaled = scaled + 0.5 else scaled = scaled - 0.5 end if
   return 0.125 * turretbyteio.truncInt(scaled)
 end function
 
+// Return the turret angle vectors value.
 function turretAngleVectors(angles)
   pitch = turretmath.degToRad(angles.x)
   yaw = turretmath.degToRad(angles.y)
@@ -88,6 +95,7 @@ function turretAngleVectors(angles)
   return result
 end function
 
+// Append turret team member.
 function turretAppendTeamMember(master, member, world)
   if master is void or member is void or master == member then return false end if
   if master.teamMaster is void then master.teamMaster = master end if
@@ -110,6 +118,7 @@ function turretAppendTeamMember(master, member, world)
   return true
 end function
 
+// Bind turret team.
 function bindTurretTeam(baseEntity, breach, world)
   if baseEntity is void or breach is void or baseEntity.className != "turret_base" or breach.className != "turret_breach" then
     return error(9552, "bindTurretTeam requires turret_base and turret_breach")
@@ -119,6 +128,7 @@ function bindTurretTeam(baseEntity, breach, world)
   return baseEntity
 end function
 
+// Bind try turret team.
 function tryBindTurretTeam(entity, world)
   if entity.team == "" then return false end if
   baseEntity = void
@@ -134,6 +144,7 @@ function tryBindTurretTeam(entity, world)
   return true
 end function
 
+// Report whether turret blocked.
 function turretBlocked(entity, other, world)
   if other is void or other.takeDamage == turretworldconstants.DAMAGE_NO then return false end if
   control = turretControl(entity)
@@ -147,6 +158,7 @@ function turretBlocked(entity, other, world)
   return true
 end function
 
+// Fire turret breach.
 function turretBreachFire(entity, world)
   control = turretControl(entity)
   vectors = turretAngleVectors(entity.angles)
@@ -171,6 +183,7 @@ function turretBreachFire(entity, world)
   return true
 end function
 
+// Clamp turret desired angles.
 function turretClampDesiredAngles(entity)
   desiredPitch = turretNormalizeAngle(entity.moveDirection.x)
   desiredYaw = turretNormalizeAngle(entity.moveDirection.y)
@@ -196,7 +209,9 @@ function turretClampDesiredAngles(entity)
   return true
 end function
 
+// Run turret breach.
 function turretBreachThink(entity, world)
+  // Keep turret breach think phases explicit: validate inputs, update owned state, then publish the result.
   turretClampDesiredAngles(entity)
   currentPitch = turretNormalizeAngle(entity.angles.x)
   currentYaw = turretNormalizeAngle(entity.angles.y)
@@ -243,6 +258,7 @@ function turretBreachThink(entity, world)
   return true
 end function
 
+// Finish turret breach init.
 function turretBreachFinishInit(entity, world)
   if entity.target == "" then
     turretcore.log(world, "turret_breach needs a muzzle target")
@@ -266,6 +282,7 @@ function turretBreachFinishInit(entity, world)
   return turretBreachThink(entity, world)
 end function
 
+// Spawn turret breach.
 function spawnTurretBreach(entity, world, control, limits)
   if control is void then control = turrettypes.createTurretControl(void, 1.0) end if
   if limits is void then limits = turrettypes.defaultTurretLimits() end if
@@ -291,6 +308,7 @@ function spawnTurretBreach(entity, world, control, limits)
   return entity
 end function
 
+// Spawn turret base.
 function spawnTurretBase(entity, world, control)
   if control is void then control = turrettypes.createTurretControl(void, 1.0) end if
   if entity.model == "" then
@@ -308,6 +326,7 @@ function spawnTurretBase(entity, world, control)
   return entity
 end function
 
+// Use turret driver.
 function turretDriverUse(entity, other, activator, world)
   control = turretControl(entity)
   if entity.enemy is not void or entity.health <= 0 or activator is void then return false end if
@@ -320,6 +339,7 @@ function turretDriverUse(entity, other, activator, world)
   return control.callbacks.driverUse(entity, other, activator, world)
 end function
 
+// Handle turret driver.
 function turretDriverDie(entity, inflictor, attacker, damage, point, world)
   control = turretControl(entity)
   breach = entity.targetEntity
@@ -350,7 +370,9 @@ function turretDriverDie(entity, inflictor, attacker, damage, point, world)
   return control.callbacks.driverDie(entity, inflictor, attacker, damage, point, world)
 end function
 
+// Run turret driver.
 function turretDriverThink(entity, world)
+  // Keep turret driver think phases explicit: validate inputs, update owned state, then publish the result.
   control = turretControl(entity)
   entity.think = turretDriverThink
   entity.nextThink = world.time + world.frameTime
@@ -399,6 +421,7 @@ function turretDriverThink(entity, world)
   return true
 end function
 
+// Link turret driver.
 function turretDriverLink(entity, world)
   if entity.target == "" then
     turretcore.log(world, "turret_driver has no breach target")
@@ -430,6 +453,7 @@ function turretDriverLink(entity, world)
   return true
 end function
 
+// Spawn turret driver.
 function spawnTurretDriver(entity, world, control, deathmatch)
   if deathmatch then turretcore.freeEntity(world, entity); return false end if
   if control is void then control = turrettypes.createTurretControl(void, 1.0) end if
@@ -462,14 +486,17 @@ function spawnTurretDriver(entity, world, control, deathmatch)
   return entity
 end function
 
+// Spawn turret base.
 function SP_turret_base(entity, world, control)
   return spawnTurretBase(entity, world, control)
 end function
 
+// Spawn turret breach.
 function SP_turret_breach(entity, world, control, limits)
   return spawnTurretBreach(entity, world, control, limits)
 end function
 
+// Spawn turret driver.
 function SP_turret_driver(entity, world, control, deathmatch)
   return spawnTurretDriver(entity, world, control, deathmatch)
 end function

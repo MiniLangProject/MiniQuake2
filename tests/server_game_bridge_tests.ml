@@ -10,11 +10,13 @@ import miniquake2.collision.model as collision
 import miniquake2.format.types as ft
 import miniquake2.qcommon.constants as qc
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9940, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9941, name + ": expected true") end if
   return true

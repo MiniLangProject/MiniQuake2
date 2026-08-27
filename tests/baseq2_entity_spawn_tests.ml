@@ -11,28 +11,33 @@ import std.string as stext
 
 loggedDiagnostics = []
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9200, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9201, name + ": expected true") end if
   return true
 end function
 
+// Assert the error contains test condition.
 function assertErrorContains(value, fragment, name)
   if value is not error then return error(9202, name + ": expected error") end if
   if stext.contains(value.message, fragment) != true then return error(9203, name + ": unexpected message " + value.message) end if
   return true
 end function
 
+// Record diagnostic.
 function recordDiagnostic(message)
   global loggedDiagnostics
   loggedDiagnostics = loggedDiagnostics + [message]
   return true
 end function
 
+// Verify new string and quoted parsing.
 function testNewStringAndQuotedParsing()
   assertEqual(bparser.ED_NewString("line1\\nline2"), "line1\nline2", "newline escape")
   assertEqual(bparser.ED_NewString("a\\tb"), "a\\b", "non-newline escape")
@@ -49,6 +54,7 @@ function testNewStringAndQuotedParsing()
   return true
 end function
 
+// Return the fixture text value.
 function fixtureText()
   return "{\n" +
     "\"classname\" \"worldspawn\"\n" +
@@ -95,15 +101,25 @@ function fixtureText()
     "{ \"classname\" \"future_monster\" \"origin\" \"9 8 7\" }\n"
 end function
 
+// Verify spawn entities.
 function testSpawnEntities()
   registry = bregistry.defaultRegistry()
-  assertEqual(len(registry.entries), 143, "registry entry count")
+  assertEqual(len(registry.entries), 149, "registry entry count")
   assertTrue(bregistry.find(registry, "weapon_railgun") is not void, "gameplay item spawn registered")
   assertTrue(bregistry.find(registry, "item_quad") is not void, "stock powerup spawn registered")
   assertTrue(bregistry.find(registry, "func_conveyor") is not void,
     "conveyor spawn registered")
   assertTrue(bregistry.find(registry, "trigger_gravity") is not void,
     "gravity trigger spawn registered")
+  assertTrue(bregistry.find(registry, "viewthing") is not void and
+      bregistry.find(registry, "light_mine1") is not void and
+      bregistry.find(registry, "misc_actor") is not void and
+      bregistry.find(registry, "misc_bigviper") is not void and
+      bregistry.find(registry, "misc_gib_arm") is not void and
+      bregistry.find(registry, "misc_gib_leg") is not void,
+    "remaining stock misc spawn classes registered")
+  assertTrue(bregistry.find(registry, "monster_tank_commander") is not void,
+    "tank commander aliases the stock tank spawn")
   assertEqual(typeof(registry.entries[0].spawn), "function", "registry function value")
   assertErrorContains(try(bregistry.register(registry, "worldspawn", registry.entries[0].spawn)), "duplicate", "duplicate registry entry")
 
@@ -170,6 +186,7 @@ function testSpawnEntities()
   return true
 end function
 
+// Verify malformed input.
 function testMalformedInput()
   terminatedSource = bytes("{ \"classname\" \"worldspawn\" }")
   terminated = bytes(len(terminatedSource) + 1)
@@ -192,6 +209,7 @@ function testMalformedInput()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 baseq2 entity tests starting: 3"
   testNewStringAndQuotedParsing()

@@ -11,11 +11,13 @@ import miniquake2.qcommon.constants as meleeqconstants
 import miniquake2.qcommon.types as meleeqtypes
 import miniquake2.server.game_bridge as meleebridge
 
+// Assert the melee test condition.
 function meleeAssert(value, message)
   if value != true then return error(9974, message) end if
   return true
 end function
 
+// Run melee sequence.
 function runMeleeSequence(className, origin, expectDrain)
   meleeServer = meleebridge.createRuntime(4)
   meleeApi = meleegame.GetGameApi(meleebridge.makeImports(meleeServer))

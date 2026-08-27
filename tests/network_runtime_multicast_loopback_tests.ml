@@ -9,6 +9,7 @@ import miniquake2.game.constants as nrml_gc
 import miniquake2.server.game_bridge as nrml_bridge
 import miniquake2.runtime.play_session as nrml_play
 
+// Assert the multicast loop test condition.
 function multicastLoopAssert(value, label)
   if value != true then return error(8466, label) end if
   return true

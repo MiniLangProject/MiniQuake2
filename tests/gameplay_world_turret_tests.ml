@@ -26,45 +26,54 @@ turretTestPositionedSounds = []
 turretTestCrushKnockback = 0
 turretTestLiveSkill = 2.0
 
+// Assert the turret test test condition.
 function turretTestAssert(condition, label)
   if condition == false then return error(9960, label) end if
 end function
 
+// Assert the turret test equal test condition.
 function turretTestAssertEqual(actual, expected, label)
   if actual != expected then return error(9961, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the turret test near test condition.
 function turretTestAssertNear(actual, expected, tolerance, label)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
   if difference > tolerance then return error(9962, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Verify turret acquire.
 function turretTestAcquire(driver, world)
   global turretTestEnemy
   return turretTestEnemy
 end function
 
+// Report whether turret test trace visible.
 function turretTestTraceVisible(driver, enemy, world)
   global turretTestVisible
   return turretTestVisible
 end function
 
+// Verify turret random.
 function turretTestRandom()
   return 0.5
 end function
 
+// Verify turret skill value.
 function turretTestSkillValue()
   global turretTestLiveSkill
   return turretTestLiveSkill
 end function
 
+// Verify turret fire.
 function turretTestFire(attacker, start, direction, damage, speed, splashRadius, world)
   global turretTestRockets
   turretTestRockets = turretTestRockets + [[attacker.number, start, direction, damage, speed, splashRadius]]
   return true
 end function
 
+// Verify turret positioned sound.
 function turretTestPositionedSound(origin, entity, soundName, world)
   global turretTestPositionedSounds
   turretTestPositionedSounds = turretTestPositionedSounds + [
@@ -72,30 +81,35 @@ function turretTestPositionedSound(origin, entity, soundName, world)
   return true
 end function
 
+// Verify turret crush.
 function turretTestCrush(target, inflictor, attacker, amount, knockback, means, world)
   global turretTestCrushKnockback
   turretTestCrushKnockback = knockback
   return world.callbacks.damage(target, inflictor, attacker, amount, means)
 end function
 
+// Verify turret driver spawn.
 function turretTestDriverSpawn(driver, world)
   global turretTestSpawnCount
   turretTestSpawnCount = turretTestSpawnCount + 1
   return true
 end function
 
+// Verify turret driver use.
 function turretTestDriverUse(driver, other, activator, world)
   global turretTestUseCount
   turretTestUseCount = turretTestUseCount + 1
   return true
 end function
 
+// Verify turret driver die.
 function turretTestDriverDie(driver, inflictor, attacker, damage, point, world)
   global turretTestDieCount
   turretTestDieCount = turretTestDieCount + 1
   return true
 end function
 
+// Verify turret damage.
 function turretTestDamage(target, inflictor, attacker, amount, means)
   global turretTestDamageAmount, turretTestDamageAttacker
   turretTestDamageAmount = amount
@@ -103,6 +117,7 @@ function turretTestDamage(target, inflictor, attacker, amount, means)
   return true
 end function
 
+// Verify turret set model.
 function turretTestSetModel(entity, modelName)
   global turretTestModels
   turretTestModels = turretTestModels + 1
@@ -110,12 +125,14 @@ function turretTestSetModel(entity, modelName)
   return true
 end function
 
+// Verify turret link.
 function turretTestLink(entity)
   global turretTestLinks
   turretTestLinks = turretTestLinks + 1
   return true
 end function
 
+// Verify turret world.
 function turretTestWorld()
   callbacks = turrettestcore.defaultCallbacks()
   callbacks.damage = turretTestDamage
@@ -124,6 +141,7 @@ function turretTestWorld()
   return turrettestcore.createWorld(callbacks)
 end function
 
+// Verify turret control.
 function turretTestControl(skill)
   callbacks = turrettesttypes.defaultTurretCallbacks()
   callbacks.acquireTarget = turretTestAcquire
@@ -139,6 +157,7 @@ function turretTestControl(skill)
   return turrettesttypes.createTurretControl(callbacks, skill)
 end function
 
+// Verify angles and team binding.
 function testAnglesAndTeamBinding()
   global turretTestRockets, turretTestPositionedSounds, turretTestLiveSkill
   turretTestRockets = []; turretTestPositionedSounds = []; turretTestLiveSkill = 2.0
@@ -179,6 +198,7 @@ function testAnglesAndTeamBinding()
   turretTestLiveSkill = 2.0
 end function
 
+// Create linked turret world.
 function createLinkedTurretWorld()
   global turretTestEnemy
   world = turretTestWorld()
@@ -204,6 +224,7 @@ function createLinkedTurretWorld()
   return [world, control, baseEntity, breach, driver, enemy, muzzle]
 end function
 
+// Verify driver aim fire and damage.
 function testDriverAimFireAndDamage()
   global turretTestRockets, turretTestDamageAmount, turretTestDamageAttacker, turretTestVisible, turretTestPositionedSounds, turretTestCrushKnockback, turretTestLiveSkill
   turretTestRockets = []; turretTestDamageAmount = 0; turretTestDamageAttacker = 0
@@ -261,6 +282,7 @@ function testDriverAimFireAndDamage()
     "blocked damage retains stock crush knockback")
 end function
 
+// Verify driver lifecycle and malformed.
 function testDriverLifecycleAndMalformed()
   global turretTestUseCount, turretTestDieCount, turretTestSpawnCount
   turretTestUseCount = 0; turretTestDieCount = 0; turretTestSpawnCount = 0
@@ -298,6 +320,7 @@ function testDriverLifecycleAndMalformed()
     "deathmatch driver removed")
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   testAnglesAndTeamBinding()
   testDriverAimFireAndDamage()

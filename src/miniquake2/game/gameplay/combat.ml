@@ -13,6 +13,7 @@ import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.byteio as qbyteio
 import std.math as gpmath
 
+// Validate vector.
 function validateVector(value, name)
   if typeof(value) != "array" or len(value) != 3 then return error(9400, name + " must be a three-component vector") end if
   index = 0
@@ -23,6 +24,7 @@ function validateVector(value, name)
   return true
 end function
 
+// Return the normalized value.
 function normalized(value)
   validateVector(value, "damage direction")
   length = gpmath.sqrt(value[0] * value[0] + value[1] * value[1] + value[2] * value[2])
@@ -30,6 +32,7 @@ function normalized(value)
   return [value[0] / length, value[1] / length, value[2] / length]
 end function
 
+// Save armor.
 function armorSave(target, damage, damageFlags)
   if damage <= 0 or target.armor <= 0 or (damageFlags & gpconstants.DAMAGE_NO_ARMOR) != 0 then return 0 end if
   protection = target.armorNormalProtection
@@ -40,6 +43,7 @@ function armorSave(target, damage, damageFlags)
   return saved
 end function
 
+// Apply knockback.
 function applyKnockback(target, direction, knockback, selfDamage)
   if knockback == 0 then return 0.0 end if
   if (target.flags & gpconstants.FL_NO_KNOCKBACK) != 0 then return 0.0 end if
@@ -54,6 +58,7 @@ function applyKnockback(target, direction, knockback, selfDamage)
   return scale
 end function
 
+// Return the t damage value.
 function T_Damage(target, request)
   if typeof(target) != "struct" or typeof(request) != "struct" then return error(9402, "T_Damage: target and request required") end if
   validateVector(request.point, "damage point")
@@ -100,6 +105,7 @@ function T_Damage(target, request)
   return gptypes.DamageResult(true, take, saved, protectedDamage, knockbackApplied, target.dead, meansOfDeath)
 end function
 
+// Return the distance value.
 function distance(first, second)
   x = first[0] - second[0]
   y = first[1] - second[1]

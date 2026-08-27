@@ -11,17 +11,20 @@ import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.info as qinfo
 
+// Return the numeric value.
 function numeric(text, fallback)
   converted = try(toNumber(text))
   if converted is error or (typeof(converted) != "int" and typeof(converted) != "float") then return fallback end if
   return converted
 end function
 
+// Return the password matches value.
 function passwordMatches(required, supplied)
   if required == "" or required == "none" then return true end if
   return supplied == required
 end function
 
+// Initialize client persistent.
 function InitClientPersistent(player, context)
   itemSlots = len(player.gameplay.inventory.counts)
   player.gameplay.inventory.counts = array(itemSlots, 0)
@@ -40,6 +43,7 @@ function InitClientPersistent(player, context)
   return true
 end function
 
+// Return the client userinfo changed value.
 function ClientUserinfoChanged(context, player, userInfo)
   if qinfo.validate(userInfo) != true then userInfo = "\\name\\badinfo\\skin\\male/grunt" end if
   name = qinfo.valueForKey(userInfo, "name")
@@ -62,6 +66,7 @@ function ClientUserinfoChanged(context, player, userInfo)
   return userInfo
 end function
 
+// Return the spectator count.
 function spectatorCount(context, ignoredPlayer)
   count = 0
   for each candidate in context.players
@@ -70,12 +75,14 @@ function spectatorCount(context, ignoredPlayer)
   return count
 end function
 
+// Reject state.
 function reject(userInfo, message)
   updated = try(qinfo.setValueForKey(userInfo, "rejmsg", message))
   if updated is error then updated = "\\rejmsg\\" + message end if
   return gplayertypes.connectResult(false, updated, message)
 end function
 
+// Connect client.
 function ClientConnect(context, player, userInfo)
   if typeof(userInfo) != "string" then return error(9701, "ClientConnect: userinfo text required") end if
   if qinfo.validate(userInfo) != true then userInfo = "\\name\\badinfo\\skin\\male/grunt" end if
@@ -101,6 +108,7 @@ function ClientConnect(context, player, userInfo)
   return gplayertypes.connectResult(true, userInfo, "")
 end function
 
+// Return the client disconnect value.
 function ClientDisconnect(context, player)
   if player.persistent.connected != true then return false end if
   context.messages = context.messages + [player.persistent.netName + " disconnected"]

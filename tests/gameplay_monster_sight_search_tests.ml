@@ -10,6 +10,7 @@ import miniquake2.game.ai.types as sightstypes
 import miniquake2.game.constants as sightsgameconstants
 import miniquake2.qcommon.types as sightsqtypes
 
+// Assert the sights test condition.
 function sightsAssert(value, message)
   if value != true then return error(9971, message) end if
   return true
@@ -24,6 +25,7 @@ testSightRollCount = 0
 testSightRollPosition = 0
 testSightRawRandom = 0
 
+// Capture sight sound.
 function captureSightSound(actor, soundName, channel, attenuation)
   global capturedSightCount
   capturedSightNames[capturedSightCount] = soundName
@@ -33,6 +35,7 @@ function captureSightSound(actor, soundName, channel, attenuation)
   return true
 end function
 
+// Return the next sight roll value.
 function nextSightRoll()
   global testSightRollPosition
   if testSightRollPosition >= testSightRollCount then return 0.0 end if
@@ -41,10 +44,12 @@ function nextSightRoll()
   return value
 end function
 
+// Return the next sight raw random value.
 function nextSightRawRandom()
   return testSightRawRandom
 end function
 
+// Reset sight capture.
 function resetSightCapture()
   global capturedSightCount, testSightRollCount, testSightRollPosition
   capturedSightCount = 0
@@ -53,6 +58,7 @@ function resetSightCapture()
   return true
 end function
 
+// Set sight rolls.
 function setSightRolls(first, second)
   global testSightRollCount, testSightRollPosition
   testSightRolls[0] = first

@@ -8,6 +8,7 @@ import miniquake2.qcommon.sizebuf as qsz
 import miniquake2.qcommon.message as qmsg
 import miniquake2.qcommon.directions as qdir
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7995, name + ": expected " + expected + ", got " + actual) end if
 end function

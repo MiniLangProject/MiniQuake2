@@ -9,10 +9,12 @@ import miniquake2.format.constants as fc
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
+// Report whether empty array.
 function emptyArray(count)
   return array(count)
 end function
 
+// Parse lumps.
 function parseLumps(data)
   bspLumpDataHolder = data
   bspHeaderBytes = 8 + fc.HEADER_LUMPS * 8
@@ -34,11 +36,13 @@ function parseLumps(data)
   return bspLumpRecords
 end function
 
+// Require stride.
 function requireStride(lump, stride, name)
   if lump.length % stride != 0 then return error(2204, "invalid " + name + " lump stride") end if
   return lump.length / stride
 end function
 
+// Return the vec 3 f value.
 function vec3f(data, offset)
   bspFloatVectorDataHolder = data
   bspFloatVectorOffset = offset
@@ -48,6 +52,7 @@ function vec3f(data, offset)
   return ft.Vec3(bspFloatVectorX, bspFloatVectorY, bspFloatVectorZ)
 end function
 
+// Return the vec 3 s value.
 function vec3s(data, offset)
   bspShortVectorDataHolder = data
   bspShortVectorOffset = offset
@@ -57,6 +62,7 @@ function vec3s(data, offset)
   return ft.Vec3(bspShortVectorX, bspShortVectorY, bspShortVectorZ)
 end function
 
+// Parse planes.
 function parsePlanes(data, lump)
   bspPlaneDataHolder = data
   bspPlaneLumpHolder = lump
@@ -78,6 +84,7 @@ function parsePlanes(data, lump)
   return bspPlaneRecords
 end function
 
+// Parse vertices.
 function parseVertices(data, lump)
   bspVertexDataHolder = data
   bspVertexLumpHolder = lump
@@ -96,6 +103,7 @@ function parseVertices(data, lump)
   return bspVertexRecords
 end function
 
+// Parse visibility.
 function parseVisibility(data, lump)
   bspVisibilityDataHolder = data
   bspVisibilityLumpHolder = lump
@@ -133,6 +141,7 @@ function parseVisibility(data, lump)
   return bspVisibilityRecord
 end function
 
+// Decompress visibility.
 function decompressVisibility(visibility, cluster, kind)
   if cluster < 0 or cluster >= visibility.numClusters then return error(2208, "visibility cluster outside table") end if
   bspDecompressVisibilityHolder = visibility
@@ -159,6 +168,7 @@ function decompressVisibility(visibility, cluster, kind)
   return bspVisibilityRowResult
 end function
 
+// Parse nodes.
 function parseNodes(data, lump)
   bspNodeDataHolder = data
   bspNodeLumpHolder = lump
@@ -186,6 +196,7 @@ function parseNodes(data, lump)
   return bspNodeRecords
 end function
 
+// Parse tex info.
 function parseTexInfo(data, lump)
   bspTexInfoDataHolder = data
   bspTexInfoLumpHolder = lump
@@ -214,6 +225,7 @@ function parseTexInfo(data, lump)
   return bspTexInfoRecords
 end function
 
+// Parse faces.
 function parseFaces(data, lump)
   bspFaceDataHolder = data
   bspFaceLumpHolder = lump
@@ -239,6 +251,7 @@ function parseFaces(data, lump)
   return bspFaceRecords
 end function
 
+// Parse leafs.
 function parseLeafs(data, lump)
   bspLeafDataHolder = data
   bspLeafLumpHolder = lump
@@ -268,6 +281,7 @@ function parseLeafs(data, lump)
   return bspLeafRecords
 end function
 
+// Parse u 16 array.
 function parseU16Array(data, lump, name)
   bspU16DataHolder = data
   bspU16LumpHolder = lump
@@ -281,6 +295,7 @@ function parseU16Array(data, lump, name)
   return bspU16Values
 end function
 
+// Parse i 32 array.
 function parseI32Array(data, lump, name)
   bspI32DataHolder = data
   bspI32LumpHolder = lump
@@ -294,6 +309,7 @@ function parseI32Array(data, lump, name)
   return bspI32Values
 end function
 
+// Parse edges.
 function parseEdges(data, lump)
   bspEdgeDataHolder = data
   bspEdgeLumpHolder = lump
@@ -311,6 +327,7 @@ function parseEdges(data, lump)
   return bspEdgeRecords
 end function
 
+// Parse models.
 function parseModels(data, lump)
   bspModelDataHolder = data
   bspModelLumpHolder = lump
@@ -339,6 +356,7 @@ function parseModels(data, lump)
   return bspModelRecords
 end function
 
+// Parse brushes.
 function parseBrushes(data, lump)
   bspBrushDataHolder = data
   bspBrushLumpHolder = lump
@@ -357,6 +375,7 @@ function parseBrushes(data, lump)
   return bspBrushRecords
 end function
 
+// Parse brush sides.
 function parseBrushSides(data, lump)
   bspBrushSideDataHolder = data
   bspBrushSideLumpHolder = lump
@@ -374,6 +393,7 @@ function parseBrushSides(data, lump)
   return bspBrushSideRecords
 end function
 
+// Parse areas.
 function parseAreas(data, lump)
   bspAreaDataHolder = data
   bspAreaLumpHolder = lump
@@ -391,6 +411,7 @@ function parseAreas(data, lump)
   return bspAreaRecords
 end function
 
+// Parse area portals.
 function parseAreaPortals(data, lump)
   bspAreaPortalDataHolder = data
   bspAreaPortalLumpHolder = lump
@@ -408,6 +429,7 @@ function parseAreaPortals(data, lump)
   return bspAreaPortalRecords
 end function
 
+// Validate references.
 function validateReferences(bspMapToValidate)
   bspValidatedMapHolder = bspMapToValidate
   if typeof(bspValidatedMapHolder) != "struct" then return error(2215, "BSP map record required") end if
@@ -467,6 +489,7 @@ function validateReferences(bspMapToValidate)
   return true
 end function
 
+// Parse state.
 function parse(data, name)
   bspParseDataHolder = data
   bspParseMapNameHolder = name

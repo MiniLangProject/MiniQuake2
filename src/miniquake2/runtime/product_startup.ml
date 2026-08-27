@@ -17,11 +17,13 @@ const MAX_BROWSER_SERVERS = 8
 const BROWSER_MSEC = 1200
 const PREFERENCES_HEADER = "MiniQuake2Multiplayer 1"
 
+// Store endpoint data.
 struct Endpoint
   address
   port
 end struct
 
+// Store server entry data.
 struct ServerEntry
   endpoint
   description
@@ -29,6 +31,7 @@ struct ServerEntry
   responseTime
 end struct
 
+// Store server browser data.
 struct ServerBrowser
   socket
   entries
@@ -37,6 +40,7 @@ struct ServerBrowser
   active
 end struct
 
+// Store player profile data.
 struct PlayerProfile
   name
   model
@@ -45,6 +49,7 @@ struct PlayerProfile
   rate
 end struct
 
+// Store download policy data.
 struct DownloadPolicy
   allow
   maps
@@ -53,6 +58,7 @@ struct DownloadPolicy
   sounds
 end struct
 
+// Store server options data.
 struct ServerOptions
   mapName
   hostname
@@ -63,6 +69,7 @@ struct ServerOptions
   dmFlags
 end struct
 
+// Store product lifecycle data.
 struct ProductLifecycle
   dataRoot
   phase
@@ -71,12 +78,14 @@ struct ProductLifecycle
   generation
 end struct
 
+// Store multiplayer preferences data.
 struct MultiplayerPreferences
   profile
   downloads
   addresses
 end struct
 
+// Report whether retail root valid.
 function retailRootValid(root)
   if typeof(root) != "string" or root == "" then return false end if
   base = productfs.joinPath(root, "baseq2")
@@ -86,12 +95,14 @@ function retailRootValid(root)
   return size is not error and size >= 12
 end function
 
+// Return the standard retail candidates value.
 function standardRetailCandidates()
   return [".", "..\\Quake 2", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Quake 2",
     "C:\\Program Files\\Steam\\steamapps\\common\\Quake 2",
     "C:\\GOG Games\\Quake II"]
 end function
 
+// Load selected root.
 function loadSelectedRoot(path)
   if typeof(path) != "string" or path == "" or not productfs.isFile(path) then return "" end if
   value = try(productfs.readAllText(path))
@@ -101,6 +112,7 @@ function loadSelectedRoot(path)
   return ""
 end function
 
+// Persist selected root.
 function persistSelectedRoot(path, root)
   if typeof(path) != "string" or path == "" then return error(9944, "data-root selection path is missing") end if
   if not retailRootValid(root) then return error(9945, "selected Quake II data root has no valid baseq2/pak0.pak") end if
@@ -111,6 +123,7 @@ function persistSelectedRoot(path, root)
   return productfs.moveFile(temporary, path, true)
 end function
 
+// Discover retail root.
 function discoverRetailRoot(selectionPath, candidates)
   selected = loadSelectedRoot(selectionPath)
   if selected != "" then return selected end if
@@ -121,6 +134,7 @@ function discoverRetailRoot(selectionPath, candidates)
   return error(9947, "Quake II retail data not found; use --data-root ROOT once or place baseq2 beside MiniQuake2")
 end function
 
+// Parse port.
 function parsePort(value)
   if typeof(value) != "string" or value == "" then return error(9958, "server port is empty") end if
   number = try(toNumber(value))
@@ -130,6 +144,7 @@ function parsePort(value)
   return number
 end function
 
+// Parse endpoint.
 function parseEndpoint(value)
   if typeof(value) != "string" or value == "" or len(bytes(value)) > 63 then
     return error(9957, "server endpoint is invalid")
@@ -169,14 +184,17 @@ function parseEndpoint(value)
   return Endpoint(resolvedAddress, port)
 end function
 
+// Return the endpoint text value.
 function endpointText(endpoint)
   return endpoint.address + ":" + endpoint.port
 end function
 
+// Create browser.
 function createBrowser()
   return ServerBrowser(void, array(MAX_BROWSER_SERVERS), 0, 0, false)
 end function
 
+// Return the browser entry count.
 function browserEntryCount(browser)
   count = 0
   while count < len(browser.entries) and browser.entries[count] is not void
@@ -185,6 +203,7 @@ function browserEntryCount(browser)
   return count
 end function
 
+// Add browser entry.
 function addBrowserEntry(browser, endpoint, description, now)
   count = browserEntryCount(browser)
   text = endpointText(endpoint)
@@ -204,6 +223,7 @@ function addBrowserEntry(browser, endpoint, description, now)
   return entry
 end function
 
+// Start browser.
 function startBrowser(browser, addresses, now)
   if browser.active then productudp.close(browser.socket) end if
   browser.entries = array(MAX_BROWSER_SERVERS)
@@ -229,6 +249,7 @@ function startBrowser(browser, addresses, now)
   return true
 end function
 
+// Pump browser.
 function pumpBrowser(browser, now)
   if not browser.active then return 0 end if
   received = 0
@@ -247,15 +268,18 @@ function pumpBrowser(browser, now)
   return received
 end function
 
+// Close browser.
 function closeBrowser(browser)
   if browser.active then productudp.close(browser.socket); browser.active = false; return true end if
   return false
 end function
 
+// Return the default player profile value.
 function defaultPlayerProfile()
   return PlayerProfile("MiniQuake2", "male", "grunt", 0, 25000)
 end function
 
+// Report whether player profile valid.
 function playerProfileValid(profile)
   return typeof(profile) == "struct" and productinfo.componentValid(profile.name) and
     profile.name != "" and len(bytes(profile.name)) <= 15 and
@@ -265,6 +289,7 @@ function playerProfileValid(profile)
     typeof(profile.rate) == "int" and profile.rate >= 2500 and profile.rate <= 100000
 end function
 
+// Return the player user info value.
 function playerUserInfo(profile)
   if not playerProfileValid(profile) then return error(9959, "player profile is invalid") end if
   value = ""
@@ -275,15 +300,18 @@ function playerUserInfo(profile)
   return value
 end function
 
+// Return the default download policy value.
 function defaultDownloadPolicy()
   return DownloadPolicy(true, true, true, true, true)
 end function
 
+// Return the default preferences value.
 function defaultPreferences()
   return MultiplayerPreferences(defaultPlayerProfile(),
     defaultDownloadPolicy(), ["127.0.0.1:27910", "", "", "", "", "", "", ""])
 end function
 
+// Return the preference text safe value.
 function preferenceTextSafe(value, maximum)
   if typeof(value) != "string" or len(bytes(value)) > maximum then return false end if
   for each preferenceByte in bytes(value)
@@ -292,6 +320,7 @@ function preferenceTextSafe(value, maximum)
   return true
 end function
 
+// Report whether preferences valid.
 function preferencesValid(preferences)
   if typeof(preferences) != "struct" or
       not playerProfileValid(preferences.profile) or
@@ -315,11 +344,13 @@ function preferencesValid(preferences)
   return true
 end function
 
+// Return the preference bool value.
 function preferenceBool(value)
   if value then return 1 end if
   return 0
 end function
 
+// Encode preferences.
 function encodePreferences(preferences)
   if not preferencesValid(preferences) then return error(9970, "multiplayer preferences are invalid") end if
   value = PREFERENCES_HEADER + "\n" +
@@ -342,6 +373,7 @@ function encodePreferences(preferences)
   return value
 end function
 
+// Return the preference line value.
 function preferenceLine(lines, index, prefix)
   if index < 0 or index >= len(lines) or
       not producttext.startsWith(lines[index], prefix) then
@@ -352,6 +384,7 @@ function preferenceLine(lines, index, prefix)
   return decode(slice(bytes(lines[index]), len(bytes(prefix)), count))
 end function
 
+// Return the preference integer value.
 function preferenceInteger(value, minimum, maximum)
   parsed = try(toNumber(value))
   if parsed is error or typeof(parsed) != "int" or parsed < minimum or
@@ -359,10 +392,12 @@ function preferenceInteger(value, minimum, maximum)
   return parsed
 end function
 
+// Return the preference boolean value.
 function preferenceBoolean(value)
   return preferenceInteger(value, 0, 1) != 0
 end function
 
+// Decode preferences.
 function decodePreferences(text)
   if typeof(text) != "string" or len(bytes(text)) > 4096 then return error(9973, "multiplayer preferences are empty or too large") end if
   lines = productstring.split(productstring.trim(text), "\n")
@@ -391,12 +426,14 @@ function decodePreferences(text)
   return preferences
 end function
 
+// Load preferences.
 function loadPreferences(path)
   if typeof(path) != "string" or path == "" then return error(9974, "multiplayer preference path is missing") end if
   if not productfs.isFile(path) then return defaultPreferences() end if
   return decodePreferences(productfs.readAllText(path))
 end function
 
+// Save preferences.
 function savePreferences(path, preferences)
   if typeof(path) != "string" or path == "" then return error(9974, "multiplayer preference path is missing") end if
   encoded = encodePreferences(preferences)
@@ -407,15 +444,18 @@ function savePreferences(path, preferences)
   return productfs.moveFile(temporary, path, true)
 end function
 
+// Return the default server options value.
 function defaultServerOptions()
   return ServerOptions("q2dm1", "MiniQuake2", false, 8, 0, 0, 0)
 end function
 
+// Create lifecycle.
 function createLifecycle(dataRoot)
   if not retailRootValid(dataRoot) then return error(9960, "product lifecycle requires valid retail data") end if
   return ProductLifecycle(dataRoot, "menu", "", "", 1)
 end function
 
+// Begin local.
 function beginLocal(lifecycle, mapName)
   if lifecycle.phase != "menu" and lifecycle.phase != "disconnected" then return error(9961, "local session transition requires menu state") end if
   lifecycle.phase = "loading"
@@ -425,6 +465,7 @@ function beginLocal(lifecycle, mapName)
   return true
 end function
 
+// Begin connect.
 function beginConnect(lifecycle, endpoint)
   if lifecycle.phase != "menu" and lifecycle.phase != "disconnected" then return error(9961, "connect transition requires menu state") end if
   parsed = parseEndpoint(endpoint)
@@ -435,6 +476,7 @@ function beginConnect(lifecycle, endpoint)
   return true
 end function
 
+// Activate state.
 function activate(lifecycle, mapName)
   if lifecycle.phase != "loading" and lifecycle.phase != "connecting" then return error(9962, "activation requires a pending session") end if
   lifecycle.phase = "active"
@@ -442,6 +484,7 @@ function activate(lifecycle, mapName)
   return true
 end function
 
+// Return the disconnect value.
 function disconnect(lifecycle)
   if lifecycle.phase == "menu" or lifecycle.phase == "disconnected" then return false end if
   lifecycle.phase = "disconnected"
@@ -450,6 +493,7 @@ function disconnect(lifecycle)
   return true
 end function
 
+// Return to menu.
 function returnToMenu(lifecycle)
   if lifecycle.phase != "disconnected" then return error(9963, "menu return requires disconnected state") end if
   lifecycle.phase = "menu"

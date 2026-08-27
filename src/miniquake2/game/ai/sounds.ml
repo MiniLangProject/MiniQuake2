@@ -86,11 +86,13 @@ insaneSounds = ["insane/insane1.wav", "insane/insane2.wav", "insane/insane3.wav"
   "insane/insane7.wav", "insane/insane8.wav", "insane/insane9.wav",
   "insane/insane10.wav", "insane/insane11.wav", "misc/udeath.wav"]
 
+// Report whether is soldier.
 function inline isSoldier(className)
   return className == "monster_soldier_light" or className == "monster_soldier" or
     className == "monster_soldier_ss"
 end function
 
+// Report whether has sight callback.
 function inline hasSightCallback(className)
   return className == "monster_berserk" or className == "monster_gladiator" or
     className == "monster_gunner" or className == "monster_infantry" or
@@ -103,6 +105,7 @@ function inline hasSightCallback(className)
     className == "monster_makron"
 end function
 
+// Report whether has search callback.
 function inline hasSearchCallback(className)
   return className == "monster_berserk" or className == "monster_gladiator" or
     className == "monster_gunner" or className == "monster_medic" or
@@ -111,15 +114,18 @@ function inline hasSearchCallback(className)
     className == "monster_boss2" or className == "monster_jorg"
 end function
 
+// Return the sight uses random value.
 function inline sightUsesRandom(className)
   return isSoldier(className)
 end function
 
+// Return the search uses random value.
 function inline searchUsesRandom(className)
   return className == "monster_hover" or className == "monster_supertank" or
     className == "monster_boss2" or className == "monster_jorg"
 end function
 
+// Return the sight name.
 function sightName(className, roll)
   if className == "monster_berserk" then return "berserk/sight.wav" end if
   if className == "monster_gladiator" then return "gladiator/sight.wav" end if
@@ -143,12 +149,14 @@ function sightName(className, roll)
   return ""
 end function
 
+// Return the sight channel value.
 function sightChannel(className)
   if className == "monster_infantry" then return soundconstants.CHAN_BODY end if
   if className == "monster_parasite" then return soundconstants.CHAN_WEAPON end if
   return soundconstants.CHAN_VOICE
 end function
 
+// Return the search name.
 function searchName(className, roll)
   if className == "monster_berserk" then return "berserk/bersrch1.wav" end if
   if className == "monster_gladiator" then return "gladiator/gldsrch1.wav" end if
@@ -176,12 +184,14 @@ function searchName(className, roll)
   return ""
 end function
 
+// Return the search attenuation value.
 function searchAttenuation(className)
   if className == "monster_boss2" then return soundconstants.ATTN_NONE end if
   if className == "monster_medic" then return soundconstants.ATTN_IDLE end if
   return soundconstants.ATTN_NORM
 end function
 
+// Return the stock names value.
 function stockNames(className)
   if className == "monster_berserk" then return berserkSounds end if
   if className == "monster_gladiator" then return gladiatorSounds end if

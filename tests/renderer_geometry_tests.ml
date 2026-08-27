@@ -6,10 +6,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.format.types as ft
 import miniquake2.renderer.geometry as rgeom
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7970, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Verify bsp fan.
 function testBspFan()
   vertices = [
     ft.BspVertex(ft.Vec3(0.0, 0.0, 0.0)),
@@ -29,6 +31,7 @@ function testBspFan()
   assertEqual(mesh.vertices[2].t, 8.0, "texture projection")
 end function
 
+// Verify md 2 interpolation.
 function testMd2Interpolation()
   scale = ft.Vec3(1.0, 1.0, 1.0)
   zero = ft.Vec3(0.0, 0.0, 0.0)

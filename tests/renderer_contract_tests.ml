@@ -9,51 +9,64 @@ import miniquake2.renderer.types as t
 import miniquake2.renderer.validation as validation
 import miniquake2.renderer.recording as recording
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9950, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9951, name + ": expected true") end if
   return true
 end function
 
+// Report whether no result 0.
 function noResult0()
 end function
 
+// Report whether no result 1.
 function noResult1(a)
 end function
 
+// Report whether no result 2.
 function noResult2(a, b)
 end function
 
+// Report whether no result 3.
 function noResult3(a, b, c)
 end function
 
+// Report whether no result 4.
 function noResult4(a, b, c, d)
 end function
 
+// Return zero 0.
 function returnZero0()
   return 0
 end function
 
+// Report whether return empty 1.
 function returnEmpty1(a)
   return ""
 end function
 
+// Return void 1.
 function returnVoid1(a)
   return void
 end function
 
+// Return mode 1.
 function returnMode1(mode)
   return t.VideoModeInfo(false, 0, 0)
 end function
 
+// Create imports.
 function makeImports()
   return t.RefImport(noResult2, noResult2, noResult1, returnZero0, returnEmpty1, noResult2, noResult2, returnVoid1, noResult1, returnZero0, noResult3, noResult2, noResult2, returnMode1, noResult0, noResult2)
 end function
 
+// Return the populated frame value.
 function populatedFrame()
   zero = qtypes.zeroVec3()
   entity = t.entity(void, zero, qtypes.vec3(1.0, 2.0, 3.0), 2, zero, 1, 0.25, 4, 0, 0.75, void, c.RF_TRANSLUCENT)
@@ -62,6 +75,7 @@ function populatedFrame()
   return t.refDef(10, 20, 640, 480, 90.0, 73.0, zero, zero, [0.1, 0.2, 0.3, 0.4], 12.5, c.RDF_UNDERWATER, bytes([3]), t.defaultLightStyles(), [entity], [light], [particle])
 end function
 
+// Verify constants and types.
 function testConstantsAndTypes()
   assertEqual(c.API_VERSION, 3, "API version")
   assertEqual(c.MAX_DLIGHTS, 32, "dynamic light limit")
@@ -77,6 +91,7 @@ function testConstantsAndTypes()
   assertTrue(validation.validateRefDef(frame).valid, "valid populated refdef")
 end function
 
+// Verify validation failures.
 function testValidationFailures()
   frame = populatedFrame()
   frame.numEntities = 2
@@ -91,6 +106,7 @@ function testValidationFailures()
   assertEqual(validation.validateRefDef(frame).code, "particle.alpha", "invalid particle alpha code")
 end function
 
+// Verify api tables.
 function testApiTables()
   imports = makeImports()
   checked = validation.validateRefImport(imports)
@@ -110,6 +126,7 @@ function testApiTables()
   assertEqual(validation.validateRefExport(malformed).code, "export.version", "API mismatch rejected")
 end function
 
+// Verify recording renderer.
 function testRecordingRenderer()
   renderer = recording.createRecordingRenderer()
   api = renderer.exports
@@ -177,6 +194,7 @@ function testRecordingRenderer()
   assertEqual(recording.commandTrace(second), traceA, "deterministic replay trace")
 end function
 
+// Verify null renderer.
 function testNullRenderer()
   renderer = recording.createNullRenderer()
   api = renderer.exports
@@ -189,6 +207,7 @@ function testNullRenderer()
   api.Shutdown()
 end function
 
+// Verify lifecycle errors.
 function testLifecycleErrors()
   renderer = recording.createRecordingRenderer()
   beforeInit = try(renderer.exports.BeginFrame(0.0))

@@ -10,15 +10,18 @@ import miniquake2.qcommon.constants as asset_graph_qc
 import miniquake2.audio.wav as asset_graph_wav
 import miniquake2.renderer.recording as asset_graph_recording
 
+// Assert the asset graph test condition.
 function assetGraphAssert(value, name)
   if not value then return error(8440, name) end if
   return true
 end function
 
+// Return the asset graph sound loader value.
 function assetGraphSoundLoader(name)
   return asset_graph_wav.WavSound(name, 8000, 1, 1, 1, -1, bytes([128]))
 end function
 
+// Report whether asset graph missing.
 function assetGraphMissing(value)
   return true
 end function

@@ -27,26 +27,31 @@ rareCombatClear = false
 rareCombatNext = 0
 rareClockSeconds = 0
 
+// Assert the rare equal test condition.
 function rareAssertEqual(actual, expected, label)
   if actual != expected then return error(9993, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the rare near test condition.
 function rareAssertNear(actual, expected, tolerance, label)
   delta = actual - expected
   if delta < 0.0 then delta = -delta end if
   if delta > tolerance then return error(9994, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Resolve rare key.
 function rareResolveKey(itemClassName)
   if itemClassName == "key_data_cd" then return "Data CD" end if
   return void
 end function
 
+// Report whether rare has key.
 function rareHasKey(activator, itemClassName)
   global rareKeyCount
   return rareKeyCount > 0
 end function
 
+// Consume rare key.
 function rareConsumeKey(activator, itemClassName)
   global rareKeyCount
   if rareKeyCount <= 0 then return false end if
@@ -54,18 +59,21 @@ function rareConsumeKey(activator, itemClassName)
   return true
 end function
 
+// Return the rare center value.
 function rareCenter(entity, message)
   global rareCenterCount
   rareCenterCount = rareCenterCount + 1
   return true
 end function
 
+// Return the rare sound value.
 function rareSound(entity, soundName)
   global rareSoundCount
   rareSoundCount = rareSoundCount + 1
   return true
 end function
 
+// Set rare model.
 function rareSetModel(entity, modelName)
   global rareSetModelCount
   rareSetModelCount = rareSetModelCount + 1
@@ -73,6 +81,7 @@ function rareSetModel(entity, modelName)
   return true
 end function
 
+// Use rare display.
 function rareDisplayUse(entity, other, activator, world)
   global rareDisplayCount, rareLastDisplay
   rareDisplayCount = rareDisplayCount + 1
@@ -80,18 +89,21 @@ function rareDisplayUse(entity, other, activator, world)
   return true
 end function
 
+// Use rare target.
 function rareTargetUse(entity, other, activator, world)
   global rareTargetUseCount
   rareTargetUseCount = rareTargetUseCount + 1
   return true
 end function
 
+// Return the rare actor message value.
 function rareActorMessage(actor, message)
   global rareActorMessageCount
   rareActorMessageCount = rareActorMessageCount + 1
   return true
 end function
 
+// Return the rare actor transition value.
 function rareActorTransition(actor, waypoint, action, actionTarget, nextTarget, wait, flags)
   global rareActorAction, rareActorNext
   rareActorAction = action
@@ -100,6 +112,7 @@ function rareActorTransition(actor, waypoint, action, actionTarget, nextTarget, 
   return true
 end function
 
+// Return the rare combat transition value.
 function rareCombatTransition(actor, point, nextTarget, hold, clearCombatPoint)
   global rareCombatHold, rareCombatClear, rareCombatNext
   rareCombatHold = hold
@@ -109,11 +122,13 @@ function rareCombatTransition(actor, point, nextTarget, hold, clearCombatPoint)
   return true
 end function
 
+// Return the rare time of day value.
 function rareTimeOfDay()
   global rareClockSeconds
   return rareClockSeconds
 end function
 
+// Return the rare world value.
 function rareWorld()
   callbacks = rareworldcore.defaultCallbacks()
   callbacks.resolveKeyItem = rareResolveKey
@@ -129,6 +144,7 @@ function rareWorld()
   return rareworldcore.createWorld(callbacks)
 end function
 
+// Verify target string and characters.
 function testTargetStringAndCharacters()
   global rareSetModelCount
   rareSetModelCount = 0
@@ -162,6 +178,7 @@ function testTargetStringAndCharacters()
   rareAssertEqual(typeof(try(rareworldmisc.useTargetString(stringTarget, void, void, world))), "error", "target_string team cycle rejected")
 end function
 
+// Verify clock state machine.
 function testClockStateMachine()
   global rareDisplayCount, rareLastDisplay, rareTargetUseCount, rareClockSeconds
   rareDisplayCount = 0; rareLastDisplay = ""; rareTargetUseCount = 0
@@ -211,6 +228,7 @@ function testClockStateMachine()
   rareAssertEqual(rareworldmisc.spawnWorldClock(down, dayWorld), false, "countdown missing count rejected")
 end function
 
+// Verify trigger key.
 function testTriggerKey()
   global rareKeyCount, rareCenterCount, rareSoundCount, rareTargetUseCount
   rareKeyCount = 0; rareCenterCount = 0; rareSoundCount = 0; rareTargetUseCount = 0
@@ -239,6 +257,7 @@ function testTriggerKey()
   rareAssertEqual(rareworldtriggers.spawnKey(invalid, world), false, "unknown key rejected")
 end function
 
+// Verify target actor and combat point.
 function testTargetActorAndCombatPoint()
   global rareActorMessageCount, rareActorAction, rareActorNext
   global rareCombatHold, rareCombatClear, rareCombatNext, rareTargetUseCount
@@ -312,6 +331,7 @@ function testTargetActorAndCombatPoint()
   rareAssertEqual(deathmatchPoint.inUse, false, "deathmatch point_combat removed")
 end function
 
+// Verify elevator.
 function testElevator()
   world = rareWorld()
   corner = rareworldcore.spawnEntity(world, "path_corner")
@@ -338,6 +358,7 @@ function testElevator()
   rareAssertEqual(bad.use is void, true, "bad elevator remains disabled")
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   testTargetStringAndCharacters()
   testClockStateMachine()

@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 */
 package miniquake2.network.types
 
+// Store connectionless request data.
 struct ConnectionlessRequest
   command
   arguments
@@ -12,6 +13,7 @@ struct ConnectionlessRequest
   remainder
 end struct
 
+// Store network action data.
 struct NetworkAction
   kind
   address
@@ -20,6 +22,7 @@ struct NetworkAction
   text
 end struct
 
+// Store handle result data.
 struct HandleResult
   accepted
   slot
@@ -28,12 +31,14 @@ struct HandleResult
   payload
 end struct
 
+// Store challenge data.
 struct Challenge
   address
   value
   time
 end struct
 
+// Store frame data.
 struct Frame
   valid
   serverFrame
@@ -45,6 +50,7 @@ struct Frame
   entities
 end struct
 
+// Store server client data.
 struct ServerClient
   slot
   state
@@ -67,6 +73,7 @@ struct ServerClient
   messageSizes
 end struct
 
+// Store server state data.
 struct ServerState
   realTime
   hostname
@@ -85,6 +92,7 @@ struct ServerState
   challengeSeed
 end struct
 
+// Store client state data.
 struct ClientState
   state
   serverName
@@ -103,10 +111,12 @@ struct ClientState
   lastInfo
 end struct
 
+// Return the action value.
 function action(kind, address, data, slot, text)
   return NetworkAction(kind, address, data, slot, text)
 end function
 
+// Return the result value.
 function result(accepted, slot, actions, message, payload)
   return HandleResult(accepted, slot, actions, message, payload)
 end function

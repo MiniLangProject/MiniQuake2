@@ -23,14 +23,17 @@ import miniquake2.renderer.opengl as retailcapturegl
 import miniquake2.renderer.capture as retailcaptureimage
 import miniquake2.physics.vector as retailcapturevector
 
+// Store retail capture file system slot data.
 struct RetailCaptureFileSystemSlot
   filesystem
 end struct
 
+// Store retail capture file imports data.
 struct RetailCaptureFileImports
   fsLoadFile
 end struct
 
+// Store retail capture result data.
 struct RetailCaptureResult
   mapName
   mapPath
@@ -56,6 +59,7 @@ end struct
 
 retailCaptureFileSystemSlot = RetailCaptureFileSystemSlot(void)
 
+// Capture retail load file.
 function retailCaptureLoadFile(path)
   slot = retailCaptureFileSystemSlot
   filesystem = slot.filesystem
@@ -63,6 +67,7 @@ function retailCaptureLoadFile(path)
   return retailcapturefs.readFile(filesystem, path)
 end function
 
+// Capture retail ends with.
 function retailCaptureEndsWith(value, suffix)
   left = bytes(retailcapturetext.lower(value)); right = bytes(retailcapturetext.lower(suffix))
   leftLength = len(left); rightLength = len(right)
@@ -75,6 +80,7 @@ function retailCaptureEndsWith(value, suffix)
   return true
 end function
 
+// Capture retail map path.
 function retailCaptureMapPath(name)
   if typeof(name) != "string" or name == "" then return error(9941, "retail capture map name required") end if
   result = name
@@ -84,12 +90,14 @@ function retailCaptureMapPath(name)
   return result
 end function
 
+// Report whether retail capture is inline model.
 function retailCaptureIsInlineModel(name)
   if typeof(name) != "string" then return false end if
   encoded = bytes(name)
   return len(encoded) > 1 and encoded[0] == 42
 end function
 
+// Capture retail default camera.
 function retailCaptureDefaultCamera(materialized)
   originResult = retailcaptureqtypes.Vec3(0.0, 0.0, 32.0)
   anglesResult = retailcaptureqtypes.zeroVec3()
@@ -108,6 +116,7 @@ function retailCaptureDefaultCamera(materialized)
   return result
 end function
 
+// Capture retail inline entities.
 function retailCaptureInlineEntities(renderer, materialized, fileImports, output, count)
   index = 0
   while index < len(materialized) and count < retailcapturerc.MAX_ENTITIES
@@ -131,6 +140,7 @@ function retailCaptureInlineEntities(renderer, materialized, fileImports, output
   return count
 end function
 
+// Capture retail md 2 entity.
 function retailCaptureMd2Entity(renderer, modelName, viewOrigin, viewAngles)
   handle = retailcapturegl.registerMd2Model(renderer, modelName, retailCaptureLoadFile)
   axes = retailcapturevector.angleVectors(viewAngles)

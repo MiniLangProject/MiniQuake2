@@ -12,11 +12,13 @@ import miniquake2.format.constants as bspgraphconstants
 import miniquake2.format.types as bspgraphtypes
 import miniquake2.collision.model as bspgraphcollision
 
+// Assert the bsp graph test condition.
 function bspGraphAssert(value, message)
   if not value then return error(9898, message) end if
   return true
 end function
 
+// Validate bsp graph model.
 function bspGraphValidateModel(bspGraphModelHolder, bspGraphLabel)
   bspGraphAssert(typeof(bspGraphModelHolder) == "struct" and typeof(bspGraphModelHolder.map) == "struct",
     bspGraphLabel + ": collision map lost")
@@ -47,6 +49,7 @@ function bspGraphValidateModel(bspGraphModelHolder, bspGraphLabel)
   return true
 end function
 
+// Return the bsp graph retail retention value.
 function bspGraphRetailRetention(root)
   // Referencing all three roots prevents the compiler from reducing this to
   // the isolated format/collision graph that did not reproduce Product39.
@@ -81,6 +84,7 @@ function bspGraphRetailRetention(root)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) == 0 then
     print "collision_bsp_product_graph_retention_tests: SKIP (no retail root)"

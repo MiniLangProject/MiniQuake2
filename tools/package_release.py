@@ -21,6 +21,7 @@ EXPECTED_DLLS = {
 
 
 def digest(path: Path) -> str:
+    """Return the digest value."""
     value = hashlib.sha256()
     with path.open("rb") as handle:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
@@ -29,6 +30,7 @@ def digest(path: Path) -> str:
 
 
 def safe_name(name: str) -> None:
+    """Return the safe name."""
     path = PurePosixPath(name)
     if path.is_absolute() or ".." in path.parts:
         raise ValueError(f"unsafe archive path: {name}")
@@ -39,6 +41,7 @@ def safe_name(name: str) -> None:
 
 
 def add_file(archive: zipfile.ZipFile, source: Path, name: str) -> None:
+    """Add file."""
     safe_name(name)
     info = zipfile.ZipInfo(name, EPOCH)
     info.compress_type = zipfile.ZIP_DEFLATED
@@ -47,6 +50,7 @@ def add_file(archive: zipfile.ZipFile, source: Path, name: str) -> None:
 
 
 def write_archive(destination: Path, entries: list[tuple[Path, str]]) -> None:
+    """Write archive."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_suffix(destination.suffix + ".tmp")
     with zipfile.ZipFile(temporary, "w", allowZip64=True) as archive:
@@ -56,6 +60,7 @@ def write_archive(destination: Path, entries: list[tuple[Path, str]]) -> None:
 
 
 def maintained_sources(root: Path) -> list[tuple[Path, str]]:
+    """Return the maintained sources value."""
     entries: list[tuple[Path, str]] = []
     excluded = {"build", "build_debug", ".git", ".pytest_cache", "__pycache__", "Quake-2-original-source"}
     for path in root.rglob("*"):
@@ -83,6 +88,7 @@ def maintained_sources(root: Path) -> list[tuple[Path, str]]:
 
 
 def verify_archive(path: Path) -> None:
+    """Verify archive."""
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         if len(names) != len(set(names)):
@@ -94,6 +100,7 @@ def verify_archive(path: Path) -> None:
 
 
 def main() -> int:
+    """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--version", default="0.5.0-foundation")

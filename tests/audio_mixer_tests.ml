@@ -8,10 +8,12 @@ import miniquake2.qcommon.byteio as tbio
 import miniquake2.audio.wav as awav
 import miniquake2.audio.mixer as amix
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7996, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Return the mono wav value.
 function monoWav()
   data = bytes(48)
   tbio.copyInto(data, 0, bytes("RIFF"), 0, 4); tbio.putU32(data, 4, 40)

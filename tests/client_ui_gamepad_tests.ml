@@ -4,6 +4,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 */
 import miniquake2.client.ui.gamepad as gamepadtest
 
+// Assert the gamepad test condition.
 function gamepadAssert(actual, expected, label)
   if actual != expected then return error(9971, label + ": expected " + expected + ", got " + actual) end if
 end function

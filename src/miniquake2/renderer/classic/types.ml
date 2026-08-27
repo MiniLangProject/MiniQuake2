@@ -7,6 +7,7 @@ package miniquake2.renderer.classic.types
 
 import miniquake2.format.types as ft
 
+// Store classic image data.
 struct ClassicImage
   name
   width
@@ -18,6 +19,7 @@ struct ClassicImage
   animationName
 end struct
 
+// Store surface vertex data.
 struct SurfaceVertex
   position
   s
@@ -26,6 +28,7 @@ struct SurfaceVertex
   lightT
 end struct
 
+// Store classic surface data.
 struct ClassicSurface
   index
   face
@@ -47,6 +50,7 @@ struct ClassicSurface
   cachedLight
 end struct
 
+// Store classic point light data.
 struct ClassicPointLight
   red
   green
@@ -57,17 +61,20 @@ struct ClassicPointLight
   validSpot
 end struct
 
+// Store texture chain data.
 struct TextureChain
   imageName
   surfaces
 end struct
 
+// Store sprite vertex data.
 struct SpriteVertex
   position
   s
   t
 end struct
 
+// Store sprite draw data.
 struct SpriteDraw
   frameIndex
   imageName
@@ -77,6 +84,7 @@ struct SpriteDraw
   alphaTest
 end struct
 
+// Store classic scene data.
 struct ClassicScene
   surfaces
   textureChains
@@ -128,6 +136,7 @@ struct ClassicWorldDraw
   planeSide
 end struct
 
+// Store classic sky box data.
 struct ClassicSkyBox
   name
   rotate
@@ -153,6 +162,7 @@ struct ClassicBrushModel
   draws
 end struct
 
+// Store classic brush submission data.
 struct ClassicBrushSubmission
   entity
   brushModel
@@ -160,12 +170,14 @@ struct ClassicBrushSubmission
   dynamicLightmaps
 end struct
 
+// Store classic brush lightmap data.
 struct ClassicBrushLightmap
   draw
   rgbaPixels
   dirty
 end struct
 
+// Store classic brush frame plan data.
 struct ClassicBrushFramePlan
   submissions
   culledEntities
@@ -174,6 +186,7 @@ struct ClassicBrushFramePlan
   dirtyLightmaps
 end struct
 
+// Store classic transparent draw data.
 struct ClassicTransparentDraw
   draw
   entity
@@ -181,6 +194,7 @@ struct ClassicTransparentDraw
   distanceSquared
 end struct
 
+// Store classic world data.
 struct ClassicWorld
   name
   generation
@@ -202,6 +216,7 @@ struct ClassicWorld
   pointEndZStack
 end struct
 
+// Store classic visibility selection data.
 struct ClassicVisibilitySelection
   draws
   viewLeaf
@@ -221,6 +236,7 @@ struct ClassicSpecialPassPlan
   transparentDraws
 end struct
 
+// Store classic submit stats data.
 struct ClassicSubmitStats
   surfaces
   triangles
@@ -244,10 +260,12 @@ struct ClassicSubmitStats
   transparentDraws
 end struct
 
+// Return the fallback image value.
 function fallbackImage(name)
   return ClassicImage(name, 64, 64, bytes(0), bytes(0), bytes(0), 0, "")
 end function
 
+// Return the surface vertex value.
 function surfaceVertex(position, s, t, lightS, lightT)
   return SurfaceVertex(ft.Vec3(position.x, position.y, position.z), s, t, lightS, lightT)
 end function

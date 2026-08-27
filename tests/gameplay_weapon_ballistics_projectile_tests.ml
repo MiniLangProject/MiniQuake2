@@ -26,10 +26,12 @@ damageMeans = []
 links = []
 frees = []
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9975, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -37,11 +39,13 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Create trace.
 function makeTrace(fraction, endPosition, entity, flags)
   plane = qt.Plane(qt.Vec3(-1.0, 0.0, 0.0), 0.0, 0, 0)
   surface = qt.CollisionSurface("wall", flags, 0)
   return qt.Trace(false, false, fraction, endPosition, plane, surface, 0, entity)
 end function
+// Trace callback.
 function traceCallback(start, mins, maxs, endPosition, ignore, mask)
   global traceMode, traceCalls, traceTarget
   traceCalls = traceCalls + 1
@@ -58,39 +62,50 @@ function traceCallback(start, mins, maxs, endPosition, ignore, mask)
   end if
   return makeTrace(1.0, endPosition, void, 0)
 end function
+// Return the contents callback value.
 function contentsCallback(point) return 0 end function
+// Return the damage callback value.
 function damageCallback(target, request)
   global damageMeans
   damageMeans = damageMeans + [request.meansOfDeath]
   return gpcombat.T_Damage(target, request)
 end function
+// Report whether can damage callback.
 function canDamageCallback(target, origin) return true end function
+// Return the radius targets callback value.
 function radiusTargetsCallback(origin, radius)
   global radiusTargets
   return radiusTargets
 end function
+// Return the effect callback value.
 function effectCallback(effect)
   global effects
   effects = effects + [[effect.kind, effect.style, effect.directionIndex]]
   return true
 end function
+// Return the sound callback value.
 function soundCallback(entity, soundName)
   global sounds
   sounds = sounds + [soundName]
   return true
 end function
+// Link callback.
 function linkCallback(entity)
   global links
   links = links + [entity.number]
   return true
 end function
+// Release callback.
 function freeCallback(entity)
   global frees
   frees = frees + [entity.number]
   return true
 end function
+// Return the noise callback value.
 function noiseCallback(owner, position, kind) return true end function
+// Return the dodge callback value.
 function dodgeCallback(owner, start, direction, speed) return true end function
+// Return the random callback value.
 function randomCallback()
   global randomValues, randomOffset
   value = randomValues[randomOffset]
@@ -98,6 +113,7 @@ function randomCallback()
   return value
 end function
 
+// Create context.
 function makeContext()
   callbacks = wbtypes.WeaponCallbacks(
     traceCallback, contentsCallback, damageCallback, canDamageCallback,
@@ -106,6 +122,7 @@ function makeContext()
   )
   return wbcore.createContext(callbacks)
 end function
+// Reset state.
 function reset()
   global radiusTargets, randomValues, randomOffset, traceMode, traceCalls, traceTarget
   global effects, sounds, damageMeans, links, frees
@@ -114,6 +131,7 @@ function reset()
   effects = []; sounds = []; damageMeans = []; links = []; frees = []
 end function
 
+// Verify blaster touch and lifetime.
 function testBlasterTouchAndLifetime()
   reset()
   context = makeContext()
@@ -141,6 +159,7 @@ function testBlasterTouchAndLifetime()
   return true
 end function
 
+// Verify grenade bounce direct splash and timer.
 function testGrenadeBounceDirectSplashAndTimer()
   reset()
   context = makeContext()
@@ -191,6 +210,7 @@ function testGrenadeBounceDirectSplashAndTimer()
   return true
 end function
 
+// Verify rocket direct splash and sky.
 function testRocketDirectSplashAndSky()
   reset()
   context = makeContext()
@@ -214,6 +234,7 @@ function testRocketDirectSplashAndSky()
   return true
 end function
 
+// Verify bfg laser touch effect frames.
 function testBfgLaserTouchEffectFrames()
   reset()
   context = makeContext()
@@ -259,6 +280,7 @@ function testBfgLaserTouchEffectFrames()
   return true
 end function
 
+// Advance hand to frame.
 function advanceHandToFrame(context, state, targetFrame, start, direction)
   guard = 0
   while state.gunFrame < targetFrame and guard < 64
@@ -269,6 +291,7 @@ function advanceHandToFrame(context, state, targetFrame, start, direction)
   return guard
 end function
 
+// Verify hand grenade cook and release.
 function testHandGrenadeCookAndRelease()
   reset()
   context = makeContext()
@@ -310,6 +333,7 @@ function testHandGrenadeCookAndRelease()
   return true
 end function
 
+// Return the replay golden value.
 function replayGolden()
   reset()
   context = makeContext()
@@ -324,6 +348,7 @@ function replayGolden()
   return [velocity, direct.combatant.health, splash.combatant.health, damageMeans, effects]
 end function
 
+// Verify deterministic replay.
 function testDeterministicReplay()
   first = replayGolden()
   second = replayGolden()
@@ -331,6 +356,7 @@ function testDeterministicReplay()
   return true
 end function
 
+// Verify weapon vector gc hardening.
 function testWeaponVectorGcHardening()
   assertEqual(typeof(try(wbprojectilevector.copy(17))), "error", "weapon vector rejects scalar shape")
   assertEqual(typeof(try(wbprojectilevector.copy(wbtypes.createTarget(90, 1)))), "error", "weapon vector rejects non-Vec3 struct")

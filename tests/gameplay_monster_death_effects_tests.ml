@@ -16,11 +16,13 @@ import miniquake2.qcommon.constants as deatheffectqconstants
 import miniquake2.server.game_bridge as deatheffectbridge
 import std.fs as deatheffectfs
 
+// Assert the death effect test condition.
 function deathEffectAssert(value, message)
   if value != true then return error(9996, message) end if
   return true
 end function
 
+// Return the death effect spec count.
 function deathEffectSpecCount(specs)
   total = 0
   for each spec in specs
@@ -29,6 +31,7 @@ function deathEffectSpecCount(specs)
   return total
 end function
 
+// Return the death effect monster index.
 function deathEffectMonsterIndex(runtime, className)
   index = 0
   while index < len(runtime.monsters)
@@ -38,6 +41,7 @@ function deathEffectMonsterIndex(runtime, className)
   return -1
 end function
 
+// Return the death effect world gibs value.
 function deathEffectWorldGibs(runtime, onlyActive)
   count = 0
   for each entity in runtime.world.entities
@@ -46,6 +50,7 @@ function deathEffectWorldGibs(runtime, onlyActive)
   return count
 end function
 
+// Return the death effect model count.
 function deathEffectModelCount(runtime, modelName)
   count = 0
   for each entity in runtime.world.entities
@@ -56,6 +61,7 @@ end function
 
 deathEffectWaterEnabled = false
 
+// Return the death effect point contents value.
 function deathEffectPointContents(point)
   global deathEffectWaterEnabled
   if deathEffectWaterEnabled and point.x > 1500.0 then

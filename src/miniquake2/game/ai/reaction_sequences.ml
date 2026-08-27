@@ -7,6 +7,7 @@ package miniquake2.game.ai.reaction_sequences
 
 import miniquake2.game.constants as gaireactionconstants
 
+// Store monster reaction plan data.
 struct MonsterReactionPlan
   className
   name
@@ -94,12 +95,14 @@ gaiReactionMoveMakronDeath = [-15.0, 3.0, -12.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0, 0.0, 2.0, 0.0, 27.0, 26.0,
   0.0, 0.0, 0.0]
 
+// Return the reaction plan value.
 function reactionPlan(className, suffix, reactionKind, firstFrame, lastFrame,
     soundName, attenuation, terminalKind)
   return MonsterReactionPlan(className, className + "-" + suffix,
     reactionKind, firstFrame, lastFrame, soundName, attenuation, terminalKind)
 end function
 
+// Return the deterministic value.
 function deterministicValue(actorNumber, count, salt, modulus)
   if modulus <= 0 then return 0 end if
   value = actorNumber * 97 + count * 53 + salt * 31 + 17
@@ -107,18 +110,21 @@ function deterministicValue(actorNumber, count, salt, modulus)
   return value % modulus
 end function
 
+// Handle soldier sound.
 function soldierPainSound(className)
   if className == "monster_soldier_light" then return "soldier/solpain2.wav" end if
   if className == "monster_soldier_ss" then return "soldier/solpain3.wav" end if
   return "soldier/solpain1.wav"
 end function
 
+// Return the soldier death sound value.
 function soldierDeathSound(className)
   if className == "monster_soldier_light" then return "soldier/soldeth2.wav" end if
   if className == "monster_soldier_ss" then return "soldier/soldeth3.wav" end if
   return "soldier/soldeth1.wav"
 end function
 
+// Handle variant count.
 function painVariantCount(className)
   if className == "monster_berserk" then return 2 end if
   if className == "monster_gladiator" then return 2 end if
@@ -145,6 +151,7 @@ end function
 // Select the stock class-specific pain sequence from a zero-based variant.
 // Random selection stays with the caller, keeping this lookup deterministic.
 function painVariant(className, variant)
+  // Keep pain variant phases explicit: validate inputs, update owned state, then publish the result.
   if className == "monster_berserk" then
     if variant == 0 then return reactionPlan(className, "pain1", "pain", 199, 202, "berserk/berpain2.wav", 1, "run") end if
     if variant == 1 then return reactionPlan(className, "pain2", "pain", 203, 222, "berserk/berpain2.wav", 1, "run") end if
@@ -250,7 +257,9 @@ function painVariant(className, variant)
   return void
 end function
 
+// Select pain plan.
 function selectPainPlan(className, actorNumber, painCount, damage, skill)
+  // Keep select pain plan phases explicit: validate inputs, update owned state, then publish the result.
   if skill == 3 then return void end if
   variantCount = painVariantCount(className)
   if variantCount == 0 then return void end if
@@ -296,6 +305,7 @@ function selectPainPlan(className, actorNumber, painCount, damage, skill)
   return painVariant(className, deterministicValue(actorNumber, painCount, 149, variantCount))
 end function
 
+// Return the death variant count.
 function deathVariantCount(className)
   if painVariantCount(className) == 0 then return 0 end if
   if className == "monster_berserk" then return 2 end if
@@ -307,7 +317,9 @@ function deathVariantCount(className)
   return 1
 end function
 
+// Return the death variant value.
 function deathVariant(className, variant)
+  // Keep death variant phases explicit: validate inputs, update owned state, then publish the result.
   if className == "monster_berserk" then
     if variant == 0 then return reactionPlan(className, "death1", "death", 223, 235, "berserk/berdeth2.wav", 1, "corpse") end if
     if variant == 1 then return reactionPlan(className, "death2", "death", 236, 243, "berserk/berdeth2.wav", 1, "corpse") end if
@@ -358,6 +370,7 @@ function deathVariant(className, variant)
   return void
 end function
 
+// Select death plan.
 function selectDeathPlan(className, actorNumber, dieCount, gibbed)
   gaiReactionDeathVariantTotal = deathVariantCount(className)
   if gaiReactionDeathVariantTotal == 0 then return void end if
@@ -372,6 +385,7 @@ function selectDeathPlan(className, actorNumber, dieCount, gibbed)
     gaiReactionDeathVariantTotal))
 end function
 
+// Return the stock dodge plan value.
 function stockDodgePlan(className)
   if className == "monster_gunner" then return reactionPlan(className, "duck", "dodge", 201, 208, "", 1, "run") end if
   if className == "monster_chick" then return reactionPlan(className, "duck", "dodge", 83, 89, "", 1, "run") end if
@@ -384,6 +398,7 @@ function stockDodgePlan(className)
   return void
 end function
 
+// Return the plan by name.
 function planByName(className, name)
   if name == className + "-gib" then
     return reactionPlan(className, "gib", "death", 0, 0, "misc/udeath.wav", 1, "gib")
@@ -405,11 +420,14 @@ function planByName(className, name)
   return void
 end function
 
+// Return the duration frames value.
 function durationFrames(plan)
   return plan.lastFrame - plan.firstFrame + 1
 end function
 
+// Return the movement distance for the requested position.
 function inline movementDistanceAt(plan, timelineOffset)
+  // Keep movement distance at phases explicit: validate inputs, update owned state, then publish the result.
   offset = timelineOffset
   duration = durationFrames(plan)
   if offset < 0 then offset = 0 end if
@@ -486,6 +504,7 @@ function inline frameSoundUsesRandom(plan, timelineOffset)
     timelineOffset == 23
 end function
 
+// Return the frame sound name for the requested position.
 function inline frameSoundNameAt(plan, timelineOffset, randomRoll)
   className = plan.className
   firstFrame = plan.firstFrame
@@ -518,6 +537,7 @@ function inline frameSoundNameAt(plan, timelineOffset, randomRoll)
   return ""
 end function
 
+// Return the frame sound channel for the requested position.
 function inline frameSoundChannelAt(plan, timelineOffset)
   if plan.className == "monster_makron" then
     if plan.firstFrame == 387 and timelineOffset == 23 then
@@ -533,6 +553,7 @@ function inline frameSoundChannelAt(plan, timelineOffset)
   return gaireactionconstants.CHAN_BODY
 end function
 
+// Return the frame sound attenuation for the requested position.
 function inline frameSoundAttenuationAt(plan, timelineOffset)
   if plan.className == "monster_makron" then
     if plan.firstFrame == 387 and (timelineOffset == 15 or timelineOffset == 23) then
@@ -545,6 +566,7 @@ function inline frameSoundAttenuationAt(plan, timelineOffset)
   return gaireactionconstants.ATTN_NORM
 end function
 
+// Return the external frame event for the requested position.
 function inline externalFrameEventAt(plan, timelineOffset)
   if plan.className == "monster_infantry" and plan.firstFrame == 145 and
       timelineOffset >= 10 and timelineOffset <= 21 then
@@ -558,6 +580,7 @@ function inline externalFrameEventAt(plan, timelineOffset)
   return ""
 end function
 
+// Return the starts boss explosion for the requested position.
 function inline startsBossExplosionAt(plan, timelineOffset)
   if plan.className == "monster_supertank" and plan.firstFrame == 98 then
     return timelineOffset == 23
@@ -571,6 +594,7 @@ function inline startsBossExplosionAt(plan, timelineOffset)
   return false
 end function
 
+// Return the model frame for the requested position.
 function modelFrameAt(plan, timelineOffset)
   if timelineOffset < 0 then timelineOffset = 0 end if
   duration = durationFrames(plan)
@@ -578,6 +602,7 @@ function modelFrameAt(plan, timelineOffset)
   return plan.firstFrame + timelineOffset
 end function
 
+// Validate plan.
 function validatePlan(plan)
   if plan is void or plan.className == "" or plan.name == "" or
       (plan.reactionKind != "pain" and plan.reactionKind != "death" and plan.reactionKind != "dodge") or

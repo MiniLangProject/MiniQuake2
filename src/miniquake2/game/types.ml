@@ -12,6 +12,7 @@ package miniquake2.game.types
 import miniquake2.qcommon.types as qt
 import miniquake2.game.constants as gc
 
+// Store cvar data.
 struct Cvar
   name
   string
@@ -22,6 +23,7 @@ struct Cvar
   next
 end struct
 
+// Store entity state data.
 struct EntityState
   number
   origin
@@ -40,6 +42,7 @@ struct EntityState
   event
 end struct
 
+// Store player state data.
 struct PlayerState
   pmove
   viewAngles
@@ -55,6 +58,7 @@ struct PlayerState
   stats
 end struct
 
+// Store pmove data.
 struct Pmove
   state
   command
@@ -72,6 +76,7 @@ struct Pmove
   pointContents
 end struct
 
+// Store link data.
 struct Link
   previous
   next
@@ -84,6 +89,7 @@ struct GameClient
   ping
 end struct
 
+// Store edict data.
 struct Edict
   state
   client
@@ -183,14 +189,17 @@ struct GameExport
   maxEdicts
 end struct
 
+// Return the zero pmove state.
 function zeroPmoveState()
   return qt.PmoveState(gc.PM_NORMAL, [0, 0, 0], [0, 0, 0], 0, 0, 0, [0, 0, 0])
 end function
 
+// Return the zero user cmd value.
 function zeroUserCmd()
   return qt.UserCmd(0, 0, [0, 0, 0], 0, 0, 0, 0, 0)
 end function
 
+// Return the zero entity state.
 function zeroEntityState(number)
   gtypesStateOriginHolder = qt.zeroVec3()
   gtypesStateAnglesHolder = qt.zeroVec3()
@@ -207,6 +216,7 @@ function zeroEntityState(number)
   return gtypesStateRecord
 end function
 
+// Return the stabilize entity state.
 function stabilizeEntityState(gtypesStateValue)
   if typeof(gtypesStateValue) != "struct" then return error(3740, "EntityState record required") end if
   gtypesStateHolder = gtypesStateValue
@@ -241,6 +251,7 @@ function stabilizeEntityState(gtypesStateValue)
   return gtypesStateHolder
 end function
 
+// Return the zero player state.
 function zeroPlayerState()
   return PlayerState(
     zeroPmoveState(),
@@ -250,10 +261,12 @@ function zeroPlayerState()
   )
 end function
 
+// Return the zero game client value.
 function zeroGameClient()
   return GameClient(zeroPlayerState(), 0)
 end function
 
+// Return the zero edict value.
 function zeroEdict(number)
   // Every value survives several subsequent managed allocations before the
   // final Edict constructor.  Keep explicit roots: late campaign-map spawns
@@ -284,6 +297,7 @@ function zeroEdict(number)
   return gtypesEdictRecord
 end function
 
+// Return the stabilize edict value.
 function stabilizeEdict(gtypesEdictValue)
   if typeof(gtypesEdictValue) != "struct" then return error(3742, "Edict record required") end if
   gtypesStableEdictHolder = gtypesEdictValue
@@ -326,6 +340,7 @@ function stabilizeEdict(gtypesEdictValue)
   return gtypesStableEdictHolder
 end function
 
+// Return the zero pmove value.
 function zeroPmove(traceCallback, pointContentsCallback)
   return Pmove(
     zeroPmoveState(), zeroUserCmd(), false,
@@ -335,6 +350,7 @@ function zeroPmove(traceCallback, pointContentsCallback)
   )
 end function
 
+// Return the cvar value.
 function cvar(name, value, flags)
   return Cvar(name, value, "", flags, false, toNumber(value), void)
 end function

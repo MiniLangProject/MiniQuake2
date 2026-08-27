@@ -5,11 +5,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Original g_spawn.c skill/deathmatch entity inhibition coverage. */
 import miniquake2.game.base.spawn as sitspawn
 
+// Assert the sit test condition.
 function sitAssert(value, name)
   if not value then return error(8470, name) end if
   return true
 end function
 
+// Return the sit entity text value.
 function sitEntityText()
   return "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"info_player_start\" }\n" +
@@ -21,6 +23,7 @@ function sitEntityText()
     "{ \"classname\" \"trigger_relay\" \"targetname\" \"all_modes\" \"spawnflags\" \"7936\" }\n"
 end function
 
+// Find sit.
 function sitFind(result, targetName)
   for each edict in result.edicts
     if edict.component.targetName == targetName then return edict.component end if

@@ -23,6 +23,7 @@ const SPECIAL_TURB_SCALE = 40.74366543152521
 const SPECIAL_SUBDIVIDE_SIZE = 64.0
 const SPECIAL_SUBDIVIDE_MARGIN = 8.0
 
+// Return the classic special flow scroll value.
 function classicSpecialFlowScroll(time)
   phase = time / 40.0
   scroll = -64.0 * (phase - rspecialmath.floor(phase))
@@ -30,16 +31,19 @@ function classicSpecialFlowScroll(time)
   return scroll
 end function
 
+// Return the classic special water scroll value.
 function classicSpecialWaterScroll(time)
   phase = time * 0.5
   return -64.0 * (phase - rspecialmath.floor(phase))
 end function
 
+// Return the classic special warp sine value.
 function classicSpecialWarpSine(value)
   index = rspecialbyteio.truncInt(value * SPECIAL_TURB_SCALE) & 255
   return rspecialmath.sin(index * SPECIAL_PI2 / 256.0) * 8.0
 end function
 
+// Return the classic special texture coordinates value.
 function classicSpecialTextureCoordinates(draw, vertex, time)
   flags = draw.surface.texInfo.flags
   if (flags & rspecialformatconstants.SURF_WARP) != 0 then
@@ -55,6 +59,7 @@ function classicSpecialTextureCoordinates(draw, vertex, time)
   return [vertex.s, vertex.t]
 end function
 
+// Return the classic special base texture value.
 function classicSpecialBaseTexture(draw, time)
   if len(draw.baseTextures) == 0 then return draw.baseTexture end if
   frame = rspecialbyteio.truncInt(time * 2.0)
@@ -63,6 +68,7 @@ function classicSpecialBaseTexture(draw, time)
   return draw.baseTextures[index]
 end function
 
+// Return the classic special triangle vertices value.
 function classicSpecialTriangleVertices(surface)
   triangleCount = len(surface.vertices) - 2
   if triangleCount < 1 then return error(9760, "classic special surface has fewer than three vertices") end if
@@ -79,12 +85,14 @@ function classicSpecialTriangleVertices(surface)
   return result
 end function
 
+// Return the classic special position axis value.
 function classicSpecialPositionAxis(position, axis)
   if axis == 0 then return position.x end if
   if axis == 1 then return position.y end if
   return position.z
 end function
 
+// Return the classic special bounds.
 function classicSpecialBounds(positions)
   first = positions[0]
   mins = rspecialformattypes.Vec3(first.x, first.y, first.z)
@@ -103,6 +111,7 @@ function classicSpecialBounds(positions)
   return [mins, maxs]
 end function
 
+// Interpolate classic special.
 function classicSpecialInterpolate(first, second, fraction)
   return rspecialformattypes.Vec3(
     first.x + (second.x - first.x) * fraction,
@@ -111,6 +120,7 @@ function classicSpecialInterpolate(first, second, fraction)
   )
 end function
 
+// Split classic special polygon.
 function classicSpecialSplitPolygon(positions, axis, split)
   front = array(len(positions) * 2)
   back = array(len(positions) * 2)
@@ -139,12 +149,14 @@ function classicSpecialSplitPolygon(positions, axis, split)
   ]
 end function
 
+// Return the classic special surface vertex value.
 function classicSpecialSurfaceVertex(surface, position)
   rawS = rclassicsurfaces.projected(position, surface.texInfo.s)
   rawT = rclassicsurfaces.projected(position, surface.texInfo.t)
   return rclassictypes.surfaceVertex(position, rawS / surface.image.width, rawT / surface.image.height, 0.0, 0.0)
 end function
 
+// Return the classic special fan value.
 function classicSpecialFan(surface, positions)
   count = len(positions)
   if count < 3 then return array(0) end if
@@ -166,6 +178,7 @@ function classicSpecialFan(surface, positions)
   return triangles
 end function
 
+// Return the classic special subdivide value.
 function classicSpecialSubdivide(surface, positions)
   if len(positions) < 3 then return array(0) end if
   bounds = classicSpecialBounds(positions)
@@ -187,6 +200,7 @@ function classicSpecialSubdivide(surface, positions)
   return classicSpecialFan(surface, positions)
 end function
 
+// Return the classic special warp vertices value.
 function classicSpecialWarpVertices(surface)
   positions = array(len(surface.vertices))
   index = 0
@@ -197,11 +211,13 @@ function classicSpecialWarpVertices(surface)
   return classicSpecialSubdivide(surface, positions)
 end function
 
+// Draw classic special vertices.
 function classicSpecialDrawVertices(surface)
   if (surface.texInfo.flags & rspecialformatconstants.SURF_WARP) != 0 then return classicSpecialWarpVertices(surface) end if
   return classicSpecialTriangleVertices(surface)
 end function
 
+// Return the classic special distance squared value.
 function classicSpecialDistanceSquared(draw, origin)
   centerX = (draw.mins.x + draw.maxs.x) * 0.5
   centerY = (draw.mins.y + draw.maxs.y) * 0.5
@@ -210,6 +226,7 @@ function classicSpecialDistanceSquared(draw, origin)
   return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
 end function
 
+// Return the classic special transparent before value.
 function classicSpecialTransparentBefore(candidate, previous, origin)
   candidateDistance = classicSpecialDistanceSquared(candidate, origin)
   previousDistance = classicSpecialDistanceSquared(previous, origin)
@@ -218,6 +235,7 @@ function classicSpecialTransparentBefore(candidate, previous, origin)
   return candidate.surface.index < previous.surface.index
 end function
 
+// Sort classic special transparent.
 function classicSpecialSortTransparent(draws, origin)
   if len(draws) <= 1 then return draws end if
   sorted = array(len(draws))
@@ -234,6 +252,7 @@ function classicSpecialSortTransparent(draws, origin)
   return sorted
 end function
 
+// Return the classic special pass plan origin.
 function classicSpecialPassPlanOrigin(draws, viewOrigin)
   opaqueCount = 0; warpCount = 0; skyCount = 0; transparentCount = 0
   for each draw in draws
@@ -272,10 +291,12 @@ function classicSpecialPassPlanOrigin(draws, viewOrigin)
   )
 end function
 
+// Return the classic special pass plan value.
 function classicSpecialPassPlan(draws, frame)
   return classicSpecialPassPlanOrigin(draws, frame.viewOrigin)
 end function
 
+// Return the classic special pass signature value.
 function classicSpecialPassSignature(plan)
   result = ""
   for each draw in plan.opaqueDraws result = result + "o" + draw.surface.index + "," end for

@@ -16,6 +16,7 @@ $gameDll = Join-Path $ClassicRoot 'baseq2\gamex86.dll'
 if (-not (Test-Path -LiteralPath $classicExe -PathType Leaf)) { throw "Classic quake2.exe not found: $classicExe" }
 if (-not (Test-Path -LiteralPath $gameDll -PathType Leaf)) { throw "Classic gamex86.dll not found: $gameDll" }
 if (-not (Test-Path -LiteralPath $MiniQuake2Exe -PathType Leaf)) { throw "MiniQuake2 executable not found: $MiniQuake2Exe" }
+# Find byte pattern count.
 
 function Find-BytePatternCount([byte[]]$Data, [byte[]]$Pattern) {
     $count = 0
@@ -28,6 +29,7 @@ function Find-BytePatternCount([byte[]]$Data, [byte[]]$Pattern) {
     }
     return $count
 }
+# Perform query classic status processing.
 
 function Query-ClassicStatus([int]$QueryPort, [int]$TimeoutMilliseconds) {
     $udp = [Net.Sockets.UdpClient]::new()
@@ -46,6 +48,7 @@ function Query-ClassicStatus([int]$QueryPort, [int]$TimeoutMilliseconds) {
         $udp.Dispose()
     }
 }
+# Stop owned process.
 
 function Stop-OwnedProcess($Process) {
     if ($null -ne $Process -and -not $Process.HasExited) {

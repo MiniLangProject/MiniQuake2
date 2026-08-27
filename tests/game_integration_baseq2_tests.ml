@@ -9,16 +9,19 @@ import miniquake2.game.integration.baseq2 as itbaseq2
 import miniquake2.game.types as itgtypes
 import miniquake2.qcommon.constants as itqconstants
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9950, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9951, name + ": expected true") end if
   return true
 end function
 
+// Return the fixture text value.
 function fixtureText()
   return "{ \"classname\" \"worldspawn\" \"message\" \"Integration Base\" }\n" +
     "{ \"classname\" \"trigger_multiple\" \"target\" \"door_a\" \"wait\" \"0.5\" }\n" +
@@ -27,6 +30,7 @@ function fixtureText()
     "{ \"classname\" \"monster_soldier\" \"origin\" \"64 32 16\" \"angle\" \"90\" }"
 end function
 
+// Verify dispatch.
 function testDispatch()
   spawned = itbspawn.SpawnEntities("base1", fixtureText(), "")
   runtime = itbaseq2.create(spawned)
@@ -43,6 +47,7 @@ function testDispatch()
   return true
 end function
 
+// Verify frame and edict handoff.
 function testFrameAndEdictHandoff()
   runtime = itbaseq2.create(itbspawn.SpawnEntities("base1", fixtureText(), ""))
   exportTable = itgtypes.GameExport(
@@ -70,6 +75,7 @@ function testFrameAndEdictHandoff()
   return true
 end function
 
+// Verify jail 5 flyer compatibility fix.
 function testJail5FlyerCompatibilityFix()
   fixture = "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"monster_flyer\" \"origin\" \"1 2 -104\" \"target\" \"flyer_gate\" }"
@@ -87,6 +93,7 @@ function testJail5FlyerCompatibilityFix()
   return true
 end function
 
+// Verify mine 3 secret compatibility fix.
 function testMine3SecretCompatibilityFix()
   fixture = "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"target_secret\" \"origin\" \"280 -2048 -624\" }"
@@ -99,6 +106,7 @@ function testMine3SecretCompatibilityFix()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 BaseQ2 integration tests starting: 4"
   testDispatch()

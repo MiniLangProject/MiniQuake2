@@ -28,6 +28,7 @@ KEY_VALUE = re.compile(r"([a-z][a-z-]*)=([^ ]+)")
 
 
 def _fields(output: str) -> dict[str, str]:
+    """Return the fields value."""
     result: dict[str, str] = {}
     for line in output.splitlines():
         for key, value in KEY_VALUE.findall(line):
@@ -47,6 +48,7 @@ def _prefixed_fields(output: str, prefix: str) -> dict[str, str]:
 
 
 def _integer(fields: dict[str, str], key: str) -> int | None:
+    """Return the integer value."""
     try:
         return int(fields[key])
     except (KeyError, ValueError):
@@ -54,6 +56,7 @@ def _integer(fields: dict[str, str], key: str) -> int | None:
 
 
 def _number(fields: dict[str, str], key: str) -> float | None:
+    """Return the number."""
     try:
         return float(fields[key])
     except (KeyError, ValueError):
@@ -62,6 +65,7 @@ def _number(fields: dict[str, str], key: str) -> float | None:
 
 def parse_result(map_name: str, frames_requested: int, elapsed: float,
                  exit_code: int, output: str) -> dict[str, object]:
+    """Parse result."""
     fields = _fields(output)
     timings = _prefixed_fields(output, "timing-ms ")
     audio_buffers = _prefixed_fields(output, "audio-buffers ")
@@ -100,6 +104,7 @@ def parse_result(map_name: str, frames_requested: int, elapsed: float,
 
 def run_map(executable: pathlib.Path, root: pathlib.Path, map_name: str,
             frames: int, timeout: float) -> dict[str, object]:
+    """Run map."""
     started = time.perf_counter()
     try:
         completed = subprocess.run(
@@ -125,6 +130,7 @@ def run_map(executable: pathlib.Path, root: pathlib.Path, map_name: str,
 
 
 def _selected_maps(names: Iterable[str], scope: str) -> list[str]:
+    """Return the selected maps value."""
     if scope == "campaign":
         return [name for name in names if not name.startswith("q2dm")]
     if scope == "deathmatch":
@@ -133,6 +139,7 @@ def _selected_maps(names: Iterable[str], scope: str) -> list[str]:
 
 
 def summarize(rows: list[dict[str, object]]) -> dict[str, object]:
+    """Return the summarize value."""
     passed = [row for row in rows if row["passed"]]
     work = [float(row["engine_work_fps"]) for row in passed if row["engine_work_fps"] is not None]
     return {
@@ -149,6 +156,7 @@ def summarize(rows: list[dict[str, object]]) -> dict[str, object]:
 
 
 def _write_csv(path: pathlib.Path, rows: list[dict[str, object]]) -> None:
+    """Write csv."""
     columns = [key for key in rows[0] if key != "output"] if rows else []
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as stream:
@@ -158,6 +166,7 @@ def _write_csv(path: pathlib.Path, rows: list[dict[str, object]]) -> None:
 
 
 def main() -> int:
+    """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=pathlib.Path, help="Quake II install root or baseq2 directory")
     parser.add_argument("--exe", type=pathlib.Path, required=True, help="MiniQuake2 executable")

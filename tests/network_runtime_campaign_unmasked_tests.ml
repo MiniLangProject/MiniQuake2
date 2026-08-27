@@ -7,6 +7,7 @@ import miniquake2.network.connectionless as nrcampaign_connectionless
 import miniquake2.runtime.application as nrcampaign_application
 import miniquake2.runtime.play_session as nrcampaign_play
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) == 0 then
     print "network_runtime_campaign_unmasked_tests: SKIP (no retail root)"

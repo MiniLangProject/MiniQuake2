@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.runtime.application as rcampaignapp
 import miniquake2.qcommon.text as rcampaigntext
 
+// Assert the campaign test condition.
 function campaignAssert(value, message)
   if not value then return error(9925, message) end if
   return true

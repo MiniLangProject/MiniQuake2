@@ -258,10 +258,12 @@ offsets = [
     [0.0, 0.0, 0.0]
 ]
 
+// Return the count.
 function count()
   return len(offsets)
 end function
 
+// Return state.
 function get(index)
   if typeof(index) != "int" or index < 1 or index >= len(offsets) then return error(7320, "monster muzzle flash index outside table") end if
   value = offsets[index]

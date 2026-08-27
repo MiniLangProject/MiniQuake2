@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Explicit server and Game API bridge state. */
 package miniquake2.server.types
 
+// Store client slot data.
 struct ClientSlot
   state
   userInfo
@@ -15,6 +16,7 @@ struct ClientSlot
   edict
 end struct
 
+// Store pending sound event data.
 struct PendingSoundEvent
   serial
   hasEntity
@@ -28,6 +30,7 @@ struct PendingSoundEvent
   position
 end struct
 
+// Store pending multicast event data.
 struct PendingMulticastEvent
   serial
   destination
@@ -35,6 +38,7 @@ struct PendingMulticastEvent
   payload
 end struct
 
+// Store pending unicast event data.
 struct PendingUnicastEvent
   serial
   entity
@@ -42,6 +46,7 @@ struct PendingUnicastEvent
   payload
 end struct
 
+// Store server runtime data.
 struct ServerRuntime
   state
   mapName
@@ -75,4 +80,7 @@ struct ServerRuntime
   triggerEdicts
   triggerPositions
   triggerCount
+  solidBoxEdicts
+  solidBoxPositions
+  solidBoxCount
 end struct

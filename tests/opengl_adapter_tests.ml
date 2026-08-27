@@ -9,16 +9,19 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.opengl as ogl
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9960, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
   if difference > tolerance then return error(9961, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Verify headless lifecycle.
 function testHeadlessLifecycle()
   renderer = ogl.createOpenGlRenderer(false)
   assertEqual(renderer.exports.apiVersion, 3, "renderer API")
@@ -48,7 +51,9 @@ function testHeadlessLifecycle()
   renderer.exports.Shutdown()
 end function
 
+// Verify classic drawing helpers.
 function testClassicDrawingHelpers()
+  // Keep test classic drawing helpers phases explicit: validate inputs, update owned state, then publish the result.
   palette = bytes(768)
   palette[17 * 3] = 10; palette[17 * 3 + 1] = 20; palette[17 * 3 + 2] = 30
   assertEqual(ogl.openGlPaletteColor(palette, 17), 10 | (20 << 8) | (30 << 16),

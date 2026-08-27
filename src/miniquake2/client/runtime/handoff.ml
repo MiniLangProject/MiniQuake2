@@ -12,11 +12,13 @@ import miniquake2.client.runtime.types as crtypes
 
 const MAX_FRAME_HANDOFFS = 8
 
+// Copy vec data.
 function copyVec(value)
   if value is void then return void end if
   return qt.Vec3(value.x, value.y, value.z)
 end function
 
+// Copy values data.
 function copyValues(values)
   output = array(len(values))
   index = 0
@@ -27,6 +29,7 @@ function copyValues(values)
   return output
 end function
 
+// Copy snapshot data.
 function copySnapshot(value)
   if value is void then return void end if
   output = crtypes.Snapshot(value.number, value.deltaNumber, value.suppressCount,
@@ -43,6 +46,7 @@ function copySnapshot(value)
   return output
 end function
 
+// Copy lights data.
 function copyLights(values)
   output = array(len(values))
   index = 0
@@ -57,6 +61,7 @@ function copyLights(values)
   return output
 end function
 
+// Copy particles data.
 function copyParticles(values, count)
   output = array(count)
   index = 0
@@ -72,6 +77,7 @@ function copyParticles(values, count)
   return output
 end function
 
+// Copy beams data.
 function copyBeams(values)
   output = array(len(values))
   index = 0
@@ -88,6 +94,7 @@ function copyBeams(values)
   return output
 end function
 
+// Copy lasers data.
 function copyLasers(values)
   output = array(len(values))
   index = 0
@@ -102,6 +109,7 @@ function copyLasers(values)
   return output
 end function
 
+// Copy explosions data.
 function copyExplosions(values)
   output = array(len(values))
   index = 0
@@ -119,6 +127,7 @@ function copyExplosions(values)
   return output
 end function
 
+// Copy sustains data.
 function copySustains(values)
   output = array(len(values))
   index = 0
@@ -134,6 +143,7 @@ function copySustains(values)
   return output
 end function
 
+// Copy sounds data.
 function copySounds(values)
   output = array(len(values))
   index = 0
@@ -148,6 +158,7 @@ function copySounds(values)
   return output
 end function
 
+// Copy prints data.
 function copyPrints(values)
   output = array(len(values))
   index = 0
@@ -159,6 +170,7 @@ function copyPrints(values)
   return output
 end function
 
+// Copy centers data.
 function copyCenters(values)
   output = array(len(values))
   index = 0
@@ -170,6 +182,7 @@ function copyCenters(values)
   return output
 end function
 
+// Copy layouts data.
 function copyLayouts(values)
   output = array(len(values))
   index = 0
@@ -181,6 +194,7 @@ function copyLayouts(values)
   return output
 end function
 
+// Copy inventories data.
 function copyInventories(values)
   output = array(len(values))
   index = 0
@@ -194,6 +208,7 @@ function copyInventories(values)
   return output
 end function
 
+// Append bounded.
 function appendBounded(values, value)
   start = 0
   if len(values) >= MAX_FRAME_HANDOFFS then start = len(values) - MAX_FRAME_HANDOFFS + 1 end if
@@ -209,6 +224,7 @@ function appendBounded(values, value)
   return output
 end function
 
+// Commit state.
 function commit(runtime, now)
   if typeof(now) != "int" then return error(8380, "frame handoff time must be integer milliseconds") end if
   current = runtime.client.current
@@ -245,6 +261,7 @@ function commit(runtime, now)
   return value
 end function
 
+// Consume state.
 function take(runtime)
   if len(runtime.frameHandoffs) == 0 then return void end if
   value = runtime.frameHandoffs[0]
@@ -258,6 +275,7 @@ function take(runtime)
   return value
 end function
 
+// Consume latest.
 function takeLatest(runtime)
   if len(runtime.frameHandoffs) == 0 then return void end if
   value = runtime.frameHandoffs[len(runtime.frameHandoffs) - 1]
@@ -265,6 +283,7 @@ function takeLatest(runtime)
   return value
 end function
 
+// Report whether pending.
 function pending(runtime)
   return len(runtime.frameHandoffs)
 end function

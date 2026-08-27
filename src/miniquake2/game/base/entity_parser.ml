@@ -12,10 +12,12 @@ import miniquake2.game.base.types as btypes
 import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.qcommon.text as qtext
 
+// Return the parser error value.
 function parserError(code, offset, message)
   return error(code, "baseq2 entity text at byte " + offset + ": " + message)
 end function
 
+// Report whether is whitespace.
 function isWhitespace(value)
   return value <= 32
 end function
@@ -43,6 +45,7 @@ function ED_NewString(value)
   return decode(outputPrefix)
 end function
 
+// Create scanner.
 function createScanner(value)
   if typeof(value) != "string" then return error(9001, "entity text must be a string") end if
   data = bytes(value)
@@ -58,6 +61,7 @@ function createScanner(value)
   return btypes.EntityScanner(effectiveData, 0)
 end function
 
+// Return the skip trivia value.
 function skipTrivia(scanner)
   data = scanner.data
   while scanner.offset <= len(data)
@@ -76,6 +80,7 @@ function skipTrivia(scanner)
   return scanner.offset
 end function
 
+// Return the next token value.
 function nextToken(scanner)
   skipTrivia(scanner)
   data = scanner.data
@@ -108,6 +113,7 @@ function nextToken(scanner)
   return btypes.EntityToken("word", tokenText, start)
 end function
 
+// Finish prefix.
 function finishPrefix(values, count)
   if count == 0 then return [] end if
   result = array(count)
@@ -119,6 +125,7 @@ function finishPrefix(values, count)
   return result
 end function
 
+// Parse entities.
 function parseEntities(value)
   scanner = createScanner(value)
   parsed = array(16)
@@ -215,6 +222,7 @@ function parseMaterializedEntities(value)
   return finishPrefix(materialized, materializedCount)
 end function
 
+// Parse number.
 function parseNumber(value, fieldName)
   if typeof(value) != "string" or len(bytes(value)) == 0 then return error(9012, fieldName + ": numeric text required") end if
   source = bytes(value)
@@ -268,11 +276,13 @@ function parseNumber(value, fieldName)
   return converted
 end function
 
+// Parse integer.
 function parseInteger(value, fieldName)
   converted = parseNumber(value, fieldName)
   return qbyteio.truncInt(converted)
 end function
 
+// Parse vector.
 function parseVector(value, fieldName)
   source = bytes(value)
   result = [0.0, 0.0, 0.0]
@@ -296,6 +306,7 @@ function parseVector(value, fieldName)
   return result
 end function
 
+// Append unknown.
 function appendUnknown(entity, key)
   entity.unknownFields = entity.unknownFields + [key]
   return false
@@ -304,6 +315,7 @@ end function
 // Returns true for a recognized field and false for the original diagnostic
 // path ("... is not a field"). Utility keys beginning with _ are ignored.
 function ED_ParseField(entity, key, value)
+  // Keep ed parse field phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(entity) != "struct" then return error(9016, "ED_ParseField: BaseEntity required") end if
   if typeof(key) != "string" or typeof(value) != "string" then return error(9017, "ED_ParseField: text key/value required") end if
   if len(bytes(key)) == 0 then return error(9018, "ED_ParseField: empty key") end if
@@ -361,6 +373,7 @@ function ED_ParseField(entity, key, value)
   return true
 end function
 
+// Materialize state.
 function materialize(parsed)
   entity = btypes.zeroBaseEntity()
   for each pair in parsed.pairs

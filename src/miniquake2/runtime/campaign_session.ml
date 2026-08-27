@@ -9,6 +9,7 @@ import miniquake2.game.integration.campaign_progression as campaignobjectives
 import miniquake2.game.null_game as campaignsessiongame
 import miniquake2.runtime.play_session as campaignplay
 
+// Store campaign advance result data.
 struct CampaignAdvanceResult
   advanced
   sourceMap
@@ -18,6 +19,7 @@ struct CampaignAdvanceResult
   steps
 end struct
 
+// Commit campaign core.
 function campaignCommitCore(session, targetMap, entityText, collision, maximumSteps)
   campaignCoreAttempt = 0
   while campaignCoreAttempt < maximumSteps
@@ -30,6 +32,7 @@ function campaignCommitCore(session, targetMap, entityText, collision, maximumSt
   return error(8471, "goal-confirmed core map change remained deferred")
 end function
 
+// Commit campaign retail.
 function campaignCommitRetail(session, baseDirectory, targetMap, maximumSteps)
   campaignRetailAttempt = 0
   while campaignRetailAttempt < maximumSteps
@@ -42,6 +45,7 @@ function campaignCommitRetail(session, baseDirectory, targetMap, maximumSteps)
   return error(8473, "goal-confirmed retail map change remained deferred")
 end function
 
+// Prepare campaign advance.
 function campaignPrepareAdvance(session, targetMap)
   if session is void or session.closed then return error(8474, "campaign session is closed") end if
   campaignSourceMap = session.server.mapName
@@ -60,6 +64,7 @@ function campaignPrepareAdvance(session, targetMap)
   return [campaignSourceMap, campaignObjectiveResult]
 end function
 
+// Advance core.
 function advanceCore(session, targetMap, entityText, collision, maximumSteps)
   if maximumSteps < 1 then return error(8477, "campaign maximum steps must be positive") end if
   campaignCorePrepared = campaignPrepareAdvance(session, targetMap)
@@ -69,6 +74,7 @@ function advanceCore(session, targetMap, entityText, collision, maximumSteps)
     campaignCorePrepared[1], session.server.networkRuntime.spawnCount, session.steps)
 end function
 
+// Advance retail.
 function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
   if maximumSteps < 1 then return error(8477, "campaign maximum steps must be positive") end if
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(8478, "campaign retail root is required") end if
@@ -79,6 +85,7 @@ function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
     campaignRetailPrepared[1], session.server.networkRuntime.spawnCount, session.steps)
 end function
 
+// Return the complete value.
 function complete(session, terminalTarget)
   campaignTerminalPrepared = campaignPrepareAdvance(session, terminalTarget)
   return CampaignAdvanceResult(true, campaignTerminalPrepared[0], terminalTarget,

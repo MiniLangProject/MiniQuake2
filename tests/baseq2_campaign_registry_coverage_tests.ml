@@ -7,22 +7,25 @@ import miniquake2.game.base.spawn_registry as campregistry
 import miniquake2.game.base.spawn as campspawn
 import miniquake2.game.base.entity_parser as campparser
 
+// Assert the camp test condition.
 function campAssert(value, message)
   if value != true then return error(9870, message) end if
   return true
 end function
 
+// Assert the camp equal test condition.
 function campAssertEqual(actual, expected, message)
   if actual != expected then return error(9871, message + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
 registry = campregistry.defaultRegistry()
-campAssertEqual(len(registry.entries), 143, "stock registry entry count")
+campAssertEqual(len(registry.entries), 149, "stock registry entry count")
 
 previouslyMissing = [
   "func_clock", "func_conveyor", "func_door_rotating", "func_door_secret", "func_killbox", "func_object", "func_water", "info_null",
-  "light_mine2", "misc_blackhole", "misc_easterchick", "misc_easterchick2", "misc_eastertank", "misc_insane",
+  "func_areaportal", "path_corner", "viewthing", "light_mine1", "light_mine2",
+  "misc_actor", "misc_bigviper", "misc_gib_arm", "misc_gib_leg", "misc_blackhole", "misc_easterchick", "misc_easterchick2", "misc_eastertank", "misc_insane",
   "misc_satellite_dish", "misc_teleporter", "misc_teleporter_dest", "misc_viper", "misc_viper_bomb",
   "monster_boss3_stand", "monster_commander_body", "target_actor", "target_character", "target_earthquake",
   "target_laser", "target_lightramp", "target_string", "trigger_counter", "trigger_elevator", "trigger_gravity", "trigger_hurt",

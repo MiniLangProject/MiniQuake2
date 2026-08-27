@@ -12,17 +12,20 @@ import miniquake2.qcommon.types as locomotionqtypes
 import miniquake2.game.null_game as locomotiongame
 import miniquake2.server.game_bridge as locomotionbridge
 
+// Assert the locomotion test condition.
 function locomotionAssert(value, message)
   if value != true then return error(9978, message) end if
   return true
 end function
 
+// Return the locomotion near value.
 function locomotionNear(actual, expected, message)
   delta = actual - expected
   if delta < 0.0 then delta = -delta end if
   return locomotionAssert(delta < 0.001, message)
 end function
 
+// Report whether locomotion visible.
 function locomotionVisible(first, second)
   return true
 end function
@@ -35,6 +38,7 @@ locomotionCallbackRolls = array(16)
 locomotionCallbackRollCount = 0
 locomotionCallbackRollPosition = 0
 
+// Capture locomotion callback sound.
 function locomotionCaptureCallbackSound(actor, soundName, channel, attenuation)
   global locomotionCallbackSoundCount
   locomotionCallbackSoundNames[locomotionCallbackSoundCount] = soundName
@@ -44,6 +48,7 @@ function locomotionCaptureCallbackSound(actor, soundName, channel, attenuation)
   return true
 end function
 
+// Return the locomotion next callback roll value.
 function locomotionNextCallbackRoll()
   global locomotionCallbackRollPosition
   if locomotionCallbackRollPosition >= locomotionCallbackRollCount then return 0.0 end if
@@ -52,6 +57,7 @@ function locomotionNextCallbackRoll()
   return locomotionCallbackRoll
 end function
 
+// Set locomotion callback roll.
 function locomotionSetCallbackRoll(value)
   global locomotionCallbackRollCount, locomotionCallbackRollPosition, locomotionCallbackSoundCount
   locomotionCallbackRolls[0] = value

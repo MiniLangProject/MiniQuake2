@@ -14,8 +14,10 @@ const MEDIA_CIN = 1
 const MEDIA_PCX = 2
 const MEDIA_DM2 = 3
 const MAX_MEDIA_STEPS = 16
+const MAX_MEDIA_TRANSITIONS = 64
 const STOCK_ATTRACT_STEPS = 4
 
+// Store media step data.
 struct MediaStep
   kind
   name
@@ -23,11 +25,13 @@ struct MediaStep
   endOfUnit
 end struct
 
+// Store media sequence data.
 struct MediaSequence
   specification
   steps
 end struct
 
+// Return the ends with insensitive value.
 function endsWithInsensitive(value, suffix)
   mediaseqValue = bytes(mediaseqtext.lower(value))
   mediaseqSuffix = bytes(mediaseqtext.lower(suffix))
@@ -41,6 +45,7 @@ function endsWithInsensitive(value, suffix)
   return true
 end function
 
+// Return the safe name.
 function safeName(value, operation)
   if typeof(value) != "string" or value == "" or len(bytes(value)) >= mediaseqqc.MAX_QPATH then
     return error(8490, operation + " name is empty or exceeds MAX_QPATH")
@@ -62,6 +67,7 @@ function safeName(value, operation)
   return value
 end function
 
+// Parse step.
 function parseStep(component)
   if typeof(component) != "string" or component == "" then return error(8492, "empty media sequence step") end if
   mediaseqComponentBytes = bytes(component)
@@ -111,6 +117,7 @@ function stockAttractStep(index)
   return parseStep("demo2.dm2")
 end function
 
+// Return the next stock attract index.
 function nextStockAttractIndex(index)
   stockAttractStep(index)
   return (index + 1) % STOCK_ATTRACT_STEPS
@@ -123,6 +130,7 @@ function stockNewGameSpecification()
   return "*ntro.cin+base1"
 end function
 
+// Return the game button down value.
 function gameButtonDown(input)
   if input is void or typeof(input.keys) != "array" or
       typeof(input.controllerButtons) != "int" then
@@ -150,6 +158,7 @@ function attractInterrupted(input)
   return gameButtonDown(input)
 end function
 
+// Parse state.
 function parse(specification)
   if typeof(specification) != "string" or specification == "" or
       len(bytes(specification)) >= mediaseqqc.MAX_STRING_CHARS then
@@ -174,6 +183,7 @@ function parse(specification)
   return MediaSequence(specification, mediaseqSteps)
 end function
 
+// Return the kind name.
 function kindName(kind)
   if kind == MEDIA_MAP then return "map" end if
   if kind == MEDIA_CIN then return "cin" end if

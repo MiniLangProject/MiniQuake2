@@ -36,12 +36,24 @@ import miniquake2.qcommon.info as nginfo
 import miniquake2.qcommon.types as ngqtypes
 import miniquake2.qcommon.text as ngtext
 import miniquake2.server.administration as ngserveradmin
+import std.string as ngstring
 
 // Original BaseQ2 layout programs. Keeping each program in one immutable
 // literal avoids the repeated string concatenation used by the C source while
 // preserving the wire-visible CS_STATUSBAR contract.
 const SINGLE_STATUSBAR = "yb -24 xv 0 hnum xv 50 pic 0 if 2 xv 100 anum xv 150 pic 2 endif if 4 xv 200 rnum xv 250 pic 4 endif if 6 xv 296 pic 6 endif yb -50 if 7 xv 0 pic 7 xv 26 yb -42 stat_string 8 yb -50 endif if 9 xv 262 num 2 10 xv 296 pic 9 endif if 11 xv 148 pic 11 endif"
 const DEATHMATCH_STATUSBAR = "yb -24 xv 0 hnum xv 50 pic 0 if 2 xv 100 anum xv 150 pic 2 endif if 4 xv 200 rnum xv 250 pic 4 endif if 6 xv 296 pic 6 endif yb -50 if 7 xv 0 pic 7 xv 26 yb -42 stat_string 8 yb -50 endif if 9 xv 246 num 2 10 xv 296 pic 9 endif if 11 xv 148 pic 11 endif xr -50 yt 2 num 3 14 if 17 xv 0 yb -58 string2 \"SPECTATOR MODE\" endif if 16 xv 0 yb -68 string \"Chasing\" xv 64 stat_string 16 endif"
+
+stockLightStyles = [
+  "m", "mmnmmommommnonmmonqnmmo",
+  "abcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba",
+  "mmmmmaaaaammmmmaaaaaabcdefgabcdefg", "mamamamamama",
+  "jklmnopqrstuvwxyzyxwvutsrqponmlkj", "nmonqnmomnmomomno",
+  "mmmaaaabcdefgmmmmaaaammmaamm",
+  "mmmaaammmaaammmabcdefaaaammmmabcdefmmmaaaa",
+  "aaaaaaaazzzzzzzz", "mmamammmmammamamaaamammma",
+  "abcdefghijklmnopqrrqponmlkjihgfedcba"
+]
 
 activeImports = void
 activeExport = void
@@ -60,23 +72,32 @@ activeBaseRuntime = void
 activePlayerContext = void
 activeMaxClients = 4
 activeSkill = 1
+activePmovePassEntity = void
 
+// Trace player pmove.
 function playerPmoveTrace(start, mins, maxs, finish)
-  global activeImports
-  return activeImports.trace(start, mins, maxs, finish, void, qc.MASK_PLAYERSOLID)
+  global activeImports, activePmovePassEntity
+  // p_client.c assigns pm_passent before gi.Pmove. Once the server clips
+  // dynamic SOLID_BBOX edicts, omitting this pass entity makes every player
+  // start-solid against its own linked box and prevents all movement.
+  return activeImports.trace(start, mins, maxs, finish,
+    activePmovePassEntity, qc.MASK_PLAYERSOLID)
 end function
 
+// Return the runtime edict value.
 function runtimeEdict(number)
   global activeExport
   if activeExport is void or number < 0 or number >= activeExport.maxEdicts then return void end if
   return activeExport.edicts[number]
 end function
 
+// Return the base world log value.
 function baseWorldLog(message)
   global activeImports
   return activeImports.dprintf("MiniQuake2 BaseQ2 world: " + message)
 end function
 
+// Return the base world center value.
 function baseWorldCenter(entity, message)
   global activeImports
   target = runtimeEdict(entity.number)
@@ -84,6 +105,7 @@ function baseWorldCenter(entity, message)
   return activeImports.centerprintf(target, message)
 end function
 
+// Return the base world sound value.
 function baseWorldSound(entity, soundName)
   global activeImports
   target = runtimeEdict(entity.number)
@@ -107,11 +129,13 @@ function baseWorldSound(entity, soundName)
     gc.ATTN_NORM, 0.0)
 end function
 
+// Return the base world area portal value.
 function baseWorldAreaPortal(style, isOpen)
   global activeImports
   return activeImports.setAreaPortalState(style, isOpen)
 end function
 
+// Return the base world target explosion value.
 function baseWorldTargetExplosion(origin)
   global activeImports
   activeImports.writeByte(qc.SVC_TEMP_ENTITY)
@@ -120,6 +144,7 @@ function baseWorldTargetExplosion(origin)
   return activeImports.multicast(origin, gc.MULTICAST_PHS)
 end function
 
+// Return the base world target splash value.
 function baseWorldTargetSplash(origin, direction, count, sounds)
   global activeImports
   activeImports.writeByte(qc.SVC_TEMP_ENTITY)
@@ -131,20 +156,112 @@ function baseWorldTargetSplash(origin, direction, count, sounds)
   return activeImports.multicast(origin, gc.MULTICAST_PVS)
 end function
 
-function baseWorldChangeLevel(entity, mapName)
+// Begin base world intermission.
+function baseWorldBeginIntermission(entity, mapName)
   global activePlayerContext, currentMap
   if activePlayerContext is void or typeof(mapName) != "string" or mapName == "" then return false end if
   ngChangePlayerContextHolder = activePlayerContext
   ngChangeDestinationHolder = mapName
   // Retail fact1 shipped with this exact compatibility correction.
-  if currentMap == "fact1" and ngChangeDestinationHolder == "fact3" then ngChangeDestinationHolder = "fact3$secret1" end if
+  if ngtext.equalInsensitive(currentMap, "fact1") and
+      ngtext.equalInsensitive(ngChangeDestinationHolder, "fact3") then
+    ngChangeDestinationHolder = "fact3$secret1"
+  end if
   ngChangePlayerContextHolder.nextMap = ngChangeDestinationHolder
   ngChangePlayerContextHolder.exitIntermission = false
   ngChangePlayerContextHolder.intermissionTime = ngChangePlayerContextHolder.time
   if ngChangePlayerContextHolder.intermissionTime <= 0.0 then ngChangePlayerContextHolder.intermissionTime = 0.000001 end if
+  // BeginIntermission invokes respawn for every dead in-use client before it
+  // inspects the destination. In single player that intentionally queues the
+  // stock load-game menu command through respawn's non-multiplayer branch.
+  for each ngIntermissionPlayerHolder in ngChangePlayerContextHolder.players
+    if ngIntermissionPlayerHolder.edict.inUse and
+        ngIntermissionPlayerHolder.health <= 0 then
+      ngplayerclient.respawn(ngChangePlayerContextHolder,
+        ngIntermissionPlayerHolder)
+    end if
+  end for
+  if not ngstring.contains(ngChangeDestinationHolder, "*") and
+      not ngChangePlayerContextHolder.deathmatch then
+    // Stock non-deathmatch transitions without a unit marker leave on the
+    // next frame; they do not wait five seconds for input at a camera.
+    ngChangePlayerContextHolder.exitIntermission = true
+    return true
+  end if
+  if ngChangePlayerContextHolder.cooperative and
+      ngstring.contains(ngChangeDestinationHolder, "*") then
+    for each ngIntermissionPlayerHolder in ngChangePlayerContextHolder.players
+      if ngIntermissionPlayerHolder.edict.inUse then
+        for each ngIntermissionItemHolder in ngChangePlayerContextHolder.registry.items
+          if (ngIntermissionItemHolder.flags & nggpconstants.IT_KEY) != 0 then
+            ngIntermissionPlayerHolder.gameplay.inventory.counts[
+              ngIntermissionItemHolder.index] = 0
+            ngIntermissionPlayerHolder.respawn.cooperativeInventory[
+              ngIntermissionItemHolder.index] = 0
+          end if
+        end for
+      end if
+    end for
+  end if
+  ngIntermissionSpotHolder = ngplayerspawn.SelectIntermissionPoint(
+    ngChangePlayerContextHolder)
+  if ngIntermissionSpotHolder is void then return false end if
+  for each ngIntermissionPlayerHolder in ngChangePlayerContextHolder.players
+    if ngIntermissionPlayerHolder.edict.inUse then
+      ngplayerclient.MoveClientToIntermission(ngChangePlayerContextHolder,
+        ngIntermissionPlayerHolder, ngIntermissionSpotHolder)
+      if ngChangePlayerContextHolder.deathmatch or
+          ngChangePlayerContextHolder.cooperative then
+        sendScoreboard(runtimeEdict(
+          ngIntermissionPlayerHolder.edict.state.number),
+          ngChangePlayerContextHolder)
+      end if
+    end if
+  end for
   return true
 end function
 
+// Return the base world change level value.
+function baseWorldChangeLevel(entity, other, activator, mapName)
+  global activePlayerContext, activeImports
+  if activePlayerContext is void then return false end if
+  context = activePlayerContext
+
+  // use_target_changelevel refuses a dead local player before it reaches
+  // BeginIntermission. BeginIntermission itself still retains its independent
+  // all-client respawn loop for callers such as match rules.
+  if not context.deathmatch and not context.cooperative then
+    for each localPlayer in context.players
+      if localPlayer.edict.state.number == 1 and localPlayer.health <= 0 then
+        return false
+      end if
+    end for
+  end if
+
+  if context.deathmatch and (context.dmFlags & gc.DF_ALLOW_EXIT) == 0 and
+      other is not void and other.number != 0 then
+    exitMaximumHealth = other.maxHealth
+    for each exitPlayer in context.players
+      if exitPlayer.edict.state.number == other.number then
+        exitMaximumHealth = exitPlayer.maxHealth
+      end if
+    end for
+    ngbaseq2.integratedExitDamage(other, 10 * exitMaximumHealth)
+    return false
+  end if
+
+  if context.deathmatch and activator is not void then
+    for each exitPlayer in context.players
+      if exitPlayer.edict.state.number == activator.number then
+        activeImports.bprintf(exitPlayer.persistent.netName +
+          " exited the level.\n")
+      end if
+    end for
+  end if
+  return baseWorldBeginIntermission(entity, mapName)
+end function
+
+// Link base world.
 function baseWorldLink(entity)
   global activeImports, activeExport
   if activeExport is void or entity.number < 0 or
@@ -190,6 +307,7 @@ function baseWorldLink(entity)
   return ngLinkResultHolder
 end function
 
+// Report whether ai trace visible.
 function aiTraceVisible(actor, other)
   global activeImports
   zeroBounds = ngqtypes.Vec3(0.0, 0.0, 0.0)
@@ -198,16 +316,19 @@ function aiTraceVisible(actor, other)
   return result.entity is not void and result.entity.state.number == other.edict.state.number
 end function
 
+// Return the ai in phs value.
 function aiInPHS(first, second)
   global activeImports
   return activeImports.inPHS(first, second)
 end function
 
+// Report whether ai areas connected.
 function aiAreasConnected(first, second)
   global activeImports
   return activeImports.areasConnected(first, second)
 end function
 
+// Handle player triggers.
 function playerTouchTriggers(player)
   global activeBaseRuntime, activePlayerContext, activeImports
   if activeBaseRuntime is void then return 0 end if
@@ -223,13 +344,16 @@ function playerTouchTriggers(player)
   return touched
 end function
 
+// Handle player entity.
 function playerTouchEntity(entity, player)
   global activeBaseRuntime, activePlayerContext
   if activeBaseRuntime is void then return false end if
   return ngbaseq2.touchEdict(activeBaseRuntime, entity, player, activePlayerContext)
 end function
 
+// Return the player damage value.
 function playerDamage(context, player, amount, damageFlags, meansOfDeath)
+  global activeSkill
   combatant = nggtypes.createCombatant(player.edict.state.number, player.health)
   combatant.edict = player.edict
   combatant.flags = player.flags
@@ -242,6 +366,10 @@ function playerDamage(context, player, amount, damageFlags, meansOfDeath)
   point = [player.edict.state.origin.x, player.edict.state.origin.y, player.edict.state.origin.z]
   request = nggtypes.damageRequest([0.0, 0.0, 0.0], point, amount, 0, damageFlags, meansOfDeath)
   request.currentFrame = context.frameNumber
+  // g_combat.c halves incoming client damage on skill 0 outside deathmatch.
+  // The combat layer already owns the exact rounding/minimum-one rule; the
+  // live Game API must mark the request with the selected new-game skill.
+  request.easyMode = activeSkill == 0 and not context.deathmatch
   result = ngcombat.T_Damage(combatant, request)
   player.health = combatant.health
   ngpowerups.SyncArmorFromCombatant(player.gameplay, combatant)
@@ -249,6 +377,7 @@ function playerDamage(context, player, amount, damageFlags, meansOfDeath)
   return result.taken
 end function
 
+// Configure integrated runtime.
 function configureIntegratedRuntime(runtime, playerContext)
   runtime.world.callbacks.log = baseWorldLog
   runtime.world.callbacks.centerPrint = baseWorldCenter
@@ -267,10 +396,13 @@ function configureIntegratedRuntime(runtime, playerContext)
   playerContext.touchTriggers = playerTouchTriggers
   playerContext.touchEntity = playerTouchEntity
   playerContext.weaponThink = ngbaseq2.thinkPlayerWeapon
+  playerContext.deathDrop = ngbaseq2.tossClientDeathItems
+  playerContext.deathGrenade = ngbaseq2.tossClientHeldGrenade
   playerContext.damagePlayer = playerDamage
   return true
 end function
 
+// Link managed edicts.
 function linkManagedEdicts()
   global activeExport, activeImports
   exportTable = activeExport
@@ -288,6 +420,7 @@ function linkManagedEdicts()
   return true
 end function
 
+// Find player.
 function findPlayer(index)
   global activePlayerContext
   if activePlayerContext is void then return void end if
@@ -297,6 +430,7 @@ function findPlayer(index)
   return void
 end function
 
+// Return the player for edict value.
 function playerForEdict(slot, operation, createIfMissing)
   global activePlayerContext, activeMaxClients
   index = slot.state.number
@@ -314,6 +448,7 @@ function playerForEdict(slot, operation, createIfMissing)
   return player
 end function
 
+// Require function.
 function requireFunction(value, name)
   if typeof(value) != "function" then
     return error(3800, "GetGameApi: missing game import callback " + name)
@@ -321,6 +456,7 @@ function requireFunction(value, name)
   return true
 end function
 
+// Validate game import.
 function validateGameImport(imports)
   if typeof(imports) != "struct" then return error(3801, "GetGameApi: game import table is not a struct") end if
   requireFunction(imports.bprintf, "bprintf")
@@ -371,12 +507,14 @@ function validateGameImport(imports)
   return true
 end function
 
+// Require installed.
 function requireInstalled(operation)
   global activeExport
   if activeExport is void then return error(3802, operation + ": game API is not installed") end if
   return true
 end function
 
+// Require initialized.
 function requireInitialized(operation)
   global initialized
   requireInstalled(operation)
@@ -384,6 +522,7 @@ function requireInitialized(operation)
   return true
 end function
 
+// Create edicts.
 function makeEdicts(count)
   ngEdictArrayHolder = array(count)
   ngEdictArrayIndex = 0
@@ -403,6 +542,7 @@ function makeEdicts(count)
   return ngEdictArrayHolder
 end function
 
+// Initialize state.
 function Init()
   global initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activeMaxClients
   requireInstalled("Init")
@@ -437,8 +577,9 @@ function Init()
   return true
 end function
 
+// Shut down state.
 function Shutdown()
-  global initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext
+  global initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activePmovePassEntity
   requireInitialized("Shutdown")
   activeImports.dprintf("MiniQuake2 BaseQ2: Shutdown")
   exportTable = activeExport
@@ -455,9 +596,11 @@ function Shutdown()
   lastSpawnResult = void
   activeBaseRuntime = void
   activePlayerContext = void
+  activePmovePassEntity = void
   return true
 end function
 
+// Spawn entities.
 function SpawnEntities(mapName, entityString, spawnPoint)
   global mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill
   requireInitialized("SpawnEntities")
@@ -471,6 +614,10 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   // Extract the small player-spawn view before integrated world/item/monster
   // construction allocates the rest of the level graph.
   levelSpawnSpots = ngplayerspawn.spotsFromBaseEdicts(spawnedEdicts)
+  if activePlayerContext.cooperative then
+    levelSpawnSpots = ngplayerspawn.ApplyStockCoopSpawnFixups(mapName,
+      levelSpawnSpots)
+  end if
   exportTable = activeExport
   exportTable.numEdicts = 1
   spawnedBaseEdicts = spawnedEdicts
@@ -513,12 +660,50 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   statusBar = SINGLE_STATUSBAR
   if playerContext.deathmatch then statusBar = DEATHMATCH_STATUSBAR end if
   activeImports.configString(qc.CS_STATUSBAR, statusBar)
+  worldComponent = spawnedEdicts[0].component
+  if worldComponent.message != "" then
+    activeImports.configString(qc.CS_NAME, worldComponent.message)
+  else activeImports.configString(qc.CS_NAME, mapName)
+  end if
+  skyName = worldComponent.spawnTemp.sky
+  if skyName == "" then skyName = "unit1_" end if
+  activeImports.configString(qc.CS_SKY, skyName)
+  skyAxis = worldComponent.spawnTemp.skyAxis
+  activeImports.configString(qc.CS_SKYROTATE,
+    "" + worldComponent.spawnTemp.skyRotate)
+  activeImports.configString(qc.CS_SKYAXIS,
+    "" + skyAxis[0] + " " + skyAxis[1] + " " + skyAxis[2])
+  activeImports.configString(qc.CS_MAXCLIENTS, "" + activeMaxClients)
   // SP_worldspawn publishes the authored `sounds` field as the looping CD
   // track. The client maps this protocol configstring to trackNN.ogg.
   activeImports.configString(qc.CS_CDTRACK,
-    "" + spawnedEdicts[0].component.sounds)
+    "" + worldComponent.sounds)
+  for each worldItemDefinition in playerContext.registry.items
+    activeImports.configString(qc.CS_ITEMS + worldItemDefinition.index,
+      worldItemDefinition.pickupName)
+  end for
+  stockLightStyleIndex = 0
+  while stockLightStyleIndex < len(stockLightStyles)
+    activeImports.configString(qc.CS_LIGHTS + stockLightStyleIndex,
+      stockLightStyles[stockLightStyleIndex])
+    stockLightStyleIndex = stockLightStyleIndex + 1
+  end while
+  activeImports.configString(qc.CS_LIGHTS + 63, "a")
+  authoredGravity = worldComponent.spawnTemp.gravity
+  if authoredGravity == "" then authoredGravity = "800" end if
+  activeImports.cvarSet("sv_gravity", authoredGravity)
+  numericGravity = try(toNumber(authoredGravity))
+  if numericGravity is not error and
+      (typeof(numericGravity) == "int" or typeof(numericGravity) == "float") then
+    playerContext.gravity = numericGravity
+  end if
+  if worldComponent.spawnTemp.nextMap != "" then
+    playerContext.nextMap = worldComponent.spawnTemp.nextMap
+  end if
   activeImports.imageIndex("i_health")
   activeImports.imageIndex("i_help")
+  activeImports.imageIndex("help")
+  activeImports.imageIndex("field_3")
   ngbaseq2.precacheSpawned(activeBaseRuntime, playerContext)
   ngbaseq2.bindEngineModels(activeBaseRuntime, exportTable, activeImports)
   ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
@@ -541,6 +726,7 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   return true
 end function
 
+// Write game.
 function WriteGame(filename, autosave)
   if typeof(autosave) != "bool" then return error(3810, "WriteGame: autosave must be bool") end if
   requireInitialized("WriteGame")
@@ -548,6 +734,7 @@ function WriteGame(filename, autosave)
   return gpersist.writeFileWithPrivate(activeExport, "game", currentMap, frameNumber, privateData, filename)
 end function
 
+// Restore managed image.
 function restoreManagedImage(image)
   global currentMap, currentSpawnPoint, currentEntityString, frameNumber, mapLoaded, activeBaseRuntime, activePlayerContext, spawnedBaseEdicts, lastSpawnResult, activeMaxClients, activeImports, activeExport, activeSkill
   exportTable = activeExport
@@ -575,6 +762,10 @@ function restoreManagedImage(image)
   restoredSpawnResult = restored.spawnResult
   restoredBaseEdicts = restoredSpawnResult.edicts
   restoredSpawnSpots = ngplayerspawn.spotsFromBaseEdicts(restoredBaseEdicts)
+  if activePlayerContext.cooperative then
+    restoredSpawnSpots = ngplayerspawn.ApplyStockCoopSpawnFixups(currentMap,
+      restoredSpawnSpots)
+  end if
   activeBaseRuntime = restoredRuntime
   spawnedBaseEdicts = restoredBaseEdicts
   lastSpawnResult = restoredSpawnResult
@@ -598,6 +789,7 @@ function restoreManagedImage(image)
   return true
 end function
 
+// Read game.
 function ReadGame(filename)
   requireInitialized("ReadGame")
   image = gpersist.readFile(filename, activeExport.maxEdicts)
@@ -605,12 +797,14 @@ function ReadGame(filename)
   return restoreManagedImage(image)
 end function
 
+// Write level.
 function WriteLevel(filename)
   requireInitialized("WriteLevel")
   privateData = ngprivatesave.encode(activeBaseRuntime, activePlayerContext, currentEntityString, currentSpawnPoint)
   return gpersist.writeFileWithPrivate(activeExport, "level", currentMap, frameNumber, privateData, filename)
 end function
 
+// Read level.
 function ReadLevel(filename)
   requireInitialized("ReadLevel")
   image = gpersist.readFile(filename, activeExport.maxEdicts)
@@ -618,6 +812,7 @@ function ReadLevel(filename)
   return restoreManagedImage(image)
 end function
 
+// Return the checked client edict value.
 function checkedClientEdict(entity, operation)
   global activeExport
   requireInitialized(operation)
@@ -629,6 +824,7 @@ function checkedClientEdict(entity, operation)
   return activeExport.edicts[index]
 end function
 
+// Connect client.
 function ClientConnect(entity, userInfo)
   global activeExport, lastUserInfo
   slot = checkedClientEdict(entity, "ClientConnect")
@@ -645,6 +841,7 @@ function ClientConnect(entity, userInfo)
   return result.accepted
 end function
 
+// Begin client.
 function ClientBegin(entity)
   slot = checkedClientEdict(entity, "ClientBegin")
   player = playerForEdict(slot, "ClientBegin", false)
@@ -658,6 +855,7 @@ function ClientBegin(entity)
   return true
 end function
 
+// Return the client userinfo changed value.
 function ClientUserinfoChanged(entity, userInfo)
   global activeExport, lastUserInfo
   slot = checkedClientEdict(entity, "ClientUserinfoChanged")
@@ -670,6 +868,7 @@ function ClientUserinfoChanged(entity, userInfo)
   return true
 end function
 
+// Return the client disconnect value.
 function ClientDisconnect(entity)
   global activeExport
   slot = checkedClientEdict(entity, "ClientDisconnect")
@@ -681,6 +880,7 @@ function ClientDisconnect(entity)
   return true
 end function
 
+// Send inventory.
 function sendInventory(slot, player)
   global activeImports
   activeImports.writeByte(qc.SVC_INVENTORY)
@@ -699,6 +899,7 @@ end function
 // p_hud.c DeathmatchScoreboardMessage, retaining its score order, 12-client
 // display bound and Protocol-34 "client" layout command.
 function scoreboardLayout(context)
+  // Keep scoreboard layout phases explicit: validate inputs, update owned state, then publish the result.
   sorted = array(len(context.players), -1)
   scores = array(len(context.players), 0)
   total = 0
@@ -744,6 +945,7 @@ function scoreboardLayout(context)
   return layout
 end function
 
+// Send layout.
 function sendLayout(slot, layout)
   global activeImports
   activeImports.writeByte(qc.SVC_LAYOUT)
@@ -751,10 +953,12 @@ function sendLayout(slot, layout)
   return activeImports.unicast(slot, true)
 end function
 
+// Send scoreboard.
 function sendScoreboard(slot, context)
   return sendLayout(slot, scoreboardLayout(context))
 end function
 
+// Return the help layout value.
 function helpLayout(context)
   global activeBaseRuntime, activeSkill, currentMap
   skillName = "hard+"
@@ -783,6 +987,7 @@ function helpLayout(context)
     " " + foundSecrets + "/" + totalSecrets + "\" "
 end function
 
+// Return the players text value.
 function playersText(context)
   sorted = array(len(context.players), void)
   count = 0
@@ -818,6 +1023,7 @@ function playersText(context)
   return text + "\n" + count + " players\n"
 end function
 
+// Return the player list text value.
 function playerListText(context)
   text = ""
   for each listedPlayer in context.players
@@ -844,6 +1050,7 @@ function playerListText(context)
   return text
 end function
 
+// Return the chat team name.
 function chatTeamName(player, dmFlags)
   skin = nginfo.valueForKey(player.persistent.userInfo, "skin")
   data = bytes(skin)
@@ -860,11 +1067,13 @@ function chatTeamName(player, dmFlags)
   return decode(slice(data, slash + 1, len(data) - slash - 1))
 end function
 
+// Report whether on same chat team.
 function onSameChatTeam(first, second, dmFlags)
   if (dmFlags & (gc.DF_MODELTEAMS | gc.DF_SKINTEAMS)) == 0 then return false end if
   return chatTeamName(first, dmFlags) == chatTeamName(second, dmFlags)
 end function
 
+// Return the chat flood allowed value.
 function chatFloodAllowed(slot, player, context)
   global activeImports
   floodMessages = ngbyteio.truncInt(activeImports.cvar(
@@ -898,6 +1107,7 @@ function chatFloodAllowed(slot, player, context)
   return true
 end function
 
+// Return the normalized chat body value.
 function normalizedChatBody(command, arguments, includeCommand)
   body = arguments
   if includeCommand then
@@ -911,6 +1121,7 @@ function normalizedChatBody(command, arguments, includeCommand)
   return body
 end function
 
+// Send chat.
 function sendChat(slot, player, context, team, includeCommand, command)
   global activeImports
   if not includeCommand and activeImports.argc() < 2 then return false end if
@@ -934,6 +1145,7 @@ function sendChat(slot, player, context, team, includeCommand, command)
   return true
 end function
 
+// Return the cheats allowed value.
 function cheatsAllowed(slot, context)
   global activeImports
   if not context.deathmatch or
@@ -944,7 +1156,9 @@ function cheatsAllowed(slot, context)
   return false
 end function
 
+// Return the give items value.
 function giveItems(player, context, arguments)
+  // Keep give items phases explicit: validate inputs, update owned state, then publish the result.
   global activeImports
   giveAll = ngtext.equalInsensitive(arguments, "all")
   first = activeImports.argv(1)
@@ -1025,6 +1239,7 @@ function giveItems(player, context, arguments)
   return action.success
 end function
 
+// Execute item drop.
 function executeItemDrop(slot, player, context, item)
   global activeBaseRuntime, activeImports
   action = ngbaseq2.dropPlayerItem(activeBaseRuntime, player, context, item)
@@ -1230,14 +1445,20 @@ function ClientCommand(entity)
   return true
 end function
 
+// Run client.
 function ClientThink(entity, command)
-  global activeExport
+  global activeExport, activePmovePassEntity
   slot = checkedClientEdict(entity, "ClientThink")
   if slot.client is void then return error(3818, "ClientThink: client is not connected") end if
   if typeof(command) != "struct" then return error(3819, "ClientThink: usercmd must be a struct") end if
   player = playerForEdict(slot, "ClientThink", false)
   context = activePlayerContext
-  if len(context.spawnSpots) > 0 then ngplayerclient.ClientThink(context, player, command)
+  if len(context.spawnSpots) > 0 then
+    activePmovePassEntity = player.edict
+    ngPlayerThinkResultHolder = try(ngplayerclient.ClientThink(context,
+      player, command))
+    activePmovePassEntity = void
+    if ngPlayerThinkResultHolder is error then return ngPlayerThinkResultHolder end if
   else
     // The no-map compatibility contract has no spawn state from which real
     // delta angles can be derived.
@@ -1246,6 +1467,7 @@ function ClientThink(entity, command)
   return true
 end function
 
+// Run frame.
 function RunFrame()
   global frameNumber, activeBaseRuntime, activePlayerContext
   requireInitialized("RunFrame")
@@ -1296,6 +1518,7 @@ function RunFrame()
   return true
 end function
 
+// Return the server command value.
 function ServerCommand()
   global activeImports, serverCommandCount
   requireInitialized("ServerCommand")
@@ -1316,8 +1539,9 @@ function ServerCommand()
   return true
 end function
 
+// Return game api.
 function GetGameApi(imports)
-  global activeImports, activeExport, initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill
+  global activeImports, activeExport, initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill, activePmovePassEntity
   validateGameImport(imports)
   if initialized then return error(3821, "GetGameApi: active game must be shut down before replacement") end if
   activeImports = imports
@@ -1332,6 +1556,7 @@ function GetGameApi(imports)
   serverCommandCount = 0
   activeBaseRuntime = void
   activePlayerContext = void
+  activePmovePassEntity = void
   activeMaxClients = 4
   activeSkill = 1
   activeExport = gt.GameExport(
@@ -1345,6 +1570,7 @@ function GetGameApi(imports)
   return activeExport
 end function
 
+// Configure max clients.
 function configureMaxClients(count)
   global activeMaxClients, initialized
   requireInstalled("configureMaxClients")
@@ -1354,6 +1580,7 @@ function configureMaxClients(count)
   return true
 end function
 
+// Configure skill.
 function configureSkill(skill)
   global activeSkill, initialized
   requireInstalled("configureSkill")
@@ -1365,11 +1592,13 @@ function configureSkill(skill)
   return true
 end function
 
+// Return the configured game skill value.
 function configuredGameSkill()
   global activeSkill
   return activeSkill
 end function
 
+// Return the edict for the requested position.
 function edictAt(index)
   global activeExport
   requireInitialized("edictAt")
@@ -1377,6 +1606,7 @@ function edictAt(index)
   return activeExport.edicts[index]
 end function
 
+// Return the edict index.
 function edictIndex(entity)
   global activeExport
   requireInitialized("edictIndex")
@@ -1387,6 +1617,7 @@ function edictIndex(entity)
   return index
 end function
 
+// Return the edict offset.
 function edictOffset(index)
   global activeExport
   requireInitialized("edictOffset")
@@ -1394,31 +1625,37 @@ function edictOffset(index)
   return index * activeExport.edictSize
 end function
 
+// Return the lifecycle snapshot value.
 function lifecycleSnapshot()
   global initialized, mapLoaded, currentMap, currentSpawnPoint, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount
   return [initialized, mapLoaded, currentMap, currentSpawnPoint, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount]
 end function
 
+// Return the base edicts value.
 function baseEdicts()
   global spawnedBaseEdicts
   return spawnedBaseEdicts
 end function
 
+// Spawn result.
 function spawnResult()
   global lastSpawnResult
   return lastSpawnResult
 end function
 
+// Return the base runtime value.
 function baseRuntime()
   global activeBaseRuntime
   return activeBaseRuntime
 end function
 
+// Return the player context value.
 function playerContext()
   global activePlayerContext
   return activePlayerContext
 end function
 
+// Return the api installed value.
 function apiInstalled()
   global activeExport
   return activeExport is not void

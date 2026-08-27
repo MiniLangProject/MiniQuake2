@@ -9,11 +9,13 @@ import miniquake2.game.gameplay.item_rules as gprules
 import miniquake2.game.player.view as gplayerview
 import miniquake2.qcommon.byteio as qbyteio
 
+// Return the image index.
 function imageIndex(context, name)
   if name == "" then return 0 end if
   return context.imports.imageIndex(name)
 end function
 
+// Return the timer stats value.
 function timerStats(context, player, stats)
   if player.powerups.quadFrame > context.frameNumber then
     stats[miniquake2.game.constants.STAT_TIMER_ICON] = imageIndex(context, "p_quad")
@@ -33,7 +35,9 @@ function timerStats(context, player, stats)
   end if
 end function
 
+// Set g stats.
 function G_SetStats(context, player)
+  // Keep g set stats phases explicit: validate inputs, update owned state, then publish the result.
   stats = player.edict.client.playerState.stats
   stats[miniquake2.game.constants.STAT_HEALTH_ICON] = imageIndex(context, "i_health")
   stats[miniquake2.game.constants.STAT_HEALTH] = player.health
@@ -88,6 +92,7 @@ function G_SetStats(context, player)
   return stats
 end function
 
+// Copy stats data.
 function copyStats(source, target)
   index = 0
   while index < miniquake2.game.constants.MAX_STATS
@@ -97,6 +102,7 @@ function copyStats(source, target)
   return target
 end function
 
+// Set g spectator stats.
 function G_SetSpectatorStats(context, player)
   if player.chaseTarget is void then G_SetStats(context, player)
   else copyStats(player.chaseTarget.edict.client.playerState.stats, player.edict.client.playerState.stats)
@@ -113,6 +119,7 @@ function G_SetSpectatorStats(context, player)
   return stats
 end function
 
+// Validate g chase stats.
 function G_CheckChaseStats(context, target)
   updated = 0
   for each player in context.players
@@ -125,6 +132,7 @@ function G_CheckChaseStats(context, target)
   return updated
 end function
 
+// End client server frame.
 function ClientEndServerFrame(context, player)
   state = player.edict.client.playerState
   state.pmove.origin = [qbyteio.truncInt(player.edict.state.origin.x * 8.0), qbyteio.truncInt(player.edict.state.origin.y * 8.0), qbyteio.truncInt(player.edict.state.origin.z * 8.0)]
@@ -143,6 +151,7 @@ function ClientEndServerFrame(context, player)
   return state
 end function
 
+// End client server frames.
 function ClientEndServerFrames(context)
   count = 0
   for each player in context.players

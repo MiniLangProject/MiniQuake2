@@ -15,22 +15,26 @@ import miniquake2.game.gameplay.weapons as gpweapons
 import miniquake2.server.game_bridge as gbridge
 import std.string as gpstring
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9500, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9501, name + ": expected true") end if
   return true
 end function
 
+// Assert the error contains test condition.
 function assertErrorContains(value, fragment, name)
   if value is not error then return error(9502, name + ": expected error") end if
   if gpstring.contains(value.message, fragment) != true then return error(9503, name + ": unexpected message " + value.message) end if
   return true
 end function
 
+// Report whether contains.
 function contains(values, expected)
   for each value in values
     if value == expected then return true end if
@@ -38,10 +42,12 @@ function contains(values, expected)
   return false
 end function
 
+// Return the allow damage value.
 function allowDamage(target)
   return true
 end function
 
+// Verify registry and precache.
 function testRegistryAndPrecache()
   baseEntity = btypes.zeroBaseEntity()
   assertEqual(baseEntity.spawnKind, "unspawned", "base/gameplay type aliases coexist")
@@ -71,6 +77,7 @@ function testRegistryAndPrecache()
   return registry
 end function
 
+// Verify items ammo drop and respawn.
 function testItemsAmmoDropAndRespawn(registry)
   slots = gpregistry.inventorySlots(registry)
   player = gptypes.createPlayer(1, slots)
@@ -136,6 +143,7 @@ function testItemsAmmoDropAndRespawn(registry)
   return true
 end function
 
+// Verify weapon state machine.
 function testWeaponStateMachine(registry)
   player = gptypes.createPlayer(3, gpregistry.inventorySlots(registry))
   blaster = gprules.findByPickupName(registry, "Blaster")
@@ -198,6 +206,7 @@ function testWeaponStateMachine(registry)
   return true
 end function
 
+// Verify damage foundations.
 function testDamageFoundations()
   target = gptypes.createCombatant(40, 100)
   target.armor = 50
@@ -245,6 +254,7 @@ function testDamageFoundations()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 gameplay items/weapons tests starting: 4"
   registry = testRegistryAndPrecache()

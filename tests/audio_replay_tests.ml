@@ -7,11 +7,13 @@ import miniquake2.audio.wav as audioreplaywav
 import miniquake2.audio.mixer as audioreplaymixer
 import miniquake2.qcommon.byteio as audioreplaybyteio
 
+// Assert the audio replay test condition.
 function audioReplayAssert(value, message)
   if value != true then return error(9823, message) end if
   return true
 end function
 
+// Return the audio replay stereo sound value.
 function audioReplayStereoSound()
   audioReplayPcm = bytes(16)
   audioreplaybyteio.putI16(audioReplayPcm, 0, -32768)
@@ -26,6 +28,7 @@ function audioReplayStereoSound()
     audioReplayPcm)
 end function
 
+// Render audio replay.
 function audioReplayRender()
   audioReplayMonoHolder = audioreplaywav.WavSound("replay/loop.wav", 11025, 1, 1,
     8, 2, bytes([128, 255, 192, 64, 0, 32, 224, 160]))
@@ -50,6 +53,7 @@ function audioReplayRender()
   return audioReplayOutput
 end function
 
+// Return the audio replay hash value.
 function audioReplayHash(data)
   audioReplayHashValue = 2166136261
   audioReplayHashIndex = 0

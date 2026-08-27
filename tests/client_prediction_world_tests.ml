@@ -12,11 +12,13 @@ import miniquake2.protocol.types as pwtpt
 import miniquake2.client.runtime.types as pwtcrt
 import miniquake2.client.prediction_world as pwtworld
 
+// Assert the prediction world test condition.
 function predictionWorldAssert(value, name)
   if not value then return error(7670, name) end if
   return true
 end function
 
+// Return the prediction world near value.
 function predictionWorldNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -24,6 +26,7 @@ function predictionWorldNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Return the prediction world fixture value.
 function predictionWorldFixture()
   planes = [
     pwtt.BspPlane(pwtt.Vec3(1.0, 0.0, 0.0), 0.0, 0),

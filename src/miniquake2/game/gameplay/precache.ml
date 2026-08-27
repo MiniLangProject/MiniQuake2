@@ -9,6 +9,7 @@ import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.text as qtext
 
+// Find by pickup name.
 function findByPickupName(registry, pickupName)
   if typeof(pickupName) != "string" then return error(9396, "precache pickup name is not text") end if
   for each item in registry.items
@@ -19,11 +20,13 @@ function findByPickupName(registry, pickupName)
   return void
 end function
 
+// Require import function.
 function requireImportFunction(imports, fieldValue, fieldName)
   if typeof(imports) != "struct" or typeof(fieldValue) != "function" then return error(9380, "PrecacheItem: missing GameImport." + fieldName) end if
   return true
 end function
 
+// Cache model.
 function cacheModel(result, imports, path)
   if path == "" then return true end if
   requireImportFunction(imports, imports.modelIndex, "modelIndex")
@@ -32,6 +35,7 @@ function cacheModel(result, imports, path)
   return true
 end function
 
+// Cache sound.
 function cacheSound(result, imports, path)
   if path == "" then return true end if
   requireImportFunction(imports, imports.soundIndex, "soundIndex")
@@ -40,6 +44,7 @@ function cacheSound(result, imports, path)
   return true
 end function
 
+// Cache image.
 function cacheImage(result, imports, path)
   if path == "" then return true end if
   requireImportFunction(imports, imports.imageIndex, "imageIndex")
@@ -48,6 +53,7 @@ function cacheImage(result, imports, path)
   return true
 end function
 
+// Cache tokens.
 function cacheTokens(result, imports, value, itemName)
   source = bytes(value)
   index = 0
@@ -72,6 +78,7 @@ function cacheTokens(result, imports, value, itemName)
   return true
 end function
 
+// Populate the precache destination.
 function precacheInto(registry, item, imports, result, depth)
   if item is void then return true end if
   if depth > len(registry.items) then return error(9382, "PrecacheItem: cyclic ammo dependency") end if
@@ -88,6 +95,7 @@ function precacheInto(registry, item, imports, result, depth)
   return true
 end function
 
+// Return the precache item value.
 function PrecacheItem(registry, item, imports)
   result = gptypes.PrecacheResult([], [], [])
   precacheInto(registry, item, imports, result, 0)

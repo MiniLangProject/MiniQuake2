@@ -8,6 +8,7 @@ The IEEE-754 conversion is deliberately pure MiniLang.
 */
 package miniquake2.qcommon.byteio
 
+// Require range.
 function requireRange(data, offset, count)
   if typeof(data) != "bytes" then return error(2100, "byte buffer required") end if
   if typeof(offset) != "int" or typeof(count) != "int" then
@@ -19,28 +20,33 @@ function requireRange(data, offset, count)
   return true
 end function
 
+// Return the u 8 value.
 function inline u8(data, offset)
   requireRange(data, offset, 1)
   return data[offset]
 end function
 
+// Return the i 8 value.
 function inline i8(data, offset)
   value = u8(data, offset)
   if value >= 128 then return value - 256 end if
   return value
 end function
 
+// Return the u 16 value.
 function inline u16(data, offset)
   requireRange(data, offset, 2)
   return data[offset] | (data[offset + 1] << 8)
 end function
 
+// Return the i 16 value.
 function inline i16(data, offset)
   value = u16(data, offset)
   if value >= 0x8000 then return value - 0x10000 end if
   return value
 end function
 
+// Return the u 32 value.
 function u32(data, offset)
   requireRange(data, offset, 4)
   return data[offset] |
@@ -49,12 +55,14 @@ function u32(data, offset)
     (data[offset + 3] << 24)
 end function
 
+// Return the i 32 value.
 function i32(data, offset)
   value = u32(data, offset)
   if value >= 0x80000000 then return value - 0x100000000 end if
   return value
 end function
 
+// Write u 8.
 function inline putU8(data, offset, value)
   requireRange(data, offset, 1)
   if typeof(value) != "int" then return error(2103, "byte value must be an integer") end if
@@ -62,10 +70,12 @@ function inline putU8(data, offset, value)
   return offset + 1
 end function
 
+// Write i 8.
 function inline putI8(data, offset, value)
   return putU8(data, offset, value)
 end function
 
+// Write u 16.
 function inline putU16(data, offset, value)
   requireRange(data, offset, 2)
   if typeof(value) != "int" then return error(2104, "short value must be an integer") end if
@@ -74,10 +84,12 @@ function inline putU16(data, offset, value)
   return offset + 2
 end function
 
+// Write i 16.
 function inline putI16(data, offset, value)
   return putU16(data, offset, value)
 end function
 
+// Write u 32.
 function putU32(data, offset, value)
   requireRange(data, offset, 4)
   if typeof(value) != "int" then return error(2105, "long value must be an integer") end if
@@ -88,10 +100,12 @@ function putU32(data, offset, value)
   return offset + 4
 end function
 
+// Write i 32.
 function inline putI32(data, offset, value)
   return putU32(data, offset, value)
 end function
 
+// Populate the copy destination.
 function copyInto(destination, destinationOffset, source, sourceOffset, count)
   requireRange(destination, destinationOffset, count)
   requireRange(source, sourceOffset, count)
@@ -153,6 +167,7 @@ function fractionBits23(fraction)
   return [bits, fraction]
 end function
 
+// Return the power of two value.
 function powerOfTwo(exponent)
   value = 1.0
   while exponent > 0
@@ -221,6 +236,7 @@ function float32Bits(value)
   return sign | ((exponent + 127) << 23) | mantissa
 end function
 
+// Return the float 32 from bits.
 function float32FromBits(bits)
   if typeof(bits) != "int" then return error(2110, "float32 bits must be an integer") end if
   sign = 1.0
@@ -250,20 +266,24 @@ function float32FromBits(bits)
   return sign * value
 end function
 
+// Return the f 32 value.
 function inline f32(data, offset)
   return float32FromBits(u32(data, offset))
 end function
 
+// Write f 32.
 function inline putF32(data, offset, value)
   return putU32(data, offset, float32Bits(value))
 end function
 
+// Swap short.
 function shortSwap(value)
   swapped = ((value & 255) << 8) | ((value >> 8) & 255)
   if swapped >= 0x8000 then return swapped - 0x10000 end if
   return swapped
 end function
 
+// Swap long.
 function longSwap(value)
   swapped = ((value & 255) << 24) |
     (((value >> 8) & 255) << 16) |
@@ -280,16 +300,19 @@ function inline littleShort(value)
   return narrowed
 end function
 
+// Return the little long value.
 function inline littleLong(value)
   narrowed = value & 0xffffffff
   if narrowed >= 0x80000000 then return narrowed - 0x100000000 end if
   return narrowed
 end function
 
+// Return the big short value.
 function bigShort(value)
   return shortSwap(value)
 end function
 
+// Return the big long value.
 function bigLong(value)
   return longSwap(value)
 end function

@@ -10,11 +10,13 @@ import miniquake2.qcommon.constants as monstercombatqconstants
 import miniquake2.qcommon.types as monstercombatqtypes
 import miniquake2.server.game_bridge as monstercombatbridge
 
+// Assert the monster combat test condition.
 function monsterCombatAssert(value, label)
   if value != true then return error(9975, label) end if
   return true
 end function
 
+// Install monster combat.
 function monsterCombatInstall(className, origin)
   monsterCombatServer = monstercombatbridge.createRuntime(4)
   monsterCombatApi = monstercombatgame.GetGameApi(monstercombatbridge.makeImports(monsterCombatServer))
@@ -31,7 +33,9 @@ function monsterCombatInstall(className, origin)
   return [monsterCombatServer, monsterCombatApi, monsterCombatClient]
 end function
 
+// Run monster combat.
 function monsterCombatRun(className, origin, frames, expectMelee, expectProjectile)
+  // Keep monster combat run phases explicit: validate inputs, update owned state, then publish the result.
   monsterCombatSession = monsterCombatInstall(className, origin)
   monsterCombatServer = monsterCombatSession[0]
   monsterCombatApi = monsterCombatSession[1]

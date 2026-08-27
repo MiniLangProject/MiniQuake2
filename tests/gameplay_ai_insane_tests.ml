@@ -13,16 +13,19 @@ import miniquake2.game.constants as insanetestgameconstants
 
 insaneTestSounds = []
 
+// Assert the insane test test condition.
 function insaneTestAssert(value, message)
   if value != true then return error(9827, message) end if
   return true
 end function
 
+// Report whether insane test equal.
 function insaneTestEqual(actual, expected, message)
   if actual != expected then return error(9828, message + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Verify insane sound.
 function insaneTestSound(actor, soundName, channel, attenuation)
   global insaneTestSounds
   insaneTestSounds = insaneTestSounds + [soundName]
@@ -32,6 +35,7 @@ function insaneTestSound(actor, soundName, channel, attenuation)
   return true
 end function
 
+// Verify insane context.
 function insaneTestContext()
   insaneContext = insanetesttypes.defaultContext()
   insaneContext.randomIdle = 0.0
@@ -44,7 +48,7 @@ end function
 insaneRegistry = insanetestarchetypes.defaultRegistry()
 insaneTestAssert(insanetestarchetypes.validate(insaneRegistry), "campaign AI registry validates")
 insaneTestEqual(len(insaneRegistry.entries), 22, "base monster registry remains duplicate-free")
-insaneTestEqual(len(insaneRegistry.campaignEntries), 3, "campaign AI registry count")
+insaneTestEqual(len(insaneRegistry.campaignEntries), 4, "campaign AI registry count")
 insaneTestAssert(insanetestreactions.selectDeathPlan("misc_insane", 76, 1, true) is void,
   "misc_insane keeps its dedicated gib sequence")
 insaneDefinition = insanetestarchetypes.find(insaneRegistry, "misc_insane")

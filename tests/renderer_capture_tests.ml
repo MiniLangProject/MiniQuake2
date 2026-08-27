@@ -5,10 +5,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Asset-free golden tests for canonical framebuffer capture and TGA output. */
 import miniquake2.renderer.capture as rendercapturetest
 
+// Assert the capture equal test condition.
 function captureAssertEqual(actual, expected, label)
   if actual != expected then return error(7995, label + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Capture golden test.
 function captureGoldenTest()
   // OpenGL rows: bottom red/green, then top blue/white.
   glPixels = bytes([

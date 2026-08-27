@@ -12,6 +12,7 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
 
+// Validate state.
 function validateState(state, operation)
   if len(state.origin) != 3 or len(state.angles) != 3 or len(state.oldOrigin) != 3 then
     return error(7030, operation + ": entity vectors must have three components")
@@ -23,6 +24,7 @@ end function
 // extension flags are added by writeHeader, so callers can also use this mask
 // to decide whether an unchanged entity may be omitted.
 function computeBits(base, target, newEntity)
+  // Keep compute bits phases explicit: validate inputs, update owned state, then publish the result.
   validateState(base, "entity baseline")
   validateState(target, "entity target")
   if typeof(target.number) != "int" or target.number <= 0 or target.number >= pc.MAX_EDICTS then
@@ -85,6 +87,7 @@ function computeBits(base, target, newEntity)
   return bits
 end function
 
+// Add continuation bits.
 function addContinuationBits(bits)
   if (bits & 0xff000000) != 0 then
     return bits | pc.U_MOREBITS3 | pc.U_MOREBITS2 | pc.U_MOREBITS1
@@ -94,6 +97,7 @@ function addContinuationBits(bits)
   return bits
 end function
 
+// Write header.
 function writeHeader(buffer, number, rawBits)
   bits = addContinuationBits(rawBits)
   qmsg.writeByte(buffer, bits & 255)
@@ -114,6 +118,7 @@ end function
 // Emit fields in the original MSG_WriteDeltaEntity order; several flags share
 // bytes, making this ordering part of the wire and demo compatibility contract.
 function writeDelta(buffer, base, target, force, newEntity)
+  // Keep write delta phases explicit: validate inputs, update owned state, then publish the result.
   rawBits = computeBits(base, target, newEntity)
   if rawBits == 0 and not force then return 0 end if
   bits = writeHeader(buffer, target.number, rawBits)
@@ -166,6 +171,7 @@ function writeDelta(buffer, base, target, force, newEntity)
   return bits
 end function
 
+// Write removal.
 function writeRemoval(buffer, number)
   if typeof(number) != "int" or number <= 0 or number >= pc.MAX_EDICTS then return error(7032, "removed entity number outside protocol-34 range") end if
   bits = pc.U_REMOVE
@@ -173,11 +179,13 @@ function writeRemoval(buffer, number)
   return writeHeader(buffer, number, bits)
 end function
 
+// Write end marker.
 function writeEndMarker(buffer)
   qmsg.writeShort(buffer, 0)
   return buffer
 end function
 
+// Read header.
 function readHeader(buffer)
   total = pchecked.readByte(buffer, "entity delta flags")
   if (total & pc.U_MOREBITS1) != 0 then total = total | (pchecked.readByte(buffer, "entity delta flags byte 2") << 8) end if
@@ -206,6 +214,7 @@ end function
 // Reconstruct a complete state from its baseline without retaining references
 // to mutable baseline vectors. Checked reads keep malformed packets atomic.
 function readDelta(buffer, base, header)
+  // Keep read delta phases explicit: validate inputs, update owned state, then publish the result.
   if header.endMarker then return error(7036, "cannot decode an entity end marker as state") end if
   if header.remove then return error(7037, "cannot decode an entity removal as state") end if
   if header.number <= 0 or header.number >= pc.MAX_EDICTS then return error(7038, "invalid entity delta number") end if
@@ -266,6 +275,7 @@ function readDelta(buffer, base, header)
   return target
 end function
 
+// Write msg delta entity.
 function MSG_WriteDeltaEntity(base, target, buffer, force, newEntity)
   return writeDelta(buffer, base, target, force, newEntity)
 end function

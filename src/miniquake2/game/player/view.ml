@@ -14,12 +14,14 @@ import miniquake2.qcommon.types as qtypes
 import miniquake2.physics.vector as phv
 import std.math as gplayermath
 
+// Emit sound.
 function emitSound(context, player, channel, name, attenuation)
   sound = context.imports.soundIndex(name)
   context.imports.sound(player.edict, channel, sound, 1.0, attenuation, 0.0)
   return name
 end function
 
+// Return the random index.
 function randomIndex(context, count)
   if count <= 0 then return 0 end if
   result = context.frameNumber % count
@@ -28,6 +30,7 @@ function randomIndex(context, count)
   return result
 end function
 
+// Return the point vector value.
 function pointVector(point)
   if typeof(point) != "struct" then return qtypes.Vec3(point[0], point[1], point[2]) end if
   return qtypes.Vec3(point.x, point.y, point.z)
@@ -64,7 +67,9 @@ function ApplyDamage(context, player, amount, damageFlags, meansOfDeath)
   return applied
 end function
 
+// Return the p world effects value.
 function P_WorldEffects(context, player)
+  // Keep p world effects phases explicit: validate inputs, update owned state, then publish the result.
   if player.moveType == gplayerconstants.MOVETYPE_NOCLIP then player.view.airFinished = context.time + 12.0; return 0 end if
   waterLevel = player.waterLevel
   oldWaterLevel = player.view.oldWaterLevel
@@ -135,6 +140,7 @@ function P_WorldEffects(context, player)
   return damage
 end function
 
+// Return the p falling damage value.
 function P_FallingDamage(context, player)
   if player.edict.state.modelIndex != gplayerconstants.PLAYER_MODEL_INDEX or player.moveType == gplayerconstants.MOVETYPE_NOCLIP then return 0 end if
   oldZ = player.view.oldVelocity[2]
@@ -167,7 +173,9 @@ function P_FallingDamage(context, player)
   return ApplyDamage(context, player, damage, 0, gplayerconstants.MOD_FALLING)
 end function
 
+// Return the p damage feedback value.
 function P_DamageFeedback(context, player, forward, right)
+  // Keep p damage feedback phases explicit: validate inputs, update owned state, then publish the result.
   stats = player.edict.client.playerState.stats
   stats[miniquake2.game.constants.STAT_FLASHES] = 0
   if player.view.damageBlood != 0 then stats[miniquake2.game.constants.STAT_FLASHES] = stats[miniquake2.game.constants.STAT_FLASHES] | 1 end if
@@ -230,12 +238,14 @@ function P_DamageFeedback(context, player, forward, right)
   return true
 end function
 
+// Clamp state.
 function clamp(value, minimum, maximum)
   if value < minimum then return minimum end if
   if value > maximum then return maximum end if
   return value
 end function
 
+// Return the sv calc roll value.
 function SV_CalcRoll(context, player, right)
   side = player.velocity[0] * right.x + player.velocity[1] * right.y + player.velocity[2] * right.z
   sign = 1.0
@@ -247,7 +257,9 @@ function SV_CalcRoll(context, player, right)
   return side * sign
 end function
 
+// Return the sv calc view offset.
 function SV_CalcViewOffset(context, player, forward, right)
+  // Keep sv calc view offset phases explicit: validate inputs, update owned state, then publish the result.
   state = player.edict.client.playerState
   if player.deadFlag != gplayerconstants.DEAD_NO then
     state.kickAngles = qtypes.Vec3(0.0, 0.0, 0.0)
@@ -286,6 +298,7 @@ function SV_CalcViewOffset(context, player, forward, right)
   return offset
 end function
 
+// Return the sv calc gun offset.
 function SV_CalcGunOffset(context, player, forward, right, up)
   state = player.edict.client.playerState
   roll = player.view.xySpeed * player.view.bobFracSin * 0.005
@@ -317,6 +330,7 @@ function SV_CalcGunOffset(context, player, forward, right, up)
   return state.gunOffset
 end function
 
+// Add sv blend.
 function SV_AddBlend(red, green, blue, alpha, blend)
   if alpha <= 0.0 then return blend end if
   totalAlpha = blend[3] + (1.0 - blend[3]) * alpha
@@ -328,7 +342,9 @@ function SV_AddBlend(red, green, blue, alpha, blend)
   return blend
 end function
 
+// Return the sv calc blend value.
 function SV_CalcBlend(context, player)
+  // Keep sv calc blend phases explicit: validate inputs, update owned state, then publish the result.
   state = player.edict.client.playerState
   state.blend = [0.0, 0.0, 0.0, 0.0]
   viewOrigin = qtypes.Vec3(player.edict.state.origin.x + state.viewOffset.x, player.edict.state.origin.y + state.viewOffset.y, player.edict.state.origin.z + state.viewOffset.z)
@@ -366,6 +382,7 @@ function SV_CalcBlend(context, player)
   return state.blend
 end function
 
+// Set g client effects.
 function G_SetClientEffects(context, player)
   player.edict.state.effects = 0
   player.edict.state.renderFx = 0
@@ -385,12 +402,14 @@ function G_SetClientEffects(context, player)
   return player.edict.state.effects
 end function
 
+// Set g client event.
 function G_SetClientEvent(player)
   if player.edict.state.event != miniquake2.game.constants.EV_NONE then return player.edict.state.event end if
   if player.groundEntity is not void and player.view.xySpeed > 225.0 and qbyteio.truncInt(player.view.bobTime + player.view.bobMove) != player.view.bobCycle then player.edict.state.event = miniquake2.game.constants.EV_FOOTSTEP end if
   return player.edict.state.event
 end function
 
+// Set g client sound.
 function G_SetClientSound(context, player)
   weaponClass = ""
   if player.gameplay.currentWeapon is not void then weaponClass = player.gameplay.currentWeapon.className end if
@@ -402,7 +421,9 @@ function G_SetClientSound(context, player)
   return player.edict.state.sound
 end function
 
+// Set g client frame.
 function G_SetClientFrame(player)
+  // Keep g set client frame phases explicit: validate inputs, update owned state, then publish the result.
   if player.edict.state.modelIndex != gplayerconstants.PLAYER_MODEL_INDEX then return player.edict.state.frame end if
   duck = (player.edict.client.playerState.pmove.flags & miniquake2.game.constants.PMF_DUCKED) != 0
   run = player.view.xySpeed != 0.0
@@ -442,6 +463,7 @@ function G_SetClientFrame(player)
   return player.edict.state.frame
 end function
 
+// Update bob.
 function UpdateBob(player)
   player.view.xySpeed = gplayermath.sqrt(player.velocity[0] * player.velocity[0] + player.velocity[1] * player.velocity[1])
   if player.view.xySpeed < 5.0 then player.view.bobMove = 0.0; player.view.bobTime = 0.0
@@ -459,6 +481,7 @@ function UpdateBob(player)
   return player.view.xySpeed
 end function
 
+// Return the client view frame value.
 function ClientViewFrame(context, player)
   state = player.edict.client.playerState
   basis = phv.angleVectors(state.viewAngles)

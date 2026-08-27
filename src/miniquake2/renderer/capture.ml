@@ -15,12 +15,14 @@ const RENDERCAPTURE_GL_DITHER = 0x0BD0
 const RENDERCAPTURE_GL_RGBA = 0x1908
 const RENDERCAPTURE_GL_UNSIGNED_BYTE = 0x1401
 
+// Store capture image data.
 struct CaptureImage
   width
   height
   rgba
 end struct
 
+// Store pixel diff data.
 struct PixelDiff
   width
   height
@@ -33,6 +35,7 @@ struct PixelDiff
   exact
 end struct
 
+// Validate capture dimensions.
 function validateCaptureDimensions(width, height)
   if typeof(width) != "int" or typeof(height) != "int" then
     return error(9690, "capture dimensions must be integers")
@@ -43,6 +46,7 @@ function validateCaptureDimensions(width, height)
   return width * height * 4
 end function
 
+// Return the image value.
 function image(width, height, rgba)
   expected = validateCaptureDimensions(width, height)
   if typeof(rgba) != "bytes" or len(rgba) != expected then
@@ -113,11 +117,13 @@ function encodeTga(captureImage)
   return encoded
 end function
 
+// Write tga.
 function writeTga(path, captureImage)
   if typeof(path) != "string" or path == "" then return error(9695, "capture output path required") end if
   return rendercapturefs.writeAllBytes(path, encodeTga(captureImage))
 end function
 
+// Return the rgba checksum value.
 function rgbaChecksum(captureImage)
   if typeof(captureImage) != "struct" or typeof(captureImage.rgba) != "bytes" then
     return error(9694, "CaptureImage required")
@@ -135,6 +141,7 @@ end function
 // Exact counts plus an explicit per-channel tolerance form a driver-robust,
 // machine-consumable metric without hiding large localized errors in one mean.
 function compare(expectedImage, actualImage, channelTolerance, includeAlpha)
+  // Keep compare phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(expectedImage) != "struct" or typeof(actualImage) != "struct" then
     return error(9696, "two CaptureImage values required")
   end if

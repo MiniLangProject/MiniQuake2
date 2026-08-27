@@ -15,6 +15,7 @@ import miniquake2.client.runtime.dispatcher as demortdispatcher
 import miniquake2.client.runtime.handoff as demorthandoff
 import miniquake2.client.state as demortstate
 
+// Store demo session data.
 struct DemoSession
   runtime
   player
@@ -23,6 +24,7 @@ struct DemoSession
   finished
 end struct
 
+// Store demo step data.
 struct DemoStep
   packets
   frames
@@ -30,6 +32,7 @@ struct DemoStep
   finished
 end struct
 
+// Create state.
 function create(data, randomSeed)
   if typeof(randomSeed) != "int" then
     return error(9943, "demo session random seed must be an integer")
@@ -76,6 +79,7 @@ function step(session, now)
     0, void, session.finished)
 end function
 
+// Map model path.
 function mapModelPath(session)
   if typeof(session) != "struct" or typeof(session.runtime.network.configStrings) != "array" then
     return error(9945, "demo session configstrings are unavailable")
@@ -87,6 +91,7 @@ function mapModelPath(session)
   return demoSessionMapPathHolder
 end function
 
+// Return the level name.
 function levelName(session)
   if typeof(session) != "struct" or typeof(session.runtime.network.levelName) != "string" then
     return ""
@@ -94,6 +99,7 @@ function levelName(session)
   return session.runtime.network.levelName
 end function
 
+// Release state.
 function release(session)
   if typeof(session) != "struct" then return false end if
   demortdispatcher.releaseResolver()

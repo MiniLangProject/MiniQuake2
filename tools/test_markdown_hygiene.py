@@ -13,7 +13,9 @@ import markdown_hygiene
 
 
 class MarkdownHygieneTests(unittest.TestCase):
+    """Store markdown hygiene tests data."""
     def test_accepts_structure_links_and_fenced_examples(self) -> None:
+        """Verify accepts structure links and fenced examples."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             docs = root / "docs"
@@ -28,6 +30,7 @@ class MarkdownHygieneTests(unittest.TestCase):
             self.assertEqual([], markdown_hygiene.check_file(root, source))
 
     def test_reports_objective_structure_and_link_issues(self) -> None:
+        """Verify reports objective structure and link issues."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             path = root / "README.md"
@@ -42,6 +45,7 @@ class MarkdownHygieneTests(unittest.TestCase):
             )
 
     def test_scope_excludes_reference_and_build_docs(self) -> None:
+        """Verify scope excludes reference and build docs."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             expected = root / "docs" / "kept.md"

@@ -7,10 +7,12 @@ import miniquake2.runtime.diagnostics as productdiagnostics
 import miniquake2.runtime.application as productapplication
 import miniquake2.renderer.opengl as productopengl
 
+// Assert the true test condition.
 function assertTrue(value, label)
   if not value then return error(9981, label) end if
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   assertTrue(productdiagnostics.verifyLinkClosure(), "product linker closure")
   assertTrue(typeof(productapplication.previewMap) == "function", "application preview link")

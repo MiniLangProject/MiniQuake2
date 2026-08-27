@@ -10,6 +10,7 @@ package miniquake2.qcommon.sizebuf
 import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.byteio as bio
 
+// Initialize state.
 function init(data, length)
   if typeof(data) != "bytes" then return error(2200, "SZ_Init requires bytes") end if
   if typeof(length) != "int" or length < 0 or length > len(data) then
@@ -18,23 +19,27 @@ function init(data, length)
   return qt.SizeBuffer(false, false, data, length, 0, 0)
 end function
 
+// Return the alloc value.
 function alloc(maxSize)
   if typeof(maxSize) != "int" or maxSize < 0 then return error(2202, "invalid size buffer capacity") end if
   return init(bytes(maxSize), maxSize)
 end function
 
+// Return the alloc overflowing value.
 function allocOverflowing(maxSize)
   buffer = alloc(maxSize)
   buffer.allowOverflow = true
   return buffer
 end function
 
+// Clear state.
 function clear(buffer)
   buffer.curSize = 0
   buffer.overflowed = false
   return buffer
 end function
 
+// Return space.
 function getSpace(buffer, count)
   if typeof(count) != "int" or count < 0 then return error(2203, "negative or non-integer SZ_GetSpace length") end if
   if buffer.curSize < 0 or buffer.curSize > buffer.maxSize then return error(2204, "corrupt size buffer cursor") end if
@@ -49,6 +54,7 @@ function getSpace(buffer, count)
   return offset
 end function
 
+// Write state.
 function write(buffer, source, sourceOffset, count)
   bio.requireRange(source, sourceOffset, count)
   offset = getSpace(buffer, count)
@@ -56,11 +62,13 @@ function write(buffer, source, sourceOffset, count)
   return offset
 end function
 
+// Write bytes.
 function writeBytes(buffer, source)
   if typeof(source) != "bytes" then return error(2207, "SZ_Write requires bytes") end if
   return write(buffer, source, 0, len(source))
 end function
 
+// Print bytes.
 function printBytes(buffer, source)
   if typeof(source) != "bytes" then return error(2208, "SZ_Print requires bytes") end if
   count = 0
@@ -90,31 +98,38 @@ function printBytes(buffer, source)
   return offset
 end function
 
+// Print text.
 function printText(buffer, text)
   if typeof(text) != "string" then return error(2209, "SZ_Print requires a string") end if
   return printBytes(buffer, bytes(text))
 end function
 
+// Slice data.
 function dataSlice(buffer)
   return slice(buffer.data, 0, buffer.curSize)
 end function
 
+// Initialize sz.
 function SZ_Init(data, length)
   return init(data, length)
 end function
 
+// Clear sz.
 function SZ_Clear(buffer)
   return clear(buffer)
 end function
 
+// Return sz space.
 function SZ_GetSpace(buffer, count)
   return getSpace(buffer, count)
 end function
 
+// Write sz.
 function SZ_Write(buffer, source, sourceOffset, count)
   return write(buffer, source, sourceOffset, count)
 end function
 
+// Print sz.
 function SZ_Print(buffer, text)
   return printText(buffer, text)
 end function

@@ -13,16 +13,19 @@ import miniquake2.format.wal as wal
 import miniquake2.format.pcx as pcx
 import miniquake2.format.cinematic as cinematic
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9900, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9901, name + ": expected true") end if
   return true
 end function
 
+// Verify bsp header and visibility.
 function testBspHeaderAndVisibility()
   data = bytes(160)
   bio.putU32(data, 0, c.IDBSPHEADER)
@@ -45,6 +48,7 @@ function testBspHeaderAndVisibility()
   return true
 end function
 
+// Verify sprite.
 function testSprite()
   data = bytes(92)
   bio.putU32(data, 0, c.IDSPRITEHEADER)
@@ -59,6 +63,7 @@ function testSprite()
   return true
 end function
 
+// Verify wal.
 function testWal()
   data = bytes(185)
   data[0] = 116; data[1] = 101; data[2] = 115; data[3] = 116
@@ -71,6 +76,7 @@ function testWal()
   return true
 end function
 
+// Verify pcx.
 function testPcx()
   data = bytes(128 + 4 + 769)
   data[0] = 10; data[1] = 5; data[2] = 1; data[3] = 8
@@ -85,6 +91,7 @@ function testPcx()
   return true
 end function
 
+// Verify md 2 validation.
 function testMd2Validation()
   data = bytes(68)
   bio.putU32(data, 0, c.IDALIASHEADER)
@@ -95,6 +102,7 @@ function testMd2Validation()
   return true
 end function
 
+// Verify cinematic header.
 function testCinematicHeader()
   data = bytes(cinematic.HEADER_BYTES)
   bio.putU32(data, 0, 320); bio.putU32(data, 4, 240); bio.putU32(data, 8, 22050); bio.putU32(data, 12, 2); bio.putU32(data, 16, 1)

@@ -11,6 +11,7 @@ import miniquake2.game.gameplay.constants as gpconstants
 import miniquake2.game.types as gtypes
 import miniquake2.qcommon.types as gpqtypes
 
+// Store weapon frames data.
 struct WeaponFrames
   activateLast
   fireLast
@@ -43,6 +44,7 @@ struct ItemDefinition
   ruleData
 end struct
 
+// Store item rule data data.
 struct ItemRuleData
   kind
   armorBase
@@ -54,10 +56,12 @@ struct ItemRuleData
   duration
 end struct
 
+// Store item registry data.
 struct ItemRegistry
   items
 end struct
 
+// Store inventory data.
 struct Inventory
   counts
   maxBullets
@@ -69,6 +73,7 @@ struct Inventory
   selectedItem
 end struct
 
+// Store gameplay player data.
 struct GameplayPlayer
   edict
   inventory
@@ -93,6 +98,7 @@ struct GameplayPlayer
   powerCubes
 end struct
 
+// Store item entity data.
 struct ItemEntity
   edict
   item
@@ -110,6 +116,7 @@ struct ItemEntity
   spawnPending
 end struct
 
+// Store pickup context data.
 struct PickupContext
   deathmatch
   cooperative
@@ -120,6 +127,7 @@ struct PickupContext
   quadDropFrames
 end struct
 
+// Store item action data.
 struct ItemAction
   success
   reason
@@ -128,6 +136,7 @@ struct ItemAction
   respawnScheduled
 end struct
 
+// Store weapon step data.
 struct WeaponStep
   fired
   changed
@@ -136,12 +145,14 @@ struct WeaponStep
   gunFrame
 end struct
 
+// Store precache result data.
 struct PrecacheResult
   models
   sounds
   images
 end struct
 
+// Store combatant data.
 struct Combatant
   edict
   health
@@ -161,6 +172,7 @@ struct Combatant
   damageFrom
 end struct
 
+// Store damage request data.
 struct DamageRequest
   direction
   point
@@ -175,6 +187,7 @@ struct DamageRequest
   currentFrame
 end struct
 
+// Store damage result data.
 struct DamageResult
   applied
   taken
@@ -185,12 +198,14 @@ struct DamageResult
   meansOfDeath
 end struct
 
+// Store power armor result data.
 struct PowerArmorResult
   saved
   cellsUsed
   armorType
 end struct
 
+// Create inventory.
 function createInventory(itemSlots)
   return Inventory(
     array(itemSlots, 0),
@@ -204,6 +219,7 @@ function createInventory(itemSlots)
   )
 end function
 
+// Create player.
 function createPlayer(number, itemSlots)
   edict = gtypes.zeroEdict(number)
   edict.inUse = true
@@ -216,6 +232,7 @@ function createPlayer(number, itemSlots)
   )
 end function
 
+// Create item entity.
 function createItemEntity(number, item)
   edict = gtypes.zeroEdict(number)
   edict.inUse = true
@@ -223,18 +240,22 @@ function createItemEntity(number, item)
     gpqtypes.Vec3(0.0, 0.0, 0.0), void, false)
 end function
 
+// Pick up context.
 function pickupContext(deathmatch, cooperative, dmFlags, time)
   return PickupContext(deathmatch, cooperative, dmFlags, time, 1, 0, 0)
 end function
 
+// Return the item rule data value.
 function itemRuleData(kind, armorBase, armorMax, normalProtection, energyProtection, healthCount, healthStyle, duration)
   return ItemRuleData(kind, armorBase, armorMax, normalProtection, energyProtection, healthCount, healthStyle, duration)
 end function
 
+// Return the item action value.
 function itemAction(success, reason, amount)
   return ItemAction(success, reason, amount, void, false)
 end function
 
+// Create combatant.
 function createCombatant(number, health)
   edict = gtypes.zeroEdict(number)
   edict.inUse = true
@@ -246,6 +267,7 @@ function createCombatant(number, health)
   )
 end function
 
+// Return the damage request value.
 function damageRequest(direction, point, damage, knockback, flags, meansOfDeath)
   return DamageRequest(direction, point, damage, knockback, flags, meansOfDeath, false, false, false, false, 0)
 end function

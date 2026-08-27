@@ -18,22 +18,26 @@ import miniquake2.server.game_bridge as gbridge
 
 testContents = 0
 
+// Store view fixture data.
 struct ViewFixture
   context
   player
   runtime
 end struct
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9780, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9781, name + ": expected true") end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -41,6 +45,7 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Report whether contains.
 function contains(values, expected)
   for each value in values
     if value == expected then return true end if
@@ -48,21 +53,25 @@ function contains(values, expected)
   return false
 end function
 
+// Report whether empty trace.
 function emptyTrace(start, mins, maxs, finish)
   plane = qtypes.Plane(qtypes.Vec3(0.0, 0.0, 0.0), 0.0, 0, 0)
   surface = qtypes.CollisionSurface("player-view/test", 0, 0)
   return qtypes.Trace(false, false, 1.0, qtypes.Vec3(finish.x, finish.y, finish.z), plane, surface, 0, void)
 end function
 
+// Return the point contents value.
 function pointContents(point)
   global testContents
   return testContents
 end function
 
+// Return the fixed random value.
 function fixedRandom(count)
   return 0
 end function
 
+// Return the fixture value.
 function fixture()
   runtime = gbridge.createRuntime(2)
   imports = gbridge.makeImports(runtime)
@@ -78,6 +87,7 @@ function fixture()
   return ViewFixture(context, player, runtime)
 end function
 
+// Verify world effects.
 function testWorldEffects()
   water = fixture()
   context = water.context
@@ -120,6 +130,7 @@ function testWorldEffects()
   return true
 end function
 
+// Verify falling damage.
 function testFallingDamage()
   falling = fixture()
   context = falling.context
@@ -153,6 +164,7 @@ function testFallingDamage()
   return true
 end function
 
+// Verify damage feedback.
 function testDamageFeedback()
   feedback = fixture()
   context = feedback.context
@@ -177,6 +189,7 @@ function testDamageFeedback()
   return true
 end function
 
+// Verify offsets blend effects animation and integration.
 function testOffsetsBlendEffectsAnimationAndIntegration()
   global testContents
   view = fixture()
@@ -245,6 +258,7 @@ function testOffsetsBlendEffectsAnimationAndIntegration()
   return true
 end function
 
+// Run view tests.
 function runViewTests()
   testWorldEffects()
   testFallingDamage()

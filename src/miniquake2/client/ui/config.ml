@@ -13,11 +13,13 @@ import miniquake2.client.ui.constants as uiconfigconstants
 import miniquake2.client.ui.keys as uiconfigkeys
 import miniquake2.audio.mixer as uiconfigmixer
 
-const CONFIG_HEADER = "MiniQuake2Config 1"
+const CONFIG_HEADER = "MiniQuake2Config 2"
+const CONFIG_LEGACY_HEADER = "MiniQuake2Config 1"
 const CONFIG_MAX_BYTES = 65536
 const CONFIG_MAX_LINES = 512
 const CONFIG_MAX_BINDINGS = 256
 
+// Store product config data.
 struct ProductConfig
   sensitivity
   alwaysRun
@@ -30,8 +32,10 @@ struct ProductConfig
   crosshair
   joystick
   bindings
+  bindingsComplete
 end struct
 
+// Return the product config safe command value.
 function productConfigSafeCommand(command)
   if typeof(command) != "string" or command == "" or len(bytes(command)) > 255 then
     return false
@@ -42,6 +46,7 @@ function productConfigSafeCommand(command)
   return true
 end function
 
+// Validate product config.
 function productConfigValidate(config)
   if typeof(config) != "struct" or
       (typeof(config.sensitivity) != "int" and typeof(config.sensitivity) != "float") or
@@ -58,7 +63,8 @@ function productConfigValidate(config)
       typeof(config.crosshair) != "int" or config.crosshair < 0 or
       config.crosshair > 3 or
       typeof(config.joystick) != "bool" or
-      typeof(config.bindings) != "array" or len(config.bindings) > CONFIG_MAX_BINDINGS then
+      typeof(config.bindings) != "array" or len(config.bindings) > CONFIG_MAX_BINDINGS or
+      typeof(config.bindingsComplete) != "bool" then
     return error(8290, "product config fields are invalid")
   end if
   productConfigSeenKeys = array(uiconfigconstants.MAX_KEYS, false)
@@ -74,6 +80,7 @@ function productConfigValidate(config)
   return config
 end function
 
+// Capture product config.
 function captureProductConfig(input, commandState, mixer, screen)
   productConfigBindings = []
   for each productConfigInputBinding in input.bindings
@@ -86,10 +93,20 @@ function captureProductConfig(input, commandState, mixer, screen)
     input.config.alwaysRun, productConfigInvertMouse, input.config.hand,
     mixer.masterVolume, commandState.videoMode, commandState.fullScreen,
     commandState.brightness, screen.crosshair, commandState.joystickEnabled,
-    productConfigBindings)
+    productConfigBindings, true)
   return productConfigValidate(productConfigCaptured)
 end function
 
+// MiniLang renders an integral float as `3.`. The command tokenizer's numeric
+// grammar deliberately rejects that spelling, so archive integral values as
+// integers and retain the ordinary representation only for fractional values.
+function productConfigEncodedNumber(value)
+  productConfigInteger = uiconfigbyteio.truncInt(value)
+  if value == productConfigInteger then return productConfigInteger end if
+  return value
+end function
+
+// Encode product config.
 function encodeProductConfig(config)
   productConfigValue = productConfigValidate(config)
   productConfigRunValue = 0
@@ -101,14 +118,16 @@ function encodeProductConfig(config)
   productConfigJoystickValue = 0
   if productConfigValue.joystick then productConfigJoystickValue = 1 end if
   productConfigText = CONFIG_HEADER + "\n" +
-    "sensitivity " + productConfigValue.sensitivity + "\n" +
+    "sensitivity " + productConfigEncodedNumber(
+      productConfigValue.sensitivity) + "\n" +
     "cl_run " + productConfigRunValue + "\n" +
     "m_invert " + productConfigInvertValue + "\n" +
     "hand " + productConfigValue.hand + "\n" +
-    "s_volume " + productConfigValue.volume + "\n" +
+    "s_volume " + productConfigEncodedNumber(productConfigValue.volume) + "\n" +
     "vid_mode " + productConfigValue.videoMode + "\n" +
     "vid_fullscreen " + productConfigFullscreenValue + "\n" +
-    "vid_gamma " + productConfigValue.brightness + "\n" +
+    "vid_gamma " + productConfigEncodedNumber(
+      productConfigValue.brightness) + "\n" +
     "crosshair " + productConfigValue.crosshair + "\n"
   productConfigText = productConfigText + "in_joystick " +
     productConfigJoystickValue + "\n"
@@ -122,6 +141,7 @@ function encodeProductConfig(config)
   return productConfigText
 end function
 
+// Return the product config number.
 function productConfigNumber(token, name)
   productConfigNumberResult = try(toNumber(token))
   if productConfigNumberResult is error or
@@ -133,17 +153,21 @@ function productConfigNumber(token, name)
   return productConfigNumberResult
 end function
 
+// Decode product config.
 function decodeProductConfig(text)
   if typeof(text) != "string" or len(bytes(text)) == 0 or
       len(bytes(text)) > CONFIG_MAX_BYTES then
     return error(8294, "product config text is empty or too large")
   end if
   productConfigLines = uiconfigstring.split(text, "\n")
+  productConfigHeader = uiconfigstring.trim(productConfigLines[0])
   if typeof(productConfigLines) != "array" or len(productConfigLines) < 7 or
       len(productConfigLines) > CONFIG_MAX_LINES or
-      uiconfigstring.trim(productConfigLines[0]) != CONFIG_HEADER then
+      (productConfigHeader != CONFIG_HEADER and
+       productConfigHeader != CONFIG_LEGACY_HEADER) then
     return error(8295, "product config header or line count is invalid")
   end if
+  productConfigBindingsComplete = productConfigHeader == CONFIG_HEADER
   productConfigSensitivity = void
   productConfigRun = void
   productConfigInvert = void
@@ -225,9 +249,11 @@ function decodeProductConfig(text)
   return productConfigValidate(ProductConfig(productConfigSensitivity,
     productConfigRun, productConfigInvert, productConfigHand, productConfigVolume,
     productConfigMode, productConfigFullscreen, productConfigGamma,
-    productConfigCrosshair, productConfigJoystick, productConfigBindings))
+    productConfigCrosshair, productConfigJoystick, productConfigBindings,
+    productConfigBindingsComplete))
 end function
 
+// Apply product config.
 function applyProductConfig(config, input, commandState, mixer, screen)
   productConfigApply = productConfigValidate(config)
   input.config.sensitivity = productConfigApply.sensitivity
@@ -244,10 +270,10 @@ function applyProductConfig(config, input, commandState, mixer, screen)
   commandState.joystickEnabled = productConfigApply.joystick
   screen.crosshair = productConfigApply.crosshair
   uiconfigmixer.setMasterVolume(mixer, productConfigApply.volume)
-  // Apply persisted entries as overrides.  Product defaults may gain new
-  // bindings between releases (notably the weapon number row and mouse
-  // wheel); clearing the table here made every existing v1 config suppress
-  // those additions forever.
+  // Version 2 is a complete key-table snapshot, so an absent entry represents
+  // an intentional unbind. Version 1 remains an override layer on current
+  // defaults because old files could not distinguish an unbind from omission.
+  if productConfigApply.bindingsComplete then input.bindings = [] end if
   for each productConfigApplyBinding in productConfigApply.bindings
     uiconfigkeys.bind(input, productConfigApplyBinding.key,
       productConfigApplyBinding.command)
@@ -255,19 +281,36 @@ function applyProductConfig(config, input, commandState, mixer, screen)
   return true
 end function
 
+// A live map-to-map snapshot is authoritative over disk. This mirrors the
+// original client's process-lifetime Cvar/key tables while retaining the file
+// as startup and crash-recovery storage.
+function selectProductConfig(path, handover)
+  if handover is not void then return productConfigValidate(handover) end if
+  return loadProductConfig(path)
+end function
+
+// Save product config.
 function saveProductConfig(path, config)
   if typeof(path) != "string" or path == "" then return error(8300, "product config path is missing") end if
   productConfigEncoded = encodeProductConfig(config)
   productConfigTemporaryPath = path + ".tmp"
   uiconfigfs.writeAllText(productConfigTemporaryPath, productConfigEncoded)
-  productConfigVerified = decodeProductConfig(uiconfigfs.readAllText(productConfigTemporaryPath))
-  if len(productConfigVerified.bindings) != len(config.bindings) then
+  productConfigVerifiedResult = try(decodeProductConfig(
+    uiconfigfs.readAllText(productConfigTemporaryPath)))
+  if productConfigVerifiedResult is error then
+    uiconfigfs.delete(productConfigTemporaryPath)
+    return productConfigVerifiedResult
+  end if
+  productConfigVerified = productConfigVerifiedResult
+  if len(productConfigVerified.bindings) != len(config.bindings) or
+      not productConfigVerified.bindingsComplete then
     uiconfigfs.delete(productConfigTemporaryPath)
     return error(8301, "product config temporary verification failed")
   end if
   return uiconfigfs.moveFile(productConfigTemporaryPath, path, true)
 end function
 
+// Load product config.
 function loadProductConfig(path)
   if typeof(path) != "string" or path == "" then return error(8300, "product config path is missing") end if
   if not uiconfigfs.exists(path) then return void end if

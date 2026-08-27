@@ -12,6 +12,7 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
 
+// Write delta.
 function writeDelta(buffer, base, command)
   if len(base.angles) != 3 or len(command.angles) != 3 then return error(7020, "usercmd angles must contain three shorts") end if
   bits = 0
@@ -38,6 +39,7 @@ function writeDelta(buffer, base, command)
   return bits
 end function
 
+// Read delta.
 function readDelta(buffer, base)
   command = pt.copyUserCmd(base)
   bits = pchecked.readByte(buffer, "usercmd flags")
@@ -54,10 +56,12 @@ function readDelta(buffer, base)
   return command
 end function
 
+// Write msg delta usercmd.
 function MSG_WriteDeltaUsercmd(buffer, base, command)
   return writeDelta(buffer, base, command)
 end function
 
+// Read msg delta usercmd.
 function MSG_ReadDeltaUsercmd(buffer, base)
   return readDelta(buffer, base)
 end function

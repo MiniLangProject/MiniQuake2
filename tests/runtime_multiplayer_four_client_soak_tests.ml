@@ -10,11 +10,13 @@ import miniquake2.game.constants as fourmpgameconstants
 import miniquake2.game.null_game as fourmpgame
 import miniquake2.runtime.session_persistence as fourmppersistence
 
+// Assert the four mp test condition.
 function fourMpAssert(value, message)
   if value != true then return error(9824, message) end if
   return true
 end function
 
+// Map four mp.
 function fourMpMap(title, offset)
   return "{\n\"classname\" \"worldspawn\"\n\"message\" \"" + title + "\"\n}\n" +
     "{\n\"classname\" \"info_player_start\"\n\"origin\" \"0 0 24\"\n}\n" +
@@ -36,6 +38,7 @@ function fourMpMap(title, offset)
     "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"384 384 24\"\n}\n"
 end function
 
+// Assert the four mp mutual visibility test condition.
 function fourMpAssertMutualVisibility(session)
   fourMpViewer = 0
   while fourMpViewer < 4
@@ -97,6 +100,7 @@ function fourMpStabilizePlayers(session)
   return true
 end function
 
+// Return the four mp recover live players value.
 function fourMpRecoverLivePlayers(session)
   fourMpRecoverContext = fourmpgame.playerContext()
   fourMpRecoverContext.dmFlags = fourMpRecoverContext.dmFlags |

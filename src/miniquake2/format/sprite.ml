@@ -9,6 +9,7 @@ import miniquake2.format.constants as fc
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
+// Parse state.
 function parse(data, name)
   if len(data) < 12 then return error(2400, "SP2 header is truncated") end if
   if fbio.u32(data, 0) != fc.IDSPRITEHEADER then return error(2401, "SP2 ident mismatch") end if

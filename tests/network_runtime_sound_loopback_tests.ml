@@ -17,11 +17,13 @@ import miniquake2.game.null_game as nrsl_game
 
 nextLoopbackModelId = 1
 
+// Assert the sound loop test condition.
 function soundLoopAssert(value, name)
   if not value then return error(8460, name) end if
   return true
 end function
 
+// Return the loopback model loader value.
 function loopbackModelLoader(name)
   global nextLoopbackModelId
   handle = nrsl_rt.ResourceHandle("model", nextLoopbackModelId, name, 1)
@@ -29,22 +31,27 @@ function loopbackModelLoader(name)
   return handle
 end function
 
+// Return the loopback skin loader value.
 function loopbackSkinLoader(name)
   return nrsl_rt.ResourceHandle("skin", 1, name, 1)
 end function
 
+// Return the loopback sound loader value.
 function loopbackSoundLoader(name)
   return nrsl_wav.WavSound(name, 8000, 1, 1, 2, -1, bytes([128, 129]))
 end function
 
+// Report whether loopback missing.
 function loopbackMissing(value)
   return true
 end function
 
+// Return the loopback entity position.
 function loopbackEntityPosition(number)
   return nrsl_qt.vec3(number * 8.0, 0.0, 0.0)
 end function
 
+// Report whether active auto sounds.
 function activeAutoSounds(mixer)
   count = 0
   for each channel in mixer.channels

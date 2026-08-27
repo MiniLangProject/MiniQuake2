@@ -13,18 +13,21 @@ import miniquake2.network.runtime.pump as nrtunicastpump
 import miniquake2.qcommon.sizebuf as nrtunicastsizebuf
 import miniquake2.server.game_messages as nrtunicastmessages
 
+// Store unicast dispatch result data.
 struct UnicastDispatchResult
   sent
   delivered
   deferred
 end struct
 
+// Store unicast client plan data.
 struct UnicastClientPlan
   slot
   unreliablePackets
   reliableFragments
 end struct
 
+// Return the payload capacity value.
 function payloadCapacity(client)
   if client.channel is void then return 0 end if
   reliable = client.channel.reliableLength
@@ -34,6 +37,7 @@ function payloadCapacity(client)
   return capacity
 end function
 
+// Return the first reliable value.
 function firstReliable(events)
   index = 0
   while index < len(events)
@@ -43,6 +47,7 @@ function firstReliable(events)
   return len(events)
 end function
 
+// Return the packetize value.
 function packetize(events, last, maximumPayload)
   packets = array(last, void)
   packetCount = 0
@@ -67,6 +72,7 @@ function packetize(events, last, maximumPayload)
   return nrtunicastarray.slice(packets, 0, packetCount)
 end function
 
+// Build plan.
 function buildPlan(runtime, slot, events)
   if typeof(events) != "array" then return error(7297, "routed unicast list must be an array") end if
   if len(events) == 0 then return void end if
@@ -105,7 +111,9 @@ function buildPlan(runtime, slot, events)
   return UnicastClientPlan(slot, unreliablePackets, reliableFragments)
 end function
 
+// Dispatch routed.
 function dispatchRouted(runtime, socket, events, routedEvents, now)
+  // Keep dispatch routed phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(events) != "array" or typeof(routedEvents) != "array" or
       len(routedEvents) != runtime.server.maxClients then
     return error(7301, "routed unicast batch shape is malformed")

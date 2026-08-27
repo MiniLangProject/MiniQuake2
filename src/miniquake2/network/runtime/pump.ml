@@ -22,12 +22,14 @@ import miniquake2.server.administration as rpumpadmin
 import miniquake2.client.runtime.dispatcher as crdispatcher
 import miniquake2.client.runtime.handoff as crhandoff
 
+// Send datagram.
 function sendDatagram(socket, address, data, stats)
   pudp.send(socket, rtransport.host(address), address.port, data)
   stats.sent = stats.sent + 1
   return true
 end function
 
+// Send actions.
 function sendActions(socket, actions, stats)
   for each action in actions
     sendDatagram(socket, action.address, action.data, stats)
@@ -35,6 +37,7 @@ function sendActions(socket, actions, stats)
   return len(actions)
 end function
 
+// Flush client.
 function flushClient(runtime, socket, now, unreliable, stats)
   client = runtime.client
   if client.state < nc.CA_CONNECTED or client.channel is void then return false end if
@@ -58,6 +61,7 @@ function flushClientForPump(runtime, socket, now, stats)
   return flushClient(runtime, socket, now, bytes(), stats)
 end function
 
+// Pump client.
 function pumpClient(runtime, socket, now, maximumPackets)
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7280, "client pump packet limit must be positive") end if
   stats = nrtypes.stats()
@@ -102,6 +106,7 @@ function dispatchIntegratedPayload(integrated, payload, sequence, now)
   return true
 end function
 
+// Pump integrated client.
 function pumpIntegratedClient(integrated, socket, now, maximumPackets)
   runtime = integrated.network
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7280, "client pump packet limit must be positive") end if
@@ -143,6 +148,7 @@ function pumpIntegratedClient(integrated, socket, now, maximumPackets)
   return stats
 end function
 
+// Flush server client.
 function flushServerClient(runtime, socket, slot, now, stats)
   client = runtime.server.clients[slot]
   if client.state < nc.CS_CONNECTED or client.channel is void then return false end if
@@ -223,7 +229,9 @@ function calculatePings(runtime)
   return true
 end function
 
+// Pump server paused.
 function pumpServerPaused(runtime, socket, now, maximumPackets, paused)
+  // Keep pump server paused phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(maximumPackets) != "int" or maximumPackets < 1 then return error(7281, "server pump packet limit must be positive") end if
   if typeof(paused) != "bool" then return error(7284, "server paused state must be boolean") end if
   stats = nrtypes.stats()
@@ -273,10 +281,12 @@ function pumpServerPaused(runtime, socket, now, maximumPackets, paused)
   return stats
 end function
 
+// Pump server.
 function pumpServer(runtime, socket, now, maximumPackets)
   return pumpServerPaused(runtime, socket, now, maximumPackets, false)
 end function
 
+// Pump pair.
 function pumpPair(clientRuntime, serverRuntime, clientSocket, serverSocket, now, maximumPackets)
   clientFirst = pumpClient(clientRuntime, clientSocket, now, maximumPackets)
   serverStats = pumpServer(serverRuntime, serverSocket, now, maximumPackets)
@@ -294,6 +304,7 @@ function pumpHeartbeats(serverRuntime, serverSocket, masters, now)
   return stats
 end function
 
+// Shut down server.
 function shutdownServer(serverRuntime, serverSocket)
   stats = nrtypes.stats()
   sendActions(serverSocket, nserver.shutdownActions(serverRuntime.server,

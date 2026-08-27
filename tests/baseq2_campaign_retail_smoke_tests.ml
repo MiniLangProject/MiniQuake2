@@ -9,6 +9,7 @@ import miniquake2.qcommon.filesystem as retfilesystem
 import miniquake2.format.bsp as retbsp
 import miniquake2.game.base.spawn as retspawn
 
+// Return the retail smoke value.
 function retailSmoke(root)
   maps = [
     "base1", "base2", "base3", "biggun", "boss1", "boss2", "bunk1", "city1", "city2", "city3",
@@ -39,6 +40,7 @@ function retailSmoke(root)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) == 0 then
     print "baseq2_campaign_retail_smoke_tests: SKIP (no retail root)"

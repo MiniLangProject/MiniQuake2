@@ -20,10 +20,12 @@ const SPAWNFLAG_NOT_DEATHMATCH = 2048
 const SPAWNFLAG_NOT_COOP = 4096
 const SPAWNFLAG_MODE_MASK = 7936
 
+// Append diagnostic.
 function appendDiagnostic(diagnostics, message)
   return diagnostics + [message]
 end function
 
+// Return the increment skipped value.
 function incrementSkipped(skippedClasses, className)
   for each entry in skippedClasses
     if entry.className == className then
@@ -42,6 +44,9 @@ function shouldInhibit(component, mapName, skill, deathmatch)
     component.spawnFlags = component.spawnFlags & ~SPAWNFLAG_NOT_HARD
   end if
   if deathmatch then
+    // SP_misc_actor unconditionally frees itself in deathmatch, independent
+    // of editor mode bits. Apply that class-owned gate before ED_CallSpawn.
+    if component.className == "misc_actor" then return true end if
     return (component.spawnFlags & SPAWNFLAG_NOT_DEATHMATCH) != 0
   end if
   if skill == 0 then return (component.spawnFlags & SPAWNFLAG_NOT_EASY) != 0 end if
@@ -49,6 +54,7 @@ function shouldInhibit(component, mapName, skill, deathmatch)
   return (component.spawnFlags & SPAWNFLAG_NOT_HARD) != 0
 end function
 
+// Spawn entities with registry mode.
 function SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     registry, skill, deathmatch, applyModeFilter)
   if typeof(mapName) != "string" or len(bytes(mapName)) == 0 then return error(9070, "SpawnEntities: empty map name") end if
@@ -120,20 +126,24 @@ function SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     len(materializedEntities), skippedCount, skippedClasses, inhibitedCount)
 end function
 
+// Spawn entities with registry.
 function SpawnEntitiesWithRegistry(mapName, entityString, spawnPoint, registry)
   return SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     registry, 1, false, false)
 end function
 
+// Spawn entities.
 function SpawnEntities(mapName, entityString, spawnPoint)
   return SpawnEntitiesWithRegistry(mapName, entityString, spawnPoint, bregistry.defaultRegistry())
 end function
 
+// Spawn entities for mode.
 function SpawnEntitiesForMode(mapName, entityString, spawnPoint, skill, deathmatch)
   return SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     bregistry.defaultRegistry(), skill, deathmatch, true)
 end function
 
+// Spawn entities logged.
 function spawnEntitiesLogged(mapName, entityString, spawnPoint, logger)
   if typeof(logger) != "function" then return error(9078, "SpawnEntities: logger must be a function") end if
   result = SpawnEntities(mapName, entityString, spawnPoint)

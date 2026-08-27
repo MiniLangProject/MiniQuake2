@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.game.null_game as spawnpointtestgame
 import miniquake2.runtime.play_session as spawnpointtestplay
 
+// Assert the spawn point test condition.
 function spawnPointAssert(value, name)
   if not value then return error(8397, name) end if
   return true

@@ -12,6 +12,7 @@ import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.types as cetypes
 import miniquake2.client.effects.audio as ceaudio
 
+// Create state.
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
   return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [],
@@ -19,32 +20,39 @@ function create(audioCallbacks, randomSeed)
     array(ceconstants.MAX_DLIGHTS, void), [], audioCallbacks)
 end function
 
+// Report whether create silent.
 function createSilent(randomSeed)
   return create(ceaudio.silent(), randomSeed)
 end function
 
+// Return the random value.
 function inline random(state)
   state.randomSeed = (state.randomSeed * 214013 + 2531011) & 0xffffffff
   return (state.randomSeed >> 16) & 0x7fff
 end function
 
+// Copy vec data.
 function inline copyVec(value)
   return qt.Vec3(value.x, value.y, value.z)
 end function
 
+// Return the vec from array.
 function vecFromArray(value)
   if typeof(value) != "array" or len(value) != 3 then return error(7311, "effect vector array must contain three values") end if
   return qt.Vec3(value[0] * 1.0, value[1] * 1.0, value[2] * 1.0)
 end function
 
+// Add state.
 function inline add(first, second)
   return qt.Vec3(first.x + second.x, first.y + second.y, first.z + second.z)
 end function
 
+// Return the scaled value.
 function inline scaled(value, amount)
   return qt.Vec3(value.x * amount, value.y * amount, value.z * amount)
 end function
 
+// Return the compact value.
 function compact(values, count)
   if count == len(values) then return values end if
   if count <= 0 then return [] end if
@@ -57,6 +65,7 @@ function compact(values, count)
   return output
 end function
 
+// Allocate d light.
 function allocateDLight(state, key)
   if key != 0 then
     for each light in state.dLights
@@ -76,6 +85,7 @@ function allocateDLight(state, key)
   return light
 end function
 
+// Add d light.
 function addDLight(state, key, origin, radius, color, duration, decay)
   light = allocateDLight(state, key)
   light.origin = copyVec(origin)
@@ -86,6 +96,7 @@ function addDLight(state, key, origin, radius, color, duration, decay)
   return light
 end function
 
+// Reserve particles.
 function reserveParticles(state, requested)
   available = ceconstants.MAX_PARTICLES - state.particleCount
   count = requested
@@ -104,6 +115,7 @@ function reserveParticles(state, requested)
   return count
 end function
 
+// Add particle.
 function addParticle(state, origin, velocity, acceleration, color, alpha, alphaVelocity)
   start = state.particleCount
   if reserveParticles(state, 1) == 0 then return false end if
@@ -112,24 +124,29 @@ function addParticle(state, origin, velocity, acceleration, color, alpha, alphaV
   return true
 end function
 
+// Return the unit random value.
 function inline unitRandom(state)
   return random(state) / 32767.0
 end function
 
+// Return the centered random value.
 function inline centeredRandom(state)
   return unitRandom(state) * 2.0 - 1.0
 end function
 
+// Return the vector length.
 function inline vectorLength(value)
   return cemath.sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
 end function
 
+// Return the normalized value.
 function inline normalized(value)
   length = vectorLength(value)
   if length <= 0.000001 then return qt.zeroVec3() end if
   return qt.Vec3(value.x / length, value.y / length, value.z / length)
 end function
 
+// Return the normal right value.
 function inline normalRight(forward)
   right = qt.Vec3(forward.z, -forward.x, forward.y)
   projection = right.x * forward.x + right.y * forward.y + right.z * forward.z
@@ -137,12 +154,14 @@ function inline normalRight(forward)
     right.y - projection * forward.y, right.z - projection * forward.z))
 end function
 
+// Compute state.
 function inline cross(first, second)
   return qt.Vec3(first.y * second.z - first.z * second.y,
     first.z * second.x - first.x * second.z,
     first.x * second.y - first.y * second.x)
 end function
 
+// Return the stock directional particles value.
 function stockDirectionalParticles(state, origin, direction, color, count, fixedColor, positiveGravity)
   if count < 0 then return error(7314, "negative stock particle count") end if
   start = state.particleCount
@@ -171,14 +190,17 @@ function stockDirectionalParticles(state, origin, direction, color, count, fixed
   return index
 end function
 
+// Return the wall particles value.
 function wallParticles(state, origin, direction, color, count)
   return stockDirectionalParticles(state, origin, direction, color, count, false, false)
 end function
 
+// Return the fixed color particles value.
 function fixedColorParticles(state, origin, direction, color, count, positiveGravity)
   return stockDirectionalParticles(state, origin, direction, color, count, true, positiveGravity)
 end function
 
+// Return the blaster particles value.
 function blasterParticles(state, origin, direction, color)
   start = state.particleCount
   count = reserveParticles(state, 40)
@@ -202,6 +224,7 @@ function blasterParticles(state, origin, direction, color)
   return index
 end function
 
+// Return the explosion particles value.
 function explosionParticles(state, origin, color, colorRun, count, velocityRange)
   start = state.particleCount
   count = reserveParticles(state, count)
@@ -224,6 +247,7 @@ function explosionParticles(state, origin, color, colorRun, count, velocityRange
   return index
 end function
 
+// Return the steam particles value.
 function steamParticles(state, origin, direction, color, count, magnitude, noGravity)
   forward = copyVec(direction)
   right = normalRight(forward)
@@ -251,6 +275,7 @@ function steamParticles(state, origin, direction, color, count, magnitude, noGra
   return index
 end function
 
+// Return the logout particles value.
 function logoutParticles(state, origin, color)
   start = state.particleCount
   count = reserveParticles(state, 500)
@@ -270,6 +295,7 @@ function logoutParticles(state, origin, color)
   return index
 end function
 
+// Return the item respawn particles value.
 function itemRespawnParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 64)
@@ -288,6 +314,7 @@ function itemRespawnParticles(state, origin)
   return index
 end function
 
+// Return the big teleport particles value.
 function bigTeleportParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, ceconstants.MAX_PARTICLES)
@@ -318,6 +345,7 @@ function bigTeleportParticles(state, origin)
   return index
 end function
 
+// Return the teleport particles value.
 function teleportParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 1053)
@@ -370,6 +398,7 @@ function teleporterEntityParticles(state, origin)
   return index
 end function
 
+// Return the widow splash particles value.
 function widowSplashParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 256)
@@ -391,6 +420,7 @@ function widowSplashParticles(state, origin)
   return index
 end function
 
+// Return the sustain radial particles value.
 function sustainRadialParticles(state, sustain, now, nuke)
   duration = 2100.0; count = 300; distance = 45.0
   if nuke then duration = 1000.0; count = 700; distance = 200.0 end if
@@ -419,6 +449,7 @@ function sustainRadialParticles(state, sustain, now, nuke)
   return index
 end function
 
+// Return the debug trail value.
 function debugTrail(state, startPosition, endPosition)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -443,6 +474,7 @@ function debugTrail(state, startPosition, endPosition)
   return written
 end function
 
+// Return the bubble trail value.
 function bubbleTrail(state, startPosition, endPosition, spacing, rise)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -482,6 +514,7 @@ function bubbleTrail(state, startPosition, endPosition, spacing, rise)
   return written
 end function
 
+// Return the force wall particles value.
 function forceWallParticles(state, startPosition, endPosition, color)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -508,6 +541,7 @@ function forceWallParticles(state, startPosition, endPosition, color)
   return written
 end function
 
+// Return the rail trail value.
 function railTrail(state, startPosition, endPosition)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -548,6 +582,7 @@ function railTrail(state, startPosition, endPosition)
   return written
 end function
 
+// Return the simple entity trail value.
 function simpleEntityTrail(state, startPosition, endPosition, color, originSpread,
     velocitySpread, alpha, alphaBase, alphaRange, inclusive)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
@@ -576,6 +611,7 @@ function simpleEntityTrail(state, startPosition, endPosition, color, originSprea
   return written
 end function
 
+// Return the blaster trail value.
 function blasterTrail(state, startPosition, endPosition, green)
   color = 0xe0
   if green then color = 0xd0 end if
@@ -594,11 +630,13 @@ function blasterTrail(state, startPosition, endPosition, green)
   return written
 end function
 
+// Return the flag trail value.
 function flagTrail(state, startPosition, endPosition, color, inclusive)
   return simpleEntityTrail(state, startPosition, endPosition, color, 16.0, 5.0,
     1.0, 0.8, 0.2, inclusive)
 end function
 
+// Return the ion ripper trail value.
 function ionRipperTrail(state, startPosition, endPosition)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -624,7 +662,9 @@ function ionRipperTrail(state, startPosition, endPosition)
   return written
 end function
 
+// Return the diminishing trail value.
 function diminishingTrail(state, startPosition, endPosition, trail, flags)
+  // Keep diminishing trail phases explicit: validate inputs, update owned state, then publish the result.
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
   length = vectorLength(delta)
@@ -673,6 +713,7 @@ function diminishingTrail(state, startPosition, endPosition, trail, flags)
   return written
 end function
 
+// Return the rocket trail value.
 function rocketTrail(state, startPosition, endPosition, trail)
   written = diminishingTrail(state, startPosition, endPosition, trail,
     ceconstants.EF_ROCKET)
@@ -706,6 +747,7 @@ function rocketTrail(state, startPosition, endPosition, trail)
   return written + fireCount
 end function
 
+// Return the tracker trail value.
 function trackerTrail(state, startPosition, endPosition, color)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -728,6 +770,7 @@ function trackerTrail(state, startPosition, endPosition, color)
   return written
 end function
 
+// Return the instant shell particles value.
 function instantShellParticles(state, origin, color, count, radius)
   start = state.particleCount
   count = reserveParticles(state, count)
@@ -744,6 +787,7 @@ function instantShellParticles(state, origin, color, count, radius)
   return index
 end function
 
+// Ensure angular velocities.
 function ensureAngularVelocities(state)
   // The original client owns one static 162x3 table and lazily fills it from
   // the same Visual C random stream used by all other client effects.
@@ -756,6 +800,7 @@ function ensureAngularVelocities(state)
   return true
 end function
 
+// Return the fly particles value.
 function flyParticles(state, origin, count)
   if count > 162 then count = 162 end if
   if count <= 0 then return 0 end if
@@ -785,6 +830,7 @@ function flyParticles(state, origin, count)
   return written
 end function
 
+// Return the fly effect value.
 function flyEffect(state, trail, origin)
   startTime = state.time
   if trail.flyStopTime < state.time then
@@ -806,6 +852,7 @@ function flyEffect(state, trail, origin)
   return flyParticles(state, origin, count)
 end function
 
+// Return the bfg particles value.
 function bfgParticles(state, origin)
   ensureAngularVelocities(state)
   start = state.particleCount
@@ -834,6 +881,7 @@ function bfgParticles(state, origin)
   return index
 end function
 
+// Return the trap particles value.
 function trapParticles(state, shiftedOrigin)
   start = state.particleCount
   count = reserveParticles(state, 21)
@@ -883,6 +931,7 @@ function trapParticles(state, shiftedOrigin)
   return written
 end function
 
+// Reset entity trails.
 function resetEntityTrails(state)
   index = 0
   while index < len(state.entityTrails)
@@ -892,6 +941,7 @@ function resetEntityTrails(state)
   return state
 end function
 
+// Add beam.
 function addBeam(state, entity, destinationEntity, modelName, start, finish, offset, playerLinked, duration)
   for each beam in state.beams
     if beam.entity == entity and (not playerLinked or beam.playerLinked) and
@@ -908,12 +958,14 @@ function addBeam(state, entity, destinationEntity, modelName, start, finish, off
   return beam
 end function
 
+// Add laser.
 function addLaser(state, start, finish, color)
   laser = cetypes.Laser(copyVec(start), copyVec(finish), color, state.time + 100)
   if len(state.lasers) < ceconstants.MAX_LASERS then state.lasers = state.lasers + [laser] end if
   return laser
 end function
 
+// Add explosion exact.
 function addExplosionExact(state, kind, origin, angles, modelName, frames, light, lightColor,
     startTime, baseFrame, flags, alpha, skinNum)
   explosion = cetypes.Explosion(kind, copyVec(origin), copyVec(angles),
@@ -927,6 +979,7 @@ function addExplosionExact(state, kind, origin, angles, modelName, frames, light
   return explosion
 end function
 
+// Add explosion.
 function addExplosion(state, kind, origin, modelName, frames, light, lightColor, flags, alpha)
   skinNum = 0
   if kind == ceconstants.TE_BLASTER2 then skinNum = 1 end if
@@ -936,7 +989,9 @@ function addExplosion(state, kind, origin, modelName, frames, light, lightColor,
     light, lightColor, state.time - 100, 0, flags, alpha, skinNum)
 end function
 
+// Advance state.
 function advance(state, now)
+  // Keep advance phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(now) != "int" or now < state.time then return error(7313, "effect time must be monotonic integer milliseconds") end if
   seconds = (now - state.time) * 0.001
   state.time = now
@@ -1011,6 +1066,7 @@ function advance(state, now)
   return state
 end function
 
+// Clear state.
 function clear(state)
   state.particleCount = 0
   state.dLights = []; state.beams = []; state.lasers = []

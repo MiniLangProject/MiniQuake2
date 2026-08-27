@@ -17,6 +17,7 @@ import miniquake2.network.constants as nc
 import miniquake2.network.client as nclient
 import miniquake2.network.runtime.types as nrtypes
 
+// Return the reading buffer value.
 function readingBuffer(data)
   if typeof(data) != "bytes" or len(data) > pc.MAX_MSGLEN then return error(7220, "server payload outside MAX_MSGLEN") end if
   buffer = qsz.alloc(len(data))
@@ -25,6 +26,7 @@ function readingBuffer(data)
   return buffer
 end function
 
+// Read string.
 function readString(buffer, operation, maximum)
   if typeof(maximum) != "int" or maximum < 1 then return error(7221, operation + ": invalid string limit") end if
   start = buffer.readCount
@@ -39,6 +41,7 @@ function readString(buffer, operation, maximum)
   return output
 end function
 
+// Append bytes.
 function appendBytes(first, second)
   output = bytes(len(first) + len(second))
   if len(first) > 0 then qbio.copyInto(output, 0, first, 0, len(first)) end if
@@ -46,6 +49,7 @@ function appendBytes(first, second)
   return output
 end function
 
+// Write server data.
 function writeServerData(buffer, spawnCount, attractLoop, gameDir, playerNumber, levelName)
   if typeof(spawnCount) != "int" or typeof(playerNumber) != "int" then return error(7236, "serverdata numeric fields must be integers") end if
   if typeof(gameDir) != "string" or len(bytes(gameDir)) >= qc.MAX_QPATH or
@@ -64,6 +68,7 @@ function writeServerData(buffer, spawnCount, attractLoop, gameDir, playerNumber,
   return buffer
 end function
 
+// Write config string.
 function writeConfigString(buffer, index, value)
   if typeof(index) != "int" or index < 0 or index >= qc.MAX_CONFIGSTRINGS then return error(7224, "configstring index outside range") end if
   if typeof(value) != "string" or len(bytes(value)) >= qc.MAX_STRING_CHARS then return error(7225, "configstring is invalid") end if
@@ -73,6 +78,7 @@ function writeConfigString(buffer, index, value)
   return buffer
 end function
 
+// Write spawn baseline.
 function writeSpawnBaseline(buffer, state)
   if state.number <= 0 or state.number >= pc.MAX_EDICTS then return error(7226, "baseline entity number outside range") end if
   qmsg.writeByte(buffer, qc.SVC_SPAWNBASELINE)
@@ -80,6 +86,7 @@ function writeSpawnBaseline(buffer, state)
   return buffer
 end function
 
+// Write stuff text.
 function writeStuffText(buffer, text)
   if typeof(text) != "string" or len(bytes(text)) >= qc.MAX_STRING_CHARS then return error(7227, "stufftext is invalid") end if
   qmsg.writeByte(buffer, qc.SVC_STUFFTEXT)
@@ -87,6 +94,7 @@ function writeStuffText(buffer, text)
   return buffer
 end function
 
+// Write download.
 function writeDownload(buffer, data, offset, count, percent)
   if count < -1 or count > 1024 or percent < 0 or percent > 100 then return error(7228, "download chunk metadata is invalid") end if
   if count >= 0 then qbio.requireRange(data, offset, count) end if
@@ -97,6 +105,7 @@ function writeDownload(buffer, data, offset, count, percent)
   return buffer
 end function
 
+// Parse server data version.
 function parseServerDataVersion(runtime, buffer, allowLegacyDemo)
   if typeof(allowLegacyDemo) != "bool" then return error(7238, "legacy demo protocol flag must be boolean") end if
   version = pchecked.readLong(buffer, "serverdata protocol")
@@ -128,10 +137,12 @@ function parseServerDataVersion(runtime, buffer, allowLegacyDemo)
   return true
 end function
 
+// Parse server data.
 function parseServerData(runtime, buffer)
   return parseServerDataVersion(runtime, buffer, false)
 end function
 
+// Parse payload.
 function parsePayload(runtime, payload)
   buffer = readingBuffer(payload)
   while buffer.readCount < buffer.curSize

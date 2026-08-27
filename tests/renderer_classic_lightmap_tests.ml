@@ -11,11 +11,13 @@ import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.lightmaps as rclassiclightmaps
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7980, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Create surface.
 function makeSurface(width, height, styles, samples, flags)
   texInfo = ft.BspTexInfo([1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], flags, 0, "light", -1)
   face = ft.BspFace(0, 0, 0, 4, 0, styles, 0)
@@ -28,6 +30,7 @@ function makeSurface(width, height, styles, samples, flags)
   )
 end function
 
+// Verify single and multiple styles.
 function testSingleAndMultipleStyles()
   styles = [rt.lightStyle(1.0, 0.5, 2.0), rt.lightStyle(1.0, 0.5, 1.0)]
   samples = bytes([100, 50, 25, 100, 50, 25, 100, 50, 25, 100, 50, 25])
@@ -42,6 +45,7 @@ function testSingleAndMultipleStyles()
   return true
 end function
 
+// Verify fullbright and rescale.
 function testFullbrightAndRescale()
   styles = [rt.lightStyle(1.0, 1.0, 1.0)]
   surface = makeSurface(1, 1, bytes([0, 255, 255, 255]), void, 0)
@@ -53,6 +57,7 @@ function testFullbrightAndRescale()
   return true
 end function
 
+// Verify dynamic contribution and cache.
 function testDynamicContributionAndCache()
   styles = [rt.lightStyle(1.0, 1.0, 1.0)]
   surface = makeSurface(2, 2, bytes([0, 255, 255, 255]), bytes(12), 0)

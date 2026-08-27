@@ -11,16 +11,19 @@ import miniquake2.network.constants as ratetest_constants
 import miniquake2.network.server as ratetest_server
 import miniquake2.network.snapshot as ratetest_snapshot
 
+// Assert the rate test condition.
 function rateAssert(value, message)
   if not value then return error(7965, message) end if
   return true
 end function
 
+// Return the rate address value.
 function rateAddress(kind)
   return ratetest_qtypes.NetAddress(kind, [192, 0, 2, 8],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 27910)
 end function
 
+// Return the rate baselines value.
 function rateBaselines()
   result = array(1024, void)
   index = 0
@@ -31,6 +34,7 @@ function rateBaselines()
   return result
 end function
 
+// Read rate buffer.
 function rateReadBuffer(data)
   buffer = ratetest_sizebuf.alloc(len(data))
   ratetest_sizebuf.writeBytes(buffer, data)

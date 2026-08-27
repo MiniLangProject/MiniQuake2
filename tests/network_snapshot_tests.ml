@@ -11,16 +11,19 @@ import miniquake2.network.constants as nc
 import miniquake2.network.client as nclient
 import miniquake2.network.snapshot as nsnapshot
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7960, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7961, name + ": expected true") end if
   return true
 end function
 
+// Return the reading buffer value.
 function readingBuffer(data)
   buffer = qsz.alloc(len(data))
   qsz.writeBytes(buffer, data)
@@ -28,6 +31,7 @@ function readingBuffer(data)
   return buffer
 end function
 
+// Return the entity value.
 function entity(number, x, model)
   value = pt.zeroEntityState()
   value.number = number
@@ -36,6 +40,7 @@ function entity(number, x, model)
   return value
 end function
 
+// Return the baselines value.
 function baselines()
   values = array(1024, void)
   values[1] = pt.zeroEntityState()
@@ -44,6 +49,7 @@ function baselines()
   return values
 end function
 
+// Verify packet entity merge.
 function testPacketEntityMerge()
   oldEntities = [entity(1, 1.0, 2), entity(2, 2.0, 3)]
   newEntities = [entity(1, 1.5, 2), entity(3, 3.0, 4)]
@@ -58,6 +64,7 @@ function testPacketEntityMerge()
   return true
 end function
 
+// Verify frame roundtrip.
 function testFrameRoundtrip()
   historyWrite = array(nc.UPDATE_BACKUP, void)
   historyRead = array(nc.UPDATE_BACKUP, void)
@@ -93,6 +100,7 @@ function testFrameRoundtrip()
   return true
 end function
 
+// Verify full frame fallback and malformed.
 function testFullFrameFallbackAndMalformed()
   history = array(nc.UPDATE_BACKUP, void)
   frame = nsnapshot.createFrame(20, bytes(), pt.zeroPlayerState(), [entity(1, 0.0, 1)])
@@ -108,6 +116,7 @@ function testFullFrameFallbackAndMalformed()
   return true
 end function
 
+// Verify snapshot history rooting soak.
 function testSnapshotHistoryRootingSoak()
   baselineTable = array(1024, void)
   entityIndex = 1
@@ -152,6 +161,7 @@ function testSnapshotHistoryRootingSoak()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 network snapshot tests starting: 4"
   result = try(testPacketEntityMerge())

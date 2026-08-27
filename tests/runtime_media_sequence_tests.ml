@@ -9,6 +9,7 @@ import miniquake2.qcommon.cvar as mediatestcvar
 import miniquake2.client.ui.keys as mediatestkeys
 import miniquake2.client.ui.constants as mediatestui
 
+// Assert the media sequence test condition.
 function mediaSequenceAssert(value, name)
   if not value then return error(8499, name) end if
   return true
@@ -50,6 +51,8 @@ mediaSequenceAssert(len(mediaNewGame.steps) == 2 and
   mediaNewGame.steps[0].endOfUnit and
   mediaNewGame.steps[1].name == "base1",
   "stock new-game intro sequence")
+mediaSequenceAssert(mediatestseq.MAX_MEDIA_TRANSITIONS == 64,
+  "campaign transition chain has a finite recursion-free safety bound")
 mediaSequenceAssert(mediatestseq.stockAttractStep(0).name == "idlog.cin" and
   mediatestseq.stockAttractStep(1).name == "demo1.dm2" and
   mediatestseq.stockAttractStep(2).name == "idlog.cin" and

@@ -16,6 +16,7 @@ import retail_campaign_inventory as inventory
 
 
 def bsp(entity_text: str) -> bytes:
+    """Return the bsp value."""
     header_size = 8 + 19 * inventory.BSP_LUMP.size
     payload = entity_text.encode("latin-1") + b"\0"
     header = bytearray(header_size)
@@ -26,6 +27,7 @@ def bsp(entity_text: str) -> bytes:
 
 
 def pack(members: dict[str, bytes]) -> bytes:
+    """Pack state."""
     output = bytearray(inventory.PAK_HEADER.size)
     directory = bytearray()
     for name, data in members.items():
@@ -42,7 +44,9 @@ def pack(members: dict[str, bytes]) -> bytes:
 
 
 class RetailCampaignInventoryTests(unittest.TestCase):
+    """Store retail campaign inventory tests data."""
     def test_pack_precedence_and_entity_counts(self) -> None:
+        """Verify pack precedence and entity counts."""
         with tempfile.TemporaryDirectory() as temporary:
             baseq2 = pathlib.Path(temporary) / "baseq2"
             baseq2.mkdir()
@@ -61,6 +65,7 @@ class RetailCampaignInventoryTests(unittest.TestCase):
             self.assertEqual(maps["two"], {"worldspawn": 1, "monster_soldier": 1})
 
     def test_rejects_bad_bsp_and_escaping_pack_member(self) -> None:
+        """Verify rejects bad bsp and escaping pack member."""
         with self.assertRaises(inventory.InventoryError):
             inventory._entity_text(b"not-a-bsp", "maps/bad.bsp")
         with tempfile.TemporaryDirectory() as temporary:
@@ -70,10 +75,12 @@ class RetailCampaignInventoryTests(unittest.TestCase):
                 inventory.inventory(root)
 
     def test_tracks_entities_without_classname(self) -> None:
+        """Verify tracks entities without classname."""
         text = '{\n"classname" "worldspawn"\n}\n{\n"origin" "1 2 3"\n}\n'
         self.assertEqual(inventory._classes(text, "fixture"), {"worldspawn": 1, "<missing>": 1})
 
     def test_backslash_does_not_escape_closing_quote(self) -> None:
+        """Verify backslash does not escape closing quote."""
         text = '{\n"classname" "worldspawn"\n}\n{\n"light" "175\\"\n"classname" "light"\n}\n'
         self.assertEqual(inventory._classes(text, "fixture"), {"worldspawn": 1, "light": 1})
 

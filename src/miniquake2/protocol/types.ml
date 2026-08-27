@@ -10,6 +10,7 @@ package miniquake2.protocol.types
 
 import miniquake2.qcommon.types as qt
 
+// Store entity state data.
 struct EntityState
   number
   origin
@@ -28,6 +29,7 @@ struct EntityState
   event
 end struct
 
+// Store player state data.
 struct PlayerState
   pmove
   viewAngles
@@ -43,6 +45,7 @@ struct PlayerState
   stats
 end struct
 
+// Store entity delta header data.
 struct EntityDeltaHeader
   number
   bits
@@ -50,6 +53,7 @@ struct EntityDeltaHeader
   endMarker
 end struct
 
+// Store packet header data.
 struct PacketHeader
   sequence
   reliable
@@ -59,11 +63,13 @@ struct PacketHeader
   headerBytes
 end struct
 
+// Store packet data.
 struct Packet
   header
   payload
 end struct
 
+// Store processed packet data.
 struct ProcessedPacket
   accepted
   payload
@@ -72,6 +78,7 @@ struct ProcessedPacket
   reason
 end struct
 
+// Store net channel data.
 struct NetChannel
   fatalError
   sock
@@ -95,6 +102,7 @@ struct NetChannel
   reliableQueuedBytes
 end struct
 
+// Copy numbers data.
 function copyNumbers(values, expected, operation)
   if typeof(values) != "array" or len(values) != expected then
     return error(7000, operation + ": invalid array length")
@@ -108,6 +116,7 @@ function copyNumbers(values, expected, operation)
   return output
 end function
 
+// Return the zero entity state.
 function zeroEntityState()
   output = EntityState(0, void, void, void, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
   output.origin = [0.0, 0.0, 0.0]
@@ -116,6 +125,7 @@ function zeroEntityState()
   return output
 end function
 
+// Copy entity state.
 function copyEntityState(state)
   output = EntityState(state.number, void, void, void,
     state.modelIndex, state.modelIndex2, state.modelIndex3, state.modelIndex4,
@@ -127,6 +137,7 @@ function copyEntityState(state)
   return output
 end function
 
+// Return the zero pmove state.
 function zeroPmoveState()
   output = qt.PmoveState(0, void, void, 0, 0, 0, void)
   output.origin = [0, 0, 0]
@@ -135,6 +146,7 @@ function zeroPmoveState()
   return output
 end function
 
+// Copy pmove state.
 function copyPmoveState(state)
   output = qt.PmoveState(state.moveType, void, void,
     state.flags, state.time, state.gravity, void)
@@ -144,6 +156,7 @@ function copyPmoveState(state)
   return output
 end function
 
+// Return the zero player state.
 function zeroPlayerState()
   output = PlayerState(void, void, void, void, void, void,
     0, 0, void, 0.0, 0, void)
@@ -158,6 +171,7 @@ function zeroPlayerState()
   return output
 end function
 
+// Copy player state.
 function copyPlayerState(state)
   output = PlayerState(void, void, void, void, void, void,
     state.gunIndex, state.gunFrame, void, state.fov, state.rdFlags, void)
@@ -172,6 +186,7 @@ function copyPlayerState(state)
   return output
 end function
 
+// Copy user cmd.
 function copyUserCmd(command)
   output = qt.UserCmd(command.msec, command.buttons, void, command.forwardMove,
     command.sideMove, command.upMove, command.impulse, command.lightLevel)

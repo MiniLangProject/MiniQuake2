@@ -19,11 +19,13 @@ import miniquake2.client.effects.state as cestate
 import miniquake2.client.runtime.dispatcher as crdispatcher
 import miniquake2.client.state as cstate
 
+// Assert the client runtime equal test condition.
 function clientRuntimeAssertEqual(actual, expected, name)
   if actual != expected then return error(8300, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Create client runtime.
 function clientRuntimeCreate()
   networkClient = nclient.create(0x1234, 5000)
   networkClient.state = nc.CA_CONNECTED

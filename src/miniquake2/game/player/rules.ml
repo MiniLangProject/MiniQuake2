@@ -13,6 +13,7 @@ import miniquake2.qcommon.text as qtext
 import std.math as gplayermath
 import std.string as gplayerstring
 
+// Return the gender pronoun value.
 function genderPronoun(player, neutralWord, femaleWord, maleWord)
   gender = qinfo.valueForKey(player.persistent.userInfo, "gender")
   if gender == "f" or gender == "F" then return femaleWord end if
@@ -20,6 +21,7 @@ function genderPronoun(player, neutralWord, femaleWord, maleWord)
   return neutralWord
 end function
 
+// Return the environment message value.
 function environmentMessage(mod)
   if mod == gplayerconstants.MOD_SUICIDE then return "suicides" end if
   if mod == gplayerconstants.MOD_FALLING then return "cratered" end if
@@ -35,6 +37,7 @@ function environmentMessage(mod)
   return ""
 end function
 
+// Return the self message value.
 function selfMessage(player, mod)
   if mod == gplayerconstants.MOD_HELD_GRENADE then return "tried to put the pin back in" end if
   if mod == gpconstants.MOD_HG_SPLASH or mod == gpconstants.MOD_G_SPLASH then return "tripped on " + genderPronoun(player, "its", "her", "his") + " own grenade" end if
@@ -43,6 +46,7 @@ function selfMessage(player, mod)
   return "killed " + genderPronoun(player, "itself", "herself", "himself")
 end function
 
+// Return the weapon message value.
 function weaponMessage(mod)
   if mod == gpconstants.MOD_BLASTER then return ["was blasted by", ""] end if
   if mod == gpconstants.MOD_SHOTGUN then return ["was gunned down by", ""] end if
@@ -65,11 +69,13 @@ function weaponMessage(mod)
   return ["", ""]
 end function
 
+// Return the same player value.
 function samePlayer(first, second)
   if first is void or second is void then return false end if
   return nativeRawValue(first) == nativeRawValue(second)
 end function
 
+// Return the client obituary value.
 function ClientObituary(context, victim, attacker, meansOfDeath)
   friendlyFire = (meansOfDeath & gpconstants.MOD_FRIENDLY_FIRE) != 0
   if context.cooperative and attacker is not void then friendlyFire = true end if
@@ -104,6 +110,7 @@ function ClientObituary(context, victim, attacker, meansOfDeath)
   return gplayertypes.DeathResult(message, victim.respawn.score, attackerScore, friendlyFire)
 end function
 
+// Return the look at killer value.
 function LookAtKiller(victim, inflictor, attacker)
   source = void
   if attacker is not void and samePlayer(attacker, victim) != true then source = attacker.edict.state.origin
@@ -121,7 +128,9 @@ function LookAtKiller(victim, inflictor, attacker)
   return victim.killerYaw
 end function
 
+// Handle player.
 function player_die(context, victim, inflictor, attacker, damage, point, meansOfDeath)
+  firstDeath = victim.deadFlag == gplayerconstants.DEAD_NO
   result = gplayertypes.DeathResult(victim.obituary, victim.respawn.score, 0, false)
   victim.takeDamage = gplayerconstants.DAMAGE_YES
   victim.moveType = gplayerconstants.MOVETYPE_TOSS
@@ -136,8 +145,20 @@ function player_die(context, victim, inflictor, attacker, damage, point, meansOf
     LookAtKiller(victim, inflictor, attacker)
     victim.edict.client.playerState.pmove.moveType = miniquake2.game.constants.PM_DEAD
     result = ClientObituary(context, victim, attacker, meansOfDeath)
+    // p_client.c performs TossClientWeapon before clearing inventory and
+    // powerups. The integration callback owns the real exported item and
+    // projectile representations, which the player rules layer cannot create.
+    if context.deathDrop is not void then context.deathDrop(context, victim) end if
     oldInventory = victim.gameplay.inventory.counts
     retained = array(len(oldInventory), 0)
+    if context.cooperative and
+        len(victim.respawn.cooperativeInventory) == len(oldInventory) then
+      retainedIndex = 0
+      while retainedIndex < len(oldInventory)
+        retained[retainedIndex] = victim.respawn.cooperativeInventory[retainedIndex]
+        retainedIndex = retainedIndex + 1
+      end while
+    end if
     index = 0
     while index < len(context.registry.items)
       item = context.registry.items[index]
@@ -167,12 +188,30 @@ function player_die(context, victim, inflictor, attacker, damage, point, meansOf
   victim.powerups.invincibleFrame = 0
   victim.powerups.breatherFrame = 0
   victim.powerups.enviroFrame = 0
+  // p_client.c clears both the active power-armor flag and weapon loop on
+  // every death.  Leaving the flag set makes the next Power Shield pickup
+  // toggle itself off instead of activating.
+  victim.flags = victim.flags & ~gpconstants.FL_POWER_ARMOR
+  victim.gameplay.flags = victim.gameplay.flags & ~gpconstants.FL_POWER_ARMOR
+  victim.view.weaponSound = 0
+  victim.gameplay.lastWeapon = victim.gameplay.currentWeapon
+  victim.gameplay.currentWeapon = void
+  victim.gameplay.newWeapon = void
+  victim.gameplay.ammoIndex = 0
+  victim.edict.client.playerState.gunIndex = 0
   if victim.health < -40 then victim.takeDamage = gplayerconstants.DAMAGE_NO; victim.edict.state.modelIndex = 0 end if
   victim.deadFlag = gplayerconstants.DEAD_DEAD
+  // ChangeWeapon performs this after player_die has completed. Running the
+  // zero-timer grenade only after DEAD_DEAD prevents its radius damage from
+  // recursively entering first-death inventory and drop handling.
+  if firstDeath and context.deathGrenade is not void then
+    context.deathGrenade(context, victim)
+  end if
   context.imports.linkEntity(victim.edict)
   return result
 end function
 
+// Map next listed.
 function nextListedMap(context)
   if context.mapList == "" then return "" end if
   maps = gplayerstring.split(context.mapList, " ")
@@ -198,6 +237,7 @@ function nextListedMap(context)
   return ""
 end function
 
+// End dm level.
 function EndDMLevel(context, reason)
   destination = ""
   if (context.dmFlags & miniquake2.game.constants.DF_SAME_LEVEL) != 0 then destination = context.mapName
@@ -211,6 +251,7 @@ function EndDMLevel(context, reason)
   return gplayertypes.RuleResult(true, reason, destination)
 end function
 
+// Validate dm rules.
 function CheckDMRules(context)
   if context.intermissionTime > 0.0 or context.deathmatch != true then return gplayertypes.RuleResult(false, "", "") end if
   if context.timeLimit > 0.0 and context.time >= context.timeLimit * 60.0 then return EndDMLevel(context, "Timelimit hit.") end if

@@ -19,6 +19,7 @@ const MIX_FRAC_ONE = 65536
 const MIX_VOLUME_BITS = 16
 const MIX_VOLUME_ONE = 65536
 
+// Store channel data.
 struct Channel
   sound
   entityNumber
@@ -38,6 +39,7 @@ struct Channel
   origin
 end struct
 
+// Store music track data.
 struct MusicTrack
   number
   source
@@ -54,6 +56,7 @@ struct MusicTrack
   sampleFrames
 end struct
 
+// Store mixer data.
 struct Mixer
   sampleRate
   channels
@@ -68,12 +71,14 @@ struct Mixer
   outputScratch
 end struct
 
+// Create state.
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
   return Mixer(sampleRate, [], [], 0, 1.0, MIX_VOLUME_ONE, -1,
     void, 0.5, MIX_VOLUME_ONE / 2, bytes())
 end function
 
+// Set music volume.
 function setMusicVolume(mixer, value)
   if mixer is void or (typeof(value) != "int" and typeof(value) != "float") or
       value != value or value < 0.0 or value > 1.0 then
@@ -84,6 +89,7 @@ function setMusicVolume(mixer, value)
   return mixer.musicVolume
 end function
 
+// Stop music.
 function stopMusic(mixer)
   if mixer is void then return false end if
   if mixer.music is not void then amnative.oggClose() end if
@@ -91,19 +97,23 @@ function stopMusic(mixer)
   return true
 end function
 
+// Pause music.
 function pauseMusic(mixer)
   if mixer is void or mixer.music is void or not mixer.music.playing then return false end if
   mixer.music.paused = true
   return true
 end function
 
+// Resume music.
 function resumeMusic(mixer)
   if mixer is void or mixer.music is void or not mixer.music.playing then return false end if
   mixer.music.paused = false
   return true
 end function
 
+// Play music.
 function playMusic(mixer, filesystem, track, looping)
+  // Keep play music phases explicit: validate inputs, update owned state, then publish the result.
   if mixer is void or filesystem is void then return error(2961, "music mixer/filesystem unavailable") end if
   if typeof(track) != "int" or track < 1 or track > 99 then
     return error(2962, "music track outside [1,99]")
@@ -146,6 +156,7 @@ function playMusic(mixer, filesystem, track, looping)
   return true
 end function
 
+// Decode music chunk.
 function decodeMusicChunk(track, restart)
   if restart then
     if amnative.oggSeekStart() == 0 then return false end if
@@ -163,6 +174,7 @@ function decodeMusicChunk(track, restart)
   return true
 end function
 
+// Synchronize music track.
 function synchronizeMusicTrack(mixer, filesystem, configValue)
   if typeof(configValue) != "string" then return false end if
   parsed = try(toNumber(configValue))
@@ -175,6 +187,7 @@ function synchronizeMusicTrack(mixer, filesystem, configValue)
   return playMusic(mixer, filesystem, track, true)
 end function
 
+// Set listener entity.
 function setListenerEntity(mixer, number)
   if mixer is void or typeof(number) != "int" or number < 1 then
     return error(2959, "mixer listener entity must be positive")
@@ -183,6 +196,7 @@ function setListenerEntity(mixer, number)
   return number
 end function
 
+// Set master volume.
 function setMasterVolume(mixer, value)
   if mixer is void or (typeof(value) != "int" and typeof(value) != "float") or
       value != value or value < 0.0 or value > 1.0 then
@@ -193,12 +207,14 @@ function setMasterVolume(mixer, value)
   return mixer.masterVolume
 end function
 
+// Clamp 16.
 function inline clamp16(value)
   if value > 32767 then return 32767 end if
   if value < -32768 then return -32768 end if
   return value
 end function
 
+// Sample at.
 function inline sampleAt(sound, frame, channel)
   if sound.channels == 1 then channel = 0 end if
   sampleIndex = frame * sound.channels + channel
@@ -209,12 +225,14 @@ function inline sampleAt(sound, frame, channel)
   return value
 end function
 
+// Divide 255 positive.
 function inline divide255Positive(value)
   // Exact for every magnitude reachable from a signed-16 sample, an 8-bit
   // channel volume and the Q16 remainder expansion below.
   return (value * 8421505) >> 31
 end function
 
+// Scale channel sample fixed.
 function inline scaleChannelSampleFixed(sample, volume)
   // Preserve /255 channel fractions in Q16. The old floating mixer summed
   // these fractions across channels and rounded only the final PCM sample;
@@ -231,6 +249,7 @@ function inline scaleChannelSampleFixed(sample, volume)
   return fixed
 end function
 
+// Return the channel life left value.
 function inline channelLifeLeft(mixer, channel)
   waiting = channel.startFrame - mixer.paintedFrames
   if waiting < 0 then waiting = 0 end if
@@ -280,6 +299,7 @@ function pickChannelSlot(mixer, entityNumber, entityChannel)
   return selected
 end function
 
+// Start sound.
 function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, rightVolume)
   if leftVolume < 0 or leftVolume > 255 or rightVolume < 0 or rightVolume > 255 then return error(2956, "channel volume outside [0,255]") end if
   slot = pickChannelSlot(mixer, entityNumber, entityChannel)
@@ -299,6 +319,7 @@ function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, right
   return channel
 end function
 
+// Start sound at.
 function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
     rightVolume, startFrame)
   if startFrame <= mixer.paintedFrames then
@@ -338,6 +359,7 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
   return channel
 end function
 
+// Report whether issue pending.
 function issuePending(mixer, absoluteFrame)
   // startSoundAt keeps this queue ordered by startFrame.  Looking only at the
   // head avoids scanning every future sound for every painted sample.
@@ -376,6 +398,7 @@ function issuePending(mixer, absoluteFrame)
   return issued
 end function
 
+// Populate the spatial volumes destination.
 function spatialVolumesInto(output, listenerOrigin, listenerRight, sourceOrigin,
     masterVolume, attenuation)
   dx = sourceOrigin.x - listenerOrigin.x
@@ -409,6 +432,7 @@ function spatialVolumesInto(output, listenerOrigin, listenerRight, sourceOrigin,
   return output
 end function
 
+// Return the spatial volumes value.
 function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin,
     masterVolume, attenuation)
   return spatialVolumesInto(array(2, 0), listenerOrigin, listenerRight,
@@ -542,6 +566,7 @@ function mixInto(mixer, output, frameCount)
   return output
 end function
 
+// Mix state.
 function mix(mixer, frameCount)
   if frameCount < 0 then return error(2957, "negative mix frame count") end if
   return mixInto(mixer, bytes(frameCount * 4), frameCount)
@@ -568,6 +593,7 @@ function clearAutoSounds(mixer)
   return true
 end function
 
+// Start auto sound.
 function startAutoSound(mixer, sound, leftVolume, rightVolume)
   // S_AddLoopSounds rebuilds the logical autosound set every render frame.
   // Reuse one of the autosound Channel records disabled by clearAutoSounds;
@@ -610,6 +636,7 @@ function startAutoSound(mixer, sound, leftVolume, rightVolume)
   return channel
 end function
 
+// Stop all.
 function stopAll(mixer)
   for each channel in mixer.channels
     channel.active = false

@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* ASCII helpers used by command, cvar and filesystem paths. */
 package miniquake2.qcommon.text
 
+// Return the lower value.
 function lower(value)
   if typeof(value) != "string" then return error(3260, "lower requires text") end if
   qtextLowerValueHolder = value
@@ -21,6 +22,7 @@ function lower(value)
   return decode(qtextLowerOutputHolder)
 end function
 
+// Report whether equal insensitive.
 function equalInsensitive(first, second)
   if typeof(first) != "string" or typeof(second) != "string" then return error(3261, "equalInsensitive requires text") end if
   // Use MiniLang's allocation-free native ASCII comparison. The former
@@ -30,6 +32,7 @@ function equalInsensitive(first, second)
   return stringEqualsIgnoreCaseAscii(first, second)
 end function
 
+// Return the fixed string value.
 function fixedString(data, offset, capacity)
   if typeof(data) != "bytes" or typeof(offset) != "int" or typeof(capacity) != "int" then
     return error(3262, "fixedString requires bytes and integer bounds")
@@ -50,6 +53,7 @@ function fixedString(data, offset, capacity)
   return qtextFixedValueHolder
 end function
 
+// Return the starts with value.
 function startsWith(value, prefix)
   if typeof(value) != "string" or typeof(prefix) != "string" then return error(3263, "startsWith requires text") end if
   qtextStartsValueHolder = value

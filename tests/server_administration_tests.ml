@@ -17,11 +17,13 @@ import miniquake2.platform.udp as admintestudp
 import miniquake2.platform.system as admintestsystem
 import miniquake2.network.runtime.pump as admintestpump
 
+// Assert the admin test condition.
 function adminAssert(value, message)
   if not value then return error(9988, message) end if
   return true
 end function
 
+// Report whether admin equal.
 function adminEqual(actual, expected, message)
   if actual != expected then
     return error(9989, message + ": expected " + expected + ", got " + actual)
@@ -29,6 +31,7 @@ function adminEqual(actual, expected, message)
   return true
 end function
 
+// Report whether admin contains.
 function adminContains(value, wanted)
   source = bytes(value)
   needle = bytes(wanted)
@@ -47,11 +50,13 @@ function adminContains(value, wanted)
   return false
 end function
 
+// Return the admin ip value.
 function adminIp(a, b, c, d, port)
   return admintestqt.NetAddress(admintestnc.NA_IP, [a, b, c, d],
     array(10, 0), port)
 end function
 
+// Create admin runtime.
 function makeAdminRuntime(dedicated)
   server = admintestserver.create(4, "Admin Test", "base1",
     "\\hostname\\Admin Test\\mapname\\base1", dedicated, false)
@@ -59,6 +64,7 @@ function makeAdminRuntime(dedicated)
     admintestgame.permissive())
 end function
 
+// Verify filters and persistence.
 function testFiltersAndPersistence()
   state = admintestadmin.create()
   adminEqual(admintestadmin.addIp(state, "192.246.40"), "", "addip")
@@ -93,6 +99,7 @@ function testFiltersAndPersistence()
   return true
 end function
 
+// Verify connect filter and rcon.
 function testConnectFilterAndRcon()
   runtime = makeAdminRuntime(true)
   remote = adminIp(203, 0, 113, 19, 30000)
@@ -134,6 +141,7 @@ function testConnectFilterAndRcon()
   return true
 end function
 
+// Verify masters.
 function testMasters()
   runtime = makeAdminRuntime(true)
   output = admintestcommands.executeOperator(runtime,
@@ -163,6 +171,7 @@ function testMasters()
   return true
 end function
 
+// Verify master udp lifecycle.
 function testMasterUdpLifecycle()
   masterSocket = admintestudp.open("127.0.0.1", 0)
   serverSocket = admintestudp.open("127.0.0.1", 0)

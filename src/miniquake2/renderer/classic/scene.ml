@@ -12,6 +12,7 @@ import miniquake2.renderer.classic.surfaces as rclassicsurfaces
 import miniquake2.renderer.classic.lightmaps as rclassiclightmaps
 import miniquake2.renderer.classic.sprites as rclassicsprites
 
+// Find chain.
 function findChain(chains, imageName)
   for each chain in chains
     if chain.imageName == imageName then return chain end if
@@ -19,6 +20,7 @@ function findChain(chains, imageName)
   return void
 end function
 
+// Add to texture chain.
 function addToTextureChain(chains, surface)
   chain = findChain(chains, surface.image.name)
   if chain is void then
@@ -30,6 +32,7 @@ function addToTextureChain(chains, surface)
   return chains
 end function
 
+// Prepare map.
 function prepareMap(map, images, entityFrame, lightStyles, dLights, modulate)
   surfaces = rclassicsurfaces.buildSurfaces(map, images, entityFrame)
   chains = []
@@ -58,6 +61,7 @@ function prepareMap(map, images, entityFrame, lightStyles, dLights, modulate)
   return rclassictypes.ClassicScene(surfaces, chains, transparent, sky, warp, noDraw, [])
 end function
 
+// Add sprite.
 function addSprite(scene, model, entity, cameraUp, cameraRight)
   draw = rclassicsprites.prepare(model, entity, cameraUp, cameraRight)
   scene.sprites = scene.sprites + [draw]

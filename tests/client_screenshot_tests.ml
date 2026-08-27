@@ -6,6 +6,7 @@ import miniquake2.client.screenshot as screenshottest
 import miniquake2.renderer.capture as screenshottestcapture
 import std.fs as screenshottestfs
 
+// Assert the screenshot test condition.
 function screenshotAssert(actual, expected, label)
   if actual != expected then return error(9972, label + ": expected " + expected + ", got " + actual) end if
 end function

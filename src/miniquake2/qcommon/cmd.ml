@@ -13,10 +13,12 @@ const MAX_ARGS = 80
 const COMMAND_BUFFER_SIZE = 8192
 const MAX_ALIAS_NAME = 32
 
+// Create state.
 function create(cvars)
   return qt.CommandSystem([], [], [], "", "", false, cvars)
 end function
 
+// Add command.
 function addCommand(system, name, callback)
   for each command in system.commands
     if text.equalInsensitive(command[0], name) then return error(3220, "command already exists: " + name) end if
@@ -26,6 +28,7 @@ function addCommand(system, name, callback)
   return true
 end function
 
+// Remove command.
 function removeCommand(system, name)
   result = []
   for each command in system.commands
@@ -35,6 +38,7 @@ function removeCommand(system, name)
   return true
 end function
 
+// Return the tokenize value.
 function tokenize(value)
   source = bytes(value)
   result = []
@@ -69,6 +73,7 @@ function tokenize(value)
   return result
 end function
 
+// Return the argument tail value.
 function argumentTail(value)
   tokens = tokenize(value)
   if len(tokens) <= 1 then return "" end if
@@ -82,6 +87,7 @@ function argumentTail(value)
   return result
 end function
 
+// Add alias.
 function addAlias(system, name, value)
   if len(bytes(name)) >= MAX_ALIAS_NAME then return error(3222, "alias name too long") end if
   for each alias in system.aliases
@@ -92,18 +98,21 @@ function addAlias(system, name, value)
   return alias
 end function
 
+// Add text.
 function addText(system, value)
   if len(bytes(system.buffer)) + len(bytes(value)) >= COMMAND_BUFFER_SIZE then return error(3223, "command buffer overflow") end if
   system.buffer = system.buffer + value
   return true
 end function
 
+// Insert text.
 function insertText(system, value)
   if len(bytes(system.buffer)) + len(bytes(value)) >= COMMAND_BUFFER_SIZE then return error(3224, "command buffer overflow") end if
   system.buffer = value + system.buffer
   return true
 end function
 
+// Split first.
 function splitFirst(value)
   source = bytes(value)
   quoted = false
@@ -120,6 +129,7 @@ function splitFirst(value)
   return [first, rest]
 end function
 
+// Execute string.
 function executeString(system, value)
   system.arguments = tokenize(value)
   system.argumentTail = argumentTail(value)
@@ -136,6 +146,7 @@ function executeString(system, value)
   return handled[0]
 end function
 
+// Execute buffer.
 function executeBuffer(system)
   executed = 0
   while system.buffer != ""

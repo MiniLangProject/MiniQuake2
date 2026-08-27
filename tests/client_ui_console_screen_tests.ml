@@ -10,6 +10,7 @@ import miniquake2.client.ui.types as cuitypes
 import miniquake2.qcommon.constants as qc
 import miniquake2.renderer.recording as recording
 
+// Assert the ui screen equal test condition.
 function uiScreenAssertEqual(actual, expected, name)
   if actual != expected then return error(8260, name + ": expected " + expected + ", got " + actual) end if
   return true

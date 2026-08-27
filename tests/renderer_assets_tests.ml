@@ -7,14 +7,17 @@ import miniquake2.qcommon.byteio as tbio
 import miniquake2.format.constants as fc
 import miniquake2.renderer.assets as rassets
 
+// Store test imports data.
 struct TestImports
   fsLoadFile
 end struct
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7997, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Return the sprite bytes value.
 function spriteBytes()
   data = bytes(92)
   tbio.putU32(data, 0, fc.IDSPRITEHEADER); tbio.putI32(data, 4, fc.SPRITE_VERSION); tbio.putI32(data, 8, 1)
@@ -23,6 +26,7 @@ function spriteBytes()
   return data
 end function
 
+// Return the pcx bytes value.
 function pcxBytes()
   data = bytes(129)
   data[0] = 0x0a; data[1] = 5; data[2] = 1; data[3] = 8
@@ -30,6 +34,7 @@ function pcxBytes()
   return data
 end function
 
+// Load file.
 function loadFile(name)
   if name == "sprites/test.sp2" then return spriteBytes() end if
   if name == "sprites/frame.pcx" then return pcxBytes() end if

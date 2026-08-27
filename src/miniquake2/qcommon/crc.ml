@@ -11,6 +11,7 @@ const CRC_INIT_VALUE = 0xffff
 const CRC_XOR_VALUE = 0x0000
 const CRC_POLYNOMIAL = 0x1021
 
+// Initialize crc.
 function inline CRC_Init()
   return CRC_INIT_VALUE
 end function
@@ -34,11 +35,13 @@ function CRC_ProcessByte(crcValue, data)
   return value
 end function
 
+// Return the crc value.
 function inline CRC_Value(crcValue)
   if typeof(crcValue) != "int" then return error(2401, "CRC_Value requires an integer") end if
   return (crcValue ^ CRC_XOR_VALUE) & 0xffff
 end function
 
+// Return the crc block value.
 function CRC_Block(data, offset, count)
   if typeof(data) != "bytes" then return error(2402, "CRC input must be bytes") end if
   if typeof(offset) != "int" or typeof(count) != "int" then return error(2403, "CRC range must be integral") end if
@@ -54,10 +57,12 @@ function CRC_Block(data, offset, count)
   return CRC_Value(value)
 end function
 
+// Process byte.
 function processByte(crcValue, data)
   return CRC_ProcessByte(crcValue, data)
 end function
 
+// Return the block value.
 function block(data, offset, count)
   return CRC_Block(data, offset, count)
 end function

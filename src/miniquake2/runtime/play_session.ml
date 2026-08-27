@@ -16,6 +16,7 @@ import miniquake2.runtime.server_session as plserver
 import miniquake2.server.game_bridge as plbridge
 import miniquake2.platform.system as plsystem
 
+// Store step result data.
 struct StepResult
   clientState
   serverFrame
@@ -26,6 +27,7 @@ struct StepResult
   packetsRejected
 end struct
 
+// Store play session data.
 struct PlaySession
   server
   client
@@ -38,6 +40,7 @@ end struct
 
 playPredictionSession = void
 
+// Play prediction trace.
 function playPredictionTrace(start, mins, maxs, finish)
   global playPredictionSession
   if playPredictionSession is void then return error(8395, "play prediction context is missing") end if
@@ -48,12 +51,14 @@ function playPredictionTrace(start, mins, maxs, finish)
   return plbridge.trace(start, mins, maxs, finish, ignored, plqc.MASK_PLAYERSOLID)
 end function
 
+// Play prediction point contents.
 function playPredictionPointContents(point)
   global playPredictionSession
   if playPredictionSession is void then return error(8395, "play prediction context is missing") end if
   return plbridge.pointContents(point)
 end function
 
+// Wrap state.
 function wrap(server, userInfo)
   if server is void then return error(8390, "play session server is missing") end if
   if typeof(userInfo) != "string" or userInfo == "" then return error(8391, "play session userinfo is missing") end if
@@ -64,40 +69,47 @@ function wrap(server, userInfo)
       playPredictionPointContents))
 end function
 
+// Create core.
 function createCore(mapName, entityText, collision, userInfo)
   server = plserver.createCoreAt(mapName, entityText, collision, "", "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
+// Create core at.
 function createCoreAt(mapName, entityText, collision, spawnPoint, userInfo)
   server = plserver.createCoreAt(mapName, entityText, collision, spawnPoint,
     "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
+// Create core at skill.
 function createCoreAtSkill(mapName, entityText, collision, spawnPoint, userInfo, skill)
   playSkillServer = plserver.createCoreAtSkill(mapName, entityText, collision,
     spawnPoint, "127.0.0.1", 0, 1, false, skill)
   return wrap(playSkillServer, userInfo)
 end function
 
+// Create retail.
 function createRetail(baseDirectory, mapName, userInfo)
   server = plserver.createRetailAt(baseDirectory, mapName, "", "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
+// Create retail at.
 function createRetailAt(baseDirectory, mapName, spawnPoint, userInfo)
   server = plserver.createRetailAt(baseDirectory, mapName, spawnPoint,
     "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
+// Create retail at skill.
 function createRetailAtSkill(baseDirectory, mapName, spawnPoint, userInfo, skill)
   playSkillRetailServer = plserver.createRetailAtSkill(baseDirectory, mapName,
     spawnPoint, "127.0.0.1", 0, 1, false, skill)
   return wrap(playSkillRetailServer, userInfo)
 end function
 
+// Return the signon complete value.
 function signonComplete(session)
   if session.closed then return false end if
   serverClient = session.server.networkRuntime.server.clients[0]
@@ -105,21 +117,25 @@ function signonComplete(session)
     serverClient.state == plnc.CS_SPAWNED and session.client.integrated.client.current is not void
 end function
 
+// Queue user cmd.
 function queueUserCmd(session, command)
   if session.closed then return error(8392, "play session is closed") end if
   return plclient.queueUserCmd(session.client, command)
 end function
 
+// Set user cmd.
 function setUserCmd(session, command)
   if session.closed then return error(8392, "play session is closed") end if
   return plclient.setUserCmd(session.client, command)
 end function
 
+// Report whether pending user cmds.
 function pendingUserCmds(session)
   if session.closed then return 0 end if
   return plclient.pendingUserCmds(session.client)
 end function
 
+// Set user info.
 function setUserInfo(session, userInfo)
   if session.closed then return error(8392, "play session is closed") end if
   now = plbyteio.truncInt(plsystem.milliseconds(session.client.clock))
@@ -161,16 +177,19 @@ function predictLocal(session, previewCommand)
   return result
 end function
 
+// Map change core.
 function changeMapCore(session, mapName, entityText, collision)
   if session.closed then return error(8392, "play session is closed") end if
   return plserver.changeMapCore(session.server, mapName, entityText, collision)
 end function
 
+// Map change retail.
 function changeMapRetail(session, baseDirectory, mapName)
   if session.closed then return error(8392, "play session is closed") end if
   return plserver.changeMapRetail(session.server, baseDirectory, mapName)
 end function
 
+// Advance state.
 function step(session)
   if session.closed then return error(8392, "play session is closed") end if
   plclient.step(session.client)
@@ -189,16 +208,19 @@ function step(session)
     session.client.packetsRejected + session.server.packetsRejected)
 end function
 
+// Consume frame.
 function takeFrame(session)
   if session.closed then return void end if
   return plhandoff.take(session.client.integrated)
 end function
 
+// Consume latest frame.
 function takeLatestFrame(session)
   if session.closed then return void end if
   return plhandoff.takeLatest(session.client.integrated)
 end function
 
+// Report whether run until active.
 function runUntilActive(session, maximumSteps)
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then return error(8393, "play session step limit must be positive") end if
   playSessionActivationStepCount = 0
@@ -212,6 +234,7 @@ function runUntilActive(session, maximumSteps)
   return playSessionActivationLastResult
 end function
 
+// Shut down state.
 function shutdown(session)
   if session.closed then return false end if
   if not session.client.closed then plclient.shutdown(session.client) end if

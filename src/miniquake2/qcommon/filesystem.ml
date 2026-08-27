@@ -13,10 +13,12 @@ import std.fs as fs
 const MAX_FILES_IN_PACK = 4096
 const BASE_DIRECTORY_NAME = "baseq2"
 
+// Report whether virtual name valid.
 function virtualNameValid(name)
   return try(canonicalVirtualName(name)) is not error
 end function
 
+// Normalize virtual name.
 function normalizeVirtualName(name)
   data = bytes(text.lower(name))
   i = 0
@@ -31,6 +33,7 @@ end function
 // names such as models/monsters/tank/../ctank/skin.pcx; they are safe once
 // canonicalized, while attempts to walk above the virtual root remain errors.
 function canonicalVirtualName(name)
+  // Keep canonical virtual name phases explicit: validate inputs, update owned state, then publish the result.
   normalized = normalizeVirtualName(name)
   data = bytes(normalized)
   if len(data) == 0 or data[0] == 47 then return error(3237, "invalid virtual path") end if
@@ -71,6 +74,7 @@ function canonicalVirtualName(name)
   return decode(slice(output, 0, outputCount))
 end function
 
+// Parse pack.
 function parsePack(data, filename)
   if len(data) < 12 then return error(3230, filename + ": PACK header truncated") end if
   if bio.u32(data, 0) != 0x4b434150 then return error(3231, filename + ": PACK ident mismatch") end if
@@ -93,10 +97,12 @@ function parsePack(data, filename)
   return qt.PackArchive(filename, data, files)
 end function
 
+// Load pack.
 function loadPack(filename)
   return parsePack(fs.readAllBytes(filename), filename)
 end function
 
+// Find pack file.
 function findPackFile(pack, name)
   wanted = try(canonicalVirtualName(name))
   if wanted is error then return void end if
@@ -106,21 +112,25 @@ function findPackFile(pack, name)
   return void
 end function
 
+// Create state.
 function create(baseDirectory, gameDirectory)
   return qt.FileSystem(baseDirectory, gameDirectory, [], [])
 end function
 
+// Add directory.
 function addDirectory(system, directory)
   system.searchPaths = [qt.SearchPath(directory, void)] + system.searchPaths
   return true
 end function
 
+// Add pack.
 function addPack(system, filename)
   pack = loadPack(filename)
   system.searchPaths = [qt.SearchPath("", pack)] + system.searchPaths
   return pack
 end function
 
+// Add game directory.
 function addGameDirectory(system, directory)
   addDirectory(system, directory)
   i = 0
@@ -133,6 +143,7 @@ function addGameDirectory(system, directory)
   return i
 end function
 
+// Initialize state.
 function initialize(baseDirectory, gameDirectory)
   system = create(baseDirectory, gameDirectory)
   addGameDirectory(system, fs.joinPath(baseDirectory, BASE_DIRECTORY_NAME))
@@ -140,6 +151,7 @@ function initialize(baseDirectory, gameDirectory)
   return system
 end function
 
+// Read file.
 function readFile(system, name)
   normalized = try(canonicalVirtualName(name))
   if normalized is error then return error(3235, "invalid virtual path") end if
@@ -155,11 +167,13 @@ function readFile(system, name)
   return error(3236, "file not found: " + name)
 end function
 
+// Return the file exists value.
 function fileExists(system, name)
   result = try(readFile(system, name))
   return result is not error
 end function
 
+// Return the music track name.
 function musicTrackName(track)
   if typeof(track) != "int" or track < 1 or track > 99 then
     return error(3238, "music track outside [1,99]")
@@ -187,6 +201,7 @@ function musicTrackPath(system, track)
   return ""
 end function
 
+// Read music track.
 function readMusicTrack(system, track)
   filename = musicTrackName(track)
   packed = try(readFile(system, "music/" + filename))

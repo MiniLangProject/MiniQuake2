@@ -9,6 +9,7 @@ import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.game.weapons.constants as wbconstants
 import miniquake2.game.weapons.projectiles as wbprojectiles
 
+// Fire weapon grenade.
 function weaponGrenadeFire(context, state, start, direction, damage, radius, held)
   timer = state.grenadeTime - context.time
   speed = wbconstants.GRENADE_MIN_SPEED + (wbconstants.GRENADE_TIMER - timer) * ((wbconstants.GRENADE_MAX_SPEED - wbconstants.GRENADE_MIN_SPEED) / wbconstants.GRENADE_TIMER)
@@ -20,7 +21,9 @@ function weaponGrenadeFire(context, state, start, direction, damage, radius, hel
   return projectile
 end function
 
+// Advance state.
 function step(context, state, start, direction, damage, radius)
+  // Keep step phases explicit: validate inputs, update owned state, then publish the result.
   if state.weaponState == wbconstants.HAND_READY then
     attacking = ((state.latchedButtons | state.buttons) & wbconstants.BUTTON_ATTACK) != 0
     if attacking then
@@ -75,9 +78,11 @@ function step(context, state, start, direction, damage, radius)
   return state.lastProjectile
 end function
 
+// Fire weapon grenade.
 function weapon_grenade_fire(context, state, start, direction, damage, radius, held)
   return weaponGrenadeFire(context, state, start, direction, damage, radius, held)
 end function
+// Return the weapon grenade value.
 function Weapon_Grenade(context, state, start, direction, damage, radius)
   return step(context, state, start, direction, damage, radius)
 end function

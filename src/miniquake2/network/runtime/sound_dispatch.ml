@@ -13,18 +13,21 @@ import miniquake2.network.constants as nrtsoundnc
 import miniquake2.network.runtime.pump as nrtsoundpump
 import miniquake2.server.sound_events as nrtsoundevents
 
+// Store sound dispatch result data.
 struct SoundDispatchResult
   sent
   delivered
   deferred
 end struct
 
+// Store sound client plan data.
 struct SoundClientPlan
   slot
   unreliablePackets
   reliableFragments
 end struct
 
+// Return the payload capacity value.
 function payloadCapacity(client)
   if client.channel is void then return 0 end if
   reliable = client.channel.reliableLength
@@ -34,6 +37,7 @@ function payloadCapacity(client)
   return capacity
 end function
 
+// Return the first reliable value.
 function firstReliable(events)
   index = 0
   while index < len(events)

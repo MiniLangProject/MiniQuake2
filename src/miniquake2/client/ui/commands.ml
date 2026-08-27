@@ -17,6 +17,7 @@ import miniquake2.qcommon.info as cuicmdinfo
 import miniquake2.game.constants as cuicmdgameconstants
 import miniquake2.runtime.product_startup as cuicmdstartup
 
+// Store command state data.
 struct CommandState
   quitRequested
   videoRestartRequested
@@ -56,6 +57,7 @@ struct CommandState
   joystickEnabled
 end struct
 
+// Create state.
 function create()
   return CommandState(false, false, 0, false, 1.0, -1, -1, 0, 0, [], -1, false,
     "MiniQuake2", "male", "grunt", false, "", false, false, false,
@@ -63,6 +65,7 @@ function create()
     "", false, false, true)
 end function
 
+// Return the numeric argument value.
 function numericArgument(arguments, name)
   if len(arguments) != 2 then return error(8280, name + " expects one numeric value") end if
   cuicmdNumberResult = try(toNumber(arguments[1]))
@@ -74,6 +77,7 @@ function numericArgument(arguments, name)
   return cuicmdNumberResult
 end function
 
+// Return the integer argument value.
 function integerArgument(arguments, name, minimum, maximum)
   cuicmdIntegerValue = numericArgument(arguments, name)
   cuicmdInteger = cuicmdbyteio.truncInt(cuicmdIntegerValue)
@@ -84,11 +88,13 @@ function integerArgument(arguments, name, minimum, maximum)
   return cuicmdInteger
 end function
 
+// Return the boolean argument value.
 function booleanArgument(arguments, name)
   cuicmdBoolean = integerArgument(arguments, name, 0, 1)
   return cuicmdBoolean != 0
 end function
 
+// Return the player model name.
 function playerModelName(index)
   if index == 0 then return "male" end if
   if index == 1 then return "female" end if
@@ -96,12 +102,14 @@ function playerModelName(index)
   return error(8283, "model index outside retail player models")
 end function
 
+// Return the player skin name.
 function playerSkinName(model, index)
   cuicmdSkinChoices = cuicmdmenu.playerSkinChoices(model)
   if index < 0 or index >= len(cuicmdSkinChoices) then return error(8283, "skin index outside selected model") end if
   return cuicmdSkinChoices[index]
 end function
 
+// Set dm flag.
 function setDmFlag(commandState, bit, enabled)
   if enabled then commandState.dmFlags = commandState.dmFlags | bit
   else commandState.dmFlags = commandState.dmFlags & ~bit end if
@@ -474,6 +482,7 @@ function localAction(commandState, input, screen, mixer, command)
   return false
 end function
 
+// Execute state.
 function execute(commandState, input, screen, mixer, command)
   cuicmdHandled = try(localAction(commandState, input, screen, mixer, command))
   commandState.executed = commandState.executed + 1
@@ -485,6 +494,7 @@ function execute(commandState, input, screen, mixer, command)
   return cuicmdHandled
 end function
 
+// Drain state.
 function drain(commandState, input, screen, mixer)
   cuicmdProcessed = 0
   cuicmdKeyPending = cuicmdkeys.drainCommands(input)
@@ -510,6 +520,7 @@ function drain(commandState, input, screen, mixer)
   return cuicmdProcessed
 end function
 
+// Consume forwarded.
 function inline takeForwarded(commandState)
   // Most frames do not forward a console command. Avoid manufacturing a new
   // empty array on every probe while retaining move-style ownership for work.
@@ -519,65 +530,76 @@ function inline takeForwarded(commandState)
   return cuicmdForwarded
 end function
 
+// Consume save slot.
 function takeSaveSlot(commandState)
   cuicmdSaveSlot = commandState.saveSlot
   commandState.saveSlot = -1
   return cuicmdSaveSlot
 end function
 
+// Consume load slot.
 function takeLoadSlot(commandState)
   cuicmdLoadSlot = commandState.loadSlot
   commandState.loadSlot = -1
   return cuicmdLoadSlot
 end function
 
+// Consume new game skill.
 function takeNewGameSkill(commandState)
   cuicmdNewGameSkill = commandState.newGameSkill
   commandState.newGameSkill = -1
   return cuicmdNewGameSkill
 end function
 
+// Report whether take config dirty.
 function takeConfigDirty(commandState)
   cuicmdConfigDirty = commandState.configDirty
   commandState.configDirty = false
   return cuicmdConfigDirty
 end function
 
+// Report whether take player dirty.
 function takePlayerDirty(commandState)
   cuicmdPlayerDirty = commandState.playerDirty
   commandState.playerDirty = false
   return cuicmdPlayerDirty
 end function
 
+// Return the player profile value.
 function playerProfile(commandState, input)
   return cuicmdstartup.PlayerProfile(commandState.playerName,
     commandState.playerModel, commandState.playerSkin, input.config.hand, 25000)
 end function
 
+// Consume connect address.
 function takeConnectAddress(commandState)
   cuicmdConnectAddress = commandState.connectAddress
   commandState.connectAddress = ""
   return cuicmdConnectAddress
 end function
 
+// Consume refresh servers.
 function takeRefreshServers(commandState)
   cuicmdRefresh = commandState.refreshServers
   commandState.refreshServers = false
   return cuicmdRefresh
 end function
 
+// Consume start server.
 function takeStartServer(commandState)
   cuicmdStart = commandState.startServerRequested
   commandState.startServerRequested = false
   return cuicmdStart
 end function
 
+// Consume disconnect.
 function takeDisconnect(commandState)
   cuicmdDisconnect = commandState.disconnectRequested
   commandState.disconnectRequested = false
   return cuicmdDisconnect
 end function
 
+// Return the server options value.
 function serverOptions(commandState)
   return cuicmdstartup.ServerOptions(commandState.serverMap,
     commandState.serverHostname, commandState.serverRules == 1,
@@ -586,24 +608,28 @@ function serverOptions(commandState)
     commandState.dmFlags)
 end function
 
+// Return the download policy value.
 function downloadPolicy(commandState)
   return cuicmdstartup.DownloadPolicy(commandState.allowDownload,
     commandState.allowDownloadMaps, commandState.allowDownloadModels,
     commandState.allowDownloadPlayers, commandState.allowDownloadSounds)
 end function
 
+// Consume record name.
 function takeRecordName(commandState)
   cuicmdRecordName = commandState.recordName
   commandState.recordName = ""
   return cuicmdRecordName
 end function
 
+// Consume stop recording.
 function takeStopRecording(commandState)
   cuicmdStopRecording = commandState.stopRecordingRequested
   commandState.stopRecordingRequested = false
   return cuicmdStopRecording
 end function
 
+// Consume screenshot.
 function takeScreenshot(commandState)
   cuicmdScreenshot = commandState.screenshotRequested
   commandState.screenshotRequested = false

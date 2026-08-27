@@ -32,6 +32,7 @@ $Output = if ($Configuration -ieq "Debug") { Join-Path $Root "build_debug" } els
 if ($PreflightOnly -and $SkipPreflight) {
   throw "-PreflightOnly and -SkipPreflight cannot be used together."
 }
+# Resolve command or file.
 
 function Resolve-CommandOrFile {
   param([Parameter(Mandatory = $true)][string]$Value, [Parameter(Mandatory = $true)][string]$Label)
@@ -44,6 +45,7 @@ function Resolve-CommandOrFile {
   }
   throw "$Label not found: $Value"
 }
+# Resolve python.
 
 function Resolve-Python {
   param([string]$Requested)
@@ -64,6 +66,7 @@ function Resolve-Python {
   }
   throw "Python 3 is required for MiniQuake2 verification and the reference compiler."
 }
+# Normalize std import root.
 
 function Normalize-StdImportRoot {
   param([string]$Candidate)
@@ -83,6 +86,7 @@ function Normalize-StdImportRoot {
   }
   return $null
 }
+# Find std import root.
 
 function Find-StdImportRoot {
   param([string]$CompilerPath, [string]$Requested)
@@ -112,6 +116,7 @@ function Find-StdImportRoot {
   }
   throw "MiniLang stdlib not found. Pass -StdLib PATH or set MINILANG_STDLIB."
 }
+# Invoke checked.
 
 function Invoke-Checked {
   param(
@@ -135,10 +140,15 @@ $Verifier = Join-Path $Root "tools\verify_project.py"
 if (-not (Test-Path -LiteralPath $Verifier -PathType Leaf)) { throw "Project verifier missing: $Verifier" }
 $SourceHygieneVerifier = Join-Path $Root "tools\source_hygiene.py"
 $SourceHygieneTests = Join-Path $Root "tools\test_source_hygiene.py"
+$SourceDocumentationVerifier = Join-Path $Root "tools\check_source_documentation.py"
+$SourceDocumentationTests = Join-Path $Root "tools\test_source_documentation.py"
 $MarkdownHygieneVerifier = Join-Path $Root "tools\markdown_hygiene.py"
 $MarkdownHygieneTests = Join-Path $Root "tools\test_markdown_hygiene.py"
 if (-not (Test-Path -LiteralPath $SourceHygieneVerifier -PathType Leaf)) {
   throw "Source hygiene verifier missing: $SourceHygieneVerifier"
+}
+if (-not (Test-Path -LiteralPath $SourceDocumentationVerifier -PathType Leaf)) {
+  throw "Source documentation verifier missing: $SourceDocumentationVerifier"
 }
 if (-not (Test-Path -LiteralPath $MarkdownHygieneVerifier -PathType Leaf)) {
   throw "Markdown hygiene verifier missing: $MarkdownHygieneVerifier"
@@ -152,6 +162,7 @@ if (-not $SkipPreflight) {
   Write-Host "[MiniQuake2] source, inventory, manifest and build-hygiene preflight"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--root", $Root, "--mode", "all", "--json", (Join-Path $Output "source-verification.json"))) -Label "project preflight; after intentional source changes run scripts\update_manifest.ps1"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneVerifier, "--root", $Root, "--json", (Join-Path $Output "source-hygiene.json"), "--quiet")) -Label "source license/comment hygiene"
+  $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceDocumentationVerifier, "--root", $Root)) -Label "source declaration documentation"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($MarkdownHygieneVerifier, "--root", $Root, "--json", (Join-Path $Output "markdown-hygiene.json"), "--quiet")) -Label "Markdown structure/link hygiene"
   if (-not $SkipTests) {
     $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--self-test")) -Label "verifier self-test"
@@ -159,6 +170,10 @@ if (-not $SkipPreflight) {
       throw "Source hygiene verifier tests missing: $SourceHygieneTests"
     }
     $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneTests)) -Label "source hygiene verifier tests"
+    if (-not (Test-Path -LiteralPath $SourceDocumentationTests -PathType Leaf)) {
+      throw "Source documentation verifier tests missing: $SourceDocumentationTests"
+    }
+    $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceDocumentationTests)) -Label "source documentation verifier tests"
     if (-not (Test-Path -LiteralPath $MarkdownHygieneTests -PathType Leaf)) {
       throw "Markdown hygiene verifier tests missing: $MarkdownHygieneTests"
     }

@@ -13,11 +13,13 @@ import miniquake2.network.runtime.commands as nrfloop_commands
 import miniquake2.server.game_bridge as nrfloop_bridge
 import miniquake2.runtime.play_session as nrfloop_play
 
+// Assert the fragment loop test condition.
 function fragmentLoopAssert(value, name)
   if not value then return error(8498, name) end if
   return true
 end function
 
+// Return the loop text value.
 function loopText(count, character)
   output = bytes(count)
   index = 0
@@ -28,6 +30,7 @@ function loopText(count, character)
   return decode(output)
 end function
 
+// Return the loop pattern value.
 function loopPattern(count)
   output = bytes(count)
   index = 0

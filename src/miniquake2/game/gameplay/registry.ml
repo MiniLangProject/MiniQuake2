@@ -11,10 +11,12 @@ import miniquake2.game.gameplay.powerups as gppowerups
 import miniquake2.game.gameplay.types as gptypes
 import miniquake2.game.gameplay.weapons as gpweapons
 
+// Return the frames value.
 function frames(activateLast, fireLast, idleLast, deactivateLast, pauseFrames, fireFrames)
   return gptypes.WeaponFrames(activateLast, fireLast, idleLast, deactivateLast, pauseFrames, fireFrames)
 end function
 
+// Return the weapon value.
 function weapon(index, className, pickupName, quantity, ammo, weaponModel, worldModel, viewModel, icon, precaches, frameContract)
   pickupCallback = gprules.Pickup_Weapon
   dropCallback = gprules.Drop_Weapon
@@ -29,6 +31,7 @@ function weapon(index, className, pickupName, quantity, ammo, weaponModel, world
   )
 end function
 
+// Return the ammo value.
 function ammo(index, className, pickupName, quantity, tag, worldModel, icon)
   return gptypes.ItemDefinition(
     index, className, gprules.Pickup_Ammo, void, gprules.Drop_Ammo, void,
@@ -37,6 +40,7 @@ function ammo(index, className, pickupName, quantity, tag, worldModel, icon)
   )
 end function
 
+// Return the grenades value.
 function grenades(index)
   return gptypes.ItemDefinition(
     index, "ammo_grenades", gprules.Pickup_Ammo, gprules.Use_Weapon, gprules.Drop_Ammo, void,
@@ -49,6 +53,7 @@ function grenades(index)
   )
 end function
 
+// Return the default registry value.
 function defaultRegistry()
   blasterFrames = frames(4, 8, 52, 55, [19, 32], [5])
   shotgunFrames = frames(7, 18, 36, 39, [22, 28, 34], [8, 9])
@@ -81,6 +86,7 @@ function defaultRegistry()
   return gptypes.ItemRegistry(items)
 end function
 
+// Return the inventory slots value.
 function inventorySlots(registry)
   maximum = 0
   for each item in registry.items
@@ -89,6 +95,7 @@ function inventorySlots(registry)
   return maximum + 1
 end function
 
+// Return the stock item value.
 function stockItem(index, className, pickup, use, drop, pickupSound, worldModel, icon, pickupName, quantity, flags, tag, precaches, ruleData)
   return gptypes.ItemDefinition(
     index, className, pickup, use, drop, void,
@@ -97,14 +104,17 @@ function stockItem(index, className, pickup, use, drop, pickupSound, worldModel,
   )
 end function
 
+// Return the armor data value.
 function armorData(baseCount, maxCount, normalProtection, energyProtection)
   return gptypes.itemRuleData("armor", baseCount, maxCount, normalProtection, energyProtection, 0, 0, 0)
 end function
 
+// Return the simple data value.
 function simpleData(kind, duration)
   return gptypes.itemRuleData(kind, 0, 0, 0.0, 0.0, 0, 0, duration)
 end function
 
+// Return the health data value.
 function healthData(count, style)
   return gptypes.itemRuleData("health", 0, 0, 0.0, 0.0, count, style, 0)
 end function
@@ -147,10 +157,12 @@ function stockRegistry()
   return gptypes.ItemRegistry(items + extras)
 end function
 
+// Return the baseq 2 registry value.
 function baseq2Registry()
   return stockRegistry()
 end function
 
+// Validate state.
 function validate(registry)
   for each item in registry.items
     if item.index <= 0 or item.className == "" or item.pickupName == "" then return error(9360, "invalid item registry entry") end if

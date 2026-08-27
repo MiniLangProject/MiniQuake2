@@ -14,11 +14,13 @@ import miniquake2.protocol.usercmd as pusercmd
 import miniquake2.protocol.entity_delta as pentity
 import miniquake2.protocol.player_delta as pplayer
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7900, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0 then difference = -difference end if
@@ -26,11 +28,13 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7902, name + ": expected true") end if
   return true
 end function
 
+// Assert the bytes test condition.
 function assertBytes(actual, expected, name)
   assertEqual(len(actual), len(expected), name + " length")
   index = 0
@@ -41,6 +45,7 @@ function assertBytes(actual, expected, name)
   return true
 end function
 
+// Return the reading buffer value.
 function readingBuffer(data)
   buffer = qsz.alloc(len(data))
   qsz.writeBytes(buffer, data)
@@ -48,6 +53,7 @@ function readingBuffer(data)
   return buffer
 end function
 
+// Verify user cmd golden.
 function testUserCmdGolden()
   base = qt.zeroUserCmd()
   command = qt.UserCmd(16, 5, [0x1234, -2, 0], 300, 0, -40, 9, 128)
@@ -70,6 +76,7 @@ function testUserCmdGolden()
   return true
 end function
 
+// Verify entity golden.
 function testEntityGolden()
   base = pt.zeroEntityState()
   target = pt.zeroEntityState()
@@ -132,6 +139,7 @@ function testEntityGolden()
   return true
 end function
 
+// Verify complete player roundtrip.
 function testCompletePlayerRoundtrip()
   base = pt.zeroPlayerState()
   target = pt.zeroPlayerState()
@@ -168,6 +176,7 @@ function testCompletePlayerRoundtrip()
   return true
 end function
 
+// Verify player golden.
 function testPlayerGolden()
   base = pt.zeroPlayerState()
   target = pt.zeroPlayerState()
@@ -206,6 +215,7 @@ function testPlayerGolden()
   return true
 end function
 
+// Verify copy rooting soak.
 function testCopyRootingSoak()
   entity = pt.zeroEntityState()
   entity.number = 17
@@ -247,6 +257,7 @@ function testCopyRootingSoak()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 protocol delta tests starting: 5"
   result = try(testUserCmdGolden())

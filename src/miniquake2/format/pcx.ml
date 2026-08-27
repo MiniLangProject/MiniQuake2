@@ -8,7 +8,9 @@ package miniquake2.format.pcx
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
+// Parse state.
 function parse(data)
+  // Keep parse phases explicit: validate inputs, update owned state, then publish the result.
   if len(data) < 128 then return error(2600, "PCX header is truncated") end if
   if data[0] != 0x0a or data[1] != 5 or data[2] != 1 or data[3] != 8 then return error(2601, "unsupported PCX encoding") end if
   xmin = fbio.u16(data, 4)

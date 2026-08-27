@@ -56,6 +56,7 @@ import miniquake2.client.cinematic.audio as dcinaudio
 import miniquake2.runtime.server_session as dserversession
 import miniquake2.runtime.client_session as dclientsession
 
+// Return the capability lines value.
 function capabilityLines()
   // Referencing the public entry points keeps this file an executable linker
   // closure rather than a documentation-only list.
@@ -98,6 +99,7 @@ function capabilityLines()
   ]
 end function
 
+// Verify link closure.
 function verifyLinkClosure()
   lines = capabilityLines()
   return len(lines) == 9 and len(ddirections.normals) == 162

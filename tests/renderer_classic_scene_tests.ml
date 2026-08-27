@@ -13,10 +13,12 @@ import miniquake2.renderer.classic.materials as rclassicmaterials
 import miniquake2.renderer.classic.scene as rclassicscene
 import miniquake2.renderer.classic.sprites as rclassicsprites
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7985, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -24,6 +26,7 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Return the palette value.
 function palette()
   result = bytes(768)
   result[3] = 10; result[4] = 20; result[5] = 30
@@ -31,6 +34,7 @@ function palette()
   return result
 end function
 
+// Create images.
 function makeImages()
   pal = palette()
   mip = [bytes([1, 255, 1, 1]), bytes([1]), bytes([1]), bytes([1])]
@@ -46,6 +50,7 @@ function makeImages()
   return [baseImage, altImage, skyImage, transparent, warp, hidden]
 end function
 
+// Create map.
 function makeMap()
   vertices = [
     ft.BspVertex(ft.Vec3(0.0, 0.0, 0.0)), ft.BspVertex(ft.Vec3(16.0, 0.0, 0.0)),
@@ -74,6 +79,7 @@ function makeMap()
   return ft.BspMap("synthetic", bytes(0), [], "", [plane], vertices, void, [], texInfo, faces, bytes(0), [], [], [], edges, [0, 1, 2, 3], [model], [], [], [], [])
 end function
 
+// Verify images animation and chains.
 function testImagesAnimationAndChains()
   images = makeImages()
   assertEqual(slice(images[0].rgbaPixels, 0, 4), bytes([20, 40, 60, 255]), "ref_gl intensity-scaled WAL palette expansion")
@@ -100,6 +106,7 @@ function testImagesAnimationAndChains()
   return true
 end function
 
+// Verify sprite frames.
 function testSpriteFrames()
   frames = [ft.SpriteFrame(2, 4, 0, 0, "first.pcx"), ft.SpriteFrame(4, 6, 1, 2, "second.pcx")]
   model = ft.SpriteModel("sprite", frames)

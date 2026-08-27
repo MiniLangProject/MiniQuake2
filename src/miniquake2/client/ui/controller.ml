@@ -16,6 +16,7 @@ import miniquake2.platform.window as pwindow
 
 controllerGamepadState = void
 
+// Configure gamepad.
 function configureGamepad(enabled)
   global controllerGamepadState
   if controllerGamepadState is not void and
@@ -26,16 +27,19 @@ function configureGamepad(enabled)
   return controllerGamepadState.available
 end function
 
+// Return the gamepad state.
 function gamepadState()
   global controllerGamepadState
   if controllerGamepadState is void then controllerGamepadState = cuigamepad.create(true) end if
   return controllerGamepadState
 end function
 
+// Return the gamepad key event value.
 function gamepadKeyEvent(key)
   return pwindow.InputEvent(cuic.EVENT_KEY, key, 1)
 end function
 
+// Poll gamepad.
 function pollGamepad(input, screen, time)
   state = gamepadState()
   // The controller is disabled by default, and an unavailable WinMM device
@@ -81,6 +85,7 @@ function pollGamepad(input, screen, time)
   return count
 end function
 
+// Begin message.
 function beginMessage(input, team)
   input.message = ""
   input.messageTeam = team
@@ -88,6 +93,7 @@ function beginMessage(input, team)
   return true
 end function
 
+// Finish message.
 function finishMessage(input)
   if input.message != "" then
     command = "say "
@@ -99,6 +105,7 @@ function finishMessage(input)
   return true
 end function
 
+// Return the edit message value.
 function editMessage(input, key)
   data = bytes(input.message)
   if key == cuic.K_ENTER then return finishMessage(input) end if
@@ -111,12 +118,14 @@ function editMessage(input, key)
   return false
 end function
 
+// Open menu.
 function openMenu(input, screen)
   cuimenu.open(screen.menu, "main")
   cuikeys.setDestination(input, cuic.KEY_MENU)
   return true
 end function
 
+// Handle event.
 function handleEvent(input, screen, event, time)
   if event.type == cuic.EVENT_FOCUS then return cuikeys.handleEvent(input, event, time) end if
   key = cuikeys.eventKey(event)
@@ -159,6 +168,7 @@ function handleEvent(input, screen, event, time)
   return false
 end function
 
+// Poll state.
 function poll(input, screen, time)
   count = 0
   // The Win32 bridge exposes relative motion as accumulated axes while

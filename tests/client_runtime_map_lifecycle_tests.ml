@@ -19,15 +19,18 @@ import miniquake2.client.runtime.dispatcher as crmap_dispatcher
 import miniquake2.client.runtime.types as crmap_crtypes
 import miniquake2.client.state as crmap_state
 
+// Assert the client map test condition.
 function clientMapAssert(value, name)
   if not value then return error(8480, name) end if
   return true
 end function
 
+// Map address.
 function mapAddress()
   return crmap_qt.NetAddress(crmap_nc.NA_IP, [127, 0, 0, 1], array(10, 0), 27910)
 end function
 
+// Map runtime.
 function mapRuntime()
   client = crmap_client.create(0x4455, 5000)
   client.state = crmap_nc.CA_ACTIVE
@@ -41,6 +44,7 @@ function mapRuntime()
   return runtime
 end function
 
+// Return the server data value.
 function serverData(spawnCount, levelName)
   buffer = crmap_qsz.alloc(256)
   crmap_messages.writeServerData(buffer, spawnCount, false, "baseq2", 0, levelName)

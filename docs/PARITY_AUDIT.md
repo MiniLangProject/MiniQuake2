@@ -144,16 +144,21 @@ uses the bundled Quake II 3.19 source at commit
 
 ## Stock product parity status
 
-No currently identified stock 3.19 front-end callback is missing. Data-root
-selection remains automatic or CLI-driven because a native folder picker was
-not part of the original product. Likewise, the original 3.19 Join Server menu
-provided LAN discovery/address-book entries rather than an internet master
-browser, so absence of a modern public-browser service is not a parity gap.
+The dated source-to-port follow-up in
+[`ORIGINAL_PARITY_AUDIT_2026-08-26.md`](ORIGINAL_PARITY_AUDIT_2026-08-26.md)
+records the latest closed defects and the remaining scoped differences. A
+registered classname, a source-inventory entry, or a campaign route smoke is
+not treated as proof that every callback and frame-ordering detail is 1:1.
+
+Data-root selection remains automatic or CLI-driven because a native folder
+picker was not part of the original product. Likewise, the original 3.19 Join
+Server menu provided LAN discovery/address-book entries rather than an
+internet master browser, so absence of a modern public-browser service is not
+a parity gap.
 
 ## Implemented behavior with evidence still open
 
-The following areas do not have a presently identified missing stock callback,
-but their 1:1 claim still needs broader evidence:
+The following areas still need broader evidence before a 1:1 claim:
 
 - a complete human-driven campaign playthrough with normal navigation,
   resource use and combat rather than deterministic goal routing;
@@ -172,7 +177,12 @@ the scoped Quake II 3.19 base-game port.
 
 ## Remaining closure order
 
-1. Run the external-process, full-campaign, visual and hardware evidence gates.
+1. Integrate the eight reserved Body Queue edicts and generic freed-edict reuse
+   with numbering, snapshots, collision, references and private saves.
+2. Put `FLYMISSILE` projectiles and due mover-think ordering into the shared
+   pusher rollback transaction.
+3. Add separate player-persistent help-change counters.
+4. Run the external-process, full-campaign, visual and hardware evidence gates.
 
 Every functional block must retain the full MiniLang build, asset-free suite,
 relevant retail smoke and source-integrity manifest before it is marked closed.

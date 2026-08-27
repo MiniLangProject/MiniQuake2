@@ -8,16 +8,19 @@ package miniquake2.qcommon.cvar
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt
 
+// Return the numeric value.
 function numericValue(text)
   converted = try(toNumber(text))
   if converted is error then return 0.0 end if
   return converted
 end function
 
+// Create registry.
 function createRegistry()
   return qt.CvarRegistry([], false)
 end function
 
+// Find state.
 function find(registry, name)
   for each variable in registry.variables
     if variable.name == name then return variable end if
@@ -25,6 +28,7 @@ function find(registry, name)
   return void
 end function
 
+// Report whether info value valid.
 function infoValueValid(value)
   data = bytes(value)
   i = 0
@@ -35,6 +39,7 @@ function infoValueValid(value)
   return true
 end function
 
+// Return state.
 function get(registry, name, defaultValue, flags)
   if name == "" then return error(3210, "empty cvar name") end if
   variable = find(registry, name)
@@ -51,6 +56,7 @@ function get(registry, name, defaultValue, flags)
   return variable
 end function
 
+// Set 2.
 function set2(registry, name, value, force)
   variable = find(registry, name)
   if variable is void then return get(registry, name, value, 0) end if
@@ -70,20 +76,24 @@ function set2(registry, name, value, force)
   return variable
 end function
 
+// Set state.
 function set(registry, name, value)
   return set2(registry, name, value, false)
 end function
 
+// Set force.
 function forceSet(registry, name, value)
   return set2(registry, name, value, true)
 end function
 
+// Set full.
 function fullSet(registry, name, value, flags)
   variable = forceSet(registry, name, value)
   variable.flags = flags
   return variable
 end function
 
+// Apply latched.
 function applyLatched(registry)
   count = 0
   for each variable in registry.variables
@@ -97,18 +107,21 @@ function applyLatched(registry)
   return count
 end function
 
+// Return the variable string value.
 function variableString(registry, name)
   variable = find(registry, name)
   if variable is void then return "" end if
   return variable.string
 end function
 
+// Return the variable value.
 function variableValue(registry, name)
   variable = find(registry, name)
   if variable is void then return 0.0 end if
   return variable.value
 end function
 
+// Return the bit info value.
 function bitInfo(registry, flags)
   result = ""
   for each variable in registry.variables
@@ -121,6 +134,7 @@ function bitInfo(registry, flags)
   return result
 end function
 
+// Return the command value.
 function command(registry, arguments)
   if len(arguments) == 0 then return [false, ""] end if
   variable = find(registry, arguments[0])

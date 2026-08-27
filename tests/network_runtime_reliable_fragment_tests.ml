@@ -18,11 +18,13 @@ import miniquake2.network.runtime.commands as nrrfrag_commands
 import miniquake2.network.runtime.sound_dispatch as nrrfrag_sound
 import miniquake2.server.types as nrrfrag_stypes
 
+// Assert the runtime fragment test condition.
 function runtimeFragmentAssert(value, name)
   if not value then return error(8496, name) end if
   return true
 end function
 
+// Return the repeated text value.
 function repeatedText(count, character)
   data = bytes(count)
   index = 0
@@ -33,6 +35,7 @@ function repeatedText(count, character)
   return decode(data)
 end function
 
+// Return the pattern value.
 function pattern(count)
   output = bytes(count)
   index = 0
@@ -43,12 +46,14 @@ function pattern(count)
   return output
 end function
 
+// Report whether connected pair.
 function connectedPair()
   serverChannel = nrrfrag_netchan.setup(nrrfrag_pc.NS_SERVER, void, 0, 0)
   clientChannel = nrrfrag_netchan.setup(nrrfrag_pc.NS_CLIENT, void, 0x7788, 0)
   return [serverChannel, clientChannel]
 end function
 
+// Drain server reliable.
 function drainServerReliable(serverChannel, clientRuntime, clientChannel)
   steps = 0
   while nrrfrag_netchan.pendingReliableBytes(serverChannel) > 0 and steps < 256

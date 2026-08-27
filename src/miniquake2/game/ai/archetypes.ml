@@ -8,6 +8,7 @@ package miniquake2.game.ai.archetypes
 import miniquake2.game.ai.constants as gaiconstants
 import miniquake2.game.ai.core as gaicore
 import miniquake2.game.ai.monster as gaimonster
+import miniquake2.game.ai.actor as gaiactor
 import miniquake2.game.ai.insane as gaiinsane
 import miniquake2.game.ai.props as gaiprops
 import miniquake2.game.ai.types as gaitypes
@@ -15,10 +16,12 @@ import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.types as gaiqtypes
 import miniquake2.qcommon.text as qtext
 
+// Return the archetype value.
 function archetype(className, model, mins, maxs, health, gibHealth, mass, movement, hasAttack, hasMelee)
   return gaitypes.MonsterArchetype(className, model, mins, maxs, health, gibHealth, mass, movement, hasAttack, hasMelee, 1.0)
 end function
 
+// Return the default registry value.
 function defaultRegistry()
   commonMins = [-16.0, -16.0, -24.0]
   commonMaxs = [16.0, 16.0, 32.0]
@@ -47,6 +50,7 @@ function defaultRegistry()
     archetype("monster_makron", "models/monsters/boss3/rider/tris.md2", [-30.0, -30.0, 0.0], [30.0, 30.0, 90.0], 3000, -2000, 500, "walk", true, false)
   ]
   campaignEntries = [
+    archetype("misc_actor", "players/male/tris.md2", commonMins, commonMaxs, 100, -80, 200, "walk", true, false),
     archetype("misc_insane", "models/monsters/insane/tris.md2", commonMins, commonMaxs, 100, -50, 300, "walk", false, false),
     archetype("monster_boss3_stand", "models/monsters/boss3/rider/tris.md2", [-32.0, -32.0, 0.0], [32.0, 32.0, 90.0], 1, -1, 1, "walk", false, false),
     archetype("monster_commander_body", "models/monsters/commandr/tris.md2", [-32.0, -32.0, 0.0], [32.0, 32.0, 48.0], 1, -1, 1, "walk", false, false),
@@ -54,6 +58,7 @@ function defaultRegistry()
   return gaitypes.ArchetypeRegistry(entries, campaignEntries)
 end function
 
+// Find state.
 function find(registry, className)
   if typeof(className) != "string" then return error(9683, "monster classname is not text") end if
   for each entry in registry.entries
@@ -69,25 +74,29 @@ function find(registry, className)
   return void
 end function
 
+// Validate state.
 function validate(registry)
   if len(registry.entries) != 22 then return error(9680, "stock monster registry must contain 22 active spawn classes") end if
   for each entry in registry.entries
     if entry.className == "" or entry.model == "" or entry.health <= 0 or entry.mass <= 0 then return error(9681, "invalid monster archetype") end if
     if entry.movement != "walk" and entry.movement != "fly" and entry.movement != "swim" then return error(9682, "invalid monster movement kind") end if
   end for
-  if len(registry.campaignEntries) != 3 or registry.campaignEntries[0].className != "misc_insane" or
-      registry.campaignEntries[1].className != "monster_boss3_stand" or
-      registry.campaignEntries[2].className != "monster_commander_body" then
-    return error(9685, "campaign AI registry must contain misc_insane and scripted boss props")
+  if len(registry.campaignEntries) != 4 or registry.campaignEntries[0].className != "misc_actor" or
+      registry.campaignEntries[1].className != "misc_insane" or
+      registry.campaignEntries[2].className != "monster_boss3_stand" or
+      registry.campaignEntries[3].className != "monster_commander_body" then
+    return error(9685, "campaign AI registry must contain misc_actor, misc_insane and scripted boss props")
   end if
   return true
 end function
 
+// Move idle.
 function idleMove()
   frame = gaitypes.MonsterFrame(gaicore.ai_stand, 0.0, void)
   return gaitypes.MonsterMove("spawn-stand", 0, 0, [frame], void)
 end function
 
+// Return the reinitialize monster value.
 function ReinitializeMonster(actor, context)
   definition = find(defaultRegistry(), actor.className)
   if definition is void then return error(9686, "cannot resurrect unknown monster " + actor.className) end if
@@ -172,7 +181,8 @@ function ReinitializeMonster(actor, context)
   actor.edict.state.renderFx = actor.edict.state.renderFx &
     ~(gconstants.RF_SHELL_RED | gconstants.RF_SHELL_GREEN | gconstants.RF_SHELL_BLUE)
 
-  gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee)
+  if actor.className == "misc_actor" then gaiactor.configure(actor, context)
+  else gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee) end if
   if definition.movement == "fly" then gaimonster.FlyMonsterStart(actor, context)
   else if definition.movement == "swim" then gaimonster.SwimMonsterStart(actor, context)
   else gaimonster.WalkMonsterStart(actor, context)
@@ -180,6 +190,7 @@ function ReinitializeMonster(actor, context)
   return actor
 end function
 
+// Spawn monster.
 function SpawnMonster(registry, className, number, context)
   definition = find(registry, className)
   if definition is void then return error(9683, "unknown stock monster classname " + className) end if
@@ -203,7 +214,8 @@ function SpawnMonster(registry, className, number, context)
     actor.powerArmorPower = 100
   end if
   if gaiprops.isProp(actor) then return gaiprops.configure(actor, context) end if
-  if actor.className == "misc_insane" then gaiinsane.configure(actor, context)
+  if actor.className == "misc_actor" then gaiactor.configure(actor, context)
+  else if actor.className == "misc_insane" then gaiinsane.configure(actor, context)
   else gaimonster.installDefaultCallbacks(actor, definition.hasAttack, definition.hasMelee) end if
   if definition.movement == "fly" then gaimonster.FlyMonsterStart(actor, context)
   else if definition.movement == "swim" then gaimonster.SwimMonsterStart(actor, context)

@@ -7,6 +7,7 @@ package miniquake2.audio.wav
 
 import miniquake2.qcommon.byteio as awbio
 
+// Store wav sound data.
 struct WavSound
   name
   sampleRate
@@ -17,13 +18,16 @@ struct WavSound
   pcm
 end struct
 
+// Return the chunk name.
 function chunkName(data, offset)
   value = decode(slice(data, offset, 4))
   if value is void then return error(2940, "invalid WAV chunk id") end if
   return value
 end function
 
+// Parse state.
 function parse(data, name)
+  // Keep parse phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(data) != "bytes" or len(data) < 12 then return error(2941, "WAV header truncated") end if
   if chunkName(data, 0) != "RIFF" or chunkName(data, 8) != "WAVE" then return error(2942, "WAV RIFF/WAVE signature mismatch") end if
   riffSize = awbio.u32(data, 4)

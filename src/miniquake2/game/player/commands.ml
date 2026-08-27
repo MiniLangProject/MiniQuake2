@@ -13,6 +13,7 @@ import miniquake2.game.player.constants as gpcplayerconstants
 import miniquake2.game.player.rules as gpcplayerrules
 import miniquake2.game.constants as gpcgameconstants
 
+// Return the owned weapon value.
 function ownedWeapon(player, item)
   return item is not void and item.use is not void and
     (item.flags & gpcconstants.IT_WEAPON) != 0 and
@@ -20,6 +21,7 @@ function ownedWeapon(player, item)
     player.gameplay.inventory.counts[item.index] > 0
 end function
 
+// Use weapon.
 function useWeapon(player, registry, pickupName)
   item = gpcitems.findByPickupName(registry, pickupName)
   if not ownedWeapon(player, item) then return false end if
@@ -65,14 +67,17 @@ function selectItem(player, registry, step, itemFlags)
   return false
 end function
 
+// Select next item.
 function selectNextItem(player, registry, itemFlags)
   return selectItem(player, registry, 1, itemFlags)
 end function
 
+// Select previous item.
 function selectPreviousItem(player, registry, itemFlags)
   return selectItem(player, registry, -1, itemFlags)
 end function
 
+// Validate selected item.
 function validateSelectedItem(player, registry)
   index = player.gameplay.inventory.selectedItem
   if index >= 0 and index < len(player.gameplay.inventory.counts) and
@@ -119,6 +124,7 @@ function useItem(player, context, pickupName)
   return result.success
 end function
 
+// Use selected item.
 function useSelectedItem(player, context)
   if not validateSelectedItem(player, context.registry) then return false end if
   item = gpcitems.getByIndex(context.registry,
@@ -168,12 +174,14 @@ function dropDefinition(player, context, item, worldEntityNumber)
   return result
 end function
 
+// Drop item.
 function dropItem(player, context, pickupName, worldEntityNumber)
   item = gpcitems.findByPickupName(context.registry, pickupName)
   if item is void then return gpctypes.itemAction(false, "unknown item", 0) end if
   return dropDefinition(player, context, item, worldEntityNumber)
 end function
 
+// Drop selected item.
 function dropSelectedItem(player, context, worldEntityNumber)
   if not validateSelectedItem(player, context.registry) then
     return gpctypes.itemAction(false, "no selected item", 0)
@@ -183,6 +191,7 @@ function dropSelectedItem(player, context, worldEntityNumber)
   return dropDefinition(player, context, item, worldEntityNumber)
 end function
 
+// Toggle inventory.
 function toggleInventory(player)
   player.showScores = false
   player.showHelp = false
@@ -190,6 +199,7 @@ function toggleInventory(player)
   return player.showInventory
 end function
 
+// Toggle score.
 function toggleScore(player, context)
   player.showInventory = false
   player.showHelp = false
@@ -198,6 +208,7 @@ function toggleScore(player, context)
   return player.showScores
 end function
 
+// Toggle help.
 function toggleHelp(player, context)
   if context.deathmatch then return toggleScore(player, context) end if
   player.showInventory = false
@@ -206,6 +217,7 @@ function toggleHelp(player, context)
   return player.showHelp
 end function
 
+// Write away.
 function putAway(player)
   player.showScores = false
   player.showHelp = false
@@ -213,6 +225,7 @@ function putAway(player)
   return true
 end function
 
+// Kill player.
 function killPlayer(player, context)
   if context.time - player.respawnTime < 5.0 then return false end if
   player.flags = player.flags & ~gpcconstants.FL_GODMODE
@@ -224,6 +237,7 @@ function killPlayer(player, context)
   return true
 end function
 
+// Return the wave value.
 function wave(player, choice)
   if (player.edict.client.playerState.pmove.flags &
       gpcgameconstants.PMF_DUCKED) != 0 then return "" end if
@@ -281,14 +295,17 @@ function cycleWeapon(player, registry, step)
   return false
 end function
 
+// Return the weapon previous value.
 function weaponPrevious(player, registry)
   return cycleWeapon(player, registry, 1)
 end function
 
+// Return the weapon next value.
 function weaponNext(player, registry)
   return cycleWeapon(player, registry, -1)
 end function
 
+// Return the weapon last value.
 function weaponLast(player, registry)
   item = player.gameplay.lastWeapon
   if not ownedWeapon(player, item) then return false end if

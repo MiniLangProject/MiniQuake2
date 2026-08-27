@@ -14,6 +14,7 @@ import miniquake2.game.weapons.constants as wbconstants
 import miniquake2.game.weapons.core as wbcore
 import miniquake2.game.weapons.vector as wbvector
 
+// Return the owner impact noise value.
 function ownerImpactNoise(projectile, context)
   if projectile.owner is not void and projectile.owner.isClient then
     return context.callbacks.playerNoise(projectile.owner, projectile.origin, 2)
@@ -21,6 +22,7 @@ function ownerImpactNoise(projectile, context)
   return false
 end function
 
+// Handle blaster.
 function blasterTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -40,6 +42,7 @@ function blasterTouch(projectile, other, trace, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
+// Fire blaster internal.
 function fireBlasterInternal(context, owner, start, direction, damage, speed,
     effect, hyper, targetBlaster)
   normalized = wbvector.normalized(direction)[0]
@@ -72,11 +75,13 @@ function fireBlasterInternal(context, owner, start, direction, damage, speed,
   return projectile
 end function
 
+// Fire blaster.
 function fireBlaster(context, owner, start, direction, damage, speed, effect, hyper)
   return fireBlasterInternal(context, owner, start, direction, damage, speed,
     effect, hyper, false)
 end function
 
+// Fire target blaster.
 function fireTargetBlaster(context, owner, start, direction, damage, speed)
   // Stock use_target_blaster computes a spawnflag-dependent effect but the
   // shipped call passes EF_BLASTER unconditionally. Preserve that retail
@@ -85,6 +90,7 @@ function fireTargetBlaster(context, owner, start, direction, damage, speed)
     wbconstants.EF_BLASTER, false, true)
 end function
 
+// Clip bounce velocity.
 function clipBounceVelocity(projectile, normal)
   backoff = wbvector.dot(projectile.velocity, normal) * 1.5
   projectile.velocity.x = projectile.velocity.x - normal.x * backoff
@@ -137,6 +143,7 @@ function advanceProjectile(context, projectile)
   return projectile.inUse
 end function
 
+// Return the grenade explode value.
 function grenadeExplode(projectile, context)
   ownerImpactNoise(projectile, context)
   if projectile.enemy is not void and projectile.enemy.combatant is not void and projectile.enemy.combatant.takeDamage then
@@ -165,6 +172,7 @@ function grenadeExplode(projectile, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
+// Handle grenade.
 function grenadeTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -180,6 +188,7 @@ function grenadeTouch(projectile, other, trace, context)
   return grenadeExplode(projectile, context)
 end function
 
+// Return the grenade velocity value.
 function grenadeVelocity(context, direction, speed)
   basis = wbvector.angleVectors(wbvector.vectorToAngles(direction))
   velocity = wbvector.scale(direction, speed)
@@ -188,6 +197,7 @@ function grenadeVelocity(context, direction, speed)
   return velocity
 end function
 
+// Configure grenade.
 function configureGrenade(context, owner, start, direction, damage, speed, timer, damageRadius, hand, held)
   className = "grenade"
   if hand then className = "hgrenade" end if
@@ -224,14 +234,17 @@ function configureGrenade(context, owner, start, direction, damage, speed, timer
   return projectile
 end function
 
+// Fire grenade.
 function fireGrenade(context, owner, start, direction, damage, speed, timer, damageRadius)
   return configureGrenade(context, owner, start, direction, damage, speed, timer, damageRadius, false, false)
 end function
 
+// Fire grenade 2.
 function fireGrenade2(context, owner, start, direction, damage, speed, timer, damageRadius, held)
   return configureGrenade(context, owner, start, direction, damage, speed, timer, damageRadius, true, held)
 end function
 
+// Handle rocket.
 function rocketTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -247,6 +260,7 @@ function rocketTouch(projectile, other, trace, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
+// Fire rocket.
 function fireRocket(context, owner, start, direction, damage, speed, damageRadius, radiusDamage)
   projectile = wbcore.spawnProjectile(context, "rocket")
   projectile.origin = wbvector.copy(start)
@@ -273,6 +287,7 @@ function fireRocket(context, owner, start, direction, damage, speed, damageRadiu
   return projectile
 end function
 
+// Run bfg.
 function bfgThink(projectile, context)
   candidates = context.callbacks.radiusTargets(projectile.origin, 256.0)
   for each target in candidates
@@ -309,6 +324,7 @@ function bfgThink(projectile, context)
   return true
 end function
 
+// Return the bfg explode value.
 function bfgExplode(projectile, context)
   if projectile.frame == 0 then
     candidates = context.callbacks.radiusTargets(projectile.origin, projectile.damageRadius)
@@ -334,6 +350,7 @@ function bfgExplode(projectile, context)
   return true
 end function
 
+// Handle bfg.
 function bfgTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -359,6 +376,7 @@ function bfgTouch(projectile, other, trace, context)
   return true
 end function
 
+// Fire bfg.
 function fireBfg(context, owner, start, direction, damage, speed, damageRadius)
   projectile = wbcore.spawnProjectile(context, "bfg blast")
   projectile.origin = wbvector.copy(start)
@@ -382,18 +400,23 @@ function fireBfg(context, owner, start, direction, damage, speed, damageRadius)
   return projectile
 end function
 
+// Fire blaster.
 function fire_blaster(context, owner, start, direction, damage, speed, effect, hyper)
   return fireBlaster(context, owner, start, direction, damage, speed, effect, hyper)
 end function
+// Fire grenade.
 function fire_grenade(context, owner, start, direction, damage, speed, timer, damageRadius)
   return fireGrenade(context, owner, start, direction, damage, speed, timer, damageRadius)
 end function
+// Fire grenade 2.
 function fire_grenade2(context, owner, start, direction, damage, speed, timer, damageRadius, held)
   return fireGrenade2(context, owner, start, direction, damage, speed, timer, damageRadius, held)
 end function
+// Fire rocket.
 function fire_rocket(context, owner, start, direction, damage, speed, damageRadius, radiusDamage)
   return fireRocket(context, owner, start, direction, damage, speed, damageRadius, radiusDamage)
 end function
+// Fire bfg.
 function fire_bfg(context, owner, start, direction, damage, speed, damageRadius)
   return fireBfg(context, owner, start, direction, damage, speed, damageRadius)
 end function

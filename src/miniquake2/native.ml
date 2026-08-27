@@ -20,6 +20,7 @@ extern function processHandleCount() from "miniquake_native.dll" symbol "mq_proc
 extern function winSleep(milliseconds as u32) from "miniquake_native.dll" symbol "mq_win_sleep" returns void
 
 extern function winCreate(title as wstr, width as i32, height as i32, fullscreen as i32) from "miniquake_native.dll" symbol "mq_win_create" returns ptr
+extern function winTestDisplayMode(width as i32, height as i32, bpp as i32, frequency as i32) from "miniquake_native.dll" symbol "mq_win_test_display_mode" returns i32
 extern function winConfigureDisplayMode(width as i32, height as i32, bpp as i32, frequency as i32, fullscreen as i32, useCurrent as i32) from "miniquake_native.dll" symbol "mq_win_configure_display_mode" returns i32
 extern function winRestoreDisplayMode() from "miniquake_native.dll" symbol "mq_win_restore_display_mode" returns void
 extern function winDestroy() from "miniquake_native.dll" symbol "mq_win_destroy" returns void
@@ -133,26 +134,32 @@ extern function glDrawMd2Rgb(data as bytes, byteCount as u32, frameIndex as u32,
 extern function glDrawMd2Shadow(data as bytes, byteCount as u32, frameIndex as u32, oldFrameIndex as u32, backLerp as u32, normalVectors as bytes, normalCount as u32, geometryKey as u64, geometryState as u32, triangleCount as u32, shadeX as u32, shadeY as u32, lightHeight as u32) from "miniquake_native.dll" symbol "mq_gl_draw_md2_shadow" returns i32
 extern function glDrawAliasRgbEnd() from "miniquake_native.dll" symbol "mq_gl_draw_alias_rgb_end" returns void
 
+// Return the float bits value.
 function floatBits(value)
   return f32FromRaw(nativeRawValue(value))
 end function
 
+// Return the bits float value.
 function bitsFloat(bits)
   return nativeValueFromRaw(f32ToRaw(bits))
 end function
 
+// Return the sin value.
 function sin(value)
   return bitsFloat(f32Sin(floatBits(value)))
 end function
 
+// Return the cos value.
 function cos(value)
   return bitsFloat(f32Cos(floatBits(value)))
 end function
 
+// Return the atan 2 value.
 function atan2(y, x)
   return bitsFloat(f32Atan2(floatBits(y), floatBits(x)))
 end function
 
+// Return the text result value.
 function textResult(buffer, count)
   if count <= 0 then return "" end if
   if count > len(buffer) then count = len(buffer) end if
@@ -161,21 +168,25 @@ function textResult(buffer, count)
   return value
 end function
 
+// Return the udp last address value.
 function udpLastAddress()
   buffer = bytes(128)
   return textResult(buffer, udpLastAddressRaw(buffer, len(buffer)))
 end function
 
+// Return the udp bound address value.
 function udpBoundAddress(handle)
   buffer = bytes(128)
   return textResult(buffer, udpBoundAddressRaw(handle, buffer, len(buffer)))
 end function
 
+// Resolve udp name.
 function udpResolveName(name)
   buffer = bytes(64)
   return textResult(buffer, udpResolveNameRaw(name, buffer, len(buffer)))
 end function
 
+// Return gl string.
 function glGetString(name)
   buffer = bytes(4096)
   return textResult(buffer, glGetStringRaw(name, buffer, len(buffer)))

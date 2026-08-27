@@ -17,6 +17,7 @@ import miniquake2.protocol.player_delta as pplayer
 import miniquake2.network.constants as nc
 import miniquake2.network.types as nt
 
+// Validate entities.
 function validateEntities(entities, operation)
   if typeof(entities) != "array" or len(entities) > nc.MAX_PARSE_ENTITIES then return error(7130, operation + ": entity list is invalid") end if
   previous = 0
@@ -27,12 +28,14 @@ function validateEntities(entities, operation)
   return true
 end function
 
+// Return the baseline for the requested input.
 function baselineFor(baselines, number)
   if typeof(baselines) != "array" or number < 0 or number >= len(baselines) then return error(7132, "entity baseline is unavailable") end if
   if baselines[number] is void then return pt.zeroEntityState() end if
   return baselines[number]
 end function
 
+// Write packet entities.
 function writePacketEntities(buffer, oldEntities, newEntities, baselines, maxClients)
   validateEntities(oldEntities, "old packet entities")
   validateEntities(newEntities, "new packet entities")
@@ -61,12 +64,15 @@ function writePacketEntities(buffer, oldEntities, newEntities, baselines, maxCli
   return buffer
 end function
 
+// Return the inherit entity value.
 function inheritEntity(buffer, base)
   header = pt.EntityDeltaHeader(base.number, 0, false, false)
   return pentity.readDelta(buffer, base, header)
 end function
 
+// Read packet entities body.
 function readPacketEntitiesBody(buffer, oldEntities, baselines)
+  // Keep read packet entities body phases explicit: validate inputs, update owned state, then publish the result.
   validateEntities(oldEntities, "old packet entities")
   result = array(nc.MAX_PARSE_ENTITIES)
   resultCount = 0
@@ -120,12 +126,14 @@ function readPacketEntitiesBody(buffer, oldEntities, baselines)
   return output
 end function
 
+// Read packet entities.
 function readPacketEntities(buffer, oldEntities, baselines)
   opcode = pchecked.readByte(buffer, "packetentities opcode")
   if opcode != nc.SVC_PACKETENTITIES then return error(7136, "expected svc_packetentities") end if
   return readPacketEntitiesBody(buffer, oldEntities, baselines)
 end function
 
+// Create frame.
 function createFrame(serverFrame, areaBits, playerState, entities)
   if typeof(serverFrame) != "int" or serverFrame < 0 then return error(7137, "negative server frame") end if
   if typeof(areaBits) != "bytes" or len(areaBits) > nc.MAX_MAP_AREA_BYTES then return error(7138, "frame area bits exceed protocol capacity") end if
@@ -134,6 +142,7 @@ function createFrame(serverFrame, areaBits, playerState, entities)
     slice(areaBits, 0, len(areaBits)), playerState, entities)
 end function
 
+// Choose delta.
 function chooseDelta(serverFrame, lastFrame, history)
   if typeof(history) != "array" or len(history) != nc.UPDATE_BACKUP then return error(7139, "frame history must contain UPDATE_BACKUP slots") end if
   if lastFrame <= 0 or lastFrame >= serverFrame or serverFrame - lastFrame >= nc.DELTA_SAFETY_WINDOW then return [-1, void] end if
@@ -142,6 +151,7 @@ function chooseDelta(serverFrame, lastFrame, history)
   return [lastFrame, candidate]
 end function
 
+// Write frame for client.
 function writeFrameForClient(buffer, current, lastFrame, history, baselines, maxClients, suppressCount)
   if typeof(current.areaBits) != "bytes" or len(current.areaBits) > nc.MAX_MAP_AREA_BYTES then return error(7144, "frame area bits exceed protocol capacity") end if
   if typeof(suppressCount) != "int" or suppressCount < 0 or suppressCount > 255 then return error(7145, "frame suppress count outside byte range") end if
@@ -166,6 +176,7 @@ function writeFrameForClient(buffer, current, lastFrame, history, baselines, max
   return wireLast
 end function
 
+// Read frame protocol.
 function readFrameProtocol(buffer, history, baselines, protocol)
   if typeof(history) != "array" or len(history) != nc.UPDATE_BACKUP then return error(7139, "frame history must contain UPDATE_BACKUP slots") end if
   if protocol != 26 and protocol != 34 then return error(7146, "unsupported snapshot protocol") end if
@@ -198,6 +209,7 @@ function readFrameProtocol(buffer, history, baselines, protocol)
   return frame
 end function
 
+// Read frame.
 function readFrame(buffer, history, baselines)
   return readFrameProtocol(buffer, history, baselines, 34)
 end function

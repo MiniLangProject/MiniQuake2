@@ -11,11 +11,13 @@ import miniquake2.game.world.constants as physicalinputworldconstants
 import miniquake2.qcommon.constants as physicalinputqconstants
 import miniquake2.game.weapons.constants as physicalinputweaponconstants
 
+// Assert the physical input test condition.
 function physicalInputAssert(value, message)
   if value != true then return error(8494, message) end if
   return true
 end function
 
+// Validate physical input.
 function physicalInputCheck(report, label)
   physicalInputAssert(report.planarDisplacement > 64.0,
     label + " did not move through PMove")
@@ -28,6 +30,7 @@ function physicalInputCheck(report, label)
   return true
 end function
 
+// Return the physical input core value.
 function physicalInputCore()
   physicalInputEntities = "{\"classname\" \"worldspawn\"}" +
     "{\"classname\" \"info_player_start\" \"origin\" \"0 0 64\" \"angle\" \"0\"}" +
@@ -42,6 +45,7 @@ function physicalInputCore()
   return true
 end function
 
+// Return the physical input retail value.
 function physicalInputRetail(baseDirectory)
   physicalInputRetailSession = physicalinputsession.createRetailAtSkill(baseDirectory,
     "base1", "", "\\name\\PhysicalRetail\\skin\\male/grunt\\rate\\25000", 0)
@@ -120,6 +124,7 @@ function physicalInputRetail(baseDirectory)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) > 1 then return error(8495, "expected optional Quake II install root") end if
   physicalInputCore()

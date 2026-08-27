@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Owned deterministic state for transient client effects. */
 package miniquake2.client.effects.types
 
+// Store d light data.
 struct DLight
   key
   origin
@@ -15,6 +16,7 @@ struct DLight
   minLight
 end struct
 
+// Store particle data.
 struct Particle
   origin
   velocity
@@ -25,6 +27,7 @@ struct Particle
   startTime
 end struct
 
+// Store beam data.
 struct Beam
   entity
   destinationEntity
@@ -36,6 +39,7 @@ struct Beam
   playerLinked
 end struct
 
+// Store laser data.
 struct Laser
   start
   finish
@@ -43,6 +47,7 @@ struct Laser
   endTime
 end struct
 
+// Store explosion data.
 struct Explosion
   kind
   origin
@@ -58,6 +63,7 @@ struct Explosion
   skinNum
 end struct
 
+// Store sustain data.
 struct Sustain
   id
   kind
@@ -71,6 +77,7 @@ struct Sustain
   thinkInterval
 end struct
 
+// Store sound event data.
 struct SoundEvent
   position
   entity
@@ -82,12 +89,14 @@ struct SoundEvent
   timeOffset
 end struct
 
+// Store audio callbacks data.
 struct AudioCallbacks
   resolveIndex
   resolveName
   play
 end struct
 
+// Store entity trail data.
 struct EntityTrail
   origin
   trailCount
@@ -95,6 +104,7 @@ struct EntityTrail
   flyStopTime
 end struct
 
+// Store state data.
 struct State
   time
   randomSeed

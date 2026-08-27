@@ -9,6 +9,7 @@ import miniquake2.game.world.core as campworldcore
 import miniquake2.game.world.types as campworldtypes
 import miniquake2.game.world.constants as campworldconstants
 
+// Assert the scenario test condition.
 function scenarioAssert(value, message)
   if value != true then return error(9895, message) end if
   return true

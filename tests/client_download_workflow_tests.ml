@@ -21,19 +21,23 @@ downloadTestRoot = "build\\client_download_workflow"
 downloadRegistered = array(32, "")
 downloadRegisteredCount = 0
 
+// Verify download path.
 function downloadTestPath(name)
   return cdwtfs.joinPath(cdwtfs.joinPath(downloadTestRoot,
     cdwtqc.BASEDIRNAME), name)
 end function
 
+// Verify download exists.
 function downloadTestExists(name)
   return cdwtfs.isFile(downloadTestPath(name))
 end function
 
+// Verify download read.
 function downloadTestRead(name)
   return cdwtfs.readAllBytes(downloadTestPath(name))
 end function
 
+// Verify download register.
 function downloadTestRegister(kind, name)
   global downloadRegisteredCount
   if downloadRegisteredCount < len(downloadRegistered) then
@@ -43,16 +47,19 @@ function downloadTestRegister(kind, name)
   return true
 end function
 
+// Reject download precache.
 function downloadRejectPrecache(kind, name)
   if kind == "precache" then return error(7699, "registration rejected") end if
   return true
 end function
 
+// Assert the download test condition.
 function downloadAssert(value, name)
   if not value then return error(7697, name) end if
   return true
 end function
 
+// Report whether download plan contains.
 function downloadPlanContains(manager, kind, name)
   index = 0
   while index < manager.requestCount
@@ -63,12 +70,14 @@ function downloadPlanContains(manager, kind, name)
   return false
 end function
 
+// Write download text.
 function downloadPutText(data, offset, value)
   encoded = bytes(value)
   copyBytes(data, offset, encoded, 0, len(encoded))
   return true
 end function
 
+// Return the download dependency md 2 value.
 function downloadDependencyMd2()
   data = bytes(192)
   cdwtbyteio.putU32(data, 0, cdwtformat.IDALIASHEADER)
@@ -88,10 +97,12 @@ function downloadDependencyMd2()
   return data
 end function
 
+// Return the download dependency exists value.
 function downloadDependencyExists(name)
   return name == "models/dependency/tris.md2"
 end function
 
+// Read download dependency.
 function downloadDependencyRead(name)
   if name == "models/dependency/tris.md2" then return downloadDependencyMd2() end if
   return error(7699, "dependency fixture missing")

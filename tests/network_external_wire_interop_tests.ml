@@ -24,11 +24,13 @@ import miniquake2.network.runtime.game_adapter as extwire_adapter
 import miniquake2.network.runtime.pump as extwire_pump
 import miniquake2.network.runtime.types as extwire_rtypes
 
+// Assert the external wire test condition.
 function externalWireAssert(value, name)
   if not value then return error(8510, name) end if
   return true
 end function
 
+// Receive external.
 function receiveExternal(socket)
   attempt = 0
   while not extwire_udp.pending(socket) and attempt < 200
@@ -39,6 +41,7 @@ function receiveExternal(socket)
   return extwire_udp.receive(socket, extwire_pconstants.MAX_MSGLEN)
 end function
 
+// Return the classic connectionless value.
 function classicConnectionless(text)
   body = bytes(text)
   output = bytes(4 + len(body))
@@ -47,6 +50,7 @@ function classicConnectionless(text)
   return output
 end function
 
+// Return the classic connectionless text value.
 function classicConnectionlessText(packet)
   externalWireAssert(len(packet) >= 4 and
     extwire_byteio.u32(packet, 0) == extwire_pconstants.CONNECTIONLESS_SEQUENCE,
@@ -54,6 +58,7 @@ function classicConnectionlessText(packet)
   return decode(slice(packet, 4, len(packet) - 4))
 end function
 
+// Return the classic packet value.
 function classicPacket(sequence, reliable, acknowledge, reliableAck, qport, hasQport, payload)
   headerLength = extwire_pconstants.PACKET_HEADER_SERVER
   if hasQport then headerLength = extwire_pconstants.PACKET_HEADER_CLIENT end if
@@ -71,24 +76,29 @@ function classicPacket(sequence, reliable, acknowledge, reliableAck, qport, hasQ
   return output
 end function
 
+// Return the wire sequence value.
 function wireSequence(packet)
   return extwire_byteio.u32(packet, 0) & extwire_pconstants.SEQUENCE_MASK
 end function
 
+// Return the wire reliable value.
 function wireReliable(packet)
   if (extwire_byteio.u32(packet, 0) & extwire_pconstants.SEQUENCE_RELIABLE_BIT) != 0 then return 1 end if
   return 0
 end function
 
+// Return the wire acknowledge value.
 function wireAcknowledge(packet)
   return extwire_byteio.u32(packet, 4) & extwire_pconstants.SEQUENCE_MASK
 end function
 
+// Return the wire reliable ack value.
 function wireReliableAck(packet)
   if (extwire_byteio.u32(packet, 4) & extwire_pconstants.SEQUENCE_RELIABLE_BIT) != 0 then return 1 end if
   return 0
 end function
 
+// Return the classic server data value.
 function classicServerData(spawnCount, levelName)
   buffer = extwire_sizebuf.alloc(256)
   extwire_message.writeByte(buffer, extwire_qconstants.SVC_SERVERDATA)
@@ -101,6 +111,7 @@ function classicServerData(spawnCount, levelName)
   return extwire_sizebuf.dataSlice(buffer)
 end function
 
+// Return the mini client against classic wire value.
 function miniClientAgainstClassicWire()
   classicSocket = extwire_udp.open("127.0.0.1", 0)
   miniSocket = extwire_udp.open("127.0.0.1", 0)
@@ -150,6 +161,7 @@ function miniClientAgainstClassicWire()
   return true
 end function
 
+// Return the classic wire client against mini server value.
 function classicWireClientAgainstMiniServer()
   miniSocket = extwire_udp.open("127.0.0.1", 0)
   classicSocket = extwire_udp.open("127.0.0.1", 0)

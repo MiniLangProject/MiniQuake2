@@ -14,11 +14,13 @@ import miniquake2.network.runtime.messages as nrmd_messages
 import miniquake2.network.runtime.commands as nrmd_commands
 import miniquake2.network.runtime.lifecycle as nrmd_lifecycle
 
+// Assert the map download test condition.
 function mapDownloadAssert(value, name)
   if not value then return error(8497, name) end if
   return true
 end function
 
+// Return the download pattern value.
 function downloadPattern(count)
   output = bytes(count)
   index = 0

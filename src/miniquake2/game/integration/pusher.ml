@@ -7,17 +7,20 @@ package miniquake2.game.integration.pusher
 
 import miniquake2.qcommon.types as pushqtypes
 import miniquake2.qcommon.constants as pushqconstants
+import miniquake2.qcommon.byteio as pushqbyteio
 import miniquake2.game.world.types as pushworldtypes
 import miniquake2.game.world.core as pushworldcore
 import miniquake2.game.world.constants as pushworldconstants
 import miniquake2.game.weapons.vector as pushvector
 
+// Store pusher snapshot data.
 struct PusherSnapshot
   entity
   origin
   angles
 end struct
 
+// Store body snapshot data.
 struct BodySnapshot
   kind
   value
@@ -29,19 +32,24 @@ struct BodySnapshot
   maxs
   solid
   groundNumber
+  clipMask
+  deltaYaw
 end struct
 
+// Store pusher capture data.
 struct PusherCapture
   pushers
   bodies
   masters
 end struct
 
+// Copy push data.
 function pushCopy(value)
   if typeof(value) != "struct" then return error(9694, "pusher Vec3 value required") end if
   return pushqtypes.Vec3(value.x, value.y, value.z)
 end function
 
+// Populate the push copy destination.
 function inline pushCopyInto(output, value)
   if typeof(output) != "struct" or typeof(value) != "struct" then
     return error(9694, "pusher Vec3 value required")
@@ -50,17 +58,20 @@ function inline pushCopyInto(output, value)
   return output
 end function
 
+// Report whether is pusher.
 function isPusher(entity)
   return entity.number > 0 and entity.inUse and entity.solid == pushworldconstants.SOLID_BSP and
     (entity.moveType == pushworldconstants.MOVETYPE_PUSH or entity.moveType == pushworldconstants.MOVETYPE_STOP) and
     entity.maxs.x > entity.mins.x and entity.maxs.y > entity.mins.y and entity.maxs.z > entity.mins.z
 end function
 
+// Return the pusher master number.
 function pusherMasterNumber(entity)
   if entity.teamMaster is not void then return entity.teamMaster.number end if
   return entity.number
 end function
 
+// Assemble teams.
 function assembleTeams(world)
   for each entity in world.entities
     if entity.team != "" then entity.teamMaster = void; entity.teamChain = void; entity.flags = entity.flags & ~pushworldconstants.FL_TEAMSLAVE end if
@@ -87,44 +98,70 @@ function assembleTeams(world)
   return true
 end function
 
+// Return the body ground number.
+function bodyGroundNumber(groundEntity)
+  if groundEntity is void or typeof(groundEntity) != "struct" then return -1 end if
+  directNumber = try(groundEntity.number)
+  if directNumber is not error and typeof(directNumber) == "int" then return directNumber end if
+  stateNumber = try(groundEntity.state.number)
+  if stateNumber is not error and typeof(stateNumber) == "int" then return stateNumber end if
+  return -1
+end function
+
+// Return the player delta yaw.
+function playerDeltaYaw(edict)
+  if edict is void or edict.client is void then return 0 end if
+  angles = edict.client.playerState.pmove.deltaAngles
+  if typeof(angles) != "array" or len(angles) < 2 then return 0 end if
+  return angles[1]
+end function
+
+// Populate the body snapshot destination.
 function bodySnapshotInto(snapshot, kind, value, edict, number, origin, angles,
-    mins, maxs, solid, groundNumber)
+    mins, maxs, solid, groundNumber, clipMask, deltaYaw)
   if snapshot is void then
     snapshot = BodySnapshot(kind, value, edict, number,
       pushqtypes.zeroVec3(), pushqtypes.zeroVec3(), pushqtypes.zeroVec3(),
-      pushqtypes.zeroVec3(), solid, groundNumber)
+      pushqtypes.zeroVec3(), solid, groundNumber, clipMask, deltaYaw)
   end if
   snapshot.kind = kind; snapshot.value = value; snapshot.edict = edict
   snapshot.number = number; snapshot.solid = solid
-  snapshot.groundNumber = groundNumber
+  snapshot.groundNumber = groundNumber; snapshot.clipMask = clipMask
+  snapshot.deltaYaw = deltaYaw
   pushCopyInto(snapshot.origin, origin); pushCopyInto(snapshot.angles, angles)
   pushCopyInto(snapshot.mins, mins); pushCopyInto(snapshot.maxs, maxs)
   return snapshot
 end function
 
+// Populate the world body destination.
 function worldBodyInto(snapshot, entity)
   return bodySnapshotInto(snapshot, "world", entity, void, entity.number,
-    entity.origin, entity.angles, entity.mins, entity.maxs, entity.solid, -1)
+    entity.origin, entity.angles, entity.mins, entity.maxs, entity.solid,
+    bodyGroundNumber(entity.groundEntity), entity.clipMask, 0)
 end function
 
+// Populate the player body destination.
 function playerBodyInto(snapshot, player)
   playerEdict = player.edict
   playerState = playerEdict.state
-  groundNumber = -1
-  if player.groundEntity is not void then groundNumber = player.groundEntity.state.number end if
+  groundNumber = bodyGroundNumber(player.groundEntity)
   return bodySnapshotInto(snapshot, "player", player, playerEdict,
     playerState.number, playerState.origin, playerState.angles,
-    playerEdict.mins, playerEdict.maxs, playerEdict.solid, groundNumber)
+    playerEdict.mins, playerEdict.maxs, playerEdict.solid, groundNumber,
+    playerEdict.clipMask, playerDeltaYaw(playerEdict))
 end function
 
+// Populate the monster body destination.
 function monsterBodyInto(snapshot, actor)
   monsterEdict = actor.edict
   monsterState = monsterEdict.state
   return bodySnapshotInto(snapshot, "monster", actor, monsterEdict,
     monsterState.number, monsterState.origin, monsterState.angles,
-    monsterEdict.mins, monsterEdict.maxs, monsterEdict.solid, -1)
+    monsterEdict.mins, monsterEdict.maxs, monsterEdict.solid,
+    bodyGroundNumber(actor.groundEntity), monsterEdict.clipMask, 0)
 end function
 
+// Populate the pusher snapshot destination.
 function pusherSnapshotInto(snapshot, entity)
   if snapshot is void then
     snapshot = PusherSnapshot(entity, pushqtypes.zeroVec3(),
@@ -136,14 +173,27 @@ function pusherSnapshotInto(snapshot, entity)
   return snapshot
 end function
 
+// g_phys.c excludes MOVETYPE_NONE/PUSH/STOP/NOCLIP entities before testing a
+// pusher overlap. Managed world bodies that can actually be displaced use one
+// of these three locomotion modes; static bbox/BSP helpers must never jam a
+// door merely because their authored bounds intersect its swept volume.
+function worldBodyCanBePushed(entity)
+  return entity.moveType == pushworldconstants.MOVETYPE_STEP or
+    entity.moveType == pushworldconstants.MOVETYPE_TOSS or
+    entity.moveType == pushworldconstants.MOVETYPE_BOUNCE
+end function
+
+// Capture state.
 function capture(runtime)
+  // Keep capture phases explicit: validate inputs, update owned state, then publish the result.
   pusherCount = 0
   bodyCount = 0
   for each countedEntity in runtime.world.entities
     if isPusher(countedEntity) then pusherCount = pusherCount + 1 end if
     if countedEntity.number > 0 and countedEntity.inUse and
         countedEntity.solid != pushworldconstants.SOLID_NOT and
-        countedEntity.solid != pushworldconstants.SOLID_TRIGGER then
+        countedEntity.solid != pushworldconstants.SOLID_TRIGGER and
+        worldBodyCanBePushed(countedEntity) then
       bodyCount = bodyCount + 1
     end if
   end for
@@ -183,7 +233,10 @@ function capture(runtime)
       pushers[pusherIndex] = pusherSnapshotInto(pushers[pusherIndex], entity)
       pusherIndex = pusherIndex + 1
     end if
-    if entity.number > 0 and entity.inUse and entity.solid != pushworldconstants.SOLID_NOT and entity.solid != pushworldconstants.SOLID_TRIGGER then
+    if entity.number > 0 and entity.inUse and
+        entity.solid != pushworldconstants.SOLID_NOT and
+        entity.solid != pushworldconstants.SOLID_TRIGGER and
+        worldBodyCanBePushed(entity) then
       bodies[bodyIndex] = worldBodyInto(bodies[bodyIndex], entity)
       bodyIndex = bodyIndex + 1
     end if
@@ -205,12 +258,34 @@ function capture(runtime)
   return captureState
 end function
 
+// Report whether moved.
 function moved(snapshot)
   entity = snapshot.entity
   return entity.origin.x != snapshot.origin.x or entity.origin.y != snapshot.origin.y or entity.origin.z != snapshot.origin.z or
     entity.angles.x != snapshot.angles.x or entity.angles.y != snapshot.angles.y or entity.angles.z != snapshot.angles.z
 end function
 
+// Move snapped pusher.
+function inline snappedPusherMove(value)
+  scaled = value * 8.0
+  if scaled > 0.0 then scaled = scaled + 0.5 else scaled = scaled - 0.5 end if
+  return pushqbyteio.truncInt(scaled) * 0.125
+end function
+
+// Publish pusher move.
+function publishPusherMove(runtime, snapshot)
+  entity = snapshot.entity
+  // SV_Push clamps translations to 1/8 unit before moving and immediately
+  // calls gi.linkentity. The relink is not optional: server Pmove broad phase
+  // consumes absmin/absmax, which otherwise remain at the elevator's old floor.
+  entity.origin.x = snapshot.origin.x + snappedPusherMove(entity.origin.x - snapshot.origin.x)
+  entity.origin.y = snapshot.origin.y + snappedPusherMove(entity.origin.y - snapshot.origin.y)
+  entity.origin.z = snapshot.origin.z + snappedPusherMove(entity.origin.z - snapshot.origin.z)
+  runtime.world.callbacks.linkEntity(entity)
+  return true
+end function
+
+// Return the rotated bounds.
 function rotatedBounds(origin, angles, mins, maxs)
   if typeof(origin) != "struct" or typeof(angles) != "struct" or
       typeof(mins) != "struct" or typeof(maxs) != "struct" then
@@ -246,32 +321,49 @@ function rotatedBounds(origin, angles, mins, maxs)
   return [low, high]
 end function
 
+// Return the current origin.
 function currentOrigin(body)
   if body.kind == "world" then return body.value.origin end if
   return body.edict.state.origin
 end function
 
+// Return the current angles.
 function currentAngles(body)
   if body.kind == "world" then return body.value.angles end if
   return body.edict.state.angles
 end function
 
+// Return the body bounds for the requested position.
 function bodyBoundsAt(body, origin, angles)
   return rotatedBounds(origin, angles, body.mins, body.maxs)
 end function
 
+// Return the strict overlap value.
 function strictOverlap(first, second)
   return first[1].x > second[0].x and first[0].x < second[1].x and first[1].y > second[0].y and first[0].y < second[1].y and first[1].z > second[0].z and first[0].z < second[1].z
 end function
 
+// Report whether body can be pushed.
+function bodyCanBePushed(body)
+  if body.kind == "player" or body.kind == "monster" then return true end if
+  if body.kind != "world" then return false end if
+  return worldBodyCanBePushed(body.value)
+end function
+
+// Report whether standing on.
 function standingOn(body, pusherSnapshot)
   if body.groundNumber == pusherSnapshot.entity.number then return true end if
+  // MOVETYPE_STOP may carry only an explicit groundentity rider. The geometric
+  // recovery below is reserved for PUSH brushes whose final overlap would have
+  // displaced the body in stock SV_Push anyway.
+  if pusherSnapshot.entity.moveType == pushworldconstants.MOVETYPE_STOP then return false end if
   pusherBox = rotatedBounds(pusherSnapshot.origin, pusherSnapshot.angles, pusherSnapshot.entity.mins, pusherSnapshot.entity.maxs)
   bodyBox = bodyBoundsAt(body, body.origin, body.angles)
   gap = bodyBox[0].z - pusherBox[1].z
   return gap >= -0.25 and gap <= 2.0 and bodyBox[1].x > pusherBox[0].x and bodyBox[0].x < pusherBox[1].x and bodyBox[1].y > pusherBox[0].y and bodyBox[0].y < pusherBox[1].y
 end function
 
+// Set body.
 function setBody(body, origin, angles)
   newOrigin = pushCopy(origin)
   newAngles = pushCopy(angles)
@@ -281,8 +373,93 @@ function setBody(body, origin, angles)
   return true
 end function
 
+// Report whether body moved.
+function bodyMoved(body)
+  liveOrigin = currentOrigin(body)
+  liveAngles = currentAngles(body)
+  return liveOrigin.x != body.origin.x or liveOrigin.y != body.origin.y or
+    liveOrigin.z != body.origin.z or liveAngles.x != body.angles.x or
+    liveAngles.y != body.angles.y or liveAngles.z != body.angles.z
+end function
+
+// Link body.
+function linkBody(runtime, body)
+  if runtime.playerContext is void or runtime.exportTable is void then return true end if
+  if body.kind == "world" then
+    runtime.world.callbacks.linkEntity(body.value)
+  else
+    runtime.playerContext.imports.linkEntity(body.edict)
+  end if
+  return true
+end function
+
+// Return the body pass entity value.
+function bodyPassEntity(runtime, body)
+  if body.kind != "world" then return body.edict end if
+  if runtime.exportTable is void or body.number < 0 or
+      body.number >= len(runtime.exportTable.edicts) then return void end if
+  return runtime.exportTable.edicts[body.number]
+end function
+
+// Report whether body position blocked.
+function bodyPositionBlocked(runtime, body, position)
+  if runtime.playerContext is void or runtime.exportTable is void then return false end if
+  mask = body.clipMask
+  if mask == 0 then mask = pushqconstants.MASK_SOLID end if
+  // SV_TestEntityPosition is a stationary trace at the candidate origin. A
+  // swept trace changes stock pusher behavior by rejecting valid final poses.
+  trace = runtime.playerContext.imports.trace(position, body.mins, body.maxs,
+    position, bodyPassEntity(runtime, body), mask)
+  return trace.startSolid
+end function
+
+// Return the body intersects final pusher value.
+function bodyIntersectsFinalPusher(runtime, body)
+  if runtime.playerContext is void or runtime.exportTable is void then return true end if
+  return bodyPositionBlocked(runtime, body, currentOrigin(body))
+end function
+
+// Return the translated fallback value.
+function translatedFallback(destination, pusherSnapshot)
+  return pushqtypes.Vec3(
+    destination.x - (pusherSnapshot.entity.origin.x - pusherSnapshot.origin.x),
+    destination.y - (pusherSnapshot.entity.origin.y - pusherSnapshot.origin.y),
+    destination.z - (pusherSnapshot.entity.origin.z - pusherSnapshot.origin.z))
+end function
+
+// Add player delta yaw.
+function addPlayerDeltaYaw(body, amount)
+  if body.kind != "player" or body.edict is void or body.edict.client is void then return false end if
+  angles = body.edict.client.playerState.pmove.deltaAngles
+  if typeof(angles) != "array" or len(angles) < 2 then return false end if
+  angles[1] = pushqbyteio.truncInt(angles[1] + amount)
+  return true
+end function
+
+// Restore player delta yaw.
+function restorePlayerDeltaYaw(body)
+  if body.kind != "player" or body.edict is void or body.edict.client is void then return false end if
+  angles = body.edict.client.playerState.pmove.deltaAngles
+  if typeof(angles) != "array" or len(angles) < 2 then return false end if
+  angles[1] = body.deltaYaw
+  return true
+end function
+
+// Clear ground unless riding.
+function clearGroundUnlessRiding(body, pusherSnapshot)
+  if body.groundNumber == pusherSnapshot.entity.number then return false end if
+  if body.kind == "world" then body.value.groundEntity = void
+  else body.value.groundEntity = void
+  end if
+  return true
+end function
+
+// Return the carry origin.
 function carryOrigin(body, pusherSnapshot)
-  bodyOrigin = pushCopy(body.origin)
+  // A team can contain several moving brush parts. Use the live position so a
+  // body contacted by a later team member continues from its already-carried
+  // position, matching the original pushed[] transaction order.
+  bodyOrigin = pushCopy(currentOrigin(body))
   previousPusherOrigin = pushCopy(pusherSnapshot.origin)
   currentPusherOrigin = pushCopy(pusherSnapshot.entity.origin)
   currentPusherAngles = pushCopy(pusherSnapshot.entity.angles)
@@ -301,6 +478,30 @@ function carryOrigin(body, pusherSnapshot)
   return pushvector.add(currentPusherOrigin, rotated)
 end function
 
+// BaseQ2 SV_Push first moves a contacted bbox with a MOVETYPE_PUSH brush and
+// reports a block only when the carried position is obstructed. Treating the
+// first overlap as a block leaves the player embedded at the reversal point;
+// the door then toggles direction and applies crush damage every server frame.
+function pushBody(runtime, body, pusherSnapshot)
+  if pusherSnapshot.entity.moveType != pushworldconstants.MOVETYPE_PUSH or
+      bodyCanBePushed(body) == false then return false end if
+  start = currentOrigin(body)
+  destination = carryOrigin(body, pusherSnapshot)
+  if bodyPositionBlocked(runtime, body, destination) then
+    // The stock fallback subtracts only the translation. This lets a rider
+    // stay behind when its carried pose is blocked but its old pose is clear.
+    fallback = translatedFallback(destination, pusherSnapshot)
+    if bodyPositionBlocked(runtime, body, fallback) then return false end if
+    destination = fallback
+  end if
+  setBody(body, destination, currentAngles(body))
+  clearGroundUnlessRiding(body, pusherSnapshot)
+  addPlayerDeltaYaw(body, pusherSnapshot.entity.angles.y - pusherSnapshot.angles.y)
+  linkBody(runtime, body)
+  return true
+end function
+
+// Report whether team has.
 function teamHas(team, number)
   for each snapshot in team
     if snapshot.entity.number == number then return true end if
@@ -308,6 +509,7 @@ function teamHas(team, number)
   return false
 end function
 
+// Return the proxy for the requested input.
 function proxyFor(body)
   if body.kind == "world" then return body.value end if
   proxy = pushworldtypes.createEntity(body.number, body.kind)
@@ -326,6 +528,7 @@ function proxyFor(body)
   return proxy
 end function
 
+// Resolve team.
 function resolveTeam(runtime, captureState, masterNumber)
   teamCount = 0
   anyMoved = false
@@ -345,6 +548,13 @@ function resolveTeam(runtime, captureState, masterNumber)
     end if
   end for
 
+  // g_phys.c::SV_Push publishes every moving team part before it tests riders.
+  // Body traces must see the final inline hull, and a successful transaction
+  // must leave the server's spatial cache at that same transform.
+  for each movedSnapshot in team
+    if moved(movedSnapshot) then publishPusherMove(runtime, movedSnapshot) end if
+  end for
+
   blocker = void
   blockedPusher = void
   for each body in captureState.bodies
@@ -356,18 +566,15 @@ function resolveTeam(runtime, captureState, masterNumber)
       if rider is not void then
         destination = carryOrigin(body, rider)
         destinationAngles = pushCopy(body.angles)
-        if body.kind != "player" then
-          riderAngleDelta = pushvector.subtract(rider.entity.angles, rider.angles)
-          destinationAngles = pushvector.add(body.angles, riderAngleDelta)
+        if bodyPositionBlocked(runtime, body, destination) then
+          destination = translatedFallback(destination, rider)
+          if bodyPositionBlocked(runtime, body, destination) then blocker = body; blockedPusher = rider.entity end if
         end if
-        if runtime.playerContext is not void and runtime.exportTable is not void then
-          passEntity = runtime.exportTable.edicts[rider.entity.number]
-          trace = runtime.playerContext.imports.trace(body.origin, body.mins, body.maxs, destination, passEntity, pushqconstants.MASK_PLAYERSOLID)
-          if trace.fraction < 1.0 or trace.startSolid or trace.allSolid then blocker = body; blockedPusher = rider.entity
-          else destination = trace.endPosition
-          end if
+        if blocker is void then
+          setBody(body, destination, destinationAngles)
+          addPlayerDeltaYaw(body, rider.entity.angles.y - rider.angles.y)
+          linkBody(runtime, body)
         end if
-        if blocker is void then setBody(body, destination, destinationAngles) end if
       end if
       if blocker is void then
         liveBodyOrigin = currentOrigin(body)
@@ -375,7 +582,17 @@ function resolveTeam(runtime, captureState, masterNumber)
         bodyBox = bodyBoundsAt(body, liveBodyOrigin, liveBodyAngles)
         for each pusherSnapshot in team
           pusherBox = rotatedBounds(pusherSnapshot.entity.origin, pusherSnapshot.entity.angles, pusherSnapshot.entity.mins, pusherSnapshot.entity.maxs)
-          if strictOverlap(bodyBox, pusherBox) then blocker = body; blockedPusher = pusherSnapshot.entity; break end if
+          if strictOverlap(bodyBox, pusherBox) then
+            if bodyIntersectsFinalPusher(runtime, body) == false then
+              continue
+            else if pushBody(runtime, body, pusherSnapshot) then
+              liveBodyOrigin = currentOrigin(body)
+              liveBodyAngles = currentAngles(body)
+              bodyBox = bodyBoundsAt(body, liveBodyOrigin, liveBodyAngles)
+            else
+              blocker = body; blockedPusher = pusherSnapshot.entity; break
+            end if
+          end if
         end for
       end if
     end if
@@ -391,13 +608,18 @@ function resolveTeam(runtime, captureState, masterNumber)
     runtime.world.callbacks.linkEntity(snapshot.entity)
   end for
   for each body in captureState.bodies
-    setBody(body, body.origin, body.angles)
+    if bodyMoved(body) then
+      setBody(body, body.origin, body.angles)
+      linkBody(runtime, body)
+    end if
+    restorePlayerDeltaYaw(body)
   end for
   blockerProxy = proxyFor(blocker)
   pushworldcore.blockedEntity(runtime.world, blockedPusher, blockerProxy)
   return false
 end function
 
+// Resolve state.
 function resolve(runtime, captureState)
   masters = captureState.masters
   masterCount = 0

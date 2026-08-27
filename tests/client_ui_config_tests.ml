@@ -14,16 +14,34 @@ import miniquake2.client.ui.keys as uiconfigtestkeys
 import miniquake2.client.ui.menu as uiconfigtestmenu
 import miniquake2.client.ui.screen as uiconfigtestscreen
 
+// Assert the ui config test condition.
 function uiConfigAssert(value, name)
   if not value then return error(8302, name) end if
   return true
 end function
 
+// Run ui config tests.
 function runUiConfigTests()
 uiConfigPath = "build/client_ui_config_tests.cfg"
 if uiconfigtestfs.exists(uiConfigPath) then uiconfigtestfs.delete(uiConfigPath) end if
+uiConfigDefaultInput = uiconfigtestkeys.createInputState()
+uiconfigtestkeys.bindDefaultGame(uiConfigDefaultInput)
+uiConfigDefaultState = uiconfigtestcommands.create()
+uiConfigDefaultMixer = uiconfigtestmixer.create(8000)
+uiConfigDefaultScreen = uiconfigtestscreen.create(
+  uiconfigtestconsole.create(40), uiconfigtestmenu.create())
+uiConfigDefaults = uiconfigtestconfig.decodeProductConfig(
+  uiconfigtestconfig.encodeProductConfig(
+    uiconfigtestconfig.captureProductConfig(uiConfigDefaultInput,
+      uiConfigDefaultState, uiConfigDefaultMixer, uiConfigDefaultScreen)))
+uiConfigAssert(uiConfigDefaults.sensitivity == 3.0 and
+  uiConfigDefaults.brightness == 1.0,
+  "integral default floats use decoder-safe archive tokens")
 uiConfigInput = uiconfigtestkeys.createInputState()
-uiconfigtestkeys.bind(uiConfigInput, 119, "+forward")
+uiconfigtestkeys.bindDefaultGame(uiConfigInput)
+// A complete v2 snapshot must preserve an intentional unbind across the
+// base1 -> base2 reconstruction instead of restoring the product default.
+uiconfigtestkeys.unbind(uiConfigInput, 55)
 // Exercise the exact controls-menu mutation path: capture owns the next key,
 // replaces the prior command binding and leaves a dirty sentinel for the
 // product loop to persist before it creates the actual game InputState.
@@ -59,7 +77,17 @@ uiConfigAssert(uiConfigLoaded.videoMode == 7 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.hand == 1 and uiConfigLoaded.crosshair == 3 and
   not uiConfigLoaded.joystick and
   uiConfigLoaded.volume == 0.4 and
-  len(uiConfigLoaded.bindings) == 2, "config disk round trip")
+  uiConfigLoaded.bindingsComplete, "config disk round trip")
+
+// Simulate stale disk state after base1. The in-memory handover is
+// authoritative for the immediate successor map.
+uiConfigCaptured.sensitivity = 2.5
+uiconfigtestconfig.saveProductConfig(uiConfigPath, uiConfigCaptured)
+uiConfigSelected = uiconfigtestconfig.selectProductConfig(
+  uiConfigPath, uiConfigLoaded)
+uiConfigAssert(uiConfigSelected.sensitivity == 6.5 and
+  uiConfigSelected.invertMouse and uiConfigSelected.volume == 0.4,
+  "base1-to-base2 in-memory settings handover")
 
 uiConfigApplyInput = uiconfigtestkeys.createInputState()
 uiconfigtestkeys.bindDefaultGame(uiConfigApplyInput)
@@ -67,11 +95,11 @@ uiConfigApplyState = uiconfigtestcommands.create()
 uiConfigApplyMixer = uiconfigtestmixer.create(8000)
 uiConfigApplyScreen = uiconfigtestscreen.create(uiconfigtestconsole.create(40),
   uiconfigtestmenu.create())
-uiconfigtestconfig.applyProductConfig(uiConfigLoaded, uiConfigApplyInput,
+uiconfigtestconfig.applyProductConfig(uiConfigSelected, uiConfigApplyInput,
   uiConfigApplyState, uiConfigApplyMixer, uiConfigApplyScreen)
 uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward" and
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, 200) == "+attack" and
-  uiconfigtestkeys.bindingFor(uiConfigApplyInput, 55) == "use Rocket Launcher" and
+  uiconfigtestkeys.bindingFor(uiConfigApplyInput, 55) == "" and
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, miniquake2.client.ui.constants.K_MWHEELUP) == "weapnext" and
   uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
   uiConfigApplyState.videoMode == 7 and uiConfigApplyMixer.masterVolume == 0.4 and
@@ -91,8 +119,19 @@ uiConfigAssert(try(uiconfigtestconfig.decodeProductConfig(
 uiConfigLegacy = uiconfigtestconfig.decodeProductConfig(
   "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\n")
 uiConfigAssert(uiConfigLegacy.hand == 0 and not uiConfigLegacy.invertMouse and
-  uiConfigLegacy.crosshair == 1 and uiConfigLegacy.joystick,
+  uiConfigLegacy.crosshair == 1 and uiConfigLegacy.joystick and
+  not uiConfigLegacy.bindingsComplete,
   "legacy config defaults to right hand, normal pitch, crosshair one and controller enabled")
+uiConfigLegacyInput = uiconfigtestkeys.createInputState()
+uiconfigtestkeys.bindDefaultGame(uiConfigLegacyInput)
+uiConfigLegacyState = uiconfigtestcommands.create()
+uiConfigLegacyMixer = uiconfigtestmixer.create(8000)
+uiConfigLegacyScreen = uiconfigtestscreen.create(uiconfigtestconsole.create(40),
+  uiconfigtestmenu.create())
+uiconfigtestconfig.applyProductConfig(uiConfigLegacy, uiConfigLegacyInput,
+  uiConfigLegacyState, uiConfigLegacyMixer, uiConfigLegacyScreen)
+uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigLegacyInput, 55) ==
+  "use Rocket Launcher", "v1 binding overrides retain newer defaults")
 uiconfigtestfs.delete(uiConfigPath)
 return true
 end function

@@ -12,11 +12,13 @@ import miniquake2.client.ui.menu as cuimenu
 import miniquake2.client.ui.screen as cuiscreen
 import miniquake2.platform.window as pwindow
 
+// Assert the ui input equal test condition.
 function uiInputAssertEqual(actual, expected, name)
   if actual != expected then return error(8250, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the ui input near test condition.
 function uiInputAssertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -28,6 +30,7 @@ uiInputState = cuikeys.createInputState()
 cuikeys.bind(uiInputState, 119, "+forward")
 cuikeys.bind(uiInputState, cuic.K_MOUSE1, "+attack")
 cuikeys.bind(uiInputState, cuic.K_MWHEELUP, "weapnext")
+cuikeys.bind(uiInputState, cuic.K_MWHEELDOWN, "weapprev")
 
 uiDefaultBindings = cuikeys.bindDefaultGame(cuikeys.createInputState())
 uiInputAssertEqual(cuikeys.bindingFor(uiDefaultBindings, cuic.K_MWHEELUP),
@@ -64,6 +67,26 @@ uiInputAssertEqual(uiInputCmd3.impulse, 0, "impulse cleared")
 cuikeys.handleEvent(uiInputState, pwindow.InputEvent(cuic.EVENT_MOUSE_WHEEL, 0, 1), 1100)
 uiInputCommands = cuikeys.drainCommands(uiInputState)
 uiInputAssertEqual(uiInputCommands[len(uiInputCommands) - 1], "weapnext", "wheel binding")
+
+// Win32 packs a negative wheel detent as 255. Bursts before a frame are
+// coalesced because every command would target the same current weapon; the
+// final direction is the one Quake II leaves in newWeapon.
+uiWheelBurst = 0
+while uiWheelBurst < 128
+  cuikeys.handleEvent(uiInputState,
+    pwindow.InputEvent(cuic.EVENT_MOUSE_WHEEL, 0, 255), 1101 + uiWheelBurst)
+  uiWheelBurst = uiWheelBurst + 1
+end while
+uiInputCommands = cuikeys.drainCommands(uiInputState)
+uiInputAssertEqual(len(uiInputCommands), 1, "wheel burst command count")
+uiInputAssertEqual(uiInputCommands[0], "weapprev", "packed negative wheel binding")
+cuikeys.handleEvent(uiInputState,
+  pwindow.InputEvent(cuic.EVENT_MOUSE_WHEEL, 0, 255), 1230)
+cuikeys.handleEvent(uiInputState,
+  pwindow.InputEvent(cuic.EVENT_MOUSE_WHEEL, 0, 1), 1231)
+uiInputCommands = cuikeys.drainCommands(uiInputState)
+uiInputAssertEqual(len(uiInputCommands), 1, "alternating wheel command count")
+uiInputAssertEqual(uiInputCommands[0], "weapnext", "alternating wheel final direction")
 
 // Losing focus releases every held +binding and prevents stuck movement.
 cuikeys.handleEvent(uiInputState, pwindow.InputEvent(cuic.EVENT_FOCUS, 0, 0), 1200)

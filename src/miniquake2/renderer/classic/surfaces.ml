@@ -12,10 +12,12 @@ import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.materials as rclassicmaterials
 
+// Return the projected value.
 function projected(position, vector)
   return position.x * vector[0] + position.y * vector[1] + position.z * vector[2] + vector[3]
 end function
 
+// Return the face vertex position.
 function faceVertexPosition(map, face, edgeOffset)
   surfaceEdgeIndex = face.firstEdge + edgeOffset
   if surfaceEdgeIndex < 0 or surfaceEdgeIndex >= len(map.surfaceEdges) then return error(9710, "classic surface edge range outside table") end if
@@ -30,6 +32,7 @@ function faceVertexPosition(map, face, edgeOffset)
   return map.vertices[vertexIndex].position
 end function
 
+// Return the surface extents value.
 function surfaceExtents(map, face, texInfo)
   if face.numEdges <= 0 then return error(9713, "classic face has no edges") end if
   first = faceVertexPosition(map, face, 0)
@@ -61,6 +64,7 @@ function surfaceExtents(map, face, texInfo)
   return [textureMins, extents]
 end function
 
+// Map light count.
 function lightMapCount(styles)
   count = 0
   while count < rclassicconstants.MAX_LIGHTMAPS and count < len(styles) and styles[count] != 255
@@ -69,7 +73,9 @@ function lightMapCount(styles)
   return count
 end function
 
+// Build surface.
 function buildSurface(map, faceIndex, images, entityFrame)
+  // Keep build surface phases explicit: validate inputs, update owned state, then publish the result.
   if faceIndex < 0 or faceIndex >= len(map.faces) then return error(9714, "classic face outside table") end if
   face = map.faces[faceIndex]
   if face.texInfo < 0 or face.texInfo >= len(map.texInfo) then return error(9715, "classic face texinfo outside table") end if
@@ -114,6 +120,7 @@ function buildSurface(map, faceIndex, images, entityFrame)
   )
 end function
 
+// Build surfaces.
 function buildSurfaces(map, images, entityFrame)
   // Retail worlds contain thousands of faces.  Fill one exact table instead
   // of repeatedly copying a growing array for every BSP surface.

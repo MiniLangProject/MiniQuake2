@@ -10,11 +10,13 @@ import miniquake2.qcommon.filesystem as lifetimefilesystem
 import miniquake2.format.bsp as lifetimebsp
 import miniquake2.game.base.spawn as lifetimespawn
 
+// Assert the parser lifetime test condition.
 function parserLifetimeAssert(value, message)
   if not value then return error(9894, message) end if
   return true
 end function
 
+// Return the parser lifetime synthetic text value.
 function parserLifetimeSyntheticText()
   text = "{ \"classname\" \"worldspawn\" \"message\" \"lifetime regression\" }\n"
   index = 0
@@ -29,6 +31,7 @@ function parserLifetimeSyntheticText()
   return text
 end function
 
+// Return the parser lifetime synthetic value.
 function parserLifetimeSynthetic()
   entityText = parserLifetimeSyntheticText()
   iteration = 0
@@ -50,6 +53,7 @@ function parserLifetimeSynthetic()
   return true
 end function
 
+// Return the parser lifetime campaign maps value.
 function parserLifetimeCampaignMaps()
   return [
     "base1", "base2", "base3", "biggun", "boss1", "boss2", "bunk1",
@@ -61,6 +65,7 @@ function parserLifetimeCampaignMaps()
   ]
 end function
 
+// Return the parser lifetime full retail maps value.
 function parserLifetimeFullRetailMaps()
   return [
     "base1", "base2", "base3", "biggun", "boss1", "boss2", "bunk1", "city1", "city2", "city3",
@@ -71,6 +76,7 @@ function parserLifetimeFullRetailMaps()
   ]
 end function
 
+// Return the parser lifetime retail sequence value.
 function parserLifetimeRetailSequence(root, maps, expectedRaw)
   totalRaw = 0
   index = 0
@@ -92,6 +98,7 @@ function parserLifetimeRetailSequence(root, maps, expectedRaw)
   return totalRaw
 end function
 
+// Return the parser lifetime retail value.
 function parserLifetimeRetail(root)
   campaignRaw = parserLifetimeRetailSequence(root, parserLifetimeCampaignMaps(), 34298)
   fullRaw = parserLifetimeRetailSequence(root, parserLifetimeFullRetailMaps(), 36404)
@@ -100,6 +107,7 @@ function parserLifetimeRetail(root)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   parserLifetimeSynthetic()
   if len(args) == 1 then

@@ -17,17 +17,20 @@ import miniquake2.qcommon.constants as weaponprotocolqconstants
 import miniquake2.qcommon.types as weaponprotocolqtypes
 import miniquake2.server.game_bridge as weaponprotocolbridge
 
+// Assert the weapon protocol test condition.
 function weaponProtocolAssert(value, message)
   if value != true then return error(9985, message) end if
   return true
 end function
 
+// Return the weapon protocol item value.
 function weaponProtocolItem(registry, className)
   item = weaponprotocolitems.findByClassName(registry, className)
   if item is void then return error(9986, "missing weapon item " + className) end if
   return item
 end function
 
+// Configure weapon protocol.
 function weaponProtocolConfigure(player, registry, className, gunFrame, buttons, ammoCount)
   configuredItem = weaponProtocolItem(registry, className)
   player.gameplay.currentWeapon = configuredItem

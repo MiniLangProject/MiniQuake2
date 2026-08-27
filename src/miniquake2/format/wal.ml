@@ -9,6 +9,7 @@ import miniquake2.format.constants as fc
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
+// Parse state.
 function parse(data)
   if len(data) < 100 then return error(2500, "WAL header is truncated") end if
   name = fbio.fixedString(data, 0, 32)

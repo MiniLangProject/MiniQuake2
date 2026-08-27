@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Win32 Quake II 3.19 rand/random/crandom compatibility vectors. */
 import miniquake2.game.random as gameplayrandom
 
+// Assert the random parity test condition.
 function randomParityAssert(value, message)
   if value != true then return error(9822, message) end if
   return true

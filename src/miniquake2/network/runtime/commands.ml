@@ -28,6 +28,7 @@ import miniquake2.server.administration as nsadmin
 
 const MAX_NETWORK_COMMAND_LOG = 1024
 
+// Append network command log.
 function networkCommandAppendLog(runtime, slot, value)
   entry = [slot, value]
   if len(runtime.commandLog) < MAX_NETWORK_COMMAND_LOG then
@@ -59,6 +60,7 @@ const RELIABLE_WORK_DOWNLOAD = 3
 // 90-Hz client packet in both directions.
 networkRuntimeZeroUserCmd = qt.zeroUserCmd()
 
+// Write user info.
 function writeUserInfo(buffer, userInfo)
   if not qinfo.validate(userInfo) then return error(7250, "invalid clc_userinfo string") end if
   qmsg.writeByte(buffer, qc.CLC_USERINFO)
@@ -66,6 +68,7 @@ function writeUserInfo(buffer, userInfo)
   return buffer
 end function
 
+// Write string command.
 function writeStringCommand(buffer, command)
   if typeof(command) != "string" or len(bytes(command)) >= qc.MAX_STRING_CHARS then return error(7251, "invalid clc_stringcmd") end if
   qmsg.writeByte(buffer, qc.CLC_STRINGCMD)
@@ -73,6 +76,7 @@ function writeStringCommand(buffer, command)
   return buffer
 end function
 
+// Write move.
 function writeMove(buffer, sequence, lastFrame, oldest, oldCommand, newCommand)
   if typeof(sequence) != "int" or sequence < 0 then return error(7252, "move sequence must be non-negative") end if
   qmsg.writeByte(buffer, qc.CLC_MOVE)
@@ -87,6 +91,7 @@ function writeMove(buffer, sequence, lastFrame, oldest, oldCommand, newCommand)
   return buffer
 end function
 
+// Report whether contains traversal.
 function containsTraversal(name)
   value = bytes(name)
   index = 0
@@ -97,6 +102,7 @@ function containsTraversal(name)
   return false
 end function
 
+// Report whether has subdirectory.
 function hasSubdirectory(name)
   value = bytes(name)
   for each character in value
@@ -105,6 +111,7 @@ function hasSubdirectory(name)
   return false
 end function
 
+// Return the safe download name.
 function safeDownloadName(name)
   if typeof(name) != "string" or name == "" or len(bytes(name)) >= qc.MAX_QPATH then return false end if
   value = bytes(name)
@@ -112,6 +119,7 @@ function safeDownloadName(name)
   return not containsTraversal(name) and hasSubdirectory(name)
 end function
 
+// Register download.
 function registerDownload(runtime, name, data)
   if not safeDownloadName(name) or typeof(data) != "bytes" then return error(7253, "invalid runtime download") end if
   index = 0
@@ -123,6 +131,7 @@ function registerDownload(runtime, name, data)
   return true
 end function
 
+// Find download.
 function findDownload(runtime, name)
   for each entry in runtime.downloads
     if entry.name == name then return entry.data end if
@@ -130,6 +139,7 @@ function findDownload(runtime, name)
   return void
 end function
 
+// Return the server data fragments value.
 function serverDataFragments(runtime, slot)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeServerData(buffer, runtime.spawnCount,
@@ -138,30 +148,35 @@ function serverDataFragments(runtime, slot)
   return [qsz.dataSlice(buffer)]
 end function
 
+// Return the config string fragment value.
 function configStringFragment(index, value)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeConfigString(buffer, index, value)
   return qsz.dataSlice(buffer)
 end function
 
+// Return the stuff text fragment value.
 function stuffTextFragment(text)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeStuffText(buffer, text)
   return qsz.dataSlice(buffer)
 end function
 
+// Return the baseline fragment value.
 function baselineFragment(baseline)
   buffer = qsz.alloc(256)
   rmessages.writeSpawnBaseline(buffer, baseline)
   return qsz.dataSlice(buffer)
 end function
 
+// Return the download fragment value.
 function downloadFragment(data, offset, count, percent)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeDownload(buffer, data, offset, count, percent)
   return qsz.dataSlice(buffer)
 end function
 
+// Queue server data.
 function queueServerData(runtime, slot)
   client = runtime.server.clients[slot]
   if client.state != nc.CS_CONNECTED then return false end if
@@ -172,6 +187,7 @@ function queueServerData(runtime, slot)
   return true
 end function
 
+// Queue config strings.
 function queueConfigStrings(runtime, slot, requestedSpawn, start)
   client = runtime.server.clients[slot]
   if client.state != nc.CS_CONNECTED then return false end if
@@ -198,6 +214,7 @@ function queueConfigStrings(runtime, slot, requestedSpawn, start)
   return start
 end function
 
+// Queue baselines.
 function queueBaselines(runtime, slot, requestedSpawn, start)
   client = runtime.server.clients[slot]
   if client.state != nc.CS_CONNECTED then return false end if
@@ -224,6 +241,7 @@ function queueBaselines(runtime, slot, requestedSpawn, start)
   return start
 end function
 
+// Queue download chunk.
 function queueDownloadChunk(runtime, slot)
   transfer = runtime.transfers[slot]
   if transfer is void or transfer.offset < 0 then return false end if
@@ -243,6 +261,7 @@ function queueDownloadChunk(runtime, slot)
   return count
 end function
 
+// Return the defer reliable work value.
 function deferReliableWork(runtime, slot, kind, first, second)
   if slot < 0 or slot >= runtime.server.maxClients then
     return error(7262, "deferred reliable work slot outside range")
@@ -287,6 +306,7 @@ function retryDeferredReliable(runtime, slot)
   return true
 end function
 
+// Return the replenish command msec value.
 function replenishCommandMsec(runtime)
   index = 0
   while index < runtime.server.maxClients
@@ -296,6 +316,7 @@ function replenishCommandMsec(runtime)
   return true
 end function
 
+// Begin download.
 function beginDownload(runtime, slot, name, offset)
   if not safeDownloadName(name) then
     pnetchan.queueReliableFragments(runtime.server.clients[slot].channel,
@@ -315,6 +336,7 @@ function beginDownload(runtime, slot, name, offset)
   return true
 end function
 
+// Return the integer argument value.
 function integerArgument(arguments, index)
   if index >= len(arguments) then return 0 end if
   return nconnectionless.parseDecimal(arguments[index])
@@ -345,7 +367,9 @@ function readClientStringCommand(buffer)
   return "disconnect"
 end function
 
+// Execute string.
 function executeString(runtime, slot, text)
+  // Keep execute string phases explicit: validate inputs, update owned state, then publish the result.
   arguments = qcmd.tokenize(text)
   if len(arguments) == 0 then return false end if
   networkCommandAppendLog(runtime, slot, text)
@@ -401,12 +425,14 @@ function executeString(runtime, slot, text)
   return runtime.callbacks.clientCommand(slot, text)
 end function
 
+// Apply think.
 function applyThink(runtime, slot, command)
   runtime.commandMsec[slot] = runtime.commandMsec[slot] - command.msec
   if runtime.commandMsec[slot] < 0 then return false end if
   return runtime.callbacks.clientThink(slot, command)
 end function
 
+// Parse client payload.
 function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
   if slot < 0 or slot >= runtime.server.maxClients then return error(7256, "client payload slot outside range") end if
   buffer = rmessages.readingBuffer(payload)
@@ -464,6 +490,7 @@ function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
   return true
 end function
 
+// Return the joined arguments value.
 function joinedArguments(arguments, startIndex)
   output = ""
   index = startIndex
@@ -475,6 +502,7 @@ function joinedArguments(arguments, startIndex)
   return output
 end function
 
+// Return the operator status value.
 function operatorStatus(runtime)
   return "map              : " + runtime.server.mapName + "\n" +
     nserver.statusString(runtime.server)
@@ -484,6 +512,7 @@ end function
 // needed to administer the Protocol-34 endpoint; it never delegates RCON text
 // to the host shell or filesystem command parser.
 function executeOperator(runtime, text)
+  // Keep execute operator phases explicit: validate inputs, update owned state, then publish the result.
   arguments = qcmd.tokenize(text)
   if len(arguments) == 0 then return "" end if
   command = arguments[0]
@@ -541,6 +570,7 @@ function executeOperator(runtime, text)
   return "Unknown command \"" + command + "\"\n"
 end function
 
+// Handle rcon.
 function handleRcon(runtime, address, request)
   supplied = ""
   if len(request.arguments) >= 2 then supplied = request.arguments[1] end if
@@ -563,6 +593,7 @@ function handleRcon(runtime, address, request)
   return nt.result(true, -1, [action], "rcon", void)
 end function
 
+// Handle connectionless.
 function handleConnectionless(runtime, address, datagram, now)
   request = nconnectionless.parsePacket(datagram)
   runtime.server.realTime = now

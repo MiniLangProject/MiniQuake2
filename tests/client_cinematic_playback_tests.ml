@@ -11,17 +11,20 @@ import miniquake2.client.cinematic.player as cinplayer
 
 cinematicTimingChunks = []
 
+// Submit cinematic timing.
 function cinematicTimingSubmit(chunk)
   global cinematicTimingChunks
   cinematicTimingChunks = cinematicTimingChunks + [chunk]
   return true
 end function
 
+// Assert the cinematic timing equal test condition.
 function cinematicTimingAssertEqual(actual, expected, name)
   if actual != expected then return error(8360, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Return the cinematic synthetic value.
 function cinematicSynthetic()
   data = bytes(70000)
   qbio.putI32(data, 0, 2)

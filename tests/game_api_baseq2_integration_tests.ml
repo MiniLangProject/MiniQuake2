@@ -13,16 +13,19 @@ import miniquake2.game.world.core as e2eworld
 import miniquake2.game.ai.constants as e2eai
 import miniquake2.game.constants as e2econstants
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9960, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9961, name + ": expected true") end if
   return true
 end function
 
+// Return the entity text value.
 function entityText()
   return "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"info_player_start\" \"origin\" \"16 24 32\" \"angle\" \"90\" }\n" +
@@ -37,6 +40,7 @@ function entityText()
     "{ \"classname\" \"func_door\" \"model\" \"*1\" }"
 end function
 
+// Find e 2 e monster.
 function e2eFindMonster(runtime, className, targetName)
   for each actor in runtime.monsters
     if actor.className == className and actor.targetName == targetName then
@@ -46,6 +50,7 @@ function e2eFindMonster(runtime, className, targetName)
   return void
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 Game API BaseQ2 integration starting: 1"
   server = e2ebridge.createRuntime(4)

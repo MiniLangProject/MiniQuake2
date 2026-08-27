@@ -12,6 +12,7 @@ import miniquake2.client.ui.keys as uiidleKeys
 import miniquake2.client.ui.menu as uiidleMenu
 import miniquake2.client.ui.screen as uiidleScreen
 
+// Assert the ui idle test condition.
 function uiIdleAssert(value, name)
   if not value then return error(8320, name) end if
   return true

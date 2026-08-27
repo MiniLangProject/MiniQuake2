@@ -10,35 +10,41 @@ import miniquake2.client.ui.keys as cuikeys
 import miniquake2.qcommon.types as qt
 import std.math as smath
 
+// Return the action value.
 function action(state, name)
   value = cuikeys.findAction(state, name)
   if value is void or value.down == false then return 0.0 end if
   return 1.0
 end function
 
+// Add mouse delta.
 function addMouseDelta(state, dx, dy)
   state.mouseDx = state.mouseDx + dx
   state.mouseDy = state.mouseDy + dy
   return true
 end function
 
+// Set impulse.
 function setImpulse(state, value)
   if value < 0 or value > 255 then return error(8210, "impulse outside byte range") end if
   state.impulse = value
   return true
 end function
 
+// Clamp pitch.
 function clampPitch(state)
   if state.viewAngles[0] > 89.0 then state.viewAngles[0] = 89.0 end if
   if state.viewAngles[0] < -89.0 then state.viewAngles[0] = -89.0 end if
 end function
 
+// Clamp command msec.
 function inline clampCommandMsec(frameMsec)
   if frameMsec < 1 then return 1 end if
   if frameMsec > 200 then return 200 end if
   return frameMsec
 end function
 
+// Return the angle short value.
 function angleShort(value)
   scaled = value * 65536.0 / 360.0
   result = 0
@@ -146,14 +152,17 @@ function buildSampledUserCmd(state, frameMsec, consumeTransient)
     forward, side, up, impulse, state.lightLevel)
 end function
 
+// Create sampled user cmd.
 function createSampledUserCmd(state, frameMsec)
   return buildSampledUserCmd(state, frameMsec, true)
 end function
 
+// Return the preview user cmd value.
 function previewUserCmd(state, frameMsec)
   return buildSampledUserCmd(state, frameMsec, false)
 end function
 
+// Create user cmd.
 function createUserCmd(state, frameMsec)
   sampleView(state, frameMsec)
   return createSampledUserCmd(state, frameMsec)

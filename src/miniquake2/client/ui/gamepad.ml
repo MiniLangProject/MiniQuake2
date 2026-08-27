@@ -7,6 +7,7 @@ package miniquake2.client.ui.gamepad
 
 import miniquake2.native as gamepadnative
 
+// Store gamepad state data.
 struct GamepadState
   enabled
   available
@@ -18,6 +19,7 @@ struct GamepadState
   lookScale
 end struct
 
+// Store gamepad sample data.
 struct GamepadSample
   connected
   side
@@ -31,6 +33,7 @@ struct GamepadSample
   povPressed
 end struct
 
+// Create state.
 function create(enabled)
   if typeof(enabled) != "bool" then return error(8310, "gamepad enabled state must be boolean") end if
   available = false
@@ -47,6 +50,7 @@ function create(enabled)
     0.18, 30.0)
 end function
 
+// Normalize axis.
 function inline normalizeAxis(raw, deadZone)
   value = (raw - 32768) / 32767.0
   if value < -1.0 then value = -1.0 end if
@@ -59,6 +63,7 @@ function inline normalizeAxis(raw, deadZone)
   return scaled
 end function
 
+// Sample raw.
 function sampleRaw(state, axes, buttons, pov)
   if typeof(axes) != "array" or len(axes) < 4 then
     return error(8311, "gamepad sample requires at least four axes")
@@ -83,6 +88,7 @@ function sampleRaw(state, axes, buttons, pov)
     pressed, released, pov, povPressed)
 end function
 
+// Poll state.
 function poll(state)
   if state is void or not state.enabled or not state.available then
     return GamepadSample(false, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 65535, 0)

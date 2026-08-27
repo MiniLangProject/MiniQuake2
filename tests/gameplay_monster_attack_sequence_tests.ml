@@ -15,20 +15,24 @@ import miniquake2.qcommon.types as attacksequenceqtypes
 import miniquake2.server.game_bridge as attacksequencebridge
 import std.math as attacksequencemath
 
+// Assert the sequence test condition.
 function sequenceAssert(value, message)
   if value != true then return error(9984, message) end if
   return true
 end function
 
+// Return the sequence near value.
 function sequenceNear(actual, expected, message)
   sequenceAssert(attacksequencemath.abs(actual - expected) < 0.001, message)
   return true
 end function
 
+// Report whether sequence always visible.
 function sequenceAlwaysVisible(first, second)
   return true
 end function
 
+// Assert the consecutive test condition.
 function assertConsecutive(values, first, count, message)
   sequenceAssert(len(values) == count, message + " count")
   index = 0
@@ -39,6 +43,7 @@ function assertConsecutive(values, first, count, message)
   return true
 end function
 
+// Return the movement total value.
 function movementTotal(plan)
   total = 0.0
   offset = 0

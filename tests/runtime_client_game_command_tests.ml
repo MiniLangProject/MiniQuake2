@@ -13,11 +13,13 @@ import miniquake2.game.player.constants as gccplayerconstants
 import miniquake2.runtime.client_session as gccclient
 import miniquake2.runtime.play_session as gccplay
 
+// Assert the gcc test condition.
 function gccAssert(value, name)
   if not value then return error(8435, name) end if
   return true
 end function
 
+// Send gcc.
 function gccSend(session, text)
   before = gccgame.lifecycleSnapshot()[6]
   gccAssert(gccclient.sendStringCommand(session.client, text, 0),
@@ -33,6 +35,7 @@ function gccSend(session, text)
   return result
 end function
 
+// Return the gcc wait for message value.
 function gccWaitForMessage(session, result, kind)
   steps = 0
   while steps < 24

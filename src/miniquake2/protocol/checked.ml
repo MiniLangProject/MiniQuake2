@@ -10,6 +10,7 @@ package miniquake2.protocol.checked
 
 import miniquake2.qcommon.message as qmsg
 
+// Require state.
 function require(buffer, count, operation)
   if typeof(count) != "int" or count < 0 then return error(7010, operation + ": invalid width") end if
   if typeof(buffer.data) != "bytes" or buffer.maxSize < 0 or buffer.maxSize > len(buffer.data) then
@@ -24,46 +25,56 @@ function require(buffer, count, operation)
   return true
 end function
 
+// Read byte.
 function readByte(buffer, operation)
   require(buffer, 1, operation)
   return qmsg.readByte(buffer)
 end function
 
+// Read char.
 function readChar(buffer, operation)
   require(buffer, 1, operation)
   return qmsg.readChar(buffer)
 end function
 
+// Read short.
 function readShort(buffer, operation)
   require(buffer, 2, operation)
   return qmsg.readShort(buffer)
 end function
 
+// Read u short.
 function readUShort(buffer, operation)
   return readShort(buffer, operation) & 0xffff
 end function
 
+// Read long.
 function readLong(buffer, operation)
   require(buffer, 4, operation)
   return qmsg.readLong(buffer)
 end function
 
+// Read u long.
 function readULong(buffer, operation)
   return readLong(buffer, operation) & 0xffffffff
 end function
 
+// Read coord.
 function readCoord(buffer, operation)
   return readShort(buffer, operation) * 0.125
 end function
 
+// Read angle.
 function readAngle(buffer, operation)
   return readChar(buffer, operation) * (360.0 / 256.0)
 end function
 
+// Read angle 16.
 function readAngle16(buffer, operation)
   return readShort(buffer, operation) * (360.0 / 65536.0)
 end function
 
+// Read bytes.
 function readBytes(buffer, count, operation)
   require(buffer, count, operation)
   output = slice(buffer.data, buffer.readCount, count)

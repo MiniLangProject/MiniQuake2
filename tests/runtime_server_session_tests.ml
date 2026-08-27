@@ -7,23 +7,28 @@ import miniquake2.runtime.server_session as tsession
 import miniquake2.qcommon.constants as tqc
 import miniquake2.qcommon.checksum as tchecksum
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9980, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9981, name + ": expected true") end if
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 dedicated session tests starting: 1"
-  text = "{ \"classname\" \"worldspawn\" } " +
+  text = "{ \"classname\" \"worldspawn\" \"message\" \"Authored Unit\" } " +
     "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 24\" } " +
     "{ \"classname\" \"monster_soldier\" \"origin\" \"64 0 24\" }"
   session = tsession.createCore("synthetic", text, void, "127.0.0.1", 0, 2, true)
   assertTrue(session.socket.port > 0, "ephemeral UDP binding")
+  assertEqual(session.networkRuntime.configStrings[tqc.CS_NAME],
+    "Authored Unit", "worldspawn level title survives session synchronization")
   assertEqual(tsession.run(session, 2), 2, "fixed-step run")
   assertEqual(session.frameNumber, 2, "server frame count")
   assertEqual(session.gameExport.numEdicts, 5, "client-slot-aware map edicts")

@@ -15,11 +15,80 @@ import miniquake2.qcommon.constants as wmqconstants
 import miniquake2.qcommon.byteio as worldclockbyteio
 
 // -------------------------------------------------------------------------
+// func_areaportal from g_misc.c. Doors also drive linked areaportals through
+// mover code, but a directly targeted portal must own the stock toggle use.
+
+function areaPortalUse(entity, other, activator, world)
+  entity.count = entity.count ^ 1
+  world.callbacks.areaPortal(entity.style, entity.count != 0)
+  return true
+end function
+
+// Spawn area portal.
+function spawnAreaPortal(entity, world)
+  entity.use = areaPortalUse
+  entity.count = 0
+  return entity
+end function
+
+// -------------------------------------------------------------------------
+// path_corner from g_misc.c.  AI-private walk/stand state stays behind the
+// existing actorTransition callback used by target_actor.
+
+function pathCornerTouch(entity, other, world)
+  if other is void or other.inUse == false or
+      other.targetEntity != entity or other.enemy is not void then return false end if
+  if entity.pathTarget != "" then
+    savedTarget = entity.target
+    entity.target = entity.pathTarget
+    wmcore.useTargets(world, entity, other)
+    entity.target = savedTarget
+    if entity.inUse == false then return false end if
+  end if
+  nextTarget = void
+  if entity.target != "" then nextTarget = wmcore.pickTarget(world, entity.target) end if
+  teleported = false
+  if nextTarget is not void and (nextTarget.spawnFlags & 1) != 0 then
+    other.origin.x = nextTarget.origin.x
+    other.origin.y = nextTarget.origin.y
+    other.origin.z = nextTarget.origin.z + nextTarget.mins.z - other.mins.z
+    if nextTarget.target != "" then
+      nextTarget = wmcore.pickTarget(world, nextTarget.target)
+    else nextTarget = void
+    end if
+    teleported = true
+  end if
+  other.targetEntity = nextTarget
+  action = "path"
+  if teleported then action = "path-teleport" end if
+  world.callbacks.actorTransition(other, entity, action, void, nextTarget,
+    entity.wait, 0)
+  return true
+end function
+
+// Spawn path corner.
+function spawnPathCorner(entity, world)
+  if entity.targetName == "" then
+    wmcore.log(world, "path_corner with no targetname")
+    wmcore.freeEntity(world, entity)
+    return false
+  end if
+  entity.solid = wmconstants.SOLID_TRIGGER
+  entity.touch = pathCornerTouch
+  entity.mins = wmqtypes.Vec3(-8.0, -8.0, -8.0)
+  entity.maxs = wmqtypes.Vec3(8.0, 8.0, 8.0)
+  entity.serverFlags = entity.serverFlags | wmconstants.SVF_NOCLIENT
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// -------------------------------------------------------------------------
 // point_combat from g_misc.c. AI_COMBAT_POINT and stand-ground mutations live
 // behind combatPointTransition; this world layer owns route consumption,
 // target lookup and G_UseTargets activator selection.
 
 function pointCombatTouch(entity, other, world)
+  // Keep point combat touch phases explicit: validate inputs, update owned state, then publish the result.
   if other is void or typeof(other) != "struct" or other.inUse == false then return false end if
   if other.targetEntity != entity then return false end if
 
@@ -63,6 +132,7 @@ function pointCombatTouch(entity, other, world)
   return true
 end function
 
+// Spawn point combat.
 function spawnPointCombat(entity, world, deathmatch)
   if deathmatch then return wmcore.freeEntity(world, entity) end if
   entity.solid = wmconstants.SOLID_TRIGGER
@@ -74,6 +144,7 @@ function spawnPointCombat(entity, world, deathmatch)
   return entity
 end function
 
+// Use wall.
 function wallUse(entity, other, activator, world)
   if entity.solid == wmconstants.SOLID_NOT then
     entity.solid = wmconstants.SOLID_BSP
@@ -88,6 +159,7 @@ function wallUse(entity, other, activator, world)
   return true
 end function
 
+// Spawn wall.
 function spawnWall(entity, world)
   entity.moveType = wmconstants.MOVETYPE_PUSH
   if (entity.spawnFlags & 8) != 0 then entity.effects = entity.effects | wmconstants.EF_ANIM_ALL end if
@@ -110,6 +182,7 @@ function spawnWall(entity, world)
   return entity
 end function
 
+// Handle func object.
 function funcObjectTouch(entity, other, world)
   if other is void or entity.moveDirection.z < 1.0 or
       other.takeDamage == wmconstants.DAMAGE_NO then return false end if
@@ -117,12 +190,14 @@ function funcObjectTouch(entity, other, world)
     wmconstants.MOD_CRUSH)
 end function
 
+// Release func object.
 function funcObjectRelease(entity, world)
   entity.moveType = wmconstants.MOVETYPE_TOSS
   entity.touch = funcObjectTouch
   return true
 end function
 
+// Use func object.
 function funcObjectUse(entity, other, activator, world)
   entity.solid = wmconstants.SOLID_BSP
   entity.serverFlags = entity.serverFlags & ~wmconstants.SVF_NOCLIENT
@@ -133,6 +208,7 @@ function funcObjectUse(entity, other, activator, world)
   return true
 end function
 
+// Return the shrink func object bounds.
 function shrinkFuncObjectBounds(entity)
   if entity.mins.x < entity.maxs.x then entity.mins.x = entity.mins.x + 1.0; entity.maxs.x = entity.maxs.x - 1.0 end if
   if entity.mins.y < entity.maxs.y then entity.mins.y = entity.mins.y + 1.0; entity.maxs.y = entity.maxs.y - 1.0 end if
@@ -140,6 +216,7 @@ function shrinkFuncObjectBounds(entity)
   return true
 end function
 
+// Spawn object.
 function spawnObject(entity, world)
   world.callbacks.setModel(entity, entity.model)
   shrinkFuncObjectBounds(entity)
@@ -161,16 +238,19 @@ function spawnObject(entity, world)
   return entity
 end function
 
+// Report whether rotating blocked.
 function rotatingBlocked(entity, other, world)
   if other is void then return false end if
   return world.callbacks.damage(other, entity, entity, entity.damage, wmconstants.MOD_CRUSH)
 end function
 
+// Handle rotating.
 function rotatingTouch(entity, other, world)
   if entity.angularVelocity.x == 0.0 and entity.angularVelocity.y == 0.0 and entity.angularVelocity.z == 0.0 then return false end if
   return rotatingBlocked(entity, other, world)
 end function
 
+// Use rotating.
 function rotatingUse(entity, other, activator, world)
   if entity.angularVelocity.x != 0.0 or entity.angularVelocity.y != 0.0 or entity.angularVelocity.z != 0.0 then
     entity.loopSound = 0
@@ -184,6 +264,7 @@ function rotatingUse(entity, other, activator, world)
   return true
 end function
 
+// Spawn rotating.
 function spawnRotating(entity, world)
   entity.solid = wmconstants.SOLID_BSP
   if (entity.spawnFlags & 32) != 0 then entity.moveType = wmconstants.MOVETYPE_STOP else entity.moveType = wmconstants.MOVETYPE_PUSH end if
@@ -204,6 +285,7 @@ function spawnRotating(entity, world)
   return entity
 end function
 
+// Handle teleporter.
 function teleporterTouch(entity, other, world)
   if other is void or other.isClient == false or entity.target == "" then return false end if
   destination = wmcore.pickTarget(world, entity.target)
@@ -220,6 +302,7 @@ function teleporterTouch(entity, other, world)
   return true
 end function
 
+// Spawn teleporter.
 function spawnTeleporter(entity, world)
   entity.model = "models/objects/dmspot/tris.md2"
   entity.solid = wmconstants.SOLID_TRIGGER
@@ -232,6 +315,7 @@ function spawnTeleporter(entity, world)
   return entity
 end function
 
+// Spawn teleporter destination.
 function spawnTeleporterDestination(entity, world)
   entity.solid = wmconstants.SOLID_NOT
   entity.moveType = wmconstants.MOVETYPE_NONE
@@ -239,11 +323,13 @@ function spawnTeleporterDestination(entity, world)
   return entity
 end function
 
+// Drop barrel to floor.
 function barrelDropToFloor(entity, world)
   world.callbacks.linkEntity(entity)
   return true
 end function
 
+// Return the barrel explode value.
 function barrelExplode(entity, world)
   world.callbacks.radiusDamage(entity, entity.activator, entity.damage, entity.damage + 40, wmconstants.MOD_BARREL)
   // g_misc.c emits two random large chunks, four debris3 bottom corners and
@@ -289,6 +375,7 @@ function barrelExplode(entity, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Return the barrel delay value.
 function barrelDelay(entity, inflictor, attacker, damage, point, world)
   entity.takeDamage = wmconstants.DAMAGE_NO
   entity.activator = attacker
@@ -297,6 +384,7 @@ function barrelDelay(entity, inflictor, attacker, damage, point, world)
   return true
 end function
 
+// Handle barrel.
 function barrelTouch(entity, other, world)
   if other is void or other.mass <= 0 then return false end if
   ratio = other.mass / entity.mass
@@ -307,6 +395,7 @@ function barrelTouch(entity, other, world)
   return true
 end function
 
+// Spawn explobox.
 function spawnExplobox(entity, world)
   entity.solid = wmconstants.SOLID_BBOX
   entity.moveType = wmconstants.MOVETYPE_STEP
@@ -326,6 +415,7 @@ function spawnExplobox(entity, world)
   return entity
 end function
 
+// Run banner.
 function bannerThink(entity, world)
   entity.frame = (entity.frame + 1) % 16
   entity.think = bannerThink
@@ -333,6 +423,7 @@ function bannerThink(entity, world)
   return true
 end function
 
+// Spawn banner.
 function spawnBanner(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_NOT
@@ -344,6 +435,7 @@ function spawnBanner(entity, world)
   return entity
 end function
 
+// Handle dead soldier.
 function deadSoldierDie(entity, inflictor, attacker, damage, point, world)
   if entity.health > -80 then return false end if
   world.callbacks.sound(entity, "misc/udeath.wav")
@@ -351,6 +443,7 @@ function deadSoldierDie(entity, inflictor, attacker, damage, point, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Spawn dead soldier.
 function spawnDeadSoldier(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_BBOX
@@ -371,12 +464,14 @@ function spawnDeadSoldier(entity, world)
   return entity
 end function
 
+// Use strogg ship.
 function stroggShipUse(entity, other, activator, world)
   entity.serverFlags = entity.serverFlags & ~wmconstants.SVF_NOCLIENT
   entity.use = wmmovers.trainUse
   return wmmovers.trainUse(entity, other, activator, world)
 end function
 
+// Spawn strogg ship.
 function spawnStroggShip(entity, world)
   if entity.target == "" then
     wmcore.log(world, "misc_strogg_ship without a target")
@@ -400,10 +495,12 @@ function spawnStroggShip(entity, world)
   return entity
 end function
 
+// Release gib.
 function gibFree(entity, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Handle gib.
 function gibDie(entity, inflictor, attacker, damage, point, world)
   world.callbacks.effect("gib-destroyed", entity.origin, 0, 1)
   return wmcore.freeEntity(world, entity)
@@ -415,6 +512,7 @@ function debrisDie(entity, inflictor, attacker, damage, point, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Spawn gib part.
 function spawnGibPart(entity, modelName, world)
   entity.model = modelName
   entity.solid = wmconstants.SOLID_NOT
@@ -433,18 +531,67 @@ function spawnGibPart(entity, modelName, world)
   return entity
 end function
 
+// Spawn gib head.
 function spawnGibHead(entity, world)
   return spawnGibPart(entity, "models/objects/gibs/head/tris.md2", world)
 end function
 
+// Spawn gib arm.
 function spawnGibArm(entity, world)
   return spawnGibPart(entity, "models/objects/gibs/arm/tris.md2", world)
 end function
 
+// Spawn gib leg.
 function spawnGibLeg(entity, world)
   return spawnGibPart(entity, "models/objects/gibs/leg/tris.md2", world)
 end function
 
+// Run view thing.
+function viewThingThink(entity, world)
+  entity.frame = (entity.frame + 1) % 7
+  entity.think = viewThingThink
+  entity.nextThink = world.time + world.frameTime
+  return true
+end function
+
+// Spawn view thing.
+function spawnViewThing(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.renderFx = entity.renderFx | wmgameconstants.RF_FRAMELERP
+  entity.mins = wmqtypes.Vec3(-16.0, -16.0, -24.0)
+  entity.maxs = wmqtypes.Vec3(16.0, 16.0, 32.0)
+  entity.model = "models/objects/banner/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  entity.think = viewThingThink
+  entity.nextThink = world.time + 0.5
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// Spawn light mine 1.
+function spawnLightMine1(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.model = "models/objects/minelite/light1/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// Spawn big viper.
+function spawnBigViper(entity, world)
+  entity.moveType = wmconstants.MOVETYPE_NONE
+  entity.solid = wmconstants.SOLID_BBOX
+  entity.mins = wmqtypes.Vec3(-176.0, -120.0, -24.0)
+  entity.maxs = wmqtypes.Vec3(176.0, 120.0, 72.0)
+  entity.model = "models/ships/bigviper/tris.md2"
+  world.callbacks.setModel(entity, entity.model)
+  world.callbacks.linkEntity(entity)
+  return entity
+end function
+
+// Use light.
 function lightUse(entity, other, activator, world)
   if (entity.spawnFlags & 1) != 0 then entity.spawnFlags = entity.spawnFlags & ~1
   else entity.spawnFlags = entity.spawnFlags | 1
@@ -453,16 +600,19 @@ function lightUse(entity, other, activator, world)
   return true
 end function
 
+// Spawn light.
 function spawnLight(entity, world)
   if entity.targetName == "" then return wmcore.freeEntity(world, entity) end if
   if entity.style >= 32 then entity.use = lightUse end if
   return entity
 end function
 
+// Spawn null.
 function spawnNull(entity, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Spawn info not null.
 function spawnInfoNotNull(entity, world)
   entity.absoluteMins = wmvector.copy(entity.origin)
   entity.absoluteMaxs = wmvector.copy(entity.origin)
@@ -477,6 +627,7 @@ function blackHoleUse(entity, other, activator, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Run black hole.
 function blackHoleThink(entity, world)
   entity.frame = entity.frame + 1
   if entity.frame >= 19 then entity.frame = 0 end if
@@ -485,6 +636,7 @@ function blackHoleThink(entity, world)
   return true
 end function
 
+// Spawn black hole.
 function spawnBlackHole(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_NOT
@@ -500,6 +652,7 @@ function spawnBlackHole(entity, world)
   return entity
 end function
 
+// Run easter tank.
 function easterTankThink(entity, world)
   entity.frame = entity.frame + 1
   if entity.frame >= 293 then entity.frame = 254 end if
@@ -508,6 +661,7 @@ function easterTankThink(entity, world)
   return true
 end function
 
+// Spawn easter tank.
 function spawnEasterTank(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_BBOX
@@ -522,6 +676,7 @@ function spawnEasterTank(entity, world)
   return entity
 end function
 
+// Run easter chick.
 function easterChickThink(entity, world)
   entity.frame = entity.frame + 1
   if entity.frame >= 247 then entity.frame = 208 end if
@@ -530,6 +685,7 @@ function easterChickThink(entity, world)
   return true
 end function
 
+// Spawn easter chick.
 function spawnEasterChick(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_BBOX
@@ -544,6 +700,7 @@ function spawnEasterChick(entity, world)
   return entity
 end function
 
+// Run easter chick 2.
 function easterChick2Think(entity, world)
   entity.frame = entity.frame + 1
   if entity.frame >= 287 then entity.frame = 248 end if
@@ -552,6 +709,7 @@ function easterChick2Think(entity, world)
   return true
 end function
 
+// Spawn easter chick 2.
 function spawnEasterChick2(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_BBOX
@@ -566,6 +724,7 @@ function spawnEasterChick2(entity, world)
   return entity
 end function
 
+// Run satellite dish.
 function satelliteDishThink(entity, world)
   entity.frame = entity.frame + 1
   if entity.frame < 38 then
@@ -575,6 +734,7 @@ function satelliteDishThink(entity, world)
   return true
 end function
 
+// Use satellite dish.
 function satelliteDishUse(entity, other, activator, world)
   entity.frame = 0
   entity.think = satelliteDishThink
@@ -582,6 +742,7 @@ function satelliteDishUse(entity, other, activator, world)
   return true
 end function
 
+// Spawn satellite dish.
 function spawnSatelliteDish(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_BBOX
@@ -594,6 +755,7 @@ function spawnSatelliteDish(entity, world)
   return entity
 end function
 
+// Spawn light mine 2.
 function spawnLightMine2(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_BBOX
@@ -603,12 +765,14 @@ function spawnLightMine2(entity, world)
   return entity
 end function
 
+// Use viper.
 function viperUse(entity, other, activator, world)
   entity.serverFlags = entity.serverFlags & ~wmconstants.SVF_NOCLIENT
   entity.use = wmmovers.trainUse
   return wmmovers.trainUse(entity, other, activator, world)
 end function
 
+// Spawn viper.
 function spawnViper(entity, world)
   if entity.target == "" then
     wmcore.log(world, "misc_viper without a target")
@@ -633,6 +797,7 @@ function spawnViper(entity, world)
   return entity
 end function
 
+// Find world viper.
 function findWorldViper(world)
   for each candidate in world.entities
     if candidate.inUse and candidate.className == "misc_viper" then return candidate end if
@@ -640,6 +805,7 @@ function findWorldViper(world)
   return void
 end function
 
+// Run viper bomb pre.
 function viperBombPreThink(entity, world)
   entity.groundEntity = void
   difference = entity.timestamp - world.time
@@ -654,6 +820,7 @@ function viperBombPreThink(entity, world)
   return true
 end function
 
+// Handle viper bomb.
 function viperBombTouch(entity, other, world)
   wmcore.useTargets(world, entity, entity.activator)
   if entity.inUse == false then return false end if
@@ -663,6 +830,7 @@ function viperBombTouch(entity, other, world)
   return wmcore.freeEntity(world, entity)
 end function
 
+// Use viper bomb.
 function viperBombUse(entity, other, activator, world)
   viper = findWorldViper(world)
   if viper is void then
@@ -685,6 +853,7 @@ function viperBombUse(entity, other, activator, world)
   return true
 end function
 
+// Spawn viper bomb.
 function spawnViperBomb(entity, world)
   entity.moveType = wmconstants.MOVETYPE_NONE
   entity.solid = wmconstants.SOLID_NOT
@@ -717,6 +886,7 @@ function spawnTargetCharacter(entity, world)
   return entity
 end function
 
+// Return the target string frame value.
 function targetStringFrame(character)
   if character >= 48 and character <= 57 then return character - 48 end if
   if character == 45 then return 10 end if
@@ -724,6 +894,7 @@ function targetStringFrame(character)
   return 12
 end function
 
+// Use target string.
 function useTargetString(entity, other, activator, world)
   if typeof(entity.message) != "string" then return error(9490, "target_string message must be text") end if
   messageBytes = bytes(entity.message)
@@ -748,6 +919,7 @@ function useTargetString(entity, other, activator, world)
   return true
 end function
 
+// Spawn target string.
 function spawnTargetString(entity, world)
   if typeof(entity.message) != "string" then entity.message = "" end if
   entity.use = useTargetString
@@ -763,11 +935,13 @@ function worldClockTwoWide(value)
   return "" + value
 end function
 
+// Return the world clock two digits value.
 function worldClockTwoDigits(value)
   if value >= 0 and value < 10 then return "0" + value end if
   return "" + value
 end function
 
+// Format world clock value.
 function worldClockFormatValue(value, style)
   clockValue = worldclockbyteio.truncInt(value)
   if style == 0 then return worldClockTwoWide(clockValue) end if
@@ -782,6 +956,7 @@ function worldClockFormatValue(value, style)
   return worldClockTwoWide(hours) + ":" + worldClockTwoDigits(minutes) + ":" + worldClockTwoDigits(seconds)
 end function
 
+// Reset world clock.
 function resetWorldClock(entity)
   entity.activator = void
   if (entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 then
@@ -794,6 +969,7 @@ function resetWorldClock(entity)
   return entity
 end function
 
+// Return the world clock display value.
 function worldClockDisplay(entity, world)
   if (entity.spawnFlags & wmconstants.CLOCK_TIMER_UP) != 0 or
       (entity.spawnFlags & wmconstants.CLOCK_TIMER_DOWN) != 0 then
@@ -811,7 +987,9 @@ function worldClockDisplay(entity, world)
   return worldClockTwoWide(hours) + ":" + worldClockTwoDigits(minutes) + ":" + worldClockTwoDigits(remainder)
 end function
 
+// Run world clock.
 function worldClockThink(entity, world)
+  // Keep world clock think phases explicit: validate inputs, update owned state, then publish the result.
   display = entity.targetEntity
   if display is not void and typeof(display) != "struct" then return error(9494, "func_clock targetEntity must be an entity") end if
   if display is void or display.inUse == false then
@@ -858,6 +1036,7 @@ function worldClockThink(entity, world)
   return true
 end function
 
+// Use world clock.
 function useWorldClock(entity, other, activator, world)
   if (entity.spawnFlags & wmconstants.CLOCK_MULTI_USE) == 0 then entity.use = void end if
   if entity.activator is not void then return false end if
@@ -865,6 +1044,7 @@ function useWorldClock(entity, other, activator, world)
   return worldClockThink(entity, world)
 end function
 
+// Spawn world clock.
 function spawnWorldClock(entity, world)
   if entity.target == "" then
     wmcore.log(world, "func_clock with no target")
@@ -891,45 +1071,58 @@ function spawnWorldClock(entity, world)
   return entity
 end function
 
+// Spawn target character.
 function SP_target_character(entity, world)
   return spawnTargetCharacter(entity, world)
 end function
 
+// Spawn target string.
 function SP_target_string(entity, world)
   return spawnTargetString(entity, world)
 end function
 
+// Spawn func clock.
 function SP_func_clock(entity, world)
   return spawnWorldClock(entity, world)
 end function
 
+// Spawn point combat.
 function SP_point_combat(entity, world)
   return spawnPointCombat(entity, world, false)
 end function
+// Spawn info notnull.
 function SP_info_notnull(entity, world)
   return spawnInfoNotNull(entity, world)
 end function
+// Spawn misc blackhole.
 function SP_misc_blackhole(entity, world)
   return spawnBlackHole(entity, world)
 end function
+// Spawn misc eastertank.
 function SP_misc_eastertank(entity, world)
   return spawnEasterTank(entity, world)
 end function
+// Spawn misc easterchick.
 function SP_misc_easterchick(entity, world)
   return spawnEasterChick(entity, world)
 end function
+// Spawn misc easterchick 2.
 function SP_misc_easterchick2(entity, world)
   return spawnEasterChick2(entity, world)
 end function
+// Spawn misc satellite dish.
 function SP_misc_satellite_dish(entity, world)
   return spawnSatelliteDish(entity, world)
 end function
+// Spawn light mine 2.
 function SP_light_mine2(entity, world)
   return spawnLightMine2(entity, world)
 end function
+// Spawn misc viper.
 function SP_misc_viper(entity, world)
   return spawnViper(entity, world)
 end function
+// Spawn misc viper bomb.
 function SP_misc_viper_bomb(entity, world)
   return spawnViperBomb(entity, world)
 end function

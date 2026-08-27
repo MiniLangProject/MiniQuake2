@@ -13,27 +13,32 @@ import miniquake2.qcommon.types as pushertestqtypes
 
 blockedCount = 0
 
+// Assert the pusher test condition.
 function pusherAssert(value, message)
   if value != true then return error(9896, message) end if
   return true
 end function
 
+// Return the pusher near value.
 function pusherNear(actual, expected, tolerance, message)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
   return pusherAssert(difference <= tolerance, message)
 end function
 
+// Report whether record blocked.
 function recordBlocked(entity, other, world)
   global blockedCount
   blockedCount = blockedCount + 1
   return true
 end function
 
+// Report whether empty runtime.
 function emptyRuntime()
   return pushertestintegration.create(pushertestspawn.SpawnEntities("pusher", "{\"classname\" \"worldspawn\"}", ""))
 end function
 
+// Return the platform value.
 function platform(number)
   entity = pushertesttypes.createEntity(number, "func_train")
   entity.solid = pushertestconstants.SOLID_BSP
@@ -45,6 +50,7 @@ function platform(number)
   return entity
 end function
 
+// Return the repeated rotating pusher maps value.
 function repeatedRotatingPusherMaps()
   iteration = 0
   while iteration < 96
@@ -61,6 +67,7 @@ function repeatedRotatingPusherMaps()
       repeatedPusher.angularVelocity = pushertestqtypes.Vec3(0.0, 900.0, 0.0)
       repeatedRider = pushertesttypes.createEntity(number + 1, "repeated-rider")
       repeatedRider.solid = pushertestconstants.SOLID_BBOX
+      repeatedRider.moveType = pushertestconstants.MOVETYPE_TOSS
       repeatedRider.mins = pushertestqtypes.Vec3(-0.5, -0.5, 0.0)
       repeatedRider.maxs = pushertestqtypes.Vec3(0.5, 0.5, 1.0)
       repeatedRider.origin = pushertestqtypes.Vec3(baseX + 5.0, 0.0, 1.0)
@@ -92,6 +99,7 @@ moving = platform(10)
 moving.velocity = pushertestqtypes.Vec3(10.0, 0.0, 0.0)
 rider = pushertesttypes.createEntity(11, "rider")
 rider.solid = pushertestconstants.SOLID_BBOX
+rider.moveType = pushertestconstants.MOVETYPE_TOSS
 rider.mins = pushertestqtypes.Vec3(-1.0, -1.0, 0.0)
 rider.maxs = pushertestqtypes.Vec3(1.0, 1.0, 2.0)
 rider.origin = pushertestqtypes.Vec3(0.0, 0.0, 1.0)
@@ -114,6 +122,30 @@ pusherAssert(nativeRawValue(reusedState) == pusherCaptureIdentity and
     nativeRawValue(reusedState.bodies[0]) == bodySnapshotIdentity,
   "stable pusher/body topology replaced frame scratch storage")
 
+// A MOVETYPE_PUSH brush carries movable bodies before declaring itself
+// blocked. This is the stock door behavior that prevents a player from
+// remaining embedded at the reversal point and taking crush damage forever.
+runtime = emptyRuntime()
+doorPusher = platform(12)
+doorPusher.mins = pushertestqtypes.Vec3(-1.0, -1.0, -1.0)
+doorPusher.maxs = pushertestqtypes.Vec3(1.0, 1.0, 1.0)
+doorPusher.velocity = pushertestqtypes.Vec3(10.0, 0.0, 0.0)
+pushableBody = pushertesttypes.createEntity(13, "pushable-body")
+pushableBody.solid = pushertestconstants.SOLID_BBOX
+pushableBody.moveType = pushertestconstants.MOVETYPE_TOSS
+pushableBody.mins = pushertestqtypes.Vec3(-0.5, -0.5, -0.5)
+pushableBody.maxs = pushertestqtypes.Vec3(0.5, 0.5, 0.5)
+pushableBody.origin = pushertestqtypes.Vec3(1.5, 0.0, 0.0)
+pushertestworld.addEntity(runtime.world, doorPusher)
+pushertestworld.addEntity(runtime.world, pushableBody)
+state = pushertestphysics.capture(runtime)
+pushertestworld.runFrame(runtime.world)
+pushertestphysics.resolve(runtime, state)
+pusherAssert(doorPusher.origin.x == 1.0 and pushableBody.origin.x == 2.5,
+  "MOVETYPE_PUSH did not carry a contacted movable body")
+pusherAssert(blockedCount == 0,
+  "successfully carried body incorrectly dispatched blocked")
+
 runtime = emptyRuntime()
 rotating = platform(20)
 rotating.mins = pushertestqtypes.Vec3(-8.0, -8.0, -1.0)
@@ -121,6 +153,7 @@ rotating.maxs = pushertestqtypes.Vec3(8.0, 8.0, 1.0)
 rotating.angularVelocity = pushertestqtypes.Vec3(0.0, 900.0, 0.0)
 rotatingRider = pushertesttypes.createEntity(21, "rotating-rider")
 rotatingRider.solid = pushertestconstants.SOLID_BBOX
+rotatingRider.moveType = pushertestconstants.MOVETYPE_TOSS
 rotatingRider.mins = pushertestqtypes.Vec3(-0.5, -0.5, 0.0)
 rotatingRider.maxs = pushertestqtypes.Vec3(0.5, 0.5, 1.0)
 rotatingRider.origin = pushertestqtypes.Vec3(5.0, 0.0, 1.0)
@@ -135,10 +168,13 @@ pusherNear(rotatingRider.origin.y, 5.0, 0.01, "rotating platform carries rider a
 runtime = emptyRuntime()
 first = platform(30); first.team = "paired"; first.velocity = pushertestqtypes.Vec3(10.0, 0.0, 0.0)
 second = platform(31); second.team = "paired"; second.origin = pushertestqtypes.Vec3(20.0, 0.0, 0.0); second.velocity = pushertestqtypes.Vec3(10.0, 0.0, 0.0)
+first.moveType = pushertestconstants.MOVETYPE_STOP
+second.moveType = pushertestconstants.MOVETYPE_STOP
 first.mins = pushertestqtypes.Vec3(-1.0, -1.0, -1.0); first.maxs = pushertestqtypes.Vec3(1.0, 1.0, 1.0)
 second.mins = pushertestqtypes.Vec3(-1.0, -1.0, -1.0); second.maxs = pushertestqtypes.Vec3(1.0, 1.0, 1.0)
 obstacle = pushertesttypes.createEntity(32, "obstacle")
 obstacle.solid = pushertestconstants.SOLID_BBOX
+obstacle.moveType = pushertestconstants.MOVETYPE_TOSS
 obstacle.mins = pushertestqtypes.Vec3(-0.5, -0.5, -0.5); obstacle.maxs = pushertestqtypes.Vec3(0.5, 0.5, 0.5)
 obstacle.origin = pushertestqtypes.Vec3(2.0, 0.0, 0.0)
 pushertestworld.addEntity(runtime.world, first); pushertestworld.addEntity(runtime.world, second); pushertestworld.addEntity(runtime.world, obstacle)
@@ -149,6 +185,30 @@ pushertestphysics.resolve(runtime, state)
 pusherAssert(first.origin.x == 0.0 and second.origin.x == 20.0, "blocked team rolls every member back")
 pusherAssert(first.teamMaster.number == first.number and second.teamMaster.number == first.number, "team master and slave synchronized")
 pusherAssert(blockedCount == 1, "blocked callback dispatched once")
+
+// Static managed helpers are excluded by BaseQ2 SV_Push. Treating an
+// overlapping MOVETYPE_NONE bbox as an obstacle made retail door teams reverse
+// continuously and could repeatedly crush the player at their seam.
+runtime = emptyRuntime()
+staticDoor = platform(40)
+staticDoor.mins = pushertestqtypes.Vec3(-1.0, -1.0, -1.0)
+staticDoor.maxs = pushertestqtypes.Vec3(1.0, 1.0, 1.0)
+staticDoor.velocity = pushertestqtypes.Vec3(10.0, 0.0, 0.0)
+staticHelper = pushertesttypes.createEntity(41, "static-helper")
+staticHelper.solid = pushertestconstants.SOLID_BBOX
+staticHelper.moveType = pushertestconstants.MOVETYPE_NONE
+staticHelper.mins = pushertestqtypes.Vec3(-0.5, -0.5, -0.5)
+staticHelper.maxs = pushertestqtypes.Vec3(0.5, 0.5, 0.5)
+staticHelper.origin = pushertestqtypes.Vec3(1.5, 0.0, 0.0)
+pushertestworld.addEntity(runtime.world, staticDoor)
+pushertestworld.addEntity(runtime.world, staticHelper)
+state = pushertestphysics.capture(runtime)
+pushertestworld.runFrame(runtime.world)
+pushertestphysics.resolve(runtime, state)
+pusherAssert(staticDoor.origin.x == 1.0,
+  "MOVETYPE_NONE helper incorrectly blocked a door")
+pusherAssert(blockedCount == 1,
+  "ignored static helper dispatched an extra blocked callback")
 
 repeatedRotatingPusherMaps()
 malformedBounds = try(pushertestphysics.rotatedBounds(void, pushertestqtypes.zeroVec3(),

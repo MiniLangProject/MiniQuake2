@@ -14,6 +14,7 @@ import miniquake2.network.runtime.unicast_dispatch as nrur_dispatch
 import miniquake2.runtime.server_session as nrur_session
 import miniquake2.server.types as nrur_stypes
 
+// Assert the unicast route test condition.
 function unicastRouteAssert(value, label)
   if value != true then return error(8469, label) end if
   return true

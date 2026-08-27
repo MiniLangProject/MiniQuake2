@@ -7,8 +7,10 @@ import miniquake2.qcommon.filesystem as campaigncoveragefilesystem
 import miniquake2.format.bsp as campaigncoveragebsp
 import miniquake2.game.base.entity_parser as campaigncoverageparser
 import miniquake2.game.ai.combat_profiles as campaigncoveragecombat
+import miniquake2.game.base.spawn_registry as campaigncoverageregistry
 import std.string as campaigncoveragestring
 
+// Store campaign coverage entry data.
 struct CampaignCoverageEntry
   className
   instances
@@ -21,6 +23,7 @@ struct CampaignCoverageEntry
   behavior
 end struct
 
+// Return the campaign coverage maps value.
 function campaignCoverageMaps()
   return [
     "base1", "base2", "base3", "biggun", "boss1", "boss2", "bunk1",
@@ -32,6 +35,7 @@ function campaignCoverageMaps()
   ]
 end function
 
+// Report whether campaign coverage contains.
 function campaignCoverageContains(values, value)
   for each candidate in values
     if candidate == value then return true end if
@@ -39,6 +43,7 @@ function campaignCoverageContains(values, value)
   return false
 end function
 
+// Return the campaign coverage boss value.
 function campaignCoverageBoss(name)
   return campaignCoverageContains([
     "monster_supertank", "monster_boss2", "monster_jorg",
@@ -46,15 +51,18 @@ function campaignCoverageBoss(name)
   ], name)
 end function
 
+// Return the campaign coverage objective value.
 function campaignCoverageObjective(name)
   if campaigncoveragestring.startsWith(name, "target_") or campaigncoveragestring.startsWith(name, "trigger_") then return true end if
   return campaignCoverageContains(["func_clock", "func_killbox", "path_corner", "point_combat"], name)
 end function
 
+// Return the campaign coverage simplified value.
 function campaignCoverageSimplified(name)
   return false
 end function
 
+// Return the campaign coverage behavior value.
 function campaignCoverageBehavior(name, isMonster, isBoss, isSimplified)
   if isSimplified then return "generic/simplified" end if
   if name == "misc_insane" then return "ai:misc-insane" end if
@@ -67,9 +75,13 @@ function campaignCoverageBehavior(name, isMonster, isBoss, isSimplified)
     if isBoss then return "generic-boss-ai" end if
     return "generic-ai"
   end if
-  return "functional-world"
+  // Presence in a retail BSP plus presence in the spawn table is not by
+  // itself callback-parity evidence. Keep this matrix honest and leave the
+  // behavior claim to focused executable regressions.
+  return "registered/world-behavior-audit-required"
 end function
 
+// Find campaign coverage.
 function campaignCoverageFind(entries, name)
   for each entry in entries
     if entry.className == name then return entry end if
@@ -77,6 +89,7 @@ function campaignCoverageFind(entries, name)
   return void
 end function
 
+// Add campaign coverage.
 function campaignCoverageAdd(entries, name, mapName)
   entry = campaignCoverageFind(entries, name)
   if entry is void then
@@ -94,9 +107,11 @@ function campaignCoverageAdd(entries, name, mapName)
   return entries
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) > 1 then return error(9840, "expected optional Quake II install root") end if
   maps = campaignCoverageMaps()
+  registry = campaigncoverageregistry.defaultRegistry()
   if len(maps) != 39 then return error(9841, "campaign map inventory changed") end if
   if len(args) == 0 then
     // The canonical build must remain asset-free. Exercise the matrix rules
@@ -113,6 +128,13 @@ function main(args)
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_breach", "jail5")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "turret_driver", "jail5")
     syntheticEntries = campaignCoverageAdd(syntheticEntries, "monster_berserk", "base1")
+    for each syntheticEntry in syntheticEntries
+      if campaigncoverageregistry.find(registry,
+          syntheticEntry.className) is void then
+        return error(9849, "synthetic campaign classname is not registered: " +
+          syntheticEntry.className)
+      end if
+    end for
     jorg = campaignCoverageFind(syntheticEntries, "monster_jorg")
     counter = campaignCoverageFind(syntheticEntries, "trigger_counter")
     point = campaignCoverageFind(syntheticEntries, "point_combat")
@@ -130,7 +152,8 @@ function main(args)
     if counter is void or not counter.objective or counter.simplified then
       return error(9843, "synthetic objective coverage classification failed")
     end if
-    if point is void or not point.objective or point.simplified or point.behavior != "functional-world" then
+    if point is void or not point.objective or point.simplified or
+        point.behavior != "registered/world-behavior-audit-required" then
       return error(9844, "synthetic point_combat coverage classification failed")
     end if
     if insane is void or not insane.monster or insane.simplified or insane.behavior != "ai:misc-insane" then
@@ -160,6 +183,10 @@ function main(args)
     entities = campaigncoverageparser.parseMaterializedEntities(map.entityText)
     raw = raw + len(entities)
     for each entity in entities
+      if campaigncoverageregistry.find(registry, entity.className) is void then
+        return error(9849, "retail campaign classname is not registered: " +
+          mapName + ":" + entity.className)
+      end if
       entries = campaignCoverageAdd(entries, entity.className, mapName)
       if campaignCoverageBoss(entity.className) then
         print("  boss-instance map=" + mapName + " class=" + entity.className +
@@ -181,7 +208,8 @@ function main(args)
   monsterInstances = 0; monsterClasses = 0
   bossInstances = 0; bossClasses = 0
   simplifiedInstances = 0; simplifiedClasses = 0
-  print("baseq2_campaign_behavior_coverage_tests: MATRIX")
+  print("baseq2_campaign_behavior_coverage_tests: MATRIX " +
+    "(registration verified; callback parity requires focused tests)")
   for each entry in entries
     if entry.objective then objectiveInstances = objectiveInstances + entry.instances; objectiveClasses = objectiveClasses + 1 end if
     if entry.monster then monsterInstances = monsterInstances + entry.instances; monsterClasses = monsterClasses + 1 end if

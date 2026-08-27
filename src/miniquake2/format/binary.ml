@@ -7,6 +7,7 @@ package miniquake2.format.binary
 
 import miniquake2.native as native
 
+// Require range.
 function requireRange(data, offset, count)
   if typeof(data) != "bytes" then return error(2100, "byte buffer required") end if
   if offset < 0 or count < 0 or offset > len(data) or count > len(data) - offset then
@@ -15,43 +16,51 @@ function requireRange(data, offset, count)
   return true
 end function
 
+// Return the u 8 value.
 function inline u8(data, offset)
   requireRange(data, offset, 1)
   return data[offset]
 end function
 
+// Return the i 8 value.
 function inline i8(data, offset)
   value = u8(data, offset)
   if value >= 128 then value = value - 256 end if
   return value
 end function
 
+// Return the u 16 value.
 function inline u16(data, offset)
   requireRange(data, offset, 2)
   return data[offset] | (data[offset + 1] << 8)
 end function
 
+// Return the i 16 value.
 function inline i16(data, offset)
   value = u16(data, offset)
   if value >= 0x8000 then value = value - 0x10000 end if
   return value
 end function
 
+// Return the u 32 value.
 function u32(data, offset)
   requireRange(data, offset, 4)
   return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24)
 end function
 
+// Return the i 32 value.
 function i32(data, offset)
   value = u32(data, offset)
   if value >= 0x80000000 then value = value - 0x100000000 end if
   return value
 end function
 
+// Return the f 32 value.
 function inline f32(data, offset)
   return native.bitsFloat(u32(data, offset))
 end function
 
+// Return the fixed string value.
 function fixedString(data, offset, capacity)
   requireRange(data, offset, capacity)
   count = 0
@@ -64,6 +73,7 @@ function fixedString(data, offset, capacity)
   return value
 end function
 
+// Write u 16.
 function putU16(data, offset, value)
   requireRange(data, offset, 2)
   data[offset] = value & 255
@@ -71,6 +81,7 @@ function putU16(data, offset, value)
   return offset + 2
 end function
 
+// Write u 32.
 function putU32(data, offset, value)
   requireRange(data, offset, 4)
   data[offset] = value & 255

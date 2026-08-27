@@ -10,21 +10,25 @@ import miniquake2.renderer.types as rspecialtestrtypes
 import miniquake2.renderer.opengl as rspecialtestopengl
 import miniquake2.renderer.classic.special as rspecialtestspecial
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7997, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, epsilon, name)
   delta = actual - expected
   if delta < 0.0 then delta = -delta end if
   if delta > epsilon then return error(7998, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Write special u 32.
 function specialPutU32(data, offset, value)
   data[offset] = value & 255; data[offset + 1] = (value >> 8) & 255
   data[offset + 2] = (value >> 16) & 255; data[offset + 3] = (value >> 24) & 255
 end function
 
+// Write special text.
 function specialPutText(data, offset, value)
   encoded = bytes(value)
   index = 0
@@ -34,6 +38,7 @@ function specialPutText(data, offset, value)
   end while
 end function
 
+// Return the special palette pcx value.
 function specialPalettePcx()
   data = bytes(899)
   data[0] = 0x0a; data[1] = 5; data[2] = 1; data[3] = 8
@@ -43,6 +48,7 @@ function specialPalettePcx()
   return data
 end function
 
+// Return the special wal value.
 function specialWal(name)
   data = bytes(107)
   specialPutText(data, 0, name)
@@ -54,6 +60,7 @@ function specialWal(name)
   return data
 end function
 
+// Load special file.
 function loadSpecialFile(path)
   if path == "pics/colormap.pcx" then return specialPalettePcx() end if
   if path == "env/unit_rt.pcx" then return specialPalettePcx() end if
@@ -70,6 +77,7 @@ function loadSpecialFile(path)
   return void
 end function
 
+// Map special.
 function specialMap()
   vertices = [
     rspecialtestformattypes.BspVertex(rspecialtestformattypes.Vec3(32.0, -8.0, -8.0)), rspecialtestformattypes.BspVertex(rspecialtestformattypes.Vec3(32.0, 8.0, -8.0)),
@@ -97,6 +105,7 @@ function specialMap()
   )
 end function
 
+// Find special draw.
 function findSpecialDraw(world, surfaceIndex)
   for each draw in world.draws
     if draw.surface.index == surfaceIndex then return draw end if
@@ -104,6 +113,7 @@ function findSpecialDraw(world, surfaceIndex)
   return void
 end function
 
+// Verify special world plan and golden coordinates.
 function testSpecialWorldPlanAndGoldenCoordinates()
   renderer = rspecialtestopengl.createOpenGlRenderer(false)
   renderer.exports.Init(void, void)

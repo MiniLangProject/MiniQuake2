@@ -32,22 +32,26 @@ TOKEN = re.compile(r'"([^"]*)"|([{}])|(\S+)')
 
 
 class InventoryError(RuntimeError):
+    """Store inventory error data."""
     pass
 
 
 @dataclass(frozen=True)
 class PackEntry:
+    """Store pack entry data."""
     pack: pathlib.Path
     offset: int
     size: int
 
 
 def _baseq2_directory(root: pathlib.Path) -> pathlib.Path:
+    """Return the baseq 2 directory value."""
     candidate = root / "baseq2"
     return candidate if candidate.is_dir() else root
 
 
 def _pack_entries(baseq2: pathlib.Path) -> dict[str, PackEntry]:
+    """Pack entries."""
     result: dict[str, PackEntry] = {}
     packs = sorted(baseq2.glob("pak*.pak"), key=lambda path: path.name.lower())
     if not packs:
@@ -76,6 +80,7 @@ def _pack_entries(baseq2: pathlib.Path) -> dict[str, PackEntry]:
 
 
 def _read_member(entry: PackEntry) -> bytes:
+    """Read member."""
     with entry.pack.open("rb") as stream:
         stream.seek(entry.offset)
         data = stream.read(entry.size)
@@ -85,6 +90,7 @@ def _read_member(entry: PackEntry) -> bytes:
 
 
 def _entity_text(bsp: bytes, member_name: str) -> str:
+    """Return the entity text value."""
     if len(bsp) < 8 + 19 * BSP_LUMP.size or bsp[:4] != b"IBSP":
         raise InventoryError(f"not a BSP38 file: {member_name}")
     version = struct.unpack_from("<i", bsp, 4)[0]
@@ -97,6 +103,7 @@ def _entity_text(bsp: bytes, member_name: str) -> str:
 
 
 def _tokens(text: str) -> Iterable[str]:
+    """Return the tokens value."""
     for match in TOKEN.finditer(text):
         quoted, brace, bare = match.groups()
         if quoted is not None:
@@ -108,6 +115,7 @@ def _tokens(text: str) -> Iterable[str]:
 
 
 def _classes(text: str, map_name: str) -> collections.Counter[str]:
+    """Return the classes value."""
     values = iter(_tokens(text))
     classes: collections.Counter[str] = collections.Counter()
     entities = 0
@@ -142,6 +150,7 @@ def _classes(text: str, map_name: str) -> collections.Counter[str]:
 
 
 def inventory(root: pathlib.Path) -> tuple[pathlib.Path, dict[str, collections.Counter[str]]]:
+    """Return the inventory value."""
     baseq2 = _baseq2_directory(root.resolve())
     entries = _pack_entries(baseq2)
     maps: dict[str, collections.Counter[str]] = {}
@@ -156,6 +165,7 @@ def inventory(root: pathlib.Path) -> tuple[pathlib.Path, dict[str, collections.C
 
 
 def _run_smokes(executable: pathlib.Path, root: pathlib.Path, maps: Iterable[str]) -> dict[str, dict[str, object]]:
+    """Run smokes."""
     if not executable.is_file():
         raise InventoryError(f"MiniQuake2 executable not found: {executable}")
     results: dict[str, dict[str, object]] = {}
@@ -187,6 +197,7 @@ def _run_smokes(executable: pathlib.Path, root: pathlib.Path, maps: Iterable[str
 
 
 def _report(baseq2: pathlib.Path, maps: dict[str, collections.Counter[str]], smokes: dict[str, dict[str, object]]) -> dict[str, object]:
+    """Return the report value."""
     totals: collections.Counter[str] = collections.Counter()
     map_rows = []
     for map_name, classes in maps.items():
@@ -213,6 +224,7 @@ def _report(baseq2: pathlib.Path, maps: dict[str, collections.Counter[str]], smo
 
 
 def main() -> int:
+    """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=pathlib.Path, help="Quake II install root or baseq2 directory")
     parser.add_argument("--exe", type=pathlib.Path, help="run --asset-smoke for every discovered map")

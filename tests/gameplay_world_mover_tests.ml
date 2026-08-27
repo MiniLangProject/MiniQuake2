@@ -16,11 +16,13 @@ soundEvents = []
 centerEvents = []
 killBoxCount = 0
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9970, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -28,42 +30,50 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Record portal.
 function recordPortal(style, isOpen)
   global portalEvents
   portalEvents = portalEvents + [[style, isOpen]]
   return true
 end function
+// Record damage.
 function recordDamage(target, inflictor, attacker, amount, means)
   global damageEvents
   damageEvents = damageEvents + [[target.number, amount, means]]
   return true
 end function
+// Record radius.
 function recordRadius(inflictor, attacker, amount, radius, means)
   global damageEvents
   damageEvents = damageEvents + [[inflictor.number, amount, radius]]
   return true
 end function
+// Record effect.
 function recordEffect(kind, origin, style, count)
   global effectEvents
   effectEvents = effectEvents + [[kind, style, count]]
   return true
 end function
+// Record sound.
 function recordSound(entity, soundName)
   global soundEvents
   soundEvents = soundEvents + [soundName]
   return true
 end function
+// Record center.
 function recordCenter(entity, message)
   global centerEvents
   centerEvents = centerEvents + [message]
   return true
 end function
+// Record kill box.
 function recordKillBox(entity)
   global killBoxCount
   killBoxCount = killBoxCount + 1
   return true
 end function
 
+// Create world.
 function makeWorld()
   global portalEvents
   global damageEvents
@@ -88,6 +98,7 @@ function makeWorld()
   return gwcore.createWorld(callbacks)
 end function
 
+// Verify trigger counter and hurt parity.
 function testTriggerCounterAndHurtParity()
   global centerEvents
   global soundEvents
@@ -147,6 +158,7 @@ function testTriggerCounterAndHurtParity()
   return true
 end function
 
+// Verify trigger message sounds.
 function testTriggerMessageSounds()
   global soundEvents
   world = makeWorld()
@@ -172,6 +184,7 @@ function testTriggerMessageSounds()
   return true
 end function
 
+// Find class.
 function findClass(world, className)
   for each entity in world.entities
     if entity.inUse and entity.className == className then return entity end if
@@ -179,6 +192,7 @@ function findClass(world, className)
   return void
 end function
 
+// Verify stock trigger parity gaps.
 function testStockTriggerParityGaps()
   global damageEvents
   global soundEvents
@@ -239,6 +253,7 @@ function testStockTriggerParityGaps()
   return true
 end function
 
+// Verify conveyor parity.
 function testConveyorParity()
   world = makeWorld()
   conveyor = gwcore.spawnEntity(world, "func_conveyor")
@@ -263,6 +278,7 @@ function testConveyorParity()
   return true
 end function
 
+// Verify automatic door and plat triggers.
 function testAutomaticDoorAndPlatTriggers()
   world = makeWorld()
   door = gwcore.spawnEntity(world, "func_door")
@@ -280,6 +296,11 @@ function testAutomaticDoorAndPlatTriggers()
   player.health = 100
   gwcore.touchEntity(world, doorTrigger, player)
   assertEqual(door.moveInfo.state, gwconstants.STATE_UP, "door trigger opens owner")
+  gwcore.blockedEntity(world, door, player)
+  assertEqual(damageEvents[len(damageEvents) - 1][1], 2,
+    "ordinary door applies stock two-point crush damage")
+  assertEqual(door.moveInfo.state, gwconstants.STATE_DOWN,
+    "ordinary door reverses after blocking a player")
 
   world = makeWorld()
   noMonsterDoor = gwcore.spawnEntity(world, "func_door")
@@ -318,16 +339,19 @@ function testAutomaticDoorAndPlatTriggers()
   return true
 end function
 
+// Report whether movement finished.
 function movementFinished(entity, world)
   entity.count = entity.count + 1
   return true
 end function
 
+// Return the count uses value.
 function countUses(entity, other, activator, world)
   entity.count = entity.count + 1
   return true
 end function
 
+// Verify linear and accelerated move.
 function testLinearAndAcceleratedMove()
   world = makeWorld()
   linear = gwcore.spawnEntity(world, "linear")
@@ -352,6 +376,7 @@ function testLinearAndAcceleratedMove()
   return true
 end function
 
+// Verify button.
 function testButton()
   world = makeWorld()
   receiver = gwcore.spawnEntity(world, "receiver")
@@ -375,7 +400,9 @@ function testButton()
   return true
 end function
 
+// Verify door and portal.
 function testDoorAndPortal()
+  // Keep test door and portal phases explicit: validate inputs, update owned state, then publish the result.
   global centerEvents
   global soundEvents
   world = makeWorld()
@@ -501,6 +528,7 @@ function testDoorAndPortal()
   return true
 end function
 
+// Verify water and secret door.
 function testWaterAndSecretDoor()
   global soundEvents
   world = makeWorld()
@@ -555,6 +583,7 @@ function testWaterAndSecretDoor()
   return true
 end function
 
+// Verify plat and train.
 function testPlatAndTrain()
   world = makeWorld()
   plat = gwcore.spawnEntity(world, "func_plat")
@@ -586,6 +615,7 @@ function testPlatAndTrain()
   return true
 end function
 
+// Verify timer.
 function testTimer()
   world = makeWorld()
   receiver = gwcore.spawnEntity(world, "receiver")
@@ -607,6 +637,7 @@ function testTimer()
   return true
 end function
 
+// Verify explosive.
 function testExplosive()
   world = makeWorld()
   attacker = gwcore.spawnEntity(world, "player")
@@ -634,6 +665,7 @@ function testExplosive()
   return true
 end function
 
+// Verify repeated linear and rotating mover maps.
 function testRepeatedLinearAndRotatingMoverMaps()
   iteration = 0
   while iteration < 256
@@ -669,6 +701,7 @@ function testRepeatedLinearAndRotatingMoverMaps()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   testTriggerCounterAndHurtParity()
   testTriggerMessageSounds()

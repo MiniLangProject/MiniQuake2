@@ -20,6 +20,7 @@ const MODE_COOP = "coop"
 const MIN_CLIENT_COUNT = 2
 const MAX_CLIENT_COUNT = 8
 
+// Store multiplayer step result data.
 struct MultiplayerStepResult
   clientStates
   serverStates
@@ -30,6 +31,7 @@ struct MultiplayerStepResult
   packetsRejected
 end struct
 
+// Store multiplayer session data.
 struct MultiplayerSession
   mode
   server
@@ -39,6 +41,7 @@ struct MultiplayerSession
   closed
 end struct
 
+// Validate mode.
 function validateMode(mode)
   if mode != MODE_DEATHMATCH and mode != MODE_COOP then
     return error(8400, "multiplayer mode must be deathmatch or coop")
@@ -46,6 +49,7 @@ function validateMode(mode)
   return true
 end function
 
+// Validate user infos.
 function validateUserInfos(userInfos)
   if typeof(userInfos) != "array" or len(userInfos) < MIN_CLIENT_COUNT or
       len(userInfos) > MAX_CLIENT_COUNT then
@@ -61,6 +65,7 @@ function validateUserInfos(userInfos)
   return true
 end function
 
+// Wrap state.
 function wrap(mode, server, userInfos)
   validateMode(mode)
   validateUserInfos(userInfos)
@@ -81,10 +86,12 @@ function wrap(mode, server, userInfos)
     mpsWrappedUserInfos, 0, false)
 end function
 
+// Create core.
 function createCore(mode, mapName, entityText, collision, userInfos)
   return createCoreAtSkill(mode, mapName, entityText, collision, userInfos, 1)
 end function
 
+// Create core at skill.
 function createCoreAtSkill(mode, mapName, entityText, collision, userInfos, skill)
   validateMode(mode)
   validateUserInfos(userInfos)
@@ -96,10 +103,12 @@ function createCoreAtSkill(mode, mapName, entityText, collision, userInfos, skil
   return wrap(mode, mpsCreatedServer, userInfos)
 end function
 
+// Create retail.
 function createRetail(mode, baseDirectory, mapName, userInfos)
   return createRetailAtSkill(mode, baseDirectory, mapName, userInfos, 1)
 end function
 
+// Create retail at skill.
 function createRetailAtSkill(mode, baseDirectory, mapName, userInfos, skill)
   validateMode(mode)
   validateUserInfos(userInfos)
@@ -111,6 +120,7 @@ function createRetailAtSkill(mode, baseDirectory, mapName, userInfos, skill)
   return wrap(mode, mpsRetailServer, userInfos)
 end function
 
+// Return the checked client index.
 function checkedClientIndex(session, clientIndex, operation)
   if session.closed then return error(8404, operation + ": multiplayer session is closed") end if
   if typeof(clientIndex) != "int" or clientIndex < 0 or clientIndex >= len(session.clients) then
@@ -119,6 +129,7 @@ function checkedClientIndex(session, clientIndex, operation)
   return clientIndex
 end function
 
+// Return the server slot value.
 function serverSlot(session, clientIndex)
   checkedClientIndex(session, clientIndex, "serverSlot")
   mpsSlotClient = session.clients[clientIndex]
@@ -129,12 +140,14 @@ function serverSlot(session, clientIndex)
   return mpsPlayerNumber
 end function
 
+// Return the player value.
 function player(session, clientIndex)
   mpsPlayerSlot = serverSlot(session, clientIndex)
   if mpsPlayerSlot < 0 then return void end if
   return mpsgameapi.findPlayer(mpsPlayerSlot + 1)
 end function
 
+// Synchronize scores.
 function synchronizeScores(session)
   mpsScoreIndex = 0
   while mpsScoreIndex < len(session.clients)
@@ -150,6 +163,7 @@ function synchronizeScores(session)
   return true
 end function
 
+// Report whether active clients.
 function activeClients(session)
   if session.closed then return 0 end if
   mpsActiveCount = 0
@@ -169,10 +183,12 @@ function activeClients(session)
   return mpsActiveCount
 end function
 
+// Return the signon complete value.
 function signonComplete(session)
   return activeClients(session) == len(session.clients)
 end function
 
+// Return the result value.
 function result(session)
   mpsClientStates = array(len(session.clients), mpsnetworkconstants.CA_DISCONNECTED)
   mpsServerStates = array(len(session.clients), mpsnetworkconstants.CS_FREE)
@@ -199,6 +215,7 @@ function result(session)
     mpsResultReceived, mpsResultSent, mpsResultRejected)
 end function
 
+// Advance state.
 function step(session)
   if session.closed then return error(8404, "step: multiplayer session is closed") end if
   mpsStepIndex = 0
@@ -219,6 +236,7 @@ function step(session)
   return result(session)
 end function
 
+// Report whether run until active.
 function runUntilActive(session, maximumSteps)
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
     return error(8406, "multiplayer signon step limit must be positive")
@@ -234,6 +252,7 @@ function runUntilActive(session, maximumSteps)
   return mpsActivationResult
 end function
 
+// Queue user cmd.
 function queueUserCmd(session, clientIndex, command)
   checkedClientIndex(session, clientIndex, "queueUserCmd")
   mpsCommandClient = session.clients[clientIndex]
@@ -241,6 +260,7 @@ function queueUserCmd(session, clientIndex, command)
   return mpsclientsession.queueUserCmd(mpsCommandClient, command)
 end function
 
+// Set user info.
 function setUserInfo(session, clientIndex, userInfo)
   checkedClientIndex(session, clientIndex, "setUserInfo")
   if typeof(userInfo) != "string" or userInfo == "" then
@@ -260,12 +280,14 @@ function setUserInfo(session, clientIndex, userInfo)
   return mpsUserInfoSent
 end function
 
+// Report whether take queued map.
 function takeQueuedMap(session)
   if session.closed then return error(8404, "takeQueuedMap: multiplayer session is closed") end if
   return mpsmediasequence.takeQueuedGameMap(
     session.server.bridgeRuntime.commands)
 end function
 
+// Map change core.
 function changeMapCore(session, mapName, entityText, collision, maximumSteps)
   if session.closed then return error(8404, "changeMapCore: multiplayer session is closed") end if
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
@@ -289,6 +311,7 @@ function changeMapCore(session, mapName, entityText, collision, maximumSteps)
   return error(8418, "multiplayer core map change remained deferred")
 end function
 
+// Map change retail.
 function changeMapRetail(session, baseDirectory, mapName, maximumSteps)
   if session.closed then return error(8404, "changeMapRetail: multiplayer session is closed") end if
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
@@ -312,6 +335,7 @@ function changeMapRetail(session, baseDirectory, mapName, maximumSteps)
   return error(8421, "multiplayer retail map change remained deferred")
 end function
 
+// Report whether snapshot has entity.
 function snapshotHasEntity(session, clientIndex, entityNumber)
   checkedClientIndex(session, clientIndex, "snapshotHasEntity")
   mpsSnapshotClient = session.clients[clientIndex]
@@ -367,16 +391,19 @@ function prepareCombatPair(session, attackerIndex, victimIndex, distance)
   return true
 end function
 
+// Prepare duel.
 function prepareDuel(session, attackerIndex, victimIndex, distance)
   if session.mode != MODE_DEATHMATCH then return error(8409, "duel helper requires deathmatch mode") end if
   return prepareCombatPair(session, attackerIndex, victimIndex, distance)
 end function
 
+// Prepare coop pair.
 function prepareCoopPair(session, attackerIndex, victimIndex, distance)
   if session.mode != MODE_COOP then return error(8423, "coop combat helper requires cooperative mode") end if
   return prepareCombatPair(session, attackerIndex, victimIndex, distance)
 end function
 
+// Handle item.
 function touchItem(session, clientIndex, className)
   if session.mode != MODE_COOP then return error(8412, "coop item helper requires coop mode") end if
   if typeof(className) != "string" or className == "" then return error(8413, "coop item classname is missing") end if
@@ -389,6 +416,7 @@ function touchItem(session, clientIndex, className)
     mpsItemPlayer, mpsgameapi.playerContext())
 end function
 
+// Return the disconnect client value.
 function disconnectClient(session, clientIndex)
   checkedClientIndex(session, clientIndex, "disconnectClient")
   mpsDisconnectClient = session.clients[clientIndex]
@@ -418,6 +446,7 @@ function disconnectClient(session, clientIndex)
   return mpsDisconnected
 end function
 
+// Return the reconnect client value.
 function reconnectClient(session, clientIndex, userInfo)
   checkedClientIndex(session, clientIndex, "reconnectClient")
   mpsReconnectPrevious = session.clients[clientIndex]
@@ -431,6 +460,7 @@ function reconnectClient(session, clientIndex, userInfo)
   return mpsReconnectClient
 end function
 
+// Shut down state.
 function shutdown(session)
   if session.closed then return false end if
   mpsShutdownIndex = 0

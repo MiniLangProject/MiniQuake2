@@ -10,6 +10,7 @@ import miniquake2.game.null_game as dodgegame
 import miniquake2.qcommon.types as dodgeqtypes
 import miniquake2.server.game_bridge as dodgebridge
 
+// Assert the dodge test condition.
 function dodgeAssert(value, message)
   if value != true then return error(9977, message) end if
   return true

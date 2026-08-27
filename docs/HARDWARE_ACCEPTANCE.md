@@ -37,6 +37,10 @@ claim that playback ran through each one.
 ## Product results
 
 - the live renderer changed from a 640x480 window to 1920x1080 exclusive fullscreen;
+- a requested 3840x2160 fullscreen restart on the current 2560x1440 primary
+  output remained live through the desktop-resolution borderless fallback;
+- an injected replacement-window failure rebuilt the last known-good window,
+  OpenGL context and renderer instead of terminating the product;
 - the native window and GL context were destroyed and recreated exactly once;
 - `base1` BSP/WAL/lightmap/model resources were registered again;
 - Win32 desktop metrics changed to 1920x1080 for the exclusive mode and were restored on shutdown;

@@ -7,15 +7,20 @@ import miniquake2.game.base.spawn as rareintegrationbase
 import miniquake2.game.integration.baseq2 as rareintegration
 import miniquake2.game.null_game as rareintegrationgame
 import miniquake2.game.constants as rareintegrationgameconstants
+import miniquake2.game.gameplay.item_rules as rareintegrationitems
+import miniquake2.game.gameplay.registry as rareintegrationregistry
+import miniquake2.game.player.types as rareintegrationplayers
 import miniquake2.game.world.constants as rareintegrationconstants
 import miniquake2.game.world.core as rareintegrationworld
 import miniquake2.server.game_bridge as rareintegrationbridge
 import miniquake2.server.sound_events as rareintegrationsounds
 
+// Require true.
 function requireTrue(value, label)
   if value != true then return error(9991, label) end if
 end function
 
+// Return the rare name index.
 function rareNameIndex(values, value)
   index = 1
   while index < len(values)
@@ -25,6 +30,7 @@ function rareNameIndex(values, value)
   return 0
 end function
 
+// Return the rare world class count.
 function rareWorldClassCount(runtime, className)
   count = 0
   for each candidate in runtime.world.entities
@@ -33,6 +39,7 @@ function rareWorldClassCount(runtime, className)
   return count
 end function
 
+// Return the rare world event value.
 function rareWorldEvent(runtime, kind)
   found = void
   for each event in runtime.world.events
@@ -137,6 +144,36 @@ requireTrue(bossUse is not void and bossProp is not void and bossProp.edict.inUs
   "boss prop target proxy product wiring")
 requireTrue(rareintegrationworld.useEntity(runtime.world, bossUse, void, void) and bossProp.edict.inUse == false,
   "world target dispatch reaches boss prop use")
+
+// BaseQ2 identifies power cubes by their spawnflag-derived bit, not merely by
+// the aggregate key_power_cube inventory count. trigger_key consumes the same
+// concrete cube bit from every connected cooperative player.
+rareKeyServer = rareintegrationbridge.createRuntime(2)
+rareKeyRegistry = rareintegrationregistry.stockRegistry()
+rareKeyContext = rareintegrationplayers.createContext(
+  rareintegrationbridge.makeImports(rareKeyServer), rareKeyRegistry, void)
+rareKeyContext.cooperative = true
+rareKeyFirst = rareintegrationplayers.createPlayer(1, rareKeyRegistry)
+rareKeySecond = rareintegrationplayers.createPlayer(2, rareKeyRegistry)
+rareKeyFirst.edict.inUse = true
+rareKeySecond.edict.inUse = true
+rareKeyContext.players = [rareKeyFirst, rareKeySecond]
+runtime.playerContext = rareKeyContext
+rareCube = rareintegrationitems.findByClassName(rareKeyRegistry,
+  "key_power_cube")
+rareKeyFirst.gameplay.inventory.counts[rareCube.index] = 2
+rareKeyFirst.gameplay.powerCubes = 3
+rareKeySecond.gameplay.inventory.counts[rareCube.index] = 1
+rareKeySecond.gameplay.powerCubes = 1
+rareKeyProxy = rareintegration.playerWorldProxy(rareKeyFirst)
+requireTrue(rareintegration.integratedConsumeKeyItem(rareKeyProxy,
+  "key_power_cube"), "cooperative power cube is consumed")
+requireTrue(rareKeyFirst.gameplay.inventory.counts[rareCube.index] == 1 and
+  rareKeyFirst.gameplay.powerCubes == 2,
+  "activator retains only its other concrete power cube")
+requireTrue(rareKeySecond.gameplay.inventory.counts[rareCube.index] == 0 and
+  rareKeySecond.gameplay.powerCubes == 0,
+  "same concrete power cube is removed from cooperative peers")
 
 raremeaning = rareintegrationworld.advance(runtime.world, runtime.world.frameTime)
 requireTrue(raremeaning, "rare integration scheduler executes elevator initialization")

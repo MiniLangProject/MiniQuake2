@@ -8,6 +8,7 @@ package miniquake2.physics.types
 import miniquake2.qcommon.types as qt
 import miniquake2.physics.constants as phc
 
+// Store pmove local data.
 struct PmoveLocal
   origin
   velocity
@@ -23,6 +24,7 @@ struct PmoveLocal
   clipPlanes
 end struct
 
+// Create local.
 function createLocal()
   planes = array(phc.MAX_CLIP_PLANES, void)
   planeIndex = 0

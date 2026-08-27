@@ -21,6 +21,7 @@ struct ResourceHandle
   generation
 end struct
 
+// Store entity data.
 struct Entity
   model
   angles
@@ -36,23 +37,27 @@ struct Entity
   flags
 end struct
 
+// Store d light data.
 struct DLight
   origin
   color
   intensity
 end struct
 
+// Store particle data.
 struct Particle
   origin
   color
   alpha
 end struct
 
+// Store light style data.
 struct LightStyle
   rgb
   white
 end struct
 
+// Store ref def data.
 struct RefDef
   x
   y
@@ -75,17 +80,20 @@ struct RefDef
   particles
 end struct
 
+// Store pic size data.
 struct PicSize
   width
   height
 end struct
 
+// Store video mode info data.
 struct VideoModeInfo
   valid
   width
   height
 end struct
 
+// Store c var data.
 struct CVar
   name
   stringValue
@@ -142,33 +150,40 @@ struct RefExport
   AppActivate
 end struct
 
+// Store renderer binding data.
 struct RendererBinding
   state
   exports
 end struct
 
+// Return the entity value.
 function entity(model, angles, origin, frame, oldOrigin, oldFrame, backLerp, skinNum, lightStyle, alpha, skin, flags)
   return Entity(model, angles, origin, frame, oldOrigin, oldFrame, backLerp, skinNum, lightStyle, alpha, skin, flags)
 end function
 
+// Report whether empty entity.
 function emptyEntity()
   return Entity(void, qtypes.zeroVec3(), qtypes.zeroVec3(), 0, qtypes.zeroVec3(), 0, 0.0, 0, 0, 1.0, void, 0)
 end function
 
+// Return the d light value.
 function dLight(origin, color, intensity)
   return DLight(origin, color, intensity)
 end function
 
+// Return the particle value.
 function particle(origin, color, alpha)
   return Particle(origin, color, alpha)
 end function
 
+// Return the light style value.
 function lightStyle(red, green, blue)
   // V_AddLightStyle stores the RGB sum in white; ref_gl uses it solely as a
   // compact change key for cached lightmaps.
   return LightStyle([red, green, blue], red + green + blue)
 end function
 
+// Return the default light styles value.
 function defaultLightStyles()
   styles = array(rc.MAX_LIGHTSTYLES)
   index = 0
@@ -179,10 +194,12 @@ function defaultLightStyles()
   return styles
 end function
 
+// Return the ref def value.
 function refDef(x, y, width, height, fovX, fovY, viewOrigin, viewAngles, blend, time, rdFlags, areaBits, lightStyles, entities, dLights, particles)
   return RefDef(x, y, width, height, fovX, fovY, viewOrigin, viewAngles, blend, time, rdFlags, areaBits, lightStyles, len(entities), entities, len(dLights), dLights, len(particles), particles)
 end function
 
+// Return the default ref def value.
 function defaultRefDef(width, height)
   zero = qtypes.zeroVec3()
   return refDef(0, 0, width, height, 90.0, 73.7398, zero, zero, [0.0, 0.0, 0.0, 0.0], 0.0, 0, void, defaultLightStyles(), [], [], [])

@@ -11,6 +11,7 @@ import miniquake2.protocol.checked as privatechecked
 import miniquake2.game.base.spawn as privatespawn
 import miniquake2.game.integration.baseq2 as privateintegration
 import miniquake2.game.ai.archetypes as privatesaveaiarchetypes
+import miniquake2.game.ai.actor as privatesaveactor
 import miniquake2.game.ai.insane as privatesaveinsane
 import miniquake2.game.ai.props as privatesaveaiprops
 import miniquake2.game.ai.types as privatesaveaitypes
@@ -24,8 +25,9 @@ import miniquake2.game.player.types as privateplayers
 import miniquake2.game.gameplay.types as privategameplaytypes
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 17
+const PRIVATE_VERSION = 18
 
+// Store private restore data.
 struct PrivateRestore
   runtime
   spawnResult
@@ -34,6 +36,7 @@ struct PrivateRestore
   skill
 end struct
 
+// Store private monster reference data.
 struct PrivateMonsterReference
   actor
   enemyNumber
@@ -43,6 +46,7 @@ struct PrivateMonsterReference
   moveTargetNumber
 end struct
 
+// Store private world reference data.
 struct PrivateWorldReference
   entity
   activatorNumber
@@ -55,6 +59,7 @@ struct PrivateWorldReference
   groundEntityNumber
 end struct
 
+// Return the private reference number.
 function privateReferenceNumber(value)
   if value is void then return -1 end if
   privateDirectNumber = try(value.number)
@@ -66,37 +71,44 @@ function privateReferenceNumber(value)
   return -1
 end function
 
+// Write private vec.
 function privateWriteVec(buffer, value)
   privateWriteVectorHolder = privateworldtypes.vec3FromValue(value, "private save vector")
   privatemessage.writeFloat(buffer, privateWriteVectorHolder.x); privatemessage.writeFloat(buffer, privateWriteVectorHolder.y); privatemessage.writeFloat(buffer, privateWriteVectorHolder.z)
 end function
 
+// Read private float.
 function privateReadFloat(buffer, label)
   privatechecked.require(buffer, 4, label)
   return privatemessage.readFloat(buffer)
 end function
 
+// Read private vec.
 function privateReadVec(buffer, label)
   return miniquake2.qcommon.types.Vec3(privateReadFloat(buffer, label + " x"), privateReadFloat(buffer, label + " y"), privateReadFloat(buffer, label + " z"))
 end function
 
+// Write private bool.
 function privateWriteBool(buffer, value)
   marker = 0
   if value then marker = 1 end if
   privatemessage.writeByte(buffer, marker)
 end function
 
+// Read private bool.
 function privateReadBool(buffer, label)
   marker = privatechecked.readByte(buffer, label)
   if marker != 0 and marker != 1 then return error(3870, label + ": invalid boolean marker") end if
   return marker == 1
 end function
 
+// Return the item index.
 function itemIndex(item)
   if item is void then return 0 end if
   return item.index
 end function
 
+// Return the item by index.
 function itemByIndex(registry, index)
   if index == 0 then return void end if
   for each item in registry.items
@@ -268,11 +280,28 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       end for
       privatemessage.writeFloat(buffer, player.gravity)
       privatemessage.writeFloat(buffer, player.flySoundDebounceTime)
+      // Version 18 closes the item-state gap left by the original private
+      // payload. Pack/bandolier capacities, selection, silencer shots, power
+      // cube identity and the cooperative checkpoint all affect live rules.
+      privatemessage.writeLong(buffer, player.gameplay.inventory.maxBullets)
+      privatemessage.writeLong(buffer, player.gameplay.inventory.maxShells)
+      privatemessage.writeLong(buffer, player.gameplay.inventory.maxRockets)
+      privatemessage.writeLong(buffer, player.gameplay.inventory.maxGrenades)
+      privatemessage.writeLong(buffer, player.gameplay.inventory.maxCells)
+      privatemessage.writeLong(buffer, player.gameplay.inventory.maxSlugs)
+      privatemessage.writeLong(buffer, player.gameplay.inventory.selectedItem)
+      privatemessage.writeLong(buffer, player.gameplay.silencerShots)
+      privatemessage.writeLong(buffer, player.gameplay.powerCubes)
+      privatemessage.writeLong(buffer, len(player.respawn.cooperativeInventory))
+      for each cooperativeCount in player.respawn.cooperativeInventory
+        privatemessage.writeLong(buffer, cooperativeCount)
+      end for
     end for
   end if
   return privatesizebuf.dataSlice(buffer)
 end function
 
+// Find monster.
 function findMonster(runtime, number)
   for each actor in runtime.monsters
     if actor.edict.state.number == number then return actor end if
@@ -280,6 +309,7 @@ function findMonster(runtime, number)
   return void
 end function
 
+// Find item.
 function findItem(runtime, number)
   for each itemEntity in runtime.items
     if itemEntity.edict.state.number == number then return itemEntity end if
@@ -287,6 +317,7 @@ function findItem(runtime, number)
   return void
 end function
 
+// Find private world.
 function privateFindWorld(runtime, number, className)
   privateWorldNumberFallback = void
   for each entity in runtime.world.entities
@@ -300,6 +331,7 @@ function privateFindWorld(runtime, number, className)
   return privateWorldNumberFallback
 end function
 
+// Resolve private world reference.
 function privateResolveWorldReference(runtime, playerContext, number, label)
   if number < 0 then return void end if
   for each privateReferencePlayer in playerContext.players
@@ -329,6 +361,7 @@ function privateResolveWorldReference(runtime, playerContext, number, label)
   return error(3890, "private world " + label + " is unavailable: " + number)
 end function
 
+// Restore private enemy.
 function privateRestoreEnemy(runtime, number, maxClients, exportTable)
   if number < 0 then return void end if
   privateSavedEnemyHolder = findMonster(runtime, number)
@@ -342,6 +375,7 @@ function privateRestoreEnemy(runtime, number, maxClients, exportTable)
   return error(3886, "private monster enemy is unavailable")
 end function
 
+// Restore private ai reference.
 function privateRestoreAIReference(runtime, number, maxClients, exportTable)
   if number < 0 then return void end if
   privateAIActorHolder = findMonster(runtime, number)
@@ -593,7 +627,8 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     actor.info.pauseTime = privateReadFloat(buffer, "private monster attack pause")
     actor.info.attackState = privatechecked.readLong(buffer, "private monster attack state")
     actor.edict.state.frame = privatechecked.readLong(buffer, "private monster frame"); actor.activity = privatemessage.readString(buffer)
-    if actor.className == "misc_insane" then privatesaveinsane.restoreMove(actor, actor.activity) end if
+    if actor.className == "misc_actor" then privatesaveactor.restoreMove(actor, actor.activity)
+    else if actor.className == "misc_insane" then privatesaveinsane.restoreMove(actor, actor.activity) end if
     if privatesaveaiprops.isProp(actor) then privatesaveaiprops.restorePhase(actor) end if
     actor.target = privatemessage.readString(buffer); actor.targetName = privatemessage.readString(buffer)
     actor.deathTarget = privatemessage.readString(buffer); actor.combatTarget = privatemessage.readString(buffer)
@@ -797,6 +832,42 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       player.gravity = privateReadFloat(buffer, "private player gravity")
       player.flySoundDebounceTime = privateReadFloat(buffer,
         "private player fly sound debounce")
+    end if
+    if privateSaveVersion >= 18 then
+      player.gameplay.inventory.maxBullets = privatechecked.readLong(buffer,
+        "private max bullets")
+      player.gameplay.inventory.maxShells = privatechecked.readLong(buffer,
+        "private max shells")
+      player.gameplay.inventory.maxRockets = privatechecked.readLong(buffer,
+        "private max rockets")
+      player.gameplay.inventory.maxGrenades = privatechecked.readLong(buffer,
+        "private max grenades")
+      player.gameplay.inventory.maxCells = privatechecked.readLong(buffer,
+        "private max cells")
+      player.gameplay.inventory.maxSlugs = privatechecked.readLong(buffer,
+        "private max slugs")
+      player.gameplay.inventory.selectedItem = privatechecked.readLong(buffer,
+        "private selected item")
+      if player.gameplay.inventory.selectedItem < -1 or
+          player.gameplay.inventory.selectedItem >= inventoryCount then
+        return error(3891, "private selected item outside inventory")
+      end if
+      player.persistent.selectedItem = player.gameplay.inventory.selectedItem
+      player.gameplay.silencerShots = privatechecked.readLong(buffer,
+        "private silencer shots")
+      player.gameplay.powerCubes = privatechecked.readLong(buffer,
+        "private power cube mask")
+      privateCooperativeCount = privatechecked.readLong(buffer,
+        "private cooperative inventory count")
+      if privateCooperativeCount != inventoryCount then
+        return error(3892, "private cooperative inventory size mismatch")
+      end if
+      player.respawn.cooperativeInventory = array(privateCooperativeCount, 0)
+      privateCooperativeIndex = 0
+      while privateCooperativeIndex < privateCooperativeCount
+        player.respawn.cooperativeInventory[privateCooperativeIndex] = privatechecked.readLong(buffer, "private cooperative inventory value")
+        privateCooperativeIndex = privateCooperativeIndex + 1
+      end while
     end if
     playerContext.players = playerContext.players + [player]
     playerCount = playerCount - 1

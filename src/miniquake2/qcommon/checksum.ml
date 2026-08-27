@@ -24,42 +24,52 @@ package miniquake2.qcommon.checksum
 
 import miniquake2.qcommon.byteio as bio
 
+// Add 32.
 function inline add32(a, b)
   return (a + b) & 0xffffffff
 end function
 
+// Rotate left.
 function inline rotateLeft(value, count)
   value = value & 0xffffffff
   return ((value << count) | (value >> (32 - count))) & 0xffffffff
 end function
 
+// Choose state.
 function inline choose(x, y, z)
   return (x & y) | ((~x) & z)
 end function
 
+// Return the majority value.
 function inline majority(x, y, z)
   return (x & y) | (x & z) | (y & z)
 end function
 
+// Return the parity value.
 function inline parity(x, y, z)
   return x ^ y ^ z
 end function
 
+// Return the round 1 value.
 function round1(a, b, c, d, word, shift)
   return rotateLeft(add32(add32(a, choose(b, c, d)), word), shift)
 end function
 
+// Return the round 2 value.
 function round2(a, b, c, d, word, shift)
   value = add32(add32(a, majority(b, c, d)), word)
   return rotateLeft(add32(value, 0x5a827999), shift)
 end function
 
+// Return the round 3 value.
 function round3(a, b, c, d, word, shift)
   value = add32(add32(a, parity(b, c, d)), word)
   return rotateLeft(add32(value, 0x6ed9eba1), shift)
 end function
 
+// Transform state.
 function transform(state, block, offset)
+  // Keep transform phases explicit: validate inputs, update owned state, then publish the result.
   words = array(16, 0)
   index = 0
   while index < 16
@@ -135,6 +145,7 @@ function transform(state, block, offset)
   return state
 end function
 
+// Return the md 4 value.
 function md4(data, offset, count)
   bio.requireRange(data, offset, count)
 
@@ -163,11 +174,13 @@ function md4(data, offset, count)
   return digest
 end function
 
+// Return the block checksum value.
 function blockChecksum(data, offset, count)
   digest = md4(data, offset, count)
   return bio.u32(digest, 0) ^ bio.u32(digest, 4) ^ bio.u32(digest, 8) ^ bio.u32(digest, 12)
 end function
 
+// Return the com block checksum value.
 function Com_BlockChecksum(data, offset, count)
   return blockChecksum(data, offset, count)
 end function

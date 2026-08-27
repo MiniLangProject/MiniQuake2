@@ -14,20 +14,24 @@ import miniquake2.network.client as nclient
 import miniquake2.network.server as nserver
 import miniquake2.network.snapshot as nsnapshot
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7950, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7951, name + ": expected true") end if
   return true
 end function
 
+// Return the ip value.
 function ip(a, b, c, d, port)
   return qt.NetAddress(nc.NA_IP, [a, b, c, d], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], port)
 end function
 
+// Return the complete connection value.
 function completeConnection(server, client, address, startTime)
   resend = nclient.checkForResend(client, startTime)
   assertEqual(ppacket.decodeConnectionlessText(resend.data), "getchallenge\n", "getchallenge request")
@@ -45,6 +49,7 @@ function completeConnection(server, client, address, startTime)
   return accepted.slot
 end function
 
+// Verify handshake and commands.
 function testHandshakeAndCommands()
   address = ip(10, 20, 30, 40, 27910)
   server = nserver.create(2, "Test Server", "base1", "\\hostname\\Test Server", true, true)
@@ -80,6 +85,7 @@ function testHandshakeAndCommands()
   return true
 end function
 
+// Verify sequenced routing and nat.
 function testSequencedRoutingAndNat()
   serverAddress = ip(192, 0, 2, 1, 27910)
   clientAddress = ip(192, 0, 2, 77, 40000)
@@ -105,6 +111,7 @@ function testSequencedRoutingAndNat()
   return true
 end function
 
+// Verify timeouts and heartbeats.
 function testTimeoutsAndHeartbeats()
   address = ip(203, 0, 113, 8, 27910)
   server = nserver.create(1, "Timeout", "base1", "\\hostname\\Timeout", true, true)
@@ -139,6 +146,7 @@ function testTimeoutsAndHeartbeats()
   return true
 end function
 
+// Verify rejections and loopback.
 function testRejectionsAndLoopback()
   remote = ip(100, 64, 0, 9, 27910)
   server = nserver.create(1, "Reject", "base1", "\\hostname\\Reject", false, false)
@@ -168,6 +176,7 @@ function testRejectionsAndLoopback()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 network connection tests starting: 4"
   result = try(testHandshakeAndCommands())

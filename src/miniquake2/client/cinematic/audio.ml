@@ -10,23 +10,28 @@ import miniquake2.audio.mixer as amixer
 import miniquake2.audio.wav as awav
 import miniquake2.client.cinematic.types as cintypes
 
+// Ignore chunk.
 function ignoreChunk(chunk)
   return true
 end function
 
+// Ignore lifecycle.
 function ignoreLifecycle()
   return true
 end function
 
+// Return the callbacks value.
 function callbacks(submit)
   if typeof(submit) != "function" then return error(8330, "cinematic audio submit callback must be a function") end if
   return cintypes.AudioCallbacks(submit, ignoreLifecycle, ignoreLifecycle, ignoreLifecycle)
 end function
 
+// Report whether silent.
 function silent()
   return callbacks(ignoreChunk)
 end function
 
+// Append bytes.
 function appendBytes(first, second)
   output = bytes(len(first) + len(second))
   if len(first) > 0 then qbio.copyInto(output, 0, first, 0, len(first)) end if
@@ -34,11 +39,13 @@ function appendBytes(first, second)
   return output
 end function
 
+// Create mixer adapter.
 function createMixerAdapter(mixer)
   if mixer is void then return error(8331, "cinematic mixer adapter requires a mixer") end if
   return cintypes.MixerAdapter(mixer, void, void, 0, 0, 0, false)
 end function
 
+// Submit to mixer.
 function submitToMixer(adapter, chunk)
   if chunk.sampleRate <= 0 or chunk.sampleRate > 192000 or
       (chunk.sampleWidth != 1 and chunk.sampleWidth != 2) or
@@ -79,6 +86,7 @@ function submitToMixer(adapter, chunk)
   return chunk.sampleCount
 end function
 
+// Return the mixer handoff value.
 function mixerHandoff(mixer)
   adapter = createMixerAdapter(mixer)
   function submit(chunk)
@@ -102,6 +110,7 @@ function mixerHandoff(mixer)
   return cintypes.MixerHandoff(adapter, values)
 end function
 
+// Stop mixer adapter.
 function stopMixerAdapter(adapter)
   if adapter.channel is not void then adapter.channel.active = false end if
   return true

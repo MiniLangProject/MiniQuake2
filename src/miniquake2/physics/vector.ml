@@ -27,12 +27,14 @@ function inline validatePhysicsVector(value, operation)
   return true
 end function
 
+// Return the physics vector components value.
 function physicsVectorComponents(value, operation)
   valid = try(validatePhysicsVector(value, operation))
   if valid is error then return valid end if
   return [value.x, value.y, value.z]
 end function
 
+// Copy state.
 function copy(value)
   valid = try(validatePhysicsVector(value, "physics vector copy"))
   if valid is error then return valid end if
@@ -40,6 +42,7 @@ function copy(value)
   return result
 end function
 
+// Add state.
 function add(first, second)
   valid = try(validatePhysicsVector(first, "physics vector add first operand"))
   if valid is error then return valid end if
@@ -49,6 +52,7 @@ function add(first, second)
   return result
 end function
 
+// Subtract state.
 function subtract(first, second)
   valid = try(validatePhysicsVector(first, "physics vector subtract first operand"))
   if valid is error then return valid end if
@@ -58,6 +62,7 @@ function subtract(first, second)
   return result
 end function
 
+// Scale state.
 function scale(value, amount)
   valid = try(validatePhysicsVector(value, "physics vector scale"))
   if valid is error then return valid end if
@@ -65,6 +70,7 @@ function scale(value, amount)
   return result
 end function
 
+// Add multiply.
 function multiplyAdd(value, amount, direction)
   valid = try(validatePhysicsVector(value, "physics vector multiplyAdd value"))
   if valid is error then return valid end if
@@ -79,6 +85,7 @@ function multiplyAdd(value, amount, direction)
   return result
 end function
 
+// Compute state.
 function dot(first, second)
   valid = try(validatePhysicsVector(first, "physics vector dot first operand"))
   if valid is error then return valid end if
@@ -87,6 +94,7 @@ function dot(first, second)
   return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
+// Compute state.
 function cross(first, second)
   valid = try(validatePhysicsVector(first, "physics vector cross first operand"))
   if valid is error then return valid end if
@@ -100,6 +108,7 @@ function cross(first, second)
   return result
 end function
 
+// Return the length.
 function length(value)
   valid = try(validatePhysicsVector(value, "physics vector length"))
   if valid is error then return valid end if
@@ -146,6 +155,7 @@ function normalized(value)
   return result
 end function
 
+// Return the component value.
 function component(value, axis)
   valid = try(validatePhysicsVector(value, "physics vector component"))
   if valid is error then return valid end if
@@ -154,6 +164,7 @@ function component(value, axis)
   return value.z
 end function
 
+// Set component.
 function setComponent(value, axis, componentValue)
   // This operation intentionally mutates its input. Validate and extract in
   // this frame so no helper allocation separates the store from the parameter.
@@ -172,6 +183,7 @@ function setComponent(value, axis, componentValue)
   return rootedValue
 end function
 
+// Return the angle vectors value.
 function angleVectors(angles)
   valid = try(validatePhysicsVector(angles, "physics angleVectors"))
   if valid is error then return valid end if

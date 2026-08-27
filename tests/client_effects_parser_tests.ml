@@ -16,30 +16,36 @@ import miniquake2.client.effects.parser as ceparser
 played = []
 entities = array(1024, void)
 
+// Resolve index.
 function resolveIndex(index)
   return "index:" + index
 end function
 
+// Resolve name.
 function resolveName(name)
   return name
 end function
 
+// Play sound.
 function playSound(event, resolved)
   global played
   played = played + [[event, resolved]]
   return true
 end function
 
+// Resolve entity.
 function resolveEntity(number)
   global entities
   return entities[number]
 end function
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(8000, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -47,11 +53,13 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(8002, name + ": expected true") end if
   return true
 end function
 
+// Return the reading value.
 function reading(data)
   buffer = qsz.alloc(len(data))
   qsz.writeBytes(buffer, data)
@@ -59,6 +67,7 @@ function reading(data)
   return buffer
 end function
 
+// Verify sound golden.
 function testSoundGolden()
   global played
   played = []
@@ -78,6 +87,7 @@ function testSoundGolden()
   return true
 end function
 
+// Verify muzzle flashes.
 function testMuzzleFlashes()
   global entities, played
   played = []
@@ -134,6 +144,7 @@ function testMuzzleFlashes()
   return true
 end function
 
+// Verify temp entities.
 function testTempEntities()
   state = cestate.createSilent(11)
   explosionMessage = bytes([ceconstants.TE_EXPLOSION1, 8, 0, 16, 0, 24, 0])
@@ -178,6 +189,7 @@ function testTempEntities()
   return true
 end function
 
+// Verify stock impact parity.
 function testStockImpactParity()
   gunshotState = cestate.createSilent(3)
   gunshot = bytes([ceconstants.TE_GUNSHOT, 0, 0, 0, 0, 0, 0, 52])
@@ -259,6 +271,7 @@ function testStockImpactParity()
   return true
 end function
 
+// Verify stock particle families.
 function testStockParticleFamilies()
   randomState = cestate.createSilent(1)
   assertEqual(cestate.random(randomState), 41, "client effects Visual C rand first value")
@@ -330,6 +343,7 @@ function testStockParticleFamilies()
   return true
 end function
 
+// Verify entity events.
 function testEntityEvents()
   global entities
   state = cestate.createSilent(5)

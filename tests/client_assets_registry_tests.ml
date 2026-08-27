@@ -15,11 +15,13 @@ missingCalls = []
 loaderGeneration = 1
 nextModelId = 1
 
+// Assert the registry test condition.
 function registryAssert(value, name)
   if not value then return error(8420, name) end if
   return true
 end function
 
+// Load fake model.
 function fakeLoadModel(name)
   global modelCalls, loaderGeneration, nextModelId
   modelCalls = modelCalls + [name]
@@ -30,6 +32,7 @@ function fakeLoadModel(name)
   return value
 end function
 
+// Load fake skin.
 function fakeLoadSkin(name)
   global skinCalls, loaderGeneration, nextModelId
   skinCalls = skinCalls + [name]
@@ -40,6 +43,7 @@ function fakeLoadSkin(name)
   return value
 end function
 
+// Load fake sound.
 function fakeLoadSound(name)
   global soundCalls
   soundCalls = soundCalls + [name]
@@ -49,6 +53,7 @@ function fakeLoadSound(name)
   return car_test_wav.WavSound(name, 11025, 1, 1, 1, -1, bytes([128]))
 end function
 
+// Report whether fake on missing.
 function fakeOnMissing(value)
   global missingCalls
   missingCalls = missingCalls + [value]

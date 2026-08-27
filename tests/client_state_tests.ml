@@ -13,50 +13,61 @@ import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.assets.types as catypes
 import miniquake2.qcommon.constants as qc
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7980, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   delta = actual - expected
   if delta < 0.0 then delta = -delta end if
   if delta > tolerance then return error(7981, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Resolve model.
 function resolveModel(index)
   return rt.ResourceHandle("model", index, "model" + index, 1)
 end function
 
+// Resolve named model.
 function resolveNamedModel(name)
   return rt.ResourceHandle("model", len(bytes(name)), name, 1)
 end function
 
+// Resolve named skin.
 function resolveNamedSkin(name)
   return rt.ResourceHandle("skin", len(bytes(name)), name, 1)
 end function
 
+// Resolve nothing.
 function resolveNothing(value)
   return void
 end function
 
+// Report whether resolve no entity sound.
 function resolveNoEntitySound(entityNumber, soundIndex, soundName)
   return void
 end function
 
+// Resolve player model.
 function resolvePlayerModel(index)
   return rt.ResourceHandle("model", 1000 + index, "players/custom/tris.md2", 1)
 end function
 
+// Resolve player skin.
 function resolvePlayerSkin(index)
   return rt.ResourceHandle("skin", 2000 + index, "players/male/grunt.pcx", 1)
 end function
 
+// Resolve player weapon.
 function resolvePlayerWeapon(index, weaponIndex)
   return rt.ResourceHandle("model", 3000 + weaponIndex,
     "players/custom/weapon" + weaponIndex + ".md2", 1)
 end function
 
 testRandomValue = 0
+// Verify random.
 function testRandom()
   global testRandomValue
   value = testRandomValue
@@ -69,6 +80,7 @@ testResolvers = catypes.ResolverBindings(resolveModel, resolveNamedModel,
   resolvePlayerModel,
   resolvePlayerSkin, resolvePlayerWeapon)
 
+// Create entity.
 function makeEntity(x, secondModel)
   entity = pt.zeroEntityState()
   entity.number = 1
@@ -79,6 +91,7 @@ function makeEntity(x, secondModel)
   return entity
 end function
 
+// Verify snapshots and ref def.
 function testSnapshotsAndRefDef()
   global testRandomValue
   client = cstate.create()

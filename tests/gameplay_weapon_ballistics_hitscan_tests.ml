@@ -20,10 +20,12 @@ hitTargets = []
 effects = []
 damageMeans = []
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9970, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -31,12 +33,14 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Create trace.
 function makeTrace(fraction, endPosition, contents, entity, name, flags)
   plane = qt.Plane(qt.Vec3(-1.0, 0.0, 0.0), 0.0, 0, 0)
   surface = qt.CollisionSurface(name, flags, 0)
   return qt.Trace(false, false, fraction, endPosition, plane, surface, contents, entity)
 end function
 
+// Trace callback.
 function traceCallback(start, mins, maxs, endPosition, ignore, mask)
   global traceMode, traceCalls, hitTargets
   traceCalls = traceCalls + 1
@@ -53,32 +57,43 @@ function traceCallback(start, mins, maxs, endPosition, ignore, mask)
   end if
   return makeTrace(1.0, endPosition, 0, void, "", 0)
 end function
+// Return the contents callback value.
 function contentsCallback(point)
   global traceMode
   if traceMode == "water" and point.x >= 8.0 then return qc.CONTENTS_WATER end if
   return 0
 end function
+// Return the damage callback value.
 function damageCallback(target, request)
   global damageMeans
   damageMeans = damageMeans + [request.meansOfDeath]
   return gpcombat.T_Damage(target, request)
 end function
+// Report whether can damage callback.
 function canDamageCallback(target, origin)
   return true
 end function
+// Return the radius targets callback value.
 function radiusTargetsCallback(origin, radius)
   return []
 end function
+// Return the effect callback value.
 function effectCallback(effect)
   global effects
   effects = effects + [[effect.kind, effect.style, effect.directionIndex]]
   return true
 end function
+// Return the sound callback value.
 function soundCallback(entity, soundName) return true end function
+// Link callback.
 function linkCallback(entity) return true end function
+// Release callback.
 function freeCallback(entity) return true end function
+// Return the noise callback value.
 function noiseCallback(owner, position, kind) return true end function
+// Return the dodge callback value.
 function dodgeCallback(owner, start, direction, speed) return true end function
+// Return the random callback value.
 function randomCallback()
   global randomValues, randomOffset
   value = randomValues[randomOffset]
@@ -86,6 +101,7 @@ function randomCallback()
   return value
 end function
 
+// Create context.
 function makeContext()
   callbacks = wbtypes.WeaponCallbacks(
     traceCallback, contentsCallback, damageCallback, canDamageCallback,
@@ -95,6 +111,7 @@ function makeContext()
   return wbcore.createContext(callbacks)
 end function
 
+// Reset state.
 function reset(mode)
   global traceMode, traceCalls, randomValues, randomOffset
   global hitTargets, effects, damageMeans
@@ -102,6 +119,7 @@ function reset(mode)
   hitTargets = []; effects = []; damageMeans = []
 end function
 
+// Verify bullet and spread.
 function testBulletAndSpread()
   reset("bullet")
   context = makeContext()
@@ -117,6 +135,7 @@ function testBulletAndSpread()
   return true
 end function
 
+// Verify water refraction.
 function testWaterRefraction()
   reset("water")
   context = makeContext()
@@ -133,6 +152,7 @@ function testWaterRefraction()
   return true
 end function
 
+// Verify shotgun and rail penetration.
 function testShotgunAndRailPenetration()
   reset("shotgun")
   context = makeContext()

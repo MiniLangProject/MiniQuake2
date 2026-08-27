@@ -15,12 +15,14 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Image:
+    """Store image data."""
     width: int
     height: int
     rgba: bytes
 
 
 def read_tga(path: pathlib.Path) -> Image:
+    """Read tga."""
     data = path.read_bytes()
     if len(data) < 18:
         raise ValueError(f"{path}: truncated TGA header")
@@ -57,6 +59,7 @@ def read_tga(path: pathlib.Path) -> Image:
 
 
 def write_tga(path: pathlib.Path, image: Image) -> None:
+    """Write tga."""
     if len(image.rgba) != image.width * image.height * 4:
         raise ValueError("invalid RGBA payload")
     header = bytearray(18)
@@ -78,6 +81,7 @@ def write_tga(path: pathlib.Path, image: Image) -> None:
 def compare_images(
     expected: Image, actual: Image, channel_tolerance: int = 0, include_alpha: bool = False
 ) -> tuple[dict[str, int | bool], Image]:
+    """Compare images."""
     if (expected.width, expected.height) != (actual.width, actual.height):
         raise ValueError(
             f"capture dimensions differ: {expected.width}x{expected.height} vs "
@@ -129,10 +133,12 @@ def compare_images(
 
 
 def sha256(path: pathlib.Path) -> str:
+    """Return the sha 256 value."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build parser."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("expected", type=pathlib.Path)
     parser.add_argument("actual", type=pathlib.Path)
@@ -147,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run this source file's command-line entry point."""
     args = build_parser().parse_args(argv)
     try:
         expected = read_tga(args.expected)

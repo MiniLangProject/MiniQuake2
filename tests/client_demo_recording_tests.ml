@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.client.demo as demorecordtest
 import miniquake2.client.demo_recording as demorecordproducttest
 
+// Assert the demo record test condition.
 function demoRecordAssert(actual, expected, label)
   if actual != expected then return error(9975, label + ": expected " + expected + ", got " + actual) end if
 end function

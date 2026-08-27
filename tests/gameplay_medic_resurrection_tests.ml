@@ -17,15 +17,18 @@ import miniquake2.server.game_bridge as medicbridge
 import miniquake2.server.sound_events as medicsoundevents
 import std.math as medicmath
 
+// Assert the medic test condition.
 function medicAssert(value, message)
   if value != true then return error(9968, message) end if
   return true
 end function
 
+// Return the medic near value.
 function medicNear(actual, expected, message)
   return medicAssert(medicmath.abs(actual - expected) < 0.001, message)
 end function
 
+// Find medic actor.
 function findMedicActor(runtime, className)
   for each actor in runtime.monsters
     if actor.className == className then return actor end if
@@ -33,6 +36,7 @@ function findMedicActor(runtime, className)
   return void
 end function
 
+// Find medic name.
 function findMedicName(names, value)
   index = 0
   while index < len(names)
@@ -42,6 +46,7 @@ function findMedicName(names, value)
   return -1
 end function
 
+// Prepare medic corpse.
 function prepareMedicCorpse(actor, context)
   actor.health = -25
   actor.deadFlag = medicaiconstants.DEAD_DEAD

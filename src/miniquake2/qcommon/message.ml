@@ -11,11 +11,13 @@ import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.byteio as bio
 import miniquake2.qcommon.sizebuf as sz
 
+// Require integer.
 function requireInteger(value, operation)
   if typeof(value) != "int" then return error(2300, operation + ": integer argument required") end if
   return value
 end function
 
+// Write char.
 function writeChar(buffer, value)
   integer = requireInteger(value, "MSG_WriteChar")
   offset = sz.getSpace(buffer, 1)
@@ -23,6 +25,7 @@ function writeChar(buffer, value)
   return buffer
 end function
 
+// Write byte.
 function writeByte(buffer, value)
   integer = requireInteger(value, "MSG_WriteByte")
   offset = sz.getSpace(buffer, 1)
@@ -30,6 +33,7 @@ function writeByte(buffer, value)
   return buffer
 end function
 
+// Write short.
 function writeShort(buffer, value)
   integer = requireInteger(value, "MSG_WriteShort")
   offset = sz.getSpace(buffer, 2)
@@ -37,6 +41,7 @@ function writeShort(buffer, value)
   return buffer
 end function
 
+// Write long.
 function writeLong(buffer, value)
   integer = requireInteger(value, "MSG_WriteLong")
   offset = sz.getSpace(buffer, 4)
@@ -44,6 +49,7 @@ function writeLong(buffer, value)
   return buffer
 end function
 
+// Write float.
 function writeFloat(buffer, value)
   bits = bio.float32Bits(value)
   offset = sz.getSpace(buffer, 4)
@@ -51,6 +57,7 @@ function writeFloat(buffer, value)
   return buffer
 end function
 
+// Write string bytes.
 function writeStringBytes(buffer, source)
   if typeof(source) != "bytes" then return error(2301, "MSG_WriteString requires bytes") end if
   count = 0
@@ -63,15 +70,18 @@ function writeStringBytes(buffer, source)
   return buffer
 end function
 
+// Write string.
 function writeString(buffer, text)
   if typeof(text) != "string" then return error(2302, "MSG_WriteString requires a string") end if
   return writeStringBytes(buffer, bytes(text))
 end function
 
+// Write coord.
 function writeCoord(buffer, value)
   return writeShort(buffer, bio.truncInt(value * 8.0))
 end function
 
+// Write pos.
 function writePos(buffer, position)
   writeCoord(buffer, position.x)
   writeCoord(buffer, position.y)
@@ -79,16 +89,19 @@ function writePos(buffer, position)
   return buffer
 end function
 
+// Write angle.
 function writeAngle(buffer, value)
   encoded = bio.truncInt(value * 256.0 / 360.0) & 255
   return writeByte(buffer, encoded)
 end function
 
+// Write angle 16.
 function writeAngle16(buffer, value)
   encoded = bio.truncInt(value * 65536.0 / 360.0) & 0xffff
   return writeShort(buffer, encoded)
 end function
 
+// Begin reading.
 function beginReading(buffer)
   buffer.readCount = 0
   return buffer
@@ -102,36 +115,42 @@ function readAvailable(buffer, width)
   return [offset, offset >= 0 and offset + width <= buffer.curSize]
 end function
 
+// Read char.
 function readChar(buffer)
   state = readAvailable(buffer, 1)
   if not state[1] then return -1 end if
   return bio.i8(buffer.data, state[0])
 end function
 
+// Read byte.
 function readByte(buffer)
   state = readAvailable(buffer, 1)
   if not state[1] then return -1 end if
   return bio.u8(buffer.data, state[0])
 end function
 
+// Read short.
 function readShort(buffer)
   state = readAvailable(buffer, 2)
   if not state[1] then return -1 end if
   return bio.i16(buffer.data, state[0])
 end function
 
+// Read long.
 function readLong(buffer)
   state = readAvailable(buffer, 4)
   if not state[1] then return -1 end if
   return bio.i32(buffer.data, state[0])
 end function
 
+// Read float.
 function readFloat(buffer)
   state = readAvailable(buffer, 4)
   if not state[1] then return -1.0 end if
   return bio.f32(buffer.data, state[0])
 end function
 
+// Read string bytes.
 function readStringBytes(buffer)
   output = bytes(2047)
   count = 0
@@ -144,10 +163,12 @@ function readStringBytes(buffer)
   return slice(output, 0, count)
 end function
 
+// Read string.
 function readString(buffer)
   return decode(readStringBytes(buffer))
 end function
 
+// Read string line bytes.
 function readStringLineBytes(buffer)
   output = bytes(2047)
   count = 0
@@ -160,26 +181,32 @@ function readStringLineBytes(buffer)
   return slice(output, 0, count)
 end function
 
+// Read string line.
 function readStringLine(buffer)
   return decode(readStringLineBytes(buffer))
 end function
 
+// Read coord.
 function readCoord(buffer)
   return readShort(buffer) * 0.125
 end function
 
+// Read pos.
 function readPos(buffer)
   return qt.Vec3(readCoord(buffer), readCoord(buffer), readCoord(buffer))
 end function
 
+// Read angle.
 function readAngle(buffer)
   return readChar(buffer) * (360.0 / 256.0)
 end function
 
+// Read angle 16.
 function readAngle16(buffer)
   return readShort(buffer) * (360.0 / 65536.0)
 end function
 
+// Read data.
 function readData(buffer, count)
   if typeof(count) != "int" or count < 0 then return error(2303, "MSG_ReadData requires a non-negative length") end if
   output = bytes(count)
@@ -191,98 +218,122 @@ function readData(buffer, count)
   return output
 end function
 
+// Return the remaining value.
 function remaining(buffer)
   return buffer.curSize - buffer.readCount
 end function
 
+// Write msg char.
 function MSG_WriteChar(buffer, value)
   return writeChar(buffer, value)
 end function
 
+// Write msg byte.
 function MSG_WriteByte(buffer, value)
   return writeByte(buffer, value)
 end function
 
+// Write msg short.
 function MSG_WriteShort(buffer, value)
   return writeShort(buffer, value)
 end function
 
+// Write msg long.
 function MSG_WriteLong(buffer, value)
   return writeLong(buffer, value)
 end function
 
+// Write msg float.
 function MSG_WriteFloat(buffer, value)
   return writeFloat(buffer, value)
 end function
 
+// Write msg string.
 function MSG_WriteString(buffer, text)
   return writeString(buffer, text)
 end function
 
+// Write msg coord.
 function MSG_WriteCoord(buffer, value)
   return writeCoord(buffer, value)
 end function
 
+// Write msg pos.
 function MSG_WritePos(buffer, position)
   return writePos(buffer, position)
 end function
 
+// Write msg angle.
 function MSG_WriteAngle(buffer, value)
   return writeAngle(buffer, value)
 end function
 
+// Write msg angle 16.
 function MSG_WriteAngle16(buffer, value)
   return writeAngle16(buffer, value)
 end function
 
+// Begin msg reading.
 function MSG_BeginReading(buffer)
   return beginReading(buffer)
 end function
 
+// Read msg char.
 function MSG_ReadChar(buffer)
   return readChar(buffer)
 end function
 
+// Read msg byte.
 function MSG_ReadByte(buffer)
   return readByte(buffer)
 end function
 
+// Read msg short.
 function MSG_ReadShort(buffer)
   return readShort(buffer)
 end function
 
+// Read msg long.
 function MSG_ReadLong(buffer)
   return readLong(buffer)
 end function
 
+// Read msg float.
 function MSG_ReadFloat(buffer)
   return readFloat(buffer)
 end function
 
+// Read msg string.
 function MSG_ReadString(buffer)
   return readString(buffer)
 end function
 
+// Read msg string line.
 function MSG_ReadStringLine(buffer)
   return readStringLine(buffer)
 end function
 
+// Read msg coord.
 function MSG_ReadCoord(buffer)
   return readCoord(buffer)
 end function
 
+// Read msg pos.
 function MSG_ReadPos(buffer)
   return readPos(buffer)
 end function
 
+// Read msg angle.
 function MSG_ReadAngle(buffer)
   return readAngle(buffer)
 end function
 
+// Read msg angle 16.
 function MSG_ReadAngle16(buffer)
   return readAngle16(buffer)
 end function
 
+// Read msg data.
 function MSG_ReadData(buffer, count)
   return readData(buffer, count)
 end function

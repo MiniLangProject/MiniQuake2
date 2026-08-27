@@ -13,12 +13,14 @@ import std.math as aitrailmath
 
 const TRAIL_LENGTH = 8
 
+// Store player trail data.
 struct PlayerTrail
   markers
   head
   active
 end struct
 
+// Create state.
 function create(active)
   markers = array(TRAIL_LENGTH)
   index = 0
@@ -34,6 +36,7 @@ function create(active)
   return PlayerTrail(markers, 0, active)
 end function
 
+// Reset state.
 function Reset(trail, active)
   trail.head = 0
   trail.active = active
@@ -47,6 +50,7 @@ function Reset(trail, active)
   return trail
 end function
 
+// Add state.
 function Add(trail, spot, time)
   if not trail.active then return false end if
   marker = trail.markers[trail.head]
@@ -65,12 +69,14 @@ function Add(trail, spot, time)
   return true
 end function
 
+// Return the new value.
 function New(trail, spot, time)
   if not trail.active then return false end if
   Reset(trail, true)
   return Add(trail, spot, time)
 end function
 
+// Choose first.
 function PickFirst(trail, actor, visible)
   if not trail.active then return void end if
   markerIndex = trail.head
@@ -90,6 +96,7 @@ function PickFirst(trail, actor, visible)
   return marker
 end function
 
+// Choose next.
 function PickNext(trail, actor)
   if not trail.active then return void end if
   markerIndex = trail.head
@@ -104,6 +111,7 @@ function PickNext(trail, actor)
   return trail.markers[markerIndex]
 end function
 
+// Return the last spot value.
 function LastSpot(trail)
   if not trail.active then return void end if
   return trail.markers[(trail.head + TRAIL_LENGTH - 1) &

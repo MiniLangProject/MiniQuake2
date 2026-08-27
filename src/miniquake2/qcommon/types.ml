@@ -7,6 +7,7 @@ Foundational Quake II types used on both sides of the game boundary.
 */
 package miniquake2.qcommon.types
 
+// Store vec 3 data.
 struct Vec3
   x
   y
@@ -24,6 +25,7 @@ struct SizeBuffer
   readCount
 end struct
 
+// Store plane data.
 struct Plane
   normal
   dist
@@ -31,12 +33,14 @@ struct Plane
   signBits
 end struct
 
+// Store collision surface data.
 struct CollisionSurface
   name
   flags
   value
 end struct
 
+// Store trace data.
 struct Trace
   allSolid
   startSolid
@@ -48,6 +52,7 @@ struct Trace
   entity
 end struct
 
+// Store net address data.
 struct NetAddress
   type
   ip
@@ -55,6 +60,7 @@ struct NetAddress
   port
 end struct
 
+// Store pmove state data.
 struct PmoveState
   moveType
   origin
@@ -65,6 +71,7 @@ struct PmoveState
   deltaAngles
 end struct
 
+// Store user cmd data.
 struct UserCmd
   msec
   buttons
@@ -76,6 +83,7 @@ struct UserCmd
   lightLevel
 end struct
 
+// Store cvar data.
 struct Cvar
   name
   string
@@ -85,16 +93,19 @@ struct Cvar
   value
 end struct
 
+// Store cvar registry data.
 struct CvarRegistry
   variables
   userInfoModified
 end struct
 
+// Store command alias data.
 struct CommandAlias
   name
   value
 end struct
 
+// Store command system data.
 struct CommandSystem
   commands
   aliases
@@ -105,23 +116,27 @@ struct CommandSystem
   cvars
 end struct
 
+// Store pack file data.
 struct PackFile
   name
   offset
   length
 end struct
 
+// Store pack archive data.
 struct PackArchive
   filename
   data
   files
 end struct
 
+// Store search path data.
 struct SearchPath
   directory
   pack
 end struct
 
+// Store file system data.
 struct FileSystem
   baseDirectory
   gameDirectory
@@ -129,14 +144,17 @@ struct FileSystem
   links
 end struct
 
+// Return the vec 3 value.
 function vec3(x, y, z)
   return Vec3(x, y, z)
 end function
 
+// Return the zero vec 3 value.
 function zeroVec3()
   return Vec3(0.0, 0.0, 0.0)
 end function
 
+// Return the zero user cmd value.
 function zeroUserCmd()
   return UserCmd(0, 0, [0, 0, 0], 0, 0, 0, 0, 0)
 end function

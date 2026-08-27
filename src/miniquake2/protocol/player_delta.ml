@@ -13,6 +13,7 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
 
+// Validate state.
 function validateState(state, operation)
   if len(state.pmove.origin) != 3 or len(state.pmove.velocity) != 3 or len(state.pmove.deltaAngles) != 3 then
     return error(7040, operation + ": malformed pmove vectors")
@@ -27,14 +28,17 @@ function validateState(state, operation)
   return true
 end function
 
+// Return the vec 3 changed value.
 function vec3Changed(a, b)
   return a[0] != b[0] or a[1] != b[1] or a[2] != b[2]
 end function
 
+// Return the vec 4 changed value.
 function vec4Changed(a, b)
   return a[0] != b[0] or a[1] != b[1] or a[2] != b[2] or a[3] != b[3]
 end function
 
+// Compute flags.
 function computeFlags(base, target)
   validateState(base, "player baseline")
   validateState(target, "player target")
@@ -56,7 +60,9 @@ function computeFlags(base, target)
   return flags
 end function
 
+// Write body.
 function writeBody(buffer, base, target)
+  // Keep write body phases explicit: validate inputs, update owned state, then publish the result.
   flags = computeFlags(base, target)
   qmsg.writeShort(buffer, flags)
   if (flags & pc.PS_M_TYPE) != 0 then qmsg.writeByte(buffer, target.pmove.moveType) end if
@@ -109,12 +115,15 @@ function writeBody(buffer, base, target)
   return flags
 end function
 
+// Write message.
 function writeMessage(buffer, base, target)
   qmsg.writeByte(buffer, pc.SVC_PLAYERINFO)
   return writeBody(buffer, base, target)
 end function
 
+// Read body.
 function readBody(buffer, base)
+  // Keep read body phases explicit: validate inputs, update owned state, then publish the result.
   target = pt.copyPlayerState(base)
   flags = pchecked.readUShort(buffer, "player delta flags")
   if (flags & ~pc.PS_ALL) != 0 then return error(7044, "player delta contains reserved flags") end if
@@ -162,6 +171,7 @@ function readBody(buffer, base)
   return target
 end function
 
+// Read message.
 function readMessage(buffer, base)
   opcode = pchecked.readByte(buffer, "playerinfo opcode")
   if opcode != pc.SVC_PLAYERINFO then return error(7045, "expected svc_playerinfo") end if

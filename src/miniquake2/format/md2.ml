@@ -9,6 +9,7 @@ import miniquake2.format.constants as fc
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
+// Return the checked section value.
 function checkedSection(data, offset, count, stride, name)
   if offset < 0 or count < 0 or stride < 0 or offset > len(data) or count * stride > len(data) - offset then
     return error(2300, "MD2 " + name + " section outside file")
@@ -16,6 +17,7 @@ function checkedSection(data, offset, count, stride, name)
   return true
 end function
 
+// Parse state.
 function parse(data, name)
   if len(data) < 68 then return error(2301, "MD2 header is truncated") end if
   if fbio.u32(data, 0) != fc.IDALIASHEADER then return error(2302, "MD2 ident mismatch") end if

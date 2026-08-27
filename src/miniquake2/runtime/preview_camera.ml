@@ -8,11 +8,13 @@ package miniquake2.runtime.preview_camera
 import miniquake2.qcommon.types as pctypes
 import miniquake2.physics.vector as pcvector
 
+// Store preview camera data.
 struct PreviewCamera
   origin
   angles
 end struct
 
+// Create state.
 function create(origin, angles)
   return PreviewCamera(
     pctypes.Vec3(origin.x, origin.y, origin.z),
@@ -20,6 +22,7 @@ function create(origin, angles)
   )
 end function
 
+// Apply user cmd.
 function applyUserCmd(camera, command, viewAngles, frameMsec)
   if frameMsec < 1 then frameMsec = 1 end if
   if frameMsec > 200 then frameMsec = 200 end if

@@ -63,6 +63,7 @@ CLOSE_TO_OPEN = {value: key for key, value in OPEN_TO_CLOSE.items()}
 
 @dataclass(frozen=True)
 class Issue:
+    """Store issue data."""
     path: str
     line: int
     column: int

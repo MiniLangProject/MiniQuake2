@@ -8,17 +8,20 @@ package miniquake2.game.world.vector
 import std.math as smath
 import miniquake2.qcommon.types as qt
 
+// Require world vector.
 function requireWorldVector(value, operation)
   if typeof(value) != "struct" then return error(9190, operation + ": Vec3-shaped value required") end if
   return value
 end function
 
+// Copy state.
 function copy(value)
   vector = requireWorldVector(value, "world vector copy")
   x = vector.x; y = vector.y; z = vector.z
   return qt.Vec3(x, y, z)
 end function
 
+// Add state.
 function add(first, second)
   firstVector = requireWorldVector(first, "world vector add first operand")
   secondVector = requireWorldVector(second, "world vector add second operand")
@@ -27,6 +30,7 @@ function add(first, second)
   return qt.Vec3(firstX + secondX, firstY + secondY, firstZ + secondZ)
 end function
 
+// Subtract state.
 function subtract(first, second)
   firstVector = requireWorldVector(first, "world vector subtract first operand")
   secondVector = requireWorldVector(second, "world vector subtract second operand")
@@ -35,12 +39,14 @@ function subtract(first, second)
   return qt.Vec3(firstX - secondX, firstY - secondY, firstZ - secondZ)
 end function
 
+// Scale state.
 function scale(value, amount)
   vector = requireWorldVector(value, "world vector scale")
   x = vector.x; y = vector.y; z = vector.z
   return qt.Vec3(x * amount, y * amount, z * amount)
 end function
 
+// Add multiply.
 function multiplyAdd(value, amount, direction)
   vector = requireWorldVector(value, "world vector multiplyAdd value")
   directionVector = requireWorldVector(direction, "world vector multiplyAdd direction")
@@ -49,6 +55,7 @@ function multiplyAdd(value, amount, direction)
   return qt.Vec3(x + amount * directionX, y + amount * directionY, z + amount * directionZ)
 end function
 
+// Compute state.
 function dot(first, second)
   firstVector = requireWorldVector(first, "world vector dot first operand")
   secondVector = requireWorldVector(second, "world vector dot second operand")
@@ -57,6 +64,7 @@ function dot(first, second)
   return firstX * secondX + firstY * secondY + firstZ * secondZ
 end function
 
+// Return the length.
 function length(value)
   vector = requireWorldVector(value, "world vector length")
   x = vector.x; y = vector.y; z = vector.z
@@ -67,6 +75,7 @@ function length(value)
   return smath.sqrt(squaredLength)
 end function
 
+// Return the normalized value.
 function normalized(value)
   vector = requireWorldVector(value, "world vector normalized")
   x = vector.x; y = vector.y; z = vector.z
@@ -81,6 +90,7 @@ function normalized(value)
   return [unit, magnitude]
 end function
 
+// Report whether equal.
 function equal(first, second)
   firstVector = requireWorldVector(first, "world vector equal first operand")
   secondVector = requireWorldVector(second, "world vector equal second operand")
@@ -89,6 +99,7 @@ function equal(first, second)
   return firstX == secondX and firstY == secondY and firstZ == secondZ
 end function
 
+// Return the movedir value.
 function movedir(angles)
   angleVector = requireWorldVector(angles, "world vector movedir angles")
   angleX = angleVector.x; angleY = angleVector.y; angleZ = angleVector.z
@@ -103,6 +114,7 @@ function movedir(angles)
   return qt.Vec3(pitchCosine * yawCosine, pitchCosine * yawSine, -pitchSine)
 end function
 
+// Return the to angles.
 function toAngles(direction)
   vector = requireWorldVector(direction, "world vector toAngles")
   x = vector.x; y = vector.y; z = vector.z

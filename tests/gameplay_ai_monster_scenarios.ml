@@ -24,34 +24,40 @@ visibilityEnabled = true
 clearShotEnabled = true
 lostTrailMarker = void
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9700, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9701, name + ": expected true") end if
   return true
 end function
 
+// Assert the error contains test condition.
 function assertErrorContains(value, fragment, name)
   if value is not error then return error(9702, name + ": expected error") end if
   if gaistring.contains(value.message, fragment) != true then return error(9703, name + ": unexpected message " + value.message) end if
   return true
 end function
 
+// Record walk.
 function recordWalk(actor, yaw, distance)
   global walkDistances
   walkDistances = walkDistances + [distance]
   return true
 end function
 
+// Record frame think.
 function recordFrameThink(actor, context)
   global frameThinkCount
   frameThinkCount = frameThinkCount + 1
   return true
 end function
 
+// Record move end.
 function recordMoveEnd(actor, context)
   global moveEndCount
   moveEndCount = moveEndCount + 1
@@ -59,34 +65,41 @@ function recordMoveEnd(actor, context)
   return true
 end function
 
+// Report whether test visible.
 function testVisible(actor, other)
   global visibilityEnabled
   return visibilityEnabled
 end function
 
+// Verify clear shot.
 function testClearShot(actor, other)
   global clearShotEnabled
   return clearShotEnabled
 end function
 
+// Return the always phs value.
 function alwaysPHS(first, second)
   return true
 end function
 
+// Report whether areas connected.
 function areasConnected(first, second)
   return true
 end function
 
+// Choose lost trail first.
 function pickLostTrailFirst(actor)
   global lostTrailMarker
   return lostTrailMarker
 end function
 
+// Choose lost trail next.
 function pickLostTrailNext(actor)
   global lostTrailMarker
   return lostTrailMarker
 end function
 
+// Trace course correction.
 function courseCorrectionTrace(start, mins, maxs, finish, actor, mask)
   fraction = 0.25
   if finish.y < -0.1 then fraction = 0.9
@@ -102,18 +115,21 @@ function courseCorrectionTrace(start, mins, maxs, finish, actor, mask)
     0, void)
 end function
 
+// Use targets.
 function useTargets(actor, activator)
   global usedTargetCount
   usedTargetCount = usedTargetCount + 1
   return true
 end function
 
+// Drop item.
 function dropItem(actor, item)
   global droppedItemCount
   droppedItemCount = droppedItemCount + 1
   return true
 end function
 
+// Create context.
 function makeContext()
   context = gaitypes.defaultContext()
   context.walkMove = recordWalk
@@ -126,6 +142,7 @@ function makeContext()
   return context
 end function
 
+// Verify archetypes and spawn.
 function testArchetypesAndSpawn()
   // Compile-time integration guard for all three private component namespaces.
   assertEqual(btypes.zeroBaseEntity().spawnKind, "unspawned", "base alias")
@@ -133,7 +150,7 @@ function testArchetypesAndSpawn()
   registry = gaiarchetypes.defaultRegistry()
   assertTrue(gaiarchetypes.validate(registry), "stock archetype validation")
   assertEqual(len(registry.entries), 22, "active stock spawn class count")
-  assertEqual(len(registry.campaignEntries), 3, "campaign AI spawn class count")
+  assertEqual(len(registry.campaignEntries), 4, "campaign AI spawn class count")
   insaneDef = gaiarchetypes.find(registry, "MISC_INSANE")
   assertEqual(insaneDef.health, 100, "misc_insane health")
   assertEqual(insaneDef.gibHealth, -50, "misc_insane gib health")
@@ -172,6 +189,7 @@ function testArchetypesAndSpawn()
   return registry
 end function
 
+// Verify move frame golden.
 function testMoveFrameGolden()
   actor = gaitypes.createActor(20, "monster_test")
   gaimonster.installDefaultCallbacks(actor, true, true)
@@ -208,7 +226,9 @@ function testMoveFrameGolden()
   return true
 end function
 
+// Verify sight movement and attack.
 function testSightMovementAndAttack()
+  // Keep test sight movement and attack phases explicit: validate inputs, update owned state, then publish the result.
   global visibilityEnabled, clearShotEnabled
   context = makeContext()
   context.time = 10.0
@@ -348,6 +368,7 @@ function testSightMovementAndAttack()
   return true
 end function
 
+// Verify lifecycle pain death.
 function testLifecyclePainDeath(registry)
   global usedTargetCount, droppedItemCount
   context = makeContext()
@@ -388,6 +409,7 @@ function testLifecyclePainDeath(registry)
   return true
 end function
 
+// Verify player trail and lost sight.
 function testPlayerTrailAndLostSight()
   global visibilityEnabled, lostTrailMarker
   trail = gaitrail.create(true)
@@ -467,6 +489,7 @@ function testPlayerTrailAndLostSight()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 gameplay AI/monster scenarios starting: 5"
   registry = testArchetypesAndSpawn()

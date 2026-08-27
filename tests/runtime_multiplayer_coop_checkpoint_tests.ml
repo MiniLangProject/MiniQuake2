@@ -14,6 +14,7 @@ import miniquake2.game.integration.baseq2 as mpcheckbaseq2
 import miniquake2.runtime.multiplayer_session as mpchecksession
 import miniquake2.runtime.session_persistence as mpcheckpersistence
 
+// Assert the mpcheck test condition.
 function mpcheckAssert(value, name)
   if not value then return error(8485, name) end if
   return true

@@ -16,15 +16,18 @@ II 3.19 source. The pass closes DNS connection handling, sign-on/download fatal
 error propagation, stock UserCmd/keepalive pacing, the rotating Player Setup MD2
 preview, Reset Defaults/Go to Console actions, exact bounce/rest and water
 transition behavior, restored gib callbacks, BFG laser color and
-`PMF_NO_PREDICTION` view-angle handling. Private-Save v17 adds toss/bounce water
-state while retaining v7-v16 readers.
+`PMF_NO_PREDICTION` view-angle handling. The follow-up closes elevator relink
+and dynamic-BBOX tracing, product/gameplay map handoff, worldspawn/intermission
+and changelevel policy, death drops, cooperative lifecycle and the live
+`misc_actor` path. Private-Save v18 adds the remaining player item-rule and
+cooperative checkpoint state while retaining older readers.
 
-All 420 maintained code/tool files pass the English-comment and license-header
-auditor. The authoritative inventory contains 445 maintained files and 393
+All 430 maintained code/tool files pass the English-comment and license-header
+auditor. The authoritative inventory contains 457 maintained files and 403
 MiniLang sources; the pinned reference ledger still matches 371 tracked source
 files, 4,525 C functions and commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e`. The complete Release build compiled
-and executed all 184 native MiniLang test programs successfully.
+and executed all 192 native MiniLang test programs successfully.
 
 The pending-audio benchmark improved from 229.36 ms to 16.89 ms for 327,680
 frames with 128 pending sounds (13.6x). Two final rendered 5,000-frame `base1`
@@ -43,6 +46,14 @@ restart, real
 movement/input and the server-to-render Blaster projectile visibility chain.
 Retail-scale test executables now use the product 2-GiB reserve/1,536-MiB
 collection contract instead of the harness-only 256-MiB cap.
+
+The current retail closure additionally passes a real `base1 -> base2`
+successor session with owned gameplay/config handoff, a 39-map/34,298-entity
+classname-registration matrix, authoritative movement with dynamic BBOX
+collision, Blaster snapshot/render/particle visibility and three completed
+mouse-wheel weapon transitions. Known scoped deviations are recorded in
+`ORIGINAL_PARITY_AUDIT_2026-08-26.md`; this matrix is not presented as a
+completed human campaign or frame-for-frame original trace.
 
 ## 2026-08-25 Quake II 3.19 source-parity follow-up
 

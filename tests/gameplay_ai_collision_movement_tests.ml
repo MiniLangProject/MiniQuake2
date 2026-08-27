@@ -15,11 +15,13 @@ movementGround = movementgametypes.zeroEdict(0)
 movementLinkCount = 0
 movementTouchCount = 0
 
+// Assert the movement test condition.
 function movementAssert(value, message)
   if value != true then return error(9890, message) end if
   return true
 end function
 
+// Return the movement near value.
 function movementNear(actual, expected, tolerance, message)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -34,6 +36,7 @@ function movementFloorHeight(x)
   return 0.0
 end function
 
+// Return the movement contents value.
 function movementContents(point)
   floor = movementFloorHeight(point.x)
   if floor > -999999.0 and point.z <= floor then
@@ -45,6 +48,7 @@ function movementContents(point)
   return 0
 end function
 
+// Trace movement.
 function movementTrace(start, mins, maxs, finish, actor, mask)
   plane = movementqtypes.Plane(movementqtypes.Vec3(0.0, 0.0, 1.0),
     0.0, 2, 0)
@@ -66,6 +70,7 @@ function movementTrace(start, mins, maxs, finish, actor, mask)
     movementqtypes.Vec3(finish.x, finish.y, finish.z), plane, surface, 0, void)
 end function
 
+// Link movement.
 function movementLink(actor)
   global movementLinkCount
   movementLinkCount = movementLinkCount + 1
@@ -73,16 +78,19 @@ function movementLink(actor)
   return true
 end function
 
+// Handle movement.
 function movementTouch(actor)
   global movementTouchCount
   movementTouchCount = movementTouchCount + 1
   return true
 end function
 
+// Return the movement random value.
 function movementRandom()
   return 0
 end function
 
+// Return the movement context value.
 function movementContext()
   context = movementtypes.defaultContext()
   context.moveTrace = movementTrace
@@ -93,6 +101,7 @@ function movementContext()
   return context
 end function
 
+// Return the movement actor value.
 function movementActor(number)
   actor = movementtypes.createActor(number, "monster_test")
   actor.edict.mins = movementqtypes.Vec3(-16.0, -16.0, -24.0)

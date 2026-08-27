@@ -7,16 +7,19 @@ import miniquake2.runtime.visual_capture as retailvisualtool
 import miniquake2.qcommon.types as retailvisualtoolqtypes
 import miniquake2.qcommon.byteio as retailvisualtoolbyteio
 
+// Perform retail visual tool usage processing.
 function retailVisualToolUsage()
   print "usage: retail_visual_capture ROOT MAP OUTPUT.tga [MODEL|- [WIDTH HEIGHT FRAMES [INLINE(0|1) [X Y Z PITCH YAW ROLL [SHADOWS(0|1)]]]]]"
   print "defaults: MODEL=- WIDTH=640 HEIGHT=360 FRAMES=4 INLINE=1 SHADOWS=1, camera=first info_player_start"
   return 2
 end function
 
+// Perform retail visual tool integer processing.
 function retailVisualToolInteger(value)
   return retailvisualtoolbyteio.truncInt(toNumber(value))
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) < 3 or len(args) > 15 or
       (len(args) > 8 and len(args) != 9 and len(args) != 14 and

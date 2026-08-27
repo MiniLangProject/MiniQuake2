@@ -9,11 +9,13 @@ import miniquake2.protocol.netchan as plmap_netchan
 import miniquake2.network.constants as plmap_nc
 import miniquake2.runtime.play_session as plmap_session
 
+// Assert the play map test condition.
 function playMapAssert(value, name)
   if not value then return error(8490, name) end if
   return true
 end function
 
+// Find name.
 function findName(values, name)
   index = 1
   while index < len(values)

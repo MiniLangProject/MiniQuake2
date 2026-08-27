@@ -24,6 +24,7 @@ refdef and writes a canonical top-left 32-bit TGA for differential testing.
 #define MAX_LIGHTSTYLES 256
 #define RF_FULLBRIGHT 8
 
+// Store cvar s data.
 typedef struct cvar_s {
     char *name;
     char *string;
@@ -34,6 +35,7 @@ typedef struct cvar_s {
     struct cvar_s *next;
 } cvar_t;
 
+// Store entity s data.
 typedef struct entity_s {
     void *model;
     float angles[3];
@@ -49,10 +51,14 @@ typedef struct entity_s {
     int flags;
 } entity_t;
 
+// Store dlight t data.
 typedef struct { float origin[3], color[3], intensity; } dlight_t;
+// Store particle t data.
 typedef struct { float origin[3]; int color; float alpha; } particle_t;
+// Store lightstyle t data.
 typedef struct { float rgb[3], white; } lightstyle_t;
 
+// Store refdef t data.
 typedef struct {
     int x, y, width, height;
     float fov_x, fov_y;
@@ -68,6 +74,7 @@ typedef struct {
     particle_t *particles;
 } refdef_t;
 
+// Store refimport t data.
 typedef struct {
     void (__cdecl *Sys_Error)(int, char *, ...);
     void (__cdecl *Cmd_AddCommand)(char *, void (__cdecl *)(void));
@@ -87,6 +94,7 @@ typedef struct {
     void (__cdecl *Vid_NewWindow)(int, int);
 } refimport_t;
 
+// Store refexport t data.
 typedef struct {
     int api_version;
     int (__cdecl *Init)(void *, void *);
@@ -115,10 +123,13 @@ typedef struct {
 typedef refexport_t (__cdecl *GetRefAPI_t)(refimport_t);
 
 #pragma pack(push, 1)
+// Store pak header t data.
 typedef struct { char magic[4]; int directory_offset, directory_length; } pak_header_t;
+// Store pak entry t data.
 typedef struct { char name[56]; int file_offset, file_length; } pak_entry_t;
 #pragma pack(pop)
 
+// Store parsed entity t data.
 typedef struct {
     char class_name[128], model[128], sky[128];
     float origin[3], angles[3], sky_axis[3], sky_rotate;
@@ -131,6 +142,7 @@ static cvar_t g_cvars[160];
 static int g_cvar_count;
 static int g_missing_file_count;
 
+// Normalize name.
 static void normalize_name(char *output, size_t capacity, const char *input) {
     size_t index = 0;
     while (*input && index + 1 < capacity) {
@@ -141,6 +153,7 @@ static void normalize_name(char *output, size_t capacity, const char *input) {
     output[index] = 0;
 }
 
+// Read loose file.
 static int read_loose_file(const char *name, void **output) {
     char normalized[512], relative[512], path[MAX_PATH * 3];
     FILE *file;
@@ -167,6 +180,7 @@ static int read_loose_file(const char *name, void **output) {
     return (int)length;
 }
 
+// Read pak file.
 static int read_pak_file(const char *name, void **output) {
     char wanted[512], pak_path[MAX_PATH * 3], entry_name[57];
     int pak_number;
@@ -213,6 +227,7 @@ static int read_pak_file(const char *name, void **output) {
     return -1;
 }
 
+// Load import file.
 static int __cdecl import_load_file(char *name, void **output) {
     int result;
     if (output) *output = NULL;
@@ -226,9 +241,12 @@ static int __cdecl import_load_file(char *name, void **output) {
     return result;
 }
 
+// Release import file.
 static void __cdecl import_free_file(void *data) { free(data); }
+// Perform import game dir processing.
 static char *__cdecl import_game_dir(void) { return g_game_dir; }
 
+// Perform import error processing.
 static void __cdecl import_error(int level, char *format, ...) {
     va_list arguments;
     fprintf(stderr, "original ref_gl fatal %d: ", level);
@@ -237,16 +255,22 @@ static void __cdecl import_error(int level, char *format, ...) {
     ExitProcess(20);
 }
 
+// Perform import print processing.
 static void __cdecl import_print(int level, char *format, ...) {
     va_list arguments;
     (void)level;
     va_start(arguments, format); vfprintf(stdout, format, arguments); va_end(arguments);
 }
 
+// Add import command.
 static void __cdecl import_add_command(char *name, void (__cdecl *callback)(void)) { (void)name; (void)callback; }
+// Remove import command.
 static void __cdecl import_remove_command(char *name) { (void)name; }
+// Perform import argc processing.
 static int __cdecl import_argc(void) { return 0; }
+// Perform import argv processing.
 static char *__cdecl import_argv(int index) { static char empty[] = ""; (void)index; return empty; }
+// Execute import text.
 static void __cdecl import_execute_text(int when, char *text) { (void)when; (void)text; }
 
 static const char *cvar_override(const char *name, const char *fallback) {
@@ -273,6 +297,7 @@ static cvar_t *find_cvar(const char *name) {
     return NULL;
 }
 
+// Return import cvar.
 static cvar_t *__cdecl import_cvar_get(char *name, char *value, int flags) {
     cvar_t *result = find_cvar(name);
     const char *selected;
@@ -286,6 +311,7 @@ static cvar_t *__cdecl import_cvar_get(char *name, char *value, int flags) {
     return result;
 }
 
+// Set import cvar.
 static cvar_t *__cdecl import_cvar_set(char *name, char *value) {
     cvar_t *result = import_cvar_get(name, value, 0);
     free(result->string); result->string = _strdup(value ? value : "");
@@ -293,23 +319,29 @@ static cvar_t *__cdecl import_cvar_set(char *name, char *value) {
     return result;
 }
 
+// Set import cvar value.
 static void __cdecl import_cvar_set_value(char *name, float value) {
     char text[64];
     _snprintf(text, sizeof(text), "%.9g", value);
     import_cvar_set(name, text);
 }
 
+// Perform import mode info processing.
 static int __cdecl import_mode_info(int *width, int *height, int mode) {
     (void)mode; *width = g_width; *height = g_height; return 1;
 }
+// Perform import menu init processing.
 static void __cdecl import_menu_init(void) {}
+// Perform import new window processing.
 static void __cdecl import_new_window(int width, int height) { g_width = width; g_height = height; }
 
+// Capture window proc.
 static LRESULT CALLBACK capture_window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
     if (message == WM_CLOSE) { DestroyWindow(window); return 0; }
     return DefWindowProcA(window, message, wparam, lparam);
 }
 
+// Create imports.
 static refimport_t make_imports(void) {
     refimport_t imports;
     memset(&imports, 0, sizeof(imports));
@@ -323,6 +355,7 @@ static refimport_t make_imports(void) {
     return imports;
 }
 
+// Perform next token processing.
 static int next_token(const char **cursor, const char *end, char *output, size_t capacity) {
     const char *position = *cursor;
     size_t length = 0;
@@ -348,11 +381,13 @@ static int next_token(const char **cursor, const char *end, char *output, size_t
     output[length] = 0; *cursor = position; return 1;
 }
 
+// Parse vector.
 static void parse_vector(const char *text, float output[3]) {
     output[0] = output[1] = output[2] = 0.0f;
     sscanf(text, "%f %f %f", &output[0], &output[1], &output[2]);
 }
 
+// Parse entities.
 static int parse_entities(const unsigned char *bsp_data, int bsp_length,
     parsed_entity_t *entities, int capacity) {
     int offset, length, count = 0;
@@ -383,6 +418,7 @@ static int parse_entities(const unsigned char *bsp_data, int bsp_length,
     return count;
 }
 
+// Perform angle forward processing.
 static void angle_forward(const float angles[3], float forward[3]) {
     const double radians = 3.14159265358979323846 / 180.0;
     double pitch = angles[0] * radians, yaw = angles[1] * radians;
@@ -391,6 +427,7 @@ static void angle_forward(const float angles[3], float forward[3]) {
     forward[2] = (float)-sin(pitch);
 }
 
+// Write tga.
 static int write_tga(const char *path, int width, int height, const unsigned char *bottom_up_rgba) {
     FILE *file = fopen(path, "wb");
     unsigned char header[18], pixel[4];
@@ -409,10 +446,12 @@ static int write_tga(const char *path, int width, int height, const unsigned cha
     fclose(file); return 1;
 }
 
+// Perform usage processing.
 static void usage(void) {
     fprintf(stderr, "usage: original_ref_gl_capture ROOT MAP OUTPUT.tga [MODEL|- [WIDTH HEIGHT FRAMES [INLINE(0|1) [X Y Z PITCH YAW ROLL]]]]\n");
 }
 
+// Run this source file's command-line entry point.
 int main(int argc, char **argv) {
     HMODULE library;
     GetRefAPI_t get_api;

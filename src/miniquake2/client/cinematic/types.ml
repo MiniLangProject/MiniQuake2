@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Deterministic state and callback records for Quake II CIN playback. */
 package miniquake2.client.cinematic.types
 
+// Store audio chunk data.
 struct AudioChunk
   sampleRate
   sampleWidth
@@ -13,6 +14,7 @@ struct AudioChunk
   data
 end struct
 
+// Store audio callbacks data.
 struct AudioCallbacks
   submit
   pause
@@ -20,6 +22,7 @@ struct AudioCallbacks
   stop
 end struct
 
+// Store mixer adapter data.
 struct MixerAdapter
   mixer
   sound
@@ -30,11 +33,13 @@ struct MixerAdapter
   resumeActive
 end struct
 
+// Store mixer handoff data.
 struct MixerHandoff
   adapter
   callbacks
 end struct
 
+// Store playback data.
 struct Playback
   data
   header

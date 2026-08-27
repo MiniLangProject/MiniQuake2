@@ -12,16 +12,19 @@ import miniquake2.game.constants as bossproptestgameconstants
 bossPropTestSounds = []
 bossPropTestTempEntities = []
 
+// Assert the boss prop test test condition.
 function bossPropTestAssert(value, message)
   if value != true then return error(9627, message) end if
   return true
 end function
 
+// Report whether boss prop test equal.
 function bossPropTestEqual(actual, expected, message)
   if actual != expected then return error(9628, message + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Verify boss prop sound.
 function bossPropTestSound(actor, soundName, channel, attenuation)
   global bossPropTestSounds
   bossPropTestEqual(channel, bossproptestgameconstants.CHAN_BODY, "prop sound channel")
@@ -30,6 +33,7 @@ function bossPropTestSound(actor, soundName, channel, attenuation)
   return true
 end function
 
+// Verify boss prop temp entity.
 function bossPropTestTempEntity(actor, effectType)
   global bossPropTestTempEntities
   bossPropTestTempEntities = bossPropTestTempEntities + [effectType]

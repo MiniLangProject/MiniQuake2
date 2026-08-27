@@ -6,16 +6,19 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.game.types as gt
 import miniquake2.game.persistence as gpersist
 
+// Store test export data.
 struct TestExport
   edicts
   numEdicts
   maxEdicts
 end struct
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7990, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Verify roundtrip.
 function testRoundtrip()
   edicts = array(4)
   index = 0

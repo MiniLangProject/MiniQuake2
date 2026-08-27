@@ -13,21 +13,26 @@ import miniquake2.game.world.constants as pbgworldconstants
 import miniquake2.game.constants as pbggconstants
 import miniquake2.qcommon.types as pbgqtypes
 import miniquake2.server.game_bridge as pbgbridge
+import std.string as pbgstring
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9970, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9971, name + ": expected true") end if
   return true
 end function
 
+// Return the base 1 fixture value.
 function base1Fixture()
   return "{ \"classname\" \"worldspawn\" \"message\" \"Playable base1\" }\n" +
     "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" \"angle\" \"0\" }\n" +
     "{ \"classname\" \"info_player_coop\" \"origin\" \"16 0 0\" }\n" +
+    "{ \"classname\" \"info_player_intermission\" \"origin\" \"320 64 40\" \"angles\" \"10 20 30\" }\n" +
     "{ \"classname\" \"path_corner\" \"targetname\" \"patrol_a\" \"origin\" \"80 0 10\" }\n" +
     "{ \"classname\" \"func_door\" \"targetname\" \"door_a\" \"origin\" \"128 0 10\" \"speed\" \"80\" }\n" +
     "{ \"classname\" \"trigger_once\" \"target\" \"door_a\" \"origin\" \"128 0 10\" }\n" +
@@ -42,6 +47,7 @@ function base1Fixture()
     "{ \"classname\" \"unsupported_base1_probe\" }"
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 playable base1 Game API tests starting: 5"
   server = pbgbridge.createRuntime(4)
@@ -53,7 +59,7 @@ function main(args)
   // 1. Stock registry dispatch and aggregated unknown-class reporting.
   spawned = pbgapi.spawnResult()
   runtime = pbgapi.baseRuntime()
-  assertEqual(spawned.sourceEntityCount, 12, "source entity count")
+  assertEqual(spawned.sourceEntityCount, 13, "source entity count")
   assertEqual(spawned.skippedEntityCount, 2, "skipped entity count")
   assertEqual(len(spawned.skippedClasses), 1, "aggregated skipped classes")
   assertEqual(spawned.skippedClasses[0].className, "unsupported_base1_probe", "skipped class name")
@@ -61,7 +67,12 @@ function main(args)
   assertEqual(len(runtime.items), 2, "stock item dispatch")
   assertEqual(len(runtime.monsters), 1, "stock monster dispatch")
   assertTrue(pbgintegration.findWorldByClass(runtime, "info_player_coop") is not void, "coop spawn preserved")
-  assertTrue(pbgintegration.findWorldByClass(runtime, "path_corner") is not void, "AI path corner preserved")
+  pathCorner = pbgintegration.findWorldByClass(runtime, "path_corner")
+  assertTrue(pathCorner is not void, "AI path corner preserved")
+  assertTrue(pathCorner.solid == pbgworldconstants.SOLID_TRIGGER and
+      pathCorner.touch is not void and pathCorner.mins.x == -8.0 and
+      pathCorner.maxs.x == 8.0,
+    "path_corner installs stock trigger touch semantics")
   assertTrue(runtime.monsters[0].goalEntity is not void, "AI path corner adapted")
   assertEqual(runtime.monsters[0].goalEntity.className, "path_corner", "AI path corner class")
   assertEqual(runtime.monsters[0].goalEntity.edict.state.origin.x, 80.0, "AI path corner origin")
@@ -77,6 +88,11 @@ function main(args)
     api.runFrame()
     activationFrame = activationFrame + 1
   end while
+  movementStartX = player.edict.state.origin.x
+  forward = pbgqtypes.UserCmd(100, 0, [0, 0, 0], 300, 0, 0, 0, 64)
+  assertTrue(api.clientThink(client, forward), "forward client think")
+  assertTrue(player.edict.state.origin.x > movementStartX,
+    "PMove excludes the linked player from dynamic BBOX clipping")
   attack = pbgqtypes.UserCmd(100, pbggconstants.BUTTON_ATTACK, [0, 0, 0], 0, 0, 0, 0, 64)
   assertTrue(api.clientThink(client, attack), "client think")
   assertEqual(player.gameplay.fireCount, 1, "blaster fired through ClientThink")
@@ -129,6 +145,40 @@ function main(args)
   assertTrue(pbgintegration.damageMonster(runtime, 0, runtime.aiPlayers[0], 100), "monster death dispatch")
   assertEqual(monster.dieCount, 1, "monster death count")
   assertEqual(monster.deadFlag, pbgaiconstants.DEAD_DEAD, "monster dead state")
+
+  // Stock BeginIntermission exits ordinary non-deathmatch transitions on the
+  // next frame, while unit transitions use the authored camera and freeze the
+  // player. Cooperative unit transitions also discard all keys.
+  player.health = -1
+  assertTrue(pbgapi.baseWorldBeginIntermission(void, "base2"),
+    "ordinary single-player changelevel begins")
+  assertTrue(pbgapi.playerContext().exitIntermission,
+    "ordinary single-player changelevel exits immediately")
+  assertTrue(pbgstring.contains(server.commands.buffer, "menu_loadgame"),
+    "dead single-player intermission invokes stock respawn path")
+  pbgapi.playerContext().exitIntermission = false
+  pbgapi.playerContext().intermissionTime = 0.0
+  pbgapi.playerContext().cooperative = true
+  dataCd = pbgitems.findByClassName(pbgapi.playerContext().registry,
+    "key_data_cd")
+  player.gameplay.inventory.counts[dataCd.index] = 1
+  player.respawn.cooperativeInventory[dataCd.index] = 1
+  assertTrue(pbgapi.baseWorldBeginIntermission(void, "*unit2"),
+    "cooperative unit changelevel begins")
+  assertTrue(not pbgapi.playerContext().exitIntermission,
+    "cooperative unit changelevel waits at camera")
+  assertEqual(player.edict.state.origin.x, 320.0,
+    "intermission uses authored camera origin")
+  assertEqual(player.edict.client.playerState.viewAngles.y, 20.0,
+    "intermission uses authored camera angles")
+  assertEqual(player.edict.client.playerState.pmove.moveType,
+    pbggconstants.PM_FREEZE, "intermission freezes movement")
+  assertEqual(player.edict.client.playerState.gunIndex, 0,
+    "intermission hides weapon")
+  assertEqual(player.gameplay.inventory.counts[dataCd.index], 0,
+    "cooperative unit transition strips keys")
+  assertEqual(player.respawn.cooperativeInventory[dataCd.index], 0,
+    "cooperative unit transition strips checkpoint keys")
 
   api.clientDisconnect(client)
   api.shutdown()

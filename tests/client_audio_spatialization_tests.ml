@@ -15,26 +15,31 @@ castSound = castwav.WavSound("unit.wav", 8000, 1, 1, 64, -1,
   bytes(64))
 castEntityPosition = castqtypes.Vec3(100.0, 0.0, 0.0)
 
+// Resolve cast index.
 function castResolveIndex(index)
   global castSound
   return castSound
 end function
 
+// Resolve cast name.
 function castResolveName(name)
   global castSound
   return castSound
 end function
 
+// Resolve cast entity sound.
 function castResolveEntitySound(entityNumber, soundIndex, soundName)
   global castSound
   return castSound
 end function
 
+// Resolve cast position.
 function castResolvePosition(entityNumber)
   global castEntityPosition
   return castEntityPosition
 end function
 
+// Assert the cast test condition.
 function castAssert(value, message)
   if value != true then return error(10221, message) end if
   return true

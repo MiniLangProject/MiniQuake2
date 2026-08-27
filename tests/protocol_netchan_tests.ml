@@ -9,16 +9,19 @@ import miniquake2.protocol.types as pt
 import miniquake2.protocol.packet as ppacket
 import miniquake2.protocol.netchan as pnetchan
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7910, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7911, name + ": expected true") end if
   return true
 end function
 
+// Assert the bytes test condition.
 function assertBytes(actual, expected, name)
   assertEqual(len(actual), len(expected), name + " length")
   index = 0
@@ -29,6 +32,7 @@ function assertBytes(actual, expected, name)
   return true
 end function
 
+// Verify packet framing.
 function testPacketFraming()
   header = pt.PacketHeader(0x01234567, 1, 0x07654321, 1, 0xbeef, 0)
   encoded = ppacket.encodeHeader(header, true)
@@ -50,6 +54,7 @@ function testPacketFraming()
   return true
 end function
 
+// Verify reliable exchange.
 function testReliableExchange()
   client = pnetchan.setup(pc.NS_CLIENT, void, 0x1234, 100)
   server = pnetchan.setup(pc.NS_SERVER, void, 0, 100)
@@ -80,6 +85,7 @@ function testReliableExchange()
   return true
 end function
 
+// Verify loss and wrap.
 function testLossAndWrap()
   channel = pnetchan.setup(pc.NS_CLIENT, void, 7, 0)
   pnetchan.queueReliable(channel, bytes([9]))
@@ -111,6 +117,7 @@ function testLossAndWrap()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 protocol netchan tests starting: 3"
   result = try(testPacketFraming())

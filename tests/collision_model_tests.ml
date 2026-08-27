@@ -8,11 +8,13 @@ import miniquake2.format.types as t
 import miniquake2.collision.model as cm
 import miniquake2.game.weapons.vector as cmvector
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9910, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -20,6 +22,7 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Create fixture.
 function makeFixture()
   planes = [
     t.BspPlane(t.Vec3(1.0, 0.0, 0.0), 0.0, 0),
@@ -44,6 +47,7 @@ function makeFixture()
   return cm.create(map)
 end function
 
+// Verify point and leaves.
 function testPointAndLeaves()
   model = makeFixture()
   assertEqual(cm.pointLeafNumber(model, t.Vec3(2.0, 0.0, 0.0), 0), 0, "front leaf")
@@ -54,6 +58,7 @@ function testPointAndLeaves()
   return true
 end function
 
+// Verify trace.
 function testTrace()
   model = makeFixture()
   trace = cm.boxTrace(model, t.Vec3(2.0, 0.0, 0.0), t.Vec3(-2.0, 0.0, 0.0), t.Vec3(0.0, 0.0, 0.0), t.Vec3(0.0, 0.0, 0.0), 0, c.CONTENTS_SOLID)
@@ -66,6 +71,7 @@ function testTrace()
   return true
 end function
 
+// Verify area portals.
 function testAreaPortals()
   model = makeFixture()
   assertEqual(cm.areasConnected(model, 1, 2), false, "closed areas")
@@ -78,6 +84,7 @@ function testAreaPortals()
   return true
 end function
 
+// Return the collision local to world value.
 function collisionLocalToWorld(localPoint, origin, angles)
   basis = cmvector.angleVectors(angles)
   forward = basis[0]
@@ -90,6 +97,7 @@ function collisionLocalToWorld(localPoint, origin, angles)
   )
 end function
 
+// Return the collision world to local value.
 function collisionWorldToLocal(worldPoint, origin, angles)
   basis = cmvector.angleVectors(angles)
   forward = basis[0]
@@ -102,6 +110,7 @@ function collisionWorldToLocal(worldPoint, origin, angles)
   return t.Vec3(localX, localY, localZ)
 end function
 
+// Verify repeated rotated bsp collision.
 function testRepeatedRotatedBspCollision()
   iteration = 0
   while iteration < 512

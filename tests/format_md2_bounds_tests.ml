@@ -7,11 +7,13 @@ import miniquake2.format.binary as md2boundbinary
 import miniquake2.format.constants as md2boundconstants
 import miniquake2.format.md2 as md2boundformat
 
+// Assert the md 2 bound test condition.
 function md2boundAssert(value, name)
   if not value then return error(2309, name) end if
   return true
 end function
 
+// Return the md 2 bound fixture value.
 function md2boundFixture(normalIndex)
   data = bytes(128)
   md2boundbinary.putU32(data, 0, md2boundconstants.IDALIASHEADER)

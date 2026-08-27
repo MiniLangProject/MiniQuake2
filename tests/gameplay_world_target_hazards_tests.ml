@@ -23,22 +23,26 @@ hazardBlasterDamage = 0
 hazardBlasterSpeed = 0.0
 hazardBlasterDirection = void
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9940, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9941, name + ": expected true") end if
   return true
 end function
 
+// Return the hazard damage value.
 function hazardDamage(target, inflictor, attacker, amount, means)
   global hazardDamageNumbers
   hazardDamageNumbers = hazardDamageNumbers + [[target.number, amount, means]]
   return true
 end function
 
+// Trace hazard.
 function hazardTrace(start, finish, ignore)
   global hazardTraceIndex, hazardVictim, hazardImmune, hazardBlocker
   target = hazardBlocker
@@ -55,6 +59,7 @@ function hazardTrace(start, finish, ignore)
   return hztypes.WorldTrace(true, position, normal, target)
 end function
 
+// Return the hazard sparks value.
 function hazardSparks(origin, normal, count, color)
   global hazardSparkCounts, hazardSparkColor
   hazardSparkCounts = hazardSparkCounts + [count]
@@ -62,6 +67,7 @@ function hazardSparks(origin, normal, count, color)
   return true
 end function
 
+// Return the hazard quake value.
 function hazardQuake(entity, speed, playSound)
   global hazardQuakeCalls, hazardQuakeSounds
   hazardQuakeCalls = hazardQuakeCalls + 1
@@ -69,6 +75,7 @@ function hazardQuake(entity, speed, playSound)
   return 1
 end function
 
+// Fire hazard blaster.
 function hazardFireBlaster(entity, direction, damage, speed)
   global hazardBlasterCalls, hazardBlasterDamage, hazardBlasterSpeed
   global hazardBlasterDirection
@@ -79,6 +86,7 @@ function hazardFireBlaster(entity, direction, damage, speed)
   return true
 end function
 
+// Create hazard world.
 function makeHazardWorld()
   callbacks = hzcore.defaultCallbacks()
   callbacks.damage = hazardDamage
@@ -89,12 +97,14 @@ function makeHazardWorld()
   return hzcore.createWorld(callbacks)
 end function
 
+// Reset laser trace.
 function resetLaserTrace()
   global hazardTraceIndex
   hazardTraceIndex = 0
   return true
 end function
 
+// Verify target laser stock trace and state.
 function testTargetLaserStockTraceAndState()
   global hazardVictim, hazardImmune, hazardBlocker, hazardDamageNumbers
   global hazardSparkCounts, hazardSparkColor
@@ -165,6 +175,7 @@ function testTargetLaserStockTraceAndState()
   return true
 end function
 
+// Verify target earthquake stock timing.
 function testTargetEarthquakeStockTiming()
   global hazardQuakeCalls, hazardQuakeSounds
   hazardQuakeCalls = 0
@@ -198,6 +209,7 @@ function testTargetEarthquakeStockTiming()
   return true
 end function
 
+// Verify target blaster uses projectile boundary.
 function testTargetBlasterUsesProjectileBoundary()
   global hazardBlasterCalls, hazardBlasterDamage, hazardBlasterSpeed
   global hazardBlasterDirection

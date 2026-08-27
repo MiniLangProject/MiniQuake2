@@ -8,6 +8,7 @@ package miniquake2.game.integration.campaign_progression
 import miniquake2.game.integration.baseq2 as campaignbaseq2
 import miniquake2.game.world.core as campaignworld
 
+// Store campaign progress result data.
 struct CampaignProgressResult
   reached
   requestedMap
@@ -18,6 +19,7 @@ struct CampaignProgressResult
   directFallback
 end struct
 
+// Map normalized name.
 function normalizedMapName(mapSpec)
   if typeof(mapSpec) != "string" or mapSpec == "" then return "" end if
   campaignMapStart = 0
@@ -42,6 +44,7 @@ function normalizedMapName(mapSpec)
   return campaignMapResult
 end function
 
+// Return the campaign visited value.
 function campaignVisited(visited, number)
   for each campaignVisitedNumber in visited
     if campaignVisitedNumber == number then return true end if
@@ -49,6 +52,7 @@ function campaignVisited(visited, number)
   return false
 end function
 
+// Return the campaign player value.
 function campaignPlayer(playerContext)
   if playerContext is void then return void end if
   for each campaignCandidatePlayer in playerContext.players
@@ -59,6 +63,7 @@ function campaignPlayer(playerContext)
   return void
 end function
 
+// Pick up campaign key.
 function campaignPickupKey(runtime, playerContext, player, itemClassName)
   if itemClassName == "" then return false end if
   campaignKeyEntity = campaignbaseq2.findItemByClass(runtime, itemClassName)
@@ -67,6 +72,7 @@ function campaignPickupKey(runtime, playerContext, player, itemClassName)
   return campaignKeyAction.success
 end function
 
+// Activate campaign world.
 function campaignActivateWorld(runtime, playerContext, player, entity)
   if entity is void or not entity.inUse then return [false, 0] end if
   campaignKeyCount = 0
@@ -105,6 +111,7 @@ function campaignActivateWorld(runtime, playerContext, player, entity)
   return [campaignActivated, campaignKeyCount]
 end function
 
+// Kill campaign monster.
 function campaignKillMonster(runtime, actor)
   campaignMonsterIndex = 0
   while campaignMonsterIndex < len(runtime.monsters)
@@ -117,7 +124,9 @@ function campaignKillMonster(runtime, actor)
   return false
 end function
 
+// Return the campaign drive target value.
 function campaignDriveTarget(runtime, playerContext, player, targetName, visited, depth)
+  // Keep campaign drive target phases explicit: validate inputs, update owned state, then publish the result.
   if targetName == "" or depth > 32 then return [false, 0, 0, visited] end if
   campaignTargetActivated = false
   campaignTargetKeys = 0
@@ -171,7 +180,9 @@ function campaignDriveTarget(runtime, playerContext, player, targetName, visited
   return [campaignTargetActivated, campaignTargetKeys, campaignTargetMonsters, visited]
 end function
 
+// Map drive to.
 function driveToMap(runtime, playerContext, requestedMap)
+  // Keep drive to map phases explicit: validate inputs, update owned state, then publish the result.
   if runtime is void or playerContext is void or typeof(requestedMap) != "string" or requestedMap == "" then
     return error(9710, "campaign progression requires runtime, player context and target map")
   end if

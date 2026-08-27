@@ -17,6 +17,7 @@ import miniquake2.client.prediction as pwprediction
 
 const BOX_EPSILON = 0.03125
 
+// Store prediction world data.
 struct PredictionWorld
   collision
   configStrings
@@ -26,19 +27,23 @@ end struct
 
 activePredictionWorld = void
 
+// Create world.
 function createWorld()
   return PredictionWorld(void, [], void, -1)
 end function
 
+// Create prediction workspace.
 function createPredictionWorkspace()
   return pwprediction.createWorkspace(predictionTrace,
     predictionPointContents)
 end function
 
+// Return the vec value.
 function inline vec(values)
   return pwqt.Vec3(values[0], values[1], values[2])
 end function
 
+// Report whether empty trace.
 function emptyTrace(finish)
   return pwqt.Trace(false, false, 1.0,
     pwqt.Vec3(finish.x, finish.y, finish.z),
@@ -46,6 +51,7 @@ function emptyTrace(finish)
     pwqt.CollisionSurface("", 0, 0), 0, void)
 end function
 
+// Trace collision.
 function collisionTrace(result, entity)
   normal = pwqt.Vec3(result.plane.normal.x, result.plane.normal.y,
     result.plane.normal.z)
@@ -65,6 +71,7 @@ end function
 // slab axes scalar: Pmove calls this for every solid entity and temporary
 // arrays/structs here measurably dominate remote-client prediction.
 function boxEntityTrace(start, mins, maxs, finish, entity)
+  // Keep box entity trace phases explicit: validate inputs, update owned state, then publish the result.
   horizontal = 8 * (entity.solid & 31)
   down = 8 * ((entity.solid >> 5) & 31)
   up = 8 * ((entity.solid >> 10) & 63) - 32
@@ -162,11 +169,13 @@ function boxEntityTrace(start, mins, maxs, finish, entity)
   return output
 end function
 
+// Slice text.
 function textSlice(value, start, count)
   if count <= 0 then return "" end if
   return decode(slice(bytes(value), start, count))
 end function
 
+// Return the inline model number.
 function inlineModelNumber(world, modelIndex)
   configIndex = pwqc.CS_MODELS + modelIndex
   if modelIndex <= 0 or configIndex < 0 or
@@ -182,10 +191,12 @@ function inlineModelNumber(world, modelIndex)
   return parsed
 end function
 
+// Compute state.
 function inline dot(first, second)
   return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
+// Return the to model value.
 function toModel(point, origin, basis)
   relative = pwqt.Vec3(point.x - origin.x, point.y - origin.y,
     point.z - origin.z)
@@ -193,6 +204,7 @@ function toModel(point, origin, basis)
     dot(relative, basis[2]))
 end function
 
+// Return the normal to world value.
 function normalToWorld(normal, basis)
   return pwqt.Vec3(
     basis[0].x * normal.x - basis[1].x * normal.y + basis[2].x * normal.z,
@@ -200,6 +212,7 @@ function normalToWorld(normal, basis)
     basis[0].z * normal.x - basis[1].z * normal.y + basis[2].z * normal.z)
 end function
 
+// Merge trace.
 function mergeTrace(best, candidate)
   if candidate.allSolid or candidate.startSolid or
       candidate.fraction < best.fraction then
@@ -210,6 +223,7 @@ function mergeTrace(best, candidate)
   return best
 end function
 
+// Trace entities.
 function traceEntities(world, start, mins, maxs, finish, best)
   if world.snapshot is void then return best end if
   for each entity in world.snapshot.entities
@@ -246,6 +260,7 @@ function traceEntities(world, start, mins, maxs, finish, best)
   return best
 end function
 
+// Trace state.
 function trace(world, start, mins, maxs, finish)
   best = emptyTrace(finish)
   if world.collision is not void then
@@ -262,6 +277,7 @@ function trace(world, start, mins, maxs, finish)
   return traceEntities(world, start, mins, maxs, finish, best)
 end function
 
+// Return the point contents value.
 function pointContents(world, point)
   contents = 0
   if world.collision is not void then
@@ -283,6 +299,7 @@ function pointContents(world, point)
   return contents
 end function
 
+// Trace prediction.
 function predictionTrace(start, mins, maxs, finish)
   global activePredictionWorld
   if activePredictionWorld is void then
@@ -291,6 +308,7 @@ function predictionTrace(start, mins, maxs, finish)
   return trace(activePredictionWorld, start, mins, maxs, finish)
 end function
 
+// Return the prediction point contents value.
 function predictionPointContents(point)
   global activePredictionWorld
   if activePredictionWorld is void then
@@ -299,6 +317,7 @@ function predictionPointContents(point)
   return pointContents(activePredictionWorld, point)
 end function
 
+// Return the predict value.
 function predict(playerState, commands, collision, configStrings, snapshot,
     localEntityNumber, airAcceleration)
   global activePredictionWorld

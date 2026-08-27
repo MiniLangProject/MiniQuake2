@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Data-driven Classic 3.19 attack families for every active stock monster. */
 package miniquake2.game.ai.combat_profiles
 
+// Store monster combat profile data.
 struct MonsterCombatProfile
   className
   attackKind
@@ -18,11 +19,13 @@ struct MonsterCombatProfile
   muzzleFlash
 end struct
 
+// Return the combat profile value.
 function combatProfile(className, attackKind, damage, knockback, speed, splashRadius, maximumRange, cooldown, count, muzzleFlash)
   return MonsterCombatProfile(className, attackKind, damage, knockback, speed,
     splashRadius, maximumRange, cooldown, count, muzzleFlash)
 end function
 
+// Return the stock profiles value.
 function stockProfiles()
   return [
     combatProfile("monster_berserk", "melee", 18, 400, 0.0, 0.0, 80.0, 1.0, 1, 0),
@@ -50,6 +53,7 @@ function stockProfiles()
   ]
 end function
 
+// Find profile.
 function findProfile(profiles, className)
   for each profile in profiles
     if profile.className == className then return profile end if
@@ -57,10 +61,19 @@ function findProfile(profiles, className)
   return void
 end function
 
+// Return the stock profile value.
 function stockProfile(className)
+  // misc_actor is a stock scripted good-guy, not one of the 22 SP_monster_*
+  // registry entries validated by stockProfiles. It nevertheless uses the
+  // same integrated hitscan path for actorMachineGun.
+  if className == "misc_actor" then
+    return combatProfile("misc_actor", "bullet", 3, 4, 0.0, 0.0,
+      2048.0, 0.1, 1, 63)
+  end if
   return findProfile(stockProfiles(), className)
 end function
 
+// Validate profiles.
 function validateProfiles(profiles)
   if len(profiles) != 22 then return error(9640, "stock combat profile count must remain 22") end if
   validKinds = ["melee", "drain", "bullet", "shotgun", "blaster", "rocket", "rail"]

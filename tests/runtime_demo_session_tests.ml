@@ -13,15 +13,18 @@ import miniquake2.client.demo as demosessiontestdemo
 import miniquake2.runtime.demo_session as demosessiontestsession
 import miniquake2.qcommon.filesystem as demosessiontestfilesystem
 
+// Assert the demo session test condition.
 function demoSessionAssert(value, name)
   if not value then return error(9946, name) end if
   return true
 end function
 
+// Return the demo session packet value.
 function demoSessionPacket(buffer)
   return demosessiontestsizebuf.dataSlice(buffer)
 end function
 
+// Return the demo session fixture value.
 function demoSessionFixture()
   demoSessionFixtureDemo = demosessiontestdemo.create()
   demoSessionFixtureSetup = demosessiontestsizebuf.alloc(1400)
@@ -52,6 +55,7 @@ function demoSessionFixture()
   return demosessiontestdemo.encodeDemo(demoSessionFixtureDemo)
 end function
 
+// Return the demo session retail value.
 function demoSessionRetail(root)
   demoSessionRetailFileSystem = demosessiontestfilesystem.initialize(root, "")
   demoSessionRetailNames = ["demo1.dm2", "demo2.dm2"]
@@ -86,6 +90,7 @@ function demoSessionRetail(root)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   demoSessionRuntime = demosessiontestsession.create(demoSessionFixture(), 17)
   demoSessionStep = demosessiontestsession.step(demoSessionRuntime, 100)

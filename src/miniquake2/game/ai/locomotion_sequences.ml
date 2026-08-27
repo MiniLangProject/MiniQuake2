@@ -8,6 +8,7 @@ package miniquake2.game.ai.locomotion_sequences
 import miniquake2.game.ai.core as locomotioncore
 import miniquake2.game.ai.types as locomotiontypes
 
+// Store monster locomotion plan data.
 struct MonsterLocomotionPlan
   className
   standFirst
@@ -62,12 +63,14 @@ jorgStandDistances = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 jorgMoveDistances = [17.0, 0.0, 0.0, 0.0, 12.0, 8.0, 10.0, 33.0, 0.0, 0.0, 0.0, 9.0, 9.0, 9.0]
 makronMoveDistances = [3.0, 12.0, 8.0, 8.0, 8.0, 6.0, 12.0, 9.0, 6.0, 12.0]
 
+// Create locomotion plan.
 function makeLocomotionPlan(className, standFirst, standLast, idleFirst, idleLast,
     walkFirst, walkLast, runFirst, runLast)
   return MonsterLocomotionPlan(className, standFirst, standLast, idleFirst,
     idleLast, walkFirst, walkLast, runFirst, runLast)
 end function
 
+// Return the stock plan value.
 function stockPlan(className)
   if className == "monster_berserk" then return makeLocomotionPlan(className, 0, 4, 5, 24, 25, 35, 36, 41) end if
   if className == "monster_gladiator" then return makeLocomotionPlan(className, 0, 6, 0, 6, 7, 22, 23, 28) end if
@@ -93,6 +96,7 @@ function stockPlan(className)
   return void
 end function
 
+// Report whether has stock moves.
 function inline hasStockMoves(className)
   return className == "monster_berserk" or className == "monster_gladiator" or
     className == "monster_gunner" or className == "monster_infantry" or
@@ -107,6 +111,7 @@ function inline hasStockMoves(className)
     className == "monster_jorg" or className == "monster_makron"
 end function
 
+// Create stock move.
 function makeStockMove(name, firstFrame, lastFrame, aiFunction, distances,
     defaultDistance, endFunction)
   frameCount = lastFrame - firstFrame + 1
@@ -124,6 +129,7 @@ end function
 // Return the immutable stock locomotion contract for one class and activity.
 // Unsupported combinations remain explicit instead of inventing frame ranges.
 function stockMove(className, moveKind, endFunction)
+  // Keep stock move phases explicit: validate inputs, update owned state, then publish the result.
   soldierClass = className == "monster_soldier_light" or className == "monster_soldier" or className == "monster_soldier_ss"
   tankClass = className == "monster_tank" or className == "monster_tank_commander"
 
@@ -240,6 +246,7 @@ function stockMove(className, moveKind, endFunction)
   return void
 end function
 
+// Return the range first value.
 function rangeFirst(plan, activity)
   if activity == "walk" then return plan.walkFirst end if
   if activity == "run" or activity == "attack" or activity == "melee" then return plan.runFirst end if
@@ -247,6 +254,7 @@ function rangeFirst(plan, activity)
   return plan.standFirst
 end function
 
+// Return the range last value.
 function rangeLast(plan, activity)
   if activity == "walk" then return plan.walkLast end if
   if activity == "run" or activity == "attack" or activity == "melee" then return plan.runLast end if
@@ -254,6 +262,7 @@ function rangeLast(plan, activity)
   return plan.standLast
 end function
 
+// Return the model frame for the requested position.
 function modelFrameAt(plan, activity, frameNumber, actorNumber)
   first = rangeFirst(plan, activity)
   last = rangeLast(plan, activity)
@@ -263,6 +272,7 @@ function modelFrameAt(plan, activity, frameNumber, actorNumber)
   return first + (offset % count)
 end function
 
+// Validate plan.
 function validatePlan(plan)
   if plan is void or plan.className == "" or plan.standFirst < 0 or
       plan.standLast < plan.standFirst or plan.idleFirst < 0 or plan.idleLast < plan.idleFirst or

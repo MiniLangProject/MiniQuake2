@@ -8,6 +8,7 @@ package miniquake2.network.runtime.transport
 import miniquake2.qcommon.types as qt
 import miniquake2.network.constants as nc
 
+// Parse octet.
 function parseOctet(source, start, endIndex)
   if endIndex <= start or endIndex - start > 3 then return error(7270, "invalid IPv4 octet") end if
   value = 0
@@ -22,6 +23,7 @@ function parseOctet(source, start, endIndex)
   return value
 end function
 
+// Return the from udp.
 function fromUdp(address, port)
   if typeof(address) != "string" or typeof(port) != "int" or port < 0 or port > 65535 then return error(7271, "invalid UDP endpoint") end if
   source = bytes(address)
@@ -39,6 +41,7 @@ function fromUdp(address, port)
   return qt.NetAddress(nc.NA_IP, octets, array(10, 0), port)
 end function
 
+// Return the host value.
 function host(address)
   if address is void then return error(7273, "cannot send to a void address") end if
   if address.type == nc.NA_LOOPBACK then return "127.0.0.1" end if

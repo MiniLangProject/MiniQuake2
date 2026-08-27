@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Generation-owned client model/sound registration records. */
 package miniquake2.client.assets.types
 
+// Store loader callbacks data.
 struct LoaderCallbacks
   loadModel
   loadSkin
@@ -12,6 +13,7 @@ struct LoaderCallbacks
   onMissing
 end struct
 
+// Store client info data.
 struct ClientInfo
   name
   cinfo
@@ -21,6 +23,7 @@ struct ClientInfo
   available
 end struct
 
+// Store asset entry data.
 struct AssetEntry
   kind
   index
@@ -31,6 +34,7 @@ struct AssetEntry
   reason
 end struct
 
+// Store missing asset data.
 struct MissingAsset
   kind
   index
@@ -39,6 +43,7 @@ struct MissingAsset
   reason
 end struct
 
+// Store resolver bindings data.
 struct ResolverBindings
   modelIndex
   modelName
@@ -51,6 +56,7 @@ struct ResolverBindings
   playerWeapon
 end struct
 
+// Store registry data.
 struct Registry
   loaders
   generation

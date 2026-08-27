@@ -19,6 +19,7 @@ import miniquake2.qcommon.byteio as qbyteio
 weaponCoreDamageAttackerNumber = 0
 const MAX_WEAPON_EVENT_HISTORY = 1024
 
+// Append weapon core event.
 function weaponCoreAppendEvent(context, value)
   if len(context.events) < MAX_WEAPON_EVENT_HISTORY then
     context.events = context.events + [value]
@@ -35,50 +36,64 @@ function weaponCoreAppendEvent(context, value)
   return true
 end function
 
+// Return the damage attacker number.
 function damageAttackerNumber()
   global weaponCoreDamageAttackerNumber
   return weaponCoreDamageAttackerNumber
 end function
 
+// Clear trace.
 function clearTrace(start, mins, maxs, endPosition, ignore, mask)
   plane = qt.Plane(qt.Vec3(0.0, 0.0, 1.0), 0.0, 0, 0)
   surface = qt.CollisionSurface("", 0, 0)
   return qt.Trace(false, false, 1.0, wbvector.copy(endPosition), plane, surface, 0, void)
 end function
+// Report whether empty contents.
 function emptyContents(point)
   return 0
 end function
+// Return the combat damage value.
 function combatDamage(target, request)
   return gpcombat.T_Damage(target, request)
 end function
+// Report whether always can damage.
 function alwaysCanDamage(target, origin)
   return true
 end function
+// Report whether no radius targets.
 function noRadiusTargets(origin, radius)
   return []
 end function
+// Report whether no effect.
 function noEffect(effect)
   return true
 end function
+// Report whether no sound.
 function noSound(entity, soundName)
   return true
 end function
+// Report whether no link.
 function noLink(entity)
   return true
 end function
+// Report whether no free.
 function noFree(entity)
   return true
 end function
+// Report whether no noise.
 function noNoise(owner, position, noiseType)
   return true
 end function
+// Report whether no dodge.
 function noDodge(owner, start, direction, speed)
   return true
 end function
+// Return the zero random signed value.
 function zeroRandomSigned()
   return 0.0
 end function
 
+// Return the default callbacks value.
 function defaultCallbacks()
   return wbtypes.WeaponCallbacks(
     clearTrace, emptyContents, combatDamage, alwaysCanDamage, noRadiusTargets,
@@ -86,16 +101,19 @@ function defaultCallbacks()
   )
 end function
 
+// Create context.
 function createContext(callbacks)
   if callbacks is void then callbacks = defaultCallbacks() end if
   return wbtypes.WeaponContext([], 0.0, wbconstants.FRAME_TIME, 1, callbacks, [], false)
 end function
 
+// Add target origin.
 function addTargetOrigin(target)
   target.combatant.edict.state.origin = wbvector.toArray(target.origin)
   return target
 end function
 
+// Spawn projectile.
 function spawnProjectile(context, className)
   projectile = wbtypes.createProjectile(context.nextProjectileNumber, className)
   context.nextProjectileNumber = context.nextProjectileNumber + 1
@@ -103,6 +121,7 @@ function spawnProjectile(context, className)
   return projectile
 end function
 
+// Release projectile.
 function freeProjectile(context, projectile)
   if projectile is void or projectile.inUse == false then return false end if
   projectile.inUse = false
@@ -115,10 +134,12 @@ function freeProjectile(context, projectile)
   return true
 end function
 
+// Release think.
 function freeThink(projectile, context)
   return freeProjectile(context, projectile)
 end function
 
+// Emit effect.
 function emitEffect(context, kind, start, endPosition, normal, style, count)
   directionIndex = qdir.encodeDirection(normal)
   effect = wbtypes.WeaponEffect(kind, wbvector.copy(start), wbvector.copy(endPosition), wbvector.copy(normal), directionIndex, style, count)
@@ -127,6 +148,7 @@ function emitEffect(context, kind, start, endPosition, normal, style, count)
   return effect
 end function
 
+// Apply damage.
 function applyDamage(context, target, inflictor, attacker, direction, point, damage, knockback, flags, meansOfDeath)
   global weaponCoreDamageAttackerNumber
   if target is void or target.inUse == false or target.combatant is void or target.combatant.takeDamage == false then return false end if
@@ -141,6 +163,7 @@ function applyDamage(context, target, inflictor, attacker, direction, point, dam
   return result
 end function
 
+// Return the radius damage value.
 function radiusDamage(context, inflictor, attacker, baseDamage, ignore, radius, meansOfDeath)
   results = []
   targets = context.callbacks.radiusTargets(inflictor.origin, radius)
@@ -163,11 +186,13 @@ function radiusDamage(context, inflictor, attacker, baseDamage, ignore, radius, 
   return results
 end function
 
+// Handle projectile.
 function touchProjectile(context, projectile, other, trace)
   if projectile is void or projectile.inUse == false or projectile.touch is void then return false end if
   return projectile.touch(projectile, other, trace, context)
 end function
 
+// Run due thinks.
 function runDueThinks(context)
   progressed = true
   guard = 0
@@ -185,6 +210,7 @@ function runDueThinks(context)
   return guard
 end function
 
+// Advance state.
 function advance(context, seconds)
   if seconds < 0.0 then return error(9750, "weapon time cannot run backwards") end if
   context.time = context.time + seconds
@@ -199,6 +225,7 @@ function advance(context, seconds)
   return context.time
 end function
 
+// Report whether surface is sky.
 function surfaceIsSky(trace)
   return trace is not void and trace.surface is not void and (trace.surface.flags & qc.SURF_SKY) != 0
 end function

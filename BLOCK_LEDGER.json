@@ -199,7 +199,7 @@
       "id": "G09",
       "plan_point": 9,
       "title": "complete baseq2 game matrix",
-      "status": "47_map_spawn_zero_simplified_retail_classes_stock_combat_profiles_collision_bound_monster_movement_playertrail_pursuit_exact_sensing_player_noise_all_player_weapons_persistent_world_references_bosses_and_39_map_two_client_campaign_passed",
+      "status": "broad_baseq2_coverage_passed_with_body_queue_edict_reuse_flymissile_pusher_and_help_counter_deviations_tracked",
       "evidence": [
         "src/miniquake2/game/base/",
         "src/miniquake2/game/gameplay/",
@@ -255,6 +255,14 @@
         "tests/gameplay_campaign_endgame_tests.ml",
         "tests/gameplay_boss_persistence_tests.ml",
         "tests/gameplay_world_rare_entities_tests.ml",
+        "tests/baseq2_original_spawn_table_tests.ml",
+        "tests/gameplay_elevator_pusher_tests.ml",
+        "tests/server_game_bridge_bbox_trace_tests.ml",
+        "tests/gameplay_level_handover_tests.ml",
+        "tests/gameplay_ai_actor_tests.ml",
+        "tests/game_api_actor_integration_tests.ml",
+        "tests/game_api_changelevel_policy_tests.ml",
+        "tests/game_api_player_death_drop_tests.ml",
         "tests/gameplay_world_stock_rare_tests.ml",
         "src/miniquake2/game/world/turret.ml",
         "src/miniquake2/game/world/turret_types.ml",
@@ -271,7 +279,8 @@
         "tests/runtime_multiplayer_coop_checkpoint_tests.ml",
         "src/miniquake2/runtime/multiplayer_campaign_session.ml",
         "tests/runtime_multiplayer_campaign_checkpoint_tests.ml",
-        "docs/PLAYABILITY_MATRIX.md"
+        "docs/PLAYABILITY_MATRIX.md",
+        "docs/ORIGINAL_PARITY_AUDIT_2026-08-26.md"
       ]
     },
     {

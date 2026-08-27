@@ -7,11 +7,13 @@ import miniquake2.qcommon.byteio as picturetestbio
 import miniquake2.client.cinematic.picture as picturetestplayer
 import miniquake2.renderer.recording as picturetestrecording
 
+// Assert the picture test test condition.
 function pictureTestAssert(value, name)
   if not value then return error(8369, name) end if
   return true
 end function
 
+// Verify picture data.
 function pictureTestData(withPalette)
   pictureTestSize = 128 + 4
   if withPalette then pictureTestSize = pictureTestSize + 769 end if

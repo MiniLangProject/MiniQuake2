@@ -15,16 +15,19 @@ import miniquake2.game.world.core as sppworld
 import miniquake2.game.weapons.constants as sppweaponconstants
 import miniquake2.game.gameplay.constants as sppgameplayconstants
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9985, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9986, name + ": expected true") end if
   return true
 end function
 
+// Find name.
 function findName(values, name)
   index = 1
   while index < len(values)
@@ -34,6 +37,7 @@ function findName(values, name)
   return 0
 end function
 
+// Return the protocol entity value.
 function protocolEntity(state)
   return sppptypes.EntityState(
     state.number,
@@ -46,7 +50,9 @@ function protocolEntity(state)
   )
 end function
 
-fixture = "{ \"classname\" \"worldspawn\" \"sounds\" \"7\" }\n" +
+fixture = "{ \"classname\" \"worldspawn\" \"message\" \"Outer Base\" " +
+  "\"sky\" \"space1\" \"skyrotate\" \"2.5\" \"skyaxis\" \"0 0 1\" " +
+  "\"sounds\" \"7\" \"gravity\" \"650\" \"nextmap\" \"base2\" }\n" +
   "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" }\n" +
   "{ \"classname\" \"weapon_machinegun\" \"origin\" \"48 0 8\" }\n" +
   "{ \"classname\" \"ammo_shells\" \"origin\" \"80 256 64\" \"target\" \"item_help\" }\n" +
@@ -92,6 +98,31 @@ assertTrue(server.configStrings[sppqconstants.CS_STATUSBAR] != "",
   "stock statusbar configstring")
 assertEqual(server.configStrings[sppqconstants.CS_CDTRACK], "7",
   "worldspawn music track configstring")
+assertEqual(server.configStrings[sppqconstants.CS_NAME], "Outer Base",
+  "worldspawn authored level name")
+assertEqual(server.configStrings[sppqconstants.CS_SKY], "space1",
+  "worldspawn authored sky")
+assertEqual(server.configStrings[sppqconstants.CS_SKYROTATE], "2.5",
+  "worldspawn sky rotation")
+assertEqual(server.configStrings[sppqconstants.CS_SKYAXIS], "0 0 1",
+  "worldspawn sky axis")
+assertEqual(server.configStrings[sppqconstants.CS_MAXCLIENTS], "4",
+  "worldspawn maxclients configstring")
+assertEqual(server.configStrings[sppqconstants.CS_ITEMS + 1], "Blaster",
+  "worldspawn publishes item pickup names")
+assertEqual(server.configStrings[sppqconstants.CS_LIGHTS], "m",
+  "worldspawn normal light style")
+assertEqual(server.configStrings[sppqconstants.CS_LIGHTS + 1],
+  "mmnmmommommnonmmonqnmmo", "worldspawn flicker light style")
+assertEqual(server.configStrings[sppqconstants.CS_LIGHTS + 11],
+  "abcdefghijklmnopqrrqponmlkjihgfedcba",
+  "worldspawn slow pulse light style")
+assertEqual(server.configStrings[sppqconstants.CS_LIGHTS + 63], "a",
+  "worldspawn test-dark light style")
+assertEqual(sppgameapi.playerContext().gravity, 650,
+  "worldspawn authored gravity reaches PMove")
+assertEqual(sppgameapi.playerContext().nextMap, "base2",
+  "worldspawn authored nextmap")
 assertEqual(api.edicts[0].state.modelIndex, 1, "world keeps reserved map model index")
 machineModel = findName(server.modelNames, "models/weapons/g_machn/tris.md2")
 soldierModel = findName(server.modelNames, "models/monsters/soldier/tris.md2")
@@ -104,6 +135,18 @@ assertTrue(gunnerModel > 1, "active gunner model precached")
 assertTrue(jorgRiderModel > 1 and jorgChassisModel > 1, "Jorg rider and chassis models precached")
 assertEqual(server.configStrings[sppqconstants.CS_MODELS + machineModel], "models/weapons/g_machn/tris.md2", "item model configstring")
 assertTrue(findName(server.soundNames, "weapons/blastf1a.wav") > 0, "default player weapon sound precached")
+assertTrue(findName(server.soundNames, "player/fry.wav") > 0 and
+  findName(server.soundNames, "player/watr_un.wav") > 0 and
+  findName(server.soundNames, "*pain100_2.wav") > 0,
+  "worldspawn stock player and environment sounds precached")
+assertTrue(findName(server.modelNames, "#w_blaster.md2") > 0 and
+  findName(server.modelNames, "#a_grenades.md2") > 0 and
+  findName(server.modelNames, "#w_bfg.md2") > 0,
+  "worldspawn sexed weapon model table precached")
+assertTrue(findName(server.modelNames,
+  "models/objects/gibs/sm_meat/tris.md2") > 0 and
+  findName(server.modelNames, "models/objects/gibs/skull/tris.md2") > 0,
+  "worldspawn stock player gib models precached")
 assertTrue(findName(server.soundNames, "soldier/solatck1.wav") > 0 and
   findName(server.soundNames, "gunner/gunatck1.wav") > 0,
   "spawned Soldier and Gunner stock sound inventories precached")

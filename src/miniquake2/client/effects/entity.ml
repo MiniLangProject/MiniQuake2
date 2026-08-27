@@ -13,10 +13,12 @@ import miniquake2.client.effects.constants as constants
 import miniquake2.client.effects.types as types
 import miniquake2.client.effects.state as statefx
 
+// Return the array origin.
 function inline arrayOrigin(value)
   return qt.Vec3(value[0], value[1], value[2])
 end function
 
+// Return the interpolated origin.
 function inline interpolatedOrigin(previous, current, fraction, reset)
   first = void
   if previous is not void and not reset then first = previous.origin
@@ -28,6 +30,7 @@ function inline interpolatedOrigin(previous, current, fraction, reset)
     first[2] + fraction * (current.origin[2] - first[2]))
 end function
 
+// Reset requires.
 function inline requiresReset(previous, current)
   if previous is void then return true end if
   if previous.modelIndex != current.modelIndex or
@@ -43,6 +46,7 @@ function inline requiresReset(previous, current)
     current.event == constants.EV_OTHER_TELEPORT
 end function
 
+// Append light.
 function appendLight(output, count, origin, intensity, red, green, blue)
   if count >= len(output) then return count end if
   light = output[count]
@@ -57,6 +61,7 @@ function appendLight(output, count, origin, intensity, red, green, blue)
   return count + 1
 end function
 
+// Return the compact lights value.
 function compactLights(values, count)
   if count == 0 then return [] end if
   if count == len(values) then return values end if
@@ -69,6 +74,7 @@ function compactLights(values, count)
   return output
 end function
 
+// Emit local light.
 function emitLocalLight(lights, lightCount, effects, origin, now)
   if (effects & constants.EF_FLAG1) != 0 then
     return appendLight(lights, lightCount, origin, 225.0, 1.0, 0.1, 0.1)
@@ -85,6 +91,7 @@ function emitLocalLight(lights, lightCount, effects, origin, now)
   return lightCount
 end function
 
+// Emit spinning light.
 function emitSpinningLight(lights, lightCount, entity, origin, now)
   if (entity.effects & constants.EF_SPINNINGLIGHTS) == 0 then return lightCount end if
   yaw = now / 2.0 + entity.angles[1]
@@ -95,8 +102,10 @@ function emitSpinningLight(lights, lightCount, entity, origin, now)
   return appendLight(lights, lightCount, lightOrigin, 100.0, 1.0, 0.0, 0.0)
 end function
 
+// Emit automatic.
 function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
     lights, lightCount)
+  // Keep emit automatic phases explicit: validate inputs, update owned state, then publish the result.
   effects = entity.effects
   if (effects & constants.EF_ROCKET) != 0 then
     statefx.rocketTrail(state, startPosition, endPosition, trail)
@@ -189,8 +198,10 @@ function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
   return lightCount
 end function
 
+// Emit state.
 function emit(state, currentSnapshot, previousSnapshot, fraction, now,
     localEntityNumber, refDef)
+  // Keep emit phases explicit: validate inputs, update owned state, then publish the result.
   if currentSnapshot is void or typeof(fraction) != "float" and typeof(fraction) != "int" then return 0 end if
   if fraction < 0.0 then fraction = 0.0 end if
   if fraction > 1.0 then fraction = 1.0 end if

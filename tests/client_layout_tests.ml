@@ -8,6 +8,7 @@ import miniquake2.game.constants as gc
 import miniquake2.client.layout as clayout
 import miniquake2.renderer.recording as recording
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7999, name + ": expected " + expected + ", got " + actual) end if
 end function

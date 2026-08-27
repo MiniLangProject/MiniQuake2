@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.runtime.pause_policy as pausetest
 import miniquake2.client.ui.constants as pauseconstants
 
+// Assert the pause test condition.
 function pauseAssert(actual, expected, label)
   if actual != expected then return error(9976, label + ": expected " + expected + ", got " + actual) end if
 end function

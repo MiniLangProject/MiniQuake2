@@ -8,6 +8,7 @@ import miniquake2.game.constants as smq_gc
 import miniquake2.server.game_bridge as smq_bridge
 import miniquake2.server.game_messages as smq_messages
 
+// Assert the multicast queue test condition.
 function multicastQueueAssert(value, label)
   if value != true then return error(8465, label) end if
   return true

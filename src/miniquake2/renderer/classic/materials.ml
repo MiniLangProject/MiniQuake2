@@ -11,6 +11,7 @@ import miniquake2.qcommon.text as qtext
 import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
 
+// Return the rgba from indexed.
 function rgbaFromIndexed(pixels, palette)
   if typeof(pixels) != "bytes" then return bytes(0) end if
   if typeof(palette) != "bytes" or len(palette) < 768 then return bytes(0) end if
@@ -49,6 +50,7 @@ function rgbaFromIndexedIntensity(pixels, palette, intensity)
   return rgba
 end function
 
+// Return the image from wal.
 function imageFromWal(wal, palette)
   pixels = bytes(0)
   if len(wal.mipPixels) > 0 then pixels = wal.mipPixels[0] end if
@@ -58,6 +60,7 @@ function imageFromWal(wal, palette)
   )
 end function
 
+// Return the image from pcx.
 function imageFromPcx(name, pcx)
   return rclassictypes.ClassicImage(
     name, pcx.width, pcx.height, pcx.pixels, pcx.palette,
@@ -65,6 +68,7 @@ function imageFromPcx(name, pcx)
   )
 end function
 
+// Find image.
 function findImage(images, name)
   for each image in images
     if qtext.equalInsensitive(image.name, name) then return image end if
@@ -72,12 +76,14 @@ function findImage(images, name)
   return void
 end function
 
+// Return the image or fallback value.
 function imageOrFallback(images, name)
   image = findImage(images, name)
   if image is void then return rclassictypes.fallbackImage(name) end if
   return image
 end function
 
+// Return the classify value.
 function classify(flags)
   if (flags & fc.SURF_NODRAW) != 0 then return rclassicconstants.MATERIAL_NODRAW end if
   if (flags & fc.SURF_SKY) != 0 then return rclassicconstants.MATERIAL_SKY end if
@@ -86,12 +92,14 @@ function classify(flags)
   return rclassicconstants.MATERIAL_OPAQUE
 end function
 
+// Return the alpha for flags.
 function alphaForFlags(flags)
   if (flags & fc.SURF_TRANS33) != 0 then return 0.33 end if
   if (flags & fc.SURF_TRANS66) != 0 then return 0.66 end if
   return 1.0
 end function
 
+// Return the animation images value.
 function animationImages(map, texInfoIndex, images)
   result = array(len(map.texInfo))
   resultCount = 0
@@ -114,6 +122,7 @@ function animationImages(map, texInfoIndex, images)
   return rclassicarray.slice(result, 0, resultCount)
 end function
 
+// Return the animated image value.
 function animatedImage(frames, entityFrame)
   if len(frames) == 0 then return void end if
   index = entityFrame % len(frames)

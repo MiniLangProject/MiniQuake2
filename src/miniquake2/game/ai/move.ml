@@ -24,6 +24,7 @@ moveTraceEndScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
 movePointScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
 moveZeroScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
 
+// Set origin.
 function inline setOrigin(actor, x, y, z)
   actor.edict.state.origin.x = x
   actor.edict.state.origin.y = y
@@ -31,6 +32,7 @@ function inline setOrigin(actor, x, y, z)
   return true
 end function
 
+// Trace move.
 function inline traceMove(actor, start, mins, maxs, finish, context)
   if typeof(context.moveTrace) != "function" then
     return error(9720, "monster movement trace callback is not installed")
@@ -39,6 +41,7 @@ function inline traceMove(actor, start, mins, maxs, finish, context)
     aimoveqconstants.MASK_MONSTERSOLID)
 end function
 
+// Return the contents for the requested position.
 function inline contentsAt(point, context)
   if typeof(context.pointContents) != "function" then
     return error(9721, "monster point-contents callback is not installed")
@@ -46,6 +49,7 @@ function inline contentsAt(point, context)
   return context.pointContents(point)
 end function
 
+// Link and touch.
 function inline linkAndTouch(actor, context)
   if typeof(context.linkActor) == "function" then context.linkActor(actor) end if
   if typeof(context.touchActorTriggers) == "function" then
@@ -54,6 +58,7 @@ function inline linkAndTouch(actor, context)
   return true
 end function
 
+// Return the random integer value.
 function inline randomInteger(context)
   if typeof(context.nextRandomInteger) == "function" then
     return context.nextRandomInteger()
@@ -61,6 +66,7 @@ function inline randomInteger(context)
   return 0
 end function
 
+// Validate m bottom.
 function M_CheckBottom(actor, context)
   origin = actor.edict.state.origin
   mins = actor.edict.mins
@@ -125,6 +131,7 @@ function M_CheckBottom(actor, context)
   return true
 end function
 
+// Validate m ground.
 function M_CheckGround(actor, context)
   if (actor.flags & (aimoveconstants.FL_SWIM | aimoveconstants.FL_FLY)) != 0 then
     return false
@@ -151,6 +158,7 @@ function M_CheckGround(actor, context)
   return false
 end function
 
+// Return the m categorize position.
 function M_CategorizePosition(actor, context)
   origin = actor.edict.state.origin
   point = movePointScratch
@@ -173,6 +181,7 @@ function M_CategorizePosition(actor, context)
   return actor.waterLevel
 end function
 
+// Drop m to floor.
 function M_DropToFloor(actor, context)
   origin = actor.edict.state.origin
   origin.z = origin.z + 1.0
@@ -193,6 +202,7 @@ end function
 // Apply one stock M_MoveStep attempt without publishing a partial transform.
 // Ground, fly/swim and water branches commit only after their trace checks pass.
 function MoveStep(actor, moveX, moveY, moveZ, relink, context)
+  // Keep move step phases explicit: validate inputs, update owned state, then publish the result.
   origin = actor.edict.state.origin
   oldX = origin.x; oldY = origin.y; oldZ = origin.z
   newOrigin = moveTraceStartScratch
@@ -302,6 +312,7 @@ function MoveStep(actor, moveX, moveY, moveZ, relink, context)
   return true
 end function
 
+// Advance direction.
 function StepDirection(actor, yaw, distance, context)
   actor.idealYaw = yaw
   aimovecore.ChangeYaw(actor)
@@ -320,7 +331,9 @@ function StepDirection(actor, yaw, distance, context)
   return false
 end function
 
+// Return the new chase direction value.
 function NewChaseDirection(actor, goal, distance, context)
+  // Keep new chase direction phases explicit: validate inputs, update owned state, then publish the result.
   if goal is void then return false end if
   oldDirection = aimovecore.angleMod(
     aimovemath.floor(actor.idealYaw / 45.0) * 45.0)
@@ -383,6 +396,7 @@ function NewChaseDirection(actor, goal, distance, context)
   return false
 end function
 
+// Close enough.
 function CloseEnough(actor, goal, distance)
   actorOrigin = actor.edict.state.origin
   goalOrigin = goal.edict.state.origin
@@ -401,6 +415,7 @@ function CloseEnough(actor, goal, distance)
   return true
 end function
 
+// Move to goal.
 function MoveToGoal(actor, distance, context)
   if actor.groundEntity is void and
       (actor.flags & (aimoveconstants.FL_FLY | aimoveconstants.FL_SWIM)) == 0 then
@@ -418,6 +433,7 @@ function MoveToGoal(actor, distance, context)
   return true
 end function
 
+// Move walk.
 function WalkMove(actor, yaw, distance, context)
   if actor.groundEntity is void and
       (actor.flags & (aimoveconstants.FL_FLY | aimoveconstants.FL_SWIM)) == 0 then
@@ -428,6 +444,7 @@ function WalkMove(actor, yaw, distance, context)
     aimovemath.sin(radians) * distance, 0.0, true, context)
 end function
 
+// Initialize actor.
 function InitializeActor(actor, context)
   if actor.movementInitialized then return true end if
   actor.movementInitialized = true

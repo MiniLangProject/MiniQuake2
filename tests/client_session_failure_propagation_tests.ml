@@ -10,19 +10,23 @@ import miniquake2.client.downloads as csfpdownloads
 import miniquake2.client.runtime.types as csfpcrtypes
 import miniquake2.runtime.client_session as csfpsession
 
+// Assert the csfp test condition.
 function csfpAssert(value, name)
   if not value then return error(9990, "client session failure: " + name) end if
   return true
 end function
 
+// Report whether csfp missing.
 function csfpMissing(name)
   return false
 end function
 
+// Read csfp.
 function csfpRead(name)
   return error(9991, "unexpected asset read")
 end function
 
+// Reject csfp registration.
 function csfpRejectRegistration(kind, name)
   if kind == "precache" then return error(9992, "registration failed") end if
   return true

@@ -8,6 +8,7 @@ package miniquake2.client.demo
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.byteio as demobio
 
+// Store demo data.
 struct Demo
   packets
   waitingForFullFrame
@@ -17,21 +18,25 @@ struct Demo
   streamCount
 end struct
 
+// Store demo packet node data.
 struct DemoPacketNode
   packet
   next
 end struct
 
+// Store demo player data.
 struct DemoPlayer
   demo
   index
   finished
 end struct
 
+// Create state.
 function create()
   return Demo([], false, false, void, void, 0)
 end function
 
+// Begin live recording.
 function beginLiveRecording(demo)
   if demo is void then return error(7706, "demo recorder is missing") end if
   demo.waitingForFullFrame = true
@@ -39,6 +44,7 @@ function beginLiveRecording(demo)
   return true
 end function
 
+// Append streaming.
 function appendStreaming(demo, packet)
   if typeof(packet) != "bytes" or len(packet) <= 0 or len(packet) > qc.MAX_MSGLEN then
     return error(7700, "demo packet outside protocol message limit")
@@ -52,6 +58,7 @@ function appendStreaming(demo, packet)
   return true
 end function
 
+// Return the packet count.
 function packetCount(demo)
   if demo is void then return 0 end if
   return len(demo.packets) + demo.streamCount
@@ -73,11 +80,13 @@ function appendLive(demo, packet, frameCount, deltaNumber)
   return false
 end function
 
+// Append state.
 function append(demo, packet)
   if typeof(packet) != "bytes" or len(packet) <= 0 or len(packet) > qc.MAX_MSGLEN then return error(7700, "demo packet outside protocol message limit") end if
   demo.packets = demo.packets + [bytes(packet)]
 end function
 
+// Encode demo.
 function encodeDemo(demo)
   total = 4
   for each packet in demo.packets
@@ -105,6 +114,7 @@ function encodeDemo(demo)
   return output
 end function
 
+// Decode demo.
 function decodeDemo(data)
   if typeof(data) != "bytes" or len(data) < 4 then return error(7701, "demo stream truncated") end if
   demo = create()
@@ -123,6 +133,7 @@ function decodeDemo(data)
   return demo
 end function
 
+// Materialize state.
 function materialize(demo)
   if demo.streamCount == 0 then return demo.packets end if
   output = array(packetCount(demo), void)
@@ -145,11 +156,13 @@ function materialize(demo)
   return output
 end function
 
+// Return the player value.
 function player(demo)
   materialize(demo)
   return DemoPlayer(demo, 0, len(demo.packets) == 0)
 end function
 
+// Return the next packet value.
 function nextPacket(player)
   if player.index >= len(player.demo.packets) then player.finished = true; return void end if
   packet = player.demo.packets[player.index]

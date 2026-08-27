@@ -22,6 +22,7 @@ const VISIBILITY_NEAR = 4.0
 const VISIBILITY_FAR = 8192.0
 const BACKFACE_EPSILON = 0.01
 
+// Store classic frustum plane data.
 struct ClassicFrustumPlane
   normalX
   normalY
@@ -32,6 +33,7 @@ struct ClassicFrustumPlane
   absZ
 end struct
 
+// Store classic pvs selection data.
 struct ClassicPvsSelection
   draws
   viewLeaf
@@ -40,6 +42,7 @@ struct ClassicPvsSelection
   areaCulled
 end struct
 
+// Store classic visibility cache slot data.
 struct ClassicVisibilityCacheSlot
   world
   cluster
@@ -53,6 +56,7 @@ classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999, void,
   [], 0, 0)
 classicVisibilitySelectionScratch = []
 
+// Report whether classic visibility area bits equal.
 function inline classicVisibilityAreaBitsEqual(first, second)
   if first is void or second is void then return first is void and second is void end if
   if len(first) != len(second) then return false end if
@@ -64,6 +68,7 @@ function inline classicVisibilityAreaBitsEqual(first, second)
   return true
 end function
 
+// Copy classic visibility area bits.
 function classicVisibilityCopyAreaBits(value)
   if value is void then return void end if
   copy = bytes(len(value))
@@ -75,6 +80,7 @@ function classicVisibilityCopyAreaBits(value)
   return copy
 end function
 
+// Return the classic visibility point leaf value.
 function classicVisibilityPointLeaf(map, origin)
   if len(map.leafs) == 0 then return -1 end if
   if len(map.nodes) == 0 then
@@ -105,6 +111,7 @@ function classicVisibilityPointLeaf(map, origin)
   return leafIndex
 end function
 
+// Return the classic visibility area allowed value.
 function inline classicVisibilityAreaAllowed(areaBits, area)
   if areaBits is void then return true end if
   if area < 0 then return false end if
@@ -113,6 +120,7 @@ function inline classicVisibilityAreaAllowed(areaBits, area)
   return (areaBits[byteIndex] & (1 << (area & 7))) != 0
 end function
 
+// Mark classic visibility leaf faces.
 function classicVisibilityMarkLeafFaces(map, leaf, marked)
   if leaf.firstLeafFace < 0 or leaf.numLeafFaces < 0 or leaf.firstLeafFace > len(map.leafFaces) or leaf.numLeafFaces > len(map.leafFaces) - leaf.firstLeafFace then
     return error(9755, "BSP leaf marksurface range outside table")
@@ -126,6 +134,7 @@ function classicVisibilityMarkLeafFaces(map, leaf, marked)
   end while
 end function
 
+// Return the classic visibility pvs row value.
 function classicVisibilityPvsRow(map, cluster)
   visibility = map.visibility
   if visibility is void or visibility.numClusters <= 0 then return bytes(0) end if
@@ -134,6 +143,7 @@ function classicVisibilityPvsRow(map, cluster)
   return fbsp.decompressVisibility(visibility, cluster, 0)
 end function
 
+// Report whether classic visibility pvs contains.
 function inline classicVisibilityPvsContains(row, cluster)
   if cluster < 0 then return false end if
   byteIndex = cluster >> 3
@@ -141,6 +151,7 @@ function inline classicVisibilityPvsContains(row, cluster)
   return (row[byteIndex] & (1 << (cluster & 7))) != 0
 end function
 
+// Return the classic visibility angle axes value.
 function classicVisibilityAngleAxes(angles)
   pitch = angles.x * VISIBILITY_DEG_TO_RAD
   yaw = angles.y * VISIBILITY_DEG_TO_RAD
@@ -162,6 +173,7 @@ function classicVisibilityAngleAxes(angles)
   return [forward, right, up]
 end function
 
+// Return the classic visibility box outside plane value.
 function inline classicVisibilityBoxOutsidePlane(draw, plane)
   radius = plane.absX * draw.extentX + plane.absY * draw.extentY +
     plane.absZ * draw.extentZ
@@ -170,6 +182,7 @@ function inline classicVisibilityBoxOutsidePlane(draw, plane)
   return distance + radius < -rclassicconstants.CULL_MARGIN
 end function
 
+// Return the classic visibility plane value.
 function classicVisibilityPlane(normalX, normalY, normalZ, distance)
   fixedX = rvisibilitybyteio.truncInt(normalX * rclassicconstants.CULL_NORMAL_SCALE)
   fixedY = rvisibilitybyteio.truncInt(normalY * rclassicconstants.CULL_NORMAL_SCALE)
@@ -183,6 +196,7 @@ function classicVisibilityPlane(normalX, normalY, normalZ, distance)
     absX, absY, absZ)
 end function
 
+// Return the classic visibility frustum value.
 function classicVisibilityFrustum(frame)
   axes = classicVisibilityAngleAxes(frame.viewAngles)
   forward = axes[0]; right = axes[1]; up = axes[2]
@@ -212,6 +226,7 @@ function classicVisibilityFrustum(frame)
   return planes
 end function
 
+// Report whether classic visibility inside prepared frustum.
 function inline classicVisibilityInsidePreparedFrustum(draw, planes)
   // A frustum always has six planes. The explicit checks make this small hot
   // predicate eligible for compiler inlining and remove the generic loop and
@@ -225,11 +240,13 @@ function inline classicVisibilityInsidePreparedFrustum(draw, planes)
   return true
 end function
 
+// Report whether classic visibility inside frustum.
 function classicVisibilityInsideFrustum(draw, frame)
   return classicVisibilityInsidePreparedFrustum(draw,
     classicVisibilityFrustum(frame))
 end function
 
+// Return the classic visibility front facing fixed value.
 function inline classicVisibilityFrontFacingFixed(draw, viewX, viewY, viewZ)
   distance = viewX * draw.planeNormalX + viewY * draw.planeNormalY +
     viewZ * draw.planeNormalZ - draw.planeDistance
@@ -239,6 +256,7 @@ function inline classicVisibilityFrontFacingFixed(draw, viewX, viewY, viewZ)
   return distance <= rclassicconstants.BACKFACE_FIXED_EPSILON
 end function
 
+// Return the classic visibility front facing value.
 function classicVisibilityFrontFacing(draw, viewOrigin)
   return classicVisibilityFrontFacingFixed(draw,
     rvisibilitybyteio.truncInt(viewOrigin.x * rclassicconstants.CULL_COORD_SCALE),
@@ -246,7 +264,9 @@ function classicVisibilityFrontFacing(draw, viewOrigin)
     rvisibilitybyteio.truncInt(viewOrigin.z * rclassicconstants.CULL_COORD_SCALE))
 end function
 
+// Return the classic visibility brush bounds.
 function classicVisibilityBrushBounds(brushModel, entity)
+  // Keep classic visibility brush bounds phases explicit: validate inputs, update owned state, then publish the result.
   model = brushModel.model
   origin = entity.origin
   angles = entity.angles
@@ -297,6 +317,7 @@ function classicVisibilityBrushBounds(brushModel, entity)
   )
 end function
 
+// Return the classic visibility brush world point value.
 function classicVisibilityBrushWorldPoint(entity, localPoint)
   origin = entity.origin
   angles = entity.angles
@@ -312,6 +333,7 @@ function classicVisibilityBrushWorldPoint(entity, localPoint)
   )
 end function
 
+// Return the classic visibility brush local view value.
 function classicVisibilityBrushLocalView(entity, viewOrigin)
   origin = entity.origin
   deltaX = viewOrigin.x - origin.x; deltaY = viewOrigin.y - origin.y; deltaZ = viewOrigin.z - origin.z
@@ -326,12 +348,14 @@ function classicVisibilityBrushLocalView(entity, viewOrigin)
   )
 end function
 
+// Report whether classic visibility brush model visible.
 function classicVisibilityBrushModelVisible(brushModel, entity, frame)
   if len(brushModel.draws) == 0 then return false end if
   bounds = classicVisibilityBrushBounds(brushModel, entity)
   return classicVisibilityInsideFrustum(bounds, frame)
 end function
 
+// Select classic brush model.
 function selectClassicBrushModel(brushModel, entity, frame)
   if not classicVisibilityBrushModelVisible(brushModel, entity, frame) then return array(0) end if
   localView = classicVisibilityBrushLocalView(entity, frame.viewOrigin)
@@ -351,6 +375,7 @@ function selectClassicBrushModel(brushModel, entity, frame)
   return rvisibilityarray.slice(selected, 0, selectedCount)
 end function
 
+// Return the compact classic draws value.
 function compactClassicDraws(values, count)
   if count <= 0 then return array(0) end if
   if count == len(values) then return values end if
@@ -363,7 +388,9 @@ function compactClassicDraws(values, count)
   return output
 end function
 
+// Select classic visibility pvs.
 function classicVisibilitySelectPvs(world, frame)
+  // Keep classic visibility select pvs phases explicit: validate inputs, update owned state, then publish the result.
   total = len(world.draws)
   if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
     return ClassicPvsSelection(array(0), -1, -1, total, 0)
@@ -418,6 +445,7 @@ function classicVisibilitySelectPvs(world, frame)
     viewLeaf, viewCluster, pvsCulled, areaCulled)
 end function
 
+// Finish classic visibility selection.
 function classicVisibilityFinishSelection(pvs, frame)
   selected = classicVisibilitySelectionScratch
   if len(selected) < len(pvs.draws) then
@@ -450,6 +478,7 @@ function classicVisibilityFinishSelection(pvs, frame)
   )
 end function
 
+// Select classic world.
 function selectClassicWorld(world, frame)
   return classicVisibilityFinishSelection(
     classicVisibilitySelectPvs(world, frame), frame)
@@ -483,6 +512,7 @@ function selectClassicWorldCached(world, frame)
   return classicVisibilityFinishSelection(pvs, frame)
 end function
 
+// Return the classic visibility culled count.
 function classicVisibilityCulledCount(selection)
   return selection.pvsCulled + selection.areaCulled + selection.frustumCulled + selection.backfaceCulled
 end function

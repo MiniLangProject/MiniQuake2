@@ -17,11 +17,13 @@ import miniquake2.runtime.application as inproductapplication
 import miniquake2.runtime.play_session as inproductplay
 import miniquake2.runtime.server_session as inserversession
 
+// Assert the inline test condition.
 function inlineAssert(value, message)
   if value != true then return error(9880, message) end if
   return true
 end function
 
+// Return the inline near value.
 function inlineNear(actual, expected, tolerance, message)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -29,6 +31,7 @@ function inlineNear(actual, expected, tolerance, message)
   return true
 end function
 
+// Return the inline fixture value.
 function inlineFixture()
   planes = [
     informattypes.BspPlane(informattypes.Vec3(1.0, 0.0, 0.0), 0.0, 0),
@@ -64,6 +67,7 @@ function inlineFixture()
   return incollision.create(map)
 end function
 
+// Return the inline visibility fixture value.
 function inlineVisibilityFixture()
   plane = informattypes.BspPlane(informattypes.Vec3(1.0, 0.0, 0.0), 0.0, 0)
   node = informattypes.BspNode(0, -1, -2,
@@ -83,6 +87,7 @@ function inlineVisibilityFixture()
   return incollision.create(map)
 end function
 
+// Return the inline repeated brush text value.
 function inlineRepeatedBrushText()
   text = "{ \"classname\" \"worldspawn\" }\n"
   index = 0
@@ -94,6 +99,7 @@ function inlineRepeatedBrushText()
   return text
 end function
 
+// Return the inline repeated brush lifetime value.
 function inlineRepeatedBrushLifetime(runtime, imports, game)
   entityText = inlineRepeatedBrushText()
   iteration = 0
@@ -322,9 +328,10 @@ moverFixture = "{\"classname\" \"worldspawn\"}" +
   "{\"classname\" \"func_plat\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
   "{\"classname\" \"func_button\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
   "{\"classname\" \"func_door_rotating\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
-  "{\"classname\" \"func_rotating\" \"model\" \"*1\" \"origin\" \"10 0 0\"}"
+  "{\"classname\" \"func_rotating\" \"model\" \"*1\" \"origin\" \"10 0 0\"}" +
+  "{\"classname\" \"func_train\" \"model\" \"*1\" \"origin\" \"10 0 0\"}"
 game.spawnEntities("inline-mover-families", moverFixture, "")
-inlineAssert(game.numEdicts == 7, "moving-brush family edict count")
+inlineAssert(game.numEdicts == 8, "moving-brush family edict count")
 moverIndex = 2
 while moverIndex < game.numEdicts
   mover = game.edicts[moverIndex]
@@ -333,6 +340,32 @@ while moverIndex < game.numEdicts
     "moving-brush family lost model/PVS linkage at edict " + moverIndex)
   moverIndex = moverIndex + 1
 end while
+
+// SV_Push links the brush immediately after moving it. Without that relink the
+// authoritative origin advances while absmin/absmax remain at the old floor,
+// so the next server Pmove trace can pass straight through a retail elevator.
+inlineMoverRuntime = ingameapi.baseRuntime()
+inlineTrain = void
+for each inlineMoverEntity in inlineMoverRuntime.world.entities
+  if inlineMoverEntity.className == "func_train" then inlineTrain = inlineMoverEntity end if
+end for
+inlineAssert(inlineTrain is not void, "moving train managed entity")
+inlineTrain.velocity = inqtypes.Vec3(0.0, 0.0, 100.0)
+inlineTrainEdict = game.edicts[inlineTrain.number]
+inlineOldTrainMaxZ = inlineTrainEdict.absoluteMaxs.z
+game.runFrame()
+inlineAssert(inlineTrainEdict.state.origin.z == 10.0 and
+  inlineTrainEdict.absoluteMins.z > inlineOldTrainMaxZ,
+  "successful elevator push did not relink final broadphase bounds")
+inlineElevatorTrace = imports.trace(inqtypes.Vec3(14.0, 0.0, 14.0),
+  inqtypes.zeroVec3(), inqtypes.zeroVec3(),
+  inqtypes.Vec3(6.0, 0.0, 6.0), void, inqconstants.MASK_PLAYERSOLID)
+inlineAssert(inlineElevatorTrace.entity is not void and
+  inlineElevatorTrace.entity.state.number == inlineTrainEdict.state.number,
+  "server Pmove trace crossed the moved elevator fraction=" +
+    inlineElevatorTrace.fraction + " startSolid=" + inlineElevatorTrace.startSolid +
+    " origin=" + inlineTrainEdict.state.origin.z +
+    " abs=" + inlineTrainEdict.absoluteMins.z + ":" + inlineTrainEdict.absoluteMaxs.z)
 
 inlineRepeatedBrushLifetime(runtime, imports, game)
 malformedBrush = ingametypes.zeroEdict(99)

@@ -12,57 +12,74 @@ import std.string as text
 
 logLines = []
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(3900, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(3901, name + ": expected true") end if
   return true
 end function
 
+// Assert the error contains test condition.
 function assertErrorContains(value, fragment, name)
   if value is not error then return error(3902, name + ": expected error") end if
   if text.contains(value.message, fragment) != true then return error(3903, name + ": unexpected message " + value.message) end if
   return true
 end function
 
+// Return the noop value.
 function noop()
   return true
 end function
 
+// Return the entity noop value.
 function entityNoop(entity)
   return true
 end function
 
+// Return the string index.
 function stringIndex(name)
   return 1
 end function
 
+// Set config string.
 function setConfigString(index, value)
   return true
 end function
 
+// Set model.
 function setModel(entity, name)
   entity.state.modelIndex = 1
   return true
 end function
 
+// Record debug.
 function recordDebug(text)
   global logLines
   logLines = logLines + [text]
   return true
 end function
 
+// Return the collision unavailable value.
 function collisionUnavailable()
   return false
 end function
 
+// Verify cvar.
 function testCvar(name, value, flags)
   return t.cvar(name, value, flags)
 end function
 
+// Verify cvar set.
+function testCvarSet(name, value)
+  return true
+end function
+
+// Create imports.
 function makeImports()
   return t.GameImport(
     noop, recordDebug, noop, noop,
@@ -73,12 +90,13 @@ function makeImports()
     noop, noop,
     noop, noop, noop, noop, noop, noop, noop, noop, noop,
     noop, noop, noop,
-    testCvar, noop, noop,
+    testCvar, testCvarSet, testCvarSet,
     noop, noop, noop,
     noop, noop, collisionUnavailable
   )
 end function
 
+// Verify version and validation.
 function testVersionAndValidation()
   assertEqual(c.GAME_API_VERSION, 3, "game API version constant")
   imports = makeImports()
@@ -97,6 +115,7 @@ function testVersionAndValidation()
   return api
 end function
 
+// Verify lifecycle and edicts.
 function testLifecycleAndEdicts(api)
   assertErrorContains(try(api.runFrame()), "not initialized", "RunFrame before Init")
   assertTrue(api.init(), "Init dispatch")
@@ -127,6 +146,7 @@ function testLifecycleAndEdicts(api)
   return true
 end function
 
+// Verify client and frame callbacks.
 function testClientAndFrameCallbacks(api)
   clientEntity = game.edictAt(2)
   assertTrue(api.clientConnect(clientEntity, "\\name\\Ranger"), "ClientConnect dispatch")
@@ -158,6 +178,7 @@ function testClientAndFrameCallbacks(api)
   return true
 end function
 
+// Verify persistence errors and shutdown.
 function testPersistenceErrorsAndShutdown(api)
   assertErrorContains(try(api.writeGame("", false)), "empty save filename", "WriteGame validates path")
   assertErrorContains(try(api.readGame("")), "empty save filename", "ReadGame validates path")
@@ -175,6 +196,7 @@ function testPersistenceErrorsAndShutdown(api)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 Game API tests starting: 4"
   api = testVersionAndValidation()

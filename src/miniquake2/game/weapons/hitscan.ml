@@ -13,6 +13,7 @@ import miniquake2.game.weapons.constants as wbconstants
 import miniquake2.game.weapons.core as wbcore
 import miniquake2.game.weapons.vector as wbvector
 
+// Return the water splash style value.
 function waterSplashStyle(trace)
   if (trace.contents & qc.CONTENTS_WATER) != 0 then
     if trace.surface is not void and trace.surface.name == "*brwater" then return wbconstants.SPLASH_BROWN_WATER end if
@@ -23,7 +24,9 @@ function waterSplashStyle(trace)
   return wbconstants.SPLASH_UNKNOWN
 end function
 
+// Fire lead.
 function fireLead(context, shooter, start, aimDirection, damage, kick, impact, horizontalSpread, verticalSpread, meansOfDeath)
+  // Keep fire lead phases explicit: validate inputs, update owned state, then publish the result.
   zero = qt.zeroVec3()
   trace = context.callbacks.trace(shooter.origin, zero, zero, start, shooter, qc.MASK_SHOT)
   water = false
@@ -96,10 +99,12 @@ function fireLead(context, shooter, start, aimDirection, damage, kick, impact, h
   return trace
 end function
 
+// Fire bullet.
 function fireBullet(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, meansOfDeath)
   return fireLead(context, shooter, start, aimDirection, damage, kick, wbconstants.IMPACT_GUNSHOT, horizontalSpread, verticalSpread, meansOfDeath)
 end function
 
+// Fire shotgun.
 function fireShotgun(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, count, meansOfDeath)
   traces = []
   pellet = 0
@@ -110,6 +115,7 @@ function fireShotgun(context, shooter, start, aimDirection, damage, kick, horizo
   return traces
 end function
 
+// Fire rail.
 function fireRail(context, shooter, start, aimDirection, damage, kick)
   zero = qt.zeroVec3()
   endPosition = wbvector.multiplyAdd(start, 8192.0, aimDirection)
@@ -144,12 +150,15 @@ function fireRail(context, shooter, start, aimDirection, damage, kick)
   return trace
 end function
 
+// Fire bullet.
 function fire_bullet(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, meansOfDeath)
   return fireBullet(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, meansOfDeath)
 end function
+// Fire shotgun.
 function fire_shotgun(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, count, meansOfDeath)
   return fireShotgun(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, count, meansOfDeath)
 end function
+// Fire rail.
 function fire_rail(context, shooter, start, aimDirection, damage, kick)
   return fireRail(context, shooter, start, aimDirection, damage, kick)
 end function

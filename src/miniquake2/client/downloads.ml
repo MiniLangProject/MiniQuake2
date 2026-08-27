@@ -39,6 +39,7 @@ extern function WriteFile(handle as ptr, data as bytes, count as int,
 extern function FlushFileBuffers(handle as ptr) from "kernel32.dll" returns bool
 extern function CloseHandle(handle as ptr) from "kernel32.dll" returns bool
 
+// Store download policy data.
 struct DownloadPolicy
   allowDownloads
   allowMaps
@@ -48,11 +49,13 @@ struct DownloadPolicy
   allowPlayers
 end struct
 
+// Store download request data.
 struct DownloadRequest
   kind
   name
 end struct
 
+// Store download manager data.
 struct DownloadManager
   baseDirectory
   gameDirectory
@@ -80,6 +83,7 @@ struct DownloadManager
   complete
 end struct
 
+// Return the default policy value.
 function defaultPolicy()
   return DownloadPolicy(true, true, true, true, true, true)
 end function
@@ -90,10 +94,12 @@ function classicPolicy(allow, maps, models, players, sounds)
   return DownloadPolicy(allow, maps, models, sounds, allow, players)
 end function
 
+// Ignore register.
 function ignoreRegister(kind, name)
   return true
 end function
 
+// Validate game directory.
 function validateGameDirectory(name)
   if typeof(name) != "string" or name == "" then return cdlqc.BASEDIRNAME end if
   if name == "." or name == ".." then return error(7680, "download game directory is unsafe") end if
@@ -108,6 +114,7 @@ function validateGameDirectory(name)
   return name
 end function
 
+// Create state.
 function create(baseDirectory, gameDirectory, policy, fileExists, readFile,
     registerAsset)
   if typeof(baseDirectory) != "string" or baseDirectory == "" or
@@ -126,6 +133,7 @@ function create(baseDirectory, gameDirectory, policy, fileExists, readFile,
     array(MAX_DOWNLOAD_MISSING, ""), 0, 0, false)
 end function
 
+// Set game directory.
 function setGameDirectory(manager, gameDirectory)
   validated = try(validateGameDirectory(gameDirectory))
   if validated is error then return validated end if
@@ -136,6 +144,7 @@ function setGameDirectory(manager, gameDirectory)
   return true
 end function
 
+// Reset state.
 function reset(manager)
   manager.requests = array(MAX_DOWNLOAD_REQUESTS, void)
   manager.requestCount = 0; manager.requestIndex = 0; manager.current = void
@@ -148,12 +157,14 @@ function reset(manager)
   return true
 end function
 
+// Cancel state.
 function cancel(manager)
   manager.current = void; manager.awaitingChunk = false
   manager.commandCount = 0; manager.complete = false
   return true
 end function
 
+// Report whether policy allows.
 function policyAllows(policy, kind)
   if not policy.allowDownloads then return false end if
   if kind == "map" or kind == "sky" or kind == "texture" then return policy.allowMaps end if
@@ -164,6 +175,7 @@ function policyAllows(policy, kind)
   return false
 end function
 
+// Add request.
 function addRequest(manager, kind, requestedName)
   if not policyAllows(manager.policy, kind) then return false end if
   canonical = try(cdlqfs.canonicalVirtualName(requestedName))
@@ -183,6 +195,7 @@ function addRequest(manager, kind, requestedName)
   return true
 end function
 
+// Queue command.
 function queueCommand(manager, command)
   if manager.commandCount >= MAX_DOWNLOAD_COMMANDS then
     return error(7686, "download command queue overflow")
@@ -192,6 +205,7 @@ function queueCommand(manager, command)
   return true
 end function
 
+// Consume commands.
 function takeCommands(manager)
   output = array(manager.commandCount, "")
   index = 0
@@ -203,6 +217,7 @@ function takeCommands(manager)
   return output
 end function
 
+// Report whether note missing.
 function noteMissing(manager, name)
   if manager.missingCount < MAX_DOWNLOAD_MISSING then
     manager.missing[manager.missingCount] = name
@@ -211,6 +226,7 @@ function noteMissing(manager, name)
   return true
 end function
 
+// Report whether missing files.
 function missingFiles(manager)
   output = array(manager.missingCount, "")
   index = 0
@@ -221,6 +237,7 @@ function missingFiles(manager)
   return output
 end function
 
+// Return the persistence root value.
 function persistenceRoot(manager, name)
   directory = manager.gameDirectory
   if len(bytes(name)) >= 8 and decode(slice(bytes(name), 0, 8)) == "players/" then
@@ -229,6 +246,7 @@ function persistenceRoot(manager, name)
   return cdlfs.joinPath(manager.baseDirectory, directory)
 end function
 
+// Return the persistent path.
 function persistentPath(manager, name)
   return cdlfs.joinPath(persistenceRoot(manager, name), name)
 end function
@@ -251,6 +269,7 @@ function temporaryPath(finalPath)
   return finalPath + ".tmp"
 end function
 
+// Ensure parent directory.
 function ensureParentDirectory(path)
   source = bytes(path)
   index = 0
@@ -271,6 +290,7 @@ function ensureParentDirectory(path)
   return true
 end function
 
+// Append chunk.
 function appendChunk(path, data)
   parent = try(ensureParentDirectory(path))
   if parent is error then return parent end if
@@ -291,11 +311,13 @@ function appendChunk(path, data)
   return true
 end function
 
+// Slice text.
 function textSlice(value, start, count)
   if count <= 0 then return "" end if
   return decode(slice(bytes(value), start, count))
 end function
 
+// Return the player identity value.
 function playerIdentity(value)
   if typeof(value) != "string" or value == "" then return void end if
   source = bytes(value); identityStart = 0; slash = -1
@@ -317,7 +339,9 @@ function playerIdentity(value)
   return [model, skin]
 end function
 
+// Build precache plan.
 function buildPrecachePlan(manager, configStrings)
+  // Keep build precache plan phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(configStrings) != "array" or len(configStrings) < cdlqc.MAX_CONFIGSTRINGS then
     return error(7690, "download precache configstrings are incomplete")
   end if
@@ -382,6 +406,7 @@ function buildPrecachePlan(manager, configStrings)
   return manager.requestCount
 end function
 
+// Discover dependencies.
 function discoverDependencies(manager, request)
   data = try(manager.readFile(request.name))
   if data is error or typeof(data) != "bytes" then return false end if
@@ -411,6 +436,7 @@ function discoverDependencies(manager, request)
   return false
 end function
 
+// Advance state.
 function advance(manager)
   manager.current = void; manager.awaitingChunk = false
   while manager.requestIndex < manager.requestCount
@@ -448,6 +474,7 @@ function advance(manager)
   return void
 end function
 
+// Begin precache.
 function beginPrecache(manager, configStrings, spawnCount)
   if typeof(spawnCount) != "int" or spawnCount < 0 then
     return error(7691, "download precache spawn count is invalid")
@@ -458,6 +485,7 @@ function beginPrecache(manager, configStrings, spawnCount)
   return advance(manager)
 end function
 
+// Return the request file value.
 function requestFile(manager, kind, name, spawnCount)
   reset(manager); manager.spawnCount = spawnCount
   added = try(addRequest(manager, kind, name))
@@ -465,6 +493,7 @@ function requestFile(manager, kind, name, spawnCount)
   return advance(manager)
 end function
 
+// Finish current.
 function finishCurrent(manager)
   if not cdlfs.isFile(manager.temporaryPath) then
     emptyWritten = try(appendChunk(manager.temporaryPath, bytes()))
@@ -495,6 +524,7 @@ function finishCurrent(manager)
   return advance(manager)
 end function
 
+// Accept chunk.
 function acceptChunk(manager, data, percent, missing)
   if not manager.awaitingChunk or manager.current is void then
     return error(7693, "unsolicited download chunk")

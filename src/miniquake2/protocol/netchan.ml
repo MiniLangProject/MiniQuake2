@@ -13,6 +13,7 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.packet as ppacket
 
+// Return the next sequence value.
 function nextSequence(sequence)
   return (sequence + 1) & pc.SEQUENCE_MASK
 end function
@@ -24,10 +25,12 @@ function sequenceNewer(candidate, current)
   return difference != 0 and difference < 0x40000000
 end function
 
+// Return the sequence at least value.
 function sequenceAtLeast(candidate, current)
   return candidate == current or sequenceNewer(candidate, current)
 end function
 
+// Return the setup value.
 function setup(sock, remoteAddress, qport, now)
   if sock != pc.NS_CLIENT and sock != pc.NS_SERVER then return error(7070, "Netchan socket side is invalid") end if
   if typeof(qport) != "int" or qport < 0 or qport > 0xffff then return error(7071, "Netchan qport outside unsigned-short range") end if
@@ -37,10 +40,12 @@ function setup(sock, remoteAddress, qport, now)
     0, 0, 0, 0, 1, 0, 0, -1, message, 0, bytes(), [], 0)
 end function
 
+// Report whether can reliable.
 function canReliable(channel)
   return channel.reliableLength == 0 and len(channel.reliableQueue) == 0
 end function
 
+// Validate reliable queue.
 function validateReliableQueue(channel)
   if typeof(channel.reliableQueue) != "array" or
       typeof(channel.reliableQueuedBytes) != "int" or
@@ -62,11 +67,13 @@ function validateReliableQueue(channel)
   return total
 end function
 
+// Report whether pending reliable bytes.
 function pendingReliableBytes(channel)
   validateReliableQueue(channel)
   return channel.reliableLength + channel.reliableQueuedBytes + channel.message.curSize
 end function
 
+// Return the need reliable value.
 function needReliable(channel)
   // Quake stores lastReliableSequence after incrementing outgoingSequence.
   // Equality therefore already proves that the peer received a packet after
@@ -78,6 +85,7 @@ function needReliable(channel)
     (len(channel.reliableQueue) > 0 or channel.message.curSize > 0)
 end function
 
+// Queue reliable.
 function queueReliable(channel, payload)
   if typeof(payload) != "bytes" then return error(7073, "reliable payload must be bytes") end if
   if len(payload) > pc.RELIABLE_BUFFER_SIZE then return error(7073, "reliable payload exceeds one Protocol-34 packet") end if
@@ -97,6 +105,7 @@ end function
 // detached queue/buffer state, then committed in one small mutation boundary.
 // A false result is bounded backpressure; malformed state/input is an error.
 function queueReliableFragments(channel, fragments)
+  // Keep queue reliable fragments phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(fragments) != "array" then return error(7085, "reliable fragments must be an array") end if
   validateReliableQueue(channel)
   if channel.message.overflowed then return error(7076, "Netchan outgoing reliable message overflow") end if
@@ -137,6 +146,7 @@ function queueReliableFragments(channel, fragments)
   return channel
 end function
 
+// Report whether can queue reliable fragments.
 function canQueueReliableFragments(channel, fragments)
   if typeof(fragments) != "array" then return error(7085, "reliable fragments must be an array") end if
   // Evaluate the exact packer against a detached holder so callers can
@@ -156,6 +166,7 @@ function canQueueReliableFragments(channel, fragments)
   return queueReliableFragments(holder, fragments) != false
 end function
 
+// Return the promote reliable value.
 function promoteReliable(channel)
   if channel.reliableLength != 0 then return false end if
   if len(channel.reliableQueue) > 0 then
@@ -181,6 +192,7 @@ function promoteReliable(channel)
   return true
 end function
 
+// Return the transmit value.
 function transmit(channel, unreliable, now)
   if typeof(unreliable) != "bytes" then return error(7074, "unreliable payload must be bytes") end if
   if typeof(now) != "int" then return error(7075, "Netchan time must be integer milliseconds") end if
@@ -223,6 +235,7 @@ function transmit(channel, unreliable, now)
   return ppacket.join(headerBytes, reliablePayload, unreliablePayload)
 end function
 
+// Process state.
 function process(channel, datagram, now)
   if typeof(datagram) != "bytes" then return error(7077, "Netchan datagram must be bytes") end if
   if typeof(now) != "int" then return error(7081, "Netchan receive time must be integer milliseconds") end if
@@ -256,39 +269,48 @@ function process(channel, datagram, now)
   return pt.ProcessedPacket(true, decoded.payload, header, dropped, "accepted")
 end function
 
+// Return the out of band value.
 function outOfBand(payload)
   return ppacket.encodeConnectionless(payload)
 end function
 
+// Print out of band.
 function outOfBandPrint(text)
   return ppacket.encodeConnectionlessText(text)
 end function
 
+// Return the netchan setup value.
 function Netchan_Setup(sock, remoteAddress, qport, now)
   return setup(sock, remoteAddress, qport, now)
 end function
 
+// Report whether netchan can reliable.
 function Netchan_CanReliable(channel)
   return canReliable(channel)
 end function
 
+// Return the netchan need reliable value.
 function Netchan_NeedReliable(channel)
   return needReliable(channel)
 end function
 
+// Return the netchan transmit value.
 function Netchan_Transmit(channel, length, data, now)
   if typeof(length) != "int" or length < 0 or typeof(data) != "bytes" or length > len(data) then return error(7079, "invalid Netchan_Transmit payload range") end if
   return transmit(channel, slice(data, 0, length), now)
 end function
 
+// Process netchan.
 function Netchan_Process(channel, datagram, now)
   return process(channel, datagram, now)
 end function
 
+// Return the netchan out of band value.
 function Netchan_OutOfBand(data)
   return outOfBand(data)
 end function
 
+// Print netchan out of band.
 function Netchan_OutOfBandPrint(text)
   return outOfBandPrint(text)
 end function

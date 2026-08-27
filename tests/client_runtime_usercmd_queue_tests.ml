@@ -16,11 +16,13 @@ import miniquake2.protocol.usercmd as csuusercmd
 import miniquake2.network.constants as csunc
 import miniquake2.runtime.client_session as csusession
 
+// Assert the cmd test condition.
 function cmdAssert(value, name)
   if not value then return error(8375, name) end if
   return true
 end function
 
+// Receive payload.
 function receivePayload(socket)
   attempt = 0
   while not csuudp.pending(socket) and attempt < 100
@@ -32,6 +34,7 @@ function receivePayload(socket)
   return csupacket.decodePacket(datagram.data, true).payload
 end function
 
+// Decode triplet.
 function decodeTriplet(payload)
   buffer = csuqsz.alloc(len(payload))
   csuqsz.writeBytes(buffer, payload)

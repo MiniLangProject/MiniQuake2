@@ -9,6 +9,7 @@ import std.math as videogammamath
 import miniquake2.qcommon.byteio as videogammabyteio
 import miniquake2.native as videogammanative
 
+// Store gamma state data.
 struct GammaState
   originalRamp
   supported
@@ -16,6 +17,7 @@ struct GammaState
   value
 end struct
 
+// Build ramp.
 function buildRamp(gamma)
   if (typeof(gamma) != "int" and typeof(gamma) != "float") or gamma != gamma or
       gamma < 0.5 or gamma > 2.0 then
@@ -51,6 +53,7 @@ function create()
   return GammaState(original, supported, false, 1.0)
 end function
 
+// Apply state.
 function apply(state, gamma, active)
   ramp = buildRamp(gamma)
   state.value = gamma * 1.0
@@ -65,6 +68,7 @@ function apply(state, gamma, active)
   return state.applied
 end function
 
+// Restore state.
 function restore(state)
   if state is void or not state.supported or len(state.originalRamp) != 1536 then
     return false
@@ -75,6 +79,7 @@ function restore(state)
   return restored
 end function
 
+// Update state.
 function update(state, gamma, active)
   if state is void then return false end if
   wantedApplied = active and gamma != 1.0 and gamma != 1

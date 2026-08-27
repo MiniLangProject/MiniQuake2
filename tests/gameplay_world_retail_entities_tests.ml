@@ -14,47 +14,65 @@ retailWorldDamage = 0
 retailWorldRadius = 0
 retailWorldEffects = 0
 retailWorldKillBoxes = 0
+retailWorldPortalStyle = -1
+retailWorldPortalOpen = false
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9991, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9992, name + ": expected true") end if
   return true
 end function
 
+// Record link.
 function recordLink(entity)
   global retailWorldLinks
   retailWorldLinks = retailWorldLinks + 1
   return true
 end function
 
+// Record damage.
 function recordDamage(target, inflictor, attacker, amount, means)
   global retailWorldDamage
   retailWorldDamage = retailWorldDamage + amount
   return true
 end function
 
+// Record radius.
 function recordRadius(inflictor, attacker, amount, radius, means)
   global retailWorldRadius
   retailWorldRadius = retailWorldRadius + amount
   return true
 end function
 
+// Record effect.
 function recordEffect(kind, origin, style, count)
   global retailWorldEffects
   retailWorldEffects = retailWorldEffects + 1
   return true
 end function
 
+// Record kill box.
 function recordKillBox(entity)
   global retailWorldKillBoxes
   retailWorldKillBoxes = retailWorldKillBoxes + 1
   return true
 end function
 
+// Record portal.
+function recordPortal(style, isOpen)
+  global retailWorldPortalStyle, retailWorldPortalOpen
+  retailWorldPortalStyle = style
+  retailWorldPortalOpen = isOpen
+  return true
+end function
+
+// Create world.
 function createWorld()
   callbacks = rwcore.defaultCallbacks()
   callbacks.linkEntity = recordLink
@@ -62,9 +80,31 @@ function createWorld()
   callbacks.radiusDamage = recordRadius
   callbacks.effect = recordEffect
   callbacks.killBox = recordKillBox
+  callbacks.areaPortal = recordPortal
   return rwcore.createWorld(callbacks)
 end function
 
+// Verify direct area portal.
+function testDirectAreaPortal()
+  global retailWorldPortalStyle, retailWorldPortalOpen
+  world = createWorld()
+  portal = rwtypes.createEntity(1, "func_areaportal")
+  portal.style = 17
+  portal.count = 99
+  rwcore.addEntity(world, portal)
+  rwmisc.spawnAreaPortal(portal, world)
+  assertEqual(portal.count, 0, "areaportal always starts closed")
+  rwcore.useEntity(world, portal, void, void)
+  assertEqual(portal.count, 1, "areaportal first use opens")
+  assertEqual(retailWorldPortalStyle, 17, "areaportal forwards BSP portal style")
+  assertTrue(retailWorldPortalOpen, "areaportal forwards open state")
+  rwcore.useEntity(world, portal, void, void)
+  assertEqual(portal.count, 0, "areaportal second use closes")
+  assertTrue(retailWorldPortalOpen == false, "areaportal forwards closed state")
+  return true
+end function
+
+// Verify wall and rotating.
 function testWallAndRotating()
   global retailWorldDamage, retailWorldKillBoxes
   world = createWorld()
@@ -96,6 +136,7 @@ function testWallAndRotating()
   return true
 end function
 
+// Verify explobox lifecycle.
 function testExploboxLifecycle()
   global retailWorldRadius, retailWorldEffects
   world = createWorld()
@@ -122,6 +163,7 @@ function testExploboxLifecycle()
   return true
 end function
 
+// Verify decorative and consumed classes.
 function testDecorativeAndConsumedClasses()
   world = createWorld()
   banner = rwtypes.createEntity(1, "misc_banner")
@@ -168,9 +210,31 @@ function testDecorativeAndConsumedClasses()
   rwcore.addEntity(world, group)
   rwmisc.spawnNull(group, world)
   assertTrue(group.inUse == false, "func_group consumed")
+
+  viewThing = rwtypes.createEntity(8, "viewthing")
+  rwcore.addEntity(world, viewThing)
+  rwmisc.spawnViewThing(viewThing, world)
+  assertEqual(viewThing.model, "models/objects/banner/tris.md2",
+    "viewthing debug model")
+  assertEqual(viewThing.solid, rwconstants.SOLID_BBOX,
+    "viewthing bbox")
+  rwcore.advance(world, world.time + 0.5)
+  assertEqual(viewThing.frame, 1, "viewthing animation starts after half second")
+
+  mine = rwtypes.createEntity(9, "light_mine1")
+  rwmisc.spawnLightMine1(mine, world)
+  assertEqual(mine.model, "models/objects/minelite/light1/tris.md2",
+    "first mine light model")
+
+  bigViper = rwtypes.createEntity(10, "misc_bigviper")
+  rwmisc.spawnBigViper(bigViper, world)
+  assertEqual(bigViper.model, "models/ships/bigviper/tris.md2",
+    "stationary big viper model")
+  assertEqual(bigViper.mins.x, -176.0, "stationary big viper bounds")
   return true
 end function
 
+// Verify func object and spawner gibs.
 function testFuncObjectAndSpawnerGibs()
   global retailWorldDamage, retailWorldKillBoxes
   world = createWorld()
@@ -226,9 +290,10 @@ function testFuncObjectAndSpawnerGibs()
   return true
 end function
 
-print "MiniQuake2 retail world entity tests starting: 4"
+print "MiniQuake2 retail world entity tests starting: 5"
+testDirectAreaPortal()
 testWallAndRotating()
 testExploboxLifecycle()
 testDecorativeAndConsumedClasses()
 testFuncObjectAndSpawnerGibs()
-print "MiniQuake2 retail world entity tests passed: 4"
+print "MiniQuake2 retail world entity tests passed: 5"

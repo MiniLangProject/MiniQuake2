@@ -9,11 +9,13 @@ import miniquake2.renderer.types as rt
 import miniquake2.renderer.opengl as ropengl
 import miniquake2.renderer.classic.world as rclassicworld
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7990, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Write u 32.
 function putU32(data, offset, value)
   data[offset] = value & 255
   data[offset + 1] = (value >> 8) & 255
@@ -21,6 +23,7 @@ function putU32(data, offset, value)
   data[offset + 3] = (value >> 24) & 255
 end function
 
+// Write text.
 function putText(data, offset, value)
   encoded = bytes(value)
   index = 0
@@ -30,6 +33,7 @@ function putText(data, offset, value)
   end while
 end function
 
+// Return the palette pcx value.
 function palettePcx()
   data = bytes(899)
   data[0] = 0x0a; data[1] = 5; data[2] = 1; data[3] = 8
@@ -43,6 +47,7 @@ function palettePcx()
   return data
 end function
 
+// Return the wall wal value.
 function wallWal()
   data = bytes(107)
   putText(data, 0, "wall")
@@ -54,12 +59,14 @@ function wallWal()
   return data
 end function
 
+// Load classic file.
 function loadClassicFile(path)
   if path == "pics/colormap.pcx" then return palettePcx() end if
   if path == "textures/wall.wal" then return wallWal() end if
   return void
 end function
 
+// Create map.
 function makeMap()
   vertices = [
     ft.BspVertex(ft.Vec3(0.0, 0.0, 0.0)), ft.BspVertex(ft.Vec3(16.0, 0.0, 0.0)),
@@ -84,6 +91,7 @@ function makeMap()
     [model], [], [], [], [])
 end function
 
+// Verify world plan and palette.
 function testWorldPlanAndPalette()
   styles = rt.defaultLightStyles()
   styles[1] = rt.lightStyle(0.5, 1.0, 0.25)
@@ -112,6 +120,7 @@ function testWorldPlanAndPalette()
     "atlas lightmap coordinate")
 end function
 
+// Verify backend lifecycle.
 function testBackendLifecycle()
   renderer = ropengl.createOpenGlRenderer(false)
   renderer.exports.Init(void, void)
@@ -142,6 +151,7 @@ function testBackendLifecycle()
   renderer.exports.Shutdown()
 end function
 
+// Verify context mode factories.
 function testContextModeFactories()
   headless = ropengl.createOpenGlRenderer(false)
   context = ropengl.createOpenGlRenderer(true)
@@ -151,6 +161,7 @@ function testContextModeFactories()
   assertEqual(context.state.contextActive, true, "context factory mode")
 end function
 
+// Verify alias point lighting.
 function testAliasPointLighting()
   renderer = ropengl.createOpenGlRenderer(false)
   renderer.exports.Init(void, void)

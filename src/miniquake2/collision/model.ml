@@ -14,18 +14,21 @@ import miniquake2.format.bsp as cbsp
 
 const DIST_EPSILON = 0.03125
 
+// Store collision surface data.
 struct CollisionSurface
   name
   flags
   value
 end struct
 
+// Store trace plane data.
 struct TracePlane
   normal
   distance
   type
 end struct
 
+// Store trace data.
 struct Trace
   allSolid
   startSolid
@@ -36,6 +39,7 @@ struct Trace
   contents
 end struct
 
+// Store collision model data.
 struct CollisionModel
   map
   portalOpen
@@ -58,15 +62,18 @@ struct CollisionModel
   phsRows
 end struct
 
+// Return the vec 3 value.
 function vec3(x, y, z)
   return ft.Vec3(x, y, z)
 end function
 
+// Require collision vector.
 function requireCollisionVector(value, operation)
   if typeof(value) != "struct" then return error(2814, operation + ": Vec3-shaped value required") end if
   return value
 end function
 
+// Compute state.
 function dot(a, b)
   first = requireCollisionVector(a, "collision dot first operand")
   second = requireCollisionVector(b, "collision dot second operand")
@@ -75,6 +82,7 @@ function dot(a, b)
   return ax * bx + ay * by + az * bz
 end function
 
+// Return the component value.
 function component(value, axis)
   vector = requireCollisionVector(value, "collision component")
   if axis == 0 then return vector.x end if
@@ -82,6 +90,7 @@ function component(value, axis)
   return vector.z
 end function
 
+// Create state.
 function create(map)
   if typeof(map) != "struct" then return error(2815, "collision create requires a BSP map") end if
   mapHolder = map
@@ -114,6 +123,7 @@ function create(map)
   return model
 end function
 
+// Return the point leaf number.
 function pointLeafNumber(model, point, headNode)
   if typeof(model) != "struct" then return error(2816, "pointLeafNumber requires a collision model") end if
   pointHolder = requireCollisionVector(point, "pointLeafNumber point")
@@ -157,6 +167,7 @@ function visibilityRow(model, cluster, kind)
   return row
 end function
 
+// Clear visibility rows.
 function clearVisibilityRows(model)
   clusters = model.map.visibility.numClusters
   model.pvsRows = array(clusters, void)
@@ -164,12 +175,14 @@ function clearVisibilityRows(model)
   return true
 end function
 
+// Return the point contents value.
 function pointContents(model, point, headNode)
   pointHolder = requireCollisionVector(point, "pointContents point")
   leafNumber = pointLeafNumber(model, pointHolder, headNode)
   return model.map.leafs[leafNumber].contents
 end function
 
+// Report whether box on plane side.
 function boxOnPlaneSide(mins, maxs, plane)
   minsHolder = requireCollisionVector(mins, "boxOnPlaneSide mins")
   maxsHolder = requireCollisionVector(maxs, "boxOnPlaneSide maxs")
@@ -194,6 +207,7 @@ function boxOnPlaneSide(mins, maxs, plane)
   return side
 end function
 
+// Collect box leafs.
 function collectBoxLeafs(model, nodeNumber, mins, maxs, output, count)
   if nodeNumber < 0 then
     leafNumber = -1 - nodeNumber
@@ -211,6 +225,7 @@ function collectBoxLeafs(model, nodeNumber, mins, maxs, output, count)
   return collectBoxLeafs(model, node.child1, mins, maxs, output, count)
 end function
 
+// Return the box leaf numbers value.
 function boxLeafNumbers(model, mins, maxs, headNode)
   minsHolder = requireCollisionVector(mins, "boxLeafNumbers mins")
   maxsHolder = requireCollisionVector(maxs, "boxLeafNumbers maxs")
@@ -225,6 +240,7 @@ function boxLeafNumbers(model, mins, maxs, headNode)
   return compact
 end function
 
+// Create default trace.
 function makeDefaultTrace(endPosition)
   endPositionHolder = requireCollisionVector(endPosition, "default trace end position")
   planeNormal = vec3(0.0, 0.0, 0.0)
@@ -233,6 +249,7 @@ function makeDefaultTrace(endPosition)
   return Trace(false, false, 1.0, endPositionHolder, tracePlane, traceSurface, 0)
 end function
 
+// Return the offset distance value.
 function offsetDistance(plane, mins, maxs)
   minsHolder = requireCollisionVector(mins, "offsetDistance mins")
   maxsHolder = requireCollisionVector(maxs, "offsetDistance maxs")
@@ -246,13 +263,16 @@ function offsetDistance(plane, mins, maxs)
   return plane.distance - (ox * planeNormal.x + oy * planeNormal.y + oz * planeNormal.z)
 end function
 
+// Return the surface for side value.
 function surfaceForSide(model, side)
   if side.texInfo < 0 or side.texInfo >= len(model.map.texInfo) then return CollisionSurface("", 0, 0) end if
   info = model.map.texInfo[side.texInfo]
   return CollisionSurface(info.texture, info.flags, info.value)
 end function
 
+// Clip box to brush.
 function inline clipBoxToBrush(model, mins, maxs, start, finish, trace, brush)
+  // Keep clip box to brush phases explicit: validate inputs, update owned state, then publish the result.
   minsHolder = mins
   maxsHolder = maxs
   startHolder = start
@@ -319,11 +339,13 @@ function inline clipBoxToBrush(model, mins, maxs, start, finish, trace, brush)
   return trace
 end function
 
+// Return the min value.
 function minValue(a, b)
   if a < b then return a end if
   return b
 end function
 
+// Return the max value.
 function maxValue(a, b)
   if a > b then return a end if
   return b
@@ -357,6 +379,7 @@ function inline testBoxInBrush(model, mins, maxs, start, trace, brush)
   return trace
 end function
 
+// Verify in leaf.
 function testInLeaf(model, leafNumber, mins, maxs, start, brushMask, trace, checkCount)
   leaf = model.map.leafs[leafNumber]
   if (leaf.contents & brushMask) == 0 then return trace end if
@@ -522,6 +545,7 @@ function hullCheck(model, headNode, startX, startY, startZ,
   end while
 end function
 
+// Trace box.
 function boxTrace(model, start, finish, mins, maxs, headNode, brushMask)
   if typeof(model) != "struct" then return error(2816, "boxTrace requires a collision model") end if
   startHolder = requireCollisionVector(start, "boxTrace start")
@@ -574,6 +598,7 @@ function boxTrace(model, start, finish, mins, maxs, headNode, brushMask)
   return trace
 end function
 
+// Return the flood area value.
 function floodArea(model, areaNumber, floodNumber)
   if areaNumber <= 0 or areaNumber >= len(model.map.areas) then return true end if
   if model.areaFloods[areaNumber] != 0 then return true end if
@@ -591,6 +616,7 @@ function floodArea(model, areaNumber, floodNumber)
   return true
 end function
 
+// Return the flood areas value.
 function floodAreas(model)
   model.areaFloods = array(len(model.map.areas), 0)
   floodNumber = 0
@@ -602,6 +628,7 @@ function floodAreas(model)
   return floodNumber
 end function
 
+// Set area portal state.
 function setAreaPortalState(model, portalNumber, isOpen)
   if portalNumber < 0 or portalNumber >= len(model.portalOpen) then return error(2811, "portal state outside table") end if
   model.portalOpen[portalNumber] = isOpen
@@ -609,11 +636,13 @@ function setAreaPortalState(model, portalNumber, isOpen)
   return true
 end function
 
+// Report whether areas connected.
 function areasConnected(model, firstArea, secondArea)
   if firstArea < 0 or firstArea >= len(model.areaFloods) or secondArea < 0 or secondArea >= len(model.areaFloods) then return error(2812, "area outside table") end if
   return model.areaFloods[firstArea] == model.areaFloods[secondArea]
 end function
 
+// Write area bits.
 function writeAreaBits(model, areaNumber)
   if areaNumber < 0 or areaNumber >= len(model.areaFloods) then return error(2813, "area outside table") end if
   output = bytes((len(model.areaFloods) + 7) >> 3)

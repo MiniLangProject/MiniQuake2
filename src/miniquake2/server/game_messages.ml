@@ -16,10 +16,12 @@ const MAX_MULTICAST_FRAGMENT_BYTES = 1392
 const MAX_PENDING_UNICAST_EVENTS = 256
 const MAX_PENDING_UNICAST_BYTES = 88576
 
+// Return the numeric value.
 function numeric(value)
   return typeof(value) == "int" or typeof(value) == "float"
 end function
 
+// Return the copied origin.
 function copiedOrigin(origin)
   if typeof(origin) != "struct" or not numeric(origin.x) or not numeric(origin.y) or not numeric(origin.z) then
     return error(3940, "multicast origin must be a Vec3")
@@ -30,11 +32,13 @@ function copiedOrigin(origin)
   return sgmqtypes.Vec3(origin.x * 1.0, origin.y * 1.0, origin.z * 1.0)
 end function
 
+// Return the reliable destination value.
 function reliableDestination(destination)
   return destination == sgmgc.MULTICAST_ALL_R or destination == sgmgc.MULTICAST_PHS_R or
     destination == sgmgc.MULTICAST_PVS_R
 end function
 
+// Return the base destination value.
 function baseDestination(destination)
   if destination == sgmgc.MULTICAST_ALL or destination == sgmgc.MULTICAST_ALL_R then
     return sgmgc.MULTICAST_ALL
@@ -48,6 +52,7 @@ function baseDestination(destination)
   return error(3942, "multicast destination outside Game API range")
 end function
 
+// Report whether queued bytes.
 function queuedBytes(events)
   total = 0
   for each event in events
@@ -59,6 +64,7 @@ function queuedBytes(events)
   return total
 end function
 
+// Validate event.
 function validateEvent(event)
   if typeof(event) != "struct" or typeof(event.serial) != "int" or event.serial < 0 then
     return error(3943, "pending multicast event is malformed")
@@ -72,6 +78,7 @@ function validateEvent(event)
   return true
 end function
 
+// Return the enqueue value.
 function enqueue(runtime, origin, destination, payload)
   baseDestination(destination)
   ownedOrigin = copiedOrigin(origin)
@@ -95,6 +102,7 @@ function enqueue(runtime, origin, destination, payload)
   return event
 end function
 
+// Validate all.
 function validateAll(events)
   if typeof(events) != "array" then return error(3946, "pending multicast list must be an array") end if
   previousSerial = -1
@@ -111,6 +119,7 @@ function validateAll(events)
   return true
 end function
 
+// Return the unicast entity number.
 function unicastEntityNumber(runtime, entity)
   if typeof(entity) != "struct" or typeof(entity.state) != "struct" or
       typeof(entity.state.number) != "int" or entity.state.number < 1 or
@@ -120,6 +129,7 @@ function unicastEntityNumber(runtime, entity)
   return entity.state.number
 end function
 
+// Report whether queued unicast bytes.
 function queuedUnicastBytes(events)
   total = 0
   for each event in events
@@ -131,6 +141,7 @@ function queuedUnicastBytes(events)
   return total
 end function
 
+// Copy payload data.
 function copyPayload(payload)
   ownedPayload = bytes(len(payload))
   payloadIndex = 0
@@ -141,6 +152,7 @@ function copyPayload(payload)
   return ownedPayload
 end function
 
+// Return the enqueue unicast value.
 function enqueueUnicast(runtime, entity, reliable, payload)
   entityNumber = unicastEntityNumber(runtime, entity)
   if typeof(reliable) != "bool" then return error(3950, "unicast reliability must be boolean") end if
@@ -158,6 +170,7 @@ function enqueueUnicast(runtime, entity, reliable, payload)
   return event
 end function
 
+// Validate unicast event.
 function validateUnicastEvent(event)
   if typeof(event) != "struct" or typeof(event.serial) != "int" or event.serial < 0 or
       typeof(event.entity) != "int" or event.entity < 1 or typeof(event.reliable) != "bool" or
@@ -168,6 +181,7 @@ function validateUnicastEvent(event)
   return true
 end function
 
+// Validate unicast all.
 function validateUnicastAll(events)
   if typeof(events) != "array" then return error(3954, "pending unicast list must be an array") end if
   previousSerial = -1

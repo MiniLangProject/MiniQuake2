@@ -10,12 +10,15 @@ import miniquake2.qcommon.constants as rangedqconstants
 import miniquake2.qcommon.types as rangedqtypes
 import miniquake2.server.game_bridge as rangedbridge
 
+// Assert the ranged test condition.
 function rangedAssert(value, message)
   if value != true then return error(9969, message) end if
   return true
 end function
 
+// Run ranged sequence.
 function runRangedSequence(className, origin)
+  // Keep run ranged sequence phases explicit: validate inputs, update owned state, then publish the result.
   rangedServer = rangedbridge.createRuntime(4)
   rangedApi = rangedgame.GetGameApi(rangedbridge.makeImports(rangedServer))
   rangedServer.game = rangedApi

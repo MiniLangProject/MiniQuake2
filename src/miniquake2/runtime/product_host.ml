@@ -9,6 +9,7 @@ import miniquake2.platform.window as producthostwindow
 import miniquake2.platform.gamma as producthostgamma
 import miniquake2.renderer.opengl as producthostgl
 
+// Store product host callbacks data.
 struct ProductHostCallbacks
   createWindow
   destroyWindow
@@ -17,6 +18,7 @@ struct ProductHostCallbacks
   shutdownRenderer
 end struct
 
+// Store product host data.
 struct ProductHost
   callbacks
   window
@@ -29,31 +31,38 @@ struct ProductHost
   gammaState
 end struct
 
+// Create product host window.
 function productHostCreateWindow(title, width, height, fullScreen)
   return producthostwindow.create(title, width, height, fullScreen)
 end function
 
+// Return the product host destroy window value.
 function productHostDestroyWindow(window)
   return producthostwindow.destroy(window)
 end function
 
+// Create product host renderer.
 function productHostCreateRenderer(imports, contextActive)
   return producthostgl.getRefAPI(imports, contextActive)
 end function
 
+// Initialize product host renderer.
 function productHostInitRenderer(renderer)
   return renderer.exports.Init(void, void)
 end function
 
+// Shut down product host renderer.
 function productHostShutdownRenderer(renderer)
   return renderer.exports.Shutdown()
 end function
 
+// Return the product host default callbacks value.
 function productHostDefaultCallbacks()
   return ProductHostCallbacks(productHostCreateWindow, productHostDestroyWindow,
     productHostCreateRenderer, productHostInitRenderer, productHostShutdownRenderer)
 end function
 
+// Return the product host dimensions.
 function productHostDimensions(videoMode)
   if typeof(videoMode) != "int" or videoMode < 0 or videoMode > 7 then
     return error(9931, "product video mode outside [0,7]")
@@ -68,6 +77,7 @@ function productHostDimensions(videoMode)
   return [3840, 2160]
 end function
 
+// Require product host callbacks.
 function productHostRequireCallbacks(callbacks)
   if typeof(callbacks) != "struct" or
       typeof(callbacks.createWindow) != "function" or
@@ -80,6 +90,7 @@ function productHostRequireCallbacks(callbacks)
   return callbacks
 end function
 
+// Open product host with.
 function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererImports)
   productHostCallbacksHolder = productHostRequireCallbacks(callbacks)
   if typeof(title) != "string" or title == "" then
@@ -89,8 +100,10 @@ function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererIm
     return error(9934, "product fullscreen state must be boolean")
   end if
   productHostDimensionsHolder = productHostDimensions(videoMode)
-  productHostWindowHolder = productHostCallbacksHolder.createWindow(title,
-    productHostDimensionsHolder[0], productHostDimensionsHolder[1], fullScreen)
+  productHostWindowResult = try(productHostCallbacksHolder.createWindow(title,
+    productHostDimensionsHolder[0], productHostDimensionsHolder[1], fullScreen))
+  if productHostWindowResult is error then return productHostWindowResult end if
+  productHostWindowHolder = productHostWindowResult
   productHostRendererResult = try(productHostCallbacksHolder.createRenderer(rendererImports, true))
   if productHostRendererResult is error then
     productHostCallbacksHolder.destroyWindow(productHostWindowHolder)
@@ -107,11 +120,70 @@ function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererIm
     productHostRendererHolder, videoMode, fullScreen, 1, 0, false, void)
 end function
 
+// Recreate the last known-good video host after a target mode, context or
+// renderer initialization failure.  The native backend owns one window at a
+// time, so this rollback is necessarily performed after the old host closes.
+function restoreProductHost(host, title, videoMode, fullScreen,
+    rendererImports, gamma)
+  productHostRestoreDimensions = productHostDimensions(videoMode)
+  productHostRestoreCallbacks = host.callbacks
+  productHostRestoreWindowResult = try(productHostRestoreCallbacks.createWindow(
+    title, productHostRestoreDimensions[0], productHostRestoreDimensions[1],
+    fullScreen))
+  if productHostRestoreWindowResult is error then
+    host.closed = true
+    return error(9941, "video rollback window failed: " +
+      productHostRestoreWindowResult.message)
+  end if
+  productHostRestoreWindow = productHostRestoreWindowResult
+  productHostRestoreRendererResult = try(productHostRestoreCallbacks.createRenderer(
+    rendererImports, true))
+  if productHostRestoreRendererResult is error then
+    productHostRestoreCallbacks.destroyWindow(productHostRestoreWindow)
+    host.closed = true
+    return error(9941, "video rollback renderer failed: " +
+      productHostRestoreRendererResult.message)
+  end if
+  productHostRestoreRenderer = productHostRestoreRendererResult
+  productHostRestoreInit = try(productHostRestoreCallbacks.initRenderer(
+    productHostRestoreRenderer))
+  if productHostRestoreInit is error then
+    productHostRestoreCallbacks.shutdownRenderer(productHostRestoreRenderer)
+    productHostRestoreCallbacks.destroyWindow(productHostRestoreWindow)
+    host.closed = true
+    return error(9941, "video rollback initialization failed: " +
+      productHostRestoreInit.message)
+  end if
+  host.window = productHostRestoreWindow
+  host.renderer = productHostRestoreRenderer
+  host.videoMode = videoMode
+  host.fullScreen = fullScreen
+  host.generation = host.generation + 1
+  host.closed = false
+  if gamma != 1.0 then applyProductGamma(host, gamma, true) end if
+  return true
+end function
+
+// Restart product host error.
+function productHostRestartError(host, title, rendererImports, oldVideoMode,
+    oldFullScreen, gamma, restartFailure)
+  productHostRollbackResult = try(restoreProductHost(host, title, oldVideoMode,
+    oldFullScreen, rendererImports, gamma))
+  if productHostRollbackResult is error then
+    return error(9942, restartFailure.message + "; " +
+      productHostRollbackResult.message)
+  end if
+  return error(9943, restartFailure.message +
+    "; previous video mode restored")
+end function
+
+// Open product host.
 function openProductHost(title, videoMode, fullScreen, rendererImports)
   return openProductHostWith(productHostDefaultCallbacks(), title, videoMode,
     fullScreen, rendererImports)
 end function
 
+// Draw product host text.
 function productHostDrawText(exports, x, y, text)
   productHostTextBytes = bytes(text)
   productHostTextIndex = 0
@@ -123,6 +195,7 @@ function productHostDrawText(exports, x, y, text)
   return len(productHostTextBytes)
 end function
 
+// Return the show product loading value.
 function showProductLoading(host, label)
   if typeof(host) != "struct" or host.closed or host.window.closed then return false end if
   if typeof(label) != "string" then return error(9935, "loading label must be text") end if
@@ -137,7 +210,9 @@ function showProductLoading(host, label)
   return true
 end function
 
+// Restart product host.
 function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
+  // Keep restart product host phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(host) != "struct" or host.closed then
     return error(9937, "cannot restart a closed product host")
   end if
@@ -149,6 +224,8 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   end if
   productHostRestartDimensions = productHostDimensions(videoMode)
   productHostRestartCallbacks = host.callbacks
+  productHostRestartOldMode = host.videoMode
+  productHostRestartOldFullScreen = host.fullScreen
   productHostRestartGamma = 1.0
   if host.gammaState is not void then
     productHostRestartGamma = host.gammaState.value
@@ -161,16 +238,18 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   productHostRestartWindowResult = try(productHostRestartCallbacks.createWindow(title,
     productHostRestartDimensions[0], productHostRestartDimensions[1], fullScreen))
   if productHostRestartWindowResult is error then
-    host.closed = true
-    return productHostRestartWindowResult
+    return productHostRestartError(host, title, rendererImports,
+      productHostRestartOldMode, productHostRestartOldFullScreen,
+      productHostRestartGamma, productHostRestartWindowResult)
   end if
   productHostRestartWindow = productHostRestartWindowResult
   productHostRestartRendererResult = try(productHostRestartCallbacks.createRenderer(
     rendererImports, true))
   if productHostRestartRendererResult is error then
     productHostRestartCallbacks.destroyWindow(productHostRestartWindow)
-    host.closed = true
-    return productHostRestartRendererResult
+    return productHostRestartError(host, title, rendererImports,
+      productHostRestartOldMode, productHostRestartOldFullScreen,
+      productHostRestartGamma, productHostRestartRendererResult)
   end if
   productHostRestartRenderer = productHostRestartRendererResult
   productHostRestartInit = try(productHostRestartCallbacks.initRenderer(
@@ -178,8 +257,9 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   if productHostRestartInit is error then
     productHostRestartCallbacks.shutdownRenderer(productHostRestartRenderer)
     productHostRestartCallbacks.destroyWindow(productHostRestartWindow)
-    host.closed = true
-    return productHostRestartInit
+    return productHostRestartError(host, title, rendererImports,
+      productHostRestartOldMode, productHostRestartOldFullScreen,
+      productHostRestartGamma, productHostRestartInit)
   end if
   host.window = productHostRestartWindow
   host.renderer = productHostRestartRenderer
@@ -192,6 +272,7 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   return true
 end function
 
+// Apply product gamma.
 function applyProductGamma(host, gamma, active)
   if typeof(host) != "struct" or host.closed then return false end if
   if host.gammaState is void then host.gammaState = producthostgamma.create() end if
@@ -227,6 +308,7 @@ function resetProductRenderer(host, rendererImports)
   return true
 end function
 
+// Close product host.
 function closeProductHost(host)
   if typeof(host) != "struct" or host.closed then return false end if
   if host.gammaState is not void then

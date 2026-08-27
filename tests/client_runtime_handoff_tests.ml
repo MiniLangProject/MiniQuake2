@@ -17,6 +17,7 @@ import miniquake2.client.runtime.handoff as crhandoff
 import miniquake2.client.runtime.types as crtypes
 import miniquake2.client.state as cstate
 
+// Assert the handoff test condition.
 function handoffAssert(value, name)
   if not value then return error(8395, name) end if
   return true

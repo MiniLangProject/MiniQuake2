@@ -32,6 +32,7 @@ import miniquake2.client.downloads as csdownloads
 import miniquake2.platform.system as cssystem
 import miniquake2.platform.udp as csudp
 
+// Store client session data.
 struct ClientSession
   integrated
   socket
@@ -64,10 +65,12 @@ const CMD_BACKUP = 64
 const CMD_MASK = 63
 const CLIENT_COMMAND_MSEC = 11
 
+// Return the movement due value.
 function movementDue(previousTime, now)
   return now - previousTime >= CLIENT_COMMAND_MSEC
 end function
 
+// Create user cmd scratch.
 function makeUserCmdScratch(count)
   values = array(count, void)
   index = 0
@@ -78,6 +81,7 @@ function makeUserCmdScratch(count)
   return values
 end function
 
+// Create origin scratch.
 function makeOriginScratch(count)
   values = array(count, void)
   index = 0
@@ -88,6 +92,7 @@ function makeOriginScratch(count)
   return values
 end function
 
+// Create state.
 function create(serverAddress, serverPort, userInfo, localPort)
   socket = csudp.open("0.0.0.0", localPort)
   address = cstransport.fromUdp(serverAddress, serverPort)
@@ -106,6 +111,7 @@ function create(serverAddress, serverPort, userInfo, localPort)
     csqsz.alloc(256))
 end function
 
+// Return the validated movement value.
 function validatedMovement(value)
   if typeof(value) != "int" and typeof(value) != "float" then
     return error(9997, "client usercmd movement must be numeric")
@@ -117,6 +123,7 @@ function validatedMovement(value)
   return encoded
 end function
 
+// Populate the copy user cmd destination.
 function copyUserCmdInto(output, command)
   output.msec = command.msec
   output.buttons = command.buttons
@@ -131,6 +138,7 @@ function copyUserCmdInto(output, command)
   return output
 end function
 
+// Reset user cmd.
 function resetUserCmd(output, msec)
   output.msec = msec; output.buttons = 0
   output.angles[0] = 0; output.angles[1] = 0; output.angles[2] = 0
@@ -139,6 +147,7 @@ function resetUserCmd(output, msec)
   return output
 end function
 
+// Populate the validate user cmd destination.
 function validateUserCmdInto(output, command)
   if typeof(command) != "struct" then return error(9992, "client usercmd must be a struct") end if
   if typeof(command.msec) != "int" or command.msec < 0 or command.msec > 255 then
@@ -170,6 +179,7 @@ function validateUserCmdInto(output, command)
   return output
 end function
 
+// Validate user cmd.
 function validateUserCmd(command)
   return validateUserCmdInto(csqtypes.zeroUserCmd(), command)
 end function
@@ -197,10 +207,12 @@ function setUserCmd(session, command)
   return true
 end function
 
+// Report whether pending user cmds.
 function pendingUserCmds(session)
   return session.pendingCommandCount
 end function
 
+// Return the next user cmd value.
 function nextUserCmd(session)
   if session.pendingCommandCount == 0 then
     return resetUserCmd(session.idleCommand, 100)
@@ -211,10 +223,12 @@ function nextUserCmd(session)
   return command
 end function
 
+// Return the sequence distance value.
 function inline sequenceDistance(candidate, base)
   return (candidate - base) & cspc.SEQUENCE_MASK
 end function
 
+// Create prediction command scratch.
 function createPredictionCommandScratch()
   return array(CMD_BACKUP + 1, void)
 end function
@@ -282,12 +296,14 @@ function predictionCommands(session, previewCommand)
   return output
 end function
 
+// Return the prediction sequence value.
 function predictionSequence(session)
   channel = session.integrated.network.client.channel
   if channel is void then return -1 end if
   return channel.outgoingSequence
 end function
 
+// Return the store predicted origin.
 function storePredictedOrigin(session, sequence, fixedOrigin)
   if sequence < 0 then return false end if
   slot = sequence & CMD_MASK
@@ -298,6 +314,7 @@ function storePredictedOrigin(session, sequence, fixedOrigin)
   return true
 end function
 
+// Reconcile prediction.
 function reconcilePrediction(session)
   networkClient = session.integrated.network.client
   if networkClient.channel is void or session.integrated.client.current is void then return false end if
@@ -351,6 +368,7 @@ function predictRemote(session, previewCommand, collision)
   return result
 end function
 
+// Send string command.
 function sendStringCommand(session, command, now)
   network = session.integrated.network
   if network.client.state < csnc.CA_CONNECTED or network.client.channel is void then return false end if
@@ -365,6 +383,7 @@ function sendStringCommand(session, command, now)
   return true
 end function
 
+// Send user info.
 function sendUserInfo(session, userInfo, now)
   network = session.integrated.network
   if network.client.state < csnc.CA_CONNECTED or network.client.channel is void then return false end if
@@ -380,10 +399,12 @@ function sendUserInfo(session, userInfo, now)
   return true
 end function
 
+// Configure downloads.
 function configureDownloads(session, manager)
   return csdispatcher.setDownloadManager(session.integrated, manager)
 end function
 
+// Return the signon command value.
 function signonCommand(text)
   arguments = csqcmd.tokenize(text)
   if len(arguments) == 0 then return "" end if
@@ -396,6 +417,7 @@ function signonCommand(text)
   return ""
 end function
 
+// Reset map input.
 function resetMapInput(session)
   resetUserCmd(session.previousCommand, 0)
   resetUserCmd(session.lastCommand, 0)
@@ -416,6 +438,7 @@ function resetMapInput(session)
   return true
 end function
 
+// Synchronize spawn count.
 function synchronizeSpawnCount(session)
   current = session.integrated.network.spawnCount
   if current == session.signonSpawnCount then return false end if
@@ -425,6 +448,7 @@ function synchronizeSpawnCount(session)
   return true
 end function
 
+// Process signon.
 function processSignon(session, now)
   synchronizeSpawnCount(session)
   commands = session.integrated.network.stuffedTexts
@@ -466,6 +490,7 @@ function processSignon(session, now)
   return count
 end function
 
+// Process downloads.
 function processDownloads(session, now)
   manager = session.integrated.downloads
   if manager is void then return 0 end if
@@ -479,6 +504,7 @@ function processDownloads(session, now)
   return sent
 end function
 
+// Send move.
 function sendMove(session, now)
   network = session.integrated.network
   if network.client.state != csnc.CA_ACTIVE or network.client.channel is void then return false end if
@@ -501,6 +527,7 @@ function sendMove(session, now)
   return true
 end function
 
+// Pump state.
 function pump(session, sendMovement)
   if session.closed then return error(9990, "client session is closed") end if
   now = csqbyteio.truncInt(cssystem.milliseconds(session.clock))
@@ -519,6 +546,7 @@ function pump(session, sendMovement)
   return session.integrated.network.client.state
 end function
 
+// Advance state.
 function step(session)
   return pump(session, true)
 end function
@@ -529,6 +557,7 @@ function poll(session)
   return pump(session, false)
 end function
 
+// Run state.
 function run(session, frameLimit)
   if typeof(frameLimit) != "int" or frameLimit < 1 then return error(9991, "client frame limit must be positive") end if
   frames = 0
@@ -543,6 +572,7 @@ function run(session, frameLimit)
   return frames
 end function
 
+// Shut down state.
 function shutdown(session)
   if session.closed then return false end if
   now = csqbyteio.truncInt(cssystem.milliseconds(session.clock))

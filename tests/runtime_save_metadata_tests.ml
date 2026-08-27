@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.runtime.save_metadata as metadatatest
 import std.fs as metadatafs
 
+// Assert the metadata test condition.
 function metadataAssert(actual, expected, label)
   if actual != expected then return error(9973, label + ": expected " + expected + ", got " + actual) end if
 end function

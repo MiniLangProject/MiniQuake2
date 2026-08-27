@@ -29,6 +29,7 @@ activeResolverRuntime = void
 const MAX_PRINT_HANDOFFS = 64
 const MAX_SCREEN_HANDOFFS = 16
 
+// Create state.
 function create(networkRuntime, clientState, effectState)
   if networkRuntime is void or clientState is void or effectState is void then return error(8280, "client dispatcher state is incomplete") end if
   runtime = crtypes.create(networkRuntime, clientState, effectState)
@@ -39,12 +40,14 @@ function create(networkRuntime, clientState, effectState)
   return runtime
 end function
 
+// Set demo recorder.
 function setDemoRecorder(runtime, demo)
   if demo is not void and typeof(demo) != "struct" then return error(8281, "demo recorder must be a Demo") end if
   runtime.demo = demo
   return true
 end function
 
+// Set download manager.
 function setDownloadManager(runtime, manager)
   if manager is not void and typeof(manager) != "struct" then
     return error(8281, "download manager must be a struct")
@@ -62,12 +65,14 @@ function setLegacyDemoCompatibility(runtime, enabled)
   return true
 end function
 
+// Release resolver.
 function releaseResolver()
   global activeResolverRuntime
   activeResolverRuntime = void
   return true
 end function
 
+// Reset client state.
 function resetClientState(runtime)
   if runtime.downloads is not void then cdownloads.cancel(runtime.downloads) end if
   clean = cstate.create()
@@ -108,6 +113,7 @@ function resetClientState(runtime)
   return true
 end function
 
+// Begin map change.
 function beginMapChange(runtime)
   nrlifecycle.resetClientLevel(runtime.network)
   resetClientState(runtime)
@@ -115,6 +121,7 @@ function beginMapChange(runtime)
   return true
 end function
 
+// Copy array data.
 function copyArray(values)
   output = array(len(values), void)
   index = 0
@@ -126,6 +133,7 @@ function copyArray(values)
   return output
 end function
 
+// Return the validation runtime value.
 function validationRuntime(runtime)
   sourceNetworkClient = runtime.network.client
   networkClient = nclient.create(sourceNetworkClient.qport, sourceNetworkClient.timeoutMsec)
@@ -176,6 +184,7 @@ function validationRuntime(runtime)
   return copy
 end function
 
+// Append limited.
 function appendLimited(values, value, maximum)
   output = []
   start = 0
@@ -188,6 +197,7 @@ function appendLimited(values, value, maximum)
   return output + [value]
 end function
 
+// Read ui string.
 function readUiString(buffer, operation)
   value = rmessages.readString(buffer, operation, qc.MAX_STRING_CHARS)
   // Managed destinations mirror the 1024-byte Quake client buffers and keep
@@ -196,6 +206,7 @@ function readUiString(buffer, operation)
   return value
 end function
 
+// Parse print.
 function parsePrint(runtime, buffer, now)
   level = pchecked.readByte(buffer, "print level")
   if level < qc.PRINT_LOW or level > qc.PRINT_CHAT then return error(8293, "print level outside Protocol-34 range") end if
@@ -205,6 +216,7 @@ function parsePrint(runtime, buffer, now)
   return true
 end function
 
+// Parse center print.
 function parseCenterPrint(runtime, buffer, now)
   text = readUiString(buffer, "centerprint text")
   runtime.centerPrints = appendLimited(runtime.centerPrints,
@@ -212,6 +224,7 @@ function parseCenterPrint(runtime, buffer, now)
   return true
 end function
 
+// Parse layout.
 function parseLayout(runtime, buffer, now)
   text = readUiString(buffer, "layout text")
   runtime.layouts = appendLimited(runtime.layouts,
@@ -219,6 +232,7 @@ function parseLayout(runtime, buffer, now)
   return true
 end function
 
+// Parse inventory.
 function parseInventory(runtime, buffer, now)
   values = array(qc.MAX_ITEMS, 0)
   index = 0
@@ -231,6 +245,7 @@ function parseInventory(runtime, buffer, now)
   return true
 end function
 
+// Return the entity value.
 function entity(runtime, number)
   if runtime.client.current is not void then
     value = cstate.findEntity(runtime.client.current.entities, number)
@@ -240,12 +255,14 @@ function entity(runtime, number)
   return void
 end function
 
+// Resolve entity.
 function resolveEntity(number)
   global activeResolverRuntime
   if activeResolverRuntime is void then return error(8291, "effect entity resolver is not active") end if
   return entity(activeResolverRuntime, number)
 end function
 
+// Append download.
 function appendDownload(runtime, buffer)
   count = pchecked.readShort(buffer, "download size")
   percent = pchecked.readByte(buffer, "download percent")
@@ -278,6 +295,7 @@ function appendDownload(runtime, buffer)
   return true
 end function
 
+// Accept frame.
 function acceptFrame(runtime, buffer)
   // network.snapshot.readFrame owns the svc_frame byte. The outer dispatcher
   // already inspected it, so expose it again to the existing parser.
@@ -304,6 +322,7 @@ function acceptFrame(runtime, buffer)
   return 0
 end function
 
+// Parse buffer.
 function parseBuffer(runtime, buffer, now)
   global activeResolverRuntime
   commands = 0
@@ -370,6 +389,7 @@ function parseBuffer(runtime, buffer, now)
   return [commands, effectCommands, frames, reconnecting]
 end function
 
+// Dispatch state.
 function dispatch(runtime, payload, sequence, now)
   if typeof(payload) != "bytes" or len(payload) <= 0 or len(payload) > pc.MAX_MSGLEN then return error(8287, "server payload outside protocol message limit") end if
   if typeof(sequence) != "int" or sequence < 0 or sequence > pc.SEQUENCE_MASK then return error(8288, "server payload sequence outside 31-bit range") end if
@@ -413,6 +433,7 @@ function dispatch(runtime, payload, sequence, now)
   return crtypes.result(true, sequence, parsed[0], parsed[1], parsed[2], "accepted")
 end function
 
+// Return the next demo value.
 function nextDemo(runtime, player, now)
   packet = cdemo.nextPacket(player)
   if packet is void then return void end if
@@ -423,28 +444,33 @@ function nextDemo(runtime, player, now)
   return dispatch(runtime, packet, sequence, now)
 end function
 
+// Report whether pending stuff text.
 function pendingStuffText(runtime)
   return runtime.network.stuffedTexts
 end function
 
+// Consume prints.
 function takePrints(runtime)
   output = runtime.prints
   runtime.prints = []
   return output
 end function
 
+// Consume center prints.
 function takeCenterPrints(runtime)
   output = runtime.centerPrints
   runtime.centerPrints = []
   return output
 end function
 
+// Consume layouts.
 function takeLayouts(runtime)
   output = runtime.layouts
   runtime.layouts = []
   return output
 end function
 
+// Consume inventories.
 function takeInventories(runtime)
   output = runtime.inventories
   runtime.inventories = []

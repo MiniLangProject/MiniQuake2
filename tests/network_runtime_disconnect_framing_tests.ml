@@ -7,6 +7,7 @@ import miniquake2.qcommon.message as ndfqmsg
 import miniquake2.qcommon.sizebuf as ndfqsz
 import miniquake2.network.runtime.commands as ndfcommands
 
+// Return the disconnect buffer value.
 function disconnectBuffer(data)
   buffer = ndfqsz.alloc(len(data))
   ndfqsz.writeBytes(buffer, data)
@@ -14,6 +15,7 @@ function disconnectBuffer(data)
   return buffer
 end function
 
+// Assert the disconnect test condition.
 function disconnectAssert(value, name)
   if not value then return error(7270, name) end if
   return true

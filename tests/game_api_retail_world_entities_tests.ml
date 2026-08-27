@@ -13,16 +13,19 @@ import miniquake2.qcommon.types as rwiqtypes
 import miniquake2.server.game_bridge as rwibridge
 import miniquake2.server.snapshot as rwisnapshot
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9993, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9994, name + ": expected true") end if
   return true
 end function
 
+// Find name.
 function findName(values, name)
   index = 1
   while index < len(values)
@@ -32,6 +35,7 @@ function findName(values, name)
   return 0
 end function
 
+// Return the protocol entity value.
 function protocolEntity(state)
   return rwiptypes.EntityState(
     state.number,
@@ -44,6 +48,7 @@ function protocolEntity(state)
   )
 end function
 
+// Return the command value.
 function command(buttons)
   return rwiqtypes.UserCmd(0, buttons, [0, 0, 0], 0, 0, 0, 0, 64)
 end function

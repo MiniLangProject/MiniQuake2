@@ -7,6 +7,7 @@ import miniquake2.qcommon.constants as nrul_qc
 import miniquake2.server.game_bridge as nrul_bridge
 import miniquake2.runtime.play_session as nrul_play
 
+// Assert the unicast loop test condition.
 function unicastLoopAssert(value, label)
   if value != true then return error(8471, label) end if
   return true

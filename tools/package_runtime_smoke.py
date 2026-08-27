@@ -15,6 +15,7 @@ from pathlib import Path, PurePosixPath
 
 
 def validate_members(archive: zipfile.ZipFile) -> None:
+    """Validate members."""
     names = archive.namelist()
     if len(names) != len(set(names)):
         raise ValueError("release archive contains duplicate members")
@@ -25,6 +26,7 @@ def validate_members(archive: zipfile.ZipFile) -> None:
 
 
 def run(executable: Path, *arguments: str) -> str:
+    """Run state."""
     completed = subprocess.run(
         [str(executable), *arguments],
         cwd=executable.parent,
@@ -43,6 +45,7 @@ def run(executable: Path, *arguments: str) -> str:
 
 
 def main() -> int:
+    """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--archive", type=Path, required=True)
     args = parser.parse_args()

@@ -12,20 +12,24 @@ import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.surfaces as rclassicsurfaces
 import miniquake2.renderer.classic.vector as rclassicvector
 
+// Return the style rgb value.
 function styleRgb(lightStyles, styleIndex)
   if styleIndex >= 0 and styleIndex < len(lightStyles) then return lightStyles[styleIndex].rgb end if
   return [1.0, 1.0, 1.0]
 end function
 
+// Return the style white value.
 function styleWhite(lightStyles, styleIndex)
   if styleIndex >= 0 and styleIndex < len(lightStyles) then return lightStyles[styleIndex].white end if
   return 1.0
 end function
 
+// Report whether is lit surface.
 function isLitSurface(surface)
   return (surface.texInfo.flags & (fc.SURF_SKY | fc.SURF_TRANS33 | fc.SURF_TRANS66 | fc.SURF_WARP)) == 0
 end function
 
+// Mark dynamic lights.
 function markDynamicLights(surface, dLights)
   bits = 0
   lightIndex = 0
@@ -40,7 +44,9 @@ function markDynamicLights(surface, dLights)
   return bits
 end function
 
+// Add dynamic lights.
 function addDynamicLights(surface, dLights, blockLights)
+  // Keep add dynamic lights phases explicit: validate inputs, update owned state, then publish the result.
   lightIndex = 0
   while lightIndex < len(dLights) and lightIndex < 32
     if (surface.dlightBits & (1 << lightIndex)) != 0 then
@@ -80,6 +86,7 @@ function addDynamicLights(surface, dLights, blockLights)
   return blockLights
 end function
 
+// Return the store rgba value.
 function storeRgba(blockLights, sampleCount)
   output = bytes(sampleCount * rclassicconstants.LIGHTMAP_BYTES)
   sample = 0
@@ -111,6 +118,7 @@ function storeRgba(blockLights, sampleCount)
   return output
 end function
 
+// Build lightmap.
 function buildLightmap(surface, lightStyles, dLights, modulate)
   if isLitSurface(surface) == false then return error(9720, "R_BuildLightMap called for non-lit surface") end if
   sampleCount = surface.lightWidth * surface.lightHeight
@@ -148,6 +156,7 @@ function buildLightmap(surface, lightStyles, dLights, modulate)
   return storeRgba(blockLights, sampleCount)
 end function
 
+// Set cache state.
 function setCacheState(surface, lightStyles)
   mapIndex = 0
   while mapIndex < rclassicconstants.MAX_LIGHTMAPS
@@ -160,6 +169,7 @@ function setCacheState(surface, lightStyles)
   return surface.cachedLight
 end function
 
+// Prepare state.
 function prepare(surface, lightStyles, dLights, modulate)
   markDynamicLights(surface, dLights)
   surface.lightmap = buildLightmap(surface, lightStyles, dLights, modulate)

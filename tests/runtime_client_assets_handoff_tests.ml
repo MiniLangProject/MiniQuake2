@@ -17,22 +17,26 @@ import miniquake2.runtime.client_assets as rca_assets
 
 runtimeMissing = []
 
+// Assert the runtime asset test condition.
 function runtimeAssetAssert(value, name)
   if not value then return error(8430, name) end if
   return true
 end function
 
+// Load runtime sound.
 function loadRuntimeSound(name)
   if name == "weapons/missing.wav" then return void end if
   return rca_wav.WavSound(name, 8000, 1, 1, 2, -1, bytes([128, 129]))
 end function
 
+// Report whether note runtime missing.
 function noteRuntimeMissing(value)
   global runtimeMissing
   runtimeMissing = runtimeMissing + [value]
   return true
 end function
 
+// Return the entity position.
 function entityPosition(number)
   return rca_qt.vec3(number * 1.0, 0.0, 0.0)
 end function

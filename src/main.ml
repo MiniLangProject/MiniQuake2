@@ -19,7 +19,7 @@ const PORT_STAGE = "integrated-runtime-foundation"
 // Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
-  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--media-audit ROOT|--campaign-session-smoke ROOT [MAPS]|--play-input-smoke ROOT [MAP] [STEPS]|--projectile-visual-smoke ROOT [MAP] [FRAMES]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
+  print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--media-audit ROOT|--campaign-session-smoke ROOT [MAPS]|--changelevel-smoke ROOT [MAP] [NEXT] [FRAMES]|--play-input-smoke ROOT [MAP] [STEPS]|--projectile-visual-smoke ROOT [MAP] [FRAMES]|--weapon-wheel-smoke ROOT [MAP] [FRAMES]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP] [MODE]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
   print ""
   print "  --version             print the port and compatibility target"
   print "  --data-root ROOT      remember retail data root and launch the menu-first product"
@@ -30,14 +30,16 @@ function printUsage()
   print "  --asset-smoke ROOT [MAP] validate retail PAK/BSP/MD2/WAV and one server frame"
   print "  --media-audit ROOT    validate stock startup CIN/DM2/music media without a window"
   print "  --campaign-session-smoke ROOT [MAPS] rotate one UDP session through up to 39 retail maps"
+  print "  --changelevel-smoke ROOT [MAP] [NEXT] [FRAMES] verify a retail intermission and fresh successor-map load"
   print "  --play-input-smoke ROOT [MAP] [STEPS] drive real UDP movement, weapon and snapshot input"
   print "  --projectile-visual-smoke ROOT [MAP] [FRAMES] verify live Blaster snapshot/render/effect visibility"
+  print "  --weapon-wheel-smoke ROOT [MAP] [FRAMES] verify retail wheel input and rendered weapon transitions"
   print "  --map-preview ROOT MAP [FRAMES] open a native OpenGL BSP38 preview"
   print "  --play ROOT MAP [FRAMES] run the interactive local vertical slice (FRAMES=0 until closed)"
   print "  --cinematic ROOT NAME [FRAMES] [LOOP] play a retail CIN (FRAMES=0 until completion, LOOP=0|1)"
   print "  --media-sequence ROOT SPEC [FRAMES] play classic CIN/PCX/map +nextserver chains"
   print "  --demo ROOT NAME [FRAMES] play a release or Protocol-34 DM2 through the product renderer"
-  print "  --video-restart-smoke ROOT [MAP] rebuild the live window/renderer and retail BSP resources"
+  print "  --video-restart-smoke ROOT [MAP] [MODE] rebuild the live window/renderer and retail BSP resources"
   print "  --dedicated ROOT MAP [PORT] [FRAMES] run a Protocol-34 dedicated server (FRAMES=0 runs until stopped)"
   print "  --listen ROOT MAP [FRAMES] run a headless local client/listen-server session"
   print "  --connect IPV4 [PORT] [FRAMES] run a headless Protocol-34 interoperability client"
@@ -45,6 +47,7 @@ function printUsage()
   print "  --help                print this help"
 end function
 
+// Run default product.
 function runDefaultProduct(root)
   result = runtimeApplication.runProduct(root, 0)
   print "MiniQuake2 product: PASS"
@@ -53,17 +56,20 @@ function runDefaultProduct(root)
   return 0
 end function
 
+// Discover default product root.
 function discoverDefaultProductRoot()
   return productStartup.discoverRetailRoot("miniquake2_data_root.txt",
     productStartup.standardRetailCandidates())
 end function
 
+// Run data root.
 function runDataRoot(args)
   if len(args) != 2 then return error(9967, "--data-root expects one Quake II install root") end if
   productStartup.persistSelectedRoot("miniquake2_data_root.txt", args[1])
   return runDefaultProduct(args[1])
 end function
 
+// Run product smoke.
 function runProductSmoke(args)
   if len(args) < 2 or len(args) > 3 then return error(9968, "--product-smoke expects install root and optional frames") end if
   productFrames = 2
@@ -77,6 +83,7 @@ function runProductSmoke(args)
   return 0
 end function
 
+// Run remote product smoke.
 function runRemoteProductSmoke(args)
   if len(args) < 3 or len(args) > 5 then return error(9977, "--remote-product-smoke expects root, IPv4, optional port and frames") end if
   remotePort = 27910
@@ -112,6 +119,7 @@ function printDiagnostics()
   print "MiniQuake2 diagnostics: PASS"
 end function
 
+// Print capabilities.
 function printCapabilities()
   for each line in runtimeDiagnostics.capabilityLines()
     print line
@@ -119,6 +127,7 @@ function printCapabilities()
   print "MiniQuake2 capabilities: PASS"
 end function
 
+// Run asset smoke.
 function runAssetSmoke(args)
   if len(args) < 2 or len(args) > 3 then return error(9902, "--asset-smoke expects install root and optional map") end if
   mapName = "base1"
@@ -131,6 +140,7 @@ function runAssetSmoke(args)
   return 0
 end function
 
+// Run map preview.
 function runMapPreview(args)
   if len(args) < 3 or len(args) > 4 then return error(9903, "--map-preview expects install root, map and optional frames") end if
   frameLimit = 600
@@ -140,6 +150,7 @@ function runMapPreview(args)
   return 0
 end function
 
+// Run campaign session smoke.
 function runCampaignSessionSmoke(args)
   if len(args) < 2 or len(args) > 3 then return error(9908, "--campaign-session-smoke expects install root and optional map count") end if
   maximumMaps = len(runtimeApplication.campaignMapNames())
@@ -151,6 +162,30 @@ function runCampaignSessionSmoke(args)
   return 0
 end function
 
+// Run change level smoke.
+function runChangeLevelSmoke(args)
+  if len(args) < 2 or len(args) > 5 then
+    return error(9956, "--changelevel-smoke expects root, optional map, next map and frames")
+  end if
+  changeMap = "base1"
+  changeNext = "base2"
+  changeFrames = 240
+  if len(args) >= 3 then changeMap = args[2] end if
+  if len(args) >= 4 then changeNext = args[3] end if
+  if len(args) == 5 then
+    changeFrames = mainByteio.truncInt(toNumber(args[4]))
+  end if
+  changeResult = runtimeApplication.runChangeLevelSmoke(args[1], changeMap,
+    changeNext, changeFrames)
+  print "MiniQuake2 retail changelevel smoke: PASS"
+  print "  from=" + changeResult[0] + " to=" + changeResult[1] +
+    " successor-frames=" + changeResult[2] +
+    " server-frame=" + changeResult[3] +
+    " max-heap=" + changeResult[4]
+  return 0
+end function
+
+// Run play input smoke.
 function runPlayInputSmoke(args)
   if len(args) < 2 or len(args) > 4 then return error(9927, "--play-input-smoke expects install root, optional map and optional steps") end if
   playInputMap = "base1"
@@ -169,7 +204,9 @@ function runPlayInputSmoke(args)
   return 0
 end function
 
+// Run play.
 function runPlay(args)
+  // Keep run play phases explicit: validate inputs, update owned state, then publish the result.
   if len(args) < 3 or len(args) > 4 then return error(9907, "--play expects install root, map and optional frames") end if
   frames = 0
   if len(args) == 4 then frames = mainByteio.truncInt(toNumber(args[3])) end if
@@ -219,6 +256,7 @@ function runPlay(args)
   return 0
 end function
 
+// Run projectile visual smoke.
 function runProjectileVisualSmoke(args)
   if len(args) < 2 or len(args) > 4 then
     return error(9930, "--projectile-visual-smoke expects install root, optional map and optional frames")
@@ -245,6 +283,31 @@ function runProjectileVisualSmoke(args)
   return 0
 end function
 
+// Run weapon wheel smoke.
+function runWeaponWheelSmoke(args)
+  if len(args) < 2 or len(args) > 4 then
+    return error(9947, "--weapon-wheel-smoke expects install root, optional map and optional frames")
+  end if
+  wheelMap = "base1"
+  wheelFrames = 900
+  if len(args) >= 3 then wheelMap = args[2] end if
+  if len(args) == 4 then wheelFrames = mainByteio.truncInt(toNumber(args[3])) end if
+  wheelResult = runtimeApplication.runWeaponWheelSmoke(args[1], wheelMap,
+    wheelFrames)
+  if wheelResult[1] != 3 then
+    return error(9948, "wheel burst produced " + wheelResult[1] +
+      " reliable weapon commands instead of 3")
+  end if
+  if wheelResult[2] < 3 or wheelResult[3] <= 0 then
+    return error(9949, "retail wheel commands did not complete three rendered weapon transitions")
+  end if
+  print "MiniQuake2 weapon wheel smoke: PASS"
+  print "  map=" + wheelMap + " commands=" + wheelResult[1] +
+    " gun-transitions=" + wheelResult[2] + " final-gun-index=" + wheelResult[3]
+  return 0
+end function
+
+// Run cinematic.
 function runCinematic(args)
   if len(args) < 3 or len(args) > 5 then return error(9909, "--cinematic expects install root, name, optional frames and optional loop flag") end if
   frames = 0
@@ -259,6 +322,7 @@ function runCinematic(args)
   return 0
 end function
 
+// Run media sequence.
 function runMediaSequence(args)
   if len(args) < 3 or len(args) > 4 then return error(9910, "--media-sequence expects install root, level specification and optional frames") end if
   frames = 0
@@ -272,6 +336,7 @@ function runMediaSequence(args)
   return 0
 end function
 
+// Run demo.
 function runDemo(args)
   if len(args) < 3 or len(args) > 4 then
     return error(9912, "--demo expects install root, name and optional frames")
@@ -290,6 +355,7 @@ function runDemo(args)
   return 0
 end function
 
+// Run media audit.
 function runMediaAudit(args)
   if len(args) != 2 then
     return error(9953, "--media-audit expects one Quake II install root")
@@ -315,23 +381,37 @@ function runMediaAudit(args)
   return 0
 end function
 
+// Run video restart smoke command.
 function runVideoRestartSmokeCommand(args)
-  if len(args) < 2 or len(args) > 3 then
-    return error(9911, "--video-restart-smoke expects install root and optional map")
+  if len(args) < 2 or len(args) > 4 then
+    return error(9911, "--video-restart-smoke expects install root, optional map and mode")
   end if
   videoRestartMap = "base1"
-  if len(args) == 3 then videoRestartMap = args[2] end if
-  videoRestartResult = runtimeApplication.runRetailVideoRestartSmoke(args[1], videoRestartMap)
+  if len(args) >= 3 then videoRestartMap = args[2] end if
+  videoRestartMode = 5
+  if len(args) == 4 then
+    videoRestartModeValue = toNumber(args[3])
+    videoRestartMode = mainByteio.truncInt(videoRestartModeValue)
+    if videoRestartModeValue != videoRestartMode or videoRestartMode < 0 or
+        videoRestartMode > 7 then
+      return error(9911, "--video-restart-smoke mode must be in [0,7]")
+    end if
+  end if
+  videoRestartResult = runtimeApplication.runRetailVideoRestartSmokeForMode(
+    args[1], videoRestartMap, videoRestartMode)
   print "MiniQuake2 video restart smoke: PASS"
   print "  generation=" + videoRestartResult[0] + " mode=" +
     videoRestartResult[1] + "x" + videoRestartResult[2] +
     " loading-frames=" + videoRestartResult[3] +
-    " fullscreen=" + videoRestartResult[6]
+    " fullscreen=" + videoRestartResult[6] +
+    " fallback=" + videoRestartResult[7] + " requested=" +
+    videoRestartResult[8] + "x" + videoRestartResult[9]
   print "  visible-before=" + videoRestartResult[4] +
     " visible-after=" + videoRestartResult[5]
   return 0
 end function
 
+// Run dedicated.
 function runDedicated(args)
   if len(args) < 3 or len(args) > 5 then return error(9904, "--dedicated expects install root, map, optional port and optional frames") end if
   port = 27910
@@ -344,6 +424,7 @@ function runDedicated(args)
   return 0
 end function
 
+// Run headless client.
 function runHeadlessClient(args)
   if len(args) < 2 or len(args) > 4 then return error(9905, "--connect expects numeric IPv4, optional port and optional frames") end if
   port = 27910
@@ -357,6 +438,7 @@ function runHeadlessClient(args)
   return 0
 end function
 
+// Run listen.
 function runListen(args)
   if len(args) < 3 or len(args) > 4 then return error(9906, "--listen expects install root, map and optional frames") end if
   frames = 600
@@ -384,6 +466,7 @@ end function
 
 // Dispatch the asset-free bootstrap commands.
 function main(args)
+  // Keep main phases explicit: validate inputs, update owned state, then publish the result.
   if len(args) == 0 then
     productRoot = try(discoverDefaultProductRoot())
     if productRoot is error then
@@ -405,8 +488,10 @@ function main(args)
   if command == "--asset-smoke" then return runAssetSmoke(args) end if
   if command == "--media-audit" then return runMediaAudit(args) end if
   if command == "--campaign-session-smoke" then return runCampaignSessionSmoke(args) end if
+  if command == "--changelevel-smoke" then return runChangeLevelSmoke(args) end if
   if command == "--play-input-smoke" then return runPlayInputSmoke(args) end if
   if command == "--projectile-visual-smoke" then return runProjectileVisualSmoke(args) end if
+  if command == "--weapon-wheel-smoke" then return runWeaponWheelSmoke(args) end if
   if command == "--map-preview" then return runMapPreview(args) end if
   if command == "--play" then return runPlay(args) end if
   if command == "--cinematic" then return runCinematic(args) end if

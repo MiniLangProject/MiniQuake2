@@ -13,6 +13,7 @@ import miniquake2.game.world.vector as gwvector
 
 const MAX_WORLD_EVENT_HISTORY = 1024
 
+// Append world core event.
 function worldCoreAppendEvent(values, value)
   if len(values) < MAX_WORLD_EVENT_HISTORY then return values + [value] end if
   output = array(MAX_WORLD_EVENT_HISTORY, void)
@@ -25,91 +26,120 @@ function worldCoreAppendEvent(values, value)
   return output
 end function
 
+// Return the noop log value.
 function noopLog(message)
   return true
 end function
+// Print noop center.
 function noopCenterPrint(entity, message)
   return true
 end function
+// Return the noop sound value.
 function noopSound(entity, soundName)
   return true
 end function
+// Return the noop area portal value.
 function noopAreaPortal(style, isOpen)
   return true
 end function
+// Return the noop damage value.
 function noopDamage(target, inflictor, attacker, amount, means)
   return true
 end function
+// Return the noop radius damage value.
 function noopRadiusDamage(inflictor, attacker, amount, radius, means)
   return true
 end function
+// Return the noop effect value.
 function noopEffect(kind, origin, style, count)
   return true
 end function
-function noopChangeLevel(entity, mapName)
+// Return the noop change level value.
+function noopChangeLevel(entity, other, activator, mapName)
   return true
 end function
+// Spawn noop external.
 function noopSpawnExternal(className, origin, angles, velocity)
   return true
 end function
+// Link noop entity.
 function noopLinkEntity(entity)
   return true
 end function
+// Kill noop box.
 function noopKillBox(entity)
   return true
 end function
+// Return the zero random signed value.
 function zeroRandomSigned()
   return 0.0
 end function
+// Return the zero random index.
 function zeroRandomIndex(count)
   return 0
 end function
+// Resolve noop key item.
 function noopResolveKeyItem(itemClassName)
   return void
 end function
+// Report whether noop has key item.
 function noopHasKeyItem(activator, itemClassName)
   return false
 end function
+// Consume noop key item.
 function noopConsumeKeyItem(activator, itemClassName)
   return false
 end function
+// Return the noop actor message value.
 function noopActorMessage(actor, message)
   return true
 end function
+// Return the noop actor transition value.
 function noopActorTransition(actor, waypoint, action, actionTarget, nextTarget, wait, flags)
   return true
 end function
+// Return the noop combat point transition value.
 function noopCombatPointTransition(actor, point, nextTarget, hold, clearCombatPoint)
   return true
 end function
+// Return the zero clock seconds value.
 function zeroClockSeconds()
   return 0
 end function
+// Set noop model.
 function noopSetModel(entity, modelName)
   return true
 end function
+// Return the noop light style value.
 function noopLightStyle(style, pattern)
   return true
 end function
+// Trace noop line.
 function noopTraceLine(start, finish, ignore)
   return gwtypes.WorldTrace(false, finish, gwcoreqtypes.zeroVec3(), void)
 end function
+// Return the noop laser sparks value.
 function noopLaserSparks(origin, normal, count, color)
   return true
 end function
+// Return the noop earthquake value.
 function noopEarthquake(entity, speed, playSound)
   return 0
 end function
+// Fire noop blaster.
 function noopFireBlaster(entity, direction, damage, speed)
   return void
 end function
+// Return the noop target explosion value.
 function noopTargetExplosion(origin)
   return true
 end function
+// Return the noop target splash value.
 function noopTargetSplash(origin, direction, count, sounds)
   return true
 end function
 
+// Return the default callbacks value.
 function defaultCallbacks()
   return gwtypes.WorldCallbacks(
     noopLog, noopCenterPrint, noopSound, noopAreaPortal,
@@ -124,6 +154,7 @@ function defaultCallbacks()
   )
 end function
 
+// Create world.
 function createWorld(callbacks)
   if callbacks is void then callbacks = defaultCallbacks() end if
   return gwtypes.WorldState(
@@ -132,6 +163,7 @@ function createWorld(callbacks)
   )
 end function
 
+// Emit state.
 function emit(world, kind, entity, detail)
   number = 0
   if entity is not void then number = entity.number end if
@@ -139,11 +171,13 @@ function emit(world, kind, entity, detail)
   return true
 end function
 
+// Return the log value.
 function log(world, message)
   emit(world, "log", void, message)
   return world.callbacks.log(message)
 end function
 
+// Add entity.
 function addEntity(world, entity)
   if entity.number <= 0 then
     entity.number = world.nextEntityNumber
@@ -155,6 +189,7 @@ function addEntity(world, entity)
   return entity
 end function
 
+// Spawn entity.
 function spawnEntity(world, className)
   entity = gwtypes.createEntity(world.nextEntityNumber, className)
   world.nextEntityNumber = world.nextEntityNumber + 1
@@ -162,6 +197,7 @@ function spawnEntity(world, className)
   return entity
 end function
 
+// Release entity.
 function freeEntity(world, entity)
   if entity is void or entity.inUse == false then return false end if
   entity.inUse = false
@@ -179,10 +215,12 @@ function freeEntity(world, entity)
   return true
 end function
 
+// Release think.
 function freeThink(entity, world)
   return freeEntity(world, entity)
 end function
 
+// Find by number.
 function findByNumber(world, number)
   for each entity in world.entities
     if entity.inUse and entity.number == number then return entity end if
@@ -190,6 +228,7 @@ function findByNumber(world, number)
   return void
 end function
 
+// Return the matching targets value.
 function matchingTargets(world, targetName)
   result = []
   if typeof(targetName) != "string" then return error(9290, "matchingTargets targetName is not text") end if
@@ -204,6 +243,7 @@ function matchingTargets(world, targetName)
   return result
 end function
 
+// Choose target.
 function pickTarget(world, targetName)
   choices = matchingTargets(world, targetName)
   if len(choices) == 0 then
@@ -219,6 +259,7 @@ function pickTarget(world, targetName)
   return choices[selected]
 end function
 
+// Use entity.
 function useEntity(world, entity, other, activator)
   if entity is void or entity.inUse == false or entity.use is void then return false end if
   emit(world, "use", entity, entity.className)
@@ -226,6 +267,7 @@ function useEntity(world, entity, other, activator)
   return true
 end function
 
+// Handle entity.
 function touchEntity(world, entity, other)
   if entity is void or entity.inUse == false or entity.touch is void then return false end if
   emit(world, "touch", entity, entity.className)
@@ -233,24 +275,28 @@ function touchEntity(world, entity, other)
   return true
 end function
 
+// Report whether blocked entity.
 function blockedEntity(world, entity, other)
   if entity is void or entity.inUse == false or entity.blocked is void then return false end if
   entity.blocked(entity, other, world)
   return true
 end function
 
+// Kill entity.
 function killEntity(world, entity, inflictor, attacker, damage, point)
   if entity is void or entity.inUse == false or entity.die is void then return false end if
   entity.die(entity, inflictor, attacker, damage, point, world)
   return true
 end function
 
+// Run delayed.
 function thinkDelayed(entity, world)
   useTargets(world, entity, entity.activator)
   freeEntity(world, entity)
   return true
 end function
 
+// Use targets.
 function useTargets(world, entity, activator)
   if entity.delay != 0.0 then
     delayed = spawnEntity(world, "DelayedUse")
@@ -315,6 +361,7 @@ function useTargets(world, entity, activator)
   return true
 end function
 
+// Return the integrate value.
 function inline integrate(world, duration)
   if duration <= 0.0 then return true end if
   for each entity in world.entities
@@ -339,7 +386,9 @@ function inline integrate(world, duration)
   return true
 end function
 
+// Advance state.
 function advance(world, targetTime)
+  // Keep advance phases explicit: validate inputs, update owned state, then publish the result.
   if targetTime < world.time then return error(9200, "world time cannot move backwards") end if
   timeEpsilon = 0.000000001
   iterations = 0
@@ -392,6 +441,7 @@ function advance(world, targetTime)
   return true
 end function
 
+// Run frame.
 function runFrame(world)
   return advance(world, world.time + world.frameTime)
 end function
@@ -401,6 +451,7 @@ function G_UseTargets(entity, activator, world)
   return useTargets(world, entity, activator)
 end function
 
+// Run delay.
 function Think_Delay(entity, world)
   return thinkDelayed(entity, world)
 end function

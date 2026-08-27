@@ -11,16 +11,19 @@ import miniquake2.game.constants as cvgconstants
 import miniquake2.qcommon.types as cvqtypes
 import miniquake2.server.game_bridge as cvbridge
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9980, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9981, name + ": expected true") end if
   return true
 end function
 
+// Install state.
 function install(entityText)
   server = cvbridge.createRuntime(4)
   api = cvgameapi.GetGameApi(cvbridge.makeImports(server))
@@ -33,6 +36,7 @@ function install(entityText)
   return [server, api, client]
 end function
 
+// Run frames.
 function runFrames(api, count)
   frame = 0
   while frame < count
@@ -42,10 +46,12 @@ function runFrames(api, count)
   return count
 end function
 
+// Return the command value.
 function command(buttons)
   return cvqtypes.UserCmd(0, buttons, [0, 0, 0], 0, 0, 0, 0, 64)
 end function
 
+// Return the damage event count.
 function damageEventCount(runtime)
   count = 0
   for each event in runtime.weaponContext.events
@@ -54,6 +60,7 @@ function damageEventCount(runtime)
   return count
 end function
 
+// Verify player projectile pain and death.
 function testPlayerProjectilePainAndDeath()
   fixture = "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" \"angle\" \"0\" }\n" +
@@ -93,6 +100,7 @@ function testPlayerProjectilePainAndDeath()
   return true
 end function
 
+// Verify retail soldier hitscan and light projectile.
 function testRetailSoldierHitscanAndLightProjectile()
   fixture = "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" \"angle\" \"0\" }\n" +
@@ -113,6 +121,7 @@ function testRetailSoldierHitscanAndLightProjectile()
   return true
 end function
 
+// Verify player hitscan weapon.
 function testPlayerHitscanWeapon()
   fixture = "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" \"angle\" \"0\" }\n" +
@@ -141,6 +150,7 @@ function testPlayerHitscanWeapon()
   return true
 end function
 
+// Verify gunner and retail infantry kill player.
 function testGunnerAndRetailInfantryKillPlayer()
   fixture = "{ \"classname\" \"worldspawn\" }\n" +
     "{ \"classname\" \"info_player_start\" \"origin\" \"0 0 0\" \"angle\" \"0\" }\n" +

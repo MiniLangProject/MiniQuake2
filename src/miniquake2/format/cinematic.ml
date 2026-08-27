@@ -11,6 +11,7 @@ import miniquake2.format.binary as fbio
 const HUFFMAN_COUNT_BYTES = 256 * 256
 const HEADER_BYTES = 20 + HUFFMAN_COUNT_BYTES
 
+// Parse header.
 function parseHeader(data)
   if len(data) < HEADER_BYTES then return error(2700, "CIN header or Huffman table is truncated") end if
   width = fbio.i32(data, 0)
@@ -25,6 +26,7 @@ function parseHeader(data)
   return ft.CinematicHeader(width, height, sampleRate, sampleWidth, sampleChannels, slice(data, 20, HUFFMAN_COUNT_BYTES), HEADER_BYTES)
 end function
 
+// Return the smallest node value.
 function smallestNode(counts, used, count)
   bestCount = 0x7fffffff
   bestNode = -1
@@ -40,6 +42,7 @@ function smallestNode(counts, used, count)
   return bestNode
 end function
 
+// Build tree.
 function buildTree(countRow)
   if len(countRow) != 256 then return error(2703, "CIN Huffman row must contain 256 counts") end if
   counts = array(511, 0)
@@ -71,6 +74,7 @@ function buildTree(countRow)
   return ft.HuffmanTree(root, left, right)
 end function
 
+// Build tables.
 function buildTables(header)
   if len(header.huffmanCounts) != HUFFMAN_COUNT_BYTES then return error(2705, "CIN Huffman table size mismatch") end if
   tables = array(256)
@@ -82,6 +86,7 @@ function buildTables(header)
   return tables
 end function
 
+// Decompress state.
 function decompress(compressed, tables, maximumOutput)
   if len(compressed) < 5 then return error(2706, "compressed CIN frame is truncated") end if
   outputCount = fbio.i32(compressed, 0)
@@ -112,6 +117,7 @@ function decompress(compressed, tables, maximumOutput)
   return output
 end function
 
+// Read frame.
 function readFrame(data, offset, frameNumber, header, tables)
   if offset < header.frameDataOffset or offset + 4 > len(data) then return error(2711, "CIN frame command is truncated") end if
   command = fbio.i32(data, offset)

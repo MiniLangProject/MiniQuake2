@@ -10,11 +10,13 @@ import miniquake2.client.cinematic.audio as cinaudio
 import miniquake2.client.cinematic.player as cinplayer
 import miniquake2.client.cinematic.types as cintypes
 
+// Assert the cinematic safety equal test condition.
 function cinematicSafetyAssertEqual(actual, expected, name)
   if actual != expected then return error(8370, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Return the cinematic safety synthetic value.
 function cinematicSafetySynthetic()
   data = bytes(70000)
   qbio.putI32(data, 0, 2); qbio.putI32(data, 4, 2)

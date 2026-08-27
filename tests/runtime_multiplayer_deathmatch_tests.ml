@@ -16,6 +16,7 @@ import miniquake2.game.weapons.constants as mpdtestweaponconstants
 import miniquake2.game.weapons.core as mpdtestweaponcore
 import miniquake2.runtime.multiplayer_session as mpdtestsession
 
+// Assert the mpd test condition.
 function mpdAssert(value, name)
   if not value then return error(8420, name) end if
   return true

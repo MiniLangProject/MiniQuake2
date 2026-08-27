@@ -9,6 +9,7 @@ import miniquake2.qcommon.types as qt
 import miniquake2.game.gameplay.types as gptypes
 import miniquake2.game.weapons.constants as wbconstants
 
+// Store weapon target data.
 struct WeaponTarget
   number
   inUse
@@ -22,6 +23,7 @@ struct WeaponTarget
   flags
 end struct
 
+// Store weapon effect data.
 struct WeaponEffect
   kind
   start
@@ -32,6 +34,7 @@ struct WeaponEffect
   count
 end struct
 
+// Store weapon callbacks data.
 struct WeaponCallbacks
   trace
   pointContents
@@ -47,6 +50,7 @@ struct WeaponCallbacks
   randomSigned
 end struct
 
+// Store projectile data.
 struct Projectile
   number
   inUse
@@ -81,6 +85,7 @@ struct Projectile
   engineNumber
 end struct
 
+// Store weapon context data.
 struct WeaponContext
   projectiles
   time
@@ -91,6 +96,7 @@ struct WeaponContext
   deathmatch
 end struct
 
+// Store hand grenade state data.
 struct HandGrenadeState
   owner
   weaponState
@@ -105,6 +111,7 @@ struct HandGrenadeState
   lastProjectile
 end struct
 
+// Create target.
 function createTarget(number, health)
   combatant = gptypes.createCombatant(number, health)
   return WeaponTarget(
@@ -113,6 +120,7 @@ function createTarget(number, health)
   )
 end function
 
+// Create projectile.
 function createProjectile(number, className)
   zero = qt.zeroVec3()
   return Projectile(
@@ -124,6 +132,7 @@ function createProjectile(number, className)
   )
 end function
 
+// Create hand grenade state.
 function createHandGrenadeState(owner, ammo)
   return HandGrenadeState(
     owner, wbconstants.HAND_READY, 16, 0.0, false, 0, 0, ammo, false, "", void

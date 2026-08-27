@@ -9,6 +9,7 @@ import miniquake2.game.integration.campaign_progression as mpcampaignobjectives
 import miniquake2.game.null_game as mpcampaigngame
 import miniquake2.runtime.multiplayer_session as mpcampaignsession
 
+// Store multiplayer campaign advance result data.
 struct MultiplayerCampaignAdvanceResult
   advanced
   sourceMap
@@ -18,6 +19,7 @@ struct MultiplayerCampaignAdvanceResult
   steps
 end struct
 
+// Prepare advance.
 function prepareAdvance(session, targetMap)
   if session is void or session.closed or
       session.mode != mpcampaignsession.MODE_COOP then
@@ -44,6 +46,7 @@ function prepareAdvance(session, targetMap)
   return [mpcampaignSourceMap, mpcampaignObjective]
 end function
 
+// Advance core.
 function advanceCore(session, targetMap, entityText, collision, maximumSteps)
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
     return error(8490, "multiplayer campaign step limit must be positive")
@@ -59,6 +62,7 @@ function advanceCore(session, targetMap, entityText, collision, maximumSteps)
     session.server.networkRuntime.spawnCount, session.steps)
 end function
 
+// Advance retail.
 function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(8492, "multiplayer retail campaign root is required")
@@ -77,6 +81,7 @@ function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
     session.server.networkRuntime.spawnCount, session.steps)
 end function
 
+// Return the complete value.
 function complete(session, terminalTarget)
   mpcampaignTerminalObjective = mpcampaignobjectives.driveToMap(
     mpcampaigngame.baseRuntime(), mpcampaigngame.playerContext(), terminalTarget)

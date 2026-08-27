@@ -13,16 +13,19 @@ import miniquake2.qcommon.message as msg
 import miniquake2.qcommon.crc as crc
 import miniquake2.qcommon.checksum as checksum
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(2900, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(2901, name + ": expected true") end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0 then difference = -difference end if
@@ -30,6 +33,7 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Assert the bytes test condition.
 function assertBytes(actual, expected, name)
   assertEqual(len(actual), len(expected), name + " length")
   index = 0
@@ -40,6 +44,7 @@ function assertBytes(actual, expected, name)
   return true
 end function
 
+// Verify constants and types.
 function testConstantsAndTypes()
   assertEqual(c.VERSION, 3.19, "engine version")
   assertEqual(c.PROTOCOL_VERSION, 34, "protocol version")
@@ -54,6 +59,7 @@ function testConstantsAndTypes()
   return true
 end function
 
+// Verify byte io.
 function testByteIo()
   data = bytes(16)
   bio.putU16(data, 0, 0xabcd)
@@ -83,6 +89,7 @@ function testByteIo()
   return true
 end function
 
+// Verify size buffer.
 function testSizeBuffer()
   buffer = sz.alloc(8)
   sz.writeBytes(buffer, bytes([1, 2, 3]))
@@ -109,6 +116,7 @@ function testSizeBuffer()
   return true
 end function
 
+// Verify messages.
 function testMessages()
   buffer = sz.alloc(128)
   msg.writeChar(buffer, -2)
@@ -173,6 +181,7 @@ function testMessages()
   return true
 end function
 
+// Verify crc.
 function testCrc()
   assertEqual(crc.CRC_Init(), 0xffff, "CRC init")
   assertEqual(crc.CRC_Block(bytes("123456789"), 0, 9), 0x29b1, "CRC-CCITT check vector")
@@ -201,6 +210,7 @@ function testCrc()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   print "MiniQuake2 qcommon tests starting: 5"
   result = try(testConstantsAndTypes())

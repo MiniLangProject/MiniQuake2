@@ -10,11 +10,13 @@ import miniquake2.runtime.multiplayer_session as mpcpsession
 import miniquake2.runtime.multiplayer_campaign_session as mpcpcampaign
 import miniquake2.runtime.session_persistence as mpcppersistence
 
+// Assert the mpcp test condition.
 function mpcpAssert(value, name)
   if not value then return error(8495, name) end if
   return true
 end function
 
+// Return the mpcp entities value.
 function mpcpEntities(nextMap, origin)
   return "{\"classname\" \"worldspawn\"}" +
     "{\"classname\" \"info_player_start\" \"origin\" \"" + origin + "\"}" +
@@ -24,6 +26,7 @@ function mpcpEntities(nextMap, origin)
       nextMap + "$start\"}"
 end function
 
+// Return the mpcp checkpoint value.
 function mpcpCheckpoint(session, ordinal)
   mpcpPlayer0 = mpcpsession.player(session, 0)
   mpcpPlayer1 = mpcpsession.player(session, 1)
@@ -93,6 +96,7 @@ function mpcpCheckpoint(session, ordinal)
   return true
 end function
 
+// Return the mpcp synthetic value.
 function mpcpSynthetic()
   mpcpSyntheticSession = mpcpsession.createCoreAtSkill(
     mpcpsession.MODE_COOP, "mpcp-a", mpcpEntities("mpcp-b", "0 0 0"),
@@ -111,6 +115,7 @@ function mpcpSynthetic()
   return true
 end function
 
+// Return the mpcp seen value.
 function mpcpSeen(values, candidate)
   for each mpcpKnown in values
     if mpcpKnown == candidate then return true end if
@@ -118,6 +123,7 @@ function mpcpSeen(values, candidate)
   return false
 end function
 
+// Return the mpcp retail value.
 function mpcpRetail(baseDirectory)
   mpcpRetailSession = mpcpsession.createRetailAtSkill(
     mpcpsession.MODE_COOP, baseDirectory, "base1",
@@ -161,6 +167,7 @@ function mpcpRetail(baseDirectory)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) > 1 then return error(8496, "expected optional Quake II install root") end if
   mpcpSynthetic()

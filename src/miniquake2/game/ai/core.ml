@@ -13,25 +13,30 @@ import std.math as gaimath
 
 aiRunCourseScratch = gaiqtypes.Vec3(0.0, 0.0, 0.0)
 
+// Return the vector x value.
 function vectorX(value)
   if typeof(value) == "struct" then return value.x end if
   return value[0]
 end function
 
+// Return the vector y value.
 function vectorY(value)
   if typeof(value) == "struct" then return value.y end if
   return value[1]
 end function
 
+// Return the vector z value.
 function vectorZ(value)
   if typeof(value) == "struct" then return value.z end if
   return value[2]
 end function
 
+// Return the actor yaw.
 function actorYaw(actor)
   return vectorY(actor.edict.state.angles)
 end function
 
+// Set actor yaw.
 function setActorYaw(actor, value)
   if typeof(actor.edict.state.angles) == "struct" then actor.edict.state.angles.y = value
   else actor.edict.state.angles[1] = value
@@ -39,28 +44,33 @@ function setActorYaw(actor, value)
   return value
 end function
 
+// Return the vector length.
 function vectorLength(value)
   return gaimath.sqrt(value[0] * value[0] + value[1] * value[1] + value[2] * value[2])
 end function
 
+// Return the vector to yaw.
 function vectorToYaw(value)
   yaw = gaimath.radToDeg(gaimath.atan2(value[1], value[0]))
   if yaw < 0.0 then yaw = yaw + 360.0 end if
   return yaw
 end function
 
+// Return the scalar to yaw.
 function inline scalarToYaw(x, y)
   yaw = gaimath.radToDeg(gaimath.atan2(y, x))
   if yaw < 0.0 then yaw = yaw + 360.0 end if
   return yaw
 end function
 
+// Return the angle mod value.
 function angleMod(value)
   result = value % 360.0
   if result < 0.0 then result = result + 360.0 end if
   return result
 end function
 
+// Return the direction to value.
 function directionTo(first, second)
   return [
     vectorX(second.edict.state.origin) - vectorX(first.edict.state.origin),
@@ -69,6 +79,7 @@ function directionTo(first, second)
   ]
 end function
 
+// Copy origin to array.
 function inline copyOriginToArray(target, origin)
   target[0] = vectorX(origin)
   target[1] = vectorY(origin)
@@ -76,6 +87,7 @@ function inline copyOriginToArray(target, origin)
   return target
 end function
 
+// Return the pursuit goal value.
 function pursuitGoal(actor)
   if actor.pursuitGoal is void then
     actor.pursuitGoal = gaitypes.createActor(-1, "ai_pursuit_goal")
@@ -85,6 +97,7 @@ function pursuitGoal(actor)
   return actor.pursuitGoal
 end function
 
+// Return the range value.
 function range(first, second)
   distance = vectorLength(directionTo(first, second))
   if distance < gaiconstants.MELEE_DISTANCE then return gaiconstants.RANGE_MELEE end if
@@ -93,6 +106,7 @@ function range(first, second)
   return gaiconstants.RANGE_FAR
 end function
 
+// Return the infront value.
 function infront(first, second)
   direction = directionTo(first, second)
   length = vectorLength(direction)
@@ -102,11 +116,13 @@ function infront(first, second)
   return dot > 0.3
 end function
 
+// Report whether visible.
 function visible(actor, other, context)
   if typeof(context.visible) != "function" then return error(9600, "visible callback is not installed") end if
   return context.visible(actor, other)
 end function
 
+// Return the change yaw.
 function ChangeYaw(actor)
   current = angleMod(actorYaw(actor))
   ideal = angleMod(actor.idealYaw)
@@ -119,6 +135,7 @@ function ChangeYaw(actor)
   return setActorYaw(actor, angleMod(current + move))
 end function
 
+// Move walk.
 function walkMove(actor, yaw, distance, context)
   if typeof(context.walkMove) == "function" then return context.walkMove(actor, yaw, distance) end if
   radians = gaimath.degToRad(yaw)
@@ -132,6 +149,7 @@ function walkMove(actor, yaw, distance, context)
   return true
 end function
 
+// Move to goal.
 function moveToGoal(actor, distance, context)
   if typeof(context.moveToGoal) == "function" then return context.moveToGoal(actor, distance) end if
   if actor.goalEntity is void then return false end if
@@ -140,10 +158,12 @@ function moveToGoal(actor, distance, context)
   return walkMove(actor, actorYaw(actor), distance, context)
 end function
 
+// Move ai.
 function ai_move(actor, distance, context)
   return walkMove(actor, actorYaw(actor), distance, context)
 end function
 
+// Return the ai stand value.
 function ai_stand(actor, distance, context)
   if distance != 0.0 then walkMove(actor, actorYaw(actor), distance, context) end if
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then
@@ -172,6 +192,7 @@ function ai_stand(actor, distance, context)
   return true
 end function
 
+// Return the ai walk value.
 function ai_walk(actor, distance, context)
   moveToGoal(actor, distance, context)
   if FindTarget(actor, context) then return true end if
@@ -182,6 +203,7 @@ function ai_walk(actor, distance, context)
   return true
 end function
 
+// Return the ai charge value.
 function ai_charge(actor, distance, context)
   if actor.enemy is void then return false end if
   actor.idealYaw = vectorToYaw(directionTo(actor, actor.enemy))
@@ -190,6 +212,7 @@ function ai_charge(actor, distance, context)
   return true
 end function
 
+// Return the ai turn value.
 function ai_turn(actor, distance, context)
   if distance != 0.0 then walkMove(actor, actorYaw(actor), distance, context) end if
   if FindTarget(actor, context) then return true end if
@@ -197,11 +220,13 @@ function ai_turn(actor, distance, context)
   return true
 end function
 
+// Return the facing ideal value.
 function FacingIdeal(actor)
   delta = angleMod(actorYaw(actor) - actor.idealYaw)
   return not (delta > 45.0 and delta < 315.0)
 end function
 
+// Return the hunt target value.
 function HuntTarget(actor, context)
   actor.goalEntity = actor.enemy
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then
@@ -214,6 +239,7 @@ function HuntTarget(actor, context)
   return true
 end function
 
+// Return the found target value.
 function FoundTarget(actor, context)
   if actor.enemy is void then return error(9601, "FoundTarget: enemy required") end if
   // Publish a monster that found a client for one frame so nearby monsters
@@ -247,6 +273,7 @@ function FoundTarget(actor, context)
   return true
 end function
 
+// Return the candidate from context.
 function candidateFromContext(actor, context)
   heard = false
   candidate = void
@@ -258,7 +285,9 @@ function candidateFromContext(actor, context)
   return gaitypes.TargetSelection(candidate, heard)
 end function
 
+// Find target.
 function FindTarget(actor, context)
+  // Keep find target phases explicit: validate inputs, update owned state, then publish the result.
   if (actor.info.aiFlags & gaiconstants.AI_GOOD_GUY) != 0 then return false end if
   if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then return false end if
   selection = candidateFromContext(actor, context)
@@ -309,6 +338,7 @@ function FindTarget(actor, context)
   return true
 end function
 
+// Validate m attack.
 function M_CheckAttack(actor, context, enemyRange)
   if actor.enemy is void then return false end if
   if actor.enemy.health > 0 and typeof(context.clearShot) == "function" and context.clearShot(actor, actor.enemy) != true then return false end if
@@ -337,6 +367,7 @@ function M_CheckAttack(actor, context, enemyRange)
   return false
 end function
 
+// Dispatch attack state.
 function DispatchAttackState(actor, context, enemyYaw)
   actor.idealYaw = enemyYaw
   ChangeYaw(actor)
@@ -349,6 +380,7 @@ function DispatchAttackState(actor, context, enemyYaw)
   return true
 end function
 
+// Return the ai checkattack value.
 function ai_checkattack(actor, distance, context)
   actor.enemyVisible = false
   // Stock g_ai.c hunts a player_noise for at most five seconds.
@@ -405,6 +437,7 @@ function ai_checkattack(actor, distance, context)
   return M_CheckAttack(actor, context, enemyRange)
 end function
 
+// Run ai slide.
 function ai_run_slide(actor, distance, context)
   if actor.enemy is void then return false end if
   actor.idealYaw = vectorToYaw(directionTo(actor, actor.enemy))

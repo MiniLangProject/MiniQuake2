@@ -8,6 +8,7 @@ package miniquake2.game.world.types
 import miniquake2.qcommon.types as qt
 import miniquake2.game.world.constants as gwconstants
 
+// Store move info data.
 struct MoveInfo
   state
   speed
@@ -39,6 +40,7 @@ struct WorldTrace
   entity
 end struct
 
+// Store world entity data.
 struct WorldEntity
   number
   inUse
@@ -123,6 +125,7 @@ struct WorldEntity
   waterLevel
 end struct
 
+// Store world callbacks data.
 struct WorldCallbacks
   log
   centerPrint
@@ -154,6 +157,7 @@ struct WorldCallbacks
   targetSplash
 end struct
 
+// Store world state data.
 struct WorldState
   entities
   time
@@ -189,6 +193,7 @@ function vec3FromValue(value, label)
   return qt.Vec3(gwtypesVectorX, gwtypesVectorY, gwtypesVectorZ)
 end function
 
+// Move stabilize info.
 function stabilizeMoveInfo(moveInfo)
   if typeof(moveInfo) != "struct" then return error(9181, "MoveInfo record required") end if
   gwtypesMoveInfoHolder = moveInfo
@@ -205,6 +210,7 @@ function stabilizeMoveInfo(moveInfo)
   return gwtypesMoveInfoHolder
 end function
 
+// Move zero info.
 function zeroMoveInfo()
   gwtypesZeroDirectionHolder = qt.zeroVec3()
   gwtypesZeroStartOriginHolder = qt.zeroVec3()
@@ -226,6 +232,7 @@ function zeroMoveInfo()
   return gwtypesZeroMoveInfoHolder
 end function
 
+// Create entity.
 function createEntity(number, className)
   return WorldEntity(
     number, true, className,

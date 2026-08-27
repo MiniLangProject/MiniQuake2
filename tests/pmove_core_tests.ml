@@ -20,11 +20,13 @@ WORLD_LADDER = 5
 collisionWorld = WORLD_EMPTY
 waterContents = 0
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9950, name + ": expected " + expected + ", got " + actual) end if
   return true
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
@@ -32,19 +34,23 @@ function assertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Return the default plane value.
 function defaultPlane()
   return qt.Plane(qt.zeroVec3(), 0.0, 0, 0)
 end function
 
+// Trace movement.
 function movementTrace(fraction, endPosition, normal, entity, contents, allSolid, startSolid)
   surface = qt.CollisionSurface("pmove/synthetic", 0, 0)
   return qt.Trace(allSolid, startSolid, fraction, endPosition, qt.Plane(normal, 0.0, 0, 0), surface, contents, entity)
 end function
 
+// Report whether empty trace.
 function emptyTrace(start, mins, maxs, finish)
   return movementTrace(1.0, qt.Vec3(finish.x, finish.y, finish.z), qt.zeroVec3(), void, 0, false, false)
 end function
 
+// Trace synthetic.
 function syntheticTrace(start, mins, maxs, finish)
   global collisionWorld
   if collisionWorld == WORLD_EMPTY then return emptyTrace(start, mins, maxs, finish) end if
@@ -110,11 +116,13 @@ function syntheticTrace(start, mins, maxs, finish)
   return emptyTrace(start, mins, maxs, finish)
 end function
 
+// Return the synthetic contents value.
 function syntheticContents(point)
   global waterContents
   return waterContents
 end function
 
+// Move new.
 function newMove(world, origin, velocity)
   global collisionWorld
   global waterContents
@@ -128,6 +136,7 @@ function newMove(world, origin, velocity)
   return value
 end function
 
+// Verify ground acceleration and friction.
 function testGroundAccelerationAndFriction()
   accelerated = newMove(WORLD_FLOOR, [0, 0, 192], [0, 0, 0])
   accelerated.command.forwardMove = 300
@@ -143,6 +152,7 @@ function testGroundAccelerationAndFriction()
   return true
 end function
 
+// Verify air and jump.
 function testAirAndJump()
   airborne = newMove(WORLD_EMPTY, [0, 0, 1600], [0, 0, 0])
   airborne.command.forwardMove = 300
@@ -167,6 +177,7 @@ function testAirAndJump()
   return true
 end function
 
+// Verify water move.
 function testWaterMove()
   global waterContents
   swimming = newMove(WORLD_FLOOR, [0, 0, 192], [0, 0, 0])
@@ -187,6 +198,7 @@ function testWaterMove()
   return true
 end function
 
+// Verify stair step.
 function testStairStep()
   stairMove = newMove(WORLD_STAIR, [0, 0, 192], [0, 0, 0])
   stairMove.command.forwardMove = 300
@@ -197,6 +209,7 @@ function testStairStep()
   return true
 end function
 
+// Verify wall slide.
 function testWallSlide()
   sliding = newMove(WORLD_WALL, [0, 0, 192], [0, 0, 0])
   sliding.command.forwardMove = 200
@@ -209,6 +222,7 @@ function testWallSlide()
   return true
 end function
 
+// Verify ladder move.
 function testLadderMove()
   climbing = newMove(WORLD_LADDER, [0, 0, 192], [0, 0, 0])
   climbing.command.angles[0] = -5461
@@ -221,6 +235,7 @@ function testLadderMove()
   return true
 end function
 
+// Verify spectator duck dead and gib.
 function testSpectatorDuckDeadAndGib()
   spectator = newMove(WORLD_EMPTY, [0, 0, 0], [0, 0, 0])
   spectator.state.moveType = gc.PM_SPECTATOR
@@ -255,6 +270,7 @@ function testSpectatorDuckDeadAndGib()
   return true
 end function
 
+// Verify teleport and time flags.
 function testTeleportAndTimeFlags()
   teleported = newMove(WORLD_FLOOR, [0, 0, 192], [0, 0, 0])
   teleported.state.flags = gc.PMF_ON_GROUND | gc.PMF_TIME_TELEPORT
@@ -292,6 +308,7 @@ function testTeleportAndTimeFlags()
   return true
 end function
 
+// Verify angle clamp and freeze.
 function testAngleClampAndFreeze()
   frozen = newMove(WORLD_EMPTY, [8, 16, 1600], [80, 0, 0])
   frozen.state.moveType = gc.PM_FREEZE
@@ -306,6 +323,7 @@ function testAngleClampAndFreeze()
   return true
 end function
 
+// Verify snap jitter and short wrap.
 function testSnapJitterAndShortWrap()
   snapped = newMove(WORLD_SNAP, [0, 0, 1600], [0, 0, 0])
   snapped.command.forwardMove = 1
@@ -325,6 +343,7 @@ function testSnapJitterAndShortWrap()
   return true
 end function
 
+// Run replay.
 function runReplay()
   replay = newMove(WORLD_FLOOR, [0, 0, 192], [0, 0, 0])
   frame = 0
@@ -345,6 +364,7 @@ function runReplay()
   ]
 end function
 
+// Verify deterministic replay.
 function testDeterministicReplay()
   first = runReplay()
   second = runReplay()
@@ -361,6 +381,7 @@ function testDeterministicReplay()
   return true
 end function
 
+// Verify vector gc hardening.
 function testVectorGcHardening()
   assertEqual(typeof(try(pmcorevector.copy(17))), "error", "physics vector rejects scalar shape")
   assertEqual(typeof(try(pmcorevector.copy(defaultPlane()))), "error", "physics vector rejects non-Vec3 struct")
@@ -409,6 +430,7 @@ function testVectorGcHardening()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   testGroundAccelerationAndFriction()
   testAirAndJump()

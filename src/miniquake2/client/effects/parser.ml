@@ -21,27 +21,32 @@ import miniquake2.qcommon.monster_flash_offsets as ceflash
 
 const SOUND_FLAG_MASK = 31
 
+// Read position.
 function readPosition(buffer, operation)
   return qt.Vec3(pchecked.readCoord(buffer, operation + " x"),
     pchecked.readCoord(buffer, operation + " y"), pchecked.readCoord(buffer, operation + " z"))
 end function
 
+// Read direction.
 function readDirection(buffer, operation)
   return qdirections.decodeDirection(pchecked.readByte(buffer, operation))
 end function
 
+// Return the named sound value.
 function namedSound(state, position, entity, channel, name, volume, attenuation, offset)
   event = cetypes.SoundEvent(position, entity, channel, -1, name, volume, attenuation, offset)
   ceaudio.emit(state, event)
   return event
 end function
 
+// Return the indexed sound value.
 function indexedSound(state, position, entity, channel, index, volume, attenuation, offset)
   event = cetypes.SoundEvent(position, entity, channel, index, "", volume, attenuation, offset)
   ceaudio.emit(state, event)
   return event
 end function
 
+// Parse sound.
 function parseSound(state, buffer)
   flags = pchecked.readByte(buffer, "sound flags")
   if (flags & ~SOUND_FLAG_MASK) != 0 then return error(7330, "sound packet contains reserved flags") end if
@@ -65,16 +70,19 @@ function parseSound(state, buffer)
   return indexedSound(state, position, entity, channel, soundIndex, volume, attenuation, timeOffset)
 end function
 
+// Return the entity origin.
 function entityOrigin(entityState)
   if entityState is void or typeof(entityState) != "struct" or len(entityState.origin) != 3 then return error(7332, "muzzleflash entity state is unavailable") end if
   return cestate.vecFromArray(entityState.origin)
 end function
 
+// Return the entity angles.
 function entityAngles(entityState)
   if entityState is void or typeof(entityState) != "struct" or len(entityState.angles) != 3 then return error(7333, "muzzleflash entity angles are unavailable") end if
   return qt.Vec3(entityState.angles[0], entityState.angles[1], entityState.angles[2])
 end function
 
+// Return the player muzzle sound value.
 function playerMuzzleSound(weapon)
   if weapon == ceconstants.MZ_BLASTER or weapon == ceconstants.MZ_BLASTER2 then return "weapons/blastf1a.wav" end if
   if weapon == ceconstants.MZ_SHOTGUN then return "weapons/shotgf1b.wav" end if
@@ -92,6 +100,7 @@ function playerMuzzleSound(weapon)
   return ""
 end function
 
+// Return the player muzzle color value.
 function playerMuzzleColor(weapon)
   if weapon == ceconstants.MZ_CHAINGUN1 then return [1.0, 0.25, 0.0] end if
   if weapon == ceconstants.MZ_CHAINGUN2 then return [1.0, 0.5, 0.0] end if
@@ -115,6 +124,7 @@ function playerMuzzleColor(weapon)
   return [0.0, 0.0, 0.0]
 end function
 
+// Return the machine gun sound value.
 function machineGunSound(state)
   variant = cestate.random(state) % 5
   if variant == 1 then return "weapons/machgf2b.wav" end if
@@ -124,6 +134,7 @@ function machineGunSound(state)
   return "weapons/machgf1b.wav"
 end function
 
+// Emit player muzzle sounds.
 function emitPlayerMuzzleSounds(state, entityNumber, weapon, volume)
   if weapon == ceconstants.MZ_MACHINEGUN or weapon == ceconstants.MZ_CHAINGUN1 or
       weapon == ceconstants.MZ_CHAINGUN2 or weapon == ceconstants.MZ_CHAINGUN3 then
@@ -153,6 +164,7 @@ function emitPlayerMuzzleSounds(state, entityNumber, weapon, volume)
   return name != ""
 end function
 
+// Parse muzzle flash.
 function parseMuzzleFlash(state, buffer, entityResolver)
   entityNumber = pchecked.readShort(buffer, "muzzleflash entity")
   if entityNumber < 1 or entityNumber >= pc.MAX_EDICTS then return error(7334, "muzzleflash entity outside protocol range") end if
@@ -192,18 +204,22 @@ function parseMuzzleFlash(state, buffer, entityResolver)
   return light
 end function
 
+// Return the soldier machine gun value.
 function inline soldierMachineGun(flash)
   return flash == 43 or flash == 44 or (flash >= 85 and flash <= 100 and (flash - 85) % 3 == 0)
 end function
 
+// Return the soldier shotgun value.
 function inline soldierShotgun(flash)
   return flash == 41 or flash == 42 or (flash >= 84 and flash <= 99 and (flash - 84) % 3 == 0)
 end function
 
+// Return the soldier blaster value.
 function inline soldierBlaster(flash)
   return flash == 39 or flash == 40 or (flash >= 83 and flash <= 98 and (flash - 83) % 3 == 0)
 end function
 
+// Return the monster machine gun value.
 function inline monsterMachineGun(flash)
   return (flash >= 4 and flash <= 22) or (flash >= 26 and flash <= 38) or
     soldierMachineGun(flash) or (flash >= 45 and flash <= 52) or flash == 63 or
@@ -212,24 +228,29 @@ function inline monsterMachineGun(flash)
     flash == 141 or flash == 152 or flash == 153
 end function
 
+// Return the monster rocket value.
 function inline monsterRocket(flash)
   return (flash >= 23 and flash <= 25) or flash == 57 or
     (flash >= 70 and flash <= 72) or (flash >= 78 and flash <= 81) or
     flash == 142 or flash == 191
 end function
 
+// Return the monster rail value.
 function inline monsterRail(flash)
   return flash == 61 or flash == 147 or flash == 150
 end function
 
+// Return the monster green blaster value.
 function inline monsterGreenBlaster(flash)
   return (flash >= 144 and flash <= 146) or flash == 149 or (flash >= 156 and flash <= 190)
 end function
 
+// Return the monster plasma beam value.
 function inline monsterPlasmaBeam(flash)
   return flash == 151 or (flash >= 195 and flash <= 210)
 end function
 
+// Return the monster muzzle color value.
 function monsterMuzzleColor(flash)
   if monsterRocket(flash) then return [1.0, 0.5, 0.2] end if
   if flash >= 53 and flash <= 56 or flash == 140 then return [1.0, 0.5, 0.0] end if
@@ -244,6 +265,7 @@ function monsterMuzzleColor(flash)
   return [0.0, 0.0, 0.0]
 end function
 
+// Return the tank machine gun sound value.
 function tankMachineGunSound(state)
   variant = cestate.random(state) % 5
   if variant == 1 then return "tank/tnkatk2b.wav" end if
@@ -253,6 +275,7 @@ function tankMachineGunSound(state)
   return "tank/tnkatk2a.wav"
 end function
 
+// Return the monster muzzle sound value.
 function monsterMuzzleSound(state, flash)
   if flash >= 1 and flash <= 3 then return "tank/tnkatck3.wav" end if
   if flash >= 4 and flash <= 22 then return tankMachineGunSound(state) end if
@@ -278,6 +301,7 @@ function monsterMuzzleSound(state, flash)
   return ""
 end function
 
+// Parse muzzle flash 2.
 function parseMuzzleFlash2(state, buffer, entityResolver)
   entityNumber = pchecked.readShort(buffer, "monster muzzleflash entity")
   if entityNumber < 1 or entityNumber >= pc.MAX_EDICTS then return error(7335, "monster muzzleflash entity outside protocol range") end if
@@ -307,6 +331,7 @@ function parseMuzzleFlash2(state, buffer, entityResolver)
   return light
 end function
 
+// Return the smoke and flash value.
 function smokeAndFlash(state, position)
   cestate.addExplosionExact(state, "misc", position, qt.zeroVec3(),
     "models/objects/smoke/tris.md2", 4, 0.0, [0.0, 0.0, 0.0], state.time - 100,
@@ -316,6 +341,7 @@ function smokeAndFlash(state, position)
     0, rc.RF_FULLBRIGHT, 1.0, 0)
 end function
 
+// Return the impact angles.
 function impactAngles(direction)
   horizontal = cemath.sqrt(direction.x * direction.x + direction.y * direction.y)
   pitch = cemath.atan2(horizontal, direction.z) * 57.29577951308232
@@ -330,6 +356,7 @@ function impactAngles(direction)
   return qt.Vec3(pitch, yaw, 0.0)
 end function
 
+// Return the blaster explosion value.
 function blasterExplosion(state, type, position, direction)
   color = [1.0, 1.0, 0.0]; skinNum = 0
   if type == ceconstants.TE_BLASTER2 then color = [0.0, 1.0, 0.0]; skinNum = 1 end if
@@ -341,6 +368,7 @@ function blasterExplosion(state, type, position, direction)
   return value
 end function
 
+// Return the poly explosion value.
 function polyExplosion(state, type, position)
   angles = qt.Vec3(0.0, (cestate.random(state) % 360) * 1.0, 0.0)
   frames = 15; baseFrame = 0; model = "models/objects/r_explode/tris.md2"
@@ -365,6 +393,7 @@ function polyExplosion(state, type, position)
   return value
 end function
 
+// Parse beam.
 function parseBeam(state, buffer, modelName, withOffset, playerLinked)
   entity = pchecked.readShort(buffer, "beam entity")
   start = readPosition(buffer, "beam start")
@@ -377,6 +406,7 @@ function parseBeam(state, buffer, modelName, withOffset, playerLinked)
   return cestate.addBeam(state, entity, 0, modelName, start, finish, offset, playerLinked, duration)
 end function
 
+// Parse lightning.
 function parseLightning(state, buffer)
   source = pchecked.readShort(buffer, "lightning source entity")
   destination = pchecked.readShort(buffer, "lightning destination entity")
@@ -387,6 +417,7 @@ function parseLightning(state, buffer)
   return beam
 end function
 
+// Return the splash color value.
 function inline splashColor(splash)
   if splash == 1 then return 0xe0 end if
   if splash == 2 then return 0xb0 end if
@@ -397,6 +428,7 @@ function inline splashColor(splash)
   return 0
 end function
 
+// Parse steam.
 function parseSteam(state, buffer)
   id = pchecked.readShort(buffer, "steam id")
   count = pchecked.readByte(buffer, "steam count")
@@ -605,6 +637,7 @@ function parseTempEntity(state, buffer)
   return polyExplosion(state, type, position)
 end function
 
+// Handle entity event.
 function handleEntityEvent(state, entityState)
   if entityState is void or entityState.number < 1 or entityState.number >= pc.MAX_EDICTS then return error(7337, "entity event source outside protocol range") end if
   event = entityState.event
@@ -631,6 +664,7 @@ function handleEntityEvent(state, entityState)
   return false
 end function
 
+// Parse service command.
 function parseServiceCommand(state, buffer, opcode, entityResolver)
   if opcode == qc.SVC_SOUND then return parseSound(state, buffer) end if
   if opcode == qc.SVC_MUZZLEFLASH then return parseMuzzleFlash(state, buffer, entityResolver) end if

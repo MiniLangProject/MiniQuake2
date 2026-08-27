@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.game.null_game as pausetestgame
 import miniquake2.runtime.server_session as pausetestsession
 
+// Assert the pause test condition.
 function pauseAssert(value, message)
   if not value then return error(9987, message) end if
   return true

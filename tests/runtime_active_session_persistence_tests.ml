@@ -13,11 +13,13 @@ import miniquake2.game.integration.baseq2 as savegatetestbaseq2
 import miniquake2.runtime.play_session as savegatetestplaysession
 import miniquake2.runtime.session_persistence as savegatetestpersistence
 
+// Assert the save gate test condition.
 function saveGateAssert(value, name)
   if not value then return error(8460, name) end if
   return true
 end function
 
+// Save gate find bytes.
 function saveGateFindBytes(data, pattern)
   saveGateFindOffset = 0
   while saveGateFindOffset + len(pattern) <= len(data)

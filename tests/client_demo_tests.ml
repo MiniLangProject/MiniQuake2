@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Asset-free .dm2 recorder/player and malformed corpus. */
 import miniquake2.client.demo as cdemo
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7998, name + ": expected " + expected + ", got " + actual) end if
 end function

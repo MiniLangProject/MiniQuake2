@@ -15,34 +15,40 @@ import miniquake2.game.player.types as gplayertypes
 import miniquake2.qcommon.types as qtypes
 import miniquake2.server.game_bridge as gbridge
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9760, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9761, name + ": expected true") end if
   return true
 end function
 
+// Report whether empty trace.
 function emptyTrace(start, mins, maxs, finish)
   plane = qtypes.Plane(qtypes.Vec3(0.0, 0.0, 0.0), 0.0, 0, 0)
   surface = qtypes.CollisionSurface("powerups/test", 0, 0)
   return qtypes.Trace(false, false, 1.0, qtypes.Vec3(finish.x, finish.y, finish.z), plane, surface, 0, void)
 end function
 
+// Return the item entity value.
 function itemEntity(registry, pickupName, number)
   item = gprules.findByPickupName(registry, pickupName)
   if item is void then return error(9762, "missing item " + pickupName) end if
   return gptypes.createItemEntity(number, item)
 end function
 
+// Return the class entity value.
 function classEntity(registry, className, number)
   item = gprules.findByClassName(registry, className)
   if item is void then return error(9763, "missing class " + className) end if
   return gptypes.createItemEntity(number, item)
 end function
 
+// Verify registry armor and combat.
 function testRegistryArmorAndCombat()
   assertEqual(len(gpregistry.defaultRegistry().items), 16, "compatible weapon registry")
   registry = gpregistry.stockRegistry()
@@ -83,6 +89,7 @@ function testRegistryArmorAndCombat()
   return registry
 end function
 
+// Verify power armor and powerups.
 function testPowerArmorAndPowerups(registry)
   player = gptypes.createPlayer(2, gpregistry.inventorySlots(registry))
   deathmatch = gptypes.pickupContext(true, false, 0, 10.0)
@@ -150,6 +157,7 @@ function testPowerArmorAndPowerups(registry)
   return true
 end function
 
+// Verify health capacity and keys.
 function testHealthCapacityAndKeys(registry)
   player = gptypes.createPlayer(4, gpregistry.inventorySlots(registry))
   normal = gptypes.pickupContext(false, false, 0, 0.0)
@@ -218,6 +226,7 @@ function testHealthCapacityAndKeys(registry)
   return true
 end function
 
+// Verify player adapters and precache.
 function testPlayerAdaptersAndPrecache(registry)
   runtime = gbridge.createRuntime(1)
   imports = gbridge.makeImports(runtime)
@@ -271,6 +280,7 @@ function testPlayerAdaptersAndPrecache(registry)
   return true
 end function
 
+// Report whether contains.
 function contains(values, expected)
   for each value in values
     if value == expected then return true end if
@@ -278,6 +288,7 @@ function contains(values, expected)
   return false
 end function
 
+// Run powerup tests.
 function runPowerupTests()
   registry = testRegistryArmorAndCombat()
   testPowerArmorAndPowerups(registry)

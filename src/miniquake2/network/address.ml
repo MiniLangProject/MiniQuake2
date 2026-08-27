@@ -10,6 +10,7 @@ package miniquake2.network.address
 import miniquake2.qcommon.types as qt
 import miniquake2.network.constants as nc
 
+// Copy bytes or array.
 function copyBytesOrArray(values)
   result = array(len(values), 0)
   index = 0
@@ -20,10 +21,12 @@ function copyBytesOrArray(values)
   return result
 end function
 
+// Copy state.
 function copy(address)
   return qt.NetAddress(address.type, copyBytesOrArray(address.ip), copyBytesOrArray(address.ipx), address.port)
 end function
 
+// Return the same elements value.
 function sameElements(first, second)
   if len(first) != len(second) then return false end if
   index = 0
@@ -34,6 +37,7 @@ function sameElements(first, second)
   return true
 end function
 
+// Compare base.
 function compareBase(first, second)
   if first is void or second is void or first.type != second.type then return false end if
   if first.type == nc.NA_LOOPBACK then return true end if
@@ -42,14 +46,17 @@ function compareBase(first, second)
   return false
 end function
 
+// Compare state.
 function compare(first, second)
   return compareBase(first, second) and first.port == second.port
 end function
 
+// Report whether is local.
 function isLocal(address)
   return address is not void and address.type == nc.NA_LOOPBACK
 end function
 
+// Return the text value.
 function text(address)
   if address is void then return "unknown" end if
   if address.type == nc.NA_LOOPBACK then return "loopback" end if

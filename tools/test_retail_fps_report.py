@@ -26,7 +26,9 @@ SAMPLE = """MiniQuake2 interactive vertical slice: PASS
 
 
 class RetailFpsReportTests(unittest.TestCase):
+    """Store retail fps report tests data."""
     def test_parse_result_separates_wall_and_engine_work(self) -> None:
+        """Verify parse result separates wall and engine work."""
         row = retail_fps_report.parse_result("base1", 500, 5.0, 0, SAMPLE)
         self.assertTrue(row["passed"])
         self.assertEqual(500.0, row["engine_work_fps"])
@@ -39,18 +41,21 @@ class RetailFpsReportTests(unittest.TestCase):
         self.assertEqual(230.0, row["world_ms"])
 
     def test_failure_with_missing_telemetry_stays_reportable(self) -> None:
+        """Report whether test failure with missing telemetry stays reportable."""
         row = retail_fps_report.parse_result("bad", 500, 0.1, 1, "ERROR: bad map")
         self.assertFalse(row["passed"])
         self.assertIsNone(row["engine_work_fps"])
         self.assertIsNone(row["frames"])
 
     def test_scope_selection(self) -> None:
+        """Verify scope selection."""
         names = ["base1", "q2dm1", "boss2"]
         self.assertEqual(names, retail_fps_report._selected_maps(names, "all"))
         self.assertEqual(["base1", "boss2"], retail_fps_report._selected_maps(names, "campaign"))
         self.assertEqual(["q2dm1"], retail_fps_report._selected_maps(names, "deathmatch"))
 
     def test_summary(self) -> None:
+        """Verify summary."""
         rows = [
             {"passed": True, "engine_work_fps": 100.0, "audio_underruns": 1,
              "observed_collections": 0, "missing_assets": 0},

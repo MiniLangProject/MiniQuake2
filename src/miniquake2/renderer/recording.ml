@@ -14,12 +14,14 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.validation as validation
 
+// Store render command data.
 struct RenderCommand
   sequence
   operation
   arguments
 end struct
 
+// Store renderer state data.
 struct RendererState
   mode
   imports
@@ -41,21 +43,25 @@ struct RendererState
   skyAxis
 end struct
 
+// Create state.
 function createState(mode, imports)
   return RendererState(mode, imports, false, false, 0, 1, [], [], [], [], false, 0, void, true, void, "", 0.0, qtypes.zeroVec3())
 end function
 
+// Record state.
 function record(state, operation, arguments)
   if state.mode == "recording" then
     state.commands = state.commands + [RenderCommand(len(state.commands), operation, arguments)]
   end if
 end function
 
+// Require initialized.
 function requireInitialized(state, operation)
   if not state.initialized then return error(9600, operation + " called before renderer Init") end if
   return true
 end function
 
+// Find resource.
 function findResource(resources, name, generation)
   index = 0
   while index < len(resources)
@@ -66,12 +72,14 @@ function findResource(resources, name, generation)
   return void
 end function
 
+// Return the resource operation value.
 function resourceOperation(kind)
   if kind == "model" then return "RegisterModel" end if
   if kind == "skin" then return "RegisterSkin" end if
   return "RegisterPic"
 end function
 
+// Register resource.
 function registerResource(state, kind, name)
   operation = resourceOperation(kind)
   requireInitialized(state, operation)
@@ -241,11 +249,13 @@ function makeExports(state)
   return rt.RefExport(rc.API_VERSION, rendererInit, rendererShutdown, beginRegistration, registerModel, registerSkin, registerPic, setSky, endRegistration, renderFrame, drawGetPicSize, drawPic, drawStretchPic, drawChar, drawTileClear, drawFill, drawFadeScreen, drawStretchRaw, cinematicSetPalette, beginFrame, endFrame, appActivate)
 end function
 
+// Create recording renderer.
 function createRecordingRenderer()
   state = createState("recording", void)
   return rt.RendererBinding(state, makeExports(state))
 end function
 
+// Create null renderer.
 function createNullRenderer()
   state = createState("null", void)
   return rt.RendererBinding(state, makeExports(state))
@@ -261,10 +271,12 @@ function getRefAPI(imports, mode)
   return rt.RendererBinding(state, makeExports(state))
 end function
 
+// Clear commands.
 function clearCommands(binding)
   binding.state.commands = []
 end function
 
+// Trace command.
 function commandTrace(binding)
   result = ""
   index = 0
@@ -277,6 +289,7 @@ function commandTrace(binding)
   return result
 end function
 
+// Report whether is handle current.
 function isHandleCurrent(binding, handle)
   if handle is void then return false end if
   return handle.generation == binding.state.registrationGeneration

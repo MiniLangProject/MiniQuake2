@@ -8,6 +8,7 @@ import miniquake2.protocol.types as pt
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt
 
+// Assert the prediction equal test condition.
 function predictionAssertEqual(actual, expected, name)
   if actual != expected then
     return error(7660, name + ": expected " + expected + ", got " + actual)
@@ -15,6 +16,7 @@ function predictionAssertEqual(actual, expected, name)
   return true
 end function
 
+// Assert the prediction near test condition.
 function predictionAssertNear(actual, expected, tolerance, name)
   delta = actual - expected
   if delta < 0.0 then delta = -delta end if
@@ -22,6 +24,7 @@ function predictionAssertNear(actual, expected, tolerance, name)
   return true
 end function
 
+// Report whether prediction empty trace.
 function predictionEmptyTrace(start, mins, maxs, finish)
   return qt.Trace(false, false, 1.0,
     qt.Vec3(finish.x, finish.y, finish.z),
@@ -29,6 +32,7 @@ function predictionEmptyTrace(start, mins, maxs, finish)
     qt.CollisionSurface("prediction/empty", 0, 0), 0, void)
 end function
 
+// Report whether prediction empty contents.
 function predictionEmptyContents(point)
   return 0
 end function

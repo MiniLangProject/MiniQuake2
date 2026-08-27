@@ -9,11 +9,13 @@ import miniquake2.game.null_game as bosspersistencegame
 import miniquake2.game.integration.baseq2 as bosspersistenceintegration
 import miniquake2.qcommon.types as bosspersistenceqtypes
 
+// Assert the boss persistence test condition.
 function bossPersistenceAssert(value, message)
   if value != true then return error(9834, message) end if
   return true
 end function
 
+// Return the boss persistence monster value.
 function bossPersistenceMonster(runtime, className)
   for each bossPersistenceActor in runtime.monsters
     if bossPersistenceActor.className == className then return bossPersistenceActor end if
@@ -21,6 +23,7 @@ function bossPersistenceMonster(runtime, className)
   return void
 end function
 
+// Return the boss persistence monster index.
 function bossPersistenceMonsterIndex(runtime, className)
   bossPersistenceIndex = 0
   while bossPersistenceIndex < len(runtime.monsters)

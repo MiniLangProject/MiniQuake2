@@ -18,11 +18,13 @@ import miniquake2.network.runtime.sound_dispatch as nrroute_dispatch
 import miniquake2.runtime.server_session as nrroute_session
 import miniquake2.server.types as nrroute_st
 
+// Assert the routing test condition.
 function routingAssert(value, name)
   if not value then return error(8470, name) end if
   return true
 end function
 
+// Return the routing collision value.
 function routingCollision(phsFromFirst)
   plane = nrroute_ft.BspPlane(nrroute_qt.Vec3(1.0, 0.0, 0.0), 0.0, 0)
   node = nrroute_ft.BspNode(0, -1, -2,
@@ -40,16 +42,19 @@ function routingCollision(phsFromFirst)
   return nrroute_collision.create(map)
 end function
 
+// Return the positioned event value.
 function positionedEvent(serial, flags, attenuation)
   return nrroute_st.PendingSoundEvent(serial, false, 0, flags & 7, flags,
     1, 1.0, attenuation, 0.0, nrroute_qt.Vec3(8.0, 0.0, 0.0))
 end function
 
+// Return the routing session value.
 function routingSession(collision)
   return nrroute_session.ServerSession(void, void, void, void, void, collision,
     "sound-routing", "", 0, 0, 0, 0, void, "", false, false)
 end function
 
+// Export routing game.
 function routingGameExport(edicts)
   return nrroute_gt.GameExport(3,
     void, void, void, void, void, void, void, void,

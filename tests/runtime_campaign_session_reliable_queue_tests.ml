@@ -9,11 +9,13 @@ import miniquake2.network.connectionless as rcsqueue_connectionless
 import miniquake2.runtime.application as rcsqueue_application
 import miniquake2.runtime.play_session as rcsqueue_play
 
+// Assert the campaign queue test condition.
 function campaignQueueAssert(value, name)
   if not value then return error(9896, name) end if
   return true
 end function
 
+// Return the nop payload value.
 function nopPayload(count)
   output = bytes(count)
   index = 0
@@ -24,6 +26,7 @@ function nopPayload(count)
   return output
 end function
 
+// Queue synthetic campaign.
 function syntheticCampaignQueue()
   oldEntities = "{\n\"classname\" \"worldspawn\"\n}\n" +
     "{\n\"classname\" \"info_player_start\"\n\"origin\" \"0 0 24\"\n}\n"
@@ -61,6 +64,7 @@ function syntheticCampaignQueue()
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   syntheticCampaignQueue()
   if len(args) == 1 or len(args) == 2 then

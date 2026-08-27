@@ -9,6 +9,7 @@ import miniquake2.game.null_game as insanepersistgame
 import miniquake2.game.integration.baseq2 as insanepersistintegration
 import miniquake2.game.constants as insanepersistconstants
 
+// Assert the insane persist test condition.
 function insanePersistAssert(value, message)
   if value != true then return error(9829, message) end if
   return true

@@ -6,11 +6,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.runtime.campaign_session as goalruntime
 import miniquake2.runtime.play_session as goalruntimeplay
 
+// Assert the goal runtime test condition.
 function goalRuntimeAssert(value, message)
   if value != true then return error(8480, message) end if
   return true
 end function
 
+// Return the goal runtime entities value.
 function goalRuntimeEntities(nextMap, origin)
   return "{\"classname\" \"worldspawn\"}" +
     "{\"classname\" \"info_player_start\" \"origin\" \"" + origin + "\"}" +
@@ -18,6 +20,7 @@ function goalRuntimeEntities(nextMap, origin)
     "{\"classname\" \"target_changelevel\" \"targetname\" \"exit_goal\" \"map\" \"" + nextMap + "$start\"}"
 end function
 
+// Map goal runtime unique count.
 function goalRuntimeUniqueMapCount(sourceMap, targets)
   goalRuntimeUniqueMaps = [sourceMap]
   for each goalRuntimeMapCandidate in targets
@@ -30,6 +33,7 @@ function goalRuntimeUniqueMapCount(sourceMap, targets)
   return len(goalRuntimeUniqueMaps)
 end function
 
+// Return the goal runtime synthetic value.
 function goalRuntimeSynthetic()
   goalCoreSession = goalruntimeplay.createCore("goal-a", goalRuntimeEntities("goal-b", "0 0 0"), void,
     "\\name\\GoalSession\\skin\\male/grunt\\rate\\25000")
@@ -46,6 +50,7 @@ function goalRuntimeSynthetic()
   return true
 end function
 
+// Return the goal runtime retail value.
 function goalRuntimeRetail(baseDirectory)
   goalRetailSession = goalruntimeplay.createRetail(baseDirectory, "base1",
     "\\name\\GoalRetail\\skin\\male/grunt\\rate\\25000")
@@ -81,6 +86,7 @@ function goalRuntimeRetail(baseDirectory)
   return true
 end function
 
+// Run this source file's command-line entry point.
 function main(args)
   if len(args) > 1 then return error(8481, "expected optional Quake II install root") end if
   goalRuntimeSynthetic()

@@ -11,21 +11,25 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.geometry as rgeom
 import miniquake2.renderer.opengl as ropengl
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7992, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Assert the near test condition.
 function assertNear(actual, expected, tolerance, name)
   difference = actual - expected
   if difference < 0.0 then difference = -difference end if
   if difference > tolerance then return error(7993, name + ": outside tolerance") end if
 end function
 
+// Write text.
 function putText(data, offset, value)
   encoded = bytes(value)
   md2testbyteio.copyInto(data, offset, encoded, 0, len(encoded))
 end function
 
+// Write frame.
 function putFrame(data, offset, name, xOffset)
   md2testbyteio.putF32(data, offset, 1.0)
   md2testbyteio.putF32(data, offset + 4, 1.0)
@@ -39,6 +43,7 @@ function putFrame(data, offset, name, xOffset)
   data[offset + 48] = xOffset; data[offset + 49] = 8; data[offset + 50] = 0; data[offset + 51] = 5
 end function
 
+// Return the md 2 bytes value.
 function md2Bytes()
   data = bytes(260)
   md2testbyteio.putU32(data, 0, fc.IDALIASHEADER)
@@ -62,6 +67,7 @@ function md2Bytes()
   return data
 end function
 
+// Return the skin pcx bytes value.
 function skinPcxBytes()
   data = bytes(901)
   data[0] = 0x0a; data[1] = 5; data[2] = 1; data[3] = 8
@@ -75,12 +81,14 @@ function skinPcxBytes()
   return data
 end function
 
+// Load md 2 file.
 function loadMd2File(path)
   if path == "models/test/tris.md2" then return md2Bytes() end if
   if path == "models/test/skin.pcx" then return skinPcxBytes() end if
   return void
 end function
 
+// Verify ffi scalar lifetime soak.
 function testFfiScalarLifetimeSoak(renderer, entity)
   replaySignature = -1.0
   allocationPressure = array(16, void)
@@ -116,6 +124,7 @@ function testFfiScalarLifetimeSoak(renderer, entity)
   end while
 end function
 
+// Verify registration interpolation and bounds.
 function testRegistrationInterpolationAndBounds()
   renderer = ropengl.createOpenGlRenderer(false)
   renderer.exports.Init(void, void)

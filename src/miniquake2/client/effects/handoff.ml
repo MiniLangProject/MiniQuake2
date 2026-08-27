@@ -13,6 +13,7 @@ import miniquake2.renderer.types as rt
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.state as cestate
 
+// Append limited.
 function appendLimited(values, additions, maximum)
   if len(additions) == 0 and len(values) <= maximum then return values end if
   if len(values) == 0 and len(additions) <= maximum then return additions end if
@@ -34,6 +35,7 @@ function appendLimited(values, additions, maximum)
   return result
 end function
 
+// Trim state.
 function trim(values, count)
   if count == len(values) then return values end if
   if count <= 0 then return [] end if
@@ -46,6 +48,7 @@ function trim(values, count)
   return compact
 end function
 
+// Return the particle origin.
 function particleOrigin(particle, now)
   elapsed = (now - particle.startTime) * 0.001
   squared = elapsed * elapsed
@@ -55,7 +58,9 @@ function particleOrigin(particle, now)
     particle.origin.z + particle.velocity.z * elapsed + particle.acceleration.z * squared)
 end function
 
+// Return the renderer particles value.
 function rendererParticles(state, now)
+  // Keep renderer particles phases explicit: validate inputs, update owned state, then publish the result.
   if state.particleCount <= 0 then return [] end if
   output = state.renderParticles
   if len(output) != state.particleCount then
@@ -99,6 +104,7 @@ function rendererParticles(state, now)
   return trim(output, outputIndex)
 end function
 
+// Return the renderer d lights value.
 function rendererDLights(state)
   if len(state.dLights) == 0 then return [] end if
   output = state.renderDLights
@@ -126,6 +132,7 @@ function rendererDLights(state)
   return trim(output, outputIndex)
 end function
 
+// Return the beam origin.
 function beamOrigin(beam, refDef)
   if not beam.playerLinked then return cestate.add(beam.start, beam.offset) end if
   pitch = refDef.viewAngles.x * 0.017453292519943295
@@ -148,7 +155,9 @@ function beamOrigin(beam, refDef)
     origin.z + rightZ * offset.x + forwardZ * offset.y + upZ * offset.z)
 end function
 
+// Append beam entities.
 function appendBeamEntities(output, count, maximum, beam, now, modelResolver, refDef)
+  // Keep append beam entities phases explicit: validate inputs, update owned state, then publish the result.
   if count >= maximum then return count end if
   model = modelResolver(beam.modelName)
   origin = beamOrigin(beam, refDef)
@@ -210,16 +219,19 @@ function appendBeamEntities(output, count, maximum, beam, now, modelResolver, re
   return count
 end function
 
+// Return the laser entity value.
 function laserEntity(laser)
   return rt.entity(void, qt.zeroVec3(), cestate.copyVec(laser.start), 4,
     cestate.copyVec(laser.finish), 0, 0.0, laser.color, 0, 0.3, void,
     rc.RF_TRANSLUCENT | rc.RF_BEAM)
 end function
 
+// Return the explosion frame value.
 function explosionFrame(explosion, now)
   return qbio.truncInt((now - explosion.startTime) / 100.0)
 end function
 
+// Return the explosion alpha value.
 function explosionAlpha(explosion, now)
   if typeof(explosion.kind) != "int" then return explosion.alpha end if
   fraction = (now - explosion.startTime) / 100.0
@@ -234,6 +246,7 @@ function explosionAlpha(explosion, now)
   return alpha
 end function
 
+// Return the explosion entity value.
 function explosionEntity(explosion, now, modelResolver)
   fraction = (now - explosion.startTime) / 100.0
   frame = qbio.truncInt(fraction)
@@ -318,6 +331,7 @@ function applyPrepared(state, refDef, now, modelResolver)
   return refDef
 end function
 
+// Apply state.
 function apply(state, refDef, now, modelResolver)
   cestate.advance(state, now)
   return applyPrepared(state, refDef, now, modelResolver)

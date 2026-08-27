@@ -12,34 +12,42 @@ import miniquake2.qcommon.cmd as rqcmd
 activeGameExport = void
 activeCommandSystem = void
 
+// Connect allow.
 function allowConnect(slot, userInfo)
   return true
 end function
 
+// Ignore userinfo.
 function ignoreUserinfo(slot, userInfo)
   return true
 end function
 
+// Ignore think.
 function ignoreThink(slot, command)
   return true
 end function
 
+// Ignore command.
 function ignoreCommand(slot, commandText)
   return true
 end function
 
+// Ignore begin.
 function ignoreBegin(slot)
   return true
 end function
 
+// Ignore disconnect.
 function ignoreDisconnect(slot)
   return true
 end function
 
+// Ignore ping.
 function ignorePing(slot, ping)
   return true
 end function
 
+// Create state.
 function create(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin)
   if typeof(clientConnect) != "function" or typeof(clientUserinfoChanged) != "function" or
       typeof(clientThink) != "function" or typeof(clientCommand) != "function" or typeof(clientBegin) != "function" then
@@ -49,6 +57,7 @@ function create(clientConnect, clientUserinfoChanged, clientThink, clientCommand
     clientCommand, clientBegin, ignoreDisconnect, ignorePing)
 end function
 
+// Create with disconnect.
 function createWithDisconnect(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin, clientDisconnect)
   if typeof(clientDisconnect) != "function" then
     return error(7210, "game callback adapter requires clientDisconnect")
@@ -58,10 +67,12 @@ function createWithDisconnect(clientConnect, clientUserinfoChanged, clientThink,
   return callbacks
 end function
 
+// Return the permissive value.
 function permissive()
   return create(allowConnect, ignoreUserinfo, ignoreThink, ignoreCommand, ignoreBegin)
 end function
 
+// Return the game entity value.
 function gameEntity(slot, operation)
   global activeGameExport
   if activeGameExport is void then return error(7211, operation + ": no game export is installed") end if
@@ -73,21 +84,25 @@ function gameEntity(slot, operation)
   return activeGameExport.edicts[index]
 end function
 
+// Export client connect.
 function exportClientConnect(slot, userInfo)
   global activeGameExport
   return activeGameExport.clientConnect(gameEntity(slot, "ClientConnect"), userInfo)
 end function
 
+// Export client userinfo changed.
 function exportClientUserinfoChanged(slot, userInfo)
   global activeGameExport
   return activeGameExport.clientUserinfoChanged(gameEntity(slot, "ClientUserinfoChanged"), userInfo)
 end function
 
+// Export client think.
 function exportClientThink(slot, command)
   global activeGameExport
   return activeGameExport.clientThink(gameEntity(slot, "ClientThink"), command)
 end function
 
+// Export client command.
 function exportClientCommand(slot, commandText)
   global activeGameExport, activeCommandSystem
   // game_export_t obtains argc/argv through game_import_t, as in the C ABI.
@@ -102,16 +117,19 @@ function exportClientCommand(slot, commandText)
   return activeGameExport.clientCommand(gameEntity(slot, "ClientCommand"))
 end function
 
+// Export client begin.
 function exportClientBegin(slot)
   global activeGameExport
   return activeGameExport.clientBegin(gameEntity(slot, "ClientBegin"))
 end function
 
+// Export client disconnect.
 function exportClientDisconnect(slot)
   global activeGameExport
   return activeGameExport.clientDisconnect(gameEntity(slot, "ClientDisconnect"))
 end function
 
+// Export client ping.
 function exportClientPing(slot, ping)
   entity = gameEntity(slot, "ClientPing")
   if entity.client is void then return error(7216, "ClientPing: edict has no game client") end if
@@ -119,6 +137,7 @@ function exportClientPing(slot, ping)
   return true
 end function
 
+// Install game export.
 function installGameExport(gameExport)
   global activeGameExport, activeCommandSystem
   if typeof(gameExport) != "struct" or gameExport.apiVersion != gc.GAME_API_VERSION then
@@ -137,6 +156,7 @@ function installGameExport(gameExport)
   return callbacks
 end function
 
+// Install game export with commands.
 function installGameExportWithCommands(gameExport, commandSystem)
   global activeCommandSystem
   callbacks = installGameExport(gameExport)

@@ -43,6 +43,7 @@ import miniquake2.server.sound_events as ssoundevents
 import miniquake2.server.game_messages as ssgamemessages
 import miniquake2.server.administration as ssadministration
 
+// Store server session data.
 struct ServerSession
   bridgeRuntime
   gameExport
@@ -62,6 +63,7 @@ struct ServerSession
   paused
 end struct
 
+// Store map change result data.
 struct MapChangeResult
   changed
   deferred
@@ -75,11 +77,13 @@ end struct
 serverSessionFatPvsLeafScratch = array(64, 0)
 serverSessionClientPacketEntityScratch = array(ssnc.MAX_PACKET_ENTITIES, void)
 
+// Return the vector value.
 function vector(value)
   if typeof(value) == "array" then return [value[0], value[1], value[2]] end if
   return [value.x, value.y, value.z]
 end function
 
+// Return the protocol entity value.
 function protocolEntity(state)
   ssProtocolGameStateHolder = ssgtypes.stabilizeEntityState(state)
   ssProtocolOutputHolder = sspt.EntityState(
@@ -97,6 +101,7 @@ function protocolEntity(state)
   return ssProtocolOutputHolder
 end function
 
+// Return the protocol player value.
 function protocolPlayer(edict)
   if edict.client is void then return sspt.zeroPlayerState() end if
   state = edict.client.playerState
@@ -113,6 +118,7 @@ function protocolPlayer(edict)
   return output
 end function
 
+// Return the packet entities value.
 function packetEntities(gameExport)
   ssPacketExportHolder = gameExport
   ssPacketEntitiesHolder = array(ssPacketExportHolder.numEdicts)
@@ -137,6 +143,7 @@ function packetEntities(gameExport)
   return sssessionarray.slice(ssPacketEntitiesHolder, 0, ssPacketEntityCount)
 end function
 
+// Report whether linked bounds visible.
 function linkedBoundsVisible(collisionModel, nodeNumber, mins, maxs, row)
   if nodeNumber < 0 then
     leafNumber = -1 - nodeNumber
@@ -174,6 +181,7 @@ function clientViewOrigin(viewer)
   return ssqtypes.Vec3(x, y, z)
 end function
 
+// Return the fat pvs row value.
 function fatPvsRow(collisionModel, origin)
   global serverSessionFatPvsLeafScratch
   visibility = collisionModel.map.visibility
@@ -200,6 +208,7 @@ function fatPvsRow(collisionModel, origin)
   return output
 end function
 
+// Report whether entity visible from prepared pvs.
 function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
     edict)
   if session.collision is void then return true end if
@@ -256,10 +265,12 @@ function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
     edict.absoluteMaxs, row)
 end function
 
+// Report whether entity visible from leaf.
 function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
   return entityVisibleFromPreparedPvs(session, viewer, viewLeaf, void, edict)
 end function
 
+// Report whether entity visible.
 function entityVisible(session, viewer, edict)
   if session.collision is void then return true end if
   origin = clientViewOrigin(viewer)
@@ -268,6 +279,7 @@ function entityVisible(session, viewer, edict)
     fatPvsRow(session.collision, origin), edict)
 end function
 
+// Return the packet entities for client value.
 function packetEntitiesForClient(session, viewer)
   ssClientPacketSessionHolder = session
   ssClientPacketViewerHolder = viewer
@@ -314,6 +326,7 @@ function packetEntitiesForClient(session, viewer)
   return sssessionarray.slice(ssClientPacketEntitiesHolder, 0, ssClientPacketEntityCount)
 end function
 
+// Return the sound event origin.
 function soundEventOrigin(session, event)
   if event.position is not void then return event.position end if
   if not event.hasEntity or session.gameExport is void or event.entity < 0 or
@@ -328,6 +341,7 @@ function soundEventOrigin(session, event)
   return ssqtypes.Vec3(edict.state.origin.x, edict.state.origin.y, edict.state.origin.z)
 end function
 
+// Return the sound audible to client from leaf.
 function soundAudibleToClientFromLeaf(session, event, listener, listenerLeafNumber)
   if (event.channelFlags & ssgc.CHAN_NO_PHS_ADD) != 0 or event.attenuation == ssgc.ATTN_NONE then return true end if
   if session.collision is void then return true end if
@@ -353,6 +367,7 @@ function soundAudibleToClientFromLeaf(session, event, listener, listenerLeafNumb
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
 end function
 
+// Return the sound audible to client value.
 function soundAudibleToClient(session, event, listener)
   if session.collision is void then return true end if
   listenerLeafNumber = sscollision.pointLeafNumber(session.collision,
@@ -361,6 +376,7 @@ function soundAudibleToClient(session, event, listener)
     listenerLeafNumber)
 end function
 
+// Return the route sounds value.
 function routeSounds(session, events)
   // The full queue is validated before any target list is exposed.
   ssoundevents.encodeAll(events)
@@ -395,6 +411,7 @@ function routeSounds(session, events)
   return routed
 end function
 
+// Report whether multicast visible to client from leaf.
 function multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
   destination = ssgamemessages.baseDestination(event.destination)
   if destination == ssgc.MULTICAST_ALL or session.collision is void then return true end if
@@ -420,6 +437,7 @@ function multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
 end function
 
+// Report whether multicast visible to client.
 function multicastVisibleToClient(session, event, listener)
   listenerLeafNumber = -1
   if session.collision is not void then
@@ -429,6 +447,7 @@ function multicastVisibleToClient(session, event, listener)
   return multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
 end function
 
+// Return the route multicasts value.
 function routeMulticasts(session, events)
   ssgamemessages.validateAll(events)
   runtime = session.networkRuntime
@@ -462,6 +481,7 @@ function routeMulticasts(session, events)
   return routed
 end function
 
+// Return the route unicasts value.
 function routeUnicasts(session, events)
   ssgamemessages.validateUnicastAll(events)
   runtime = session.networkRuntime
@@ -495,6 +515,7 @@ function routeUnicasts(session, events)
   return routed
 end function
 
+// Synchronize config strings.
 function synchronizeConfigStrings(session)
   runtime = session.networkRuntime
   bridge = session.bridgeRuntime
@@ -523,12 +544,18 @@ function synchronizeConfigStrings(session)
     end if
     index = index + 1
   end while
-  runtime.configStrings[ssqc.CS_NAME] = session.mapName
+  // SP_worldspawn publishes the authored level title through CS_NAME.  Keep
+  // the engine-side map name only as a fallback for synthetic/core callers
+  // whose entity document did not provide that Game API configstring.
+  if runtime.configStrings[ssqc.CS_NAME] == "" then
+    runtime.configStrings[ssqc.CS_NAME] = session.mapName
+  end if
   runtime.configStrings[ssqc.CS_MAXCLIENTS] = runtime.server.maxClients + ""
   runtime.configStrings[ssqc.CS_MODELS + 1] = "maps/" + session.mapName + ".bsp"
   return true
 end function
 
+// Synchronize baselines.
 function synchronizeBaselines(session)
   runtime = session.networkRuntime
   for each entity in packetEntities(session.gameExport)
@@ -537,6 +564,7 @@ function synchronizeBaselines(session)
   return true
 end function
 
+// Synchronize server state.
 function synchronizeServerState(session)
   synchronizeConfigStrings(session)
   synchronizeBaselines(session)
@@ -558,6 +586,7 @@ function setMapChecksum(session, mapBytes)
   return serverSessionMapChecksum
 end function
 
+// Create core mode at skill.
 function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative, skill)
   if mapName == "" or typeof(entityText) != "string" then return error(9970, "server session requires map and entity text") end if
@@ -601,32 +630,38 @@ function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindA
   return session
 end function
 
+// Create core mode at.
 function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative)
   return createCoreModeAtSkill(mapName, entityText, collision, spawnPoint,
     bindAddress, port, maxClients, dedicated, deathmatch, cooperative, 1)
 end function
 
+// Create core mode.
 function createCoreMode(mapName, entityText, collision, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   return createCoreModeAt(mapName, entityText, collision, "", bindAddress, port,
     maxClients, dedicated, deathmatch, cooperative)
 end function
 
+// Create core at.
 function createCoreAt(mapName, entityText, collision, spawnPoint, bindAddress, port, maxClients, dedicated)
   return createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false)
 end function
 
+// Create core at skill.
 function createCoreAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, skill)
   return createCoreModeAtSkill(mapName, entityText, collision, spawnPoint,
     bindAddress, port, maxClients, dedicated, false, false, skill)
 end function
 
+// Create core.
 function createCore(mapName, entityText, collision, bindAddress, port, maxClients, dedicated)
   return createCoreAt(mapName, entityText, collision, "", bindAddress, port, maxClients, dedicated)
 end function
 
+// Create retail mode at.
 function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   filesystem = ssfs.initialize(baseDirectory, "")
   path = "maps/" + mapName + ".bsp"
@@ -642,6 +677,7 @@ function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, por
   return session
 end function
 
+// Create retail mode at skill.
 function createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative, skill)
   serverSessionSkillFileSystem = ssfs.initialize(baseDirectory, "")
@@ -661,26 +697,31 @@ function createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress
   return serverSessionSkillValue
 end function
 
+// Create retail mode.
 function createRetailMode(baseDirectory, mapName, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   return createRetailModeAt(baseDirectory, mapName, "", bindAddress, port,
     maxClients, dedicated, deathmatch, cooperative)
 end function
 
+// Create retail at.
 function createRetailAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated)
   return createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false)
 end function
 
+// Create retail at skill.
 function createRetailAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, skill)
   return createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false, skill)
 end function
 
+// Create retail.
 function createRetail(baseDirectory, mapName, bindAddress, port, maxClients, dedicated)
   return createRetailAt(baseDirectory, mapName, "", bindAddress, port, maxClients, dedicated)
 end function
 
+// Reset bridge level.
 function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.mapName = mapName
   bridge.spawnCount = spawnCount
@@ -704,6 +745,7 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   return true
 end function
 
+// Map change core.
 function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeSessionHolder = session
   serverSessionChangeMapNameHolder = mapName
@@ -795,6 +837,7 @@ function changeMapCore(session, mapName, entityText, collision)
   return MapChangeResult(true, false, serverSessionChangePlanHolder.spawnCount, serverSessionChangeMapNameHolder, "changed")
 end function
 
+// Map change retail.
 function changeMapRetail(session, baseDirectory, mapName)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9982, "map transition base directory is invalid") end if
   filesystem = session.retailFileSystem
@@ -814,6 +857,7 @@ function changeMapRetail(session, baseDirectory, mapName)
   return serverSessionChangeRetailResult
 end function
 
+// Return the area bits value.
 function areaBits(session, clientEdict)
   if session.collision is void then return bytes() end if
   area = clientEdict.areaNumber
@@ -821,6 +865,7 @@ function areaBits(session, clientEdict)
   return sscollision.writeAreaBits(session.collision, area)
 end function
 
+// Send snapshots.
 function sendSnapshots(session, now)
   runtime = session.networkRuntime
   slot = 0
@@ -875,6 +920,7 @@ function sendSnapshots(session, now)
   return sent
 end function
 
+// Advance state.
 function step(session)
   if session.closed then return error(9972, "server session is closed") end if
   now = ssqbyteio.truncInt(sssystem.milliseconds(session.clock))
@@ -949,6 +995,7 @@ function setPaused(session, value)
   return session.paused
 end function
 
+// Run state.
 function run(session, frameLimit)
   if typeof(frameLimit) != "int" or frameLimit < 0 then return error(9973, "server frame limit must be non-negative") end if
   frames = 0
@@ -962,6 +1009,7 @@ function run(session, frameLimit)
   return frames
 end function
 
+// Shut down state.
 function shutdown(session)
   if session.closed then return false end if
   shutdownStats = sspump.shutdownServer(session.networkRuntime, session.socket)

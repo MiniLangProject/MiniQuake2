@@ -7,12 +7,14 @@ package miniquake2.client.cinematic.picture
 
 import miniquake2.format.pcx as cinpicturepcx
 
+// Store picture playback data.
 struct PicturePlayback
   image
   status
   paletteActive
 end struct
 
+// Start state.
 function start(data)
   if typeof(data) != "bytes" then return error(8360, "picture source must be bytes") end if
   cinpictureImage = cinpicturepcx.parse(data)
@@ -22,6 +24,7 @@ function start(data)
   return PicturePlayback(cinpictureImage, "playing", false)
 end function
 
+// Draw state.
 function draw(playback, screenWidth, screenHeight, exports)
   if screenWidth <= 0 or screenHeight <= 0 then
     return error(8362, "picture draw dimensions must be positive")
@@ -42,6 +45,7 @@ function draw(playback, screenWidth, screenHeight, exports)
   return true
 end function
 
+// Stop state.
 function stop(playback)
   if playback.status == "stopped" then return false end if
   playback.status = "stopped"

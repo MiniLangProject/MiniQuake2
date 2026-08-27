@@ -26,41 +26,49 @@ import std.string as gplayerstring
 
 weaponThinkCount = 0
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(9790, name + ": values differ") end if
   return true
 end function
 
+// Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(9791, name + ": expected true") end if
   return true
 end function
 
+// Assert the contains test condition.
 function assertContains(value, expected, name)
   if gplayerstring.contains(value, expected) != true then return error(9792, name + ": missing text " + expected) end if
   return true
 end function
 
+// Report whether empty trace.
 function emptyTrace(start, mins, maxs, finish)
   plane = qtypes.Plane(qtypes.Vec3(0.0, 0.0, 0.0), 0.0, 0, 0)
   surface = qtypes.CollisionSurface("player/test", 0, 0)
   return qtypes.Trace(false, false, 1.0, qtypes.Vec3(finish.x, finish.y, finish.z), plane, surface, 0, void)
 end function
 
+// Return the banned value.
 function banned(ip)
   return ip == "10.0.0.9"
 end function
 
+// Return the fixed random value.
 function fixedRandom(count)
   return 0
 end function
 
+// Run weapon.
 function weaponThink(player, context)
   global weaponThinkCount
   weaponThinkCount = weaponThinkCount + 1
   return true
 end function
 
+// Create context.
 function makeContext(maxClients)
   runtime = gbridge.createRuntime(maxClients)
   imports = gbridge.makeImports(runtime)
@@ -70,6 +78,7 @@ function makeContext(maxClients)
   return context
 end function
 
+// Add default spawns.
 function addDefaultSpawns(context)
   context.spawnSpots = [
     gplayertypes.spawnSpot("info_player_start", "", [0.0, 0.0, 0.0], [0.0, 90.0, 0.0]),
@@ -82,6 +91,7 @@ function addDefaultSpawns(context)
   ]
 end function
 
+// Return the spawnpoint lifetime text value.
 function spawnpointLifetimeText()
   text = "{ \"classname\" \"worldspawn\" }\n"
   index = 0
@@ -98,6 +108,7 @@ function spawnpointLifetimeText()
   return text
 end function
 
+// Verify repeated spawnpoint lifetime.
 function testRepeatedSpawnpointLifetime()
   entityText = spawnpointLifetimeText()
   iteration = 0
@@ -128,6 +139,82 @@ function testRepeatedSpawnpointLifetime()
   return true
 end function
 
+// Verify stock coop spawn fixups and intermission selection.
+function testStockCoopSpawnFixupsAndIntermissionSelection()
+  security = gplayerspawn.ApplyStockCoopSpawnFixups("security", [])
+  assertEqual(len(security), 3, "security synthetic coop spot count")
+  assertEqual(security[0].origin, [124.0, -164.0, 80.0],
+    "security first synthetic coop spot")
+  assertEqual(security[2].targetName, "jail3",
+    "security synthetic coop target")
+
+  broken = [
+    gplayertypes.spawnSpot("info_player_start", "unit_entry",
+      [100.0, 100.0, 20.0], [0.0, 0.0, 0.0]),
+    gplayertypes.spawnSpot("info_player_coop", "wrong",
+      [120.0, 100.0, 20.0], [0.0, 0.0, 0.0])
+  ]
+  fixed = gplayerspawn.ApplyStockCoopSpawnFixups("jail2", broken)
+  assertEqual(fixed[1].targetName, "unit_entry",
+    "broken retail coop target is corrected")
+  ordinary = [gplayertypes.spawnSpot("info_player_coop", "ordinary",
+    [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])]
+  untouched = gplayerspawn.ApplyStockCoopSpawnFixups("base1", ordinary)
+  assertEqual(untouched[0].targetName, "ordinary",
+    "non-hack map preserves coop target")
+
+  context = makeContext(1)
+  context.spawnSpots = [
+    gplayertypes.spawnSpot("info_player_start", "",
+      [1.0, 2.0, 3.0], [0.0, 0.0, 0.0]),
+    gplayertypes.spawnSpot("info_player_intermission", "",
+      [4.0, 5.0, 6.0], [10.0, 20.0, 30.0])
+  ]
+  selected = gplayerspawn.SelectIntermissionPoint(context)
+  assertEqual(selected.className, "info_player_intermission",
+    "authored intermission spot preferred")
+  assertEqual(selected.angles, [10.0, 20.0, 30.0],
+    "authored intermission angles retained")
+
+  player = gplayertypes.createPlayer(1, context.registry)
+  player.edict.inUse = true
+  player.edict.state.modelIndex = 255
+  player.edict.state.modelIndex2 = 255
+  player.edict.state.effects = 16
+  player.edict.state.sound = 9
+  player.edict.solid = gameconstants.SOLID_BBOX
+  player.powerups.quadFrame = 100
+  player.edict.client.playerState.gunIndex = 4
+  player.edict.client.playerState.rdFlags = gameconstants.RDF_UNDERWATER
+  context.cooperative = true
+  gplayerclient.MoveClientToIntermission(context, player, selected)
+  assertEqual(player.edict.state.origin.x, 4.0,
+    "intermission camera origin x")
+  assertEqual(player.edict.state.origin.y, 5.0,
+    "intermission camera origin y")
+  assertEqual(player.edict.state.origin.z, 6.0,
+    "intermission camera origin z")
+  assertEqual(player.edict.client.playerState.viewAngles.x, 10.0,
+    "intermission camera pitch")
+  assertEqual(player.edict.client.playerState.viewAngles.y, 20.0,
+    "intermission camera yaw")
+  assertEqual(player.edict.client.playerState.viewAngles.z, 30.0,
+    "intermission camera roll")
+  assertEqual(player.edict.client.playerState.pmove.moveType,
+    gameconstants.PM_FREEZE, "intermission movement freezes")
+  assertEqual(player.edict.client.playerState.gunIndex, 0,
+    "intermission hides view weapon")
+  assertEqual(player.edict.state.modelIndex, 0,
+    "intermission hides player model")
+  assertEqual(player.edict.solid, gameconstants.SOLID_NOT,
+    "intermission player is non-solid")
+  assertTrue(player.showScores, "cooperative intermission shows scores")
+  assertEqual(player.powerups.quadFrame, 0,
+    "intermission clears active powerups")
+  return true
+end function
+
+// Verify connect userinfo and spectator.
 function testConnectUserinfoAndSpectator()
   context = makeContext(4)
   addDefaultSpawns(context)
@@ -159,6 +246,7 @@ function testConnectUserinfoAndSpectator()
   return true
 end function
 
+// Verify spawn selection and put client.
 function testSpawnSelectionAndPutClient()
   context = makeContext(4)
   addDefaultSpawns(context)
@@ -197,6 +285,7 @@ function testSpawnSelectionAndPutClient()
   return true
 end function
 
+// Verify think respawn and spectator.
 function testThinkRespawnAndSpectator()
   global weaponThinkCount
   context = makeContext(3)
@@ -238,6 +327,7 @@ function testThinkRespawnAndSpectator()
   return true
 end function
 
+// Verify death score rules and hud.
 function testDeathScoreRulesAndHud()
   context = makeContext(2)
   addDefaultSpawns(context)
@@ -308,13 +398,68 @@ function testDeathScoreRulesAndHud()
   return true
 end function
 
+// Verify cooperative death checkpoint and power armor reset.
+function testCooperativeDeathCheckpointAndPowerArmorReset()
+  runtime = gbridge.createRuntime(2)
+  imports = gbridge.makeImports(runtime)
+  registry = gpregistry.stockRegistry()
+  context = gplayertypes.createContext(imports, registry, emptyTrace)
+  context.cooperative = true
+  addDefaultSpawns(context)
+  player = gplayertypes.createPlayer(1, registry)
+  context.players = [player]
+  gplayeruserinfo.ClientConnect(context, player, "\\name\\Coop")
+  gplayerclient.ClientBegin(context, player)
+
+  blaster = gprules.findByPickupName(registry, "Blaster")
+  key = gprules.findByClassName(registry, "key_data_cd")
+  shield = gprules.findByPickupName(registry, "Power Shield")
+  assertEqual(player.respawn.cooperativeInventory[blaster.index], 1,
+    "cooperative checkpoint retains initial blaster")
+  player.gameplay.inventory.counts[key.index] = 1
+  player.gameplay.inventory.counts[shield.index] = 1
+  player.flags = player.flags | gpconstants.FL_POWER_ARMOR
+  player.gameplay.flags = player.gameplay.flags | gpconstants.FL_POWER_ARMOR
+  player.view.weaponSound = 99
+  player.health = -1
+  gplayerrules.player_die(context, player, void, void, 101,
+    [0.0, 0.0, 0.0], gpconstants.MOD_BLASTER)
+  assertEqual(player.respawn.cooperativeInventory[blaster.index], 1,
+    "cooperative death preserves checkpoint inventory")
+  assertEqual(player.respawn.cooperativeInventory[key.index], 1,
+    "cooperative death updates checkpoint key slot")
+  assertTrue((player.flags & gpconstants.FL_POWER_ARMOR) == 0 and
+      (player.gameplay.flags & gpconstants.FL_POWER_ARMOR) == 0,
+    "death clears power armor state")
+  assertEqual(player.view.weaponSound, 0, "death clears weapon loop")
+  assertEqual(player.edict.client.playerState.gunIndex, 0,
+    "death hides view weapon")
+
+  context.time = player.respawnTime + 0.1
+  assertTrue(gplayerclient.respawn(context, player),
+    "cooperative player respawns")
+  assertEqual(player.gameplay.inventory.counts[blaster.index], 1,
+    "cooperative respawn restores blaster")
+  assertEqual(player.gameplay.inventory.counts[key.index], 1,
+    "cooperative respawn restores key")
+  assertEqual(player.gameplay.inventory.counts[shield.index], 0,
+    "cooperative respawn discards post-checkpoint power armor")
+  player.gameplay.inventory.counts[blaster.index] = 0
+  assertEqual(player.respawn.cooperativeInventory[blaster.index], 1,
+    "live inventory does not alias cooperative checkpoint")
+  return true
+end function
+
+// Run tests.
 function runTests()
   testConnectUserinfoAndSpectator()
   testSpawnSelectionAndPutClient()
   testThinkRespawnAndSpectator()
   testDeathScoreRulesAndHud()
+  testCooperativeDeathCheckpointAndPowerArmorReset()
   testRepeatedSpawnpointLifetime()
-  print "MiniQuake2 gameplay player scenarios passed: 5"
+  testStockCoopSpawnFixupsAndIntermissionSelection()
+  print "MiniQuake2 gameplay player scenarios passed: 7"
 end function
 
 runTests()

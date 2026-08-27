@@ -9,15 +9,18 @@ import miniquake2.renderer.types as rt
 import miniquake2.renderer.opengl as ropengl
 import miniquake2.renderer.classic.visibility as rclassicvisibility
 
+// Assert the equal test condition.
 function assertEqual(actual, expected, name)
   if actual != expected then return error(7996, name + ": expected " + expected + ", got " + actual) end if
 end function
 
+// Write u 32.
 function putU32(data, offset, value)
   data[offset] = value & 255; data[offset + 1] = (value >> 8) & 255
   data[offset + 2] = (value >> 16) & 255; data[offset + 3] = (value >> 24) & 255
 end function
 
+// Write text.
 function putText(data, offset, value)
   encoded = bytes(value)
   index = 0
@@ -27,6 +30,7 @@ function putText(data, offset, value)
   end while
 end function
 
+// Return the visibility palette pcx value.
 function visibilityPalettePcx()
   data = bytes(899)
   data[0] = 0x0a; data[1] = 5; data[2] = 1; data[3] = 8
@@ -36,6 +40,7 @@ function visibilityPalettePcx()
   return data
 end function
 
+// Return the visibility wal value.
 function visibilityWal()
   data = bytes(107)
   putText(data, 0, "wall")
@@ -46,12 +51,14 @@ function visibilityWal()
   return data
 end function
 
+// Load visibility file.
 function loadVisibilityFile(path)
   if path == "pics/colormap.pcx" then return visibilityPalettePcx() end if
   if path == "textures/wall.wal" then return visibilityWal() end if
   return void
 end function
 
+// Map visibility.
 function visibilityMap()
   vertices = [
     ft.BspVertex(ft.Vec3(10.0, 2.0, -2.0)), ft.BspVertex(ft.Vec3(10.0, 6.0, -2.0)),
@@ -83,6 +90,7 @@ function visibilityMap()
   )
 end function
 
+// Return the view frame value.
 function viewFrame(origin)
   frame = rt.defaultRefDef(640, 480)
   frame.viewOrigin = origin
@@ -91,6 +99,7 @@ function viewFrame(origin)
   return frame
 end function
 
+// Find draw.
 function findDraw(world, faceIndex)
   for each draw in world.draws
     if draw.surface.index == faceIndex then return draw end if
@@ -98,6 +107,7 @@ function findDraw(world, faceIndex)
   return void
 end function
 
+// Verify pvs dedupe areas and transitions.
 function testPvsDedupeAreasAndTransitions()
   renderer = ropengl.createOpenGlRenderer(false)
   renderer.exports.Init(void, void)
@@ -177,6 +187,7 @@ function testPvsDedupeAreasAndTransitions()
   renderer.exports.Shutdown()
 end function
 
+// Verify protocol coordinate frustum bounds.
 function testProtocolCoordinateFrustumBounds()
   // Aim from the positive Protocol-34 coordinate boundary along the map
   // diagonal.  The far plane is roughly -15286 units here; this reproduced

@@ -8,6 +8,7 @@ import miniquake2.client.ui.menu as cuimenu
 import miniquake2.renderer.recording as recording
 import miniquake2.renderer.constants as uiMenuRendererConstants
 
+// Assert the ui menu equal test condition.
 function uiMenuAssertEqual(actual, expected, name)
   if actual != expected then return error(8270, name + ": expected " + expected + ", got " + actual) end if
   return true

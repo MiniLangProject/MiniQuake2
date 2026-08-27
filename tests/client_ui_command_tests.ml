@@ -12,6 +12,7 @@ import miniquake2.client.ui.menu as uicmdtestmenu
 import miniquake2.client.ui.screen as uicmdtestscreen
 import miniquake2.client.ui.constants as uicmdtestconstants
 
+// Assert the ui command test condition.
 function uiCommandAssert(value, name)
   if not value then return error(8289, name) end if
   return true

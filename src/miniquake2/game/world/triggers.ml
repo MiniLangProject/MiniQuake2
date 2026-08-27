@@ -10,6 +10,7 @@ import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.vector as gwvector
 
+// Initialize trigger.
 function initTrigger(entity, world)
   zeroAngles = gwvector.scale(entity.angles, 0.0)
   if gwvector.equal(entity.angles, zeroAngles) == false then
@@ -22,11 +23,13 @@ function initTrigger(entity, world)
   return entity
 end function
 
+// Return the multi wait value.
 function multiWait(entity, world)
   entity.nextThink = 0.0
   return true
 end function
 
+// Return the multi trigger value.
 function multiTrigger(entity, world)
   if entity.nextThink != 0.0 then return false end if
   gwcore.useTargets(world, entity, entity.activator)
@@ -44,11 +47,13 @@ function multiTrigger(entity, world)
   return true
 end function
 
+// Use multi.
 function useMulti(entity, other, activator, world)
   entity.activator = activator
   return multiTrigger(entity, world)
 end function
 
+// Handle multi.
 function touchMulti(entity, other, world)
   if other is void or other.inUse == false then return false end if
   if other.isClient then
@@ -68,6 +73,7 @@ function touchMulti(entity, other, world)
   return multiTrigger(entity, world)
 end function
 
+// Return the enable trigger value.
 function enableTrigger(entity, other, activator, world)
   entity.solid = gwconstants.SOLID_TRIGGER
   entity.use = useMulti
@@ -75,6 +81,7 @@ function enableTrigger(entity, other, activator, world)
   return true
 end function
 
+// Spawn multiple.
 function spawnMultiple(entity, world)
   if entity.sounds == 1 then entity.noise = "misc/secret.wav"
   else if entity.sounds == 2 then entity.noise = "misc/talk.wav"
@@ -99,6 +106,7 @@ function spawnMultiple(entity, world)
   return entity
 end function
 
+// Spawn once.
 function spawnOnce(entity, world)
   // Compatibility with early maps where TRIGGERED incorrectly used bit 1.
   if (entity.spawnFlags & 1) != 0 then
@@ -109,15 +117,18 @@ function spawnOnce(entity, world)
   return spawnMultiple(entity, world)
 end function
 
+// Use relay.
 function useRelay(entity, other, activator, world)
   return gwcore.useTargets(world, entity, activator)
 end function
 
+// Spawn relay.
 function spawnRelay(entity, world)
   entity.use = useRelay
   return entity
 end function
 
+// Spawn always.
 function spawnAlways(entity, world)
   if entity.delay < 0.2 then entity.delay = 0.2 end if
   gwcore.useTargets(world, entity, entity)
@@ -155,6 +166,7 @@ function useKey(entity, other, activator, world)
   return true
 end function
 
+// Spawn key.
 function spawnKey(entity, world)
   if typeof(entity.item) != "string" or entity.item == "" then
     gwcore.log(world, "no key item for trigger_key")
@@ -177,6 +189,7 @@ function spawnKey(entity, world)
   return entity
 end function
 
+// Use counter.
 function useCounter(entity, other, activator, world)
   if entity.count == 0 then return false end if
   entity.count = entity.count - 1
@@ -195,6 +208,7 @@ function useCounter(entity, other, activator, world)
   return multiTrigger(entity, world)
 end function
 
+// Spawn counter.
 function spawnCounter(entity, world)
   entity.wait = -1.0
   if entity.count == 0 then entity.count = 2 end if
@@ -203,6 +217,7 @@ function spawnCounter(entity, world)
   return entity
 end function
 
+// Handle hurt.
 function hurtTouch(entity, other, world)
   if other is void or other.inUse == false or other.takeDamage == gwconstants.DAMAGE_NO then return false end if
   if world.time < entity.touchDebounceTime then return false end if
@@ -221,6 +236,7 @@ function hurtTouch(entity, other, world)
   return true
 end function
 
+// Use hurt.
 function hurtUse(entity, other, activator, world)
   if entity.solid == gwconstants.SOLID_NOT then entity.solid = gwconstants.SOLID_TRIGGER else entity.solid = gwconstants.SOLID_NOT end if
   world.callbacks.linkEntity(entity)
@@ -228,6 +244,7 @@ function hurtUse(entity, other, activator, world)
   return true
 end function
 
+// Spawn hurt.
 function spawnHurt(entity, world)
   initTrigger(entity, world)
   entity.noise = "world/electro.wav"
@@ -239,6 +256,7 @@ function spawnHurt(entity, world)
   return entity
 end function
 
+// Handle push.
 function pushTouch(entity, other, world)
   if other is void or other.inUse == false then return false end if
   pushed = other.className == "grenade" or other.health > 0
@@ -256,6 +274,7 @@ function pushTouch(entity, other, world)
   return pushed
 end function
 
+// Spawn push.
 function spawnPush(entity, world)
   initTrigger(entity, world)
   entity.noise = "misc/windfly.wav"
@@ -265,12 +284,14 @@ function spawnPush(entity, world)
   return entity
 end function
 
+// Handle gravity.
 function gravityTouch(entity, other, world)
   if other is void or other.inUse == false then return false end if
   other.gravity = entity.gravity
   return true
 end function
 
+// Spawn gravity.
 function spawnGravity(entity, world)
   if entity.gravity == 0.0 then
     gwcore.log(world, "trigger_gravity without gravity set")
@@ -282,6 +303,7 @@ function spawnGravity(entity, world)
   return entity
 end function
 
+// Handle monster jump.
 function monsterJumpTouch(entity, other, world)
   if other is void then return false end if
   if (other.flags & (gwconstants.FL_FLY | gwconstants.FL_SWIM)) != 0 then return false end if
@@ -295,6 +317,7 @@ function monsterJumpTouch(entity, other, world)
   return true
 end function
 
+// Spawn monster jump.
 function spawnMonsterJump(entity, world)
   if entity.speed == 0.0 then entity.speed = 200.0 end if
   if entity.height == 0.0 then entity.height = 200.0 end if
@@ -305,33 +328,43 @@ function spawnMonsterJump(entity, world)
   return entity
 end function
 
+// Spawn trigger multiple.
 function SP_trigger_multiple(entity, world)
   return spawnMultiple(entity, world)
 end function
+// Spawn trigger once.
 function SP_trigger_once(entity, world)
   return spawnOnce(entity, world)
 end function
+// Spawn trigger relay.
 function SP_trigger_relay(entity, world)
   return spawnRelay(entity, world)
 end function
+// Spawn trigger always.
 function SP_trigger_always(entity, world)
   return spawnAlways(entity, world)
 end function
+// Spawn trigger counter.
 function SP_trigger_counter(entity, world)
   return spawnCounter(entity, world)
 end function
+// Spawn trigger hurt.
 function SP_trigger_hurt(entity, world)
   return spawnHurt(entity, world)
 end function
+// Spawn trigger push.
 function SP_trigger_push(entity, world)
   return spawnPush(entity, world)
 end function
+// Spawn trigger gravity.
 function SP_trigger_gravity(entity, world)
   return spawnGravity(entity, world)
 end function
+// Spawn trigger monsterjump.
 function SP_trigger_monsterjump(entity, world)
   return spawnMonsterJump(entity, world)
 end function
+// Spawn trigger key.
 function SP_trigger_key(entity, world)
   return spawnKey(entity, world)
 end function

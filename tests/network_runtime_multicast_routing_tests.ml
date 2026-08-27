@@ -19,11 +19,13 @@ import miniquake2.network.runtime.multicast_dispatch as nrmr_dispatch
 import miniquake2.runtime.server_session as nrmr_session
 import miniquake2.server.types as nrmr_stypes
 
+// Assert the multicast route test condition.
 function multicastRouteAssert(value, label)
   if value != true then return error(8467, label) end if
   return true
 end function
 
+// Return the multicast route collision value.
 function multicastRouteCollision()
   plane = nrmr_ftypes.BspPlane(nrmr_qtypes.Vec3(1.0, 0.0, 0.0), 0.0, 0)
   node = nrmr_ftypes.BspNode(0, -1, -2,
@@ -41,6 +43,7 @@ function multicastRouteCollision()
   return nrmr_collision.create(map)
 end function
 
+// Export multicast route game.
 function multicastRouteGameExport(edicts)
   return nrmr_gtypes.GameExport(3,
     void, void, void, void, void, void, void, void,

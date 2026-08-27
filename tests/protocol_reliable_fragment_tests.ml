@@ -6,11 +6,13 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.protocol.constants as prfrag_pc
 import miniquake2.protocol.netchan as prfrag_netchan
 
+// Assert the fragment test condition.
 function fragmentAssert(value, name)
   if not value then return error(8495, name) end if
   return true
 end function
 
+// Return the filled value.
 function filled(count, value)
   output = bytes(count)
   index = 0
@@ -21,6 +23,7 @@ function filled(count, value)
   return output
 end function
 
+// Return the payload value.
 function payload(packet, headerBytes)
   return slice(packet, headerBytes, len(packet) - headerBytes)
 end function

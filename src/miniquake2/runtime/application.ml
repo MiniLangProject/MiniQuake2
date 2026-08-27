@@ -19,6 +19,10 @@ import miniquake2.collision.model as appcollision
 import miniquake2.game.null_game as appgame
 import miniquake2.game.integration.baseq2 as appbaseq2
 import miniquake2.game.constants as appgameconstants
+import miniquake2.game.gameplay.constants as appgameplayconstants
+import miniquake2.game.gameplay.item_rules as appgameplayitems
+import miniquake2.game.gameplay.registry as appgameplayregistry
+import miniquake2.game.player.transition as appplayertransition
 import miniquake2.server.game_bridge as appbridge
 import miniquake2.game.base.spawn as appspawn
 import miniquake2.platform.window as appwindow
@@ -52,6 +56,7 @@ import miniquake2.client.cinematic.player as appcinplayer
 import miniquake2.client.cinematic.picture as appcinpicture
 import miniquake2.runtime.play_session as appplay
 import miniquake2.runtime.campaign_playtest as appcampaignplaytest
+import miniquake2.game.integration.campaign_progression as appcampaignprogression
 import miniquake2.runtime.session_persistence as apppersistence
 import miniquake2.runtime.media_sequence as appmediaseq
 import miniquake2.runtime.product_host as appproducthost
@@ -64,12 +69,14 @@ import miniquake2.client.runtime.handoff as appruntimehandoff
 import miniquake2.client.downloads as appdownloads
 import miniquake2.client.demo_recording as appdemorecording
 import miniquake2.client.screenshot as appscreenshot
+import miniquake2.renderer.capture as appcapture
 import miniquake2.runtime.pause_policy as apppause
 import miniquake2.runtime.save_metadata as appsavemetadata
 import miniquake2.native as appnative
 
 extern function CreateDirectoryW(path as wstr, security as ptr) from "kernel32.dll" returns bool
 
+// Store asset smoke result data.
 struct AssetSmokeResult
   mapPath
   mapFaces
@@ -81,6 +88,7 @@ struct AssetSmokeResult
   pakCount
 end struct
 
+// Store retail media audit data.
 struct RetailMediaAudit
   attractSequence
   newGameSpecification
@@ -95,6 +103,7 @@ struct RetailMediaAudit
   musicFrames
 end struct
 
+// Store product menu selection data.
 struct ProductMenuSelection
   action
   mapName
@@ -104,6 +113,7 @@ struct ProductMenuSelection
   playerProfile
   downloadPolicy
   frames
+  productConfig
 end struct
 
 previewFileSystem = void
@@ -120,6 +130,14 @@ applicationRemoteRegistrationCollision = void
 applicationRemoteRegistrationMapPath = ""
 applicationRemoteRegistrationAssets = void
 applicationAutomatedProjectileAttack = false
+applicationAutomatedWeaponWheel = false
+applicationAutomatedChangeLevel = false
+applicationAutomatedChangeLevelTriggered = false
+applicationAutomatedChangeLevelReached = false
+applicationAutomatedChangeLevelTarget = ""
+applicationWeaponWheelCommands = 0
+applicationWeaponWheelTransitions = 0
+applicationWeaponWheelLastGunIndex = -1
 applicationProjectileSnapshotMaximum = 0
 applicationProjectileRenderMaximum = 0
 applicationProjectileParticleMaximum = 0
@@ -129,45 +147,59 @@ applicationProjectileExportMaximum = 0
 applicationProjectileVisibleMaximum = 0
 applicationProjectileVisibilityDiagnostic = "unavailable"
 applicationProjectileLastEngineNumber = -1
+applicationLevelCapturePath = ""
+applicationLevelCaptureChecksum = 0
+applicationLevelCaptureError = void
+applicationPersistProductConfig = true
 
+// Load preview file.
 function loadPreviewFile(path)
   global previewFileSystem
   if previewFileSystem is void then return error(9912, "preview filesystem is not active") end if
   return appfs.readFile(previewFileSystem, path)
 end function
 
+// Report whether application renderer no result 0.
 function applicationRendererNoResult0()
   return true
 end function
 
+// Report whether application renderer no result 1.
 function applicationRendererNoResult1(value)
   return true
 end function
 
+// Report whether application renderer no result 2.
 function applicationRendererNoResult2(first, second)
   return true
 end function
 
+// Report whether application renderer no result 3.
 function applicationRendererNoResult3(first, second, third)
   return true
 end function
 
+// Return the application renderer zero 0 value.
 function applicationRendererZero0()
   return 0
 end function
 
+// Report whether application renderer empty 1.
 function applicationRendererEmpty1(value)
   return ""
 end function
 
+// Return the application renderer void 3 value.
 function applicationRendererVoid3(first, second, third)
   return void
 end function
 
+// Return the application renderer mode value.
 function applicationRendererMode(mode)
   return apprtypes.VideoModeInfo(false, 0, 0)
 end function
 
+// Return the application renderer imports value.
 function applicationRendererImports()
   return apprtypes.RefImport(
     applicationRendererNoResult2, applicationRendererNoResult2,
@@ -181,6 +213,7 @@ function applicationRendererImports()
   )
 end function
 
+// Load play sound.
 function loadPlaySound(name)
   global previewFileSystem
   if previewFileSystem is void then return void end if
@@ -198,16 +231,19 @@ function loadPlaySound(name)
   return applicationPlaySoundResultHolder
 end function
 
+// Report whether note missing play asset.
 function noteMissingPlayAsset(value)
   return true
 end function
 
+// Return the application remote file exists value.
 function applicationRemoteFileExists(name)
   global previewFileSystem
   if previewFileSystem is void then return false end if
   return appfs.fileExists(previewFileSystem, name)
 end function
 
+// Register application remote download.
 function applicationRemoteRegisterDownload(kind, name)
   // Never send `begin` until the fully downloaded precache generation has
   // successfully entered the renderer/collision registry.
@@ -215,6 +251,7 @@ function applicationRemoteRegisterDownload(kind, name)
   return true
 end function
 
+// Play user info.
 function playUserInfo(hand)
   if typeof(hand) != "int" or hand < 0 or hand > 2 then
     return error(9954, "play handedness must be 0, 1 or 2")
@@ -222,11 +259,13 @@ function playUserInfo(hand)
   return "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000\\hand\\" + hand
 end function
 
+// Play profile user info.
 function playProfileUserInfo(profile)
   if profile is void then return playUserInfo(0) end if
   return appstartup.playerUserInfo(profile)
 end function
 
+// Report whether missing play asset summary.
 function missingPlayAssetSummary(state)
   output = ""
   for each missing in appclientassets.missingAssets(state)
@@ -236,24 +275,28 @@ function missingPlayAssetSummary(state)
   return output
 end function
 
+// Resolve play model index.
 function resolvePlayModelIndex(index)
   global playAssetState
   if playAssetState is void then return void end if
   return appassetregistry.resolveModelIndex(playAssetState, index)
 end function
 
+// Resolve play effect model.
 function resolvePlayEffectModel(name)
   global playAssetState
   if playAssetState is void then return void end if
   return appassetregistry.resolveModelName(playAssetState, name)
 end function
 
+// Play random client effect.
 function randomPlayClientEffect()
   global playEffectState
   if playEffectState is void then return 0 end if
   return appeffectstate.random(playEffectState)
 end function
 
+// Resolve play entity position.
 function resolvePlayEntityPosition(number)
   global playClientRuntime
   if playClientRuntime is void or playClientRuntime.current is void then return void end if
@@ -262,6 +305,7 @@ function resolvePlayEntityPosition(number)
   return appqtypes.vec3(entity.origin[0], entity.origin[1], entity.origin[2])
 end function
 
+// Pump play audio.
 function pumpPlayAudio(device, mixer)
   if device is void or mixer is void then return 0 end if
   submitted = 0
@@ -278,6 +322,7 @@ function pumpPlayAudio(device, mixer)
   return submitted
 end function
 
+// Close play audio.
 function closePlayAudio(device, mixer)
   if mixer is not void then
     appaudiomixer.stopMusic(mixer)
@@ -288,6 +333,7 @@ function closePlayAudio(device, mixer)
   return void
 end function
 
+// Report whether count available assets.
 function countAvailableAssets(entries)
   count = 0
   for each entry in entries
@@ -296,6 +342,7 @@ function countAvailableAssets(entries)
   return count
 end function
 
+// Apply play handoff.
 function applyPlayHandoff(screen, handoff)
   if handoff is void then return false end if
   for each value in handoff.prints
@@ -319,6 +366,7 @@ function applyPlayHandoff(screen, handoff)
   return true
 end function
 
+// Play save paths.
 function playSavePaths(baseDirectory, slot)
   if typeof(slot) != "int" or slot < 0 or slot > 2 then return error(9925, "play save slot outside [0,2]") end if
   applicationSaveDirectory = appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
@@ -327,6 +375,7 @@ function playSavePaths(baseDirectory, slot)
     appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_level.sav")]
 end function
 
+// Report whether product path inside.
 function productPathInside(baseDirectory, parentDirectory)
   if typeof(baseDirectory) != "string" or typeof(parentDirectory) != "string" or
       parentDirectory == "" then return false end if
@@ -354,6 +403,7 @@ function productSettingsDirectoryFrom(baseDirectory, localAppData,
   return appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
 end function
 
+// Return the product settings directory value.
 function productSettingsDirectory(baseDirectory)
   applicationLocalAppData = appprocess.environment("LOCALAPPDATA")
   applicationProgramFiles = appprocess.environment("ProgramFiles")
@@ -375,12 +425,14 @@ function productSettingsDirectory(baseDirectory)
   return applicationSettingsDirectory
 end function
 
+// Play config path.
 function playConfigPath(baseDirectory)
   applicationSettingsDirectory = productSettingsDirectory(baseDirectory)
   if applicationSettingsDirectory is error then return applicationSettingsDirectory end if
   return appnativefs.joinPath(applicationSettingsDirectory, "miniquake2.cfg")
 end function
 
+// Play preferences path.
 function playPreferencesPath(baseDirectory)
   applicationSettingsDirectory = productSettingsDirectory(baseDirectory)
   if applicationSettingsDirectory is error then return applicationSettingsDirectory end if
@@ -388,21 +440,25 @@ function playPreferencesPath(baseDirectory)
     "miniquake2_multiplayer.cfg")
 end function
 
+// Play save metadata path.
 function playSaveMetadataPath(baseDirectory, slot)
   applicationSaveMetadataPaths = playSavePaths(baseDirectory, slot)
   return applicationSaveMetadataPaths[0] + ".meta"
 end function
 
+// Play screenshot directory.
 function playScreenshotDirectory(baseDirectory)
   return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
     appfs.BASE_DIRECTORY_NAME), "screenshots")
 end function
 
+// Play demo directory.
 function playDemoDirectory(baseDirectory)
   return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
     appfs.BASE_DIRECTORY_NAME), "demos")
 end function
 
+// Return the ends with value.
 function endsWith(value, suffix)
   if typeof(value) != "string" or typeof(suffix) != "string" then return error(9916, "endsWith requires text") end if
   applicationEndsValueLowerHolder = apptext.lower(value)
@@ -421,6 +477,7 @@ function endsWith(value, suffix)
   return true
 end function
 
+// Map path.
 function mapPath(name)
   if typeof(name) != "string" or name == "" then return error(9917, "mapPath requires a map name") end if
   applicationMapPathValueHolder = name
@@ -434,6 +491,7 @@ function mapPath(name)
   return applicationMapPathValueHolder
 end function
 
+// Return the cinematic path.
 function cinematicPath(name)
   if typeof(name) != "string" or name == "" then return error(9921, "cinematicPath requires a cinematic name") end if
   applicationCinematicPathHolder = name
@@ -447,6 +505,7 @@ function cinematicPath(name)
   return applicationCinematicPathHolder
 end function
 
+// Return the picture path.
 function picturePath(name)
   if typeof(name) != "string" or name == "" then return error(9926, "picturePath requires a picture name") end if
   applicationPicturePathHolder = name
@@ -460,6 +519,7 @@ function picturePath(name)
   return applicationPicturePathHolder
 end function
 
+// Return the demo path.
 function demoPath(name)
   if typeof(name) != "string" or name == "" then return error(9948, "demoPath requires a demo name") end if
   applicationDemoPathHolder = name
@@ -595,6 +655,7 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping,
     applicationCinematicCommandStateHolder.quitRequested]
 end function
 
+// Run retail cinematic.
 function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   applicationCinematicProductHost = appproducthost.openProductHost(
     "MiniQuake2 Cinematic - " + name, 0, false, applicationRendererImports())
@@ -608,6 +669,7 @@ end function
 // Static intermission counterpart to runCinematic. Space/Enter emits the
 // classic nextserver intent; Escape opens the same menu/quit lifecycle.
 function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
+  // Keep run retail picture on host phases explicit: validate inputs, update owned state, then publish the result.
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9927, "picture requires the Quake II install root") end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9928, "picture frame limit outside [0,36000]") end if
@@ -684,6 +746,7 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
     applicationPictureWidth, applicationPictureHeight, applicationPictureAdvanced]
 end function
 
+// Run retail picture.
 function runRetailPicture(baseDirectory, name, frameLimit)
   applicationPictureProductHost = appproducthost.openProductHost(
     "MiniQuake2 Picture - " + name, 0, false, applicationRendererImports())
@@ -694,6 +757,7 @@ function runRetailPicture(baseDirectory, name, frameLimit)
   return applicationPictureProductResult
 end function
 
+// Submit application demo frame.
 function applicationSubmitDemoFrame(renderer, world, frame, screen, now,
     window, stats, configStrings)
   renderer.exports.RenderFrame(frame)
@@ -949,6 +1013,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
     applicationDemoMissingAssetSummary]
 end function
 
+// Run retail demo.
 function runRetailDemo(baseDirectory, name, frameLimit)
   applicationDemoProductHost = appproducthost.openProductHost(
     "MiniQuake2 Demo - " + name, 3, false, applicationRendererImports())
@@ -963,6 +1028,7 @@ end function
 // supplied. Keep the four-entry alias cycle data-driven so any input can hand
 // control back to the persistent product menu without opening another host.
 function runStockAttractLoopOnHost(baseDirectory, productHost)
+  // Keep run stock attract loop on host phases explicit: validate inputs, update owned state, then publish the result.
   applicationAttractIndex = 0
   applicationAttractCompleted = 0
   while not productHost.window.closed
@@ -1008,81 +1074,169 @@ end function
 // interactive behavior (CIN to completion, PCX until Space/Enter, map until
 // window close). DM2 uses the isolated release-demo Protocol-26 compatibility
 // path and renders through the same Protocol-34 client state and product host.
-function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
-    productHost, skill)
+function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
+    frameLimit, productHost, skill, initialConfig, playerProfile,
+    initialGameplayHandover)
+  global previewFileSystem
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
     return error(9929, "media sequence frame limit outside [0,36000]")
   end if
-  applicationMediaSequenceHolder = appmediaseq.parse(specification)
+  // A preceding map deliberately clears its gameplay filesystem before it
+  // returns. The shared loading screen still needs conchars before the next
+  // media step establishes its own filesystem/registration phase.
+  previewFileSystem = appfs.initialize(baseDirectory, "")
   applicationMediaCinematics = 0
   applicationMediaPictures = 0
   applicationMediaMaps = 0
   applicationMediaDemos = 0
   applicationMediaCompleted = 0
-  applicationMediaIndex = 0
-  while applicationMediaIndex < len(applicationMediaSequenceHolder.steps)
-    applicationMediaStepHolder = applicationMediaSequenceHolder.steps[applicationMediaIndex]
-    if not appproducthost.showProductLoading(productHost,
-        "loading " + applicationMediaStepHolder.name) then
-      return [applicationMediaCompleted, applicationMediaCinematics,
-        applicationMediaPictures, applicationMediaMaps, "aborted",
-        applicationMediaDemos]
+  applicationMediaMapFrames = 0
+  applicationMediaLastPlayResult = void
+  applicationMediaProductConfig = initialConfig
+  applicationMediaPlayerProfile = playerProfile
+  applicationMediaGameplayHandover = initialGameplayHandover
+  if applicationMediaPlayerProfile is void then
+    applicationMediaPlayerProfile = appstartup.defaultPlayerProfile()
+  end if
+  applicationMediaPendingSpecification = specification
+  applicationMediaTransitionCount = 0
+  while applicationMediaPendingSpecification != ""
+    if applicationMediaTransitionCount >= appmediaseq.MAX_MEDIA_TRANSITIONS then
+      return error(9931, "campaign media transition limit exceeded")
     end if
-    if applicationMediaStepHolder.kind == appmediaseq.MEDIA_CIN then
-      applicationMediaCinematicResult = runRetailCinematicOnHost(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit, false, productHost, false)
-      applicationMediaCinematics = applicationMediaCinematics + 1
-      if frameLimit == 0 and applicationMediaCinematicResult[1] != "completed" then
+    applicationMediaSequenceHolder = appmediaseq.parse(
+      applicationMediaPendingSpecification)
+    applicationMediaPendingSpecification = ""
+    applicationMediaIndex = 0
+    while applicationMediaIndex < len(applicationMediaSequenceHolder.steps)
+      applicationMediaStepHolder = applicationMediaSequenceHolder.steps[applicationMediaIndex]
+      if not appproducthost.showProductLoading(productHost,
+          "loading " + applicationMediaStepHolder.name) then
         return [applicationMediaCompleted, applicationMediaCinematics,
           applicationMediaPictures, applicationMediaMaps, "aborted",
-          applicationMediaDemos]
+          applicationMediaDemos, applicationMediaLastPlayResult,
+          applicationMediaMapFrames]
       end if
-    else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_PCX then
-      applicationMediaPictureResult = runRetailPictureOnHost(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit, productHost)
-      applicationMediaPictures = applicationMediaPictures + 1
-      if frameLimit == 0 and not applicationMediaPictureResult[4] and
-          applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
-        return [applicationMediaCompleted, applicationMediaCinematics,
-          applicationMediaPictures, applicationMediaMaps, "aborted",
-          applicationMediaDemos]
+      if applicationMediaStepHolder.kind == appmediaseq.MEDIA_CIN then
+        applicationMediaCinematicResult = runRetailCinematicOnHost(baseDirectory,
+          applicationMediaStepHolder.name, frameLimit, false, productHost, false)
+        applicationMediaCinematics = applicationMediaCinematics + 1
+        if frameLimit == 0 and applicationMediaCinematicResult[1] != "completed" then
+          return [applicationMediaCompleted, applicationMediaCinematics,
+            applicationMediaPictures, applicationMediaMaps, "aborted",
+            applicationMediaDemos, applicationMediaLastPlayResult,
+            applicationMediaMapFrames]
+        end if
+      else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_PCX then
+        applicationMediaPictureResult = runRetailPictureOnHost(baseDirectory,
+          applicationMediaStepHolder.name, frameLimit, productHost)
+        applicationMediaPictures = applicationMediaPictures + 1
+        if frameLimit == 0 and not applicationMediaPictureResult[4] and
+            applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
+          return [applicationMediaCompleted, applicationMediaCinematics,
+            applicationMediaPictures, applicationMediaMaps, "aborted",
+            applicationMediaDemos, applicationMediaLastPlayResult,
+            applicationMediaMapFrames]
+        end if
+      else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP then
+        // A map reached from nextserver/gamemap continues gameplay. Reopening
+        // the main menu here would leave an interactive successor map paused
+        // behind UI immediately after an otherwise successful level exit.
+        applicationMediaLastPlayResult = runPlayAtOnHostConfiguredWithState(baseDirectory,
+          applicationMediaStepHolder.name, applicationMediaStepHolder.spawnPoint,
+          frameLimit, productHost, skill, false, void,
+          applicationMediaPlayerProfile, applicationMediaProductConfig,
+          applicationMediaGameplayHandover)
+        applicationMediaMaps = applicationMediaMaps + 1
+        applicationMediaMapFrames = applicationMediaMapFrames +
+          applicationMediaLastPlayResult[0]
+        if len(applicationMediaLastPlayResult) >= 49 then
+          applicationMediaProductConfig = applicationMediaLastPlayResult[47]
+          applicationMediaPlayerProfile = applicationMediaLastPlayResult[48]
+        end if
+        if len(applicationMediaLastPlayResult) >= 50 then
+          applicationMediaGameplayHandover = applicationMediaLastPlayResult[49]
+        end if
+        if len(applicationMediaLastPlayResult) >= 46 and
+            applicationMediaLastPlayResult[44] != "" then
+          applicationMediaPendingSpecification = applicationMediaLastPlayResult[44]
+          skill = applicationMediaLastPlayResult[45]
+        else if applicationMediaLastPlayResult[19] or productHost.window.closed then
+          return [applicationMediaCompleted + 1, applicationMediaCinematics,
+            applicationMediaPictures, applicationMediaMaps, "aborted",
+            applicationMediaDemos, applicationMediaLastPlayResult,
+            applicationMediaMapFrames]
+        end if
+      else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2 then
+        applicationMediaDemoResult = runRetailDemoOnHost(baseDirectory,
+          applicationMediaStepHolder.name, frameLimit, productHost, false)
+        applicationMediaDemos = applicationMediaDemos + 1
+        if frameLimit == 0 and applicationMediaDemoResult[2] != "completed" then
+          return [applicationMediaCompleted, applicationMediaCinematics,
+            applicationMediaPictures, applicationMediaMaps, "aborted",
+            applicationMediaDemos, applicationMediaLastPlayResult,
+            applicationMediaMapFrames]
+        end if
+      else
+        return error(9930, "unknown product media kind")
       end if
-    else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP then
-      runPlayAtOnHost(baseDirectory, applicationMediaStepHolder.name,
-        applicationMediaStepHolder.spawnPoint, frameLimit, productHost, skill)
-      applicationMediaMaps = applicationMediaMaps + 1
-    else if applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2 then
-      applicationMediaDemoResult = runRetailDemoOnHost(baseDirectory,
-        applicationMediaStepHolder.name, frameLimit, productHost, false)
-      applicationMediaDemos = applicationMediaDemos + 1
-      if frameLimit == 0 and applicationMediaDemoResult[2] != "completed" then
-        return [applicationMediaCompleted, applicationMediaCinematics,
-          applicationMediaPictures, applicationMediaMaps, "aborted",
-          applicationMediaDemos]
+      applicationMediaCompleted = applicationMediaCompleted + 1
+      if applicationMediaPendingSpecification != "" then
+        // The map function has returned and released its BSP, collision,
+        // gameplay, client and audio graphs. Follow the queued gamemap only
+        // now; recursive loading retained every prior map on the native stack
+        // and exhausted the process heap at the first base1 -> base2 exit.
+        applicationMediaNextSequenceHolder = appmediaseq.parse(
+          applicationMediaPendingSpecification)
+        applicationMediaNextStepHolder = applicationMediaNextSequenceHolder.steps[0]
+        applicationMediaNextIs3d = applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_MAP or
+          applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_DM2
+        if applicationMediaNextIs3d then
+          previewFileSystem = appfs.initialize(baseDirectory, "")
+          appproducthost.resetProductRenderer(productHost,
+            applicationRendererImports())
+        end if
+        break
       end if
-    else
-      return error(9930, "unknown product media kind")
-    end if
-    if applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
-      applicationMediaNextStepHolder = applicationMediaSequenceHolder.steps[
-        applicationMediaIndex + 1]
-      applicationMediaCurrentIs3d = applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP or
-        applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2
-      applicationMediaNextIs3d = applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_MAP or
-        applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_DM2
-      if applicationMediaCurrentIs3d and applicationMediaNextIs3d then
-        appproducthost.resetProductRenderer(productHost,
-          applicationRendererImports())
+      if applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
+        applicationMediaNextStepHolder = applicationMediaSequenceHolder.steps[
+          applicationMediaIndex + 1]
+        applicationMediaCurrentIs3d = applicationMediaStepHolder.kind == appmediaseq.MEDIA_MAP or
+          applicationMediaStepHolder.kind == appmediaseq.MEDIA_DM2
+        applicationMediaNextIs3d = applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_MAP or
+          applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_DM2
+        if applicationMediaCurrentIs3d and applicationMediaNextIs3d then
+          previewFileSystem = appfs.initialize(baseDirectory, "")
+          appproducthost.resetProductRenderer(productHost,
+            applicationRendererImports())
+        end if
       end if
-    end if
-    applicationMediaCompleted = applicationMediaCompleted + 1
-    applicationMediaIndex = applicationMediaIndex + 1
+      applicationMediaIndex = applicationMediaIndex + 1
+    end while
+    applicationMediaTransitionCount = applicationMediaTransitionCount + 1
   end while
   return [applicationMediaCompleted, applicationMediaCinematics,
     applicationMediaPictures, applicationMediaMaps, "completed",
-    applicationMediaDemos]
+    applicationMediaDemos, applicationMediaLastPlayResult,
+    applicationMediaMapFrames, applicationMediaProductConfig,
+    applicationMediaPlayerProfile, applicationMediaGameplayHandover]
 end function
 
+// Report whether run retail media sequence on host with settings.
+function runRetailMediaSequenceOnHostWithSettings(baseDirectory, specification,
+    frameLimit, productHost, skill, initialConfig, playerProfile)
+  return runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
+    frameLimit, productHost, skill, initialConfig, playerProfile, void)
+end function
+
+// Report whether run retail media sequence on host.
+function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
+    productHost, skill)
+  return runRetailMediaSequenceOnHostWithSettings(baseDirectory, specification,
+    frameLimit, productHost, skill, void, appstartup.defaultPlayerProfile())
+end function
+
+// Run retail media sequence.
 function runRetailMediaSequence(baseDirectory, specification, frameLimit)
   applicationMediaProductHost = appproducthost.openProductHost("MiniQuake2", 3, false,
     applicationRendererImports())
@@ -1092,10 +1246,16 @@ function runRetailMediaSequence(baseDirectory, specification, frameLimit)
   applicationMediaProductLoadingFrames = applicationMediaProductHost.loadingFrames
   appproducthost.closeProductHost(applicationMediaProductHost)
   if applicationMediaProductResult is error then return applicationMediaProductResult end if
-  return applicationMediaProductResult + [applicationMediaProductGeneration,
-    applicationMediaProductLoadingFrames]
+  // Preserve the historical public result indexes; the host-only tail carries
+  // its last map result and aggregate map frames for persistent transitions.
+  return [applicationMediaProductResult[0], applicationMediaProductResult[1],
+    applicationMediaProductResult[2], applicationMediaProductResult[3],
+    applicationMediaProductResult[4], applicationMediaProductResult[5],
+    applicationMediaProductGeneration, applicationMediaProductLoadingFrames,
+    applicationMediaProductResult[6], applicationMediaProductResult[7]]
 end function
 
+// Return the asset smoke value.
 function assetSmoke(baseDirectory, mapName)
   if baseDirectory == "" then return error(9910, "asset smoke requires the Quake II install root containing baseq2") end if
   if mapName == "" then mapName = "base1" end if
@@ -1126,6 +1286,7 @@ function assetSmoke(baseDirectory, mapName)
   return AssetSmokeResult(path, len(map.faces), len(map.leafs), parsed, spawnResult.skippedEntityCount, len(player.frames), menuSound.sampleCount, pakCount)
 end function
 
+// Return the audit retail cinematic value.
 function auditRetailCinematic(filesystem, name)
   applicationAuditCinematicData = appfs.readFile(filesystem,
     cinematicPath(name))
@@ -1147,6 +1308,7 @@ function auditRetailCinematic(filesystem, name)
     len(applicationAuditCinematicFrame.pixels)]
 end function
 
+// Return the audit retail demo value.
 function auditRetailDemo(filesystem, name, randomSeed)
   applicationAuditDemo = appdemosession.create(appfs.readFile(filesystem,
     demoPath(name)), randomSeed)
@@ -1236,6 +1398,7 @@ function runRetailMediaAudit(baseDirectory)
     applicationAuditMusicFrames)
 end function
 
+// Return the result lines value.
 function resultLines(result)
   return [
     "map=" + result.mapPath,
@@ -1263,6 +1426,7 @@ function campaignMapNames()
   ]
 end function
 
+// Return the settle campaign session value.
 function settleCampaignSession(session, maximumSteps)
   campaignReliableSettleStepCount = 0
   client = session.server.networkRuntime.server.clients[0]
@@ -1282,6 +1446,7 @@ function settleCampaignSession(session, maximumSteps)
   return error(9915, "campaign session reliable channel did not settle")
 end function
 
+// Return the campaign signon error value.
 function campaignSignonError(session, mapName)
   serverClient = session.server.networkRuntime.server.clients[0]
   clientNetwork = session.client.integrated.network.client
@@ -1379,6 +1544,7 @@ function runCampaignSessionSmoke(baseDirectory, maximumMaps)
   return [completed, changes, state, spawnCount, steps, packets]
 end function
 
+// Run play input smoke.
 function runPlayInputSmoke(baseDirectory, mapName, commandSteps)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9921, "play input smoke requires the Quake II install root")
@@ -1396,7 +1562,9 @@ function runPlayInputSmoke(baseDirectory, mapName, commandSteps)
   return appPhysicalInputReport
 end function
 
+// Map preview.
 function previewMap(baseDirectory, mapName, frameLimit)
+  // Keep preview map phases explicit: validate inputs, update owned state, then publish the result.
   global previewFileSystem
   if frameLimit < 1 or frameLimit > 36000 then return error(9911, "preview frame limit outside [1,36000]") end if
   filesystem = appfs.initialize(baseDirectory, "")
@@ -1473,7 +1641,8 @@ end function
 // Video menu. The network/game session deliberately does not participate:
 // the gate isolates destruction, mode recreation and complete BSP resource
 // registration on the replacement Renderer API generation.
-function runRetailVideoRestartSmoke(baseDirectory, mapName)
+function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
+    targetVideoMode)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9938, "video restart smoke requires the Quake II install root")
@@ -1485,6 +1654,15 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
     applicationVideoSmokeFileSystem, applicationVideoSmokePath), applicationVideoSmokePath)
   applicationVideoSmokeHost = appproducthost.openProductHost(
     "MiniQuake2 Video Restart", 0, false, applicationRendererImports())
+  applicationVideoSmokeRequestedDimensions = appproducthost.productHostDimensions(
+    targetVideoMode)
+  applicationVideoSmokeRequestedWidth = applicationVideoSmokeRequestedDimensions[0]
+  applicationVideoSmokeRequestedHeight = applicationVideoSmokeRequestedDimensions[1]
+  applicationVideoSmokeOriginalDesktopWidth = appnative.winDesktopWidth()
+  applicationVideoSmokeOriginalDesktopHeight = appnative.winDesktopHeight()
+  applicationVideoSmokeExclusiveAvailable = appnative.winTestDisplayMode(
+    applicationVideoSmokeRequestedWidth,
+    applicationVideoSmokeRequestedHeight, 32, 0) != 0
   appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
 
   applicationVideoSmokeRenderer = applicationVideoSmokeHost.renderer
@@ -1503,23 +1681,35 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   applicationVideoSmokeRenderer.exports.EndFrame()
   appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
 
-  // Exercise a non-desktop-sized exclusive mode first. Matching Win32 desktop
-  // metrics prove that ChangeDisplaySettingsW ran; a borderless 1920x1080
-  // window on a 4K desktop would fail this gate while still reporting the
-  // requested client dimensions.
+  // Matching Win32 desktop metrics prove that supported exclusive modes use
+  // ChangeDisplaySettingsW. Unsupported fixed menu modes must instead keep
+  // the current desktop and create a safe borderless fullscreen host.
   appproducthost.restartProductHost(applicationVideoSmokeHost,
-    "MiniQuake2 Video Restart", 5, true, applicationRendererImports())
-  applicationVideoSmokeFullHdWidth = applicationVideoSmokeHost.window.width
-  applicationVideoSmokeFullHdHeight = applicationVideoSmokeHost.window.height
+    "MiniQuake2 Video Restart", targetVideoMode, true,
+    applicationRendererImports())
+  applicationVideoSmokeAppliedWidth = applicationVideoSmokeHost.window.width
+  applicationVideoSmokeAppliedHeight = applicationVideoSmokeHost.window.height
   applicationVideoSmokeDesktopWidth = appnative.winDesktopWidth()
   applicationVideoSmokeDesktopHeight = appnative.winDesktopHeight()
-  if applicationVideoSmokeFullHdWidth != 1920 or
-      applicationVideoSmokeFullHdHeight != 1080 or
-      applicationVideoSmokeDesktopWidth != 1920 or
-      applicationVideoSmokeDesktopHeight != 1080 then
-    appproducthost.closeProductHost(applicationVideoSmokeHost)
-    previewFileSystem = void
-    return error(9945, "exclusive fullscreen did not apply its Win32 display mode")
+  applicationVideoSmokeFallback = not applicationVideoSmokeExclusiveAvailable
+  if applicationVideoSmokeExclusiveAvailable then
+    if applicationVideoSmokeAppliedWidth != applicationVideoSmokeRequestedWidth or
+        applicationVideoSmokeAppliedHeight != applicationVideoSmokeRequestedHeight or
+        applicationVideoSmokeDesktopWidth != applicationVideoSmokeRequestedWidth or
+        applicationVideoSmokeDesktopHeight != applicationVideoSmokeRequestedHeight then
+      appproducthost.closeProductHost(applicationVideoSmokeHost)
+      previewFileSystem = void
+      return error(9945, "exclusive fullscreen did not apply its Win32 display mode")
+    end if
+  else
+    if applicationVideoSmokeAppliedWidth != applicationVideoSmokeOriginalDesktopWidth or
+        applicationVideoSmokeAppliedHeight != applicationVideoSmokeOriginalDesktopHeight or
+        applicationVideoSmokeDesktopWidth != applicationVideoSmokeOriginalDesktopWidth or
+        applicationVideoSmokeDesktopHeight != applicationVideoSmokeOriginalDesktopHeight then
+      appproducthost.closeProductHost(applicationVideoSmokeHost)
+      previewFileSystem = void
+      return error(9945, "unsupported fullscreen mode did not use desktop fallback")
+    end if
   end if
 
   appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
@@ -1548,8 +1738,10 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
   appproducthost.closeProductHost(applicationVideoSmokeHost)
   previewFileSystem = void
-  if applicationVideoSmokeGeneration != 2 or applicationVideoSmokeWidth != 1920 or
-      applicationVideoSmokeHeight != 1080 or applicationVideoSmokeLoadingFrames != 2 or
+  if applicationVideoSmokeGeneration != 2 or
+      applicationVideoSmokeWidth != applicationVideoSmokeAppliedWidth or
+      applicationVideoSmokeHeight != applicationVideoSmokeAppliedHeight or
+      applicationVideoSmokeLoadingFrames != 2 or
       not applicationVideoSmokeFullScreen then
     return error(9939, "video restart host lifecycle mismatch")
   end if
@@ -1559,9 +1751,16 @@ function runRetailVideoRestartSmoke(baseDirectory, mapName)
   return [applicationVideoSmokeGeneration, applicationVideoSmokeWidth,
     applicationVideoSmokeHeight, applicationVideoSmokeLoadingFrames,
     applicationVideoSmokeBeforeVisible, applicationVideoSmokeAfterVisible,
-    applicationVideoSmokeFullScreen]
+    applicationVideoSmokeFullScreen, applicationVideoSmokeFallback,
+    applicationVideoSmokeRequestedWidth, applicationVideoSmokeRequestedHeight]
 end function
 
+// Run retail video restart smoke.
+function runRetailVideoRestartSmoke(baseDirectory, mapName)
+  return runRetailVideoRestartSmokeForMode(baseDirectory, mapName, 5)
+end function
+
+// Return the product address book value.
 function productAddressBook(menu)
   applicationProductAddresses = []
   applicationProductAddressIndex = 0
@@ -1578,6 +1777,7 @@ function productAddressBook(menu)
   return applicationProductAddresses
 end function
 
+// Update product browser menu.
 function updateProductBrowserMenu(menu, browser)
   applicationProductBrowserCount = appstartup.browserEntryCount(browser)
   applicationProductBrowserIndex = 0
@@ -1763,8 +1963,23 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
         appuiconsole.appendLine(applicationProductScreen.console,
           "Video restart failed: " + applicationProductVideoRestartResult.message,
           appbyteio.truncInt(applicationProductNow))
-        applicationProductAction = "quit"
-        continue
+        if productHost.closed then
+          applicationProductAction = "quit"
+          continue
+        end if
+        // restartProductHost reconstructed the last known-good host. Reflect
+        // that rollback in both the menu and the persisted configuration.
+        applicationProductCommands.videoMode = productHost.videoMode
+        applicationProductCommands.fullScreen = productHost.fullScreen
+        applicationProductCommands.configDirty = true
+        appuimenu.setItemValue(applicationProductScreen.menu, "video", "mode",
+          applicationProductCommands.videoMode)
+        applicationProductRestoredFullscreen = 0
+        if applicationProductCommands.fullScreen then
+          applicationProductRestoredFullscreen = 1
+        end if
+        appuimenu.setItemValue(applicationProductScreen.menu, "video",
+          "fullscreen", applicationProductRestoredFullscreen)
       end if
       applicationProductWindow = productHost.window
       applicationProductRenderer = productHost.renderer
@@ -1867,20 +2082,28 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
       applicationProductProfile,
       appuicommands.downloadPolicy(applicationProductCommands),
       productAddressBook(applicationProductScreen.menu))))
+  // The next state receives the live snapshot directly. Disk remains the
+  // atomic restart fallback, not the transport between states in one process.
+  applicationProductFinalConfig = appuiconfig.captureProductConfig(
+    applicationProductInput, applicationProductCommands,
+    applicationProductMixer, applicationProductScreen)
+  applicationProductFinalConfigSave = try(appuiconfig.saveProductConfig(
+    applicationProductConfigPath, applicationProductFinalConfig))
   closePlayAudio(applicationProductDevice, applicationProductMixer)
   if applicationProductAction == "" then applicationProductAction = "quit" end if
   return ProductMenuSelection(applicationProductAction, applicationProductMap,
     applicationProductSkill, applicationProductEndpoint,
     applicationProductServerOptions, applicationProductProfile,
     appuicommands.downloadPolicy(applicationProductCommands),
-    applicationProductFrames)
+    applicationProductFrames, applicationProductFinalConfig)
 end function
 
 // Construct and drive one authoritative local/listen session inside an
 // existing product host. Loading, signon and renderer warm-up finish before
 // audio starts; every exit path returns a complete transition/diagnostic value.
-function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
-    productHost, skill, menuAtStart, serverOptions, playerProfile)
+function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
+    frameLimit, productHost, skill, menuAtStart, serverOptions, playerProfile,
+    initialConfig, initialGameplayHandover)
   global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
   global applicationProjectileAttackCommands, applicationProjectileServerMaximum
   global applicationProjectileExportMaximum, applicationProjectileVisibleMaximum
@@ -1888,6 +2111,12 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   global applicationProjectileLastEngineNumber
   global applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum
   global applicationProjectileParticleMaximum
+  global applicationAutomatedWeaponWheel, applicationWeaponWheelCommands
+  global applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex
+  global applicationAutomatedChangeLevel, applicationAutomatedChangeLevelTriggered
+  global applicationAutomatedChangeLevelReached, applicationAutomatedChangeLevelTarget
+  global applicationLevelCapturePath, applicationLevelCaptureChecksum
+  global applicationLevelCaptureError, applicationPersistProductConfig
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   // Loading owns several large graphs at once and already collects at explicit
   // phase boundaries. Restore the release horizon in case a prior persistent
@@ -1935,6 +2164,19 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   appsession.setMapChecksum(session.server, applicationMapBytes)
   applicationMapBytes = void
   appplay.runUntilActive(session, 256)
+  if initialGameplayHandover is not void then
+    applicationGameplayRestore = try(appplayertransition.restore(
+      appgame.playerContext(), appgame.baseRuntime(), 0,
+      initialGameplayHandover))
+    if applicationGameplayRestore is error then
+      // No renderer/world/audio graph exists yet. Close both active lifecycle
+      // owners and reject the successor instead of running with partial state.
+      applicationGameplayRestoreRegistration = try(renderer.exports.EndRegistration())
+      applicationGameplayRestoreShutdown = try(appplay.shutdown(session))
+      previewFileSystem = void
+      return applicationGameplayRestore
+    end if
+  end if
   // Signon builds and discards several full snapshots/configstring messages.
   // Collect them before allocating the equally large render world.
   gc_collect()
@@ -2034,7 +2276,8 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   commandState.videoMode = productHost.videoMode
   commandState.fullScreen = productHost.fullScreen
   applicationConfigPath = playConfigPath(baseDirectory)
-  applicationConfigLoad = try(appuiconfig.loadProductConfig(applicationConfigPath))
+  applicationConfigLoad = try(appuiconfig.selectProductConfig(
+    applicationConfigPath, initialConfig))
   if applicationConfigLoad is error then
     appuiconsole.appendLine(screen.console,
       "Config ignored: " + applicationConfigLoad.message, 0)
@@ -2091,6 +2334,8 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   if applicationPlayerSkinIndex < len(applicationPlayerSkinItem.choices) then
     appuimenu.setItemValue(screen.menu, "player", "skin", applicationPlayerSkinIndex)
   end if
+  applicationCurrentPlayerProfile = appuicommands.playerProfile(
+    commandState, input)
   saveCheckpoints = array(3)
   applicationPersistentSlot = 0
   while applicationPersistentSlot < len(saveCheckpoints)
@@ -2175,6 +2420,94 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     appclientstate.setPredictionRealTime(session.client.integrated.client,
       started)
     appuicontroller.poll(input, screen, started)
+    // Retail acceptance hook for the exact wheel -> binding -> reliable
+    // command -> Game API -> client gun-model path. Widely spaced events let
+    // the stock lowering/activation animation complete between directions.
+    if applicationAutomatedWeaponWheel then
+      if frames == 16 then
+        applicationWeaponGiveResult = try(appclientsession.sendStringCommand(
+          session.client, "give all", appbyteio.truncInt(started)))
+      else if frames == 128 or frames == 384 then
+        applicationWeaponWheelValue = 255
+        if frames == 384 then applicationWeaponWheelValue = 1 end if
+        appuicontroller.handleEvent(input, screen,
+          appwindow.InputEvent(appuiconstants.EVENT_MOUSE_WHEEL, 0,
+            applicationWeaponWheelValue), appbyteio.truncInt(started))
+      else if frames == 640 then
+        applicationWeaponWheelBurst = 0
+        while applicationWeaponWheelBurst < 128
+          appuicontroller.handleEvent(input, screen,
+            appwindow.InputEvent(appuiconstants.EVENT_MOUSE_WHEEL, 0, 255),
+            appbyteio.truncInt(started))
+          applicationWeaponWheelBurst = applicationWeaponWheelBurst + 1
+        end while
+      end if
+    end if
+    // Exercise the retail target_changelevel -> intermission -> queued gamemap
+    // boundary without retaining this map's native stack frame. This is the
+    // exact base1 exit path, including its authored base2$base1 spawn point.
+    if applicationAutomatedChangeLevel and
+        not applicationAutomatedChangeLevelTriggered and frames == 32 then
+      applicationAutomatedChangeLevelTriggered = true
+      // Seed every stock cross-level client field before the real authored
+      // transition. runChangeLevelSmoke validates the successor's owned copy.
+      applicationHandoverSeedContext = appgame.playerContext()
+      applicationHandoverSeedRuntime = appgame.baseRuntime()
+      applicationHandoverSeedPlayer = applicationHandoverSeedContext.players[0]
+      applicationHandoverSeedRocket = appgameplayitems.findByPickupName(
+        applicationHandoverSeedContext.registry, "Rocket Launcher")
+      applicationHandoverSeedShotgun = appgameplayitems.findByPickupName(
+        applicationHandoverSeedContext.registry, "Shotgun")
+      applicationHandoverSeedRockets = appgameplayitems.findByPickupName(
+        applicationHandoverSeedContext.registry, "Rockets")
+      applicationHandoverSeedPlayer.health = 73
+      applicationHandoverSeedPlayer.maxHealth = 125
+      applicationHandoverSeedPlayer.persistent.health = 73
+      applicationHandoverSeedPlayer.persistent.maxHealth = 125
+      applicationHandoverSeedPlayer.gameplay.health = 73
+      applicationHandoverSeedPlayer.gameplay.maxHealth = 125
+      applicationHandoverSeedPlayer.gameplay.inventory.counts[
+        applicationHandoverSeedRocket.index] = 1
+      applicationHandoverSeedPlayer.gameplay.inventory.counts[
+        applicationHandoverSeedShotgun.index] = 1
+      applicationHandoverSeedPlayer.gameplay.inventory.counts[
+        applicationHandoverSeedRockets.index] = 37
+      applicationHandoverSeedPlayer.gameplay.inventory.maxBullets = 311
+      applicationHandoverSeedPlayer.gameplay.inventory.maxShells = 122
+      applicationHandoverSeedPlayer.gameplay.inventory.maxRockets = 77
+      applicationHandoverSeedPlayer.gameplay.inventory.maxGrenades = 66
+      applicationHandoverSeedPlayer.gameplay.inventory.maxCells = 333
+      applicationHandoverSeedPlayer.gameplay.inventory.maxSlugs = 88
+      applicationHandoverSeedPlayer.gameplay.inventory.selectedItem = applicationHandoverSeedRocket.index
+      applicationHandoverSeedPlayer.persistent.selectedItem = applicationHandoverSeedRocket.index
+      applicationHandoverSeedPlayer.gameplay.currentWeapon = applicationHandoverSeedRocket
+      applicationHandoverSeedPlayer.gameplay.lastWeapon = applicationHandoverSeedShotgun
+      applicationHandoverSeedPlayer.flags = applicationHandoverSeedPlayer.flags |
+        appgameplayconstants.FL_GODMODE | appgameplayconstants.FL_NOTARGET |
+        appgameplayconstants.FL_POWER_ARMOR
+      applicationHandoverSeedPlayer.gameplay.flags = applicationHandoverSeedPlayer.flags
+      applicationHandoverSeedPlayer.gameplay.powerCubes = 0x15
+      applicationHandoverSeedPlayer.persistent.score = 9
+      applicationHandoverSeedPlayer.respawn.score = 17
+      applicationHandoverSeedRuntime.world.serverFlags = 0x2a
+      applicationAutomatedChangeLevelResult = appcampaignprogression.driveToMap(
+        applicationHandoverSeedRuntime, applicationHandoverSeedContext,
+        applicationAutomatedChangeLevelTarget)
+      // The authored target chain may legitimately update game help while it
+      // opens intermission. Seed after that chain to test the map boundary.
+      applicationHandoverSeedRuntime.world.helpMessage1 = "handover help one"
+      applicationHandoverSeedRuntime.world.helpMessage2 = "handover help two"
+      applicationHandoverSeedRuntime.world.helpChanged = 3
+      applicationAutomatedChangeLevelReached = applicationAutomatedChangeLevelResult.reached
+      if applicationAutomatedChangeLevelReached then
+        applicationAutomatedChangeLevelContext = appgame.playerContext()
+        applicationAutomatedChangeLevelContext.exitIntermission = true
+      else
+        // Leave through the normal teardown path; the smoke wrapper reports
+        // the failed transition after audio, renderer and session cleanup.
+        commandState.quitRequested = true
+      end if
+    end if
     // Product-only acceptance hook: drive the same bound action that a real
     // mouse button uses, before sampling view/buttons into the network cmd.
     if applicationAutomatedProjectileAttack then
@@ -2210,6 +2543,7 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       else
         applicationProfileSent = try(appplay.setUserInfo(session,
           applicationUpdatedUserInfo))
+        applicationCurrentPlayerProfile = applicationUpdatedProfile
       end if
     end if
     if appuicommands.takeDisconnect(commandState) then
@@ -2219,7 +2553,10 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     if input.config.hand != applicationPublishedHand then
       appgl.setHandedness(renderer, input.config.hand)
       appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
-      if appplay.setUserInfo(session, playUserInfo(input.config.hand)) then
+      applicationCurrentPlayerProfile.hand = input.config.hand
+      applicationHandUserInfo = appstartup.playerUserInfo(
+        applicationCurrentPlayerProfile)
+      if appplay.setUserInfo(session, applicationHandUserInfo) then
         applicationPublishedHand = input.config.hand
       end if
     end if
@@ -2244,6 +2581,11 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     end if
     applicationForwardedCommands = appuicommands.takeForwarded(commandState)
     for each applicationForwardedCommand in applicationForwardedCommands
+      if applicationAutomatedWeaponWheel and
+          (applicationForwardedCommand == "weapnext" or
+           applicationForwardedCommand == "weapprev") then
+        applicationWeaponWheelCommands = applicationWeaponWheelCommands + 1
+      end if
       applicationForwardedResult = try(appclientsession.sendStringCommand(session.client,
         applicationForwardedCommand, appbyteio.truncInt(started)))
     end for
@@ -2351,8 +2693,19 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
         appuiconsole.appendLine(screen.console,
           "Video restart failed: " + applicationVideoRestartResult.message,
           appbyteio.truncInt(started))
-        commandState.quitRequested = true
-        continue
+        if productHost.closed then
+          commandState.quitRequested = true
+          continue
+        end if
+        commandState.videoMode = productHost.videoMode
+        commandState.fullScreen = productHost.fullScreen
+        commandState.configDirty = true
+        appuimenu.setItemValue(screen.menu, "video", "mode",
+          commandState.videoMode)
+        applicationRestoredFullscreen = 0
+        if commandState.fullScreen then applicationRestoredFullscreen = 1 end if
+        appuimenu.setItemValue(screen.menu, "video", "fullscreen",
+          applicationRestoredFullscreen)
       end if
       window = productHost.window
       renderer = productHost.renderer
@@ -2487,6 +2840,16 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       applyPlayHandoff(screen, latest)
       appclientassets.refreshConfigStrings(assetState,
         session.client.integrated.network.configStrings)
+      if applicationAutomatedWeaponWheel then
+        applicationWeaponGunIndex = session.client.integrated.client.current.playerState.gunIndex
+        if applicationWeaponGunIndex > 0 then
+          if applicationWeaponWheelLastGunIndex > 0 and
+              applicationWeaponGunIndex != applicationWeaponWheelLastGunIndex then
+            applicationWeaponWheelTransitions = applicationWeaponWheelTransitions + 1
+          end if
+          applicationWeaponWheelLastGunIndex = applicationWeaponGunIndex
+        end if
+      end if
       if appmediaseq.takeQueuedLoadMenu(session.server.bridgeRuntime.commands) then
         appuimenu.open(screen.menu, "load")
         appuikeys.setDestination(input, appuiconstants.KEY_MENU)
@@ -2613,6 +2976,27 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
       session.client.integrated.network.configStrings,
       session.client.integrated.client.current.number,
       session.client.integrated.network.playerNumber, renderer.exports)
+    // Gallery captures use the complete product framebuffer after world,
+    // entities, view weapon and HUD submission. Capture the final requested
+    // frame before the swap so the artifact matches an on-screen level start.
+    if applicationLevelCapturePath != "" and frameLimit > 0 and
+        frames + 1 >= frameLimit then
+      applicationLevelCaptureImage = try(
+        appcapture.readOpenGlFrame(window.width, window.height))
+      if applicationLevelCaptureImage is error then
+        applicationLevelCaptureError = applicationLevelCaptureImage
+      else
+        applicationLevelCaptureWrite = try(appcapture.writeTga(
+          applicationLevelCapturePath, applicationLevelCaptureImage))
+        if applicationLevelCaptureWrite is error then
+          applicationLevelCaptureError = applicationLevelCaptureWrite
+        else
+          applicationLevelCaptureChecksum = appcapture.rgbaChecksum(
+            applicationLevelCaptureImage)
+        end if
+      end if
+      applicationLevelCapturePath = ""
+    end if
     if applicationPendingSaveMetadataSlot >= 0 then
       applicationSaveCapture = try(appscreenshot.capture(
         applicationScreenshotState, window.width, window.height))
@@ -2746,6 +3130,20 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     applicationAudioUnderruns = appaudiodevice.underruns(audioDevice)
     applicationAudioCapacity = appaudiodevice.capacity(audioDevice)
   end if
+  // Capture at every state boundary, even when no dirty flag survived the
+  // final frame. The successor map consumes this object before consulting
+  // disk, while the atomic file is retained for process restart recovery.
+  applicationFinalProductConfig = appuiconfig.captureProductConfig(
+    input, commandState, audioMixer, screen)
+  applicationFinalProductConfigSave = true
+  if applicationPersistProductConfig then
+    applicationFinalProductConfigSave = try(appuiconfig.saveProductConfig(
+      applicationConfigPath, applicationFinalProductConfig))
+  end if
+  // The old and new sessions must never share mutable inventory storage. The
+  // typed handover owns its arrays before shutdown releases this Game API.
+  applicationFinalGameplayHandover = try(appplayertransition.capture(
+    appgame.playerContext(), appgame.baseRuntime(), 0))
   closePlayAudio(audioDevice, audioMixer)
   appclientassets.releaseBindings()
   if world is not void then appgl.releaseClassicWorld(renderer, world) end if
@@ -2770,9 +3168,11 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
   playAssetBindings = void
   playClientRuntime = void
   playEffectState = void
-  if applicationPendingMediaSpecification != "" then
-    runRetailMediaSequenceOnHost(baseDirectory, applicationPendingMediaSpecification,
-      frameLimit, productHost, applicationNextSkill)
+  if applicationFinalGameplayHandover is error then
+    return applicationFinalGameplayHandover
+  end if
+  if applicationLevelCaptureError is error then
+    return applicationLevelCaptureError
   end if
   return [frames, clientState, serverFrame, registeredModels,
     registeredSounds, missingAssets, submittedEntities,
@@ -2792,20 +3192,56 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     applicationHeapInputGrowth, applicationHeapClientGrowth,
     applicationHeapWorldGrowth, applicationHeapEntitiesGrowth,
     applicationHeapHudGrowth, applicationHeapAudioGrowth,
-    applicationPerfInput]
+    applicationPerfInput, applicationPendingMediaSpecification,
+    applicationNextSkill, applicationCurrentMapName,
+    applicationFinalProductConfig, applicationCurrentPlayerProfile,
+    applicationFinalGameplayHandover]
 end function
 
+// Report whether run play at on host configured with config.
+function runPlayAtOnHostConfiguredWithConfig(baseDirectory, mapName, spawnPoint,
+    frameLimit, productHost, skill, menuAtStart, serverOptions, playerProfile,
+    initialConfig)
+  return runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
+    frameLimit, productHost, skill, menuAtStart, serverOptions, playerProfile,
+    initialConfig, void)
+end function
+
+// Report whether run play at on host configured.
+function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
+    productHost, skill, menuAtStart, serverOptions, playerProfile)
+  return runPlayAtOnHostConfiguredWithConfig(baseDirectory, mapName, spawnPoint,
+    frameLimit, productHost, skill, menuAtStart, serverOptions, playerProfile,
+    void)
+end function
+
+// Report whether run play at on host.
 function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit,
     productHost, skill)
   return runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
     productHost, skill, true, void, appstartup.defaultPlayerProfile())
 end function
 
+// Run play at.
 function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   applicationPlayProductHost = appproducthost.openProductHost("MiniQuake2 - " + mapName,
     3, false, applicationRendererImports())
   applicationPlayProductResult = try(runPlayAtOnHost(baseDirectory, mapName,
     spawnPoint, frameLimit, applicationPlayProductHost, 1))
+  if applicationPlayProductResult is not error and
+      len(applicationPlayProductResult) >= 50 and
+      applicationPlayProductResult[44] != "" then
+    applicationPlayMediaResult = try(runRetailMediaSequenceOnHostWithState(baseDirectory,
+      applicationPlayProductResult[44], frameLimit,
+      applicationPlayProductHost, applicationPlayProductResult[45],
+      applicationPlayProductResult[47], applicationPlayProductResult[48],
+      applicationPlayProductResult[49]))
+    if applicationPlayMediaResult is error then
+      applicationPlayProductResult = applicationPlayMediaResult
+    else if applicationPlayMediaResult[6] is not void then
+      applicationPlayProductResult = applicationPlayMediaResult[6]
+    end if
+  end if
   // Preserve the primary render error while still unwinding the concrete GL
   // lifecycle. An error between BeginFrame and EndFrame otherwise makes
   // Shutdown replace the useful failure with "Shutdown called inside a frame".
@@ -2821,10 +3257,127 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   return applicationPlayProductResult
 end function
 
+// Run play.
 function runPlay(baseDirectory, mapName, frameLimit)
   return runPlayAt(baseDirectory, mapName, "", frameLimit)
 end function
 
+// Render one deterministic 1920x1080 product frame at an authored campaign
+// spawn without reading or overwriting the player's persistent configuration.
+function captureLevelStart(baseDirectory, mapName, outputPath, frameLimit)
+  global applicationLevelCapturePath, applicationLevelCaptureChecksum
+  global applicationLevelCaptureError, applicationPersistProductConfig
+  if typeof(outputPath) != "string" or outputPath == "" then
+    return error(9980, "level capture output path is required")
+  end if
+  if frameLimit < 1 or frameLimit > 1000 then
+    return error(9981, "level capture frame count outside [1,1000]")
+  end if
+  applicationLevelCaptureHost = appproducthost.openProductHost(
+    "MiniQuake2 level capture - " + mapName, 5, false,
+    applicationRendererImports())
+  applicationLevelCaptureConfig = appuiconfig.ProductConfig(
+    3.0, false, false, 0, 0.7, 5, false, 1.0, 1, false, [], false)
+  applicationLevelCapturePath = outputPath
+  applicationLevelCaptureChecksum = 0
+  applicationLevelCaptureError = void
+  applicationPersistProductConfig = false
+  applicationLevelCaptureResult = try(runPlayAtOnHostConfiguredWithConfig(
+    baseDirectory, mapName, "", frameLimit, applicationLevelCaptureHost, 1,
+    false, void, appstartup.defaultPlayerProfile(),
+    applicationLevelCaptureConfig))
+  applicationPersistProductConfig = true
+  applicationLevelCapturePath = ""
+  if applicationLevelCaptureResult is error and
+      applicationLevelCaptureHost.renderer.state.core.state.frameOpen then
+    applicationLevelCaptureEndFrame = try(
+      applicationLevelCaptureHost.renderer.exports.EndFrame())
+  end if
+  applicationLevelCaptureClose = try(
+    appproducthost.closeProductHost(applicationLevelCaptureHost))
+  if applicationLevelCaptureResult is error then
+    return applicationLevelCaptureResult
+  end if
+  if applicationLevelCaptureClose is error then
+    return applicationLevelCaptureClose
+  end if
+  return [applicationLevelCaptureResult[0], applicationLevelCaptureChecksum,
+    1920, 1080, applicationLevelCaptureResult[5]]
+end function
+
+// Run change level smoke.
+function runChangeLevelSmoke(baseDirectory, mapName, nextMap, frameLimit)
+  // Keep run change level smoke phases explicit: validate inputs, update owned state, then publish the result.
+  global applicationAutomatedChangeLevel, applicationAutomatedChangeLevelTriggered
+  global applicationAutomatedChangeLevelReached, applicationAutomatedChangeLevelTarget
+  if frameLimit < 180 then frameLimit = 180 end if
+  applicationAutomatedChangeLevel = true
+  applicationAutomatedChangeLevelTriggered = false
+  applicationAutomatedChangeLevelReached = false
+  applicationAutomatedChangeLevelTarget = nextMap
+  applicationChangeLevelSmokeResult = try(runPlayAt(baseDirectory, mapName,
+    "", frameLimit))
+  applicationAutomatedChangeLevel = false
+  applicationAutomatedChangeLevelTarget = ""
+  if applicationChangeLevelSmokeResult is error then
+    return applicationChangeLevelSmokeResult
+  end if
+  if not applicationAutomatedChangeLevelTriggered or
+      not applicationAutomatedChangeLevelReached then
+    return error(9933, "retail changelevel automation did not execute")
+  end if
+  if len(applicationChangeLevelSmokeResult) < 47 or
+      applicationChangeLevelSmokeResult[46] != nextMap then
+    return error(9934, "retail changelevel did not enter " + nextMap)
+  end if
+  if len(applicationChangeLevelSmokeResult) < 50 then
+    return error(9935, "retail changelevel did not return gameplay handover")
+  end if
+  applicationChangeLevelHandover = applicationChangeLevelSmokeResult[49]
+  if applicationChangeLevelHandover.health != 73 or
+      applicationChangeLevelHandover.maxHealth != 125 or
+      applicationChangeLevelHandover.maxBullets != 311 or
+      applicationChangeLevelHandover.maxShells != 122 or
+      applicationChangeLevelHandover.maxRockets != 77 or
+      applicationChangeLevelHandover.maxGrenades != 66 or
+      applicationChangeLevelHandover.maxCells != 333 or
+      applicationChangeLevelHandover.maxSlugs != 88 or
+      applicationChangeLevelHandover.powerCubes != 0x15 or
+      applicationChangeLevelHandover.persistentScore != 9 or
+      applicationChangeLevelHandover.respawnScore != 17 or
+      applicationChangeLevelHandover.serverFlags != 0x2a then
+    return error(9936, "retail successor lost scalar gameplay state")
+  end if
+  applicationChangeLevelRegistry = appgameplayregistry.baseq2Registry()
+  applicationChangeLevelRocket = appgameplayitems.findByPickupName(
+    applicationChangeLevelRegistry, "Rocket Launcher")
+  applicationChangeLevelShotgun = appgameplayitems.findByPickupName(
+    applicationChangeLevelRegistry, "Shotgun")
+  applicationChangeLevelRockets = appgameplayitems.findByPickupName(
+    applicationChangeLevelRegistry, "Rockets")
+  if applicationChangeLevelHandover.inventoryCounts[
+      applicationChangeLevelRocket.index] != 1 or
+      applicationChangeLevelHandover.inventoryCounts[
+      applicationChangeLevelRockets.index] != 37 or
+      applicationChangeLevelHandover.selectedItem !=
+      applicationChangeLevelRocket.index or
+      applicationChangeLevelHandover.currentWeaponIndex !=
+      applicationChangeLevelRocket.index or
+      applicationChangeLevelHandover.lastWeaponIndex !=
+      applicationChangeLevelShotgun.index or
+      (applicationChangeLevelHandover.savedFlags &
+        (appgameplayconstants.FL_GODMODE | appgameplayconstants.FL_NOTARGET |
+          appgameplayconstants.FL_POWER_ARMOR)) !=
+        (appgameplayconstants.FL_GODMODE | appgameplayconstants.FL_NOTARGET |
+          appgameplayconstants.FL_POWER_ARMOR) then
+    return error(9937, "retail successor lost inventory, weapon or flag state")
+  end if
+  return [mapName, nextMap, applicationChangeLevelSmokeResult[0],
+    applicationChangeLevelSmokeResult[2],
+    applicationChangeLevelSmokeResult[27]]
+end function
+
+// Run projectile visual smoke.
 function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
   global applicationAutomatedProjectileAttack, applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum, applicationProjectileParticleMaximum, applicationProjectileServerMaximum, applicationProjectileAttackCommands, applicationProjectileExportMaximum, applicationProjectileVisibleMaximum, applicationProjectileVisibilityDiagnostic, applicationProjectileLastEngineNumber
   if frameLimit < 240 then frameLimit = 240 end if
@@ -2850,6 +3403,23 @@ function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
     applicationProjectileVisibilityDiagnostic]
 end function
 
+// Run weapon wheel smoke.
+function runWeaponWheelSmoke(baseDirectory, mapName, frameLimit)
+  global applicationAutomatedWeaponWheel, applicationWeaponWheelCommands
+  global applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex
+  if frameLimit < 900 then frameLimit = 900 end if
+  applicationWeaponWheelCommands = 0
+  applicationWeaponWheelTransitions = 0
+  applicationWeaponWheelLastGunIndex = -1
+  applicationAutomatedWeaponWheel = true
+  applicationWeaponWheelResult = try(runPlayAt(baseDirectory, mapName, "", frameLimit))
+  applicationAutomatedWeaponWheel = false
+  if applicationWeaponWheelResult is error then return applicationWeaponWheelResult end if
+  return [applicationWeaponWheelResult, applicationWeaponWheelCommands,
+    applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex]
+end function
+
+// Map remote model path.
 function remoteMapModelPath(session)
   applicationRemoteMapIndex = appqconstants.CS_MODELS + 1
   applicationRemoteConfigStrings = session.integrated.network.configStrings
@@ -2863,6 +3433,7 @@ function remoteMapModelPath(session)
   return applicationRemoteMapName
 end function
 
+// Register application remote world.
 function applicationRegisterRemoteWorld()
   global previewFileSystem, playAssetState, playAssetBindings
   global applicationRemoteRegistrationSession
@@ -2923,6 +3494,7 @@ end function
 // validation and all client assets complete successfully.
 function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     playerProfile, downloadPolicy, frameLimit)
+  // Keep run remote product on host phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
     return error(9976, "remote product frame limit outside [0,36000]")
   end if
@@ -3366,6 +3938,7 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     applicationRemoteCommands.quitRequested, applicationRemoteMapPath]
 end function
 
+// Run remote product smoke.
 function runRemoteProductSmoke(baseDirectory, endpoint, frameLimit)
   applicationRemoteSmokeHost = appproducthost.openProductHost(
     "MiniQuake2 Remote Smoke", 3, false, applicationRendererImports())
@@ -3377,6 +3950,7 @@ function runRemoteProductSmoke(baseDirectory, endpoint, frameLimit)
   return applicationRemoteSmokeResult
 end function
 
+// Run product.
 function runProduct(baseDirectory, frameLimit)
   if not appstartup.retailRootValid(baseDirectory) then
     return error(9965, "MiniQuake2 product requires a Quake II root containing baseq2/pak0.pak")
@@ -3473,11 +4047,12 @@ function runProduct(baseDirectory, frameLimit)
     if applicationPersistentSelection.action == "server" then
       applicationPersistentServerOptions = applicationPersistentSelection.serverOptions
     end if
-    applicationPersistentPlayResult = try(runPlayAtOnHostConfigured(
+    applicationPersistentPlayResult = try(runPlayAtOnHostConfiguredWithConfig(
       baseDirectory, applicationPersistentSelection.mapName, "", 0,
       applicationPersistentHost, applicationPersistentSelection.skill,
       false, applicationPersistentServerOptions,
-      applicationPersistentProfile))
+      applicationPersistentProfile,
+      applicationPersistentSelection.productConfig))
     if applicationPersistentPlayResult is error then
       if applicationPersistentHost.renderer.state.core.state.frameOpen then
         applicationPersistentPlayEndFrame = try(
@@ -3490,6 +4065,36 @@ function runProduct(baseDirectory, frameLimit)
     applicationPersistentRuns = applicationPersistentRuns + 1
     applicationPersistentGameplayFrames = applicationPersistentGameplayFrames +
       applicationPersistentPlayResult[0]
+    if len(applicationPersistentPlayResult) >= 49 then
+      applicationPersistentProfile = applicationPersistentPlayResult[48]
+    end if
+    if len(applicationPersistentPlayResult) >= 50 and
+        applicationPersistentPlayResult[44] != "" then
+      applicationPersistentMediaResult = try(runRetailMediaSequenceOnHostWithState(
+        baseDirectory, applicationPersistentPlayResult[44], 0,
+        applicationPersistentHost, applicationPersistentPlayResult[45],
+        applicationPersistentPlayResult[47], applicationPersistentPlayResult[48],
+        applicationPersistentPlayResult[49]))
+      if applicationPersistentMediaResult is error then
+        if applicationPersistentHost.renderer.state.core.state.frameOpen then
+          applicationPersistentMediaEndFrame = try(
+            applicationPersistentHost.renderer.exports.EndFrame())
+        end if
+        applicationPersistentMediaClose = try(
+          appproducthost.closeProductHost(applicationPersistentHost))
+        return applicationPersistentMediaResult
+      end if
+      applicationPersistentRuns = applicationPersistentRuns +
+        applicationPersistentMediaResult[3]
+      applicationPersistentGameplayFrames = applicationPersistentGameplayFrames +
+        applicationPersistentMediaResult[7]
+      if applicationPersistentMediaResult[6] is not void then
+        applicationPersistentPlayResult = applicationPersistentMediaResult[6]
+      end if
+      if len(applicationPersistentMediaResult) >= 10 then
+        applicationPersistentProfile = applicationPersistentMediaResult[9]
+      end if
+    end if
     if len(applicationPersistentPlayResult) < 19 or
         not applicationPersistentPlayResult[18] then
       applicationPersistentDone = true
@@ -3501,6 +4106,7 @@ function runProduct(baseDirectory, frameLimit)
     applicationPersistentGameplayFrames]
 end function
 
+// Run dedicated.
 function runDedicated(baseDirectory, mapName, port, frameLimit)
   session = appsession.createRetail(baseDirectory, mapName, "0.0.0.0", port, 4, true)
   print "MiniQuake2 dedicated server listening: " + session.socket.address + ":" + session.socket.port
@@ -3510,6 +4116,7 @@ function runDedicated(baseDirectory, mapName, port, frameLimit)
   return [frames, session.packetsReceived, session.packetsSent, session.packetsRejected]
 end function
 
+// Run headless client.
 function runHeadlessClient(address, port, frameLimit)
   session = appclientsession.create(address, port, "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000", 0)
   print "MiniQuake2 Protocol-34 client connecting: " + address + ":" + port
@@ -3520,6 +4127,7 @@ function runHeadlessClient(address, port, frameLimit)
   return [frames, state, parsed, session.packetsReceived, session.packetsSent, session.packetsRejected]
 end function
 
+// Run listen.
 function runListen(baseDirectory, mapName, frameLimit)
   server = appsession.createRetail(baseDirectory, mapName, "127.0.0.1", 0, 1, false)
   client = appclientsession.create("127.0.0.1", server.socket.port,

@@ -7,12 +7,14 @@ package miniquake2.platform.udp
 
 import miniquake2.native as native
 
+// Store datagram data.
 struct Datagram
   data
   address
   port
 end struct
 
+// Store socket data.
 struct Socket
   handle
   address
@@ -20,6 +22,7 @@ struct Socket
   closed
 end struct
 
+// Open state.
 function open(address, port)
   if port < 0 or port > 65535 then return error(2910, "UDP port outside range") end if
   handle = native.udpOpenBound(port, address)
@@ -27,11 +30,13 @@ function open(address, port)
   return Socket(handle, native.udpBoundAddress(handle), native.udpBoundPort(handle), false)
 end function
 
+// Close state.
 function close(socket)
   if socket.closed == false then native.udpClose(socket.handle); socket.closed = true end if
   return true
 end function
 
+// Return the enable broadcast value.
 function enableBroadcast(socket)
   if socket.closed then return error(2912, "UDP socket is closed") end if
   if native.udpEnableBroadcast(socket.handle) == 0 then
@@ -40,6 +45,7 @@ function enableBroadcast(socket)
   return true
 end function
 
+// Resolve name.
 function resolveName(name)
   if typeof(name) != "string" or name == "" then
     return error(2918, "UDP host name is empty")
@@ -51,6 +57,7 @@ function resolveName(name)
   return value
 end function
 
+// Send state.
 function send(socket, address, port, data)
   if socket.closed then return error(2912, "UDP socket is closed") end if
   if typeof(data) != "bytes" then return error(2913, "UDP payload must be bytes") end if
@@ -59,6 +66,7 @@ function send(socket, address, port, data)
   return result
 end function
 
+// Receive state.
 function receive(socket, capacity)
   if socket.closed then return error(2915, "UDP socket is closed") end if
   if capacity <= 0 or capacity > 65535 then return error(2916, "UDP receive capacity outside range") end if
@@ -70,6 +78,7 @@ function receive(socket, capacity)
   return Datagram(payload, native.udpLastAddress(), native.udpLastPort())
 end function
 
+// Report whether pending.
 function pending(socket)
   if socket.closed then return false end if
   return native.udpPeek(socket.handle) > 0
