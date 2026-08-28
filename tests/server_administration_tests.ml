@@ -17,6 +17,14 @@ import miniquake2.platform.udp as admintestudp
 import miniquake2.platform.system as admintestsystem
 import miniquake2.network.runtime.pump as admintestpump
 
+adminDisconnectState = [0]
+
+// Record an operator-initiated game disconnect.
+function recordAdminDisconnect(slot)
+  adminDisconnectState[0] = adminDisconnectState[0] + 1
+  return slot
+end function
+
 // Assert the admin test condition.
 function adminAssert(value, message)
   if not value then return error(9988, message) end if
@@ -171,6 +179,27 @@ function testMasters()
   return true
 end function
 
+// Verify local and RCON operator client administration.
+function testClientOperators()
+  runtime = makeAdminRuntime(true)
+  adminDisconnectState[0] = 0
+  runtime.callbacks.clientDisconnect = recordAdminDisconnect
+  runtime.server.clients[1].state = admintestnc.CS_SPAWNED
+  runtime.server.clients[1].name = "Bitterman"
+  runtime.server.clients[1].userInfo = "\\name\\Bitterman\\skin\\male/grunt"
+  dumped = admintestcommands.executeOperator(runtime, "dumpuser bitterman")
+  adminAssert(adminContains(dumped, "\\skin\\male/grunt"),
+    "dumpuser omitted client userinfo")
+  kicked = admintestcommands.executeOperator(runtime, "kick 1")
+  adminAssert(adminContains(kicked, "Bitterman"), "kick result omitted player")
+  adminEqual(adminDisconnectState[0], 1, "kick game disconnect callback")
+  adminEqual(runtime.server.clients[1].state, admintestnc.CS_FREE,
+    "kick did not free client slot")
+  adminAssert(adminContains(admintestcommands.executeOperator(runtime,
+    "kick missing"), "Couldn't find"), "missing kick selector")
+  return true
+end function
+
 // Verify master udp lifecycle.
 function testMasterUdpLifecycle()
   masterSocket = admintestudp.open("127.0.0.1", 0)
@@ -205,5 +234,6 @@ end function
 testFiltersAndPersistence()
 testConnectFilterAndRcon()
 testMasters()
+testClientOperators()
 testMasterUdpLifecycle()
 print "server_administration_tests: PASS"

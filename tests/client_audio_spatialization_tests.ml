@@ -10,6 +10,8 @@ import miniquake2.client.effects.types as casttypes
 import miniquake2.client.effects.audio as castaudio
 import miniquake2.client.effects.state as caststate
 import miniquake2.client.effects.mixer_adapter as castadapter
+import miniquake2.client.runtime.types as castruntimetypes
+import miniquake2.protocol.types as castprotocoltypes
 
 castSound = castwav.WavSound("unit.wav", 8000, 1, 1, 64, -1,
   bytes(64))
@@ -107,6 +109,26 @@ castadapter.respatializeDynamic(castMixer, castResolvePosition,
   castqtypes.zeroVec3(), castqtypes.Vec3(1.0, 0.0, 0.0), 1)
 castAssert(not castMixer.channels[0].active,
   "inaudible dynamic channel is released")
+
+// Stock S_AddLoopSounds clears EntityState autosounds while cl_paused.
+castLoopEntity = castprotocoltypes.zeroEntityState()
+castLoopEntity.number = 2; castLoopEntity.sound = 7
+castLoopSnapshot = castruntimetypes.Snapshot(1, 0, 0, bytes([]), void,
+  [castLoopEntity])
+castAssert(castadapter.syncEntityLoopsPaused(castMixer, castLoopSnapshot,
+  false) == 1, "active snapshot starts autosound")
+castAutoActive = false
+for each castChannel in castMixer.channels
+  if castChannel.active and castChannel.autoSound then castAutoActive = true end if
+end for
+castAssert(castAutoActive, "active autosound channel exists")
+castAssert(castadapter.syncEntityLoopsPaused(castMixer, castLoopSnapshot,
+  true) == 0, "paused snapshot emits no autosound")
+castAutoActive = false
+for each castChannel in castMixer.channels
+  if castChannel.active and castChannel.autoSound then castAutoActive = true end if
+end for
+castAssert(not castAutoActive, "pause clears prior autosound channel")
 
 castEntityPosition = castqtypes.Vec3(100.0, 0.0, 0.0)
 castDelayed = casttypes.SoundEvent(void, 2, 5, 7, "", 1.0, 1.0, 0.01)

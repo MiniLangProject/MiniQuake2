@@ -76,6 +76,7 @@ struct IntegratedBaseQ2
   edictFreeTimes
   edictUseHistory
   pusherTriggerTouch
+  frameDispatchProbe
 end struct
 
 // Store integrated dynamic clip data.
@@ -451,7 +452,11 @@ function worldEntity(baseEdict)
   parsedGravity = try(toNumber(source.spawnTemp.gravity))
   if typeof(parsedGravity) == "int" or typeof(parsedGravity) == "float" then
     entity.gravity = parsedGravity
+  else if source.spawnTemp.gravitySpecified then
+    // C's atoi returns zero for malformed authored values.
+    entity.gravity = 0.0
   end if
+  entity.gravitySpecified = source.spawnTemp.gravitySpecified
   entity.moveInfo.distance = source.spawnTemp.distance
   entity.pauseTime = source.spawnTemp.pauseTime
   if source.className == "turret_breach" then
@@ -2638,7 +2643,13 @@ function integratedWeaponEffect(effect)
   else
     ibWeaponEffectImportsHolder.writePosition(effect.endPosition)
   end if
-  return ibWeaponEffectImportsHolder.multicast(effect.endPosition, ibWeaponEffectDestination)
+  ibWeaponEffectMulticastOrigin = effect.endPosition
+  if ibWeaponEffectKind == "rail-trail" or
+      ibWeaponEffectKind == "rail-trail-water" then
+    ibWeaponEffectMulticastOrigin = effect.normal
+  end if
+  return ibWeaponEffectImportsHolder.multicast(ibWeaponEffectMulticastOrigin,
+    ibWeaponEffectDestination)
 end function
 
 // Return the integrated damage effect value.
@@ -3319,7 +3330,8 @@ function create(spawnResult)
   end if
   playerTrail = ibaitrail.create(true)
   runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void,
-    ibCreateRandomStateHolder, playerTrail, false, void, 0, [], 0, [], [], void)
+    ibCreateRandomStateHolder, playerTrail, false, void, 0, [], 0, [], [], void,
+    void)
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
   for each preparedActor in runtime.monsters
@@ -3789,7 +3801,6 @@ function syncPlayers(runtime, playerContext)
   runtime.collisionWorldReady = playerContext.imports.collisionWorldReady()
   runtime.weaponContext.deathmatch = playerContext.deathmatch
   runtime.playerTrail.active = not playerContext.deathmatch
-  sightClient = void
   for each player in playerContext.players
     actor = findAIPlayer(runtime, player.edict.state.number)
     if actor is void then
@@ -3806,10 +3817,37 @@ function syncPlayers(runtime, playerContext)
     if actor.lightLevel <= 5 then actor.lightLevel = 128 end if
     actor.isClient = true
     actor.isMonster = false
-    if sightClient is void and player.edict.inUse and player.persistent.connected and player.health > 0 and player.respawn.spectator != true then sightClient = actor end if
   end for
-  runtime.aiContext.sightClient = sightClient
   return len(runtime.aiPlayers)
+end function
+
+// Rotate the one client considered by FindTarget this frame exactly like
+// g_ai.c:AI_SetSightClient. Client slots, not the managed array order, define
+// the sequence and FL_NOTARGET clients do not consume another player's turn.
+function selectSightClient(runtime, playerContext)
+  start = 1
+  if runtime.aiContext.sightClient is not void then
+    start = runtime.aiContext.sightClient.edict.state.number
+  end if
+  check = start
+  scanned = 0
+  while scanned < runtime.maxClients
+    check = check + 1
+    if check > runtime.maxClients then check = 1 end if
+    candidatePlayer = void
+    for each player in playerContext.players
+      if player.edict.state.number == check then candidatePlayer = player; break end if
+    end for
+    if candidatePlayer is not void and candidatePlayer.edict.inUse and
+        candidatePlayer.persistent.connected and candidatePlayer.health > 0 and
+        (candidatePlayer.flags & ibaiconstants.FL_NOTARGET) == 0 then
+      runtime.aiContext.sightClient = findAIPlayer(runtime, check)
+      return runtime.aiContext.sightClient
+    end if
+    scanned = scanned + 1
+  end while
+  runtime.aiContext.sightClient = void
+  return void
 end function
 
 // Update player trail.
@@ -5455,6 +5493,63 @@ function touchWorldTossTriggers(runtime, entity)
   return touched
 end function
 
+// Adapt a managed projectile to the stock world-trigger callback surface after
+// SV_PushEntity linked its final pose. Trigger mutations are copied back to the
+// authoritative projectile record before the next physics frame.
+function touchWeaponProjectileTriggers(runtime, projectile)
+  if runtime is void or runtime.playerContext is void or
+      runtime.exportTable is void or projectile is void or
+      not projectile.inUse or projectile.engineNumber < 0 or
+      projectile.engineNumber >= runtime.exportTable.numEdicts then return 0 end if
+  projectileEdict = runtime.exportTable.edicts[projectile.engineNumber]
+  candidates = runtime.playerContext.imports.boxEdicts(projectileEdict.absoluteMins,
+    projectileEdict.absoluteMaxs, 2)
+  proxy = ibwtypes.createEntity(projectile.engineNumber,
+    projectile.className)
+  proxy.origin = projectile.origin; proxy.angles = projectile.angles
+  proxy.velocity = projectile.velocity
+  proxy.mins = projectile.mins; proxy.maxs = projectile.maxs
+  proxy.solid = projectile.solid; proxy.moveType = projectile.moveType
+  proxy.gravity = projectile.gravity
+  touched = 0
+  for each candidateEdict in candidates
+    if candidateEdict.inUse and
+        candidateEdict.state.number != projectile.engineNumber then
+      trigger = ibworld.findByNumber(runtime.world,
+        candidateEdict.state.number)
+      if trigger is not void and ibworld.touchEntity(runtime.world, trigger,
+          proxy) then touched = touched + 1 end if
+    end if
+  end for
+  projectile.velocity = proxy.velocity
+  projectile.gravity = proxy.gravity
+  return touched
+end function
+
+// Dispatch G_TouchTriggers for a dropped item's newly linked toss position.
+function touchDroppedItemTriggers(runtime, item)
+  if runtime is void or runtime.playerContext is void or item is void or
+      not item.edict.inUse then return 0 end if
+  candidates = runtime.playerContext.imports.boxEdicts(item.edict.absoluteMins,
+    item.edict.absoluteMaxs, 2)
+  proxy = ibwtypes.createEntity(item.edict.state.number, item.item.className)
+  proxy.origin = item.edict.state.origin; proxy.oldOrigin = item.edict.state.oldOrigin
+  proxy.velocity = item.velocity; proxy.mins = item.edict.mins
+  proxy.maxs = item.edict.maxs; proxy.solid = item.edict.solid
+  proxy.moveType = ibworldconstants.MOVETYPE_TOSS; proxy.gravity = item.gravity
+  touched = 0
+  for each candidateEdict in candidates
+    if candidateEdict.inUse and
+        candidateEdict.state.number != item.edict.state.number then
+      trigger = ibworld.findByNumber(runtime.world, candidateEdict.state.number)
+      if trigger is not void and ibworld.touchEntity(runtime.world, trigger,
+          proxy) then touched = touched + 1 end if
+    end if
+  end for
+  item.velocity = proxy.velocity; item.gravity = proxy.gravity
+  return touched
+end function
+
 // Dispatch the post-commit G_TouchTriggers pass for every pusher body kind.
 // PlayerData, Actor and WorldEntity retain different authoritative shapes, so
 // each branch reuses its normal trigger adapter instead of leaking snapshots.
@@ -5475,14 +5570,16 @@ function touchPushedBody(runtime, kind, value)
 end function
 
 // Advance world toss entities.
-function advanceWorldTossEntities(runtime)
+function advanceWorldTossEntitiesAtNumber(runtime, requestedNumber)
   // Keep advance world toss entities phases explicit: validate inputs, update owned state, then publish the result.
   if runtime.playerContext is void or runtime.exportTable is void then return 0 end if
   moved = 0
   imports = runtime.playerContext.imports
   for each entity in runtime.world.entities
-    if entity.inUse and (entity.moveType == ibworldconstants.MOVETYPE_TOSS or
-        entity.moveType == ibworldconstants.MOVETYPE_BOUNCE) then
+    if (requestedNumber < 0 or entity.number == requestedNumber) and
+        entity.inUse and (entity.moveType == ibworldconstants.MOVETYPE_TOSS or
+        entity.moveType == ibworldconstants.MOVETYPE_BOUNCE) and
+        (entity.flags & ibworldconstants.FL_TEAMSLAVE) == 0 then
       if entity.velocity.z > 0.0 then entity.groundEntity = void end if
       if entity.groundEntity is not void then
         groundInUse = try(entity.groundEntity.inUse)
@@ -5493,7 +5590,7 @@ function advanceWorldTossEntities(runtime)
         entity.oldOrigin.y = entity.origin.y
         entity.oldOrigin.z = entity.origin.z
         entity.velocity.z = entity.velocity.z -
-          runtime.playerContext.gravity * runtime.world.frameTime
+          runtime.playerContext.gravity * entity.gravity * runtime.world.frameTime
         finish = ibwpvector.multiplyAdd(entity.origin, runtime.world.frameTime,
           entity.velocity)
         passEdict = void
@@ -5501,12 +5598,7 @@ function advanceWorldTossEntities(runtime)
           passEdict = runtime.exportTable.edicts[entity.number]
         end if
         mask = entity.clipMask
-        if mask == 0 then
-          mask = ibqconstants.MASK_SOLID
-          if (entity.serverFlags & ibworldconstants.SVF_MONSTER) != 0 then
-            mask = ibqconstants.MASK_MONSTERSOLID
-          end if
-        end if
+        if mask == 0 then mask = ibqconstants.MASK_SOLID end if
         trace = imports.trace(entity.origin, entity.mins, entity.maxs,
           finish, passEdict, mask)
         entity.origin.x = trace.endPosition.x
@@ -5536,11 +5628,69 @@ function advanceWorldTossEntities(runtime)
         updateWorldTossWater(runtime, entity, entity.oldOrigin)
         runtime.world.callbacks.linkEntity(entity)
         if entity.inUse then touchWorldTossTriggers(runtime, entity) end if
+        slave = entity.teamChain
+        while slave is not void
+          slave.origin.x = entity.origin.x; slave.origin.y = entity.origin.y
+          slave.origin.z = entity.origin.z
+          runtime.world.callbacks.linkEntity(slave)
+          slave = slave.teamChain
+        end while
         moved = moved + 1
       end if
     end if
   end for
   return moved
+end function
+
+// Advance every managed world toss entity (compatibility/test entry point).
+function advanceWorldTossEntities(runtime)
+  return advanceWorldTossEntitiesAtNumber(runtime, -1)
+end function
+
+// Advance weapon projectiles.
+function advanceWeaponProjectileAtNumber(runtime, requestedNumber)
+  context = runtime.weaponContext
+  context.time = runtime.world.time
+  for each projectile in context.projectiles
+    if projectile.inUse and projectile.engineNumber == requestedNumber then
+      progressed = true
+      guard = 0
+      while progressed and guard < 1024
+        progressed = false; guard = guard + 1
+        if projectile.inUse and projectile.think is not void and
+            projectile.nextThink > 0.0 and
+            projectile.nextThink <= context.time + 0.00001 then
+          projectile.nextThink = 0.0
+          projectile.think(projectile, context)
+          progressed = true
+        end if
+      end while
+      if projectile.inUse then
+        ibwpprojectiles.advanceProjectile(context, projectile)
+        if projectile.inUse then
+          touchWeaponProjectileTriggers(runtime, projectile)
+        end if
+      end if
+      return true
+    end if
+  end for
+  return false
+end function
+
+// Remove projectile records released during the numeric edict pass.
+function compactWeaponProjectiles(runtime)
+  context = runtime.weaponContext
+  activeProjectiles = array(len(context.projectiles))
+  activeProjectileCount = 0
+  for each retainedProjectile in context.projectiles
+    if retainedProjectile.inUse then
+      activeProjectiles[activeProjectileCount] = retainedProjectile
+      activeProjectileCount = activeProjectileCount + 1
+    end if
+  end for
+  context.projectiles = compactIntegratedValues(activeProjectiles,
+    activeProjectileCount)
+  return activeProjectileCount
 end function
 
 // Advance weapon projectiles.
@@ -5551,31 +5701,28 @@ function advanceWeaponProjectiles(runtime)
   // prevents an expiring grenade from moving one extra frame before exploding.
   ibwpcore.runDueThinks(context)
   for each projectile in context.projectiles
-    if projectile.inUse then ibwpprojectiles.advanceProjectile(context, projectile) end if
+    if projectile.inUse then
+      ibwpprojectiles.advanceProjectile(context, projectile)
+      if projectile.inUse then touchWeaponProjectileTriggers(runtime,
+        projectile) end if
+    end if
   end for
   // The C game reuses freed edicts. Managed projectiles are private records,
   // so drop inactive entries after all due thinks instead of retaining every
   // projectile ever fired for the lifetime of the level.
-  activeProjectiles = array(len(context.projectiles))
-  activeProjectileCount = 0
-  for each retainedProjectile in context.projectiles
-    if retainedProjectile.inUse then
-      activeProjectiles[activeProjectileCount] = retainedProjectile
-      activeProjectileCount = activeProjectileCount + 1
-    end if
-  end for
-  context.projectiles = compactIntegratedValues(activeProjectiles, activeProjectileCount)
+  compactWeaponProjectiles(runtime)
   return true
 end function
 
 // Advance dropped items.
-function advanceDroppedItems(runtime)
+function advanceDroppedItemsAtNumber(runtime, requestedNumber)
   // Keep advance dropped items phases explicit: validate inputs, update owned state, then publish the result.
   if runtime.playerContext is void then return 0 end if
   imports = runtime.playerContext.imports
   moved = 0
   for each item in runtime.items
-    if item.edict.inUse and
+    if (requestedNumber < 0 or item.edict.state.number == requestedNumber) and
+        item.edict.inUse and
         (item.spawnFlags & (ibgpconstants.DROPPED_ITEM |
           ibgpconstants.DROPPED_PLAYER_ITEM)) != 0 then
       if item.owner is not void and item.nextThink > 0.0 and
@@ -5589,40 +5736,73 @@ function advanceDroppedItems(runtime)
         item.edict.inUse = false
         item.edict.solid = ibgconstants.SOLID_NOT
         imports.unlinkEntity(item.edict)
-      else if item.velocity.x != 0.0 or item.velocity.y != 0.0 or
-          item.velocity.z != 0.0 then
-        state = item.edict.state
-        state.oldOrigin = ibqtypes.Vec3(state.origin.x, state.origin.y,
-          state.origin.z)
-        item.velocity.z = item.velocity.z - runtime.playerContext.gravity *
-          runtime.world.frameTime
-        finish = ibqtypes.Vec3(
-          state.origin.x + item.velocity.x * runtime.world.frameTime,
-          state.origin.y + item.velocity.y * runtime.world.frameTime,
-          state.origin.z + item.velocity.z * runtime.world.frameTime)
-        trace = imports.trace(state.origin, item.edict.mins, item.edict.maxs,
-          finish, item.edict, ibqconstants.MASK_SOLID)
-        state.origin = ibqtypes.Vec3(trace.endPosition.x,
-          trace.endPosition.y, trace.endPosition.z)
-        item.edict.state = state
-        if trace.fraction < 1.0 then
-          normal = trace.plane.normal
-          backoff = item.velocity.x * normal.x +
-            item.velocity.y * normal.y + item.velocity.z * normal.z
-          item.velocity.x = item.velocity.x - normal.x * backoff
-          item.velocity.y = item.velocity.y - normal.y * backoff
-          item.velocity.z = item.velocity.z - normal.z * backoff
-          if normal.z > 0.7 then
-            item.velocity.x = 0.0; item.velocity.y = 0.0
-            item.velocity.z = 0.0
+      else
+        if item.velocity.z > 0.0 then item.groundEntity = void end if
+        if item.groundEntity is not void then
+          groundInUse = try(item.groundEntity.inUse)
+          groundLinkCount = try(item.groundEntity.linkCount)
+          if groundInUse == false or groundLinkCount is error or
+              groundLinkCount != item.groundLinkCount then
+            item.groundEntity = void; item.groundLinkCount = 0
           end if
         end if
-        imports.linkEntity(item.edict)
-        moved = moved + 1
+        if item.groundEntity is void then
+          state = item.edict.state
+          state.oldOrigin = ibqtypes.Vec3(state.origin.x, state.origin.y,
+            state.origin.z)
+          item.velocity.z = item.velocity.z - runtime.playerContext.gravity *
+            item.gravity * runtime.world.frameTime
+          finish = ibqtypes.Vec3(
+            state.origin.x + item.velocity.x * runtime.world.frameTime,
+            state.origin.y + item.velocity.y * runtime.world.frameTime,
+            state.origin.z + item.velocity.z * runtime.world.frameTime)
+          trace = imports.trace(state.origin, item.edict.mins, item.edict.maxs,
+            finish, item.edict, ibqconstants.MASK_SOLID)
+          state.origin = ibqtypes.Vec3(trace.endPosition.x,
+            trace.endPosition.y, trace.endPosition.z)
+          item.edict.state = state
+          if trace.fraction < 1.0 then
+            normal = trace.plane.normal
+            backoff = item.velocity.x * normal.x +
+              item.velocity.y * normal.y + item.velocity.z * normal.z
+            item.velocity.x = item.velocity.x - normal.x * backoff
+            item.velocity.y = item.velocity.y - normal.y * backoff
+            item.velocity.z = item.velocity.z - normal.z * backoff
+            if normal.z > 0.7 then
+              item.velocity.x = 0.0; item.velocity.y = 0.0
+              item.velocity.z = 0.0
+              item.groundEntity = trace.entity
+              item.groundLinkCount = 0
+              if trace.entity is not void then
+                item.groundLinkCount = trace.entity.linkCount
+              end if
+            end if
+          end if
+          wasInWater = (item.waterType & ibqconstants.MASK_WATER) != 0
+          item.waterType = imports.pointContents(state.origin)
+          isInWater = (item.waterType & ibqconstants.MASK_WATER) != 0
+          item.waterLevel = 0
+          if isInWater then item.waterLevel = 1 end if
+          if wasInWater != isInWater and runtime.exportTable.numEdicts > 0 then
+            soundOrigin = state.origin
+            if not wasInWater and isInWater then soundOrigin = state.oldOrigin end if
+            imports.positionedSound(soundOrigin, runtime.exportTable.edicts[0],
+              ibgconstants.CHAN_AUTO, imports.soundIndex("misc/h2ohit1.wav"),
+              1.0, ibgconstants.ATTN_NORM, 0.0)
+          end if
+          imports.linkEntity(item.edict)
+          if item.edict.inUse then touchDroppedItemTriggers(runtime, item) end if
+          moved = moved + 1
+        end if
       end if
     end if
   end for
   return moved
+end function
+
+// Advance every dropped item (compatibility/test entry point).
+function advanceDroppedItems(runtime)
+  return advanceDroppedItemsAtNumber(runtime, -1)
 end function
 
 // Return the deathmatch inhibits item value.
@@ -5775,38 +5955,141 @@ function respawnTeamItem(runtime, itemEntity)
   return true
 end function
 
-// Run frame.
+// Record an optional scheduler probe without allocating in production frames.
+function recordFrameDispatch(runtime, number, kind)
+  probe = try(runtime.frameDispatchProbe)
+  if typeof(probe) != "function" then return false end if
+  callback = probe
+  callback(number, kind)
+  return true
+end function
+
+// Run one ordinary world think at its global edict slot.
+function runWorldThinkAtNumber(runtime, entity)
+  if entity is void or not entity.inUse or entity.think is void or
+      entity.nextThink <= 0.0 or
+      entity.nextThink > runtime.world.time + 0.00001 then return false end if
+  callback = entity.think
+  entity.nextThink = 0.0
+  runtime.world.currentEntity = entity
+  callback(entity, runtime.world)
+  runtime.world.currentEntity = void
+  return true
+end function
+
+// Run one monster at its global edict slot.
+function runMonsterAtNumber(runtime, number)
+  actor = integratedMonsterByNumber(runtime, number)
+  if actor is void or not actor.edict.inUse then return false end if
+  recordFrameDispatch(runtime, number, "monster")
+  actor.areaNumber = actor.edict.areaNumber
+  advanceMutantJumpPhysics(runtime, actor)
+  ranThink = false
+  if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then
+    refreshAiRandom(runtime)
+    ibmonster.MonsterThink(actor, runtime.aiContext)
+    ranThink = true
+  end if
+  // Monster combat is part of the due AI think. A successor appended later in
+  // this numeric frame has nextthink in the future and must retain its spawn
+  // transform, just as G_Physics_Step skips M_MoveFrame until SV_RunThink is due.
+  if ranThink then runMonsterCombat(runtime, actor) end if
+  return true
+end function
+
+// Run one managed item at its global edict slot.
+function runItemAtNumber(runtime, number)
+  item = findItemByNumber(runtime, number)
+  if item is void or not item.edict.inUse then return false end if
+  recordFrameDispatch(runtime, number, "item")
+  advanceDroppedItemsAtNumber(runtime, number)
+  if item.edict.inUse then prepareSpawnedItem(runtime, item) end if
+  if item.edict.inUse and not item.spawnPending and item.decaying != true and
+      item.hidden and item.nextThink > 0.0 and
+      item.nextThink <= runtime.world.time then
+    respawnTeamItem(runtime, item)
+  end if
+  return true
+end function
+
+// Run one world-owned edict, including an atomic pusher team at its captain.
+function runWorldAtNumber(runtime, captureState, number)
+  entity = ibworld.findByNumber(runtime.world, number)
+  if entity is void or not entity.inUse then return false end if
+  if entity.moveType == ibworldconstants.MOVETYPE_PUSH or
+      entity.moveType == ibworldconstants.MOVETYPE_STOP then
+    if (entity.flags & ibworldconstants.FL_TEAMSLAVE) != 0 then
+      recordFrameDispatch(runtime, number, "pusher-slave")
+      return true
+    end if
+    recordFrameDispatch(runtime, number, "pusher")
+    ibpusher.advanceTeam(captureState, entity.number, runtime.world.frameTime)
+    ibpusher.resolveTeam(runtime, captureState, entity.number)
+    return true
+  end if
+  if entity.moveType == ibworldconstants.MOVETYPE_TOSS or
+      entity.moveType == ibworldconstants.MOVETYPE_BOUNCE then
+    recordFrameDispatch(runtime, number, "world-toss")
+    runWorldThinkAtNumber(runtime, entity)
+    if entity.inUse then advanceWorldTossEntitiesAtNumber(runtime, number) end if
+    return true
+  end if
+  recordFrameDispatch(runtime, number, "world-think")
+  runWorldThinkAtNumber(runtime, entity)
+  return true
+end function
+
+// Run all non-client edicts in the original global numeric slot order.
 function runFrame(runtime)
   pusherState = ibpusher.capture(runtime)
-  ibpusher.deferDueThinks(pusherState,
-    runtime.world.time + runtime.world.frameTime)
-  ibworld.runFrame(runtime.world)
-  ibpusher.resolve(runtime, pusherState)
-  advanceWorldTossEntities(runtime)
-  advanceDroppedItems(runtime)
-  for each pendingItem in runtime.items
-    prepareSpawnedItem(runtime, pendingItem)
-  end for
-  runtime.aiContext.time = runtime.world.time
-  runtime.weaponContext.time = runtime.world.time
+  targetTime = runtime.world.time + runtime.world.frameTime
+  ibpusher.deferDueThinks(pusherState, targetTime)
+  runtime.world.time = targetTime
+  runtime.aiContext.time = targetTime
+  runtime.weaponContext.time = targetTime
   runtime.aiContext.frameNumber = runtime.aiContext.frameNumber + 1
-  for each actor in runtime.monsters
-    actor.areaNumber = actor.edict.areaNumber
-    advanceMutantJumpPhysics(runtime, actor)
-    if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then
-      refreshAiRandom(runtime)
-      ibmonster.MonsterThink(actor, runtime.aiContext)
-    end if
-    runMonsterCombat(runtime, actor)
-  end for
-  advanceWeaponProjectiles(runtime)
-  for each item in runtime.items
-    if not item.spawnPending and item.decaying != true and item.hidden and
-        item.nextThink > 0.0 and item.nextThink <= runtime.world.time then
-      // DoRespawn is deterministic and does not require a player/context.
-      respawnTeamItem(runtime, item)
-    end if
-  end for
+  if runtime.exportTable is void then
+    // Narrow unit fixtures have no engine edict table. Retain their aggregate
+    // compatibility path; every product/server frame owns an export table and
+    // therefore always takes the numeric scheduler below.
+    runtime.world.time = targetTime - runtime.world.frameTime
+    ibworld.advance(runtime.world, targetTime)
+    ibpusher.resolve(runtime, pusherState)
+    advanceWorldTossEntities(runtime)
+    advanceDroppedItems(runtime)
+    for each pendingItem in runtime.items
+      prepareSpawnedItem(runtime, pendingItem)
+    end for
+    for each actor in runtime.monsters
+      actor.areaNumber = actor.edict.areaNumber
+      advanceMutantJumpPhysics(runtime, actor)
+      if actor.nextThink > 0.0 and actor.nextThink <= runtime.aiContext.time then
+        refreshAiRandom(runtime)
+        ibmonster.MonsterThink(actor, runtime.aiContext)
+      end if
+      runMonsterCombat(runtime, actor)
+    end for
+    advanceWeaponProjectiles(runtime)
+    return true
+  end if
+  number = runtime.maxClients + 1
+  while number < runtime.exportTable.numEdicts
+    handled = false
+    for each projectile in runtime.weaponContext.projectiles
+      if projectile.inUse and projectile.engineNumber == number then
+        recordFrameDispatch(runtime, number, "projectile")
+        advanceWeaponProjectileAtNumber(runtime, number)
+        handled = true
+        break
+      end if
+    end for
+    if not handled and runMonsterAtNumber(runtime, number) then handled = true end if
+    if not handled and runItemAtNumber(runtime, number) then handled = true end if
+    if not handled then runWorldAtNumber(runtime, pusherState, number) end if
+    number = number + 1
+  end while
+  compactWeaponProjectiles(runtime)
+  return true
 end function
 
 // Run player gameplay frame.

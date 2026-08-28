@@ -72,7 +72,9 @@ function receive(socket, capacity)
   if capacity <= 0 or capacity > 65535 then return error(2916, "UDP receive capacity outside range") end if
   buffer = bytes(capacity)
   count = native.udpReceive(socket.handle, buffer, capacity)
-  if count < 0 then return void end if
+  // The native bridge maps WSAEWOULDBLOCK to zero. Protocol 34 never uses an
+  // empty datagram, so zero is the nonblocking "no packet" sentinel here.
+  if count <= 0 then return void end if
   payload = bytes(count)
   copyBytes(payload, 0, buffer, 0, count)
   return Datagram(payload, native.udpLastAddress(), native.udpLastPort())

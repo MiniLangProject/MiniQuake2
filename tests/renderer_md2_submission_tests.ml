@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.format.constants as fc
 import miniquake2.native as md2testnative
 import miniquake2.qcommon.byteio as md2testbyteio
+import miniquake2.qcommon.types as md2testtypes
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.geometry as rgeom
@@ -151,6 +152,16 @@ function testRegistrationInterpolationAndBounds()
   assertEqual(ropengl.picturePixels(plan.skinAsset), bytes([20, 40, 60, 255, 80, 100, 120, 255, 80, 100, 120, 255, 20, 40, 60, 255]), "PCX skin palette expansion")
   assertEqual(ropengl.pictureUploadPixels(plan.skinAsset), bytes([40, 80, 120, 255, 160, 200, 240, 255, 160, 200, 240, 255, 40, 80, 120, 255]), "ref_gl intensity-scaled PCX skin upload")
   assertEqual(plan.mesh.triangleCount, 1, "MD2 triangle count")
+  frame = rt.defaultRefDef(640, 480)
+  frame.viewOrigin = md2testtypes.Vec3(0.0, 0.0, 0.0)
+  frame.viewAngles = md2testtypes.Vec3(0.0, 0.0, 0.0)
+  entity.origin = md2testtypes.Vec3(-100.0, 0.0, 0.0)
+  assertEqual(ropengl.openGlMd2EntityInFrustum(plan.modelAsset, entity,
+    frame), false, "world MD2 behind camera is culled")
+  entity.flags = rc.RF_WEAPONMODEL
+  assertEqual(ropengl.openGlMd2EntityInFrustum(plan.modelAsset, entity,
+    frame), true, "weapon MD2 bypasses world frustum")
+  entity.origin = md2testtypes.Vec3(0.0, 0.0, 0.0)
   entity.flags = rc.RF_WEAPONMODEL
   assertEqual(ropengl.setHandedness(renderer, 1), 1, "left-hand renderer state")
   assertEqual(ropengl.handedness(renderer), 1, "left-hand state retained")

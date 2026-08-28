@@ -639,8 +639,7 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
   player = client.current.playerState
   previousPlayer = interpolationPlayer(client)
   predictionAllowed = usePrediction and client.predictionValid and
-    (player.pmove.flags & qc.PMF_NO_PREDICTION) == 0 and
-    player.pmove.moveType < qc.PM_DEAD
+    (player.pmove.flags & qc.PMF_NO_PREDICTION) == 0
   viewOrigin = cqt.zeroVec3()
   if predictionAllowed then
     backlerp = 1.0 - fraction

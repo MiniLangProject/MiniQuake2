@@ -76,15 +76,33 @@ uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "model 1") and
   uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "skin 2"), "player setup commands handled")
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "password secret") and
+  uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "spectator 1") and
+  uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "fov 110"),
+  "extended userinfo commands handled")
 uiCommandProfile = uicmdtestcommands.playerProfile(uiCommandState, uiCommandInput)
 uiCommandAssert(uiCommandProfile.name == "Ranger" and
   uiCommandProfile.model == "female" and uiCommandProfile.skin == "cobalt" and
+  uiCommandProfile.password == "secret" and uiCommandProfile.spectator and
+  uiCommandProfile.fov == 110 and
   uicmdtestcommands.takePlayerDirty(uiCommandState),
   "player profile retained and dirtiness drained")
 uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer, "connect 127.0.0.1:27910") and
   uicmdtestcommands.takeConnectAddress(uiCommandState) == "127.0.0.1:27910",
   "join endpoint retained atomically")
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "reconnect") and
+  uicmdtestcommands.takeReconnect(uiCommandState), "reconnect request drained")
+uiCommandAssert(uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "rcon_password admin") and
+  uicmdtestcommands.execute(uiCommandState, uiCommandInput,
+  uiCommandScreen, uiCommandMixer, "rcon status") and
+  uicmdtestcommands.takeRconCommands(uiCommandState)[0] == "status",
+  "rcon command retained for out-of-band transport")
 uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,
   uiCommandMixer, "sv_map 3")
 uicmdtestcommands.execute(uiCommandState, uiCommandInput, uiCommandScreen,

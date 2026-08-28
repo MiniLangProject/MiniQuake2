@@ -63,6 +63,24 @@ uiInputCmd3 = cuiinput.createUserCmd(uiInputState, 400)
 uiInputAssertEqual(uiInputCmd3.msec, 200, "frame msec clamp")
 uiInputAssertEqual(uiInputCmd3.impulse, 0, "impulse cleared")
 
+// Movement preserves the original time-weighted KeyState semantics for taps
+// that begin or end between two transmitted UserCmd samples.
+uiWeightedInput = cuikeys.createInputState()
+cuikeys.bind(uiWeightedInput, 119, "+forward")
+cuikeys.handleEvent(uiWeightedInput,
+  pwindow.InputEvent(cuic.EVENT_FOCUS, 0, 1), 2000)
+cuiinput.createUserCmd(uiWeightedInput, 50)
+cuikeys.handleEvent(uiWeightedInput,
+  pwindow.InputEvent(cuic.EVENT_KEY, 119, 1), 2075)
+uiWeightedHalfPress = cuiinput.createUserCmd(uiWeightedInput, 50)
+uiInputAssertEqual(uiWeightedHalfPress.forwardMove, 100.0,
+  "half-frame press has half movement")
+cuikeys.handleEvent(uiWeightedInput,
+  pwindow.InputEvent(cuic.EVENT_KEY, 119, 0), 2110)
+uiWeightedShortRelease = cuiinput.createUserCmd(uiWeightedInput, 50)
+uiInputAssertEqual(uiWeightedShortRelease.forwardMove, 40.0,
+  "ten-millisecond held remainder is retained")
+
 // Packed negative wheel delta is 255; positive is next weapon.
 cuikeys.handleEvent(uiInputState, pwindow.InputEvent(cuic.EVENT_MOUSE_WHEEL, 0, 1), 1100)
 uiInputCommands = cuikeys.drainCommands(uiInputState)
@@ -97,7 +115,7 @@ uiInputAssertEqual(cuikeys.scanKey(72), cuic.K_UPARROW, "navigation scan map")
 uiInputAssertEqual(cuikeys.scanKey(30), 97, "letter scan map")
 
 // The controls menu captures the next discrete press before destination
-// routing and replaces the previous binding for that command.
+// routing. Stock Quake II keeps two keys and replaces both on the third bind.
 cuikeys.bind(uiInputState, 119, "+forward")
 cuikeys.beginBindingCapture(uiInputState, "+forward")
 uiCaptureScreen = cuiscreen.create(cuiconsole.create(40), cuimenu.create())
@@ -107,10 +125,20 @@ cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
   pwindow.InputEvent(cuic.EVENT_KEY, 114, 1), 1250)
 uiInputAssertEqual(uiInputState.capturedKey, 114, "captured key")
 uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 114), "+forward", "captured binding")
-uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 119), "", "old command binding replaced")
+uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 119), "+forward",
+  "second command binding retained")
+cuikeys.beginBindingCapture(uiInputState, "+forward")
+cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
+  pwindow.InputEvent(cuic.EVENT_KEY, 102, 1), 1251)
+uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 119), "",
+  "third capture replaces first binding")
+uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 114), "",
+  "third capture replaces second binding")
+uiInputAssertEqual(cuikeys.bindingFor(uiInputState, 102), "+forward",
+  "third capture installs replacement binding")
 cuikeys.beginBindingCapture(uiInputState, "+attack")
 cuicontroller.handleEvent(uiInputState, uiCaptureScreen,
-  pwindow.InputEvent(cuic.EVENT_KEY, cuic.K_ESCAPE, 1), 1251)
+  pwindow.InputEvent(cuic.EVENT_KEY, cuic.K_ESCAPE, 1), 1252)
 uiInputAssertEqual(uiInputState.capturedKey, -2, "capture escape cancellation")
 uiInputAssertEqual(uiInputState.captureCommand, "", "capture cancellation cleared")
 

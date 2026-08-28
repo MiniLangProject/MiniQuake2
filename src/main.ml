@@ -352,6 +352,9 @@ function runDemo(args)
     " missing-assets=" + demoResult[6] + " submitted-entities=" + demoResult[7] +
     " visible-surfaces=" + demoResult[8]
   print "  cdtrack=" + demoResult[9] + " ogg-active=" + demoResult[10]
+  if len(demoResult) >= 15 then
+    print "  elapsed-msec=" + demoResult[13] + " fps=" + demoResult[14]
+  end if
   if demoResult[12] != "" then print "  missing-detail=" + demoResult[12] end if
   return 0
 end function

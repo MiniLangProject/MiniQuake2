@@ -9,6 +9,7 @@ import miniquake2.qcommon.constants as cuiscreenqc
 import miniquake2.client.layout as clayout
 import miniquake2.client.ui.console as cuiconsole
 import miniquake2.client.ui.menu as cuimenu
+import miniquake2.client.ui.keys as cuiscreenkeys
 import miniquake2.client.ui.types as cuitypes
 
 // Create state.
@@ -75,13 +76,28 @@ function updateInventory(screen, values, configStrings, selected)
         cuiscreenInventoryName = configStrings[cuiscreenInventoryConfigIndex]
       end if
       cuiscreenInventoryItems = cuiscreenInventoryItems + [cuitypes.InventoryItem(
-        cuiscreenInventoryIndex, cuiscreenInventoryName, cuiscreenInventoryCount)]
+        cuiscreenInventoryIndex, cuiscreenInventoryName, cuiscreenInventoryCount, "")]
     end if
     cuiscreenInventoryIndex = cuiscreenInventoryIndex + 1
   end while
   screen.inventory = cuiscreenInventoryItems
   screen.selectedInventory = selected
   return len(cuiscreenInventoryItems)
+end function
+
+// Resolve the first exact `use <item>` binding shown by the stock inventory.
+function updateInventoryHotkeys(screen, input)
+  for each cuiscreenHotkeyItem in screen.inventory
+    cuiscreenHotkeyItem.hotkey = ""
+    cuiscreenHotkeyCommand = "use " + cuiscreenHotkeyItem.name
+    for each cuiscreenHotkeyBinding in input.bindings
+      if cuiscreenHotkeyBinding.command == cuiscreenHotkeyCommand and
+          cuiscreenHotkeyItem.hotkey == "" then
+        cuiscreenHotkeyItem.hotkey = cuiscreenkeys.keyName(cuiscreenHotkeyBinding.key)
+      end if
+    end for
+  end for
+  return true
 end function
 
 // Draw text.
@@ -119,14 +135,25 @@ function drawInventory(screen, screenWidth, screenHeight, exports)
   exports.DrawFill(x - 8, y - 8, 256, 176, 0)
   drawText(exports, x, y, "hotkey ### item")
   y = y + 16
+  selectedPosition = 0
+  while selectedPosition < len(screen.inventory) and
+      screen.inventory[selectedPosition].index != screen.selectedInventory
+    selectedPosition = selectedPosition + 1
+  end while
+  top = selectedPosition - 8
+  if top < 0 then top = 0 end if
+  if top + 17 > len(screen.inventory) then top = len(screen.inventory) - 17 end if
+  if top < 0 then top = 0 end if
   count = 0
-  for each item in screen.inventory
+  inventoryPosition = top
+  while inventoryPosition < len(screen.inventory) and count < 17
+    item = screen.inventory[inventoryPosition]
     prefix = "  "
     if item.index == screen.selectedInventory then prefix = "> " end if
-    drawText(exports, x, y, prefix + item.index + " " + item.count + " " + item.name)
+    drawText(exports, x, y, prefix + item.hotkey + " " + item.count + " " + item.name)
     y = y + 8; count = count + 1
-    if count >= 17 then return count end if
-  end for
+    inventoryPosition = inventoryPosition + 1
+  end while
   return count
 end function
 

@@ -16,6 +16,8 @@ struct ActionState
   name
   down
   pressed
+  downTime
+  msec
 end struct
 
 // Store input config data.
@@ -56,6 +58,7 @@ struct InputState
   controllerForward
   controllerSide
   controllerButtons
+  commandTime
 end struct
 
 // Store console line data.
@@ -83,6 +86,7 @@ struct InventoryItem
   index
   name
   count
+  hotkey
 end struct
 
 // Store menu item data.

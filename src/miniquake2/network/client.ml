@@ -53,6 +53,28 @@ function reconnect(client, now)
     client.userInfo, now)
 end function
 
+// Build the client's out-of-band remote-console request. Connected clients
+// target their current server; a disconnected console may supply rcon_address.
+function rconAction(client, alternateAddress, password, command)
+  address = client.serverAddress
+  if address is void then address = alternateAddress end if
+  if address is void then return error(7119, "rcon has no target server") end if
+  if typeof(password) != "string" or password == "" or
+      not qinfo.componentValid(password) then
+    return error(7119, "rcon password is invalid")
+  end if
+  if typeof(command) != "string" or command == "" or
+      len(bytes(command)) > 900 then return error(7119, "rcon command is invalid") end if
+  for each rconCommandByte in bytes(command)
+    if rconCommandByte == 0 or rconCommandByte == 10 or rconCommandByte == 13 then
+      return error(7119, "rcon command contains a line break")
+    end if
+  end for
+  return nt.action("rcon", address,
+    nconnectionless.frameText("rcon " + password + " " + command), -1,
+    command)
+end function
+
 // Validate for resend.
 function checkForResend(client, now)
   client.realTime = now

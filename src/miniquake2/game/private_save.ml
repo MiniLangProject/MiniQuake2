@@ -24,9 +24,12 @@ import miniquake2.game.world.core as privateworldcore
 import miniquake2.game.player.types as privateplayers
 import miniquake2.game.player.constants as privateplayerconstants
 import miniquake2.game.gameplay.types as privategameplaytypes
+import miniquake2.game.weapons.types as privatesaveweapontypes
+import miniquake2.game.weapons.core as privatesaveweaponcore
+import miniquake2.game.weapons.projectiles as privatesaveprojectiles
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 20
+const PRIVATE_VERSION = 21
 
 // Store private restore data.
 struct PrivateRestore
@@ -58,6 +61,31 @@ struct PrivateWorldReference
   enemyNumber
   oldEnemyNumber
   groundEntityNumber
+end struct
+
+// Store deferred projectile ownership and collision references.
+struct PrivateProjectileReference
+  projectile
+  ownerNumber
+  enemyNumber
+  groundNumber
+  lastTouchKind
+  lastThinkKind
+end struct
+
+// Store a player's two persistent AI noise markers during deferred restore.
+struct PrivateNoiseReference
+  ownerNumber
+  primaryPresent
+  primaryOrigin
+  primaryTeleportTime
+  primaryAreaNumber
+  primaryInUse
+  secondaryPresent
+  secondaryOrigin
+  secondaryTeleportTime
+  secondaryAreaNumber
+  secondaryInUse
 end struct
 
 // Return the private reference number.
@@ -118,6 +146,59 @@ function itemByIndex(registry, index)
   return void
 end function
 
+// Write a complete pmove state without relying on the engine save envelope.
+function privateWritePmove(buffer, state)
+  privatemessage.writeLong(buffer, state.moveType)
+  index = 0
+  while index < 3
+    privatemessage.writeLong(buffer, state.origin[index])
+    privatemessage.writeLong(buffer, state.velocity[index])
+    privatemessage.writeLong(buffer, state.deltaAngles[index])
+    index = index + 1
+  end while
+  privatemessage.writeLong(buffer, state.flags); privatemessage.writeLong(buffer, state.time)
+  privatemessage.writeLong(buffer, state.gravity)
+end function
+
+// Read a complete pmove state.
+function privateReadPmove(buffer, label)
+  state = privatesavegametypes.zeroPmoveState()
+  state.moveType = privatechecked.readLong(buffer, label + " type")
+  index = 0
+  while index < 3
+    state.origin[index] = privatechecked.readLong(buffer, label + " origin")
+    state.velocity[index] = privatechecked.readLong(buffer, label + " velocity")
+    state.deltaAngles[index] = privatechecked.readLong(buffer, label + " delta angles")
+    index = index + 1
+  end while
+  state.flags = privatechecked.readLong(buffer, label + " flags")
+  state.time = privatechecked.readLong(buffer, label + " time")
+  state.gravity = privatechecked.readLong(buffer, label + " gravity")
+  return state
+end function
+
+// Return the reconstructible projectile touch callback identity.
+function privateProjectileTouchKind(projectile)
+  if projectile.touch is void then return "" end if
+  if projectile.className == "bolt" then return "blaster" end if
+  if projectile.className == "grenade" or projectile.className == "hgrenade" then return "grenade" end if
+  if projectile.className == "rocket" then return "rocket" end if
+  if projectile.className == "bfg blast" then return "bfg" end if
+  return error(3893, "private projectile has unsupported touch callback")
+end function
+
+// Return the reconstructible projectile think callback identity.
+function privateProjectileThinkKind(projectile)
+  if projectile.think is void then return "" end if
+  if projectile.className == "grenade" or projectile.className == "hgrenade" then return "grenade-explode" end if
+  if projectile.className == "bfg blast" and projectile.solid == 0 then
+    if projectile.frame >= 5 then return "free" end if
+    return "bfg-explode"
+  end if
+  if projectile.className == "bfg blast" then return "bfg-think" end if
+  return "free"
+end function
+
 // Encode the pointer-free private payload in one fixed field order. New fields
 // are append-only within their versioned record so older readers stay explicit.
 function encode(runtime, playerContext, entityString, spawnPoint)
@@ -130,7 +211,10 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       inventoryWords = inventoryWords + len(player.gameplay.inventory.counts)
     end for
   end if
-  capacity = 4096 + len(bytes(entityString)) + len(runtime.world.entities) * 512 + len(runtime.monsters) * 640 + len(runtime.items) * 128 + playerCount * 512 + inventoryWords * 4
+  capacity = 4096 + len(bytes(entityString)) +
+    len(runtime.world.entities) * 512 + len(runtime.monsters) * 640 +
+    len(runtime.items) * 192 + len(runtime.weaponContext.projectiles) * 384 +
+    playerCount * 1024 + inventoryWords * 4
   buffer = privatesizebuf.alloc(capacity)
   privatemessage.writeString(buffer, PRIVATE_MAGIC); privatemessage.writeLong(buffer, PRIVATE_VERSION)
   privateEntityBytes = bytes(entityString)
@@ -156,6 +240,43 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       runtime.edictFreeTimes[privateFreeTimeIndex])
     privateFreeTimeIndex = privateFreeTimeIndex + 1
   end while
+  // Persist the level globals consumed by FindTarget plus each client's two
+  // reusable noise markers (edict_t::mynoise/mynoise2 in the original game).
+  privatemessage.writeLong(buffer, privateReferenceNumber(runtime.aiContext.sightClient))
+  privatemessage.writeLong(buffer, privateReferenceNumber(runtime.aiContext.sightEntity))
+  privatemessage.writeLong(buffer, runtime.aiContext.sightEntityFrame)
+  privatemessage.writeLong(buffer, privateReferenceNumber(runtime.aiContext.soundEntity))
+  privatemessage.writeLong(buffer, runtime.aiContext.soundEntityFrame)
+  privatemessage.writeLong(buffer, privateReferenceNumber(runtime.aiContext.sound2Entity))
+  privatemessage.writeLong(buffer, runtime.aiContext.sound2EntityFrame)
+  privateNoiseOwnerCount = 0
+  for each privateNoiseOwner in runtime.aiPlayers
+    if privateNoiseOwner.noisePrimary is not void or
+        privateNoiseOwner.noiseSecondary is not void then
+      privateNoiseOwnerCount = privateNoiseOwnerCount + 1
+    end if
+  end for
+  privatemessage.writeLong(buffer, privateNoiseOwnerCount)
+  for each privateNoiseOwner in runtime.aiPlayers
+    if privateNoiseOwner.noisePrimary is not void or
+        privateNoiseOwner.noiseSecondary is not void then
+      privatemessage.writeLong(buffer, privateNoiseOwner.edict.state.number)
+      privateWriteBool(buffer, privateNoiseOwner.noisePrimary is not void)
+      if privateNoiseOwner.noisePrimary is not void then
+        privateWriteVec(buffer, privateNoiseOwner.noisePrimary.edict.state.origin)
+        privatemessage.writeFloat(buffer, privateNoiseOwner.noisePrimary.teleportTime)
+        privatemessage.writeLong(buffer, privateNoiseOwner.noisePrimary.areaNumber)
+        privateWriteBool(buffer, privateNoiseOwner.noisePrimary.edict.inUse)
+      end if
+      privateWriteBool(buffer, privateNoiseOwner.noiseSecondary is not void)
+      if privateNoiseOwner.noiseSecondary is not void then
+        privateWriteVec(buffer, privateNoiseOwner.noiseSecondary.edict.state.origin)
+        privatemessage.writeFloat(buffer, privateNoiseOwner.noiseSecondary.teleportTime)
+        privatemessage.writeLong(buffer, privateNoiseOwner.noiseSecondary.areaNumber)
+        privateWriteBool(buffer, privateNoiseOwner.noiseSecondary.edict.inUse)
+      end if
+    end if
+  end for
 
   privatemessage.writeLong(buffer, len(runtime.world.entities))
   for each entity in runtime.world.entities
@@ -270,6 +391,39 @@ function encode(runtime, playerContext, entityString, spawnPoint)
     privateWriteVec(buffer, itemEntity.velocity)
     privatemessage.writeLong(buffer, privateReferenceNumber(itemEntity.owner))
     privateWriteBool(buffer, itemEntity.spawnPending)
+    privatemessage.writeLong(buffer, privateReferenceNumber(itemEntity.groundEntity))
+    privatemessage.writeLong(buffer, itemEntity.groundLinkCount)
+    privatemessage.writeFloat(buffer, itemEntity.gravity)
+    privatemessage.writeLong(buffer, itemEntity.waterType)
+    privatemessage.writeLong(buffer, itemEntity.waterLevel)
+  end for
+
+  // Version 21 persists every active missile/toss edict, including callback
+  // identity and ownership, so a level save resumes the exact in-flight fuse.
+  privatemessage.writeLong(buffer, len(runtime.weaponContext.projectiles))
+  for each projectile in runtime.weaponContext.projectiles
+    privatemessage.writeLong(buffer, projectile.number)
+    privatemessage.writeLong(buffer, projectile.engineNumber)
+    privateWriteBool(buffer, projectile.inUse)
+    privatemessage.writeString(buffer, projectile.className)
+    privateWriteVec(buffer, projectile.origin); privateWriteVec(buffer, projectile.oldOrigin)
+    privateWriteVec(buffer, projectile.angles); privateWriteVec(buffer, projectile.velocity)
+    privateWriteVec(buffer, projectile.angularVelocity); privateWriteVec(buffer, projectile.mins)
+    privateWriteVec(buffer, projectile.maxs)
+    privatemessage.writeLong(buffer, privateReferenceNumber(projectile.owner))
+    privatemessage.writeLong(buffer, privateReferenceNumber(projectile.enemy))
+    privatemessage.writeLong(buffer, projectile.moveType); privatemessage.writeLong(buffer, projectile.clipMask)
+    privatemessage.writeLong(buffer, projectile.solid); privatemessage.writeLong(buffer, projectile.effects)
+    privatemessage.writeString(buffer, projectile.modelName); privatemessage.writeString(buffer, projectile.soundName)
+    privatemessage.writeLong(buffer, projectile.modelIndex); privatemessage.writeLong(buffer, projectile.soundIndex)
+    privatemessage.writeLong(buffer, projectile.spawnFlags); privatemessage.writeLong(buffer, projectile.damage)
+    privatemessage.writeLong(buffer, projectile.radiusDamage); privatemessage.writeFloat(buffer, projectile.damageRadius)
+    privatemessage.writeLong(buffer, projectile.waterType); privatemessage.writeLong(buffer, projectile.waterLevel)
+    privatemessage.writeFloat(buffer, projectile.gravity)
+    privatemessage.writeLong(buffer, privateReferenceNumber(projectile.groundEntity))
+    privatemessage.writeFloat(buffer, projectile.nextThink); privatemessage.writeLong(buffer, projectile.frame)
+    privatemessage.writeString(buffer, privateProjectileTouchKind(projectile))
+    privatemessage.writeString(buffer, privateProjectileThinkKind(projectile))
   end for
 
   privatemessage.writeLong(buffer, playerCount)
@@ -317,6 +471,55 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       // Version 20 persists edict_t::powerarmor_time so the short client
       // render effect survives a level-save round trip.
       privatemessage.writeFloat(buffer, player.powerArmorTime)
+      // Version 21 closes the remaining gclient_t/edict_t transient-state gap.
+      privatemessage.writeLong(buffer, player.persistent.hand)
+      privateWriteVec(buffer, player.velocity); privateWritePmove(buffer, player.oldPmove)
+      privatemessage.writeLong(buffer, player.moveType); privatemessage.writeLong(buffer, player.deadFlag)
+      privatemessage.writeLong(buffer, player.takeDamage); privatemessage.writeFloat(buffer, player.viewHeight)
+      privatemessage.writeLong(buffer, player.waterLevel); privatemessage.writeLong(buffer, player.waterType)
+      privatemessage.writeLong(buffer, privateReferenceNumber(player.groundEntity))
+      privatemessage.writeLong(buffer, player.groundLinkCount)
+      privatemessage.writeLong(buffer, player.oldButtons); privatemessage.writeLong(buffer, player.buttons)
+      privatemessage.writeLong(buffer, player.latchedButtons); privateWriteBool(buffer, player.weaponThunk)
+      privatemessage.writeFloat(buffer, player.respawnTime); privatemessage.writeFloat(buffer, player.killerYaw)
+      privatemessage.writeLong(buffer, privateReferenceNumber(player.chaseTarget))
+      privatemessage.writeLong(buffer, player.lightLevel)
+      privateWriteBool(buffer, player.showScores); privateWriteBool(buffer, player.showInventory)
+      privateWriteBool(buffer, player.showHelp); privatemessage.writeFloat(buffer, player.pickupMessageTime)
+      privatemessage.writeString(buffer, player.obituary)
+      privateWriteVec(buffer, player.view.oldVelocity); privateWriteVec(buffer, player.view.oldViewAngles)
+      privateWriteVec(buffer, player.view.kickOrigin); privateWriteVec(buffer, player.view.kickAngles)
+      privateWriteVec(buffer, player.view.damageFrom); privateWriteVec(buffer, player.view.damageBlend)
+      privatemessage.writeLong(buffer, player.view.damageBlood); privatemessage.writeLong(buffer, player.view.damageArmor)
+      privatemessage.writeLong(buffer, player.view.damagePowerArmor); privatemessage.writeLong(buffer, player.view.damageKnockback)
+      privatemessage.writeFloat(buffer, player.view.damageAlpha); privatemessage.writeFloat(buffer, player.view.bonusAlpha)
+      privatemessage.writeFloat(buffer, player.view.damageRoll); privatemessage.writeFloat(buffer, player.view.damagePitch)
+      privatemessage.writeFloat(buffer, player.view.damageTime); privatemessage.writeFloat(buffer, player.view.fallValue)
+      privatemessage.writeFloat(buffer, player.view.fallTime); privatemessage.writeFloat(buffer, player.view.painDebounceTime)
+      privatemessage.writeFloat(buffer, player.view.damageDebounceTime); privatemessage.writeFloat(buffer, player.view.airFinished)
+      privatemessage.writeFloat(buffer, player.view.nextDrownTime); privatemessage.writeLong(buffer, player.view.drownDamage)
+      privatemessage.writeLong(buffer, player.view.oldWaterLevel); privatemessage.writeLong(buffer, player.view.breatherSound)
+      privatemessage.writeFloat(buffer, player.view.bobTime); privatemessage.writeFloat(buffer, player.view.bobMove)
+      privatemessage.writeLong(buffer, player.view.bobCycle); privatemessage.writeFloat(buffer, player.view.bobFracSin)
+      privatemessage.writeFloat(buffer, player.view.xySpeed); privatemessage.writeLong(buffer, player.view.animPriority)
+      privatemessage.writeLong(buffer, player.view.animEnd); privateWriteBool(buffer, player.view.animDuck)
+      privateWriteBool(buffer, player.view.animRun); privatemessage.writeLong(buffer, player.view.painCycle)
+      privatemessage.writeLong(buffer, player.view.deathCycle); privatemessage.writeLong(buffer, player.view.weaponSound)
+      privatemessage.writeLong(buffer, player.view.machinegunShots)
+      privatemessage.writeLong(buffer, player.gameplay.buttons); privatemessage.writeLong(buffer, player.gameplay.latchedButtons)
+      privatemessage.writeLong(buffer, player.gameplay.fireCount)
+      privateWriteBool(buffer, player.handGrenadeState is not void)
+      if player.handGrenadeState is not void then
+        handState = player.handGrenadeState
+        privatemessage.writeLong(buffer, handState.weaponState); privatemessage.writeLong(buffer, handState.gunFrame)
+        privatemessage.writeFloat(buffer, handState.grenadeTime); privateWriteBool(buffer, handState.grenadeBlewUp)
+        privatemessage.writeLong(buffer, handState.buttons); privatemessage.writeLong(buffer, handState.latchedButtons)
+        privatemessage.writeLong(buffer, handState.ammo); privateWriteBool(buffer, handState.infiniteAmmo)
+        privatemessage.writeString(buffer, handState.weaponSound)
+        handProjectileNumber = -1
+        if handState.lastProjectile is not void then handProjectileNumber = handState.lastProjectile.engineNumber end if
+        privatemessage.writeLong(buffer, handProjectileNumber)
+      end if
     end for
   end if
   return privatesizebuf.dataSlice(buffer)
@@ -426,6 +629,25 @@ function privateRestoreAIReference(runtime, number, maxClients, exportTable)
   return privateAIGoalHolder
 end function
 
+// Resolve an AI level-global reference, including synthetic player-noise slots.
+function privateRestoreLevelAIReference(runtime, number, maxClients, exportTable)
+  if number == -1 then return void end if
+  for each privateLevelAIPlayer in runtime.aiPlayers
+    if privateLevelAIPlayer.edict.state.number == number then
+      return privateLevelAIPlayer
+    end if
+    if privateLevelAIPlayer.noisePrimary is not void and
+        privateLevelAIPlayer.noisePrimary.number == number then
+      return privateLevelAIPlayer.noisePrimary
+    end if
+    if privateLevelAIPlayer.noiseSecondary is not void and
+        privateLevelAIPlayer.noiseSecondary.number == number then
+      return privateLevelAIPlayer.noiseSecondary
+    end if
+  end for
+  return privateRestoreAIReference(runtime, number, maxClients, exportTable)
+end function
+
 // Restore the versioned, pointer-free MiniQuake2 payload in two phases: first
 // allocate stable entity/AI slots, then resolve saved numeric relationships.
 // This prevents partially decoded references from escaping on malformed input.
@@ -439,7 +661,8 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateSaveVersion != 11 and privateSaveVersion != 12 and
       privateSaveVersion != 13 and privateSaveVersion != 14 and
       privateSaveVersion != 15 and privateSaveVersion != 16 and
-      privateSaveVersion != 19 and
+      privateSaveVersion != 17 and privateSaveVersion != 18 and
+      privateSaveVersion != 19 and privateSaveVersion != 20 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -487,6 +710,9 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     index = index + 1
   end while
   runtime = privateintegration.create(spawnResult)
+  // Reference reconstruction below uses the live registry and reserved client
+  // slots. Bind the player context before restoring projectiles and AI links.
+  runtime.playerContext = playerContext
   privateintegration.initializeEdictAllocator(runtime, exportTable, maxClients)
   runtime.aiContext.skill = privateSavedSkill
   runtime.randomState.seed = privateSavedRandomSeed
@@ -515,6 +741,80 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       runtime.edictFreeTimes[privateFreeTimeIndex] = privateReadFloat(buffer,
         "private edict free time")
       privateFreeTimeIndex = privateFreeTimeIndex + 1
+    end while
+  end if
+
+  privateSavedSightClientNumber = -1
+  privateSavedSightEntityNumber = -1
+  privateSavedSightEntityFrame = -1000
+  privateSavedSoundEntityNumber = -1
+  privateSavedSoundEntityFrame = -1000
+  privateSavedSound2EntityNumber = -1
+  privateSavedSound2EntityFrame = -1000
+  privateNoiseReferences = []
+  if privateSaveVersion >= 21 then
+    privateSavedSightClientNumber = privatechecked.readLong(buffer,
+      "private sight client")
+    privateSavedSightEntityNumber = privatechecked.readLong(buffer,
+      "private sight entity")
+    privateSavedSightEntityFrame = privatechecked.readLong(buffer,
+      "private sight entity frame")
+    privateSavedSoundEntityNumber = privatechecked.readLong(buffer,
+      "private sound entity")
+    privateSavedSoundEntityFrame = privatechecked.readLong(buffer,
+      "private sound entity frame")
+    privateSavedSound2EntityNumber = privatechecked.readLong(buffer,
+      "private secondary sound entity")
+    privateSavedSound2EntityFrame = privatechecked.readLong(buffer,
+      "private secondary sound entity frame")
+    privateNoiseCount = privatechecked.readLong(buffer,
+      "private player noise count")
+    if privateNoiseCount < 0 or privateNoiseCount > maxClients then
+      return error(3904, "private player noise count outside client bound")
+    end if
+    while privateNoiseCount > 0
+      privateNoiseOwnerNumber = privatechecked.readLong(buffer,
+        "private player noise owner")
+      privateNoisePrimaryPresent = privateReadBool(buffer,
+        "private primary noise marker")
+      privateNoisePrimaryOrigin = miniquake2.qcommon.types.Vec3(0.0, 0.0, 0.0)
+      privateNoisePrimaryTeleport = 0.0
+      privateNoisePrimaryArea = 0
+      privateNoisePrimaryInUse = false
+      if privateNoisePrimaryPresent then
+        privateNoisePrimaryOrigin = privateReadVec(buffer,
+          "private primary noise origin")
+        privateNoisePrimaryTeleport = privateReadFloat(buffer,
+          "private primary noise time")
+        privateNoisePrimaryArea = privatechecked.readLong(buffer,
+          "private primary noise area")
+        privateNoisePrimaryInUse = privateReadBool(buffer,
+          "private primary noise inuse")
+      end if
+      privateNoiseSecondaryPresent = privateReadBool(buffer,
+        "private secondary noise marker")
+      privateNoiseSecondaryOrigin = miniquake2.qcommon.types.Vec3(0.0, 0.0, 0.0)
+      privateNoiseSecondaryTeleport = 0.0
+      privateNoiseSecondaryArea = 0
+      privateNoiseSecondaryInUse = false
+      if privateNoiseSecondaryPresent then
+        privateNoiseSecondaryOrigin = privateReadVec(buffer,
+          "private secondary noise origin")
+        privateNoiseSecondaryTeleport = privateReadFloat(buffer,
+          "private secondary noise time")
+        privateNoiseSecondaryArea = privatechecked.readLong(buffer,
+          "private secondary noise area")
+        privateNoiseSecondaryInUse = privateReadBool(buffer,
+          "private secondary noise inuse")
+      end if
+      privateNoiseReferences = privateNoiseReferences + [PrivateNoiseReference(
+        privateNoiseOwnerNumber, privateNoisePrimaryPresent,
+        privateNoisePrimaryOrigin, privateNoisePrimaryTeleport,
+        privateNoisePrimaryArea, privateNoisePrimaryInUse,
+        privateNoiseSecondaryPresent, privateNoiseSecondaryOrigin,
+        privateNoiseSecondaryTeleport, privateNoiseSecondaryArea,
+        privateNoiseSecondaryInUse)]
+      privateNoiseCount = privateNoiseCount - 1
     end while
   end if
 
@@ -844,6 +1144,8 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
   if privateSaveVersion < 16 and itemCount != len(runtime.items) then return error(3878, "private item count mismatch") end if
   privateItemOwners = []
   privateItemOwnerNumbers = []
+  privateItemGrounds = []
+  privateItemGroundNumbers = []
   privateDecodedItems = []
   while itemCount > 0
     privateItemNumber = privatechecked.readLong(buffer, "private item number")
@@ -908,11 +1210,133 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       itemEntity.spawnPending = privateReadBool(buffer,
         "private item spawn pending")
     end if
+    if privateSaveVersion >= 21 then
+      privateItemGrounds = privateItemGrounds + [itemEntity]
+      privateItemGroundNumbers = privateItemGroundNumbers + [
+        privatechecked.readLong(buffer, "private item ground entity")]
+      itemEntity.groundLinkCount = privatechecked.readLong(buffer,
+        "private item ground link count")
+      itemEntity.gravity = privateReadFloat(buffer, "private item gravity")
+      itemEntity.waterType = privatechecked.readLong(buffer,
+        "private item water type")
+      itemEntity.waterLevel = privatechecked.readLong(buffer,
+        "private item water level")
+    end if
     privateDecodedItems = privateDecodedItems + [itemEntity]
     itemCount = itemCount - 1
   end while
 
+  // Version 21 adds the active projectile edicts between items and clients.
+  // Older payloads intentionally resume without missiles, matching their
+  // historical writer rather than attempting to infer transient entities.
+  runtime.weaponContext.projectiles = []
+  runtime.weaponContext.nextProjectileNumber = 1
+  privateProjectileReferences = []
+  if privateSaveVersion >= 21 then
+    privateProjectileCount = privatechecked.readLong(buffer,
+      "private projectile count")
+    if privateProjectileCount < 0 or privateProjectileCount > exportTable.numEdicts then
+      return error(3895, "private projectile count outside edict table")
+    end if
+    while privateProjectileCount > 0
+      privateProjectileNumber = privatechecked.readLong(buffer,
+        "private projectile number")
+      privateProjectileEngineNumber = privatechecked.readLong(buffer,
+        "private projectile engine number")
+      if privateProjectileEngineNumber < 0 or
+          privateProjectileEngineNumber >= exportTable.numEdicts then
+        return error(3896, "private projectile outside edict table")
+      end if
+      projectile = privatesaveweapontypes.createProjectile(
+        privateProjectileNumber, "")
+      projectile.engineNumber = privateProjectileEngineNumber
+      projectile.inUse = privateReadBool(buffer, "private projectile inuse")
+      projectile.className = privatemessage.readString(buffer)
+      projectile.origin = privateReadVec(buffer, "private projectile origin")
+      projectile.oldOrigin = privateReadVec(buffer, "private projectile old origin")
+      projectile.angles = privateReadVec(buffer, "private projectile angles")
+      projectile.velocity = privateReadVec(buffer, "private projectile velocity")
+      projectile.angularVelocity = privateReadVec(buffer,
+        "private projectile angular velocity")
+      projectile.mins = privateReadVec(buffer, "private projectile mins")
+      projectile.maxs = privateReadVec(buffer, "private projectile maxs")
+      privateProjectileOwnerNumber = privatechecked.readLong(buffer,
+        "private projectile owner")
+      privateProjectileEnemyNumber = privatechecked.readLong(buffer,
+        "private projectile enemy")
+      projectile.moveType = privatechecked.readLong(buffer,
+        "private projectile movetype")
+      projectile.clipMask = privatechecked.readLong(buffer,
+        "private projectile clipmask")
+      projectile.solid = privatechecked.readLong(buffer,
+        "private projectile solid")
+      projectile.effects = privatechecked.readLong(buffer,
+        "private projectile effects")
+      projectile.modelName = privatemessage.readString(buffer)
+      projectile.soundName = privatemessage.readString(buffer)
+      projectile.modelIndex = privatechecked.readLong(buffer,
+        "private projectile model index")
+      projectile.soundIndex = privatechecked.readLong(buffer,
+        "private projectile sound index")
+      projectile.spawnFlags = privatechecked.readLong(buffer,
+        "private projectile spawnflags")
+      projectile.damage = privatechecked.readLong(buffer,
+        "private projectile damage")
+      projectile.radiusDamage = privatechecked.readLong(buffer,
+        "private projectile radius damage")
+      projectile.damageRadius = privateReadFloat(buffer,
+        "private projectile damage radius")
+      projectile.waterType = privatechecked.readLong(buffer,
+        "private projectile water type")
+      projectile.waterLevel = privatechecked.readLong(buffer,
+        "private projectile water level")
+      projectile.gravity = privateReadFloat(buffer, "private projectile gravity")
+      privateProjectileGroundNumber = privatechecked.readLong(buffer,
+        "private projectile ground entity")
+      projectile.nextThink = privateReadFloat(buffer,
+        "private projectile nextthink")
+      projectile.frame = privatechecked.readLong(buffer,
+        "private projectile frame")
+      privateProjectileTouchName = privatemessage.readString(buffer)
+      privateProjectileThinkName = privatemessage.readString(buffer)
+      if privateProjectileTouchName == "blaster" then
+        projectile.touch = privatesaveprojectiles.blasterTouch
+      else if privateProjectileTouchName == "grenade" then
+        projectile.touch = privatesaveprojectiles.grenadeTouch
+      else if privateProjectileTouchName == "rocket" then
+        projectile.touch = privatesaveprojectiles.rocketTouch
+      else if privateProjectileTouchName == "bfg" then
+        projectile.touch = privatesaveprojectiles.bfgTouch
+      else if privateProjectileTouchName != "" then
+        return error(3897, "private projectile touch callback unsupported")
+      end if
+      if privateProjectileThinkName == "free" then
+        projectile.think = privatesaveweaponcore.freeThink
+      else if privateProjectileThinkName == "grenade-explode" then
+        projectile.think = privatesaveprojectiles.grenadeExplode
+      else if privateProjectileThinkName == "bfg-think" then
+        projectile.think = privatesaveprojectiles.bfgThink
+      else if privateProjectileThinkName == "bfg-explode" then
+        projectile.think = privatesaveprojectiles.bfgExplode
+      else if privateProjectileThinkName != "" then
+        return error(3898, "private projectile think callback unsupported")
+      end if
+      runtime.weaponContext.projectiles = runtime.weaponContext.projectiles +
+        [projectile]
+      if privateProjectileNumber >= runtime.weaponContext.nextProjectileNumber then
+        runtime.weaponContext.nextProjectileNumber = privateProjectileNumber + 1
+      end if
+      privateProjectileReferences = privateProjectileReferences + [
+        PrivateProjectileReference(projectile, privateProjectileOwnerNumber,
+          privateProjectileEnemyNumber, privateProjectileGroundNumber,
+          privateProjectileTouchName, privateProjectileThinkName)]
+      privateProjectileCount = privateProjectileCount - 1
+    end while
+  end if
+
   playerContext.players = []
+  privatePlayerChasePlayers = []
+  privatePlayerChaseNumbers = []
   playerCount = privatechecked.readLong(buffer, "private player count")
   while playerCount > 0
     number = privatechecked.readLong(buffer, "private player number")
@@ -1003,6 +1427,154 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       player.powerArmorTime = privateReadFloat(buffer,
         "private player power armor time")
     end if
+    if privateSaveVersion >= 21 then
+      player.persistent.hand = privatechecked.readLong(buffer,
+        "private player hand")
+      privatePlayerVelocity = privateReadVec(buffer, "private player velocity")
+      player.velocity = [privatePlayerVelocity.x, privatePlayerVelocity.y,
+        privatePlayerVelocity.z]
+      player.oldPmove = privateReadPmove(buffer, "private player old pmove")
+      player.moveType = privatechecked.readLong(buffer, "private player movetype")
+      player.deadFlag = privatechecked.readLong(buffer, "private player deadflag")
+      player.takeDamage = privatechecked.readLong(buffer,
+        "private player takedamage")
+      player.viewHeight = privateReadFloat(buffer, "private player viewheight")
+      player.waterLevel = privatechecked.readLong(buffer,
+        "private player water level")
+      player.waterType = privatechecked.readLong(buffer,
+        "private player water type")
+      privatePlayerGroundNumber = privatechecked.readLong(buffer,
+        "private player ground entity")
+      player.groundEntity = void
+      if privatePlayerGroundNumber >= 0 and
+          privatePlayerGroundNumber < exportTable.numEdicts then
+        player.groundEntity = exportTable.edicts[privatePlayerGroundNumber]
+      end if
+      player.groundLinkCount = privatechecked.readLong(buffer,
+        "private player ground link count")
+      player.oldButtons = privatechecked.readLong(buffer,
+        "private player old buttons")
+      player.buttons = privatechecked.readLong(buffer, "private player buttons")
+      player.latchedButtons = privatechecked.readLong(buffer,
+        "private player latched buttons")
+      player.weaponThunk = privateReadBool(buffer, "private player weapon thunk")
+      player.respawnTime = privateReadFloat(buffer, "private player respawn time")
+      player.killerYaw = privateReadFloat(buffer, "private player killer yaw")
+      privatePlayerChasePlayers = privatePlayerChasePlayers + [player]
+      privatePlayerChaseNumbers = privatePlayerChaseNumbers + [
+        privatechecked.readLong(buffer, "private player chase target")]
+      player.lightLevel = privatechecked.readLong(buffer,
+        "private player light level")
+      player.showScores = privateReadBool(buffer, "private player show scores")
+      player.showInventory = privateReadBool(buffer,
+        "private player show inventory")
+      player.showHelp = privateReadBool(buffer, "private player show help")
+      player.pickupMessageTime = privateReadFloat(buffer,
+        "private player pickup message time")
+      player.obituary = privatemessage.readString(buffer)
+      privateOldVelocity = privateReadVec(buffer, "private view old velocity")
+      player.view.oldVelocity = [privateOldVelocity.x, privateOldVelocity.y,
+        privateOldVelocity.z]
+      player.view.oldViewAngles = privateReadVec(buffer,
+        "private view old angles")
+      player.view.kickOrigin = privateReadVec(buffer, "private view kick origin")
+      player.view.kickAngles = privateReadVec(buffer, "private view kick angles")
+      player.view.damageFrom = privateReadVec(buffer, "private view damage from")
+      privateDamageBlend = privateReadVec(buffer, "private view damage blend")
+      player.view.damageBlend = [privateDamageBlend.x, privateDamageBlend.y,
+        privateDamageBlend.z]
+      player.view.damageBlood = privatechecked.readLong(buffer,
+        "private view damage blood")
+      player.view.damageArmor = privatechecked.readLong(buffer,
+        "private view damage armor")
+      player.view.damagePowerArmor = privatechecked.readLong(buffer,
+        "private view damage power armor")
+      player.view.damageKnockback = privatechecked.readLong(buffer,
+        "private view damage knockback")
+      player.view.damageAlpha = privateReadFloat(buffer,
+        "private view damage alpha")
+      player.view.bonusAlpha = privateReadFloat(buffer, "private view bonus alpha")
+      player.view.damageRoll = privateReadFloat(buffer, "private view damage roll")
+      player.view.damagePitch = privateReadFloat(buffer,
+        "private view damage pitch")
+      player.view.damageTime = privateReadFloat(buffer, "private view damage time")
+      player.view.fallValue = privateReadFloat(buffer, "private view fall value")
+      player.view.fallTime = privateReadFloat(buffer, "private view fall time")
+      player.view.painDebounceTime = privateReadFloat(buffer,
+        "private view pain debounce")
+      player.view.damageDebounceTime = privateReadFloat(buffer,
+        "private view damage debounce")
+      player.view.airFinished = privateReadFloat(buffer,
+        "private view air finished")
+      player.view.nextDrownTime = privateReadFloat(buffer,
+        "private view next drown time")
+      player.view.drownDamage = privatechecked.readLong(buffer,
+        "private view drown damage")
+      player.view.oldWaterLevel = privatechecked.readLong(buffer,
+        "private view old water level")
+      player.view.breatherSound = privatechecked.readLong(buffer,
+        "private view breather sound")
+      player.view.bobTime = privateReadFloat(buffer, "private view bob time")
+      player.view.bobMove = privateReadFloat(buffer, "private view bob move")
+      player.view.bobCycle = privatechecked.readLong(buffer, "private view bob cycle")
+      player.view.bobFracSin = privateReadFloat(buffer,
+        "private view bob fraction")
+      player.view.xySpeed = privateReadFloat(buffer, "private view speed")
+      player.view.animPriority = privatechecked.readLong(buffer,
+        "private view animation priority")
+      player.view.animEnd = privatechecked.readLong(buffer,
+        "private view animation end")
+      player.view.animDuck = privateReadBool(buffer, "private view animation duck")
+      player.view.animRun = privateReadBool(buffer, "private view animation run")
+      player.view.painCycle = privatechecked.readLong(buffer,
+        "private view pain cycle")
+      player.view.deathCycle = privatechecked.readLong(buffer,
+        "private view death cycle")
+      player.view.weaponSound = privatechecked.readLong(buffer,
+        "private view weapon sound")
+      player.view.machinegunShots = privatechecked.readLong(buffer,
+        "private view machinegun shots")
+      player.gameplay.buttons = privatechecked.readLong(buffer,
+        "private gameplay buttons")
+      player.gameplay.latchedButtons = privatechecked.readLong(buffer,
+        "private gameplay latched buttons")
+      player.gameplay.fireCount = privatechecked.readLong(buffer,
+        "private gameplay fire count")
+      privateHasHandGrenade = privateReadBool(buffer,
+        "private hand grenade state marker")
+      if privateHasHandGrenade then
+        privateHandOwner = privateintegration.playerWeaponTarget(player,
+          playerContext.registry)
+        privateHandAmmo = 0
+        handState = privatesaveweapontypes.createHandGrenadeState(
+          privateHandOwner, privateHandAmmo)
+        handState.weaponState = privatechecked.readLong(buffer,
+          "private hand grenade weapon state")
+        handState.gunFrame = privatechecked.readLong(buffer,
+          "private hand grenade gun frame")
+        handState.grenadeTime = privateReadFloat(buffer,
+          "private hand grenade time")
+        handState.grenadeBlewUp = privateReadBool(buffer,
+          "private hand grenade blew up")
+        handState.buttons = privatechecked.readLong(buffer,
+          "private hand grenade buttons")
+        handState.latchedButtons = privatechecked.readLong(buffer,
+          "private hand grenade latched buttons")
+        handState.ammo = privatechecked.readLong(buffer,
+          "private hand grenade ammo")
+        handState.infiniteAmmo = privateReadBool(buffer,
+          "private hand grenade infinite ammo")
+        handState.weaponSound = privatemessage.readString(buffer)
+        privateHandProjectileNumber = privatechecked.readLong(buffer,
+          "private hand grenade projectile")
+        for each privateHandProjectile in runtime.weaponContext.projectiles
+          if privateHandProjectile.engineNumber == privateHandProjectileNumber then
+            handState.lastProjectile = privateHandProjectile
+          end if
+        end for
+        player.handGrenadeState = handState
+      end if
+    end if
     playerContext.players = playerContext.players + [player]
     playerCount = playerCount - 1
   end while
@@ -1024,6 +1596,93 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
     end if
     privateItemOwnerIndex = privateItemOwnerIndex + 1
   end while
+  privateItemGroundIndex = 0
+  while privateItemGroundIndex < len(privateItemGrounds)
+    privateItemGroundNumber = privateItemGroundNumbers[privateItemGroundIndex]
+    if privateItemGroundNumber >= 0 then
+      if privateItemGroundNumber >= exportTable.numEdicts then
+        return error(3899, "private item ground entity outside table")
+      end if
+      privateItemGrounds[privateItemGroundIndex].groundEntity = exportTable.edicts[privateItemGroundNumber]
+    else
+      privateItemGrounds[privateItemGroundIndex].groundEntity = void
+    end if
+    privateItemGroundIndex = privateItemGroundIndex + 1
+  end while
+  for each privateProjectileReference in privateProjectileReferences
+    if privateProjectileReference.ownerNumber >= 0 then
+      privateProjectileReference.projectile.owner = privateintegration.weaponTargetByNumber(runtime,
+        privateProjectileReference.ownerNumber)
+      if privateProjectileReference.projectile.owner is void then
+        return error(3900, "private projectile owner missing")
+      end if
+    end if
+    if privateProjectileReference.enemyNumber >= 0 then
+      privateProjectileReference.projectile.enemy = privateintegration.weaponTargetByNumber(runtime,
+        privateProjectileReference.enemyNumber)
+      if privateProjectileReference.projectile.enemy is void then
+        return error(3901, "private projectile enemy missing")
+      end if
+    end if
+    if privateProjectileReference.groundNumber >= 0 then
+      if privateProjectileReference.groundNumber >= exportTable.numEdicts then
+        return error(3902, "private projectile ground entity outside table")
+      end if
+      privateProjectileReference.projectile.groundEntity = exportTable.edicts[privateProjectileReference.groundNumber]
+    end if
+  end for
+  privatePlayerChaseIndex = 0
+  while privatePlayerChaseIndex < len(privatePlayerChasePlayers)
+    privatePlayerChaseNumber = privatePlayerChaseNumbers[privatePlayerChaseIndex]
+    if privatePlayerChaseNumber >= 0 then
+      privatePlayerChaseFound = false
+      for each privateChaseCandidate in playerContext.players
+        if privateChaseCandidate.edict.state.number == privatePlayerChaseNumber then
+          privatePlayerChasePlayers[privatePlayerChaseIndex].chaseTarget = privateChaseCandidate
+          privatePlayerChaseFound = true
+        end if
+      end for
+      if not privatePlayerChaseFound then
+        return error(3903, "private player chase target missing")
+      end if
+    end if
+    privatePlayerChaseIndex = privatePlayerChaseIndex + 1
+  end while
+  if privateSaveVersion >= 21 then
+    privateintegration.syncPlayers(runtime, playerContext)
+    for each privateNoiseReference in privateNoiseReferences
+      privateNoiseOwner = privateintegration.findAIPlayer(runtime,
+        privateNoiseReference.ownerNumber)
+      if privateNoiseOwner is void then
+        return error(3905, "private player noise owner missing")
+      end if
+      if privateNoiseReference.primaryPresent then
+        privateintegration.integratedPlayerNoise(privateNoiseOwner,
+          privateNoiseReference.primaryOrigin, 1)
+        privateNoiseOwner.noisePrimary.teleportTime = privateNoiseReference.primaryTeleportTime
+        privateNoiseOwner.noisePrimary.areaNumber = privateNoiseReference.primaryAreaNumber
+        privateNoiseOwner.noisePrimary.edict.inUse = privateNoiseReference.primaryInUse
+      end if
+      if privateNoiseReference.secondaryPresent then
+        privateintegration.integratedPlayerNoise(privateNoiseOwner,
+          privateNoiseReference.secondaryOrigin, 2)
+        privateNoiseOwner.noiseSecondary.teleportTime = privateNoiseReference.secondaryTeleportTime
+        privateNoiseOwner.noiseSecondary.areaNumber = privateNoiseReference.secondaryAreaNumber
+        privateNoiseOwner.noiseSecondary.edict.inUse = privateNoiseReference.secondaryInUse
+      end if
+    end for
+    runtime.aiContext.sightClient = privateRestoreLevelAIReference(runtime,
+      privateSavedSightClientNumber, maxClients, exportTable)
+    runtime.aiContext.sightEntity = privateRestoreLevelAIReference(runtime,
+      privateSavedSightEntityNumber, maxClients, exportTable)
+    runtime.aiContext.sightEntityFrame = privateSavedSightEntityFrame
+    runtime.aiContext.soundEntity = privateRestoreLevelAIReference(runtime,
+      privateSavedSoundEntityNumber, maxClients, exportTable)
+    runtime.aiContext.soundEntityFrame = privateSavedSoundEntityFrame
+    runtime.aiContext.sound2Entity = privateRestoreLevelAIReference(runtime,
+      privateSavedSound2EntityNumber, maxClients, exportTable)
+    runtime.aiContext.sound2EntityFrame = privateSavedSound2EntityFrame
+  end if
   if privateSaveVersion >= 10 then
     for each privateWorldReference in privateWorldReferences
       privateWorldReference.entity.activator = privateResolveWorldReference(

@@ -123,6 +123,7 @@ struct WorldEntity
   flySoundDebounceTime
   waterType
   waterLevel
+  gravitySpecified
 end struct
 
 // Store world callbacks data.
@@ -245,13 +246,13 @@ function createEntity(number, className)
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(),
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0, 0, 0, 0, 0.0, 0, 1.0, 1.0,
+    0, 0, 0, 0, 1.0, 0, 1.0, 1.0,
     gwconstants.DAMAGE_NO, false,
     void, void, void, void, void,
     void, void, void, void, void,
     0.0, 0.0, 0.0, zeroMoveInfo(),
     0.0, 0.0, 0.0,
     "", "", void, void, void,
-    0, 0, 0, qt.zeroVec3(), 0.0, 0, 0
+    0, 0, 0, qt.zeroVec3(), 0.0, 0, 0, false
   )
 end function

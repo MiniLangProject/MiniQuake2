@@ -359,7 +359,9 @@ function ED_ParseField(entity, key, value)
   else if name == "noise" then entity.spawnTemp.noise = ED_NewString(value)
   else if name == "pausetime" then entity.spawnTemp.pauseTime = parseNumber(value, name)
   else if name == "item" then entity.spawnTemp.item = ED_NewString(value)
-  else if name == "gravity" then entity.spawnTemp.gravity = ED_NewString(value)
+  else if name == "gravity" then
+    entity.spawnTemp.gravity = ED_NewString(value)
+    entity.spawnTemp.gravitySpecified = true
   else if name == "sky" then entity.spawnTemp.sky = ED_NewString(value)
   else if name == "skyrotate" then entity.spawnTemp.skyRotate = parseNumber(value, name)
   else if name == "skyaxis" then entity.spawnTemp.skyAxis = parseVector(value, name)

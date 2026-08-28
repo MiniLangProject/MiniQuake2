@@ -76,7 +76,9 @@ struct Projectile
   damage
   radiusDamage
   damageRadius
+  waterType
   waterLevel
+  gravity
   groundEntity
   touch
   think
@@ -128,7 +130,7 @@ function createProjectile(number, className)
     qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(), qt.zeroVec3(), void, void,
     wbconstants.MOVETYPE_NONE, 0, wbconstants.SOLID_NOT, 0, "", "", 0, 0,
     0, 0, 0, 0.0,
-    0, void, void, void, 0.0, 0, -1
+    0, 0, 1.0, void, void, void, 0.0, 0, -1
   )
 end function
 

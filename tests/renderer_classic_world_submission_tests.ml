@@ -132,6 +132,11 @@ function testBackendLifecycle()
   assertEqual(len(renderer.state.textureRecords), 2, "tracked texture handles")
   stats = ropengl.submitClassicWorld(renderer, first, frame)
   assertEqual(stats.surfaces, 0, "headless submission avoids GL")
+  assertEqual(stats.uploadedTextures, 0, "initial deferred upload count")
+  assertEqual(ropengl.recordClassicDeferredUploads(stats, 3), 3,
+    "deferred alpha uploads update retained stats")
+  assertEqual(stats.uploadedTextures, 3,
+    "caller observes deferred alpha upload mutation")
   assertEqual(first.textures[0].uploaded, false, "headless texture remains CPU-side")
   signature = rclassicworld.planSignature(first)
   // An uploaded flag in headless mode must still take the logical release

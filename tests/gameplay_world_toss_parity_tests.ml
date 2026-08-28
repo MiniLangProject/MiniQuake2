@@ -156,9 +156,9 @@ tossAssert(tosstegration.advanceWorldTossEntities(runtime) == 3,
   "integrated toss frame did not advance all three entities")
 tossAssert(tossTraceCount == 3 and
   tossTraceMasks[0] == tossqconstants.MASK_SOLID and
-  tossTraceMasks[1] == tossqconstants.MASK_MONSTERSOLID and
+  tossTraceMasks[1] == tossqconstants.MASK_SOLID and
   tossTraceMasks[2] == tossqconstants.MASK_PLAYERSOLID,
-  "default toss clip mask did not distinguish monsters or preserve overrides")
+  "SV_PushEntity default toss clip mask did not preserve MASK_SOLID/override")
 tossAssert(tossLinkCount == 3 and tossTriggerTouchCount == 3,
   "successful toss moves did not link and dispatch trigger contacts")
 tossAssert(ordinary.origin.x == 1.0 and monster.origin.x == 1.0 and

@@ -31,9 +31,15 @@ import miniquake2.renderer.types as apprtypes
 import miniquake2.qcommon.types as appqtypes
 import miniquake2.qcommon.constants as appqconstants
 import miniquake2.qcommon.info as appinfo
+import miniquake2.qcommon.cmd as appqcmd
+import miniquake2.network.runtime.commands as appservercommands
+import miniquake2.network.client as appnetworkclient
+import miniquake2.network.runtime.transport as appnetworktransport
+import miniquake2.platform.udp as appudp
 import miniquake2.runtime.server_session as appsession
 import miniquake2.runtime.client_session as appclientsession
 import miniquake2.platform.system as appsystem
+import miniquake2.platform.dedicated_console as appdedicatedconsole
 import miniquake2.qcommon.byteio as appbyteio
 import miniquake2.runtime.preview_camera as appcamera
 import miniquake2.client.ui.constants as appuiconstants
@@ -66,6 +72,7 @@ import miniquake2.client.assets.registry as appassetregistry
 import miniquake2.physics.vector as appphysicsvector
 import miniquake2.runtime.product_startup as appstartup
 import miniquake2.client.runtime.handoff as appruntimehandoff
+import miniquake2.client.runtime.dispatcher as appruntimedispatcher
 import miniquake2.client.downloads as appdownloads
 import miniquake2.client.demo_recording as appdemorecording
 import miniquake2.client.screenshot as appscreenshot
@@ -165,6 +172,9 @@ applicationLevelCapturePath = ""
 applicationLevelCaptureChecksum = 0
 applicationLevelCaptureError = void
 applicationPersistProductConfig = true
+applicationGamemapAutosaveRequested = false
+applicationGamemapEndOfUnit = false
+applicationMediaCooperative = false
 applicationResourceCache = ApplicationResourceCache("", void,
   array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
   array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
@@ -440,7 +450,7 @@ end function
 
 // Play save paths.
 function playSavePaths(baseDirectory, slot)
-  if typeof(slot) != "int" or slot < 0 or slot > 2 then return error(9925, "play save slot outside [0,2]") end if
+  if typeof(slot) != "int" or slot < 0 or slot > 14 then return error(9925, "play save slot outside [0,14]") end if
   applicationSaveDirectory = appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
   applicationSaveStem = "miniquake2_slot" + (slot + 1)
   return [appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_game.sav"),
@@ -881,12 +891,16 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
   applicationDemoScreenHolder = appuiscreen.create(appuiconsole.create(80), appuimenu.create())
   applicationDemoCommandHolder = appuicommands.create()
   applicationDemoClockHolder = appsystem.createClock()
+  applicationDemoTimedemoStarted = appsystem.milliseconds(
+    applicationDemoClockHolder)
   applicationDemoRenderedFrames = 0
   applicationDemoLastWorldStats = void
   applicationDemoStatus = "preview"
   applicationDemoAttractInterrupted = false
   applicationDemoMusicTrackValue = ""
   applicationDemoMusicOpened = false
+  applicationDemoHaveSnapshot = false
+  applicationDemoSnapshotStarted = 0.0
 
   while (frameLimit == 0 or applicationDemoRenderedFrames < frameLimit) and
       not applicationDemoSessionHolder.finished and
@@ -914,69 +928,86 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
       appaudiomixer.resumeMusic(applicationDemoMixerHolder)
     end if
     if not applicationDemoPaused then
-      applicationDemoStepHolder = appdemosession.step(applicationDemoSessionHolder,
-        applicationDemoSessionHolder.framesRead * 100)
-      if applicationDemoStepHolder is void then break end if
-      applyPlayHandoff(applicationDemoScreenHolder,
-        applicationDemoStepHolder.handoff)
+      applicationDemoShouldStep = frameLimit > 0 or not applicationDemoHaveSnapshot or
+        applicationDemoStarted - applicationDemoSnapshotStarted >= 100.0
+      if applicationDemoShouldStep then
+        applicationDemoStepHolder = appdemosession.step(applicationDemoSessionHolder,
+          applicationDemoSessionHolder.framesRead * 100)
+        if applicationDemoStepHolder is void then break end if
+        applyPlayHandoff(applicationDemoScreenHolder,
+          applicationDemoStepHolder.handoff)
+        appuiscreen.updateInventoryHotkeys(applicationDemoScreenHolder,
+          applicationDemoInputHolder)
 
-      applicationDemoNextMusicTrackValue = applicationDemoSessionHolder.runtime.network.configStrings[
-        appqconstants.CS_CDTRACK]
-      if applicationDemoNextMusicTrackValue != applicationDemoMusicTrackValue then
-        applicationDemoMusicTrackValue = applicationDemoNextMusicTrackValue
-        applicationDemoMusicSync = try(appaudiomixer.synchronizeMusicTrack(
-          applicationDemoMixerHolder, applicationDemoFileSystemHolder,
-          applicationDemoMusicTrackValue))
-        if applicationDemoMusicSync is error then
-          appuiconsole.appendLine(applicationDemoScreenHolder.console,
-            "Music unavailable: " + applicationDemoMusicSync.message,
-            applicationDemoUiNow)
-        else if applicationDemoMixerHolder.music is not void then
-          applicationDemoMusicOpened = true
+        applicationDemoNextMusicTrackValue = applicationDemoSessionHolder.runtime.network.configStrings[
+          appqconstants.CS_CDTRACK]
+        if applicationDemoNextMusicTrackValue != applicationDemoMusicTrackValue then
+          applicationDemoMusicTrackValue = applicationDemoNextMusicTrackValue
+          applicationDemoMusicSync = try(appaudiomixer.synchronizeMusicTrack(
+            applicationDemoMixerHolder, applicationDemoFileSystemHolder,
+            applicationDemoMusicTrackValue))
+          if applicationDemoMusicSync is error then
+            appuiconsole.appendLine(applicationDemoScreenHolder.console,
+              "Music unavailable: " + applicationDemoMusicSync.message,
+              applicationDemoUiNow)
+          else if applicationDemoMixerHolder.music is not void then
+            applicationDemoMusicOpened = true
+          end if
+        end if
+
+        applicationDemoNextMapPath = appdemosession.mapModelPath(
+          applicationDemoSessionHolder)
+        if applicationDemoNextMapPath != "" and
+            applicationDemoNextMapPath != applicationDemoMapPathHolder then
+          if applicationDemoWorldHolder is not void then
+            appgl.releaseClassicWorld(applicationDemoRendererHolder,
+              applicationDemoWorldHolder)
+          end if
+          applicationDemoMapPathHolder = mapPath(applicationDemoNextMapPath)
+          // BeginRegistration releases the previous step's renderer-owned BSP
+          // before parsing the replacement map. Two expanded retail maps can
+          // otherwise coexist transiently and exhaust the bounded product heap.
+          applicationDemoRendererHolder.exports.BeginRegistration(
+            applicationDemoMapPathHolder)
+          applicationDemoMapHolder = appbsp.parse(appfs.readFile(
+            applicationDemoFileSystemHolder, applicationDemoMapPathHolder),
+            applicationDemoMapPathHolder)
+          appgl.adoptClassicMapModel(applicationDemoRendererHolder,
+            applicationDemoMapHolder, applicationDemoMapPathHolder)
+          applicationDemoWorldHolder = appgl.prepareClassicWorld(
+            applicationDemoRendererHolder, applicationDemoMapHolder,
+            loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
+          applicationDemoAssetStateHolder = appclientassets.createForRenderer(
+            applicationDemoRendererHolder.exports, loadPlaySound, noteMissingPlayAsset)
+          playAssetState = applicationDemoAssetStateHolder
+          appclientassets.registerConfigStrings(applicationDemoAssetStateHolder,
+            applicationDemoSessionHolder.runtime.network.configStrings,
+            applicationDemoMapPathHolder)
+          playAssetBindings = appclientassets.bindings(applicationDemoAssetStateHolder)
+          applicationDemoRendererHolder.exports.EndRegistration()
+        end if
+        if applicationDemoStepHolder.frames > 0 then
+          applicationDemoHaveSnapshot = true
+          applicationDemoSnapshotStarted = applicationDemoStarted
         end if
       end if
 
-      applicationDemoNextMapPath = appdemosession.mapModelPath(
-        applicationDemoSessionHolder)
-      if applicationDemoNextMapPath != "" and
-          applicationDemoNextMapPath != applicationDemoMapPathHolder then
-        if applicationDemoWorldHolder is not void then
-          appgl.releaseClassicWorld(applicationDemoRendererHolder,
-            applicationDemoWorldHolder)
-        end if
-        applicationDemoMapPathHolder = mapPath(applicationDemoNextMapPath)
-        // BeginRegistration releases the previous step's renderer-owned BSP
-        // before parsing the replacement map. Two expanded retail maps can
-        // otherwise coexist transiently and exhaust the bounded product heap.
-        applicationDemoRendererHolder.exports.BeginRegistration(
-          applicationDemoMapPathHolder)
-        applicationDemoMapHolder = appbsp.parse(appfs.readFile(
-          applicationDemoFileSystemHolder, applicationDemoMapPathHolder),
-          applicationDemoMapPathHolder)
-        appgl.adoptClassicMapModel(applicationDemoRendererHolder,
-          applicationDemoMapHolder, applicationDemoMapPathHolder)
-        applicationDemoWorldHolder = appgl.prepareClassicWorld(
-          applicationDemoRendererHolder, applicationDemoMapHolder,
-          loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
-        applicationDemoAssetStateHolder = appclientassets.createForRenderer(
-          applicationDemoRendererHolder.exports, loadPlaySound, noteMissingPlayAsset)
-        playAssetState = applicationDemoAssetStateHolder
-        appclientassets.registerConfigStrings(applicationDemoAssetStateHolder,
-          applicationDemoSessionHolder.runtime.network.configStrings,
-          applicationDemoMapPathHolder)
-        playAssetBindings = appclientassets.bindings(applicationDemoAssetStateHolder)
-        applicationDemoRendererHolder.exports.EndRegistration()
-      end if
-
-      if applicationDemoStepHolder.frames > 0 then
+      if applicationDemoHaveSnapshot then
         if applicationDemoWorldHolder is void or
             applicationDemoAssetStateHolder is void then
           return error(9951, "demo snapshot arrived before map registration")
         end if
         appclientassets.refreshConfigStrings(applicationDemoAssetStateHolder,
           applicationDemoSessionHolder.runtime.network.configStrings)
+        applicationDemoLerpFraction = 1.0
+        if frameLimit == 0 then
+          applicationDemoLerpFraction = (applicationDemoStarted -
+            applicationDemoSnapshotStarted) * 0.01
+          if applicationDemoLerpFraction < 0.0 then applicationDemoLerpFraction = 0.0 end if
+          if applicationDemoLerpFraction > 1.0 then applicationDemoLerpFraction = 1.0 end if
+        end if
         applicationDemoFrameHolder = appclientstate.buildRefDef(
-          applicationDemoSessionHolder.runtime.client, 1.0,
+          applicationDemoSessionHolder.runtime.client, applicationDemoLerpFraction,
           applicationDemoWindowHolder.width, applicationDemoWindowHolder.height,
           playAssetBindings,
           applicationDemoSessionHolder.runtime.network.playerNumber + 1,
@@ -993,13 +1024,16 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
           applicationDemoSessionHolder.runtime.client.current)
         appentityeffects.emit(applicationDemoSessionHolder.runtime.effects,
           applicationDemoSessionHolder.runtime.client.current,
-          applicationDemoSessionHolder.runtime.client.previous, 1.0,
-          applicationDemoSessionHolder.runtime.client.serverTime,
+          applicationDemoSessionHolder.runtime.client.previous,
+          applicationDemoLerpFraction,
+          applicationDemoSessionHolder.runtime.client.serverTime -
+            (1.0 - applicationDemoLerpFraction) * 100.0,
           applicationDemoSessionHolder.runtime.network.playerNumber + 1,
           applicationDemoFrameHolder)
         appeffecthandoff.applyPrepared(applicationDemoSessionHolder.runtime.effects,
           applicationDemoFrameHolder,
-          applicationDemoSessionHolder.runtime.client.serverTime,
+          applicationDemoSessionHolder.runtime.client.serverTime -
+            (1.0 - applicationDemoLerpFraction) * 100.0,
           resolvePlayEffectModel)
         applicationDemoRendererHolder.exports.BeginFrame(0.0)
         applicationDemoSubmitResult = try(applicationSubmitDemoFrame(
@@ -1022,8 +1056,8 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
         if frameLimit == 0 then
           applicationDemoElapsed = appsystem.milliseconds(applicationDemoClockHolder) -
             applicationDemoStarted
-          if applicationDemoElapsed < 100 then
-            appsystem.sleep(appbyteio.truncInt(100 - applicationDemoElapsed))
+          if applicationDemoElapsed < 8 then
+            appsystem.sleep(appbyteio.truncInt(8 - applicationDemoElapsed))
           end if
         end if
       end if
@@ -1060,6 +1094,10 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
       applicationDemoWorldHolder)
   end if
   applicationDemoPacketsRead = applicationDemoSessionHolder.packetsRead
+  applicationDemoTimedemoElapsed = appsystem.milliseconds(
+    applicationDemoClockHolder) - applicationDemoTimedemoStarted
+  applicationDemoTimedemoMetrics = appmediaseq.timedemoMetrics(
+    applicationDemoRenderedFrames, applicationDemoTimedemoElapsed)
   // These explicit root clears are required even when the compiler inlines a
   // media step into the sequence loop. The next BSP must not retain the
   // previous expanded map, snapshot history or client asset registry.
@@ -1082,7 +1120,9 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
     applicationDemoMusicTrackValue,
     applicationDemoMusicOpened,
     applicationDemoCommandHolder.quitRequested,
-    applicationDemoMissingAssetSummary]
+    applicationDemoMissingAssetSummary,
+    applicationDemoTimedemoMetrics.elapsedMsec,
+    applicationDemoTimedemoMetrics.framesPerSecond]
 end function
 
 // Run retail demo.
@@ -1149,7 +1189,9 @@ end function
 function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
     frameLimit, productHost, skill, initialConfig, playerProfile,
     initialGameplayHandover)
-  global previewFileSystem
+  global previewFileSystem, applicationGamemapAutosaveRequested
+  global applicationGamemapEndOfUnit
+  global applicationMediaCooperative
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then
     return error(9929, "media sequence frame limit outside [0,36000]")
   end if
@@ -1203,6 +1245,11 @@ function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
         applicationMediaPictureResult = runRetailPictureOnHost(baseDirectory,
           applicationMediaStepHolder.name, frameLimit, productHost)
         applicationMediaPictures = applicationMediaPictures + 1
+        applicationMediaCoopSuccessor = appmediaseq.cooperativePictureSuccessor(
+          applicationMediaStepHolder, applicationMediaCooperative)
+        if applicationMediaCoopSuccessor != "" then
+          applicationMediaPendingSpecification = applicationMediaCoopSuccessor
+        end if
         if frameLimit == 0 and not applicationMediaPictureResult[4] and
             applicationMediaIndex + 1 < len(applicationMediaSequenceHolder.steps) then
           return [applicationMediaCompleted, applicationMediaCinematics,
@@ -1214,6 +1261,20 @@ function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
         // A map reached from nextserver/gamemap continues gameplay. Reopening
         // the main menu here would leave an interactive successor map paused
         // behind UI immediately after an otherwise successful level exit.
+        applicationMediaGamemapPolicy = appmediaseq.gameMapPolicy(
+          applicationMediaStepHolder, true)
+        if applicationMediaGamemapPolicy.wipeUnit then
+          applicationMediaCurrentArchivePaths = playCurrentArchivePaths(
+            baseDirectory)
+          if appnativefs.isFile(applicationMediaCurrentArchivePaths[0]) then
+            appnativefs.delete(applicationMediaCurrentArchivePaths[0])
+          end if
+          if appnativefs.isFile(applicationMediaCurrentArchivePaths[1]) then
+            appnativefs.delete(applicationMediaCurrentArchivePaths[1])
+          end if
+        end if
+        applicationGamemapAutosaveRequested = applicationMediaGamemapPolicy.autosaveSuccessor
+        applicationGamemapEndOfUnit = applicationMediaGamemapPolicy.wipeUnit
         applicationMediaLastPlayResult = runPlayAtOnHostConfiguredWithState(baseDirectory,
           applicationMediaStepHolder.name, applicationMediaStepHolder.spawnPoint,
           frameLimit, productHost, skill, false, void,
@@ -1863,6 +1924,22 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
     applicationVideoSmokeRendererGeneration]
 end function
 
+// Return the stock autosave/manual slot label.
+function playSaveSlotLabel(slot)
+  if slot == 0 then return "autosave" end if
+  return "slot " + slot
+end function
+
+// Private `current` archive used between maps within one Quake II unit.
+function playCurrentArchivePaths(baseDirectory)
+  applicationCurrentSaveDirectory = appnativefs.joinPath(baseDirectory,
+    appfs.BASE_DIRECTORY_NAME)
+  return [appnativefs.joinPath(applicationCurrentSaveDirectory,
+    "miniquake2_current_game.sav"),
+    appnativefs.joinPath(applicationCurrentSaveDirectory,
+    "miniquake2_current_level.sav")]
+end function
+
 // Run retail video restart smoke.
 function runRetailVideoRestartSmoke(baseDirectory, mapName)
   return runRetailVideoRestartSmokeForMode(baseDirectory, mapName, 5)
@@ -1949,6 +2026,9 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
   applicationProductCommands.playerName = applicationProductProfile.name
   applicationProductCommands.playerModel = applicationProductProfile.model
   applicationProductCommands.playerSkin = applicationProductProfile.skin
+  applicationProductCommands.playerPassword = applicationProductProfile.password
+  applicationProductCommands.playerSpectator = applicationProductProfile.spectator
+  applicationProductCommands.playerFov = applicationProductProfile.fov
   applicationProductInput.config.hand = applicationProductProfile.hand
   applicationProductCommands.allowDownload = applicationProductPreferences.downloads.allow
   applicationProductCommands.allowDownloadMaps = applicationProductPreferences.downloads.maps
@@ -1957,6 +2037,14 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
   applicationProductCommands.allowDownloadSounds = applicationProductPreferences.downloads.sounds
   appuimenu.setItemText(applicationProductScreen.menu, "player", "name",
     applicationProductProfile.name)
+  appuimenu.setItemText(applicationProductScreen.menu, "player", "password",
+    applicationProductProfile.password)
+  applicationProductSpectatorValue = 0
+  if applicationProductProfile.spectator then applicationProductSpectatorValue = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "player", "spectator",
+    applicationProductSpectatorValue)
+  appuimenu.setItemValue(applicationProductScreen.menu, "player", "fov",
+    applicationProductProfile.fov)
   applicationProductModelIndex = 0
   if applicationProductProfile.model == "female" then applicationProductModelIndex = 1
   else if applicationProductProfile.model == "cyborg" then applicationProductModelIndex = 2 end if
@@ -2044,6 +2132,7 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
   appuikeys.setDestination(applicationProductInput, appuiconstants.KEY_MENU)
   appwindow.setMouseCapture(false)
   applicationProductBrowser = appstartup.createBrowser()
+  applicationProductRconTransport = appstartup.createRconTransport()
   applicationProductClock = appsystem.createClock()
   applicationProductFrames = 0
   applicationProductAction = ""
@@ -2061,6 +2150,31 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
       applicationProductNow)
     appuicommands.drain(applicationProductCommands, applicationProductInput,
       applicationProductScreen, applicationProductMixer)
+    applicationProductRconCommands = appuicommands.takeRconCommands(
+      applicationProductCommands)
+    for each applicationProductRconCommand in applicationProductRconCommands
+      applicationProductRconResult = try(appstartup.sendRcon(
+        applicationProductRconTransport,
+        applicationProductCommands.rconAddress,
+        applicationProductCommands.rconPassword,
+        applicationProductRconCommand,
+        appbyteio.truncInt(applicationProductNow)))
+      if applicationProductRconResult is error then
+        appuiconsole.appendLine(applicationProductScreen.console,
+          "RCON failed: " + applicationProductRconResult.message,
+          appbyteio.truncInt(applicationProductNow))
+      end if
+    end for
+    applicationProductRconReplies = try(appstartup.pumpRcon(
+      applicationProductRconTransport,
+      appbyteio.truncInt(applicationProductNow)))
+    if applicationProductRconReplies is not error then
+      for each applicationProductRconReply in applicationProductRconReplies
+        appuiconsole.appendLine(applicationProductScreen.console,
+          applicationProductRconReply,
+          appbyteio.truncInt(applicationProductNow))
+      end for
+    end if
     if applicationProductCommands.videoRestartRequested then
       applicationProductCommands.videoRestartRequested = false
       applicationProductVideoRestartResult = try(
@@ -2185,6 +2299,7 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     appsystem.sleep(0)
   end while
   appstartup.closeBrowser(applicationProductBrowser)
+  appstartup.closeRconTransport(applicationProductRconTransport)
   applicationProductSavedPreferences = try(appstartup.savePreferences(
     applicationProductPreferencesPath, appstartup.MultiplayerPreferences(
       applicationProductProfile,
@@ -2225,6 +2340,8 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   global applicationAutomatedChangeLevelReached, applicationAutomatedChangeLevelTarget
   global applicationLevelCapturePath, applicationLevelCaptureChecksum
   global applicationLevelCaptureError, applicationPersistProductConfig
+  global applicationGamemapAutosaveRequested, applicationGamemapEndOfUnit
+  global applicationMediaCooperative
   if frameLimit < 0 or frameLimit > 36000 then return error(9913, "play frame limit outside [0,36000]") end if
   // Loading owns several large graphs at once and already collects at explicit
   // phase boundaries. Restore the release horizon in case a prior persistent
@@ -2379,6 +2496,9 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     commandState.playerName = playerProfile.name
     commandState.playerModel = playerProfile.model
     commandState.playerSkin = playerProfile.skin
+    commandState.playerPassword = playerProfile.password
+    commandState.playerSpectator = playerProfile.spectator
+    commandState.playerFov = playerProfile.fov
     input.config.hand = playerProfile.hand
   end if
   commandState.videoMode = productHost.videoMode
@@ -2428,6 +2548,13 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     commandState.brightness)
   appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
   appuimenu.setItemText(screen.menu, "player", "name", commandState.playerName)
+  appuimenu.setItemText(screen.menu, "player", "password",
+    commandState.playerPassword)
+  applicationPlayerSpectatorValue = 0
+  if commandState.playerSpectator then applicationPlayerSpectatorValue = 1 end if
+  appuimenu.setItemValue(screen.menu, "player", "spectator",
+    applicationPlayerSpectatorValue)
+  appuimenu.setItemValue(screen.menu, "player", "fov", commandState.playerFov)
   applicationPlayerModelIndex = 0
   if commandState.playerModel == "female" then applicationPlayerModelIndex = 1
   else if commandState.playerModel == "cyborg" then applicationPlayerModelIndex = 2 end if
@@ -2444,7 +2571,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   end if
   applicationCurrentPlayerProfile = appuicommands.playerProfile(
     commandState, input)
-  saveCheckpoints = array(3)
+  saveCheckpoints = array(15)
   applicationPersistentSlot = 0
   while applicationPersistentSlot < len(saveCheckpoints)
     applicationPersistentPaths = playSavePaths(baseDirectory, applicationPersistentSlot)
@@ -2453,8 +2580,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       session.server.gameExport.maxEdicts))
     if applicationPersistentResult is not error then
       saveCheckpoints[applicationPersistentSlot] = applicationPersistentResult
-      applicationPersistentLabel = "slot " +
-        (applicationPersistentSlot + 1) + " - " +
+      applicationPersistentLabel = playSaveSlotLabel(applicationPersistentSlot) + " - " +
         applicationPersistentResult.mapName
       applicationPersistentMetadataPath = playSaveMetadataPath(baseDirectory,
         applicationPersistentSlot)
@@ -2471,6 +2597,22 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     end if
     applicationPersistentSlot = applicationPersistentSlot + 1
   end while
+  applicationGamemapSinglePlayer = serverOptions is void or
+    serverOptions.cooperative
+  applicationMediaCooperative = serverOptions is not void and
+    serverOptions.cooperative
+  if applicationGamemapAutosaveRequested and applicationGamemapSinglePlayer then
+    applicationAutoSavePaths = playSavePaths(baseDirectory, 0)
+    applicationAutoSaveResult = try(apppersistence.savePlaySession(session,
+      applicationAutoSavePaths[0], applicationAutoSavePaths[1]))
+    if applicationAutoSaveResult is not error then
+      saveCheckpoints[0] = applicationAutoSaveResult
+      appuimenu.setItemLabel(screen.menu, "load", "load0",
+        "autosave - " + applicationAutoSaveResult.mapName)
+    end if
+  end if
+  applicationGamemapAutosaveRequested = false
+  applicationGamemapEndOfUnit = false
   // Interactive product runs enter through the Quake II main menu. Bounded
   // frame runs remain game-directed so automated retail gates need no input.
   if menuAtStart and frameLimit == 0 then
@@ -2736,8 +2878,9 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       else
         saveCheckpoints[applicationSaveSlot] = applicationSaveResult
         appuimenu.setItemLabel(screen.menu, "load", "load" + applicationSaveSlot,
-          "slot " + (applicationSaveSlot + 1) + " - " + applicationSaveResult.mapName)
-        appuiconsole.appendLine(screen.console, "Saved slot " + (applicationSaveSlot + 1),
+          playSaveSlotLabel(applicationSaveSlot) + " - " + applicationSaveResult.mapName)
+        appuiconsole.appendLine(screen.console, "Saved " +
+          playSaveSlotLabel(applicationSaveSlot),
           appbyteio.truncInt(started))
         applicationPendingSaveMetadataSlot = applicationSaveSlot
       end if
@@ -2950,6 +3093,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       end if
       latest = stepResult.handoff
       applyPlayHandoff(screen, latest)
+      appuiscreen.updateInventoryHotkeys(screen, input)
       appclientassets.refreshConfigStrings(assetState,
         session.client.integrated.network.configStrings)
       if applicationAutomatedWeaponWheel then
@@ -3014,8 +3158,9 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         audioMixer, resolvePlayEntityPosition, frame.viewOrigin, viewAxes[1])
       appclientassets.setMixerListenerEntity(
         session.client.integrated.network.playerNumber + 1)
-      appclientassets.syncEntityLoops(audioMixer,
-        session.client.integrated.client.current)
+      appclientassets.syncEntityLoopsPaused(audioMixer,
+        session.client.integrated.client.current,
+        applicationSinglePlayerPaused)
     end if
     // Effects are timestamped by the ClientSession clock while packets are
     // dispatched.  Keep advances on that same monotonic epoch; the render
@@ -3134,8 +3279,8 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
             appbyteio.truncInt(started))
         else
           appuimenu.setItemLabel(screen.menu, "load", "load" +
-            applicationPendingSaveMetadataSlot, "slot " +
-            (applicationPendingSaveMetadataSlot + 1) + " - " +
+            applicationPendingSaveMetadataSlot,
+            playSaveSlotLabel(applicationPendingSaveMetadataSlot) + " - " +
             applicationCurrentMapName + " " + applicationSaveTimestamp)
         end if
       end if
@@ -3254,6 +3399,26 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   // typed handover owns its arrays before shutdown releases this Game API.
   applicationFinalGameplayHandover = try(appplayertransition.capture(
     appgame.playerContext(), appgame.baseRuntime(), 0))
+  if applicationPendingMediaSpecification != "" and
+      applicationGamemapSinglePlayer then
+    applicationArchiveSequence = appmediaseq.parse(
+      applicationPendingMediaSpecification)
+    applicationArchivePolicy = appmediaseq.gameMapPolicy(
+      applicationArchiveSequence.steps[0], true)
+    applicationCurrentArchivePaths = playCurrentArchivePaths(baseDirectory)
+    if applicationArchivePolicy.wipeUnit then
+      if appnativefs.isFile(applicationCurrentArchivePaths[0]) then
+        appnativefs.delete(applicationCurrentArchivePaths[0])
+      end if
+      if appnativefs.isFile(applicationCurrentArchivePaths[1]) then
+        appnativefs.delete(applicationCurrentArchivePaths[1])
+      end if
+    else if applicationArchivePolicy.archiveCurrent then
+      applicationCurrentArchiveResult = try(apppersistence.savePlaySession(
+        session, applicationCurrentArchivePaths[0],
+        applicationCurrentArchivePaths[1]))
+    end if
+  end if
   closePlayAudio(audioDevice, audioMixer)
   appclientassets.releaseBindings()
   if world is not void then appgl.releaseClassicWorld(renderer, world) end if
@@ -3678,6 +3843,9 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
   applicationRemoteCommands.playerName = playerProfile.name
   applicationRemoteCommands.playerModel = playerProfile.model
   applicationRemoteCommands.playerSkin = playerProfile.skin
+  applicationRemoteCommands.playerPassword = playerProfile.password
+  applicationRemoteCommands.playerSpectator = playerProfile.spectator
+  applicationRemoteCommands.playerFov = playerProfile.fov
   applicationRemoteCommands.videoMode = productHost.videoMode
   applicationRemoteCommands.fullScreen = productHost.fullScreen
   applicationRemoteConfigPath = playConfigPath(baseDirectory)
@@ -3777,10 +3945,44 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
         applicationRemoteSession, applicationRemoteUserInfo,
         applicationRemoteNow))
     end if
+    if appuicommands.takeReconnect(applicationRemoteCommands) then
+      applicationRemoteReconnectNow = appbyteio.truncInt(appsystem.milliseconds(
+        applicationRemoteSession.clock))
+      applicationRemoteReconnectResult = try(appruntimedispatcher.beginReconnect(
+        applicationRemoteSession.integrated, applicationRemoteReconnectNow))
+      if applicationRemoteReconnectResult is error then
+        appuiconsole.appendLine(applicationRemoteScreen.console,
+          "Reconnect failed: " + applicationRemoteReconnectResult.message,
+          appbyteio.truncInt(applicationRemoteStarted))
+      else
+        applicationRemoteObservedFrame = -1
+        applicationRemoteViewInitialized = false
+      end if
+    end if
     if appuicommands.takeDisconnect(applicationRemoteCommands) then
       applicationRemoteDisconnect = true
       continue
     end if
+    applicationRemoteRconCommands = appuicommands.takeRconCommands(
+      applicationRemoteCommands)
+    applicationRemoteRconAddress = void
+    if applicationRemoteCommands.rconAddress != "" then
+      applicationRemoteRconEndpoint = appstartup.parseEndpoint(
+        applicationRemoteCommands.rconAddress)
+      applicationRemoteRconAddress = appnetworktransport.fromUdp(
+        applicationRemoteRconEndpoint.address,
+        applicationRemoteRconEndpoint.port)
+    end if
+    for each applicationRemoteRconCommand in applicationRemoteRconCommands
+      applicationRemoteRconAction = appnetworkclient.rconAction(
+        applicationRemoteSession.integrated.network.client,
+        applicationRemoteRconAddress, applicationRemoteCommands.rconPassword,
+        applicationRemoteRconCommand)
+      appudp.send(applicationRemoteSession.socket,
+        appnetworktransport.host(applicationRemoteRconAction.address),
+        applicationRemoteRconAction.address.port,
+        applicationRemoteRconAction.data)
+    end for
     applicationRemoteForwarded = appuicommands.takeForwarded(
       applicationRemoteCommands)
     applicationRemoteCommandNow = appbyteio.truncInt(appsystem.milliseconds(
@@ -3849,6 +4051,8 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       applicationRemoteSession.integrated)
     if applicationRemoteHandoff is not void then
       applyPlayHandoff(applicationRemoteScreen, applicationRemoteHandoff)
+      appuiscreen.updateInventoryHotkeys(applicationRemoteScreen,
+        applicationRemoteInput)
     end if
     applicationRemoteNextMusicTrack = applicationRemoteSession.integrated.network.configStrings[
       appqconstants.CS_CDTRACK]
@@ -4070,6 +4274,7 @@ end function
 
 // Run product.
 function runProduct(baseDirectory, frameLimit)
+  global applicationGamemapAutosaveRequested, applicationGamemapEndOfUnit
   if not appstartup.retailRootValid(baseDirectory) then
     return error(9965, "MiniQuake2 product requires a Quake II root containing baseq2/pak0.pak")
   end if
@@ -4160,6 +4365,8 @@ function runProduct(baseDirectory, frameLimit)
         continue
       end if
       applicationPersistentSelection.mapName = applicationPersistentNewGame.steps[1].name
+      applicationGamemapAutosaveRequested = true
+      applicationGamemapEndOfUnit = true
     end if
     applicationPersistentServerOptions = void
     if applicationPersistentSelection.action == "server" then
@@ -4225,11 +4432,49 @@ function runProduct(baseDirectory, frameLimit)
 end function
 
 // Run dedicated.
+function executeDedicatedCommand(session, baseDirectory, text)
+  arguments = appqcmd.tokenize(text)
+  if len(arguments) == 0 then return [true, ""] end if
+  command = arguments[0]
+  if apptext.equalInsensitive(command, "quit") or
+      apptext.equalInsensitive(command, "killserver") then
+    return [false, "Server shutting down.\n"]
+  end if
+  if apptext.equalInsensitive(command, "map") or
+      apptext.equalInsensitive(command, "gamemap") then
+    if len(arguments) != 2 then return [true, "Usage: " + command + " <map>\n"] end if
+    changed = try(appsession.changeMapRetail(session, baseDirectory, arguments[1]))
+    if changed is error then return [true, "Map change failed: " + changed.message + "\n"] end if
+    if not changed.changed then return [true, "Map change deferred: " + changed.reason + "\n"] end if
+    return [true, "Loaded map " + changed.mapName + ".\n"]
+  end if
+  return [true, appservercommands.executeOperator(session.networkRuntime, text)]
+end function
+
+// Run dedicated.
 function runDedicated(baseDirectory, mapName, port, frameLimit)
   session = appsession.createRetail(baseDirectory, mapName, "0.0.0.0", port, 4, true)
   print "MiniQuake2 dedicated server listening: " + session.socket.address + ":" + session.socket.port
   print "  map=" + mapName + " protocol=34 maxclients=4"
-  frames = appsession.run(session, frameLimit)
+  console = appdedicatedconsole.create()
+  appdedicatedconsole.open(console)
+  frames = 0
+  running = true
+  while running and (frameLimit == 0 or frames < frameLimit)
+    started = appsystem.milliseconds(session.clock)
+    for each line in appdedicatedconsole.poll(console)
+      executed = executeDedicatedCommand(session, baseDirectory, line)
+      running = executed[0]
+      appdedicatedconsole.write(console, executed[1])
+      if not running then break end if
+    end for
+    if not running then break end if
+    appsession.step(session)
+    frames = frames + 1
+    elapsed = appsystem.milliseconds(session.clock) - started
+    if elapsed < 100 then appsystem.sleep(appbyteio.truncInt(100 - elapsed)) end if
+  end while
+  appdedicatedconsole.close(console)
   appsession.shutdown(session)
   return [frames, session.packetsReceived, session.packetsSent, session.packetsRejected]
 end function

@@ -34,6 +34,9 @@ struct CommandState
   playerName
   playerModel
   playerSkin
+  playerPassword
+  playerSpectator
+  playerFov
   playerDirty
   connectAddress
   refreshServers
@@ -55,14 +58,18 @@ struct CommandState
   stopRecordingRequested
   screenshotRequested
   joystickEnabled
+  reconnectRequested
+  rconPassword
+  rconAddress
+  rconCommands
 end struct
 
 // Create state.
 function create()
   return CommandState(false, false, 0, false, 1.0, -1, -1, 0, 0, [], -1, false,
-    "MiniQuake2", "male", "grunt", false, "", false, false, false,
+    "MiniQuake2", "male", "grunt", "", false, 90, false, "", false, false, false,
     "q2dm1", "MiniQuake2", 0, 8, 0, 0, 0, true, true, true, true, true,
-    "", false, false, true)
+    "", false, false, true, false, "", "", [])
 end function
 
 // Return the numeric argument value.
@@ -241,6 +248,28 @@ function localAction(commandState, input, screen, mixer, command)
     commandState.configDirty = true
     return true
   end if
+  if cuicmdName == "password" then
+    if len(cuicmdArguments) != 2 or len(bytes(cuicmdArguments[1])) > 63 or
+        not cuicmdinfo.componentValid(cuicmdArguments[1]) then
+      return error(8283, "password is invalid")
+    end if
+    commandState.playerPassword = cuicmdArguments[1]
+    commandState.playerDirty = true
+    commandState.configDirty = true
+    return true
+  end if
+  if cuicmdName == "spectator" then
+    commandState.playerSpectator = booleanArgument(cuicmdArguments, cuicmdName)
+    commandState.playerDirty = true
+    commandState.configDirty = true
+    return true
+  end if
+  if cuicmdName == "fov" then
+    commandState.playerFov = integerArgument(cuicmdArguments, cuicmdName, 1, 160)
+    commandState.playerDirty = true
+    commandState.configDirty = true
+    return true
+  end if
   if cuicmdName == "s_volume" then
     cuicmdVolume = numericArgument(cuicmdArguments, cuicmdName)
     cuicmdmixer.setMasterVolume(mixer, cuicmdVolume)
@@ -319,9 +348,16 @@ function localAction(commandState, input, screen, mixer, command)
     cuicmdBindingCommand = cuicmdArguments[1]
     cuicmdBindingAllowed = cuicmdBindingCommand == "+forward" or
       cuicmdBindingCommand == "+back" or cuicmdBindingCommand == "+moveleft" or
-      cuicmdBindingCommand == "+moveright" or cuicmdBindingCommand == "+moveup" or
-      cuicmdBindingCommand == "+attack" or cuicmdBindingCommand == "+use" or
-      cuicmdBindingCommand == "inven"
+      cuicmdBindingCommand == "+moveright" or cuicmdBindingCommand == "+left" or
+      cuicmdBindingCommand == "+right" or cuicmdBindingCommand == "+speed" or
+      cuicmdBindingCommand == "+strafe" or cuicmdBindingCommand == "+lookup" or
+      cuicmdBindingCommand == "+lookdown" or cuicmdBindingCommand == "+mlook" or
+      cuicmdBindingCommand == "+klook" or cuicmdBindingCommand == "+moveup" or
+      cuicmdBindingCommand == "+movedown" or cuicmdBindingCommand == "+attack" or
+      cuicmdBindingCommand == "weapnext" or cuicmdBindingCommand == "centerview" or
+      cuicmdBindingCommand == "inven" or cuicmdBindingCommand == "invuse" or
+      cuicmdBindingCommand == "invdrop" or cuicmdBindingCommand == "invprev" or
+      cuicmdBindingCommand == "invnext" or cuicmdBindingCommand == "cmd help"
     if not cuicmdBindingAllowed then return error(8288, "bindcapture command is not allowed") end if
     cuicmdkeys.beginBindingCapture(input, cuicmdBindingCommand)
     return true
@@ -349,6 +385,32 @@ function localAction(commandState, input, screen, mixer, command)
   if cuicmdName == "disconnect" then
     if len(cuicmdArguments) != 1 then return error(8289, "disconnect takes no arguments") end if
     commandState.disconnectRequested = true
+    return true
+  end if
+  if cuicmdName == "reconnect" then
+    if len(cuicmdArguments) != 1 then return error(8289, "reconnect takes no arguments") end if
+    commandState.reconnectRequested = true
+    return true
+  end if
+  if cuicmdName == "rcon_password" then
+    if len(cuicmdArguments) != 2 or len(bytes(cuicmdArguments[1])) > 63 or
+        not cuicmdinfo.componentValid(cuicmdArguments[1]) then
+      return error(8289, "rcon_password is invalid")
+    end if
+    commandState.rconPassword = cuicmdArguments[1]
+    return true
+  end if
+  if cuicmdName == "rcon_address" then
+    if len(cuicmdArguments) != 2 then return error(8289, "rcon_address expects one endpoint") end if
+    cuicmdRconEndpoint = cuicmdstartup.parseEndpoint(cuicmdArguments[1])
+    commandState.rconAddress = cuicmdstartup.endpointText(cuicmdRconEndpoint)
+    return true
+  end if
+  if cuicmdName == "rcon" then
+    cuicmdRconCommand = cuicmdq.argumentTail(command)
+    if cuicmdRconCommand == "" then return error(8289, "rcon expects a command") end if
+    if commandState.rconPassword == "" then return error(8289, "rcon_password is not configured") end if
+    commandState.rconCommands = commandState.rconCommands + [cuicmdRconCommand]
     return true
   end if
   if cuicmdName == "startserver" then
@@ -438,8 +500,8 @@ function localAction(commandState, input, screen, mixer, command)
   if cuicmdName == "save" or cuicmdName == "load" then
     cuicmdSlotValue = numericArgument(cuicmdArguments, cuicmdName)
     cuicmdSlot = cuicmdbyteio.truncInt(cuicmdSlotValue)
-    if cuicmdSlotValue != cuicmdSlot or cuicmdSlot < 0 or cuicmdSlot > 2 then
-      return error(8287, cuicmdName + " slot outside [0,2]")
+    if cuicmdSlotValue != cuicmdSlot or cuicmdSlot < 0 or cuicmdSlot > 14 then
+      return error(8287, cuicmdName + " slot outside [0,14]")
     end if
     if cuicmdName == "save" then commandState.saveSlot = cuicmdSlot
     else commandState.loadSlot = cuicmdSlot end if
@@ -568,7 +630,9 @@ end function
 // Return the player profile value.
 function playerProfile(commandState, input)
   return cuicmdstartup.PlayerProfile(commandState.playerName,
-    commandState.playerModel, commandState.playerSkin, input.config.hand, 25000)
+    commandState.playerModel, commandState.playerSkin, input.config.hand, 25000,
+    commandState.playerPassword, commandState.playerSpectator,
+    commandState.playerFov)
 end function
 
 // Consume connect address.
@@ -597,6 +661,20 @@ function takeDisconnect(commandState)
   cuicmdDisconnect = commandState.disconnectRequested
   commandState.disconnectRequested = false
   return cuicmdDisconnect
+end function
+
+// Consume reconnect request.
+function takeReconnect(commandState)
+  cuicmdReconnect = commandState.reconnectRequested
+  commandState.reconnectRequested = false
+  return cuicmdReconnect
+end function
+
+// Consume pending remote-console commands.
+function takeRconCommands(commandState)
+  cuicmdRconCommands = commandState.rconCommands
+  commandState.rconCommands = []
+  return cuicmdRconCommands
 end function
 
 // Return the server options value.

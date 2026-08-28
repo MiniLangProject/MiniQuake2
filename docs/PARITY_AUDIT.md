@@ -5,6 +5,38 @@ and from acceptance evidence that requires another process, host or device. It
 uses the bundled Quake II 3.19 source at commit
 `372afde46e7defc9dd2d719a1732b8ace1fa096e` as the reference.
 
+## Closed in the 2026-08-28 exhaustive follow-up
+
+- `G_RunFrame` now advances non-client edicts by global edict number. Dynamic
+  spawns can participate later in the same frame, pusher teams run atomically at
+  their captain, team slaves are skipped, and monster combat cannot run before
+  the actor's scheduled think.
+- Toss/bounce entities, projectiles and dropped items use stock gravity,
+  ground-link invalidation, collision masks, water transitions, relinking and
+  trigger contact. Mapper `trigger_gravity` key presence remains distinct from
+  the edict's physical default multiplier.
+- Pusher transactions include standing riders, items and projectiles and invoke
+  the stock post-move trigger pass. This closes the elevator/floor clipping and
+  door-crush regressions without a geometry-only rider heuristic.
+- Private-Save v21 serializes the remaining live projectile, player transient,
+  noise, enemy/owner and AI-reference state while preserving older readers.
+  Staged Jorg-to-Makron restoration and successor timing have dedicated tests.
+- Snapshot visibility follows the original solid/PVS, beam/PHS and sound-only
+  cutoffs. Client prediction, save/load menus, controls, inventory, preferences,
+  reconnect, RCON, timedemo reporting and campaign archive/autosave behavior
+  now cover their previously bounded gaps.
+- The classic renderer performs the stock opaque/entity/deferred-alpha order,
+  dynamic and brush lightmaps, MD2 culling/winding/lerp, water dual-cluster PVS,
+  texture mip chains, animated brush frames and TGA sky fallback. Hot sky and
+  warp paths reuse fixed buffers, and paused autosounds remain active.
+- Dedicated console input and operator commands are live. Command/cvar services
+  now enforce stock expansion and validation rules and emit persistent archive
+  state.
+
+These closures are implementation claims backed by deterministic regressions.
+Retail campaign traversal, physical input, audio hardware, GPU drivers and long
+interactive sessions remain explicit external acceptance evidence.
+
 ## Closed in the current source-parity pass
 
 - Protocol-34 string commands now retain their exact token and argument

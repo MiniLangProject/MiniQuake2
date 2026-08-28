@@ -205,6 +205,8 @@ function testProductShapedInlineBrushSubmission()
   assertEqual(rbrushtestspecial.classicSpecialBaseTexture(doorDraw, 0.0).name, "door", "runtime animation frame zero")
   assertEqual(rbrushtestspecial.classicSpecialBaseTexture(doorDraw, 0.5).name, "door2", "runtime animation frame one")
   assertEqual(rbrushtestspecial.classicSpecialBaseTexture(doorDraw, 1.0).name, "door", "runtime animation cycle")
+  assertEqual(rbrushtestspecial.classicSpecialBaseTextureFrame(doorDraw,
+    1).name, "door2", "inline brush animation follows entity frame")
   worldSelection = rbrushtestvisibility.selectClassicWorld(world, frame)
   worldPlan = rbrushtestspecial.classicSpecialPassPlan(worldSelection.draws, frame)
   transparentFrame = rbrushtestopengl.prepareClassicTransparentFrame(worldPlan, brushPlan, frame)
@@ -265,8 +267,10 @@ function testProductShapedInlineBrushSubmission()
     soakStats = rbrushtestopengl.submitClassicWorld(renderer, world, frame)
     assertEqual(soakStats.brushEntities, 1, "1000-frame moving brush visibility")
     assertEqual(soakStats.transparentDraws, 2, "1000-frame combined alpha plan")
-    expectedDirty = 0; if (soak & 1) == 0 then expectedDirty = 1 end if
-    assertEqual(soakStats.brushDirtyLightmaps, expectedDirty, "1000-frame dirty light replay")
+    // Lit frames upload the contribution; following unlit frames upload the
+    // static restoration, matching ref_gl's prior dlightframe behavior.
+    assertEqual(soakStats.brushDirtyLightmaps, 1,
+      "1000-frame dynamic and restoration lightmap replay")
     soak = soak + 1
   end while
 

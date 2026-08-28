@@ -293,7 +293,9 @@ end function
 
 // Spawn gravity.
 function spawnGravity(entity, world)
-  if entity.gravity == 0.0 then
+  // The stock game tests whether the mapper supplied the spawn-temp key, not
+  // the edict's physical gravity multiplier (which defaults to one).
+  if not entity.gravitySpecified then
     gwcore.log(world, "trigger_gravity without gravity set")
     gwcore.freeEntity(world, entity)
     return false

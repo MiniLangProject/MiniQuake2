@@ -10,8 +10,9 @@ import miniquake2.game.player.constants as gplayerconstants
 import miniquake2.game.player.hud as gplayerhud
 import miniquake2.game.player.rules as gplayerrules
 
-// Run player frame.
-function RunPlayerFrame(context)
+// Begin the client portion of a server frame. Return false when the pending
+// intermission exit consumed the frame before any client or entity gameplay.
+function BeginPlayerFrame(context)
   context.frameNumber = context.frameNumber + 1
   context.time = context.frameNumber * gplayerconstants.FRAME_TIME
   if context.exitIntermission then
@@ -21,7 +22,7 @@ function RunPlayerFrame(context)
     for each player in context.players
       if player.edict.inUse and player.health > player.maxHealth then player.health = player.maxHealth end if
     end for
-    return miniquake2.game.player.types.RuleResult(false, "level exited", context.nextMap)
+    return false
   end if
   for each player in context.players
     if player.edict.inUse and player.persistent.connected then
@@ -29,7 +30,21 @@ function RunPlayerFrame(context)
       gplayerclient.ClientBeginServerFrame(context, player)
     end if
   end for
+  return true
+end function
+
+// Finish rules and player-state publication after all non-client edicts ran.
+function EndPlayerFrame(context)
   result = gplayerrules.CheckDMRules(context)
   gplayerhud.ClientEndServerFrames(context)
   return result
+end function
+
+// Run the standalone player-facing frame used by focused component tests.
+function RunPlayerFrame(context)
+  if not BeginPlayerFrame(context) then
+    return miniquake2.game.player.types.RuleResult(false, "level exited",
+      context.nextMap)
+  end if
+  return EndPlayerFrame(context)
 end function

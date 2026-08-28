@@ -392,13 +392,20 @@ function testSnapshotsAndRefDef()
   assertNear(stairCompleteFrame.viewOrigin.z, 5.5625, 0.000001,
     "stair camera reaches predicted height after 100 ms")
 
-  // Dead cameras and demos remain locked to authoritative interpolation.
+  // Original Quake II keeps predicted movement for a dead player, but stops
+  // predicting view angles once PM_DEAD is reached.
   secondPlayer.pmove.moveType = qc.PM_DEAD
   deadFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
     testResolvers, 0, testRandom)
-  assertEqual(deadFrame.viewOrigin.x, 10.5625,
-    "dead camera server origin plus BSP plane nudge")
+  assertEqual(deadFrame.viewOrigin.x, 20.5625,
+    "dead camera retains predicted origin plus BSP plane nudge")
   assertEqual(deadFrame.viewAngles.x, 6.0, "dead camera server angles")
+  secondPlayer.pmove.flags = qc.PMF_NO_PREDICTION
+  noPredictionFrame = cstate.buildPredictedRefDef(client, 0.5, 640, 480,
+    testResolvers, 0, testRandom)
+  assertEqual(noPredictionFrame.viewOrigin.x, 10.5625,
+    "explicit no-prediction flag restores authoritative origin")
+  secondPlayer.pmove.flags = 0
   secondPlayer.pmove.moveType = qc.PM_NORMAL
 
   firstPlayer.viewAngles = [0.0, 359.0, 0.0]

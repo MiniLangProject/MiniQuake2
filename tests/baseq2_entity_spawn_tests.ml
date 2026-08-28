@@ -147,6 +147,8 @@ function testSpawnEntities()
   assertEqual(world.component.spawnTemp.skyAxis[2], 1, "world sky axis")
   assertEqual(world.component.sounds, 3, "world sounds integer")
   assertEqual(world.component.spawnTemp.gravity, "700", "world gravity text")
+  assertEqual(world.component.spawnTemp.gravitySpecified, true,
+    "world gravity key presence")
 
   start = result.edicts[1]
   assertEqual(start.component.spawnKind, "info-player-start", "player start spawn kind")

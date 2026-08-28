@@ -145,7 +145,15 @@ function fireRail(context, shooter, start, aimDirection, damage, kick)
     end if
     traceStart = wbvector.copy(trace.endPosition)
   end while
-  wbcore.emitEffect(context, "rail-trail", start, trace.endPosition, trace.plane.normal, 0, 1)
+  // Rail trails do not transmit a direction. Reuse the effect normal as the
+  // multicast anchor so the integration layer can preserve BaseQ2's distinct
+  // shooter-origin and water-endpoint PHS routing without widening the ABI.
+  wbcore.emitEffect(context, "rail-trail", start, trace.endPosition,
+    shooter.origin, 0, 1)
+  if water then
+    wbcore.emitEffect(context, "rail-trail-water", start, trace.endPosition,
+      trace.endPosition, 0, 1)
+  end if
   if shooter.isClient then context.callbacks.playerNoise(shooter, trace.endPosition, 2) end if
   return trace
 end function

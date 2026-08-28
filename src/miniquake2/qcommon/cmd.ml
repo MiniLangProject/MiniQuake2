@@ -12,6 +12,7 @@ import miniquake2.qcommon.cvar as cvar
 const MAX_ARGS = 80
 const COMMAND_BUFFER_SIZE = 8192
 const MAX_ALIAS_NAME = 32
+const MAX_STRING_CHARS = 1024
 
 // Create state.
 function create(cvars)
@@ -129,10 +130,54 @@ function splitFirst(value)
   return [first, rest]
 end function
 
+// Expand unquoted `$cvar` references with the same bounded repeated-scan
+// policy as Cmd_MacroExpandString. Keeping this in qcommon makes config,
+// client-console and dedicated-console command parsing agree.
+function macroExpand(system, value)
+  // Validate the initial bound, rescan substituted text with a loop guard,
+  // then reject an unmatched quoted region before tokenization.
+  if len(bytes(value)) >= MAX_STRING_CHARS then
+    return error(3225, "command line exceeds MAX_STRING_CHARS")
+  end if
+  expanded = value
+  replacements = 0
+  scan = 0
+  quoted = false
+  while scan < len(bytes(expanded))
+    source = bytes(expanded)
+    if source[scan] == 34 then quoted = not quoted; scan = scan + 1
+    else if not quoted and source[scan] == 36 then
+      nameStart = scan + 1
+      nameEnd = nameStart
+      while nameEnd < len(source) and source[nameEnd] > 32 and
+          source[nameEnd] != 34 and source[nameEnd] != 59
+        nameEnd = nameEnd + 1
+      end while
+      if nameEnd == nameStart then scan = scan + 1
+      else
+        name = decode(slice(source, nameStart, nameEnd - nameStart))
+        replacement = cvar.variableString(system.cvars, name)
+        prefix = decode(slice(source, 0, scan))
+        suffix = decode(slice(source, nameEnd, len(source) - nameEnd))
+        expanded = prefix + replacement + suffix
+        if len(bytes(expanded)) >= MAX_STRING_CHARS then
+          return error(3226, "expanded command line exceeds MAX_STRING_CHARS")
+        end if
+        replacements = replacements + 1
+        if replacements >= 100 then return error(3227, "command macro expansion loop") end if
+      end if
+    else scan = scan + 1
+    end if
+  end while
+  if quoted then return error(3228, "command line has unmatched quote") end if
+  return expanded
+end function
+
 // Execute string.
 function executeString(system, value)
-  system.arguments = tokenize(value)
-  system.argumentTail = argumentTail(value)
+  expanded = macroExpand(system, value)
+  system.arguments = tokenize(expanded)
+  system.argumentTail = argumentTail(expanded)
   if len(system.arguments) == 0 then return false end if
   name = system.arguments[0]
   if text.equalInsensitive(name, "wait") then system.wait = true; return true end if

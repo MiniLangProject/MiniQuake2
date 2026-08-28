@@ -1565,14 +1565,25 @@ function RunFrame()
     index = index + 1
   end while
   frameNumber = frameNumber + 1
+  continueFrame = true
+  if activePlayerContext is not void then
+    playerContext = activePlayerContext
+    if activeBaseRuntime is not void then
+      ngbaseq2.syncPlayers(activeBaseRuntime, playerContext)
+      ngbaseq2.selectSightClient(activeBaseRuntime, playerContext)
+    end if
+    continueFrame = ngplayerframe.BeginPlayerFrame(playerContext)
+  end if
+  // BaseQ2 exits an intermission before treating any edict in turn. In
+  // particular, no late projectile, monster or mover think may leak into the
+  // successor-level handoff.
+  if not continueFrame then return true end if
   if activeBaseRuntime is not void then
     runtime = activeBaseRuntime
-    if activePlayerContext is not void then ngbaseq2.syncPlayers(runtime, activePlayerContext) end if
     ngbaseq2.runFrame(runtime)
   end if
   if activePlayerContext is not void then
     playerContext = activePlayerContext
-    ngplayerframe.RunPlayerFrame(playerContext)
     if activeBaseRuntime is not void then
       ngbaseq2.runPlayerGameplayFrame(activeBaseRuntime, playerContext)
       ngbaseq2.syncPlayers(activeBaseRuntime, playerContext)
@@ -1582,6 +1593,8 @@ function RunFrame()
       // without exposing an intermediate snapshot to any consumer.
       ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
     end if
+    // ClientEndServerFrames follows every non-client edict in stock G_RunFrame.
+    ngplayerframe.EndPlayerFrame(playerContext)
     for each player in playerContext.players
       playerNumber = player.edict.state.number
       if playerNumber > 0 and playerNumber < exportTable.maxEdicts then

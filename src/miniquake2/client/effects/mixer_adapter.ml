@@ -157,10 +157,11 @@ end function
 // are merged into one autosound channel and their spatial contributions are
 // summed, exactly as the stock client does for doors, plats, ambients and
 // projectile flight loops.
-function syncEntityLoops(mixer, snapshot)
+function syncEntityLoopsPaused(mixer, snapshot, paused)
   global indexResolver, listenerOrigin, listenerRight, loopSoundEpoch
   if mixer is void then return error(7343, "loop sound sync requires a mixer") end if
   amixer.clearAutoSounds(mixer)
+  if paused then return 0 end if
   if snapshot is void then return 0 end if
   loopSoundEpoch = loopSoundEpoch + 1
   if loopSoundEpoch >= 0x7fffffff then
@@ -219,6 +220,12 @@ function syncEntityLoops(mixer, snapshot)
     index = index + 1
   end while
   return started
+end function
+
+// Backwards-compatible active-game entry point. Runtime owners that implement
+// cl_paused should call syncEntityLoopsPaused with their pause state.
+function syncEntityLoops(mixer, snapshot)
+  return syncEntityLoopsPaused(mixer, snapshot, false)
 end function
 
 // Install state.

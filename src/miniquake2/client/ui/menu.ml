@@ -80,26 +80,53 @@ function defaultPages()
     action("defaults", "reset defaults", "reset_defaults"),
     action("console", "go to console", "go_console")])
   load = cuitypes.MenuPage("load", "LOAD GAME", "game", [
-    action("load0", "slot 1", "load 0"), action("load1", "slot 2", "load 1"),
-    action("load2", "slot 3", "load 2")])
+    action("load0", "autosave", "load 0"), action("load1", "slot 1", "load 1"),
+    action("load2", "slot 2", "load 2"), action("load3", "slot 3", "load 3"),
+    action("load4", "slot 4", "load 4"), action("load5", "slot 5", "load 5"),
+    action("load6", "slot 6", "load 6"), action("load7", "slot 7", "load 7"),
+    action("load8", "slot 8", "load 8"), action("load9", "slot 9", "load 9"),
+    action("load10", "slot 10", "load 10"), action("load11", "slot 11", "load 11"),
+    action("load12", "slot 12", "load 12"), action("load13", "slot 13", "load 13"),
+    action("load14", "slot 14", "load 14")])
   save = cuitypes.MenuPage("save", "SAVE GAME", "game", [
-    action("save0", "slot 1", "save 0"), action("save1", "slot 2", "save 1"),
-    action("save2", "slot 3", "save 2")])
+    action("save1", "slot 1", "save 1"), action("save2", "slot 2", "save 2"),
+    action("save3", "slot 3", "save 3"), action("save4", "slot 4", "save 4"),
+    action("save5", "slot 5", "save 5"), action("save6", "slot 6", "save 6"),
+    action("save7", "slot 7", "save 7"), action("save8", "slot 8", "save 8"),
+    action("save9", "slot 9", "save 9"), action("save10", "slot 10", "save 10"),
+    action("save11", "slot 11", "save 11"), action("save12", "slot 12", "save 12"),
+    action("save13", "slot 13", "save 13"), action("save14", "slot 14", "save 14")])
   keys = cuitypes.MenuPage("keys", "CONTROLS", "options", [
-    action("forward", "bind forward", "bindcapture +forward"),
-    action("back", "bind back", "bindcapture +back"),
-    action("left", "bind move left", "bindcapture +moveleft"),
-    action("right", "bind move right", "bindcapture +moveright"),
-    action("jump", "bind jump", "bindcapture +moveup"),
-    action("attack", "bind attack", "bindcapture +attack"),
-    action("use", "bind use", "bindcapture +use"),
-    action("inventory", "bind inventory", "bindcapture inven"),
+    action("attack", "attack", "bindcapture +attack"),
+    action("nextweapon", "next weapon", "bindcapture weapnext"),
+    action("walkforward", "walk forward", "bindcapture +forward"),
+    action("backpedal", "backpedal", "bindcapture +back"),
+    action("turnleft", "turn left", "bindcapture +left"),
+    action("turnright", "turn right", "bindcapture +right"),
+    action("run", "run", "bindcapture +speed"),
+    action("stepleft", "step left", "bindcapture +moveleft"),
+    action("stepright", "step right", "bindcapture +moveright"),
+    action("sidestep", "sidestep", "bindcapture +strafe"),
+    action("lookup", "look up", "bindcapture +lookup"),
+    action("lookdown", "look down", "bindcapture +lookdown"),
+    action("centerview", "center view", "bindcapture centerview"),
+    action("mouselook", "mouse look", "bindcapture +mlook"),
+    action("keyboardlook", "keyboard look", "bindcapture +klook"),
+    action("jump", "up / jump", "bindcapture +moveup"),
+    action("crouch", "down / crouch", "bindcapture +movedown"),
+    action("inventory", "inventory", "bindcapture inven"),
+    action("invuse", "use item", "bindcapture invuse"),
+    action("invdrop", "drop item", "bindcapture invdrop"),
+    action("invprev", "prev item", "bindcapture invprev"),
+    action("invnext", "next item", "bindcapture invnext"),
+    action("help", "help computer", "bindcapture cmd help"),
     label("hint", "ENTER, then key; ESC cancels")])
   multiplayer = cuitypes.MenuPage("multiplayer", "MULTIPLAYER", "main", [
     action("join", "join network server", "menu:join"),
     action("start", "start network server", "menu:start"),
     action("player", "player setup", "menu:player"),
     action("downloads", "download options", "menu:downloads"),
+    action("reconnect", "reconnect", "reconnect"),
     action("disconnect", "disconnect", "disconnect")])
   player = cuitypes.MenuPage("player", "PLAYER SETUP", "multiplayer", [
     field("name", "name", "MiniQuake2", 15, "name"),
@@ -109,6 +136,9 @@ function defaultPages()
        "nightops", "pointman", "psycho", "rampage", "razor", "recon",
        "scout", "sniper", "viper"], "skin"),
     choice("hand", "handedness", 0, ["right", "left", "center"], "hand"),
+    field("password", "password", "", 63, "password"),
+    toggle("spectator", "spectator", 0, "spectator"),
+    slider("fov", "field of view", 90, 1, 160, 1, "fov"),
     label("preview", "player preview")])
   join = cuitypes.MenuPage("join", "JOIN SERVER", "multiplayer", [
     action("refresh", "refresh server list", "net_refresh"),

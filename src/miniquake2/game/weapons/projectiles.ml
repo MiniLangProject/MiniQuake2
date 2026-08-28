@@ -117,7 +117,8 @@ function advanceProjectile(context, projectile)
 
   projectile.oldOrigin = wbvector.copy(projectile.origin)
   if projectile.moveType == wbconstants.MOVETYPE_BOUNCE then
-    projectile.velocity.z = projectile.velocity.z - 800.0 * context.frameTime
+    projectile.velocity.z = projectile.velocity.z - 800.0 * projectile.gravity *
+      context.frameTime
   end if
   finish = wbvector.multiplyAdd(projectile.origin, context.frameTime,
     projectile.velocity)
@@ -126,6 +127,8 @@ function advanceProjectile(context, projectile)
   projectile.origin = wbvector.copy(trace.endPosition)
   projectile.angles = wbvector.multiplyAdd(projectile.angles,
     context.frameTime, projectile.angularVelocity)
+  // SV_PushEntity links the final pose before impact callbacks run.
+  context.callbacks.linkEntity(projectile)
   if trace.fraction < 1.0 then
     wbcore.touchProjectile(context, projectile, trace.entity, trace)
     if projectile.inUse and projectile.moveType == wbconstants.MOVETYPE_BOUNCE then
@@ -138,6 +141,16 @@ function advanceProjectile(context, projectile)
         projectile.angularVelocity.y = 0.0
         projectile.angularVelocity.z = 0.0
       end if
+    end if
+  end if
+  if projectile.inUse then
+    wasInWater = (projectile.waterType & qc.MASK_WATER) != 0
+    projectile.waterType = context.callbacks.pointContents(projectile.origin)
+    isInWater = (projectile.waterType & qc.MASK_WATER) != 0
+    projectile.waterLevel = 0
+    if isInWater then projectile.waterLevel = 1 end if
+    if wasInWater != isInWater then
+      context.callbacks.sound(projectile, "misc/h2ohit1.wav")
     end if
   end if
   return projectile.inUse

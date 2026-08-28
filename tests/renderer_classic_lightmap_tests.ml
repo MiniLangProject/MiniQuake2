@@ -67,6 +67,11 @@ function testDynamicContributionAndCache()
   assertEqual(slice(result, 0, 4), bytes([128, 64, 32, 128]), "dynamic center luxel")
   assertEqual(slice(result, 4, 4), bytes([112, 56, 28, 112]), "dynamic distance falloff")
   rclassiclightmaps.setCacheState(surface, styles)
+  assertEqual(rclassiclightmaps.lightStylesChanged(surface, styles), false,
+    "unchanged lightstyle remains cached")
+  styles[0] = rt.lightStyle(0.5, 1.0, 1.0)
+  assertEqual(rclassiclightmaps.lightStylesChanged(surface, styles), true,
+    "changed lightstyle dirties surface")
   assertEqual(surface.cachedLight[0], 3.0,
     "cached style white uses stock RGB sum")
   assertEqual(surface.cachedLight[1], -1.0, "unused cached style")

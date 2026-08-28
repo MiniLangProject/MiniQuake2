@@ -112,6 +112,11 @@ struct ItemEntity
   decaying
   freed
   velocity
+  groundEntity
+  groundLinkCount
+  gravity
+  waterType
+  waterLevel
   worldTarget
   spawnPending
 end struct
@@ -237,7 +242,7 @@ function createItemEntity(number, item)
   edict = gtypes.zeroEdict(number)
   edict.inUse = true
   return ItemEntity(edict, item, 0, 0, 0, 0.0, false, 0.0, void, false, false,
-    gpqtypes.Vec3(0.0, 0.0, 0.0), void, false)
+    gpqtypes.Vec3(0.0, 0.0, 0.0), void, 0, 1.0, 0, 0, void, false)
 end function
 
 // Pick up context.

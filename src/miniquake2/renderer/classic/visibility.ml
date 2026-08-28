@@ -12,6 +12,7 @@ import std.array as rvisibilityarray
 import std.math as rvisibilitymath
 import miniquake2.format.bsp as fbsp
 import miniquake2.format.types as ft
+import miniquake2.format.constants as fc
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.constants as rclassicconstants
@@ -38,6 +39,7 @@ struct ClassicPvsSelection
   draws
   viewLeaf
   viewCluster
+  viewCluster2
   pvsCulled
   areaCulled
 end struct
@@ -46,10 +48,29 @@ end struct
 struct ClassicVisibilityCacheSlot
   world
   cluster
+  cluster2
   areaBits
   draws
   pvsCulled
   areaCulled
+end struct
+
+// Primary and water-boundary visibility clusters for one camera origin.
+struct ClassicViewClusters
+  leaf
+  cluster
+  cluster2
+end struct
+
+// Mutable accumulator for the original far-node / reversed-node / near-node
+// alpha-chain order.
+struct ClassicAlphaOrderState
+  map
+  drawByFace
+  marked
+  output
+  count
+  viewOrigin
 end struct
 
 // Minimal per-frame brush bounds used by the frustum culler. Keeping this
@@ -89,7 +110,8 @@ struct ClassicVisibilityAxes
   upZ
 end struct
 
-classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999, void,
+classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999,
+  -999999, void,
   [], 0, 0)
 classicVisibilitySelectionScratch = []
 classicVisibilityFrustumScratch = [
@@ -217,6 +239,28 @@ function classicVisibilityAngleAxes(angles)
     rightX, rightY, rightZ, upX, upY, upZ)
 end function
 
+// Match R_SetupFrame's second-cluster probe so crossing a solid water boundary
+// exposes both PVS rows instead of popping the opposite side of the surface.
+function classicVisibilityViewClusters(map, origin)
+  viewLeaf = classicVisibilityPointLeaf(map, origin)
+  viewCluster = -1; viewCluster2 = -1
+  if viewLeaf < 0 then return ClassicViewClusters(viewLeaf, -1, -1) end if
+  leaf = map.leafs[viewLeaf]
+  viewCluster = leaf.cluster; viewCluster2 = viewCluster
+  probeZ = origin.z + 16.0
+  if leaf.contents == 0 then probeZ = origin.z - 16.0 end if
+  probe = ft.Vec3(origin.x, origin.y, probeZ)
+  probeLeafIndex = classicVisibilityPointLeaf(map, probe)
+  if probeLeafIndex >= 0 then
+    probeLeaf = map.leafs[probeLeafIndex]
+    if (probeLeaf.contents & fc.CONTENTS_SOLID) == 0 and
+        probeLeaf.cluster != viewCluster2 then
+      viewCluster2 = probeLeaf.cluster
+    end if
+  end if
+  return ClassicViewClusters(viewLeaf, viewCluster, viewCluster2)
+end function
+
 // Return the classic visibility box outside plane value.
 function inline classicVisibilityBoxOutsidePlane(draw, plane)
   radius = plane.absX * draw.extentX + plane.absY * draw.extentY +
@@ -302,6 +346,24 @@ end function
 // Report whether classic visibility inside frustum.
 function classicVisibilityInsideFrustum(draw, frame)
   return classicVisibilityInsidePreparedFrustum(draw,
+    classicVisibilityFrustum(frame))
+end function
+
+// Test a conservative world-space sphere against the prepared fixed-point
+// frustum. Alias models use this with their current/previous pose union radius
+// so no interpolated vertex can be clipped prematurely.
+function classicVisibilitySphereInsideFrustum(origin, radius, frame)
+  centerX = rvisibilitybyteio.truncInt(origin.x *
+    rclassicconstants.CULL_COORD_SCALE)
+  centerY = rvisibilitybyteio.truncInt(origin.y *
+    rclassicconstants.CULL_COORD_SCALE)
+  centerZ = rvisibilitybyteio.truncInt(origin.z *
+    rclassicconstants.CULL_COORD_SCALE)
+  extent = rvisibilitybyteio.truncInt(radius *
+    rclassicconstants.CULL_COORD_SCALE) + 1
+  bounds = ClassicBrushBounds(origin, origin, centerX, centerY, centerZ,
+    extent, extent, extent)
+  return classicVisibilityInsidePreparedFrustum(bounds,
     classicVisibilityFrustum(frame))
 end function
 
@@ -467,16 +529,16 @@ function classicVisibilitySelectPvs(world, frame)
   // Keep classic visibility select pvs phases explicit: validate inputs, update owned state, then publish the result.
   total = len(world.draws)
   if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
-    return ClassicPvsSelection(array(0), -1, -1, total, 0)
+    return ClassicPvsSelection(array(0), -1, -1, -1, total, 0)
   end if
   map = world.map
   // One byte per face is sufficient and avoids two pointer-width managed
   // arrays on every PVS cache miss.
   pvsMarked = bytes(len(map.faces))
   areaMarked = bytes(len(map.faces))
-  viewLeaf = classicVisibilityPointLeaf(map, frame.viewOrigin)
-  viewCluster = -1
-  if viewLeaf >= 0 then viewCluster = map.leafs[viewLeaf].cluster end if
+  view = classicVisibilityViewClusters(map, frame.viewOrigin)
+  viewLeaf = view.leaf; viewCluster = view.cluster
+  viewCluster2 = view.cluster2
 
   if len(map.leafs) == 0 then
     for each draw in world.draws
@@ -484,8 +546,11 @@ function classicVisibilitySelectPvs(world, frame)
       areaMarked[draw.surface.index] = 1
     end for
   else
-    row = bytes(0)
+    row = bytes(0); row2 = bytes(0)
     if viewCluster >= 0 then row = classicVisibilityPvsRow(map, viewCluster) end if
+    if viewCluster2 >= 0 and viewCluster2 != viewCluster then
+      row2 = classicVisibilityPvsRow(map, viewCluster2)
+    end if
     usePvs = viewCluster >= 0 and len(row) > 0
     leafIndex = 0
     while leafIndex < len(map.leafs)
@@ -494,6 +559,9 @@ function classicVisibilitySelectPvs(world, frame)
       if usePvs then
         if leaf.cluster >= map.visibility.numClusters then return error(9759, "BSP leaf cluster outside visibility table") end if
         clusterVisible = classicVisibilityPvsContains(row, leaf.cluster)
+        if not clusterVisible and len(row2) > 0 then
+          clusterVisible = classicVisibilityPvsContains(row2, leaf.cluster)
+        end if
       end if
       if clusterVisible then
         classicVisibilityMarkLeafFaces(map, leaf, pvsMarked)
@@ -518,7 +586,7 @@ function classicVisibilitySelectPvs(world, frame)
     end if
   end for
   return ClassicPvsSelection(compactClassicDraws(candidates, candidateCount),
-    viewLeaf, viewCluster, pvsCulled, areaCulled)
+    viewLeaf, viewCluster, viewCluster2, pvsCulled, areaCulled)
 end function
 
 // Finish classic visibility selection.
@@ -568,24 +636,80 @@ function selectClassicWorldCached(world, frame)
   if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
     return selectClassicWorld(world, frame)
   end if
-  viewLeaf = classicVisibilityPointLeaf(world.map, frame.viewOrigin)
-  viewCluster = -1
-  if viewLeaf >= 0 then viewCluster = world.map.leafs[viewLeaf].cluster end if
+  view = classicVisibilityViewClusters(world.map, frame.viewOrigin)
+  viewLeaf = view.leaf; viewCluster = view.cluster
+  viewCluster2 = view.cluster2
   cache = classicVisibilityCacheSlot
   if cache.world == world and cache.cluster == viewCluster and
+      cache.cluster2 == viewCluster2 and
       classicVisibilityAreaBitsEqual(cache.areaBits, frame.areaBits) then
     cached = ClassicPvsSelection(cache.draws, viewLeaf, viewCluster,
+      viewCluster2,
       cache.pvsCulled, cache.areaCulled)
     return classicVisibilityFinishSelection(cached, frame)
   end if
   pvs = classicVisibilitySelectPvs(world, frame)
   cache.world = world
   cache.cluster = pvs.viewCluster
+  cache.cluster2 = pvs.viewCluster2
   cache.areaBits = classicVisibilityCopyAreaBits(frame.areaBits)
   cache.draws = pvs.draws
   cache.pvsCulled = pvs.pvsCulled
   cache.areaCulled = pvs.areaCulled
   return classicVisibilityFinishSelection(pvs, frame)
+end function
+
+// Append one BSP node in the order produced when R_RecursiveWorldNode's
+// front-to-back traversal inserts transparent surfaces at the chain head.
+function classicVisibilityAppendAlphaNode(state, nodeIndex)
+  if nodeIndex < 0 then return state.count end if
+  if nodeIndex >= len(state.map.nodes) then return error(9769,
+    "BSP alpha node outside table") end if
+  node = state.map.nodes[nodeIndex]
+  if node.planeIndex < 0 or node.planeIndex >= len(state.map.planes) then
+    return error(9770, "BSP alpha plane outside table")
+  end if
+  plane = state.map.planes[node.planeIndex]
+  origin = state.viewOrigin
+  distance = origin.x * plane.normal.x + origin.y * plane.normal.y +
+    origin.z * plane.normal.z - plane.distance
+  nearChild = node.child0; farChild = node.child1
+  if distance < 0.0 then nearChild = node.child1; farChild = node.child0 end if
+  classicVisibilityAppendAlphaNode(state, farChild)
+  faceIndex = node.firstFace + node.numFaces - 1
+  while faceIndex >= node.firstFace
+    if faceIndex >= 0 and faceIndex < len(state.marked) and
+        state.marked[faceIndex] != 0 then
+      state.output[state.count] = state.drawByFace[faceIndex]
+      state.count = state.count + 1
+    end if
+    faceIndex = faceIndex - 1
+  end while
+  classicVisibilityAppendAlphaNode(state, nearChild)
+  return state.count
+end function
+
+// Order visible world alpha polygons exactly like ref_gl's global alpha chain.
+function classicVisibilityStockAlphaDraws(world, draws, viewOrigin)
+  if len(draws) <= 1 or len(world.map.nodes) == 0 then return draws end if
+  drawByFace = array(len(world.map.faces), void)
+  marked = bytes(len(world.map.faces))
+  for each draw in draws
+    faceIndex = draw.surface.index
+    if faceIndex >= 0 and faceIndex < len(marked) then
+      marked[faceIndex] = 1; drawByFace[faceIndex] = draw
+    end if
+  end for
+  output = array(len(draws))
+  headNode = 0
+  if len(world.map.models) > 0 then headNode = world.map.models[0].headNode end if
+  state = ClassicAlphaOrderState(world.map, drawByFace, marked, output, 0,
+    viewOrigin)
+  classicVisibilityAppendAlphaNode(state, headNode)
+  if state.count == len(draws) then return output end if
+  // Malformed or synthetic BSPs can omit node ownership. Preserve their
+  // deterministic prepared chain instead of silently dropping a face.
+  return draws
 end function
 
 // Return the classic visibility culled count.

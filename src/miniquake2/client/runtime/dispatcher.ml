@@ -372,13 +372,7 @@ function parseBuffer(runtime, buffer, now)
       runtime.network.client.channel = void
       cstate.setConnectionState(runtime.client, "disconnected")
     else if opcode == qc.SVC_RECONNECT then
-      beginMapChange(runtime)
-      nclient.reconnect(runtime.network.client, now)
-      // The retired channel may still have owed an acknowledgement.  A
-      // restart creates a new challenge/Netchan generation, so that debt must
-      // not leak into the first packet of the replacement connection.
-      runtime.network.ackPending = false
-      cstate.setConnectionState(runtime.client, "connecting")
+      beginReconnect(runtime, now)
       reconnecting = true
       if buffer.readCount != buffer.curSize then return error(8294, "svc_reconnect must terminate its packet") end if
     else
@@ -387,6 +381,16 @@ function parseBuffer(runtime, buffer, now)
     commands = commands + 1
   end while
   return [commands, effectCommands, frames, reconnecting]
+end function
+
+// Begin a user-requested reconnect through the same atomic retirement path as
+// svc_reconnect, without pretending that a server packet was received.
+function beginReconnect(runtime, now)
+  beginMapChange(runtime)
+  nclient.reconnect(runtime.network.client, now)
+  runtime.network.ackPending = false
+  cstate.setConnectionState(runtime.client, "connecting")
+  return true
 end function
 
 // Dispatch state.

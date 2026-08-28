@@ -256,12 +256,6 @@ function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
     edict)
   if session.collision is void then return true end if
   if edict.state.number == viewer.state.number then return true end if
-  // g_local.h projectiles carry their firing edict as owner. The stock fat
-  // PVS naturally contains a player's own muzzle, but retaining that semantic
-  // relationship explicitly also covers BSP leaf boundaries exactly at the
-  // 8-unit fat-PVS edge and guarantees first-person missile feedback.
-  if edict.owner is not void and
-      edict.owner.state.number == viewer.state.number then return true end if
   view = session.collision.map.leafs[viewLeaf]
   visibility = session.collision.map.visibility
   if visibility is void or visibility.numClusters == 0 then return true end if
@@ -281,6 +275,12 @@ function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
   end if
 
   row = preparedPvs
+  // SV_BuildClientFrame tests persistent beams against the source cluster's
+  // PHS rather than the ordinary entity fat-PVS. This keeps target_laser and
+  // similar beams present through portals where their source is hearable.
+  if (edict.state.renderFx & ssgc.RF_BEAM) != 0 then
+    row = sscollision.visibilityRow(session.collision, view.cluster, 1)
+  end if
   // Stock SV_BuildClientFrame intentionally uses fatpvs here even for
   // entities with a loop sound (the clientphs alternative is commented out).
   // Sound-event routing has its own PHS path below and must not replace model
@@ -333,8 +333,8 @@ function packetEntitiesForClient(session, viewer)
   ssClientPacketEntityCount = 0
   ssClientPacketViewLeaf = -1
   ssClientPacketPvs = void
+  ssClientPacketViewOrigin = clientViewOrigin(ssClientPacketViewerHolder)
   if ssClientPacketSessionHolder.collision is not void then
-    ssClientPacketViewOrigin = clientViewOrigin(ssClientPacketViewerHolder)
     ssClientPacketViewLeaf = sscollision.pointLeafNumber(ssClientPacketSessionHolder.collision,
       ssClientPacketViewOrigin, 0)
     ssClientPacketPvs = fatPvsRow(ssClientPacketSessionHolder.collision,
@@ -355,8 +355,25 @@ function packetEntitiesForClient(session, viewer)
         ssClientPacketSessionHolder, ssClientPacketViewerHolder,
         ssClientPacketViewLeaf, ssClientPacketPvs, ssClientPacketEdictHolder)
     end if
+    // Stock Quake II drops distant sound-only entity states even when their
+    // cluster is visible because normal attenuation makes them inaudible.
+    if ssClientPacketVisible and ssClientPacketStateHolder.modelIndex == 0 then
+      ssClientPacketDeltaX = ssClientPacketViewOrigin.x - ssClientPacketStateHolder.origin.x
+      ssClientPacketDeltaY = ssClientPacketViewOrigin.y - ssClientPacketStateHolder.origin.y
+      ssClientPacketDeltaZ = ssClientPacketViewOrigin.z - ssClientPacketStateHolder.origin.z
+      ssClientPacketDistanceSquared = ssClientPacketDeltaX * ssClientPacketDeltaX +
+        ssClientPacketDeltaY * ssClientPacketDeltaY +
+        ssClientPacketDeltaZ * ssClientPacketDeltaZ
+      if ssClientPacketDistanceSquared > 160000.0 then ssClientPacketVisible = false end if
+    end if
     if ssClientPacketEdictHolder.inUse and (ssClientPacketEdictHolder.serverFlags & ssgc.SVF_NOCLIENT) == 0 and ssClientPacketNetworked and ssClientPacketVisible then
       ssClientPacketProtocolStateHolder = protocolEntity(ssClientPacketStateHolder)
+      // The client prediction world must never clip the shooter against its
+      // own missiles. Other clients still receive the authored solid value.
+      if ssClientPacketEdictHolder.owner is not void and
+          ssClientPacketEdictHolder.owner.state.number == ssClientPacketViewerHolder.state.number then
+        ssClientPacketProtocolStateHolder.solid = 0
+      end if
       ssClientPacketEntitiesHolder[ssClientPacketEntityCount] = ssClientPacketProtocolStateHolder
       ssClientPacketStoredStateHolder = ssClientPacketEntitiesHolder[ssClientPacketEntityCount]
       ssClientPacketStoredStateHolder.origin = ssClientPacketProtocolStateHolder.origin

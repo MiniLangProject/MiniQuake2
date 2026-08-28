@@ -50,6 +50,7 @@ const GL_SRC_ALPHA = 0x0302
 const GL_ONE_MINUS_SRC_ALPHA = 0x0303
 const GL_BLEND = 0x0BE2
 const GL_ALPHA_TEST = 0x0BC0
+const GL_CULL_FACE = 0x0B44
 const GL_DEPTH_TEST = 0x0B71
 const GL_TEXTURE_2D = 0x0DE1
 const GL_MODELVIEW = 0x1700
@@ -63,6 +64,9 @@ const GL_TEXTURE_WRAP_T = 0x2803
 const GL_TEXTURE_ENV = 0x2300
 const GL_TEXTURE_ENV_MODE = 0x2200
 const GL_LINEAR = 0x2601
+const GL_LINEAR_MIPMAP_NEAREST = 0x2701
+const GL_FRONT = 0x0404
+const GL_BACK = 0x0405
 const GL_MODULATE = 0x2100
 const GL_CLAMP = 0x2900
 const GL_REPEAT = 0x2901
@@ -126,6 +130,33 @@ end struct
 // recording backend's own makeExports/state closure symbols.
 struct OpenGlBackendSlot
   backend
+end struct
+
+// World alpha must be emitted after aliases and particles even though the
+// MiniLang product submits BSP geometry through a separate API call. Retain
+// only the current frame's tail passes; BeginFrame clears stale work.
+struct OpenGlPendingClassicPasses
+  binding
+  transparentDraws
+  frame
+  active
+  stats
+end struct
+
+// Fixed six-stage ClipSkyPolygon workspace. Every vertex object is retained
+// and mutated in place so sky portals do not build a managed graph per frame.
+struct OpenGlSkyClipScratch
+  bounds
+  distances
+  sides
+  frontBuffers
+  backBuffers
+  translated
+end struct
+
+// Package-owned holder for the lazily initialized sky clipping workspace.
+struct OpenGlSkyScratchSlot
+  scratch
 end struct
 
 // Store open gl frame slot data.
@@ -195,7 +226,11 @@ end struct
 // graph; rebinding a package global from a function is not.
 openGlBackendSlot = OpenGlBackendSlot(void)
 openGlFrameSlot = OpenGlFrameSlot(false)
+openGlPendingClassicPasses = OpenGlPendingClassicPasses(void, [], void, false,
+  void)
+openGlSkyScratchSlot = OpenGlSkyScratchSlot(void)
 openGlParticleRecords = bytes(rc.MAX_PARTICLES * 16)
+openGlClassicTextureCoordinateScratch = array(2, 0.0)
 
 // Return the bits value.
 function inline bits(value)
@@ -753,6 +788,49 @@ function ensureOpenGlPictureTexture(backend, asset)
   return record
 end function
 
+// Upload a complete RGBA mip chain during registration. Keeping mip generation
+// inside this renderer helper restores stock sampling without gameplay heap use.
+function uploadOpenGlMipChain(width, height, rgba)
+  // Validate the base level, upload each level, then downsample into the next
+  // registration-owned temporary buffer until the 1x1 terminal level.
+  level = 0; levelWidth = width; levelHeight = height; pixels = rgba
+  while true
+    native.glTexImage2D(GL_TEXTURE_2D, level, 4, levelWidth, levelHeight, 0,
+      GL_RGBA, GL_UNSIGNED_BYTE, pixels)
+    if levelWidth == 1 and levelHeight == 1 then return level + 1 end if
+    nextWidth = levelWidth >> 1; nextHeight = levelHeight >> 1
+    if nextWidth < 1 then nextWidth = 1 end if
+    if nextHeight < 1 then nextHeight = 1 end if
+    nextPixels = bytes(nextWidth * nextHeight * 4)
+    y = 0
+    while y < nextHeight
+      sourceY0 = y * 2; sourceY1 = sourceY0 + 1
+      if sourceY1 >= levelHeight then sourceY1 = levelHeight - 1 end if
+      x = 0
+      while x < nextWidth
+        sourceX0 = x * 2; sourceX1 = sourceX0 + 1
+        if sourceX1 >= levelWidth then sourceX1 = levelWidth - 1 end if
+        first = (sourceY0 * levelWidth + sourceX0) * 4
+        second = (sourceY0 * levelWidth + sourceX1) * 4
+        third = (sourceY1 * levelWidth + sourceX0) * 4
+        fourth = (sourceY1 * levelWidth + sourceX1) * 4
+        destination = (y * nextWidth + x) * 4
+        channel = 0
+        while channel < 4
+          nextPixels[destination + channel] = (pixels[first + channel] +
+            pixels[second + channel] + pixels[third + channel] +
+            pixels[fourth + channel]) >> 2
+          channel = channel + 1
+        end while
+        x = x + 1
+      end while
+      y = y + 1
+    end while
+    pixels = nextPixels; levelWidth = nextWidth; levelHeight = nextHeight
+    level = level + 1
+  end while
+end function
+
 // Return the upload picture value.
 function uploadPicture(backend, asset)
   record = ensureOpenGlPictureTexture(backend, asset)
@@ -761,11 +839,19 @@ function uploadPicture(backend, asset)
   textureWidth = asset.width; textureHeight = asset.height
   texturePixels = pictureUploadPixels(asset)
   native.glBindTexture(GL_TEXTURE_2D, textureId)
-  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+  mipmapped = asset.usage == "skin"
+  minFilter = GL_LINEAR
+  if mipmapped then minFilter = GL_LINEAR_MIPMAP_NEAREST end if
+  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
-  native.glTexImage2D(GL_TEXTURE_2D, 0, 4, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, texturePixels)
+  if mipmapped then
+    uploadOpenGlMipChain(textureWidth, textureHeight, texturePixels)
+  else
+    native.glTexImage2D(GL_TEXTURE_2D, 0, 4, textureWidth, textureHeight, 0,
+      GL_RGBA, GL_UNSIGNED_BYTE, texturePixels)
+  end if
   record.uploaded = true
   return textureId
 end function
@@ -1114,6 +1200,9 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
   depthHack = (entityFlags & rc.RF_DEPTHHACK) != 0
   shell = (entityFlags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
   mirrored = (entityFlags & rc.RF_WEAPONMODEL) != 0 and backend.handedness == 1
+  native.glCullFace(GL_FRONT)
+  if mirrored then native.glCullFace(GL_BACK) end if
+  native.glEnable(GL_CULL_FACE)
   if depthHack then native.glDepthRange(bits(0.0), bits(0.3)) end if
   if translucent then
     alphaValue = entityAlpha
@@ -1183,12 +1272,30 @@ function endOpenGlMd2Draw(drawState)
     native.glDepthMask(1)
     native.glDisable(GL_BLEND)
   end if
+  native.glCullFace(GL_FRONT)
+  native.glDisable(GL_CULL_FACE)
   native.glColor4ub(255, 255, 255, 255)
 end function
 
 // Report whether open gl md 2 entity visible.
 function inline openGlMd2EntityVisible(backend, entity)
   return (entity.flags & rc.RF_WEAPONMODEL) == 0 or backend.handedness != 2
+end function
+
+// Conservatively cull alias models with the union radius of the current and
+// previous poses. Weapon models deliberately bypass the world frustum, as in
+// the original R_CullAliasModel call site.
+function inline openGlMd2EntityInFrustum(modelAsset, entity, frame)
+  if (entity.flags & rc.RF_WEAPONMODEL) != 0 then return true end if
+  frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
+  frameCount = len(modelAsset.frameBounds)
+  if frameIndex < 0 or frameIndex >= frameCount then frameIndex = 0 end if
+  if oldFrameIndex < 0 or oldFrameIndex >= frameCount then oldFrameIndex = 0 end if
+  radius = modelAsset.frameBounds[frameIndex].radius
+  oldRadius = modelAsset.frameBounds[oldFrameIndex].radius
+  if oldRadius > radius then radius = oldRadius end if
+  return rclassicvisibility.classicVisibilitySphereInsideFrustum(
+    entity.origin, radius, frame)
 end function
 
 // Draw open gl md 2 scalars.
@@ -1224,13 +1331,14 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
   skinAsset = resolveOpenGlMd2Skin(backend, modelAsset, entity)
   bounds = modelAsset.frameBounds[frameIndex]
   triangleCount = len(modelAsset.source.triangles)
-  // Network snapshots arrive at 10 Hz. Eight sub-frame steps retain smooth
-  // alias animation while making the same geometry reusable across render
-  // frames instead of rebuilding and crossing the FFI per vertex every time.
-  lerpBucket = ropenglbyteio.truncInt(entity.backLerp * 8.0 + 0.5)
-  if lerpBucket < 0 then lerpBucket = 0 end if
-  if lerpBucket > 8 then lerpBucket = 8 end if
-  quantizedBackLerp = lerpBucket / 8.0
+  backLerp = entity.backLerp
+  if backLerp < 0.0 then backLerp = 0.0 end if
+  if backLerp > 1.0 then backLerp = 1.0 end if
+  // Preserve stock's continuous pose interpolation. Hashing the exact float
+  // bits with both frame indexes still permits same-pose VBO reuse without
+  // reducing animation to a visible nine-step ladder.
+  geometryState = ((frameIndex * 73856093) ^ (oldFrameIndex * 19349663) ^
+    bits(backLerp)) & 0x7fffffff
   shell = (entity.flags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN |
     rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
   drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
@@ -1245,10 +1353,10 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
     normalVectors = openGlMd2NormalVectors(backend)
     modelData = modelAsset.source.rawData
     drawnTriangles = native.glDrawMd2Rgb(modelData, len(modelData), frameIndex,
-      oldFrameIndex, bits(quantizedBackLerp), shadeDots,
+      oldFrameIndex, bits(backLerp), shadeDots,
       len(ropengldirections.normals), normalVectors,
       len(ropengldirections.normals), nativeRawValue(modelAsset),
-      (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket,
+      geometryState,
       openGlMd2ShadeRowIndex(entity.angles.y),
       bits(drawState.shadeRed), bits(drawState.shadeGreen),
       bits(drawState.shadeBlue), drawState.alpha)
@@ -1259,7 +1367,7 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
     end if
   end if
   native.glDrawAliasRgbEnd()
-  cachePass = 2000 + (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
+  cachePass = geometryState
   if shell then cachePass = cachePass + 10000000 end if
   if native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
     endOpenGlMd2Draw(drawState)
@@ -1269,10 +1377,10 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
   scalars = void
   if shell then
     scalars = rgeom.md2PowerShellFrameScalars(modelAsset.source, frameIndex,
-      oldFrameIndex, quantizedBackLerp)
+      oldFrameIndex, backLerp)
   else
     scalars = rgeom.md2FrameScalars(modelAsset.source, frameIndex,
-      oldFrameIndex, quantizedBackLerp)
+      oldFrameIndex, backLerp)
   end if
   native.glBegin(GL_TRIANGLES)
   emitOpenGlMd2Scalars(scalars)
@@ -1290,7 +1398,8 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
     entity = frame.entities[entityIndex]
     modelAsset = rassets.findModelByHandle(backend.assets, entity.model)
     if modelAsset is not void and modelAsset.kind == "md2" and
-        openGlMd2EntityVisible(backend, entity) then
+        openGlMd2EntityVisible(backend, entity) and
+        openGlMd2EntityInFrustum(modelAsset, entity, frame) then
       drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex)
       submitted = submitted + 1
     end if
@@ -1318,7 +1427,9 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
         if modelAsset is void then
           native.glDrawAliasRgbEnd()
           drawOpenGlNullEntity(entity); submitted = submitted + 1
-        else if modelAsset.kind == "md2" and openGlMd2EntityVisible(backend, entity) then
+        else if modelAsset.kind == "md2" and
+            openGlMd2EntityVisible(backend, entity) and
+            openGlMd2EntityInFrustum(modelAsset, entity, frame) then
           drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame,
             entityIndex); submitted = submitted + 1
         else if modelAsset.kind == "sprite" then
@@ -1383,10 +1494,11 @@ function drawOpenGlMd2ShadowPass(backend, frame)
         if oldFrameIndex < 0 or oldFrameIndex >= frameCount then
           frameIndex = 0; oldFrameIndex = 0
         end if
-        lerpBucket = ropenglbyteio.truncInt(entity.backLerp * 8.0 + 0.5)
-        if lerpBucket < 0 then lerpBucket = 0 end if
-        if lerpBucket > 8 then lerpBucket = 8 end if
-        geometryState = (frameIndex * 512 + oldFrameIndex) * 9 + lerpBucket
+        backLerp = entity.backLerp
+        if backLerp < 0.0 then backLerp = 0.0 end if
+        if backLerp > 1.0 then backLerp = 1.0 end if
+        geometryState = ((frameIndex * 73856093) ^
+          (oldFrameIndex * 19349663) ^ bits(backLerp)) & 0x7fffffff
         modelData = modelAsset.source.rawData
         normalVectors = openGlMd2NormalVectors(backend)
         native.glPushMatrix()
@@ -1396,7 +1508,7 @@ function drawOpenGlMd2ShadowPass(backend, frame)
         native.glRotate(bits(-entity.angles.x), bits(0.0), bits(1.0), bits(0.0))
         native.glRotate(bits(-entity.angles.z), bits(1.0), bits(0.0), bits(0.0))
         drawn = native.glDrawMd2Shadow(modelData, len(modelData), frameIndex,
-          oldFrameIndex, bits(lerpBucket / 8.0), normalVectors,
+          oldFrameIndex, bits(backLerp), normalVectors,
           len(ropengldirections.normals), nativeRawValue(modelAsset),
           geometryState, len(modelAsset.source.triangles),
           bits(openGlMd2ShadowVectorX(entity.angles.y)),
@@ -1415,6 +1527,41 @@ function drawOpenGlMd2ShadowPass(backend, frame)
   native.glDisable(GL_BLEND)
   native.glEnable(GL_TEXTURE_2D)
   return submitted
+end function
+
+// Draw the alias shadows only after the current frame's alias lighting pass has
+// populated md2ShadowSpotZ. This removes the historical one-frame stale spot
+// introduced by MiniQuake2's split world/entity submission API.
+function drawOpenGlPendingClassicShadows(backend)
+  pending = openGlPendingClassicPasses
+  if not pending.active then return 0 end if
+  submitted = drawOpenGlMd2ShadowPass(backend, pending.frame)
+  backend.lastShadowEntities = submitted
+  backend.submittedShadows = backend.submittedShadows + submitted
+  return submitted
+end function
+
+// Finish stock's tail ordering after entities and particles. The actual alpha
+// draw routine is declared later with the other ClassicWorld helpers.
+function flushOpenGlPendingClassicAlpha()
+  pending = openGlPendingClassicPasses
+  if not pending.active then return 0 end if
+  uploaded = drawOpenGlClassicTransparentFrame(pending.binding,
+    pending.transparentDraws, pending.frame)
+  if pending.stats is not void then
+    recordClassicDeferredUploads(pending.stats, uploaded)
+  end if
+  pending.binding = void; pending.transparentDraws = []; pending.frame = void
+  pending.active = false; pending.stats = void
+  return uploaded
+end function
+
+// Add uploads completed after submitClassicWorld returned to its retained
+// mutable diagnostic record.
+function recordClassicDeferredUploads(stats, uploaded)
+  if stats is void then return 0 end if
+  stats.uploadedTextures = stats.uploadedTextures + uploaded
+  return stats.uploadedTextures
 end function
 
 // The full product graph is large enough to expose a closure-layout bug in the
@@ -1630,10 +1777,17 @@ function openGlRenderFrame(frame)
     native.glDepthFunc(GL_LEQUAL)
     native.glDepthMask(1)
     axes = openGlViewAxes(frame.viewAngles)
+    shadowIndex = 0
+    while shadowIndex < frame.numEntities
+      backend.md2ShadowValid[shadowIndex] = 0
+      shadowIndex = shadowIndex + 1
+    end while
     drawOpenGlEntityPass(backend, frame, axes, false)
-    backend.lastShadowEntities = 0
     drawOpenGlEntityPass(backend, frame, axes, true)
+    backend.lastShadowEntities = 0
+    drawOpenGlPendingClassicShadows(backend)
     drawParticles(backend, frame, axes)
+    flushOpenGlPendingClassicAlpha()
     drawOpenGlPolyBlend(frame)
     backend.submittedEntities = backend.submittedEntities + frame.numEntities
     backend.submittedParticles = backend.submittedParticles + frame.numParticles
@@ -1770,6 +1924,9 @@ function openGlBeginFrame(cameraSeparation)
   openGlRequireInitialized(backend, "BeginFrame")
   if backend.core.state.frameOpen then return error(9612, "BeginFrame called twice") end if
   backend.core.state.frameOpen = true
+  pending = openGlPendingClassicPasses
+  pending.binding = void; pending.transparentDraws = []; pending.frame = void
+  pending.active = false; pending.stats = void
   frameState = openGlFrameSlot
   frameState.twoDimensional = false
   if backend.contextActive then
@@ -1783,6 +1940,11 @@ function openGlEndFrame()
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "EndFrame")
   if not backend.core.state.frameOpen then return error(9613, "EndFrame called without BeginFrame") end if
+  if backend.contextActive and openGlPendingClassicPasses.active then
+    // Compatibility for capture/test callers that submit BSP after RenderFrame.
+    drawOpenGlPendingClassicShadows(backend)
+    flushOpenGlPendingClassicAlpha()
+  end if
   backend.core.state.frameOpen = false
   if backend.contextActive then
     native.glFlush()
@@ -1938,6 +2100,7 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
     skyAxis = rclassicworld.classicWorldSkyAxis(map.entityText)
   end if
   rclassicworld.configureSky(world, loadFile, skyName, skyRotate, skyAxis)
+  if len(world.scene.skySurfaces) > 0 then ensureOpenGlSkyClipScratch() end if
   for each texture in world.textures
     record = allocateTextureRecord(
       binding.state, world.name + ":" + texture.name, texture.role,
@@ -2048,13 +2211,20 @@ function uploadClassicTexture(binding, texture)
   expected = texture.width * texture.height * 4
   if len(texture.rgbaPixels) != expected then return error(9624, "classic texture RGBA payload has invalid size") end if
   native.glBindTexture(GL_TEXTURE_2D, texture.id)
-  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+  minFilter = GL_LINEAR
+  if texture.role == "base" then minFilter = GL_LINEAR_MIPMAP_NEAREST end if
+  native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
   wrap = GL_REPEAT
   if texture.role == "lightmap" or texture.role == "sky" then wrap = GL_CLAMP end if
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap)
   native.glTexParameterI(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap)
-  native.glTexImage2D(GL_TEXTURE_2D, 0, 4, texture.width, texture.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture.rgbaPixels)
+  if texture.role == "base" then
+    uploadOpenGlMipChain(texture.width, texture.height, texture.rgbaPixels)
+  else
+    native.glTexImage2D(GL_TEXTURE_2D, 0, 4, texture.width, texture.height, 0,
+      GL_RGBA, GL_UNSIGNED_BYTE, texture.rgbaPixels)
+  end if
   record.uploaded = true
   texture.uploaded = true
   return true
@@ -2068,7 +2238,9 @@ function emitClassicVertex(draw, vertex, lightmap, time)
   if lightmap then
     textureS = vertex.lightS; textureT = vertex.lightT
   else
-    coordinates = rclassicspecial.classicSpecialTextureCoordinates(draw, vertex, time)
+    coordinates = openGlClassicTextureCoordinateScratch
+    rclassicspecial.classicSpecialTextureCoordinatesInto(coordinates, draw,
+      vertex, time)
     textureS = coordinates[0]; textureT = coordinates[1]
   end if
   native.glTexcoord2(bits(textureS), bits(textureT))
@@ -2238,6 +2410,54 @@ function createOpenGlSkyBounds()
     array(6, 9999.0), array(6, -9999.0), array(6, -9999.0))
 end function
 
+// Create one fixed-capacity sky vertex buffer.
+function createOpenGlSkyVertexBuffer()
+  result = array(66)
+  index = 0
+  while index < len(result)
+    result[index] = ropenglqtypes.Vec3(0.0, 0.0, 0.0)
+    index = index + 1
+  end while
+  return result
+end function
+
+// Lazily create the retained clipping workspace. Product registration calls
+// this before gameplay whenever a map owns sky surfaces.
+function ensureOpenGlSkyClipScratch()
+  slot = openGlSkyScratchSlot
+  if slot.scratch is not void then return slot.scratch end if
+  distances = array(6); sides = array(6)
+  frontBuffers = array(6); backBuffers = array(6)
+  stage = 0
+  while stage < 6
+    distances[stage] = array(66, 0.0); sides[stage] = array(66, 0)
+    frontBuffers[stage] = createOpenGlSkyVertexBuffer()
+    backBuffers[stage] = createOpenGlSkyVertexBuffer()
+    stage = stage + 1
+  end while
+  slot.scratch = OpenGlSkyClipScratch(createOpenGlSkyBounds(), distances,
+    sides, frontBuffers, backBuffers, createOpenGlSkyVertexBuffer())
+  return slot.scratch
+end function
+
+// Copy coordinates into one retained vertex object.
+function inline setOpenGlSkyScratchVertex(buffer, index, x, y, z)
+  target = buffer[index]
+  target.x = x; target.y = y; target.z = z
+  return target
+end function
+
+// Reset the persistent sky bounds for a new view.
+function resetOpenGlSkyBounds(bounds)
+  axis = 0
+  while axis < 6
+    bounds.minimumS[axis] = 9999.0; bounds.minimumT[axis] = 9999.0
+    bounds.maximumS[axis] = -9999.0; bounds.maximumT[axis] = -9999.0
+    axis = axis + 1
+  end while
+  return bounds
+end function
+
 // Open gl sky clip distance.
 function openGlSkyClipDistance(value, stage)
   if stage == 0 then return value.x + value.y end if
@@ -2291,11 +2511,11 @@ end function
 
 // Exact managed port of ref_gl's six-plane ClipSkyPolygon. Sky surfaces are
 // already triangle lists, so even the worst split remains well below 64 verts.
-function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
+function clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage, scratch)
   // Keep clip open gl sky polygon phases explicit: validate inputs, update owned state, then publish the result.
   if count < 3 then return false end if
   if stage == 6 then return projectOpenGlSkyPolygon(bounds, vertices, count) end if
-  distances = array(count, 0.0); sides = array(count, 0)
+  distances = scratch.distances[stage]; sides = scratch.sides[stage]
   front = false; back = false
   vertexIndex = 0
   while vertexIndex < count
@@ -2306,10 +2526,12 @@ function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
     vertexIndex = vertexIndex + 1
   end while
   if not front or not back then
-    return clipOpenGlSkyPolygon(bounds, vertices, count, stage + 1)
+    return clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage + 1,
+      scratch)
   end if
 
-  frontVertices = array(66); backVertices = array(66)
+  frontVertices = scratch.frontBuffers[stage]
+  backVertices = scratch.backBuffers[stage]
   frontCount = 0; backCount = 0
   vertexIndex = 0
   while vertexIndex < count
@@ -2318,45 +2540,59 @@ function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
     value = vertices[vertexIndex]
     side = sides[vertexIndex]
     if side >= 0 then
-      frontVertices[frontCount] = value; frontCount = frontCount + 1
+      setOpenGlSkyScratchVertex(frontVertices, frontCount, value.x, value.y,
+        value.z); frontCount = frontCount + 1
     end if
     if side <= 0 then
-      backVertices[backCount] = value; backCount = backCount + 1
+      setOpenGlSkyScratchVertex(backVertices, backCount, value.x, value.y,
+        value.z); backCount = backCount + 1
     end if
     nextSide = sides[nextIndex]
     if side != 0 and nextSide != 0 and nextSide != side then
       fraction = distances[vertexIndex] /
         (distances[vertexIndex] - distances[nextIndex])
       nextValue = vertices[nextIndex]
-      intersection = ropenglqtypes.Vec3(
-        value.x + fraction * (nextValue.x - value.x),
-        value.y + fraction * (nextValue.y - value.y),
-        value.z + fraction * (nextValue.z - value.z))
-      frontVertices[frontCount] = intersection; frontCount = frontCount + 1
-      backVertices[backCount] = intersection; backCount = backCount + 1
+      intersectionX = value.x + fraction * (nextValue.x - value.x)
+      intersectionY = value.y + fraction * (nextValue.y - value.y)
+      intersectionZ = value.z + fraction * (nextValue.z - value.z)
+      setOpenGlSkyScratchVertex(frontVertices, frontCount, intersectionX,
+        intersectionY, intersectionZ); frontCount = frontCount + 1
+      setOpenGlSkyScratchVertex(backVertices, backCount, intersectionX,
+        intersectionY, intersectionZ); backCount = backCount + 1
     end if
     vertexIndex = vertexIndex + 1
   end while
-  clipOpenGlSkyPolygon(bounds, frontVertices, frontCount, stage + 1)
-  clipOpenGlSkyPolygon(bounds, backVertices, backCount, stage + 1)
+  clipOpenGlSkyPolygonScratch(bounds, frontVertices, frontCount, stage + 1,
+    scratch)
+  clipOpenGlSkyPolygonScratch(bounds, backVertices, backCount, stage + 1,
+    scratch)
   return true
+end function
+
+// Compatibility wrapper used by focused geometry tests.
+function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
+  return clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage,
+    ensureOpenGlSkyClipScratch())
 end function
 
 // Open gl sky bounds.
 function openGlSkyBounds(draws, viewOrigin)
-  bounds = createOpenGlSkyBounds()
+  scratch = ensureOpenGlSkyClipScratch()
+  bounds = resetOpenGlSkyBounds(scratch.bounds)
   for each draw in draws
     count = len(draw.surface.vertices)
-    translated = array(count)
+    if count > 66 then return error(9639,
+      "sky portal exceeds ClipSkyPolygon vertex capacity") end if
+    translated = scratch.translated
     vertexIndex = 0
     while vertexIndex < count
       position = draw.surface.vertices[vertexIndex].position
-      translated[vertexIndex] = ropenglqtypes.Vec3(
+      setOpenGlSkyScratchVertex(translated, vertexIndex,
         position.x - viewOrigin.x, position.y - viewOrigin.y,
         position.z - viewOrigin.z)
       vertexIndex = vertexIndex + 1
     end while
-    clipOpenGlSkyPolygon(bounds, translated, count, 0)
+    clipOpenGlSkyPolygonScratch(bounds, translated, count, 0, scratch)
   end for
   return bounds
 end function
@@ -2492,30 +2728,36 @@ function classicBrushLocalLights(entity, frame)
   return localLights
 end function
 
+// Rebuild one lightmap only when a style changed, a dynamic light affects the
+// plane, or last frame's dynamic contribution must be removed.
+function classicDynamicLightmapForDraw(world, draw, lightStyles, dLights)
+  surface = draw.surface
+  previousBits = surface.dlightBits
+  currentBits = rclassiclightmaps.markDynamicLights(surface, dLights)
+  dirty = previousBits != 0 or currentBits != 0 or
+    rclassiclightmaps.lightStylesChanged(surface, lightStyles)
+  if not dirty then
+    return rclassictypes.ClassicBrushLightmap(draw, surface.lightmap, false)
+  end if
+  rgbaPixels = rclassiclightmaps.buildLightmap(surface, lightStyles, dLights,
+    world.modulate)
+  rclassiclightmaps.setCacheState(surface, lightStyles)
+  return rclassictypes.ClassicBrushLightmap(draw, rgbaPixels, true)
+end function
+
 // Return the classic brush dynamic lightmaps value.
 function classicBrushDynamicLightmaps(world, entity, plan, frame)
-  if frame.numDLights == 0 then
-    staticLightmaps = array(len(plan.opaqueDraws))
-    staticIndex = 0
-    while staticIndex < len(plan.opaqueDraws)
-      staticDraw = plan.opaqueDraws[staticIndex]
-      staticLightmaps[staticIndex] = rclassictypes.ClassicBrushLightmap(
-        staticDraw, staticDraw.lightmapTexture.rgbaPixels, false)
-      staticIndex = staticIndex + 1
-    end while
-    return [staticLightmaps, 0]
-  end if
-  localLights = classicBrushLocalLights(entity, frame)
+  localLights = []
+  if frame.numDLights > 0 then localLights = classicBrushLocalLights(entity, frame) end if
   lightmaps = array(len(plan.opaqueDraws))
   dirtyCount = 0
   drawIndex = 0
   while drawIndex < len(plan.opaqueDraws)
     draw = plan.opaqueDraws[drawIndex]
-    rclassiclightmaps.markDynamicLights(draw.surface, localLights)
-    rgbaPixels = rclassiclightmaps.buildLightmap(draw.surface, frame.lightStyles, localLights, world.modulate)
-    dirty = rgbaPixels != draw.surface.lightmap
-    if dirty then dirtyCount = dirtyCount + 1 end if
-    lightmaps[drawIndex] = rclassictypes.ClassicBrushLightmap(draw, rgbaPixels, dirty)
+    lightmap = classicDynamicLightmapForDraw(world, draw, frame.lightStyles,
+      localLights)
+    if lightmap.dirty then dirtyCount = dirtyCount + 1 end if
+    lightmaps[drawIndex] = lightmap
     drawIndex = drawIndex + 1
   end while
   return [lightmaps, dirtyCount]
@@ -2590,11 +2832,11 @@ function classicBrushFrameSignature(brushFrame)
 end function
 
 // Draw open gl classic draws.
-function drawOpenGlClassicDraws(binding, draws, time, lightmap)
+function drawOpenGlClassicDraws(binding, draws, time, lightmap, entityFrame)
   uploaded = 0
   lastTexture = -1
   for each draw in draws
-    texture = rclassicspecial.classicSpecialBaseTexture(draw, time)
+    texture = rclassicspecial.classicSpecialBaseTextureFrame(draw, entityFrame)
     if lightmap then texture = draw.lightmapTexture end if
     if uploadClassicTexture(binding, texture) then uploaded = uploaded + 1 end if
     textureId = texture.id
@@ -2628,6 +2870,20 @@ function uploadClassicBrushLightmap(binding, brushLightmap)
   native.glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, GL_RGBA,
     GL_UNSIGNED_BYTE, rgbaPixels)
   return true
+end function
+
+// Refresh visible world lightmap rectangles before their opaque base/lightmap
+// pass. Dynamic lights are already in world space, unlike inline brush lights.
+function updateClassicWorldLightmaps(binding, world, draws, frame)
+  uploaded = 0
+  for each draw in draws
+    lightmap = classicDynamicLightmapForDraw(world, draw, frame.lightStyles,
+      frame.dLights)
+    if uploadClassicBrushLightmap(binding, lightmap) then
+      uploaded = uploaded + 1
+    end if
+  end for
+  return uploaded
 end function
 
 // Draw open gl classic brush lightmaps.
@@ -2667,7 +2923,9 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   native.glDisable(GL_BLEND)
   native.glDepthFunc(GL_LEQUAL)
   native.glDepthMask(1)
-  uploaded = drawOpenGlClassicDraws(binding, plan.opaqueDraws, frame.time, false)
+  entityFrame = submission.entity.frame
+  uploaded = drawOpenGlClassicDraws(binding, plan.opaqueDraws, frame.time, false,
+    entityFrame)
   native.glEnable(GL_BLEND)
   native.glBlendFunc(GL_ZERO, GL_SRC_COLOR)
   native.glDepthFunc(GL_EQUAL)
@@ -2677,9 +2935,11 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   native.glDepthFunc(GL_LEQUAL)
   native.glDisable(GL_BLEND)
   native.glColor4ub(128, 128, 128, 255)
-  uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.warpDraws, frame.time, false)
+  uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.warpDraws,
+    frame.time, false, entityFrame)
   native.glColor4ub(255, 255, 255, 255)
-  uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.skyDraws, frame.time, false)
+  uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.skyDraws,
+    frame.time, false, entityFrame)
   native.glPopMatrix()
   return uploaded
 end function
@@ -2755,8 +3015,13 @@ function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
   end for
   if capacity == 0 then return array(0) end if
   output = array(capacity)
-  count = appendClassicTransparentDraws(output, 0, worldPlan.transparentDraws, void, 1.0, true, frame.viewOrigin)
-  for each submission in brushFrame.submissions
+  count = 0
+  // Brush alpha faces are linked at the global alpha-chain head while entities
+  // are drawn. Reverse entity traversal reproduces that head-insertion order;
+  // the world chain follows behind them.
+  submissionIndex = len(brushFrame.submissions) - 1
+  while submissionIndex >= 0
+    submission = brushFrame.submissions[submissionIndex]
     entity = submission.entity
     entityAlpha = 1.0
     entityTranslucent = (entity.flags & rc.RF_TRANSLUCENT) != 0
@@ -2767,8 +3032,11 @@ function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
       count = appendClassicTransparentDraws(output, count, submission.plan.skyDraws, entity, entityAlpha, false, frame.viewOrigin)
     end if
     count = appendClassicTransparentDraws(output, count, submission.plan.transparentDraws, entity, entityAlpha, true, frame.viewOrigin)
-  end for
-  return sortClassicTransparentDrawsInPlace(output, count)
+    submissionIndex = submissionIndex - 1
+  end while
+  count = appendClassicTransparentDraws(output, count,
+    worldPlan.transparentDraws, void, 1.0, true, frame.viewOrigin)
+  return output
 end function
 
 // Return the classic transparent frame signature value.
@@ -2799,6 +3067,10 @@ function drawOpenGlClassicTransparentFrame(binding, draws, frame)
       lastTexture = -1
     end if
     texture = rclassicspecial.classicSpecialBaseTexture(draw, frame.time)
+    if entity is not void then
+      texture = rclassicspecial.classicSpecialBaseTextureFrame(draw,
+        entity.frame)
+    end if
     if uploadClassicTexture(binding, texture) then uploaded = uploaded + 1 end if
     textureId = texture.id
     if lastTexture != textureId then native.glBindTexture(GL_TEXTURE_2D, textureId); lastTexture = textureId end if
@@ -2830,6 +3102,8 @@ function submitClassicWorld(binding, world, frame)
   visibleSurfaces = len(selection.draws)
   culledSurfaces = rclassicvisibility.classicVisibilityCulledCount(selection)
   plan = rclassicspecial.classicSpecialPassPlan(selection.draws, frame)
+  plan.transparentDraws = rclassicvisibility.classicVisibilityStockAlphaDraws(
+    world, plan.transparentDraws, frame.viewOrigin)
   // The pass signature is a deterministic diagnostics artifact. Building it
   // concatenates one string fragment per visible surface, so keep it out of
   // the product frame loop where it would repeatedly copy the whole prefix.
@@ -2861,6 +3135,8 @@ function submitClassicWorld(binding, world, frame)
   native.glDisable(GL_BLEND)
   native.glColor4ub(255, 255, 255, 255)
   uploaded = 0
+  uploaded = uploaded + updateClassicWorldLightmaps(binding, world,
+    plan.opaqueDraws, frame)
   multitexture = submitOpenGlClassicMultitexture(binding, plan.opaqueDraws,
     frame.time)
   usedMultitexture = multitexture[0]
@@ -2932,17 +3208,13 @@ function submitClassicWorld(binding, world, frame)
     uploaded = uploaded + drawOpenGlClassicBrushOpaque(binding, brushSubmission, frame)
   end for
 
-  // MiniQuake2's BSP submission is intentionally split from RenderFrame.
-  // Project aliases only after opaque world depth exists, matching ref_gl's
-  // world-before-entity ordering and preventing GL_LEQUAL from replacing the
-  // coplanar +1 shadow when the camera is horizontal.
-  shadowEntities = drawOpenGlMd2ShadowPass(binding.state, frame)
-  binding.state.lastShadowEntities = shadowEntities
-  binding.state.submittedShadows = binding.state.submittedShadows + shadowEntities
-
-  // One polygon-wide list combines world alpha, special brush alpha and
-  // RF_TRANSLUCENT brush surfaces in true world-space back-to-front order.
-  uploaded = uploaded + drawOpenGlClassicTransparentFrame(binding, transparentFrame, frame)
+  // Retain stock's tail pass for RenderFrame: aliases and particles must be in
+  // the colour buffer before water, glass and translucent brush polygons blend
+  // over them. The pending slot also lets shadows consume this frame's light
+  // spot instead of the previous frame's value.
+  pending = openGlPendingClassicPasses
+  pending.binding = binding; pending.transparentDraws = transparentFrame
+  pending.frame = frame; pending.active = true; pending.stats = void
 
   triangles = 0
   for each draw in selection.draws
@@ -2951,13 +3223,15 @@ function submitClassicWorld(binding, world, frame)
   vertices = triangles * 3
   lightmapVertices = 0
   for each draw in plan.opaqueDraws lightmapVertices = lightmapVertices + draw.triangleCount * 3 end for
-  return rclassictypes.ClassicSubmitStats(
+  stats = rclassictypes.ClassicSubmitStats(
     visibleSurfaces, triangles, vertices, lightmapVertices, uploaded,
     visibleSurfaces, culledSurfaces, selection.viewLeaf, selection.viewCluster,
     opaqueSurfaces, warpSurfaces, skySurfaces, transparentSurfaces, passOrder,
     brushEntities, brushFrame.surfaces, brushFrame.triangles, brushFrame.culledEntities,
     brushFrame.dirtyLightmaps, len(transparentFrame)
   )
+  pending.stats = stats
+  return stats
 end function
 
 // Release classic world.

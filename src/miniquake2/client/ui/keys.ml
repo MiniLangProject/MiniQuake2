@@ -13,7 +13,7 @@ import miniquake2.platform.window as pwindow
 function actionNames()
   return ["forward", "back", "moveleft", "moveright", "left", "right",
     "lookup", "lookdown", "moveup", "movedown", "attack", "use",
-    "speed", "strafe", "klook"]
+    "speed", "strafe", "klook", "mlook"]
 end function
 
 // Return the default config value.
@@ -26,11 +26,11 @@ end function
 function createInputState()
   actions = []
   for each name in actionNames()
-    actions = actions + [cuitypes.ActionState(name, false, false)]
+    actions = actions + [cuitypes.ActionState(name, false, false, 0, 0)]
   end for
   return cuitypes.InputState(cuic.KEY_GAME, true, [], array(cuic.MAX_KEYS, false),
     actions, [0.0, 0.0, 0.0], 0.0, 0.0, 0, 0, [], "", false,
-    defaultConfig(), "", -1, 0.0, 0.0, 0)
+    defaultConfig(), "", -1, 0.0, 0.0, 0, -1)
 end function
 
 // Product defaults retain the classic Quake II weapon keys and add the mouse
@@ -105,6 +105,20 @@ function bindingFor(state, key)
   return binding.command
 end function
 
+// Return the compact key label used by the controls and inventory overlays.
+function keyName(key)
+  if key >= 33 and key <= 126 then return decode(bytes([key])) end if
+  if key == cuic.K_SPACE then return "SPACE" end if
+  if key == cuic.K_TAB then return "TAB" end if
+  if key == cuic.K_ENTER then return "ENTER" end if
+  if key == cuic.K_MOUSE1 then return "MOUSE1" end if
+  if key == cuic.K_MOUSE2 then return "MOUSE2" end if
+  if key == cuic.K_MOUSE3 then return "MOUSE3" end if
+  if key == cuic.K_MWHEELUP then return "MWHEELUP" end if
+  if key == cuic.K_MWHEELDOWN then return "MWHEELDOWN" end if
+  return ""
+end function
+
 // Begin binding capture.
 function beginBindingCapture(state, command)
   if typeof(command) != "string" or command == "" then
@@ -139,7 +153,15 @@ function captureBindingEvent(state, key)
   if state.captureCommand == "" then return false end if
   if key == cuic.K_ESCAPE then return cancelBindingCapture(state) end if
   cuikeysCapturedCommand = state.captureCommand
-  unbindCommand(state, cuikeysCapturedCommand)
+  // Stock Quake II permits two keys per command. A third capture replaces the
+  // pair, matching the controls menu's historical unbind-before-bind rule.
+  cuikeysCaptureCount = 0
+  for each cuikeysCaptureBinding in state.bindings
+    if cuikeysCaptureBinding.command == cuikeysCapturedCommand then
+      cuikeysCaptureCount = cuikeysCaptureCount + 1
+    end if
+  end for
+  if cuikeysCaptureCount >= 2 then unbindCommand(state, cuikeysCapturedCommand) end if
   bind(state, key, cuikeysCapturedCommand)
   state.captureCommand = ""
   state.capturedKey = key
@@ -156,9 +178,21 @@ end function
 
 // Set action.
 function setAction(state, name, down)
+  cuikeysActionTime = state.commandTime
+  if cuikeysActionTime < 0 then cuikeysActionTime = 0 end if
+  return setActionAtTime(state, name, down, cuikeysActionTime)
+end function
+
+// Set action at an input timestamp for Quake II's time-weighted KeyState.
+function setActionAtTime(state, name, down, time)
   action = findAction(state, name)
   if action is void then return false end if
-  if down and action.down == false then action.pressed = true end if
+  if down and action.down == false then
+    action.pressed = true
+    action.downTime = time
+  else if not down and action.down then
+    if time > action.downTime then action.msec = action.msec + time - action.downTime end if
+  end if
   action.down = down
   return true
 end function
@@ -248,7 +282,7 @@ function queueBinding(state, key, down, time)
   if command == "" then return false end if
   actionName = commandAction(command)
   if actionName != "" then
-    setAction(state, actionName, down)
+    setActionAtTime(state, actionName, down, time)
     if down then state.commands = state.commands + [command + " " + key + " " + time]
     else state.commands = state.commands + ["-" + actionName + " " + key + " " + time]
     end if
@@ -259,6 +293,7 @@ end function
 
 // Handle event.
 function handleEvent(state, event, time)
+  if state.commandTime < 0 then state.commandTime = time end if
   if event.type == cuic.EVENT_FOCUS then
     state.focused = event.value != 0
     if state.focused == false then

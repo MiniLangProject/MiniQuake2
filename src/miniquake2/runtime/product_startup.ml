@@ -10,12 +10,15 @@ import std.string as productstring
 import miniquake2.qcommon.info as productinfo
 import miniquake2.qcommon.text as producttext
 import miniquake2.network.connectionless as productconnectionless
+import miniquake2.network.client as productnetworkclient
+import miniquake2.network.runtime.transport as producttransport
 import miniquake2.platform.udp as productudp
 
 const DEFAULT_PORT = 27910
 const MAX_BROWSER_SERVERS = 8
 const BROWSER_MSEC = 1200
-const PREFERENCES_HEADER = "MiniQuake2Multiplayer 1"
+const PREFERENCES_HEADER = "MiniQuake2Multiplayer 2"
+const PREFERENCES_LEGACY_HEADER = "MiniQuake2Multiplayer 1"
 
 // Store endpoint data.
 struct Endpoint
@@ -40,6 +43,14 @@ struct ServerBrowser
   active
 end struct
 
+// Store a short-lived main-menu RCON exchange.
+struct RconTransport
+  socket
+  endpoint
+  deadline
+  active
+end struct
+
 // Store player profile data.
 struct PlayerProfile
   name
@@ -47,6 +58,9 @@ struct PlayerProfile
   skin
   hand
   rate
+  password
+  spectator
+  fov
 end struct
 
 // Store download policy data.
@@ -274,9 +288,67 @@ function closeBrowser(browser)
   return false
 end function
 
+// Create a disconnected-console RCON transport without retaining a socket.
+function createRconTransport()
+  return RconTransport(void, void, 0, false)
+end function
+
+// Send one validated connectionless RCON request from a temporary UDP socket.
+function sendRcon(transport, endpointTextValue, password, command, now)
+  if typeof(transport) != "struct" or typeof(now) != "int" then
+    return error(9976, "rcon transport inputs are invalid")
+  end if
+  endpoint = parseEndpoint(endpointTextValue)
+  address = producttransport.fromUdp(endpoint.address, endpoint.port)
+  client = productnetworkclient.create(0, 1000)
+  action = productnetworkclient.rconAction(client, address, password, command)
+  if transport.socket is void or transport.socket.closed then
+    transport.socket = productudp.open("0.0.0.0", 0)
+  end if
+  productudp.send(transport.socket, endpoint.address, endpoint.port, action.data)
+  transport.endpoint = endpoint
+  transport.deadline = now + BROWSER_MSEC
+  transport.active = true
+  return action
+end function
+
+// Pump matching print replies without blocking the menu presentation loop.
+function pumpRcon(transport, now)
+  if typeof(transport) != "struct" or typeof(now) != "int" then
+    return error(9976, "rcon pump inputs are invalid")
+  end if
+  replies = []
+  if not transport.active or transport.socket is void then return replies end if
+  datagram = productudp.receive(transport.socket, 1400)
+  while datagram is not void
+    if datagram.address == transport.endpoint.address and
+        datagram.port == transport.endpoint.port then
+      packet = try(productconnectionless.parsePacket(datagram.data))
+      if packet is not error and packet.command == "print" then
+        replies = replies + [packet.remainder]
+      end if
+    end if
+    datagram = productudp.receive(transport.socket, 1400)
+  end while
+  if len(replies) > 0 or now >= transport.deadline then
+    productudp.close(transport.socket)
+    transport.active = false
+  end if
+  return replies
+end function
+
+// Close an outstanding main-menu RCON exchange.
+function closeRconTransport(transport)
+  if transport.socket is not void and not transport.socket.closed then
+    productudp.close(transport.socket)
+  end if
+  transport.active = false
+  return true
+end function
+
 // Return the default player profile value.
 function defaultPlayerProfile()
-  return PlayerProfile("MiniQuake2", "male", "grunt", 0, 25000)
+  return PlayerProfile("MiniQuake2", "male", "grunt", 0, 25000, "", false, 90)
 end function
 
 // Report whether player profile valid.
@@ -286,7 +358,10 @@ function playerProfileValid(profile)
     productinfo.componentValid(profile.model) and profile.model != "" and
     productinfo.componentValid(profile.skin) and profile.skin != "" and
     typeof(profile.hand) == "int" and profile.hand >= 0 and profile.hand <= 2 and
-    typeof(profile.rate) == "int" and profile.rate >= 2500 and profile.rate <= 100000
+    typeof(profile.rate) == "int" and profile.rate >= 2500 and profile.rate <= 100000 and
+    productinfo.componentValid(profile.password) and len(bytes(profile.password)) <= 63 and
+    typeof(profile.spectator) == "bool" and typeof(profile.fov) == "int" and
+    profile.fov >= 1 and profile.fov <= 160
 end function
 
 // Return the player user info value.
@@ -297,6 +372,11 @@ function playerUserInfo(profile)
   value = productinfo.setValueForKey(value, "skin", profile.model + "/" + profile.skin)
   value = productinfo.setValueForKey(value, "rate", profile.rate + "")
   value = productinfo.setValueForKey(value, "hand", profile.hand + "")
+  value = productinfo.setValueForKey(value, "password", profile.password)
+  playerSpectator = 0
+  if profile.spectator then playerSpectator = 1 end if
+  value = productinfo.setValueForKey(value, "spectator", playerSpectator + "")
+  value = productinfo.setValueForKey(value, "fov", profile.fov + "")
   return value
 end function
 
@@ -327,6 +407,7 @@ function preferencesValid(preferences)
       not preferenceTextSafe(preferences.profile.name, 15) or
       not preferenceTextSafe(preferences.profile.model, 31) or
       not preferenceTextSafe(preferences.profile.skin, 31) or
+      not preferenceTextSafe(preferences.profile.password, 63) or
       typeof(preferences.downloads) != "struct" or
       typeof(preferences.downloads.allow) != "bool" or
       typeof(preferences.downloads.maps) != "bool" or
@@ -359,6 +440,9 @@ function encodePreferences(preferences)
     "skin=" + preferences.profile.skin + "\n" +
     "hand=" + preferences.profile.hand + "\n" +
     "rate=" + preferences.profile.rate + "\n" +
+    "password=" + preferences.profile.password + "\n" +
+    "spectator=" + preferenceBool(preferences.profile.spectator) + "\n" +
+    "fov=" + preferences.profile.fov + "\n" +
     "download=" + preferenceBool(preferences.downloads.allow) + "\n" +
     "download_maps=" + preferenceBool(preferences.downloads.maps) + "\n" +
     "download_models=" + preferenceBool(preferences.downloads.models) + "\n" +
@@ -401,24 +485,39 @@ end function
 function decodePreferences(text)
   if typeof(text) != "string" or len(bytes(text)) > 4096 then return error(9973, "multiplayer preferences are empty or too large") end if
   lines = productstring.split(productstring.trim(text), "\n")
-  if typeof(lines) != "array" or len(lines) != 19 or lines[0] != PREFERENCES_HEADER then
+  if typeof(lines) != "array" or
+      ((len(lines) != 22 or lines[0] != PREFERENCES_HEADER) and
+       (len(lines) != 19 or lines[0] != PREFERENCES_LEGACY_HEADER)) then
     return error(9973, "multiplayer preference header or line count is invalid")
+  end if
+  preferenceVersion2 = lines[0] == PREFERENCES_HEADER
+  preferencePassword = ""
+  preferenceSpectator = false
+  preferenceFov = 90
+  preferenceDownloadStart = 6
+  if preferenceVersion2 then
+    preferencePassword = preferenceLine(lines, 6, "password=")
+    preferenceSpectator = preferenceBoolean(preferenceLine(lines, 7, "spectator="))
+    preferenceFov = preferenceInteger(preferenceLine(lines, 8, "fov="), 1, 160)
+    preferenceDownloadStart = 9
   end if
   profile = PlayerProfile(preferenceLine(lines, 1, "name="),
     preferenceLine(lines, 2, "model="), preferenceLine(lines, 3, "skin="),
     preferenceInteger(preferenceLine(lines, 4, "hand="), 0, 2),
-    preferenceInteger(preferenceLine(lines, 5, "rate="), 2500, 100000))
+    preferenceInteger(preferenceLine(lines, 5, "rate="), 2500, 100000),
+    preferencePassword, preferenceSpectator, preferenceFov)
   downloads = DownloadPolicy(
-    preferenceBoolean(preferenceLine(lines, 6, "download=")),
-    preferenceBoolean(preferenceLine(lines, 7, "download_maps=")),
-    preferenceBoolean(preferenceLine(lines, 8, "download_models=")),
-    preferenceBoolean(preferenceLine(lines, 9, "download_players=")),
-    preferenceBoolean(preferenceLine(lines, 10, "download_sounds=")))
+    preferenceBoolean(preferenceLine(lines, preferenceDownloadStart, "download=")),
+    preferenceBoolean(preferenceLine(lines, preferenceDownloadStart + 1, "download_maps=")),
+    preferenceBoolean(preferenceLine(lines, preferenceDownloadStart + 2, "download_models=")),
+    preferenceBoolean(preferenceLine(lines, preferenceDownloadStart + 3, "download_players=")),
+    preferenceBoolean(preferenceLine(lines, preferenceDownloadStart + 4, "download_sounds=")))
   addresses = array(8, "")
   preferenceDecodeIndex = 0
   while preferenceDecodeIndex < 8
     addresses[preferenceDecodeIndex] = preferenceLine(lines,
-      11 + preferenceDecodeIndex, "address" + preferenceDecodeIndex + "=")
+      preferenceDownloadStart + 5 + preferenceDecodeIndex,
+      "address" + preferenceDecodeIndex + "=")
     preferenceDecodeIndex = preferenceDecodeIndex + 1
   end while
   preferences = MultiplayerPreferences(profile, downloads, addresses)

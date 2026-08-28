@@ -12,6 +12,7 @@ import miniquake2.game.gameplay.item_rules as privaterestoreitems
 import miniquake2.game.gameplay.constants as privaterestoreitemconstants
 import miniquake2.game.world.core as privaterestoreworld
 import miniquake2.game.ai.constants as privaterestoreaiconstants
+import miniquake2.game.weapons.projectiles as privaterestoreprojectiles
 import miniquake2.qcommon.constants as privaterestoreqconstants
 import miniquake2.qcommon.types as privaterestoreqtypes
 
@@ -135,6 +136,39 @@ player.gameplay.powerCubes = 5
 player.respawn.cooperativeInventory[2] = 11
 player.persistent.gameHelpChanged = 4
 player.persistent.helpChanged = 2
+player.persistent.hand = 1
+player.velocity = [12.0, -3.0, 44.0]
+player.oldPmove.origin[0] = 101; player.oldPmove.velocity[2] = -77
+player.moveType = 8; player.waterLevel = 2; player.waterType = 32
+player.oldButtons = 3; player.buttons = 5; player.latchedButtons = 4
+player.weaponThunk = true; player.respawnTime = 9.5; player.killerYaw = 123.0
+player.lightLevel = 77; player.showInventory = true
+player.pickupMessageTime = 8.25; player.obituary = "private-v21"
+player.view.damageBlood = 11; player.view.damageAlpha = 0.5
+player.view.bobTime = 7.5; player.view.machinegunShots = 4
+player.gameplay.buttons = 9; player.gameplay.latchedButtons = 8
+player.gameplay.fireCount = 6
+privateSaveProjectileOwner = privaterestoreintegration.playerWeaponTarget(
+  player, context.registry)
+privateSaveProjectile = privaterestoreprojectiles.fireRocket(
+  runtime.weaponContext, privateSaveProjectileOwner,
+  privaterestoreqtypes.Vec3(16.0, 24.0, 32.0),
+  privaterestoreqtypes.Vec3(1.0, 0.0, 0.0), 100, 650.0, 120.0, 110)
+privateSaveProjectile.waterType = 32; privateSaveProjectile.waterLevel = 1
+privateSaveProjectile.gravity = 0.75; privateSaveProjectile.frame = 2
+privateSaveProjectileNumber = privateSaveProjectile.engineNumber
+restoreAssert(privaterestoreintegration.integratedPlayerNoise(
+  privateSaveProjectileOwner, privaterestoreqtypes.Vec3(20.0, 30.0, 40.0), 1),
+  "primary player-noise save fixture")
+restoreAssert(privaterestoreintegration.integratedPlayerNoise(
+  privateSaveProjectileOwner, privaterestoreqtypes.Vec3(50.0, 60.0, 70.0), 2),
+  "secondary player-noise save fixture")
+runtime.aiContext.sightClient = runtime.aiPlayers[0]
+runtime.aiContext.sightEntity = monster; runtime.aiContext.sightEntityFrame = 17
+runtime.aiContext.soundEntity = runtime.aiPlayers[0].noisePrimary
+runtime.aiContext.soundEntityFrame = 18
+runtime.aiContext.sound2Entity = runtime.aiPlayers[0].noiseSecondary
+runtime.aiContext.sound2EntityFrame = 19
 player.edict.state.frame = 166
 privateSavedBody = privaterestoreintegration.copyPlayerBody(runtime, player)
 context.imports.linkEntity(player.edict)
@@ -277,6 +311,67 @@ restoreAssert(restoredRuntime.bodyQueueIndex == 1 and
 restoreAssert(restoredPlayer.persistent.gameHelpChanged == 4 and
   restoredPlayer.persistent.helpChanged == 2,
   "private v19 restores player help counters")
+restoreAssert(restoredPlayer.persistent.hand == 1 and
+  restoredPlayer.velocity[0] == 12.0 and restoredPlayer.velocity[1] == -3.0 and
+  restoredPlayer.velocity[2] == 44.0 and
+  restoredPlayer.oldPmove.origin[0] == 101 and
+  restoredPlayer.oldPmove.velocity[2] == -77 and
+  restoredPlayer.moveType == 8,
+  "private v21 restores player transient movement state")
+restoreAssert(restoredPlayer.waterLevel == 2 and
+  restoredPlayer.waterType == 32 and restoredPlayer.oldButtons == 3 and
+  restoredPlayer.buttons == 5 and restoredPlayer.latchedButtons == 4 and
+  restoredPlayer.weaponThunk,
+  "private v21 restores player transient environment and input state")
+restoreAssert(restoredPlayer.respawnTime == 9.5 and
+  restoredPlayer.killerYaw == 123.0 and restoredPlayer.lightLevel == 77 and
+  restoredPlayer.showInventory and restoredPlayer.pickupMessageTime == 8.25 and
+  restoredPlayer.obituary == "private-v21",
+  "private v21 restores player transient UI state")
+restoreAssert(restoredPlayer.view.damageBlood == 11 and
+  restoredPlayer.view.damageAlpha == 0.5 and
+  restoredPlayer.view.bobTime == 7.5 and
+  restoredPlayer.view.machinegunShots == 4,
+  "private v21 restores player transient view state")
+restoreAssert(restoredPlayer.gameplay.buttons == 9 and
+  restoredPlayer.gameplay.latchedButtons == 8 and
+  restoredPlayer.gameplay.fireCount == 6,
+  "private v21 restores player transient weapon state")
+restoreAssert(len(restoredRuntime.weaponContext.projectiles) == 1,
+  "private v21 restores active projectile count")
+restoredProjectile = restoredRuntime.weaponContext.projectiles[0]
+restoreAssert(restoredProjectile.engineNumber == privateSaveProjectileNumber and
+  restoredProjectile.className == "rocket" and restoredProjectile.inUse and
+  restoredProjectile.owner is not void and restoredProjectile.owner.number == 1 and
+  restoredProjectile.waterType == 32 and restoredProjectile.waterLevel == 1 and
+  restoredProjectile.gravity == 0.75 and restoredProjectile.frame == 2 and
+  restoredProjectile.touch is not void and restoredProjectile.think is not void,
+  "private v21 restores active projectile data, owner and callbacks")
+restoredAIPlayer = restoredRuntime.aiPlayers[0]
+restoreAssert(restoredAIPlayer.noisePrimary is not void and
+  restoredAIPlayer.noiseSecondary is not void and
+  restoredAIPlayer.noisePrimary.edict.state.origin.x == 20.0 and
+  restoredAIPlayer.noisePrimary.edict.state.origin.y == 30.0 and
+  restoredAIPlayer.noisePrimary.edict.state.origin.z == 40.0 and
+  restoredAIPlayer.noiseSecondary.edict.state.origin.x == 50.0 and
+  restoredAIPlayer.noiseSecondary.edict.state.origin.y == 60.0 and
+  restoredAIPlayer.noiseSecondary.edict.state.origin.z == 70.0 and
+  nativeRawValue(restoredRuntime.aiContext.sightClient) ==
+    nativeRawValue(restoredAIPlayer) and
+  nativeRawValue(restoredRuntime.aiContext.sightEntity) ==
+    nativeRawValue(restoredMonster) and
+  nativeRawValue(restoredRuntime.aiContext.soundEntity) ==
+    nativeRawValue(restoredAIPlayer.noisePrimary) and
+  nativeRawValue(restoredRuntime.aiContext.sound2Entity) ==
+    nativeRawValue(restoredAIPlayer.noiseSecondary) and
+  restoredRuntime.aiContext.sightEntityFrame == 17 and
+  restoredRuntime.aiContext.soundEntityFrame == 18 and
+  restoredRuntime.aiContext.sound2EntityFrame == 19,
+  "private v21 restores player-noise edicts and AI level references")
+// Keep the legacy Medic-resume assertion isolated from the deliberately live
+// rocket used above to exercise the transient-edict restore path.
+restoredProjectile.inUse = false
+restoredRuntime.weaponContext.projectiles = []
 api.runFrame(); api.runFrame(); api.runFrame()
 restoreAssert(restoredDoor.angles.y != savedDoorAngle, "restored mover continues simulation")
 privateMedicResumeFrames = 0

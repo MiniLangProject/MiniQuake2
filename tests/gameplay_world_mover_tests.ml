@@ -246,10 +246,16 @@ function testStockTriggerParityGaps()
   assertEqual(missingGravity.inUse, false, "invalid gravity trigger freed")
   gravity = gwcore.spawnEntity(world, "trigger_gravity")
   gravity.gravity = 3.0
+  gravity.gravitySpecified = true
   gwtriggers.spawnGravity(gravity, world)
   actor = gwcore.spawnEntity(world, "actor")
   gwcore.touchEntity(world, gravity, actor)
   assertEqual(actor.gravity, 3.0, "gravity trigger updates touched entity")
+  zeroGravity = gwcore.spawnEntity(world, "trigger_gravity")
+  zeroGravity.gravity = 0.0
+  zeroGravity.gravitySpecified = true
+  assertEqual(gwtriggers.spawnGravity(zeroGravity, world), zeroGravity,
+    "explicit zero gravity remains a valid authored trigger")
   return true
 end function
 

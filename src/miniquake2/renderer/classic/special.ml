@@ -45,6 +45,14 @@ end function
 
 // Return the classic special texture coordinates value.
 function classicSpecialTextureCoordinates(draw, vertex, time)
+  output = array(2, 0.0)
+  classicSpecialTextureCoordinatesInto(output, draw, vertex, time)
+  return output
+end function
+
+// Write special coordinates into caller-owned scratch storage for the hot
+// per-vertex renderer path.
+function classicSpecialTextureCoordinatesInto(output, draw, vertex, time)
   flags = draw.surface.texInfo.flags
   if (flags & rspecialformatconstants.SURF_WARP) != 0 then
     rawS = vertex.s * draw.surface.image.width
@@ -53,16 +61,26 @@ function classicSpecialTextureCoordinates(draw, vertex, time)
     if (flags & rspecialformatconstants.SURF_FLOWING) != 0 then scroll = classicSpecialWaterScroll(time) end if
     warpedS = (rawS + classicSpecialWarpSine(rawT * 0.125 + time) + scroll) / 64.0
     warpedT = (rawT + classicSpecialWarpSine(rawS * 0.125 + time)) / 64.0
-    return [warpedS, warpedT]
+    output[0] = warpedS; output[1] = warpedT
+    return output
   end if
-  if (flags & rspecialformatconstants.SURF_FLOWING) != 0 then return [vertex.s + classicSpecialFlowScroll(time), vertex.t] end if
-  return [vertex.s, vertex.t]
+  output[0] = vertex.s; output[1] = vertex.t
+  if (flags & rspecialformatconstants.SURF_FLOWING) != 0 then
+    output[0] = vertex.s + classicSpecialFlowScroll(time)
+  end if
+  return output
 end function
 
 // Return the classic special base texture value.
 function inline classicSpecialBaseTexture(draw, time)
+  return classicSpecialBaseTextureFrame(draw,
+    rspecialbyteio.truncInt(time * 2.0))
+end function
+
+// Resolve an animated texture from the owning entity frame. World callers use
+// time*2; inline brush entities pass their server-controlled entity.frame.
+function inline classicSpecialBaseTextureFrame(draw, frame)
   if len(draw.baseTextures) == 0 then return draw.baseTexture end if
-  frame = rspecialbyteio.truncInt(time * 2.0)
   index = frame % len(draw.baseTextures)
   if index < 0 then index = index + len(draw.baseTextures) end if
   return draw.baseTextures[index]
@@ -291,9 +309,8 @@ function classicSpecialPassPlanOriginPrefix(draws, drawCount, viewOrigin)
     end if
     drawIndex = drawIndex + 1
   end while
-  transparentDraws = classicSpecialSortTransparent(transparent, viewOrigin)
   return rclassictypes.ClassicSpecialPassPlan(
-    opaque, warp, sky, transparentDraws
+    opaque, warp, sky, transparent
   )
 end function
 

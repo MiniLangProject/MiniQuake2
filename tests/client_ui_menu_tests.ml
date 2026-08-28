@@ -98,7 +98,7 @@ uiMenuAssertEqual(uiMenuState.pages[4].items[0].label, "slot 1 - base1",
   "persistent slot label retained")
 cuimenu.open(uiMenuState, "keys")
 uiMenuAssertEqual(cuimenu.activate(uiMenuState), true, "control binding action")
-uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "bindcapture +forward",
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "bindcapture +attack",
   "control capture command")
 cuimenu.open(uiMenuState, "main")
 
@@ -123,7 +123,7 @@ uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 135.51,
   uiMenuRenderer.exports), 7, "game menu fractional-clock draw count")
 cuimenu.open(uiMenuState, "player")
 uiMenuAssertEqual(cuimenu.draw(uiMenuState, 640, 480, 1400.0,
-  uiMenuRenderer.exports), 6, "player setup 3-D draw count")
+  uiMenuRenderer.exports), 9, "player setup 3-D draw count")
 uiMenuPreviewFrame = uiMenuRenderer.state.lastRefDef
 uiMenuAssertEqual(uiMenuPreviewFrame.x, 320, "player preview viewport x")
 uiMenuAssertEqual(uiMenuPreviewFrame.y, 168, "player preview viewport y")

@@ -17,6 +17,31 @@ function action(state, name)
   return 1.0
 end function
 
+// Return the fraction of this command interval for which an action was held.
+// Key-up events contribute their exact timestamped duration; a still-held key
+// contributes from its last down time through the command endpoint.
+function actionFraction(state, name, frameMsec, consume)
+  value = cuikeys.findAction(state, name)
+  if value is void then return 0.0 end if
+  frameStart = state.commandTime
+  if frameStart < 0 then frameStart = 0 end if
+  frameEnd = frameStart + frameMsec
+  heldMsec = value.msec
+  if value.down then
+    heldStart = value.downTime
+    if heldStart < frameStart then heldStart = frameStart end if
+    if heldStart < frameEnd then heldMsec = heldMsec + frameEnd - heldStart end if
+  end if
+  fraction = heldMsec / (frameMsec * 1.0)
+  if fraction < 0.0 then fraction = 0.0 end if
+  if fraction > 1.0 then fraction = 1.0 end if
+  if consume then
+    value.msec = 0
+    if value.down then value.downTime = frameEnd end if
+  end if
+  return fraction
+end function
+
 // Add mouse delta.
 function addMouseDelta(state, dx, dy)
   state.mouseDx = state.mouseDx + dx
@@ -101,18 +126,26 @@ function buildSampledUserCmd(state, frameMsec, consumeTransient)
   cfg = state.config
   strafing = action(state, "strafe") > 0.0
   klook = action(state, "klook") > 0.0
+  moveUpFraction = actionFraction(state, "moveup", frameMsec, consumeTransient)
+  moveDownFraction = actionFraction(state, "movedown", frameMsec, consumeTransient)
+  rightFraction = actionFraction(state, "right", frameMsec, consumeTransient)
+  leftFraction = actionFraction(state, "left", frameMsec, consumeTransient)
+  moveRightFraction = actionFraction(state, "moveright", frameMsec, consumeTransient)
+  moveLeftFraction = actionFraction(state, "moveleft", frameMsec, consumeTransient)
+  forwardFraction = actionFraction(state, "forward", frameMsec, consumeTransient)
+  backFraction = actionFraction(state, "back", frameMsec, consumeTransient)
 
   forward = 0.0
   side = 0.0
-  up = cfg.upSpeed * (action(state, "moveup") - action(state, "movedown"))
+  up = cfg.upSpeed * (moveUpFraction - moveDownFraction)
   forward = forward + cfg.forwardSpeed * state.controllerForward
   side = side + cfg.sideSpeed * state.controllerSide
   if (state.controllerButtons & 4) != 0 then up = up + cfg.upSpeed end if
   if (state.controllerButtons & 8) != 0 then up = up - cfg.upSpeed end if
-  if strafing then side = side + cfg.sideSpeed * (action(state, "right") - action(state, "left")) end if
-  side = side + cfg.sideSpeed * (action(state, "moveright") - action(state, "moveleft"))
+  if strafing then side = side + cfg.sideSpeed * (rightFraction - leftFraction) end if
+  side = side + cfg.sideSpeed * (moveRightFraction - moveLeftFraction)
   if klook == false then forward = forward + cfg.forwardSpeed *
-    (action(state, "forward") - action(state, "back")) end if
+    (forwardFraction - backFraction) end if
 
   // Axes left behind by sampleView are strafe/klook movement.  A prediction
   // preview observes them without consuming them; the transmitted command is
@@ -147,6 +180,10 @@ function buildSampledUserCmd(state, frameMsec, consumeTransient)
 
   impulse = state.impulse
   if consumeTransient then state.impulse = 0 end if
+  if consumeTransient then
+    if state.commandTime < 0 then state.commandTime = 0 end if
+    state.commandTime = state.commandTime + frameMsec
+  end if
   return qt.UserCmd(frameMsec, buttons,
     [angleShort(state.viewAngles[0]), angleShort(state.viewAngles[1]), angleShort(state.viewAngles[2])],
     forward, side, up, impulse, state.lightLevel)

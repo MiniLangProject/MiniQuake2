@@ -48,6 +48,17 @@ function testCvars()
   assertEqual(cvar.applyLatched(registry), 1, "latched apply count")
   assertEqual(cvar.variableString(registry, "game"), "ctf", "latched new value")
   assertTrue(try(cvar.set(registry, "name", "bad\\value")) is error, "userinfo validation")
+  cvar.get(registry, "crosshair", "1", c.CVAR_ARCHIVE)
+  cvar.set(registry, "crosshair", "2")
+  assertTrue(len(bytes(cvar.archiveText(registry))) > 0, "archive cvar serialization")
+  assertTrue(len(bytes(cvar.listText(registry))) > 0, "cvar list text")
+  assertEqual(cvar.setCommand(registry, ["set", "rate", "25000", "u"]), "",
+    "set userinfo command")
+  assertEqual(cvar.variableString(registry, "rate"), "25000", "set command value")
+  assertTrue((cvar.find(registry, "rate").flags & c.CVAR_USERINFO) != 0,
+    "set command flags")
+  assertTrue(try(cvar.fullSet(registry, "bad\\name", "x", c.CVAR_USERINFO)) is error,
+    "full set info validation")
   return true
 end function
 
@@ -66,6 +77,13 @@ function testCommands()
   cmd.executeString(system, "again")
   cmd.executeBuffer(system)
   assertEqual(recorder.calls[3][1], "alias", "alias expansion")
+  cvar.get(registry, "macro_value", "expanded", 0)
+  cmd.executeString(system, "record $macro_value")
+  assertEqual(recorder.calls[4][1], "expanded", "unquoted cvar macro expansion")
+  cmd.executeString(system, "record \"$macro_value\"")
+  assertEqual(recorder.calls[5][1], "$macro_value", "quoted cvar macro preservation")
+  assertTrue(try(cmd.executeString(system, "record \"unterminated")) is error,
+    "unmatched command quote rejection")
   return true
 end function
 

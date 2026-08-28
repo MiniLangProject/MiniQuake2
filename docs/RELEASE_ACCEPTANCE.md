@@ -8,6 +8,48 @@ Entries are ordered newest first. Counts, timings and hashes in older dated
 sections describe those exact historical builds. Machine-readable verifier
 output generated for a particular checkout is authoritative for that tree.
 
+## 2026-08-28 exhaustive source-parity closure
+
+Three independent source audits rechecked the game/server scheduler, client and
+network behavior, and renderer/audio submission against the pinned Quake II
+3.19 source. The game now executes non-client edicts in global numeric order,
+including atomic pusher teams, due-think gating, trigger contact after movement,
+projectile and dropped-item physics, and the original default gravity contract.
+Private-Save v21 retains live projectiles, player transients, noise targets and
+AI references while continuing to read every supported older save version.
+
+The client closure adds the original snapshot visibility split for projectiles,
+beams and sound-only entities, dead-player prediction rules, complete save/load
+slots and inventory controls, persistent multiplayer preferences, reconnect and
+out-of-band RCON, timedemo interpolation/results, and map-archive/autosave
+lifecycle. Dedicated servers now expose a real console command loop, including
+status, map/gamemap, kick, dumpuser, killserver and quit. Command and cvar
+handling includes stock macro expansion, quote/length guards, archive output,
+info validation and userinfo change tracking.
+
+Renderer parity now includes the deferred translucent pass, dynamic world and
+brush lightmaps, MD2 frustum/back-face/mirror handling, continuous frame lerp,
+dual-cluster water visibility, complete mip chains, brush animation frames,
+TGA sky fallback and bounded allocation-free sky/warp buffers. Paused looping
+sounds remain spatialized. Focused regressions cover every listed path,
+including the server-to-render projectile chain and zero-growth repeated
+sky submission.
+
+The complete 199-program Release matrix was rebuilt from the final source in
+isolated partitions and executed successfully. The two asset-free skips also
+passed with the installed retail data. The retail gates cover all 47 shipped
+maps (36,404 raw/20,935 live entities), the 39-map session and retained BSP
+graph, `base1` to `base2`, physical input, weapon-wheel transitions, visible
+projectiles, media/music, dedicated console input and live 4K fallback without
+a BSP reload. A 100,000-frame `base1` session completed at 248.23 unpaced FPS
+with 213,750/213,750 packets, zero rejects, zero pending sounds, zero queued map
+commands and an empty command buffer.
+
+Human campaign completion, long-duration interactive play and broader
+GPU/audio-driver coverage remain separate acceptance gates; passing the
+deterministic and local retail matrix is not presented as evidence for every
+external device.
+
 ## 2026-08-27 final bounded gameplay parity closures
 
 Private-Save v19 and the integrated gameplay runtime close the four bounded

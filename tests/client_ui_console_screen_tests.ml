@@ -7,6 +7,7 @@ import miniquake2.client.ui.console as cuiconsole
 import miniquake2.client.ui.menu as cuimenu
 import miniquake2.client.ui.screen as cuiscreen
 import miniquake2.client.ui.types as cuitypes
+import miniquake2.client.ui.keys as cuiscreenkeys
 import miniquake2.qcommon.constants as qc
 import miniquake2.renderer.recording as recording
 
@@ -49,9 +50,14 @@ uiScreenCrosshairPosition = cuiscreen.crosshairPosition(640, 480, 24, 24)
 uiScreenAssertEqual(uiScreenCrosshairPosition[0], 308, "crosshair centered x")
 uiScreenAssertEqual(uiScreenCrosshairPosition[1], 228, "crosshair centered y")
 uiScreenState.layoutText = "xl 8 yt 8 string hud"
-uiScreenState.inventory = [cuitypes.InventoryItem(1, "Blaster", 1), cuitypes.InventoryItem(2, "Shells", 20)]
+uiScreenState.inventory = [cuitypes.InventoryItem(1, "Blaster", 1, "1"), cuitypes.InventoryItem(2, "Shells", 20, "2")]
 uiScreenState.selectedInventory = 2
 uiScreenState.showInventory = true
+uiScreenInput = cuiscreenkeys.createInputState()
+cuiscreenkeys.bind(uiScreenInput, 49, "use Blaster")
+cuiscreen.updateInventoryHotkeys(uiScreenState, uiScreenInput)
+uiScreenAssertEqual(uiScreenState.inventory[0].hotkey, "1",
+  "inventory resolves use-item hotkey")
 cuiscreen.centerPrint(uiScreenState, "MISSION\nSTART", 1000, 2500)
 
 uiScreenStats = array(32, 0)

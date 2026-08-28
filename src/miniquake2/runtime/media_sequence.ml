@@ -31,6 +31,52 @@ struct MediaSequence
   steps
 end struct
 
+// Store the persistence operations attached to a gamemap transition.
+struct GameMapPolicy
+  archiveCurrent
+  wipeUnit
+  autosaveSuccessor
+end struct
+
+// Store deterministic timedemo throughput data.
+struct TimedemoMetrics
+  frames
+  elapsedMsec
+  framesPerSecond
+end struct
+
+// Compute the same frames/time report exposed by Quake II's timedemo path.
+function timedemoMetrics(frames, elapsedMsec)
+  if typeof(frames) != "int" or frames < 0 or
+      (typeof(elapsedMsec) != "int" and typeof(elapsedMsec) != "float") or
+      elapsedMsec < 0 then return error(8503, "timedemo metrics are invalid") end if
+  fps = 0.0
+  if elapsedMsec > 0 then fps = frames * 1000.0 / elapsedMsec end if
+  return TimedemoMetrics(frames, elapsedMsec, fps)
+end function
+
+// Match SV_GameMap_f: archive the outgoing level inside a unit, wipe the
+// current-unit archive at `*`, and autosave the successfully spawned successor.
+function gameMapPolicy(step, singlePlayer)
+  if typeof(step) != "struct" or typeof(singlePlayer) != "bool" then
+    return error(8501, "gamemap policy inputs are invalid")
+  end if
+  return GameMapPolicy(singlePlayer and not step.endOfUnit,
+    singlePlayer and step.endOfUnit, singlePlayer)
+end function
+
+// Preserve the original ZOID cooperative end-screen loop back to base1.
+function cooperativePictureSuccessor(step, cooperative)
+  if typeof(step) != "struct" or typeof(cooperative) != "bool" then
+    return error(8502, "cooperative picture policy inputs are invalid")
+  end if
+  if cooperative and step.kind == MEDIA_PCX and
+      mediaseqtext.equalInsensitive(step.name, "victory.pcx") then
+    return "*base1"
+  end if
+  return ""
+end function
+
 // Return the ends with insensitive value.
 function endsWithInsensitive(value, suffix)
   mediaseqValue = bytes(mediaseqtext.lower(value))

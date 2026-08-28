@@ -88,8 +88,17 @@ end function
 
 // Set full.
 function fullSet(registry, name, value, flags)
+  if name == "" then return error(3210, "empty cvar name") end if
+  if (flags & (qc.CVAR_USERINFO | qc.CVAR_SERVERINFO)) != 0 and
+      (not infoValueValid(name) or not infoValueValid(value)) then
+    return error(3211, "invalid info cvar")
+  end if
+  variable = find(registry, name)
+  oldUserInfo = false
+  if variable is not void then oldUserInfo = (variable.flags & qc.CVAR_USERINFO) != 0 end if
   variable = forceSet(registry, name, value)
   variable.flags = flags
+  if oldUserInfo or (flags & qc.CVAR_USERINFO) != 0 then registry.userInfoModified = true end if
   return variable
 end function
 
@@ -142,4 +151,56 @@ function command(registry, arguments)
   if len(arguments) == 1 then return [true, "\"" + variable.name + "\" is \"" + variable.string + "\""] end if
   set(registry, variable.name, arguments[1])
   return [true, ""]
+end function
+
+// Apply the stock `set <name> <value> [u|s]` console command. Returning text
+// instead of printing keeps the qcommon service usable by client and server
+// consoles without a platform dependency.
+function setCommand(registry, arguments)
+  if len(arguments) != 3 and len(arguments) != 4 then
+    return "usage: set <variable> <value> [u / s]\n"
+  end if
+  flags = 0
+  if len(arguments) == 4 then
+    if arguments[3] == "u" then flags = qc.CVAR_USERINFO
+    else if arguments[3] == "s" then flags = qc.CVAR_SERVERINFO
+    else return "flags can only be 'u' or 's'\n"
+    end if
+    fullSet(registry, arguments[1], arguments[2], flags)
+  else set(registry, arguments[1], arguments[2])
+  end if
+  return ""
+end function
+
+// Serialize the CVAR_ARCHIVE subset in an executable Quake II config form.
+function archiveText(registry)
+  output = ""
+  for each variable in registry.variables
+    if (variable.flags & qc.CVAR_ARCHIVE) != 0 then
+      output = output + "set " + variable.name + " \"" + variable.string + "\"\n"
+    end if
+  end for
+  return output
+end function
+
+// Return the stock cvarlist flags and values for a console frontend.
+function listText(registry)
+  output = ""
+  count = 0
+  for each variable in registry.variables
+    archiveMark = " "
+    userMark = " "
+    serverMark = " "
+    protectionMark = " "
+    if (variable.flags & qc.CVAR_ARCHIVE) != 0 then archiveMark = "*" end if
+    if (variable.flags & qc.CVAR_USERINFO) != 0 then userMark = "U" end if
+    if (variable.flags & qc.CVAR_SERVERINFO) != 0 then serverMark = "S" end if
+    if (variable.flags & qc.CVAR_NOSET) != 0 then protectionMark = "-"
+    else if (variable.flags & qc.CVAR_LATCH) != 0 then protectionMark = "L"
+    end if
+    output = output + archiveMark + userMark + serverMark + protectionMark +
+      " " + variable.name + " \"" + variable.string + "\"\n"
+    count = count + 1
+  end for
+  return output + count + " cvars\n"
 end function

@@ -508,6 +508,31 @@ function operatorStatus(runtime)
     nserver.statusString(runtime.server)
 end function
 
+// Resolve an operator client selector by numeric slot or case-insensitive
+// player name. Numeric slots use Quake II's human-facing zero-based values.
+function operatorClientSlot(runtime, selector)
+  numeric = try(toNumber(selector))
+  if numeric is not error and numeric is not void then
+    slot = qbio.truncInt(numeric)
+    if numeric == slot and slot >= 0 and slot < runtime.server.maxClients and
+        runtime.server.clients[slot].state >= nc.CS_CONNECTED then return slot end if
+  end if
+  slot = 0
+  while slot < runtime.server.maxClients
+    client = runtime.server.clients[slot]
+    if client.state >= nc.CS_CONNECTED and
+        qtext.equalInsensitive(client.name, selector) then return slot end if
+    slot = slot + 1
+  end while
+  return -1
+end function
+
+// Return the stock dumpuser-style information for one connected client.
+function operatorDumpUser(runtime, slot)
+  client = runtime.server.clients[slot]
+  return "userinfo\n--------\n" + client.userInfo + "\n"
+end function
+
 // A deliberately bounded operator surface.  These are the stock commands
 // needed to administer the Protocol-34 endpoint; it never delegates RCON text
 // to the host shell or filesystem command parser.
@@ -520,6 +545,22 @@ function executeOperator(runtime, text)
     return nsadmin.serverCommand(runtime.administration, arguments)
   end if
   if qtext.equalInsensitive(command, "status") then return operatorStatus(runtime) end if
+  if qtext.equalInsensitive(command, "dumpuser") then
+    if len(arguments) != 2 then return "Usage: dumpuser <userid>\n" end if
+    slot = operatorClientSlot(runtime, arguments[1])
+    if slot < 0 then return "Couldn't find user " + arguments[1] + "\n" end if
+    return operatorDumpUser(runtime, slot)
+  end if
+  if qtext.equalInsensitive(command, "kick") then
+    if len(arguments) != 2 then return "Usage: kick <userid>\n" end if
+    slot = operatorClientSlot(runtime, arguments[1])
+    if slot < 0 then return "Couldn't find user " + arguments[1] + "\n" end if
+    name = runtime.server.clients[slot].name
+    runtime.deferredReliable[slot] = []
+    runtime.callbacks.clientDisconnect(slot)
+    nserver.dropClient(runtime.server, slot, runtime.server.realTime, false)
+    return "Kicked " + name + ".\n"
+  end if
   if qtext.equalInsensitive(command, "serverinfo") then
     return "Server info settings:\n" + runtime.server.serverInfo + "\n"
   end if

@@ -169,6 +169,21 @@ function setCacheState(surface, lightStyles)
   return surface.cachedLight
 end function
 
+// Report whether any style used by a surface changed since its last upload.
+// The cached white value is the same dirty criterion used by ref_gl.
+function inline lightStylesChanged(surface, lightStyles)
+  mapIndex = 0
+  while mapIndex < rclassicconstants.MAX_LIGHTMAPS
+    if mapIndex >= len(surface.styles) or surface.styles[mapIndex] == 255 then
+      return false
+    end if
+    if surface.cachedLight[mapIndex] !=
+        styleWhite(lightStyles, surface.styles[mapIndex]) then return true end if
+    mapIndex = mapIndex + 1
+  end while
+  return false
+end function
+
 // Prepare state.
 function prepare(surface, lightStyles, dLights, modulate)
   markDynamicLights(surface, dLights)

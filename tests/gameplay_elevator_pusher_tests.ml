@@ -137,7 +137,7 @@ function recordElevatorTeamLink(entity)
   return true
 end function
 
-// Record the post-commit trigger pass for a carried player.
+// Record each stock SV_Push trigger pass for a carried player.
 function recordElevatorTriggerTouch(player)
   global elevatorTriggerTouchCount
   elevatorTriggerTouchCount = elevatorTriggerTouchCount + 1
@@ -488,7 +488,7 @@ elevatorAssert(elevatortestpusher.resolve(rollbackRuntime,
   rollbackFirst.origin.x == 0.0 and rollbackSecond.origin.x == 20.0 and
   rollbackRiderEdict.state.origin.x == 0.0 and
   rollbackBlockerEdict.state.origin.x == 21.0 and
-  elevatorTriggerTouchCount == 0,
-  "later team blocker did not roll back the complete pusher transaction")
+  elevatorTriggerTouchCount == 1,
+  "later team blocker lost the earlier successful SV_Push trigger pass")
 
 print "gameplay_elevator_pusher_tests: PASS"

@@ -18,6 +18,11 @@ extern function sysCounter() from "miniquake_native.dll" symbol "mq_sys_counter"
 extern function sysFrequency() from "miniquake_native.dll" symbol "mq_sys_frequency" returns u64
 extern function processHandleCount() from "miniquake_native.dll" symbol "mq_process_handle_count" returns u32
 extern function winSleep(milliseconds as u32) from "miniquake_native.dll" symbol "mq_win_sleep" returns void
+extern function sysConsoleAlloc() from "miniquake_native.dll" symbol "mq_sys_console_alloc" returns i32
+extern function sysConsoleFree() from "miniquake_native.dll" symbol "mq_sys_console_free" returns i32
+extern function sysConsoleEventPop() from "miniquake_native.dll" symbol "mq_sys_console_event_pop" returns u32
+extern function sysConsoleWrite(text as cstr) from "miniquake_native.dll" symbol "mq_sys_console_write" returns i32
+extern function sysSleepUntilInput(milliseconds as u32) from "miniquake_native.dll" symbol "mq_sys_sleep_until_input" returns void
 
 extern function winCreate(title as wstr, width as i32, height as i32, fullscreen as i32) from "miniquake_native.dll" symbol "mq_win_create" returns ptr
 extern function winTestDisplayMode(width as i32, height as i32, bpp as i32, frequency as i32) from "miniquake_native.dll" symbol "mq_win_test_display_mode" returns i32

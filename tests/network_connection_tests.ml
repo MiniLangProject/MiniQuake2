@@ -20,6 +20,21 @@ function assertEqual(actual, expected, name)
   return true
 end function
 
+// Verify client-originated OOB rcon framing and injection guards.
+function testClientRcon()
+  address = ip(10, 20, 30, 40, 27910)
+  client = nclient.create(7, 5000)
+  action = nclient.rconAction(client, address, "secret", "status")
+  request = nconnectionless.parsePacket(action.data)
+  assertEqual(action.kind, "rcon", "rcon action kind")
+  assertEqual(request.arguments[0], "rcon", "rcon wire command")
+  assertEqual(request.arguments[1], "secret", "rcon wire password")
+  assertEqual(request.arguments[2], "status", "rcon wire payload")
+  assertTrue(try(nclient.rconAction(client, address, "secret",
+    "status\nquit")) is error, "rcon line injection rejected")
+  return true
+end function
+
 // Assert the true test condition.
 function assertTrue(value, name)
   if value != true then return error(7951, name + ": expected true") end if
@@ -178,7 +193,7 @@ end function
 
 // Run this source file's command-line entry point.
 function main(args)
-  print "MiniQuake2 network connection tests starting: 4"
+  print "MiniQuake2 network connection tests starting: 5"
   result = try(testHandshakeAndCommands())
   if result is error then print "FAIL handshake: " + result.message; return 1 end if
   result = try(testSequencedRoutingAndNat())
@@ -187,6 +202,8 @@ function main(args)
   if result is error then print "FAIL timeout/heartbeat: " + result.message; return 1 end if
   result = try(testRejectionsAndLoopback())
   if result is error then print "FAIL rejection/loopback: " + result.message; return 1 end if
-  print "MiniQuake2 network connection tests passed: 4"
+  result = try(testClientRcon())
+  if result is error then print "FAIL client rcon: " + result.message; return 1 end if
+  print "MiniQuake2 network connection tests passed: 5"
   return 0
 end function

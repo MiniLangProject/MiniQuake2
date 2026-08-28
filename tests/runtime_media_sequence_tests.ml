@@ -34,6 +34,22 @@ mediaSequenceAssert(len(mediaMap.steps) == 1 and
   mediaMap.steps[0].kind == mediatestseq.MEDIA_MAP and
   mediaMap.steps[0].spawnPoint == "base2a" and not mediaMap.steps[0].endOfUnit,
   "ordinary map and spawn point")
+mediaMapPolicy = mediatestseq.gameMapPolicy(mediaMap.steps[0], true)
+mediaUnitPolicy = mediatestseq.gameMapPolicy(mediaUnit.steps[1], true)
+mediaSequenceAssert(mediaMapPolicy.archiveCurrent and
+  not mediaMapPolicy.wipeUnit and mediaMapPolicy.autosaveSuccessor,
+  "ordinary gamemap archives current level and autosaves successor")
+mediaSequenceAssert(not mediaUnitPolicy.archiveCurrent and
+  mediaUnitPolicy.wipeUnit and mediaUnitPolicy.autosaveSuccessor,
+  "end-of-unit gamemap wipes current archive and autosaves successor")
+mediaSequenceAssert(mediatestseq.cooperativePictureSuccessor(
+  mediaEnding.steps[1], true) == "*base1" and
+  mediatestseq.cooperativePictureSuccessor(mediaEnding.steps[1], false) == "",
+  "cooperative victory picture returns to a fresh base1 unit")
+mediaTimedemo = mediatestseq.timedemoMetrics(250, 2000)
+mediaSequenceAssert(mediaTimedemo.framesPerSecond == 125.0 and
+  mediaTimedemo.elapsedMsec == 2000,
+  "timedemo reports explicit elapsed time and throughput")
 mediaDemo = mediatestseq.parse("demo1.dm2")
 mediaSequenceAssert(mediaDemo.steps[0].kind == mediatestseq.MEDIA_DM2 and
   mediatestseq.kindName(mediaDemo.steps[0].kind) == "dm2", "demo step")

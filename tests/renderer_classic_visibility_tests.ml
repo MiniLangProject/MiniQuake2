@@ -4,6 +4,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 */
 /* Synthetic BSP38 PVS, marksurface, area, frustum and backface selection. */
 import miniquake2.format.types as ft
+import miniquake2.format.constants as fc
 import miniquake2.qcommon.types as qt
 import miniquake2.renderer.types as rt
 import miniquake2.renderer.opengl as ropengl
@@ -200,6 +201,35 @@ function testProtocolCoordinateFrustumBounds()
     "protocol-boundary far plane remains representable")
 end function
 
+// Verify the stock second PVS row at an air/water boundary.
+function testWaterBoundaryDualClusterPvs()
+  renderer = ropengl.createOpenGlRenderer(false)
+  renderer.exports.Init(void, void)
+  renderer.exports.BeginRegistration("dual_cluster")
+  map = visibilityMap()
+  map.planes[0] = ft.BspPlane(ft.Vec3(0.0, 0.0, 1.0), 0.0, 2)
+  map.nodes[0] = ft.BspNode(0, -1, -2,
+    ft.Vec3(-64.0, -64.0, -64.0), ft.Vec3(64.0, 64.0, 64.0), 0, 2)
+  map.leafs[0] = ft.BspLeaf(0, 0, 0,
+    ft.Vec3(-64.0, -64.0, 0.0), ft.Vec3(64.0, 64.0, 64.0),
+    0, 2, 0, 0)
+  map.leafs[1] = ft.BspLeaf(fc.CONTENTS_WATER, 1, 1,
+    ft.Vec3(-64.0, -64.0, -64.0), ft.Vec3(64.0, 64.0, -1.0),
+    2, 1, 0, 0)
+  world = ropengl.prepareClassicWorld(renderer, map, loadVisibilityFile,
+    rt.defaultLightStyles(), 0, 1.0)
+  frame = viewFrame(qt.Vec3(-10.0, 0.0, 8.0))
+  pvs = rclassicvisibility.classicVisibilitySelectPvs(world, frame)
+  assertEqual(pvs.viewCluster, 0, "dual-cluster primary air row")
+  assertEqual(pvs.viewCluster2, 1, "dual-cluster water probe row")
+  assertEqual(len(pvs.draws), 2, "dual-cluster PVS union")
+  assertEqual(len(rclassicvisibility.selectClassicWorldCached(world,
+    frame).draws), 2, "dual-cluster cache union")
+  ropengl.releaseClassicWorld(renderer, world)
+  renderer.exports.Shutdown()
+end function
+
 testPvsDedupeAreasAndTransitions()
 testProtocolCoordinateFrustumBounds()
+testWaterBoundaryDualClusterPvs()
 print("renderer classic visibility tests passed")

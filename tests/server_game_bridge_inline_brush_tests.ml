@@ -234,9 +234,16 @@ visibilityOwnedProjectile = ingametypes.zeroEdict(78)
 visibilityOwnedProjectile.inUse = true
 visibilityOwnedProjectile.owner = visibilityViewer
 visibilityOwnedProjectile.numClusters = 0
+// Stock SV_BuildClientFrame does not bypass PVS for owner projectiles. It
+// clears their transmitted solidity only after the ordinary visibility test.
+inlineAssert(not inserversession.entityVisibleFromLeaf(visibilitySession,
+  visibilityViewer, 0, visibilityOwnedProjectile),
+  "projectile owner incorrectly bypassed snapshot PVS")
+visibilityOwnedProjectile.numClusters = 1
+visibilityOwnedProjectile.clusterNumbers[0] = 0
 inlineAssert(inserversession.entityVisibleFromLeaf(visibilitySession,
   visibilityViewer, 0, visibilityOwnedProjectile),
-  "snapshot PVS rejected the viewer's own projectile")
+  "snapshot PVS rejected an owner projectile in the viewer cluster")
 visibilityProtocolState = inserversession.protocolEntity(visibilityBrush.state)
 inlineAssert(visibilityProtocolState.modelIndex == visibilityBrush.state.modelIndex and
   visibilityProtocolState.solid == 31 and visibilityProtocolState.origin[0] == -0.5,

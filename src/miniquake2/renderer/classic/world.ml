@@ -37,6 +37,13 @@ struct LightmapAtlasState
   facePacked
 end struct
 
+// Decoded true-colour TGA used by stock-compatible environment maps.
+struct ClassicTgaImage
+  width
+  height
+  rgba
+end struct
+
 // Read bytes.
 function readBytes(loadFile, path)
   data = loadFile(path)
@@ -320,11 +327,71 @@ function classicWorldSkyRotate(entityText)
   return parsed
 end function
 
+// Decode the uncompressed and RLE true-colour TGA variants accepted by ref_gl.
+// The decoder remains MiniLang-owned so custom-server sky data is validated
+// before it enters the renderer resource graph.
+function classicWorldDecodeTga(data, path)
+  // Validate the fixed header, decode raw/RLE packets, then publish one
+  // bottom-up RGBA image matching ref_gl's LoadTGA orientation.
+  if typeof(data) != "bytes" or len(data) < 18 then
+    return error(9766, "truncated sky TGA: " + path)
+  end if
+  imageType = data[2]; pixelBits = data[16]
+  if data[1] != 0 or (imageType != 2 and imageType != 10) or
+      (pixelBits != 24 and pixelBits != 32) then
+    return error(9767, "unsupported sky TGA format: " + path)
+  end if
+  width = rclassicworldbyteio.u16(data, 12)
+  height = rclassicworldbyteio.u16(data, 14)
+  if width <= 0 or height <= 0 then return error(9768,
+    "invalid sky TGA dimensions: " + path) end if
+  bytesPerPixel = pixelBits >> 3
+  source = 18 + data[0]
+  rgba = bytes(width * height * 4)
+  pixelIndex = 0
+  while pixelIndex < width * height
+    packetCount = 1; repeated = false
+    if imageType == 10 then
+      if source >= len(data) then return error(9766, "truncated sky TGA packet: " + path) end if
+      packetHeader = data[source]; source = source + 1
+      packetCount = (packetHeader & 127) + 1
+      repeated = (packetHeader & 128) != 0
+    end if
+    blue = 0; green = 0; red = 0; alpha = 255
+    packetIndex = 0
+    while packetIndex < packetCount and pixelIndex < width * height
+      if packetIndex == 0 or not repeated then
+        if source + bytesPerPixel > len(data) then return error(9766,
+          "truncated sky TGA pixels: " + path) end if
+        blue = data[source]; green = data[source + 1]; red = data[source + 2]
+        alpha = 255
+        if bytesPerPixel == 4 then alpha = data[source + 3] end if
+        source = source + bytesPerPixel
+      end if
+      sourceRow = rclassicworldbyteio.truncInt(pixelIndex / width)
+      column = pixelIndex - sourceRow * width
+      destinationRow = height - 1 - sourceRow
+      destination = (destinationRow * width + column) * 4
+      rgba[destination] = red; rgba[destination + 1] = green
+      rgba[destination + 2] = blue; rgba[destination + 3] = alpha
+      pixelIndex = pixelIndex + 1; packetIndex = packetIndex + 1
+    end while
+  end while
+  return ClassicTgaImage(width, height, rgba)
+end function
+
 // Return the classic world sky texture value.
 function classicWorldSkyTexture(loadFile, skyName, suffix, generation, fallbackPalette)
   path = "env/" + skyName + suffix + ".pcx"
   data = loadFile(path)
-  if typeof(data) != "bytes" then return void end if
+  if typeof(data) != "bytes" then
+    path = "env/" + skyName + suffix + ".tga"
+    data = loadFile(path)
+    if typeof(data) != "bytes" then return void end if
+    tga = classicWorldDecodeTga(data, path)
+    return rclassictypes.ClassicTexture(0, "@sky/" + skyName + suffix,
+      tga.width, tga.height, tga.rgba, "sky", generation, false, false)
+  end if
   pcx = fpcx.parse(data)
   palette = pcx.palette
   if len(palette) != 768 then palette = fallbackPalette end if

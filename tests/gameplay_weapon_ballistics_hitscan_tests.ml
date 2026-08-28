@@ -55,6 +55,10 @@ function traceCallback(start, mins, maxs, endPosition, ignore, mask)
     if traceCalls == 2 then return makeTrace(0.4, qt.Vec3(40.0, 0.0, 0.0), 0, hitTargets[1], "flesh", 0) end if
     return makeTrace(0.6, qt.Vec3(60.0, 0.0, 0.0), 0, void, "wall", 0)
   end if
+  if traceMode == "rail-water" then
+    if traceCalls == 1 then return makeTrace(0.1, qt.Vec3(10.0, 0.0, 0.0), qc.CONTENTS_SLIME, void, "*slime", 0) end if
+    return makeTrace(0.6, qt.Vec3(60.0, 0.0, 0.0), 0, void, "wall", 0)
+  end if
   return makeTrace(1.0, endPosition, 0, void, "", 0)
 end function
 // Return the contents callback value.
@@ -80,7 +84,8 @@ end function
 // Return the effect callback value.
 function effectCallback(effect)
   global effects
-  effects = effects + [[effect.kind, effect.style, effect.directionIndex]]
+  effects = effects + [[effect.kind, effect.style, effect.directionIndex,
+    effect.normal.x, effect.normal.y, effect.normal.z]]
   return true
 end function
 // Return the sound callback value.
@@ -177,7 +182,26 @@ function testShotgunAndRailPenetration()
   return true
 end function
 
+// Verify the two stock rail multicast anchors after slime/lava traversal.
+function testRailWaterTrailAnchors()
+  reset("rail-water")
+  context = makeContext()
+  shooter = wbtypes.createTarget(1, 100)
+  shooter.origin = qt.Vec3(5.0, 6.0, 7.0)
+  wbhitscan.fireRail(context, shooter, qt.zeroVec3(),
+    qt.Vec3(1.0, 0.0, 0.0), 30, 4)
+  assertEqual(len(effects), 2, "rail water effect count")
+  assertEqual(effects[0][0], "rail-trail", "rail primary trail")
+  assertEqual(effects[0][3], 5.0, "rail primary multicast anchor x")
+  assertEqual(effects[0][4], 6.0, "rail primary multicast anchor y")
+  assertEqual(effects[0][5], 7.0, "rail primary multicast anchor z")
+  assertEqual(effects[1][0], "rail-trail-water", "rail water trail")
+  assertEqual(effects[1][3], 60.0, "rail water multicast endpoint")
+  return true
+end function
+
 testBulletAndSpread()
 testWaterRefraction()
 testShotgunAndRailPenetration()
+testRailWaterTrailAnchors()
 print("gameplay weapon hitscan tests passed")

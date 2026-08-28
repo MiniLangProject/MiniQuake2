@@ -74,6 +74,11 @@ function syncEntityLoops(mixer, snapshot)
   return cameffects.syncEntityLoops(mixer, snapshot)
 end function
 
+// Synchronize or suppress EntityState autosounds for the current pause state.
+function syncEntityLoopsPaused(mixer, snapshot, paused)
+  return cameffects.syncEntityLoopsPaused(mixer, snapshot, paused)
+end function
+
 // Set mixer listener entity.
 function setMixerListenerEntity(number)
   return cameffects.setListenerEntity(number)

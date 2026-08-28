@@ -193,6 +193,16 @@ function projectileBodyInto(snapshot, runtime, projectile)
     bodyGroundNumber(projectile.groundEntity), projectile.clipMask, 0)
 end function
 
+// Populate a dropped/static MOVETYPE_TOSS item body destination.
+function itemBodyInto(snapshot, item)
+  itemEdict = item.edict
+  itemState = itemEdict.state
+  return bodySnapshotInto(snapshot, "item", item, itemEdict,
+    itemState.number, itemState.origin, itemState.angles, itemEdict.mins,
+    itemEdict.maxs, itemEdict.solid, bodyGroundNumber(item.groundEntity),
+    itemEdict.clipMask, 0)
+end function
+
 // Populate the pusher snapshot destination.
 function pusherSnapshotInto(snapshot, entity)
   if snapshot is void then
@@ -223,6 +233,8 @@ function capture(runtime)
   // Keep capture phases explicit: validate inputs, update owned state, then publish the result.
   pusherCount = 0
   bodyCount = 0
+  runtimeItems = try(runtime.items)
+  if runtimeItems is error or typeof(runtimeItems) != "array" then runtimeItems = [] end if
   for each countedEntity in runtime.world.entities
     if isPusher(countedEntity) then pusherCount = pusherCount + 1 end if
     if countedEntity.number > 0 and countedEntity.inUse and
@@ -250,6 +262,12 @@ function capture(runtime)
     if countedProjectile.inUse and
         countedProjectile.engineNumber >= 0 and
         countedProjectile.solid != pushworldconstants.SOLID_NOT then
+      bodyCount = bodyCount + 1
+    end if
+  end for
+  for each countedItem in runtimeItems
+    if countedItem.edict.inUse and
+        countedItem.edict.solid != pushworldconstants.SOLID_NOT then
       bodyCount = bodyCount + 1
     end if
   end for
@@ -302,6 +320,12 @@ function capture(runtime)
         projectile.solid != pushworldconstants.SOLID_NOT then
       bodies[bodyIndex] = projectileBodyInto(bodies[bodyIndex], runtime,
         projectile)
+      bodyIndex = bodyIndex + 1
+    end if
+  end for
+  for each item in runtimeItems
+    if item.edict.inUse and item.edict.solid != pushworldconstants.SOLID_NOT then
+      bodies[bodyIndex] = itemBodyInto(bodies[bodyIndex], item)
       bodyIndex = bodyIndex + 1
     end if
   end for
@@ -414,22 +438,14 @@ end function
 // Report whether body can be pushed.
 function bodyCanBePushed(body)
   if body.kind == "player" or body.kind == "monster" or
-      body.kind == "projectile" then return true end if
+      body.kind == "projectile" or body.kind == "item" then return true end if
   if body.kind != "world" then return false end if
   return worldBodyCanBePushed(body.value)
 end function
 
 // Report whether standing on.
 function standingOn(body, pusherSnapshot)
-  if body.groundNumber == pusherSnapshot.entity.number then return true end if
-  // MOVETYPE_STOP may carry only an explicit groundentity rider. The geometric
-  // recovery below is reserved for PUSH brushes whose final overlap would have
-  // displaced the body in stock SV_Push anyway.
-  if pusherSnapshot.entity.moveType == pushworldconstants.MOVETYPE_STOP then return false end if
-  pusherBox = rotatedBounds(pusherSnapshot.origin, pusherSnapshot.angles, pusherSnapshot.entity.mins, pusherSnapshot.entity.maxs)
-  bodyBox = bodyBoundsAt(body, body.origin, body.angles)
-  gap = bodyBox[0].z - pusherBox[1].z
-  return gap >= -0.25 and gap <= 2.0 and bodyBox[1].x > pusherBox[0].x and bodyBox[0].x < pusherBox[1].x and bodyBox[1].y > pusherBox[0].y and bodyBox[0].y < pusherBox[1].y
+  return body.groundNumber == pusherSnapshot.entity.number
 end function
 
 // Set body.
@@ -520,7 +536,8 @@ end function
 // Clear ground unless riding.
 function clearGroundUnlessRiding(body, pusherSnapshot)
   if body.groundNumber == pusherSnapshot.entity.number then return false end if
-  if body.kind == "world" or body.kind == "projectile" then
+  if body.kind == "world" or body.kind == "projectile" or
+      body.kind == "item" then
     body.value.groundEntity = void
   else body.value.groundEntity = void
   end if
@@ -648,6 +665,29 @@ function touchCommittedBodies(runtime, bodies, movedBodies)
   return touched
 end function
 
+// Dispatch one stock SV_Push trigger pass. The shared pushed stack is walked
+// in reverse after every successful team part; later team failure rolls back
+// transforms but deliberately cannot roll back trigger side effects.
+function touchPushedEntries(runtime, entries)
+  touched = 0
+  bodyTouchProbe = try(runtime.pusherTriggerTouch)
+  index = len(entries) - 1
+  while index >= 0
+    entry = entries[index]
+    if typeof(bodyTouchProbe) == "function" then
+      bodyTouchCallback = bodyTouchProbe
+      touched = touched + bodyTouchCallback(runtime, entry[0], entry[1])
+    else if entry[0] == "player" and runtime.playerContext is not void and
+        runtime.playerContext.touchTriggers is not void then
+      touchTriggersCallback = runtime.playerContext.touchTriggers
+      touchTriggersCallback(entry[1])
+      touched = touched + 1
+    end if
+    index = index - 1
+  end while
+  return touched
+end function
+
 // Resolve team.
 function resolveTeam(runtime, captureState, masterNumber)
   teamCount = 0
@@ -674,6 +714,7 @@ function resolveTeam(runtime, captureState, masterNumber)
   blocker = void
   blockedPusher = void
   movedBodies = array(len(captureState.bodies), false)
+  pushedEntries = []
   // SV_Physics_Pusher calls SV_Push for each team-chain part in order.  Each
   // part is linked and tested before the next part moves, while pushed[] keeps
   // one transaction for the complete team.  In particular, traces for the
@@ -681,6 +722,7 @@ function resolveTeam(runtime, captureState, masterNumber)
   for each pusherSnapshot in team
     if moved(pusherSnapshot) then
       publishPusherMove(runtime, pusherSnapshot)
+      pushedEntries = pushedEntries + [["world", pusherSnapshot.entity]]
       bodyIndex = 0
       for each body in captureState.bodies
         if teamHas(team, body.number) == false then
@@ -701,6 +743,7 @@ function resolveTeam(runtime, captureState, masterNumber)
                 pusherSnapshot.angles.y)
               linkBody(runtime, body)
               movedBodies[bodyIndex] = true
+              pushedEntries = pushedEntries + [[body.kind, body.value]]
             end if
           else if pusherCanContactBodies(pusherSnapshot.entity) then
             liveBodyOrigin = currentOrigin(body)
@@ -713,6 +756,7 @@ function resolveTeam(runtime, captureState, masterNumber)
                 bodyIntersectsFinalPusher(runtime, body) then
               if pushBody(runtime, body, pusherSnapshot) then
                 movedBodies[bodyIndex] = true
+                pushedEntries = pushedEntries + [[body.kind, body.value]]
               else
                 blocker = body; blockedPusher = pusherSnapshot.entity
               end if
@@ -722,11 +766,11 @@ function resolveTeam(runtime, captureState, masterNumber)
         if blocker is not void then break end if
         bodyIndex = bodyIndex + 1
       end for
+      if blocker is void then touchPushedEntries(runtime, pushedEntries) end if
     end if
     if blocker is not void then break end if
   end for
   if blocker is void then
-    touchCommittedBodies(runtime, captureState.bodies, movedBodies)
     finishTeamThinks(runtime, team, false)
     return true
   end if
@@ -749,6 +793,24 @@ function resolveTeam(runtime, captureState, masterNumber)
   finishTeamThinks(runtime, team, true)
   pushworldcore.blockedEntity(runtime.world, blockedPusher, blockerProxy)
   return false
+end function
+
+// Integrate one pusher team for the frame before its atomic SV_Push pass.
+function advanceTeam(captureState, masterNumber, duration)
+  advanced = 0
+  for each snapshot in captureState.pushers
+    entity = snapshot.entity
+    if pusherMasterNumber(entity) == masterNumber then
+      entity.origin.x = snapshot.origin.x + entity.velocity.x * duration
+      entity.origin.y = snapshot.origin.y + entity.velocity.y * duration
+      entity.origin.z = snapshot.origin.z + entity.velocity.z * duration
+      entity.angles.x = snapshot.angles.x + entity.angularVelocity.x * duration
+      entity.angles.y = snapshot.angles.y + entity.angularVelocity.y * duration
+      entity.angles.z = snapshot.angles.z + entity.angularVelocity.z * duration
+      advanced = advanced + 1
+    end if
+  end for
+  return advanced
 end function
 
 // Resolve state.

@@ -9,6 +9,7 @@ import miniquake2.qcommon.types as rspecialtestqtypes
 import miniquake2.renderer.types as rspecialtestrtypes
 import miniquake2.renderer.opengl as rspecialtestopengl
 import miniquake2.renderer.classic.special as rspecialtestspecial
+import miniquake2.renderer.classic.world as rspecialtestworld
 
 // Assert the equal test condition.
 function assertEqual(actual, expected, name)
@@ -151,9 +152,10 @@ function testSpecialWorldPlanAndGoldenCoordinates()
   assertEqual(stats.warpSurfaces, 1, "warp pass count")
   assertEqual(stats.skySurfaces, 1, "sky pass count")
   assertEqual(stats.transparentSurfaces, 2, "alpha pass count")
-  assertEqual(stats.passOrder, "o0,w1,s2,a3@0.33,a4@0.66,", "classic pass ordering")
+  assertEqual(stats.passOrder, "o0,w1,s2,a4@0.66,a3@0.33,",
+    "classic alpha-chain ordering")
 
-  // Per-view sort is independent of the static scene chain.
+  // Stock alpha ordering follows BSP/head insertion, not center distance.
   nearAlpha = findSpecialDraw(world, 3); farAlpha = findSpecialDraw(world, 4)
   nearAlpha.mins.x = 40.0; nearAlpha.maxs.x = 40.0
   farAlpha.mins.x = 80.0; farAlpha.maxs.x = 80.0
@@ -170,6 +172,15 @@ function testSpecialWorldPlanAndGoldenCoordinates()
     "sky portal maximum t")
   assertEqual(skyBounds.minimumS[1] >= skyBounds.maximumS[1], true,
     "hidden sky cube face stays clipped")
+  heapBeforeSkySoak = heap_bytes_used()
+  skyIteration = 0
+  while skyIteration < 1000
+    rspecialtestopengl.openGlSkyBounds(plan.skyDraws, frame.viewOrigin)
+    skyIteration = skyIteration + 1
+  end while
+  heapAfterSkySoak = heap_bytes_used()
+  assertEqual(heapAfterSkySoak, heapBeforeSkySoak,
+    "retained sky clipping scratch avoids hot-path heap growth")
   assertEqual(plan.transparentDraws[0].surface.index, 4, "alpha far surface first")
   assertEqual(plan.transparentDraws[1].surface.index, 3, "alpha near surface last")
 
@@ -178,5 +189,26 @@ function testSpecialWorldPlanAndGoldenCoordinates()
   renderer.exports.Shutdown()
 end function
 
+// Verify stock-compatible 24-bit TGA sky fallback decoding.
+function testTgaSkyDecode()
+  data = bytes(24)
+  data[2] = 2; data[12] = 2; data[14] = 1; data[16] = 24
+  // TGA stores BGR.
+  data[18] = 30; data[19] = 20; data[20] = 10
+  data[21] = 60; data[22] = 50; data[23] = 40
+  image = rspecialtestworld.classicWorldDecodeTga(data, "env/unit_rt.tga")
+  assertEqual(image.width, 2, "TGA sky width")
+  assertEqual(image.height, 1, "TGA sky height")
+  expected = bytes([10, 20, 30, 255, 40, 50, 60, 255])
+  assertEqual(len(image.rgba), len(expected), "TGA RGBA byte count")
+  pixelIndex = 0
+  while pixelIndex < len(expected)
+    assertEqual(image.rgba[pixelIndex], expected[pixelIndex],
+      "TGA BGR to RGBA channel " + pixelIndex)
+    pixelIndex = pixelIndex + 1
+  end while
+end function
+
 testSpecialWorldPlanAndGoldenCoordinates()
+testTgaSkyDecode()
 print("renderer classic special surface tests passed")

@@ -53,6 +53,7 @@ struct SpawnTemp
   minPitch
   maxPitch
   nextMap
+  gravitySpecified
 end struct
 
 // First baseq2-private component.  It covers the common target, trigger and
@@ -137,7 +138,7 @@ end struct
 // Spawn zero temp.
 function zeroSpawnTemp()
   skyAxis = [0.0, 0.0, 0.0]
-  return SpawnTemp(0, 0, 0, "", 0.0, "", "", "", 0.0, skyAxis, 0.0, 0.0, 0.0, 0.0, "")
+  return SpawnTemp(0, 0, 0, "", 0.0, "", "", "", 0.0, skyAxis, 0.0, 0.0, 0.0, 0.0, "", false)
 end function
 
 // Return the zero base entity value.

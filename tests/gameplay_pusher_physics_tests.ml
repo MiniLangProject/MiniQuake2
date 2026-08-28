@@ -71,6 +71,7 @@ function repeatedRotatingPusherMaps()
       repeatedRider.mins = pushertestqtypes.Vec3(-0.5, -0.5, 0.0)
       repeatedRider.maxs = pushertestqtypes.Vec3(0.5, 0.5, 1.0)
       repeatedRider.origin = pushertestqtypes.Vec3(baseX + 5.0, 0.0, 1.0)
+      repeatedRider.groundEntity = repeatedPusher
       pushertestworld.addEntity(repeatedRuntime.world, repeatedPusher)
       pushertestworld.addEntity(repeatedRuntime.world, repeatedRider)
       repeatedRiders = repeatedRiders + [repeatedRider]
@@ -103,6 +104,7 @@ rider.moveType = pushertestconstants.MOVETYPE_TOSS
 rider.mins = pushertestqtypes.Vec3(-1.0, -1.0, 0.0)
 rider.maxs = pushertestqtypes.Vec3(1.0, 1.0, 2.0)
 rider.origin = pushertestqtypes.Vec3(0.0, 0.0, 1.0)
+rider.groundEntity = moving
 pushertestworld.addEntity(runtime.world, moving)
 pushertestworld.addEntity(runtime.world, rider)
 state = pushertestphysics.capture(runtime)
@@ -157,6 +159,7 @@ rotatingRider.moveType = pushertestconstants.MOVETYPE_TOSS
 rotatingRider.mins = pushertestqtypes.Vec3(-0.5, -0.5, 0.0)
 rotatingRider.maxs = pushertestqtypes.Vec3(0.5, 0.5, 1.0)
 rotatingRider.origin = pushertestqtypes.Vec3(5.0, 0.0, 1.0)
+rotatingRider.groundEntity = rotating
 pushertestworld.addEntity(runtime.world, rotating)
 pushertestworld.addEntity(runtime.world, rotatingRider)
 state = pushertestphysics.capture(runtime)
