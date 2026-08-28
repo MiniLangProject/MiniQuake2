@@ -14,7 +14,9 @@ from pathlib import Path
 from urllib.parse import unquote
 
 
-EXCLUDED_DIRS = frozenset({".git", "build", "build_debug", "Quake-2-original-source"})
+EXCLUDED_DIRS = frozenset({
+    ".git", "build", "build_debug", "Quake-2-original-source", "third_party"
+})
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^(#{1,6})\s+\S")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")

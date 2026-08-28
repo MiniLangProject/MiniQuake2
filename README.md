@@ -123,6 +123,13 @@ From the repository root:
 .\build.ps1
 ```
 
+The native Windows, OpenGL, audio, input, Ogg Vorbis and text bridges are fully
+source-owned by this repository. Rebuild them without a MiniQuake checkout:
+
+```powershell
+.\build.ps1 -RebuildNative
+```
+
 Explicit compiler locations can be supplied when the repositories are not
 siblings:
 

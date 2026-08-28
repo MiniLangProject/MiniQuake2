@@ -65,7 +65,10 @@ def source_files(root: Path) -> list[Path]:
         if not base.is_dir():
             continue
         for suffix in (".h", ".def", ".vert", ".frag"):
-            files.update(base.rglob(f"*{suffix}"))
+            files.update(
+                path for path in base.rglob(f"*{suffix}")
+                if "build" not in path.relative_to(root).parts
+            )
     return sorted(files, key=lambda path: path.relative_to(root).as_posix())
 
 

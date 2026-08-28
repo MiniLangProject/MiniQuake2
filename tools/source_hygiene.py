@@ -193,8 +193,14 @@ def _powershell_comments(text: str) -> Iterator[tuple[int, str]]:
 def comments_for(path: Path, text: str) -> Iterable[tuple[int, str]]:
     """Dispatch comment extraction according to the source language."""
     suffix = path.suffix.lower()
-    if suffix in {".c", ".ml"}:
+    if suffix in {".c", ".h", ".ml"}:
         return _ml_comments(text)
+    if suffix == ".def":
+        return (
+            (line_number, line.lstrip()[1:].strip())
+            for line_number, line in enumerate(text.splitlines(), 1)
+            if line.lstrip().startswith(";")
+        )
     if suffix == ".py":
         return _python_comments(text)
     if suffix == ".ps1":
@@ -210,12 +216,19 @@ def _header_text(path: Path, text: str) -> str:
 
 def _generated_header(suffix: str, newline: str) -> str:
     """Build the repository-default legal header for a previously bare file."""
-    if suffix in {".c", ".ml"}:
+    if suffix in {".c", ".h", ".ml"}:
         lines = [
             "/*",
             "Copyright (c) 2026 Nils Kopal",
             "SPDX-License-Identifier: GPL-2.0-or-later",
             "*/",
+            "",
+        ]
+    elif suffix == ".def":
+        lines = [
+            "; Copyright (c) 2026 Nils Kopal",
+            "; SPDX-License-Identifier: Apache-2.0",
+            ";",
             "",
         ]
     else:

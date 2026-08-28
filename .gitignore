@@ -1,6 +1,7 @@
 # Generated MiniQuake2 build products and verification reports.
 /build/
 /build_debug/
+/native/build/
 /miniquake2_data_root.txt
 /miniquake2-crash.log
 

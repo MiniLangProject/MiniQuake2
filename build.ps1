@@ -15,7 +15,8 @@ param(
   [switch]$Listings,
   [switch]$SkipPreflight,
   [switch]$PreflightOnly,
-  [switch]$UpdateManifest
+  [switch]$UpdateManifest,
+  [switch]$RebuildNative
 )
 
 $ErrorActionPreference = "Stop"
@@ -152,6 +153,16 @@ if (-not (Test-Path -LiteralPath $SourceDocumentationVerifier -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $MarkdownHygieneVerifier -PathType Leaf)) {
   throw "Markdown hygiene verifier missing: $MarkdownHygieneVerifier"
+}
+
+if ($RebuildNative) {
+  Write-Host "[MiniQuake2] rebuilding repository-owned native bridges"
+  $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @(
+    $PythonCommand.Prefix + @((Join-Path $Native "build_bridge.py"), "--clean")
+  ) -Label "native platform bridge build"
+  $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @(
+    $PythonCommand.Prefix + @((Join-Path $Native "build_text_bridge.py"), "--clean")
+  ) -Label "native text bridge build"
 }
 
 if ($UpdateManifest) {
