@@ -300,7 +300,9 @@ function runWeaponWheelSmoke(args)
       " reliable weapon commands instead of 3")
   end if
   if wheelResult[2] < 3 or wheelResult[3] <= 0 then
-    return error(9949, "retail wheel commands did not complete three rendered weapon transitions")
+    return error(9949, "retail wheel commands did not complete three rendered weapon transitions; commands=" +
+      wheelResult[1] + " transitions=" + wheelResult[2] +
+      " final-gun-index=" + wheelResult[3])
   end if
   print "MiniQuake2 weapon wheel smoke: PASS"
   print "  map=" + wheelMap + " commands=" + wheelResult[1] +

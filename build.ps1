@@ -268,6 +268,7 @@ if (-not $SkipTests) {
       "collision_bsp_product_graph_retention_tests",
       "collision_bsp_retention_tests",
       "network_runtime_campaign_unmasked_tests",
+      "runtime_campaign_physical_input_tests",
       "runtime_session_soak_tests"
     )
     $TestHeapReserve = if ($RetailScaleTest) { "2g" } else { "256m" }

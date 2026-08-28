@@ -311,13 +311,20 @@ end function
 function applyProductGamma(host, gamma, active)
   if typeof(host) != "struct" or host.closed then return false end if
   if host.gammaState is void then host.gammaState = producthostgamma.create() end if
+  productHostGammaApplied = active and gamma != 1.0 and gamma != 1
+  // This function is sampled every render frame so focus changes take effect
+  // immediately. Gamma ramps and pow() are comparatively expensive in
+  // MiniLang; do no work while both the requested value and active state are
+  // unchanged.
+  if host.gammaState.value == gamma and
+      host.gammaState.applied == productHostGammaApplied then return true end if
   // SetDeviceGammaRamp is routinely accepted but ignored by DWM/HDR. Retain
   // the original ramp solely for clean restoration and apply the requested
   // value in the renderer, where windowed, borderless and exclusive modes all
   // behave consistently.
   producthostgamma.buildRamp(gamma)
   host.gammaState.value = gamma * 1.0
-  host.gammaState.applied = false
+  host.gammaState.applied = productHostGammaApplied
   productHostRenderGamma = 1.0
   if active then productHostRenderGamma = gamma * 1.0 end if
   return producthostgl.setBrightness(host.renderer, productHostRenderGamma)

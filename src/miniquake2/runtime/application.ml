@@ -19,6 +19,7 @@ import miniquake2.collision.model as appcollision
 import miniquake2.game.null_game as appgame
 import miniquake2.game.integration.baseq2 as appbaseq2
 import miniquake2.game.constants as appgameconstants
+import miniquake2.game.world.constants as appworldconstants
 import miniquake2.game.gameplay.constants as appgameplayconstants
 import miniquake2.game.gameplay.item_rules as appgameplayitems
 import miniquake2.game.gameplay.registry as appgameplayregistry
@@ -159,6 +160,7 @@ applicationAutomatedChangeLevelTarget = ""
 applicationWeaponWheelCommands = 0
 applicationWeaponWheelTransitions = 0
 applicationWeaponWheelLastGunIndex = -1
+applicationWeaponWheelStage = 0
 applicationProjectileSnapshotMaximum = 0
 applicationProjectileRenderMaximum = 0
 applicationProjectileParticleMaximum = 0
@@ -178,6 +180,36 @@ applicationMediaCooperative = false
 applicationResourceCache = ApplicationResourceCache("", void,
   array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
   array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
+applicationPusherOffsetValue = appqtypes.zeroVec3()
+
+// Return the interpolation offset for a locally ridden MOVETYPE_PUSH/STOP
+// brush. Server positions arrive at 10 Hz; subtracting the still-unrendered
+// part of the current pusher step keeps the camera and view weapon attached to
+// the brush instead of snapping the player forward once per game frame.
+function applicationLocalPusherOffset(session, fraction)
+  global applicationPusherOffsetValue
+  offset = applicationPusherOffsetValue
+  offset.x = 0.0; offset.y = 0.0; offset.z = 0.0
+  runtime = appgame.baseRuntime()
+  playerContext = appgame.playerContext()
+  if runtime is void or playerContext is void or session is void then return offset end if
+  playerNumber = session.client.integrated.network.playerNumber
+  if playerNumber < 0 or playerNumber >= len(playerContext.players) then return offset end if
+  player = playerContext.players[playerNumber]
+  if player.groundEntity is void then return offset end if
+  groundNumber = player.groundEntity.state.number
+  // Worldspawn is the overwhelmingly common ground entity and cannot move.
+  // Avoid scanning the managed world array on every ordinary floor frame.
+  if groundNumber <= 0 then return offset end if
+  pusher = appbaseq2.findWorldByNumber(runtime, groundNumber)
+  if pusher is void or (pusher.moveType != appworldconstants.MOVETYPE_PUSH and
+      pusher.moveType != appworldconstants.MOVETYPE_STOP) then return offset end if
+  backLerpSeconds = (1.0 - fraction) * appworldconstants.FRAME_TIME
+  offset.x = -pusher.velocity.x * backLerpSeconds
+  offset.y = -pusher.velocity.y * backLerpSeconds
+  offset.z = -pusher.velocity.z * backLerpSeconds
+  return offset
+end function
 
 // Return the shared read-only filesystem for one retail data root.
 function applicationSharedFileSystem(baseDirectory)
@@ -2360,6 +2392,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   global applicationProjectileParticleMaximum
   global applicationAutomatedWeaponWheel, applicationWeaponWheelCommands
   global applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex
+  global applicationWeaponWheelStage
   global applicationAutomatedChangeLevel, applicationAutomatedChangeLevelTriggered
   global applicationAutomatedChangeLevelReached, applicationAutomatedChangeLevelTarget
   global applicationLevelCapturePath, applicationLevelCaptureChecksum
@@ -2696,19 +2729,36 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       started)
     appuicontroller.poll(input, screen, started)
     // Retail acceptance hook for the exact wheel -> binding -> reliable
-    // command -> Game API -> client gun-model path. Widely spaced events let
-    // the stock lowering/activation animation complete between directions.
+    // command -> Game API -> client gun-model path. Advance from observed
+    // weapon-ready transitions rather than render-frame numbers: uncapped
+    // presentation can otherwise outrun the fixed 10-Hz game simulation.
     if applicationAutomatedWeaponWheel then
-      if frames == 16 then
+      applicationWheelPlayer = appgame.playerContext().players[0]
+      applicationWheelReady = applicationWheelPlayer.gameplay.weaponState ==
+        appgameplayconstants.WEAPON_READY and
+        applicationWheelPlayer.gameplay.newWeapon is void
+      if applicationWeaponWheelStage == 0 and frames >= 16 then
         applicationWeaponGiveResult = try(appclientsession.sendStringCommand(
           session.client, "give all", appbyteio.truncInt(started)))
-      else if frames == 128 or frames == 384 then
-        applicationWeaponWheelValue = 255
-        if frames == 384 then applicationWeaponWheelValue = 1 end if
+        applicationWeaponWheelStage = 1
+      else if applicationWeaponWheelStage == 1 and frames >= 32 and
+          applicationWheelReady and
+          applicationWheelPlayer.gameplay.inventory.counts[8] > 0 then
+        // Do not count the stock give-all auto-selection as a wheel result.
+        applicationWeaponWheelTransitions = 0
+        applicationWeaponWheelLastGunIndex = session.client.integrated.client.current.playerState.gunIndex
         appuicontroller.handleEvent(input, screen,
           appwindow.InputEvent(appuiconstants.EVENT_MOUSE_WHEEL, 0,
-            applicationWeaponWheelValue), appbyteio.truncInt(started))
-      else if frames == 640 then
+            255), appbyteio.truncInt(started))
+        applicationWeaponWheelStage = 2
+      else if applicationWeaponWheelStage == 2 and
+          applicationWeaponWheelTransitions >= 1 and applicationWheelReady then
+        appuicontroller.handleEvent(input, screen,
+          appwindow.InputEvent(appuiconstants.EVENT_MOUSE_WHEEL, 0,
+            1), appbyteio.truncInt(started))
+        applicationWeaponWheelStage = 3
+      else if applicationWeaponWheelStage == 3 and
+          applicationWeaponWheelTransitions >= 2 and applicationWheelReady then
         applicationWeaponWheelBurst = 0
         while applicationWeaponWheelBurst < 128
           appuicontroller.handleEvent(input, screen,
@@ -2716,6 +2766,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
             appbyteio.truncInt(started))
           applicationWeaponWheelBurst = applicationWeaponWheelBurst + 1
         end while
+        applicationWeaponWheelStage = 4
       end if
     end if
     // Exercise the retail target_changelevel -> intermission -> queued gamemap
@@ -2855,15 +2906,20 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       appuikeys.setDestination(input, appuiconstants.KEY_GAME)
     end if
     if applicationPendingMediaSpecification == "" then
-      applicationActiveProductConfig = appuiconfig.captureProductConfig(
-        input, commandState, audioMixer, screen)
-      applicationNextProductSelection = takeActiveProductSelection(commandState,
-        applicationCurrentPlayerProfile, applicationActiveProductConfig)
-      if applicationNextProductSelection is not void then
-        applicationDisconnectRequested = true
-        screen.menu.active = false
-        appuikeys.setDestination(input, appuiconstants.KEY_GAME)
-        continue
+      // ProductConfig clones and validates the complete binding table. Build
+      // it only for an actual server/connect transition instead of allocating
+      // that graph in every rendered gameplay frame.
+      if commandState.startServerRequested or commandState.connectAddress != "" then
+        applicationActiveProductConfig = appuiconfig.captureProductConfig(
+          input, commandState, audioMixer, screen)
+        applicationNextProductSelection = takeActiveProductSelection(commandState,
+          applicationCurrentPlayerProfile, applicationActiveProductConfig)
+        if applicationNextProductSelection is not void then
+          applicationDisconnectRequested = true
+          screen.menu.active = false
+          appuikeys.setDestination(input, appuiconstants.KEY_GAME)
+          continue
+        end if
       end if
     end if
     applicationForwardedCommands = appuicommands.takeForwarded(commandState)
@@ -3184,11 +3240,12 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         appbyteio.truncInt(applicationPredictionMsec))
       appplay.predictLocal(session, applicationPreviewCommand)
     end if
-    frame = appclientstate.buildPredictedRefDef(
+    applicationPusherOffset = applicationLocalPusherOffset(session, fraction)
+    frame = appclientstate.buildPredictedRefDefWithOffset(
       session.client.integrated.client, fraction,
       window.width, window.height, playAssetBindings,
       session.client.integrated.network.playerNumber + 1,
-      randomPlayClientEffect)
+      randomPlayClientEffect, applicationPusherOffset)
     if audioDevice is not void then
       viewAxes = appphysicsvector.angleVectors(frame.viewAngles)
       appclientassets.attachMixer(assetState, session.client.integrated.effects,
@@ -3399,22 +3456,13 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       applicationHeapMaximum = applicationHeapNow
     end if
     applicationHeapLast = applicationHeapNow
-    // The 10-Hz game/network cadence is independent from presentation. Let
-    // WGL synchronize completed frames to the monitor so mouse sampling,
-    // prediction and snapshot interpolation reach the screen at even
-    // intervals. Drivers without swap control use a precise 120-Hz fallback
-    // instead of the former 4-ms busy loop, whose uneven DWM queue caused
-    // visible micro-stutter despite a high FPS counter.
-    if window.verticalSync then
-      appsystem.sleep(0)
-    else
-      applicationFrameDeadline = started + 8.333333333333334
-      while appsystem.milliseconds(clock) + 1.0 < applicationFrameDeadline
-        appsystem.sleep(1)
-      end while
-      while appsystem.milliseconds(clock) < applicationFrameDeadline
-        appsystem.sleep(0)
-      end while
+    // Simulation remains fixed at 10 Hz, but presentation and Raw Input run as
+    // fast as the renderer permits, matching MiniQuake. Yield once instead of
+    // imposing the former 60/120-Hz ceiling.
+    // The wheel acceptance hook must leave real time for the original 10-Hz
+    // lowering/activation sequence; normal presentation remains uncapped.
+    if applicationAutomatedWeaponWheel then appsystem.sleep(8)
+    else appsystem.sleep(0)
     end if
   end while
 
@@ -3736,10 +3784,12 @@ end function
 function runWeaponWheelSmoke(baseDirectory, mapName, frameLimit)
   global applicationAutomatedWeaponWheel, applicationWeaponWheelCommands
   global applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex
+  global applicationWeaponWheelStage
   if frameLimit < 900 then frameLimit = 900 end if
   applicationWeaponWheelCommands = 0
   applicationWeaponWheelTransitions = 0
   applicationWeaponWheelLastGunIndex = -1
+  applicationWeaponWheelStage = 0
   applicationAutomatedWeaponWheel = true
   applicationWeaponWheelResult = try(runPlayAt(baseDirectory, mapName, "", frameLimit))
   applicationAutomatedWeaponWheel = false
@@ -4275,19 +4325,7 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     end if
     if applicationRemoteWorld is void then
       appsystem.sleep(1)
-    else if applicationRemoteWindow.verticalSync then
-      appsystem.sleep(0)
-    else
-      applicationRemoteFrameDeadline = applicationRemoteStarted +
-        8.333333333333334
-      while appsystem.milliseconds(applicationRemoteClock) + 1.0 <
-          applicationRemoteFrameDeadline
-        appsystem.sleep(1)
-      end while
-      while appsystem.milliseconds(applicationRemoteClock) <
-          applicationRemoteFrameDeadline
-        appsystem.sleep(0)
-      end while
+    else appsystem.sleep(0)
     end if
   end while
   appwindow.setMouseCapture(false)

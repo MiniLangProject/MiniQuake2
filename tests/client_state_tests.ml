@@ -12,6 +12,7 @@ import miniquake2.client.state as cstate
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.assets.types as catypes
 import miniquake2.qcommon.constants as qc
+import miniquake2.qcommon.types as qt
 
 // Assert the equal test condition.
 function assertEqual(actual, expected, name)
@@ -361,6 +362,14 @@ function testSnapshotsAndRefDef()
   assertEqual(predictedFrame.viewAngles.x, 41.0, "predicted view plus kick")
   assertEqual(predictedFrame.entities[2].angles.x, 43.0,
     "predicted view weapon angle")
+  pusherFrame = cstate.buildPredictedRefDefWithOffset(client, 0.5, 640, 480,
+    testResolvers, 0, testRandom, qt.Vec3(-4.0, 2.0, -8.0))
+  assertEqual(pusherFrame.viewOrigin.x, 16.5625,
+    "ridden pusher interpolation shifts predicted camera")
+  assertEqual(pusherFrame.viewOrigin.z, -2.4375,
+    "ridden elevator interpolation shifts predicted camera vertically")
+  assertEqual(pusherFrame.entities[2].origin.x, 17.5,
+    "ridden pusher interpolation keeps view weapon on camera")
 
   cstate.setPredictionRealTime(client, 1000)
   assertEqual(cstate.notePredictionStep(client, [160, 80, -40],

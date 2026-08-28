@@ -71,7 +71,11 @@ function create(title, width, height, fullscreen)
     native.winRestoreDisplayMode()
     return error(2921, "window creation failed")
   end if
-  verticalSync = native.winSetSwapInterval(1) != 0
+  // Match MiniQuake's low-latency presentation default. The product loop
+  // yields between frames but no longer hides renderer gains behind a 60-Hz
+  // swap interval or a synthetic 120-Hz fallback cap.
+  native.winSetSwapInterval(0)
+  verticalSync = false
   return Window(nativeHandle, native.winClientWidth(), native.winClientHeight(),
     fullscreen, false, verticalSync)
 end function

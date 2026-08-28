@@ -613,6 +613,13 @@ sequenceAssert(attacksequencebaseq2.monsterAttackDamageFromState(damageRandom,
   "Chick consumes exact rand percent-six damage")
 aimStart = attacksequenceqtypes.Vec3(0.0, 0.0, 0.0)
 aimDestination = attacksequenceqtypes.Vec3(100.0, 0.0, 0.0)
+aimEnemy = attacksequencebaseq2.monsterWeaponTarget(
+  attacksequenceaitypes.createClientTarget(18))
+muzzleActor.enemy = attacksequenceaitypes.createClientTarget(18)
+muzzleActor.enemy.viewHeight = 22.0
+aimEnemy.origin = attacksequenceqtypes.Vec3(100.0, 20.0, 30.0)
+aimPoint = attacksequencebaseq2.monsterEnemyAimPoint(muzzleActor, aimEnemy)
+sequenceNear(aimPoint.z, 52.0, "monster aim reaches player view height")
 gunnerStraight = attacksequencebaseq2.monsterAttackDirection(muzzleActor,
   attacksequences.gunnerGrenadePlan(), 0, aimStart, aimDestination, [0.0, 0.0, 0.0])
 sequenceNear(gunnerStraight.x, 1.0, "Gunner grenade straight-forward X")

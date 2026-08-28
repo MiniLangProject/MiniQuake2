@@ -479,11 +479,16 @@ weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry,
   "weapon_rocketlauncher", 4, weaponSequenceAttack, 5)
 weaponRocketCountBefore = len(weaponprotocolgame.baseRuntime().weaponContext.projectiles)
 weaponprotocolintegration.integratedPlayerFire(weaponSequenceGameplay, weaponRegistry)
+weaponRocket = weaponprotocolgame.baseRuntime().weaponContext.projectiles[
+  weaponRocketCountBefore]
 weaponProtocolAssert(len(weaponprotocolgame.baseRuntime().weaponContext.projectiles) ==
     weaponRocketCountBefore + 1 and
-  weaponprotocolgame.baseRuntime().weaponContext.projectiles[weaponRocketCountBefore].damage == 111 and
+  weaponRocket.damage == 111 and
   weaponprotocolgame.baseRuntime().randomState.seed == 3357800067,
   "Rocket 100-plus-random-20 damage")
+weaponProtocolAssert(weaponRocket.velocity.x == 650.0 and
+  weaponRocket.velocity.y == 0.0 and weaponRocket.velocity.z == 0.0,
+  "zero-angle player rocket follows the exact crosshair forward axis")
 
 weaponNoiseBeforeHand = weaponNoiseRuntime.aiContext.soundEntity
 weaponNoiseFrameBeforeHand = weaponNoiseRuntime.aiContext.soundEntityFrame

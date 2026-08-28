@@ -631,7 +631,7 @@ end function
 
 // Build ref def internal.
 function buildRefDefInternal(client, fraction, width, height, assetResolvers,
-    localEntityNumber, randomResolver, usePrediction)
+    localEntityNumber, randomResolver, usePrediction, predictionOffset)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
   fraction = clampFraction(fraction)
   renderTime = client.serverTime - (1.0 - fraction) * 100.0
@@ -662,6 +662,15 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
       viewOrigin.z = viewOrigin.z - client.predictedStep *
         (100.0 - stepDelta) * 0.01
     end if
+  end if
+  // A locally predicted player standing on a pusher otherwise jumps by the
+  // brush's complete 100-ms server step while the brush itself interpolates.
+  // The live host supplies the pusher's matching interpolation offset; demos
+  // and remote-only clients retain the unmodified stock snapshot path.
+  if predictionAllowed then
+    viewOrigin.x = viewOrigin.x + predictionOffset.x
+    viewOrigin.y = viewOrigin.y + predictionOffset.y
+    viewOrigin.z = viewOrigin.z + predictionOffset.z
   end if
   viewAngles = cqt.zeroVec3()
   if usePrediction and client.predictionValid and player.pmove.moveType < qc.PM_DEAD then
@@ -699,12 +708,21 @@ end function
 function buildRefDef(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver)
   return buildRefDefInternal(client, fraction, width, height, assetResolvers,
-    localEntityNumber, randomResolver, false)
+    localEntityNumber, randomResolver, false, cqt.zeroVec3())
 end function
 
 // Build predicted ref def.
 function buildPredictedRefDef(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver)
   return buildRefDefInternal(client, fraction, width, height, assetResolvers,
-    localEntityNumber, randomResolver, true)
+    localEntityNumber, randomResolver, true, cqt.zeroVec3())
+end function
+
+// Build a predicted refdef while matching a locally ridden pusher's visual
+// interpolation. The offset is deliberately explicit so ordinary movement
+// prediction, demos and renderer captures cannot accidentally inherit it.
+function buildPredictedRefDefWithOffset(client, fraction, width, height,
+    assetResolvers, localEntityNumber, randomResolver, predictionOffset)
+  return buildRefDefInternal(client, fraction, width, height, assetResolvers,
+    localEntityNumber, randomResolver, true, predictionOffset)
 end function

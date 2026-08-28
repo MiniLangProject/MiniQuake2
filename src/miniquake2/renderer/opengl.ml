@@ -1553,7 +1553,7 @@ function drawOpenGlMd2ShadowPass(backend, frame)
         native.glRotate(bits(entity.angles.y), bits(0.0), bits(0.0), bits(1.0))
         native.glRotate(bits(-entity.angles.x), bits(0.0), bits(1.0), bits(0.0))
         native.glRotate(bits(-entity.angles.z), bits(1.0), bits(0.0), bits(0.0))
-        drawn = native.glDrawMd2Shadow(modelData, len(modelData), frameIndex,
+        drawn = native.glDrawMd2ShadowSoft(modelData, len(modelData), frameIndex,
           oldFrameIndex, bits(backLerp), normalVectors,
           len(ropengldirections.normals), nativeRawValue(modelAsset),
           geometryState, len(modelAsset.source.triangles),

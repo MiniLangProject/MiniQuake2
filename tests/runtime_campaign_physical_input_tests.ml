@@ -89,6 +89,26 @@ function physicalInputRetail(baseDirectory)
       physicalinputworldconstants.STATE_UP,
     "retail base1 automatic door did not open on player touch")
 
+  // Every living base1 monster must remain advertised as damageable and be
+  // reachable by the same integrated MASK_SHOT path used by player weapons.
+  physicalInputRetailDamageableMonsters = 0
+  for each physicalInputRetailActor in physicalInputRetailRuntime.monsters
+    if physicalInputRetailActor.edict.inUse and
+        physicalInputRetailActor.health > 0 then
+      physicalInputRetailTarget = physicalinputintegration.monsterWeaponTarget(
+        physicalInputRetailActor)
+      physicalInputAssert(physicalInputRetailActor.takeDamage != 0 and
+        physicalInputRetailTarget.combatant.takeDamage,
+        "retail base1 living monster lost its damageable state")
+      physicalInputAssert(physicalInputMonsterReachable(
+        physicalInputRetailActor),
+        "retail base1 living monster is unreachable by MASK_SHOT")
+      physicalInputRetailDamageableMonsters = physicalInputRetailDamageableMonsters + 1
+    end if
+  end for
+  physicalInputAssert(physicalInputRetailDamageableMonsters >= 8,
+    "retail base1 exposed too few live monster damage proxies")
+
   physicalInputAssert(physicalInputRetailBarrel is not void,
     "retail base1 contains no explobox regression target")
   physicalInputRetailPlayerProxy = physicalinputintegration.playerWorldProxy(
@@ -184,6 +204,38 @@ function physicalInputRetail(baseDirectory)
     physicalInputElevatorPlayer.edict.state.origin.z <=
       physicalInputElevatorRestZ + 1.0,
     "retail base2 elevator moved through its player rider")
+
+  // The single-player weapon enclosure is authored as a 20-health
+  // func_explosive grate (*21). It has no animation flags: the grate must
+  // block while intact and open by being shot, not animate as a door. The
+  // nearby *11 func_wall owns all three NOT_EASY/MEDIUM/HARD flags and is
+  // correctly inhibited outside deathmatch, so it is not part of this gate.
+  physicalInputBase2Grate = void
+  for each physicalInputBase2Entity in physicalInputElevatorRuntime.world.entities
+    if physicalInputBase2Entity.className == "func_explosive" and
+        physicalInputBase2Entity.model == "*21" then
+      physicalInputBase2Grate = physicalInputBase2Entity
+    end if
+  end for
+  physicalInputAssert(physicalInputBase2Grate is not void and
+    physicalInputBase2Grate.solid == physicalinputworldconstants.SOLID_BSP and
+    physicalInputBase2Grate.takeDamage == physicalinputworldconstants.DAMAGE_YES,
+    "retail base2 weapon grate is not a solid shootable BSP")
+  physicalInputBase2GrateTrace = physicalInputElevatorRuntime.playerContext.imports.trace(
+    physicalinputqtypes.Vec3(-160.0, -384.0, -128.0),
+    physicalinputqtypes.zeroVec3(), physicalinputqtypes.zeroVec3(),
+    physicalinputqtypes.Vec3(-112.0, -384.0, -128.0), void,
+    physicalinputqconstants.MASK_SOLID)
+  physicalInputAssert(physicalInputBase2GrateTrace.entity is not void and
+    physicalInputBase2GrateTrace.entity.state.number ==
+      physicalInputBase2Grate.number,
+    "retail base2 shootable weapon grate does not block movement")
+  physicalinputintegration.integratedWorldDamage(physicalInputBase2Grate,
+    physicalInputElevatorProxy, physicalInputElevatorProxy, 25,
+    physicalinputworldconstants.MOD_EXPLOSIVE)
+  physicalinputgame.RunFrame()
+  physicalInputAssert(not physicalInputBase2Grate.inUse,
+    "retail base2 weapon grate did not open after lethal damage")
   print("runtime_campaign_physical_input_tests: retail base2 elevator PASS" +
     " start-z=" + physicalInputElevatorStartZ +
     " minimum-z=" + physicalInputElevatorMinimumZ +
@@ -191,6 +243,31 @@ function physicalInputRetail(baseDirectory)
     " brush-z=" + physicalInputElevator.origin.z)
   physicalinputsession.shutdown(physicalInputElevatorSession)
   return true
+end function
+
+// Report whether a short axis-aligned MASK_SHOT ray can reach one live retail
+// monster. Trying all six faces distinguishes a broken damage proxy from a
+// monster authored flush against nearby BSP geometry.
+function physicalInputMonsterReachable(actor)
+  center = physicalinputqtypes.Vec3(
+    actor.edict.state.origin.x + (actor.edict.mins.x + actor.edict.maxs.x) * 0.5,
+    actor.edict.state.origin.y + (actor.edict.mins.y + actor.edict.maxs.y) * 0.5,
+    actor.edict.state.origin.z + (actor.edict.mins.z + actor.edict.maxs.z) * 0.5)
+  starts = [
+    physicalinputqtypes.Vec3(actor.edict.state.origin.x + actor.edict.mins.x - 2.0, center.y, center.z),
+    physicalinputqtypes.Vec3(actor.edict.state.origin.x + actor.edict.maxs.x + 2.0, center.y, center.z),
+    physicalinputqtypes.Vec3(center.x, actor.edict.state.origin.y + actor.edict.mins.y - 2.0, center.z),
+    physicalinputqtypes.Vec3(center.x, actor.edict.state.origin.y + actor.edict.maxs.y + 2.0, center.z),
+    physicalinputqtypes.Vec3(center.x, center.y, actor.edict.state.origin.z + actor.edict.mins.z - 2.0),
+    physicalinputqtypes.Vec3(center.x, center.y, actor.edict.state.origin.z + actor.edict.maxs.z + 2.0)]
+  for each start in starts
+    trace = physicalinputintegration.integratedWeaponTrace(start,
+      physicalinputqtypes.zeroVec3(), physicalinputqtypes.zeroVec3(), center,
+      void, physicalinputqconstants.MASK_SHOT)
+    if trace.entity is not void and trace.entity.number ==
+        actor.edict.state.number then return true end if
+  end for
+  return false
 end function
 
 // Run this source file's command-line entry point.
