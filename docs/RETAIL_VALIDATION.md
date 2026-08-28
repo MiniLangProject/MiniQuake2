@@ -495,10 +495,16 @@ MiniQuake2 server. This verifies Protocol-34 wire behavior without sharing the
 MiniQuake2 parser on the peer side.
 
 The installed classic executable is unambiguously 3.20 evidence: its hash and
-size are listed above, it contains one IEEE-f32 `3.20` and no `3.19`. On this
-host it exits with code 0 before creating a window, answering UDP `status`, or
-entering a client session, including an isolated working directory and
-compatibility-mode attempts. Consequently the raw bidirectional gate is green,
+size are listed above, it contains one IEEE-f32 `3.20` and no `3.19`. The
+2026-08-28 diagnosis established why it does not become a Protocol-34 peer on
+this host. A direct start from the Steam installation exits with code 0 and
+Steam launches `rerelease/quake2ex_steam.exe` with the forwarded arguments;
+that executable is the modern rerelease, not an original-protocol oracle. An
+unchanged copy outside the Steam path remains alive only behind Steam error
+`Application load error 5:0000065434` and never opens the requested UDP port.
+The external harness now accepts an explicit `-ClassicExecutable`, waits a
+bounded startup interval, reports replacement processes and cleans up every
+Quake process it created. Consequently the raw bidirectional gate is green,
 but installed-original process-to-process interoperability is environment
 blocked and is not reported as passed. Exact 3.19 evidence remains the pinned
 source reference rather than this installed binary.

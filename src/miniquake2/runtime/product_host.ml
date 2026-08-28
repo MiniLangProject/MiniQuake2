@@ -55,7 +55,13 @@ end function
 
 // Initialize product host renderer.
 function productHostInitRenderer(renderer)
-  return renderer.exports.Init(void, void)
+  productHostRendererInit = renderer.exports.Init(void, void)
+  if productHostRendererInit is error then return productHostRendererInit end if
+  // MiniQuake and the original optional ref_gl path both default alias
+  // shadows on. Keep the product default here so every newly created renderer
+  // (including a video restart) receives the same behavior.
+  producthostgl.setShadows(renderer, true)
+  return productHostRendererInit
 end function
 
 // Shut down product host renderer.
@@ -305,7 +311,16 @@ end function
 function applyProductGamma(host, gamma, active)
   if typeof(host) != "struct" or host.closed then return false end if
   if host.gammaState is void then host.gammaState = producthostgamma.create() end if
-  return producthostgamma.update(host.gammaState, gamma, active)
+  // SetDeviceGammaRamp is routinely accepted but ignored by DWM/HDR. Retain
+  // the original ramp solely for clean restoration and apply the requested
+  // value in the renderer, where windowed, borderless and exclusive modes all
+  // behave consistently.
+  producthostgamma.buildRamp(gamma)
+  host.gammaState.value = gamma * 1.0
+  host.gammaState.applied = false
+  productHostRenderGamma = 1.0
+  if active then productHostRenderGamma = gamma * 1.0 end if
+  return producthostgl.setBrightness(host.renderer, productHostRenderGamma)
 end function
 
 // Rebuild renderer-owned managed state while preserving the native window and

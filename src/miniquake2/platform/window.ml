@@ -14,6 +14,7 @@ struct Window
   height
   fullscreen
   closed
+  verticalSync
 end struct
 
 // Store input event data.
@@ -70,7 +71,9 @@ function create(title, width, height, fullscreen)
     native.winRestoreDisplayMode()
     return error(2921, "window creation failed")
   end if
-  return Window(nativeHandle, native.winClientWidth(), native.winClientHeight(), fullscreen, false)
+  verticalSync = native.winSetSwapInterval(1) != 0
+  return Window(nativeHandle, native.winClientWidth(), native.winClientHeight(),
+    fullscreen, false, verticalSync)
 end function
 
 // Reconfigure one live Win32 window without destroying its OpenGL context.

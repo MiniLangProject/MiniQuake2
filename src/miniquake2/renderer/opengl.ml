@@ -45,8 +45,10 @@ const GL_EQUAL = 0x0202
 const GL_GREATER = 0x0204
 const GL_LEQUAL = 0x0203
 const GL_ZERO = 0x0000
+const GL_ONE = 0x0001
 const GL_SRC_COLOR = 0x0300
 const GL_SRC_ALPHA = 0x0302
+const GL_DST_COLOR = 0x0306
 const GL_ONE_MINUS_SRC_ALPHA = 0x0303
 const GL_BLEND = 0x0BE2
 const GL_ALPHA_TEST = 0x0BC0
@@ -105,6 +107,7 @@ struct OpenGlState
   md2LightSpotZ
   md2LightSpotValid
   shadows
+  brightness
   handedness
   activeWorld
   lightLevel
@@ -1277,6 +1280,44 @@ function endOpenGlMd2Draw(drawState)
   native.glColor4ub(255, 255, 255, 255)
 end function
 
+// Apply a compositor-safe brightness fallback to the completed framebuffer.
+// Modern Windows can accept SetDeviceGammaRamp while silently ignoring it in
+// windowed/HDR composition. This exposure approximation keeps black anchored
+// when brightening and uses an ordinary black blend when darkening, so the
+// video-menu control always has an immediate visible runtime effect.
+function drawOpenGlBrightness(backend)
+  gamma = backend.brightness
+  if gamma == 1.0 or gamma == 1 then return false end if
+  setup2d()
+  width = native.winClientWidth(); height = native.winClientHeight()
+  native.glDisable(GL_TEXTURE_2D)
+  native.glDisable(GL_ALPHA_TEST)
+  native.glEnable(GL_BLEND)
+  if gamma < 1.0 then
+    component = ropenglbyteio.truncInt((1.0 / gamma - 1.0) * 255.0 + 0.5)
+    if component < 0 then component = 0 end if
+    if component > 255 then component = 255 end if
+    native.glBlendFunc(GL_DST_COLOR, GL_ONE)
+    native.glColor4ub(component, component, component, 255)
+  else
+    alpha = ropenglbyteio.truncInt((1.0 - 1.0 / gamma) * 255.0 + 0.5)
+    if alpha < 0 then alpha = 0 end if
+    if alpha > 255 then alpha = 255 end if
+    native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    native.glColor4ub(0, 0, 0, alpha)
+  end if
+  native.glBegin(GL_QUADS)
+  native.glVertex2(bits(0.0), bits(0.0))
+  native.glVertex2(bits(width * 1.0), bits(0.0))
+  native.glVertex2(bits(width * 1.0), bits(height * 1.0))
+  native.glVertex2(bits(0.0), bits(height * 1.0))
+  native.glEnd()
+  native.glDisable(GL_BLEND)
+  native.glColor4ub(255, 255, 255, 255)
+  native.glEnable(GL_TEXTURE_2D)
+  return true
+end function
+
 // Report whether open gl md 2 entity visible.
 function inline openGlMd2EntityVisible(backend, entity)
   return (entity.flags & rc.RF_WEAPONMODEL) == 0 or backend.handedness != 2
@@ -1296,6 +1337,12 @@ function inline openGlMd2EntityInFrustum(modelAsset, entity, frame)
   if oldRadius > radius then radius = oldRadius end if
   return rclassicvisibility.classicVisibilitySphereInsideFrustum(
     entity.origin, radius, frame)
+end function
+
+// Return the immutable GPU cache state for one MD2 frame pair.
+function inline openGlMd2GeometryState(frameIndex, oldFrameIndex)
+  return ((frameIndex * 73856093) ^ (oldFrameIndex * 19349663) ^
+    0x4d4432) & 0x7fffffff
 end function
 
 // Draw open gl md 2 scalars.
@@ -1334,11 +1381,11 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
   backLerp = entity.backLerp
   if backLerp < 0.0 then backLerp = 0.0 end if
   if backLerp > 1.0 then backLerp = 1.0 end if
-  // Preserve stock's continuous pose interpolation. Hashing the exact float
-  // bits with both frame indexes still permits same-pose VBO reuse without
-  // reducing animation to a visible nine-step ladder.
-  geometryState = ((frameIndex * 73856093) ^ (oldFrameIndex * 19349663) ^
-    bits(backLerp)) & 0x7fffffff
+  // The native OpenGL path stores both MD2 poses in one immutable VBO and
+  // interpolates them on the GPU. The cache key therefore identifies only the
+  // frame pair; backLerp remains a continuous per-draw value and no longer
+  // forces a VBO delete/upload for every rendered animation sample.
+  geometryState = openGlMd2GeometryState(frameIndex, oldFrameIndex)
   shell = (entity.flags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN |
     rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
   drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
@@ -1497,8 +1544,7 @@ function drawOpenGlMd2ShadowPass(backend, frame)
         backLerp = entity.backLerp
         if backLerp < 0.0 then backLerp = 0.0 end if
         if backLerp > 1.0 then backLerp = 1.0 end if
-        geometryState = ((frameIndex * 73856093) ^
-          (oldFrameIndex * 19349663) ^ bits(backLerp)) & 0x7fffffff
+        geometryState = openGlMd2GeometryState(frameIndex, oldFrameIndex)
         modelData = modelAsset.source.rawData
         normalVectors = openGlMd2NormalVectors(backend)
         native.glPushMatrix()
@@ -1945,6 +1991,7 @@ function openGlEndFrame()
     drawOpenGlPendingClassicShadows(backend)
     flushOpenGlPendingClassicAlpha()
   end if
+  if backend.contextActive then drawOpenGlBrightness(backend) end if
   backend.core.state.frameOpen = false
   if backend.contextActive then
     native.glFlush()
@@ -1976,7 +2023,7 @@ end function
 // Create open gl renderer.
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -1989,7 +2036,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -2127,6 +2174,21 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
   end if
   binding.state.activeWorld = world
   return world
+end function
+
+// Set the post-composition brightness/gamma value.
+function setBrightness(binding, brightness)
+  if (typeof(brightness) != "int" and typeof(brightness) != "float") or
+      brightness != brightness or brightness < 0.5 or brightness > 2.0 then
+    return error(9639, "renderer brightness must be inside [0.5,2]")
+  end if
+  binding.state.brightness = brightness * 1.0
+  return binding.state.brightness
+end function
+
+// Return the post-composition brightness value.
+function brightness(binding)
+  return binding.state.brightness
 end function
 
 // Return the CPU-side registration graph retained across a video mode change.

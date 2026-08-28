@@ -13,6 +13,8 @@ param(
   [int]$SoakFrames = 20000,
   [ValidateRange(0, 60)]
   [int]$MaximumCinematicDrops = 1,
+  [ValidateRange(0, 10000)]
+  [int]$DeviceSettleMilliseconds = 2000,
   [string]$Executable = "",
   [string]$SoakExecutable = "",
   [switch]$SkipCinematic,
@@ -79,6 +81,17 @@ $VisibleBefore = [int]$Matches[1]
 $VisibleAfter = [int]$Matches[2]
 if ($VisibleBefore -le 0 -or $VisibleAfter -ne $VisibleBefore) {
   throw "Video restart did not preserve the visible retail world."
+}
+
+# Exclusive-mode teardown returns before every display/audio driver has
+# necessarily completed its asynchronous device-change work.  Starting the
+# independent cinematic process immediately after that teardown adds a
+# repeatable extra scheduler drop on affected hosts, even though a standalone
+# cold cinematic remains within budget.  Keep the product gate strict while
+# giving the operating system a small, explicit stabilization interval.
+if ($DeviceSettleMilliseconds -gt 0) {
+  Write-Host "[MiniQuake2] device settle $DeviceSettleMilliseconds ms" -ForegroundColor Cyan
+  Start-Sleep -Milliseconds $DeviceSettleMilliseconds
 }
 
 if (-not $SkipCinematic) {

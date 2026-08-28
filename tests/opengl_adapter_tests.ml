@@ -132,6 +132,15 @@ function testClassicDrawingHelpers()
   assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
     "disabled opaque alias does not cast shadow")
   ogl.setShadows(renderer, true)
+  assertNear(ogl.setBrightness(renderer, 0.7), 0.7, 0.000001,
+    "renderer brightness accepts video-menu range")
+  assertNear(ogl.brightness(renderer), 0.7, 0.000001,
+    "renderer brightness retained")
+  assertEqual(typeof(try(ogl.setBrightness(renderer, 2.1))), "error",
+    "renderer brightness rejects values above menu range")
+  assertEqual(ogl.openGlMd2GeometryState(4, 3) !=
+    ogl.openGlMd2GeometryState(5, 4), true,
+    "MD2 GPU cache distinguishes animation frame pairs")
   assertEqual(ogl.md2ShadowEligible(renderer, shadow), true,
     "enabled opaque world alias casts shadow")
   shadow.flags = rc.RF_TRANSLUCENT

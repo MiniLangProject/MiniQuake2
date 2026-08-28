@@ -18,7 +18,10 @@ run:
 `-SkipCinematic` and `-SkipSoak` provide a short GL-only rerun. The cinematic
 gate allows at most one scheduler drop by default; `-MaximumCinematicDrops`
 can tighten that policy. Decode errors, incomplete playback and failure to open
-the native audio device always fail.
+the native audio device always fail. The combined gate waits an explicit 2,000
+ms after exclusive-mode teardown before starting the independent cinematic
+process; `-DeviceSettleMilliseconds` can override that driver-stabilization
+interval without weakening the one-drop product limit.
 
 ## Accepted host (updated 2026-08-26)
 
@@ -52,6 +55,14 @@ claim that playback ran through each one.
 - that run observed one scheduler drop, while the deterministic preview
   reported zero, which establishes the bounded one-drop host policy rather
   than hiding timing variance.
+
+The 2026-08-28 rerun exposed a harness interaction between exclusive-display
+teardown and the immediately following process: without a stabilization
+interval the cinematic repeatably reported two drops, while two standalone
+runs each reported one. With the explicit 2,000-ms device settle, the combined
+gate completed 303 render frames, stream frame 81, 269,312 mixed stereo frames,
+one scheduler drop and `audio-device=true`. The limit remains one; only the
+cross-process driver-settle precondition is now represented by the harness.
 
 Focused low-heap regressions also pass for scan-key/mouse/wheel/focus-release
 input, renderer/window ownership and deterministic mixer replay. The audio

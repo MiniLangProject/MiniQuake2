@@ -3399,14 +3399,23 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       applicationHeapMaximum = applicationHeapNow
     end if
     applicationHeapLast = applicationHeapNow
-    // The 10-Hz game/network cadence is independent from presentation. Keep a
-    // modern 250-Hz ceiling so fast GPUs are no longer artificially limited to
-    // 125 FPS, while repeated Sleep(0) yields still prevent an unbounded DWM
-    // swap queue and avoid coarse Win32 timer oversleep.
-    applicationFrameDeadline = started + 4.0
-    while appsystem.milliseconds(clock) < applicationFrameDeadline
+    // The 10-Hz game/network cadence is independent from presentation. Let
+    // WGL synchronize completed frames to the monitor so mouse sampling,
+    // prediction and snapshot interpolation reach the screen at even
+    // intervals. Drivers without swap control use a precise 120-Hz fallback
+    // instead of the former 4-ms busy loop, whose uneven DWM queue caused
+    // visible micro-stutter despite a high FPS counter.
+    if window.verticalSync then
       appsystem.sleep(0)
-    end while
+    else
+      applicationFrameDeadline = started + 8.333333333333334
+      while appsystem.milliseconds(clock) + 1.0 < applicationFrameDeadline
+        appsystem.sleep(1)
+      end while
+      while appsystem.milliseconds(clock) < applicationFrameDeadline
+        appsystem.sleep(0)
+      end while
+    end if
   end while
 
   appwindow.setMouseCapture(false)
@@ -4264,8 +4273,22 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       applicationRemoteFpsStart = applicationRemoteStarted
       applicationRemoteFpsFrames = 0
     end if
-    if applicationRemoteWorld is void then appsystem.sleep(1) end if
-    appsystem.sleep(0)
+    if applicationRemoteWorld is void then
+      appsystem.sleep(1)
+    else if applicationRemoteWindow.verticalSync then
+      appsystem.sleep(0)
+    else
+      applicationRemoteFrameDeadline = applicationRemoteStarted +
+        8.333333333333334
+      while appsystem.milliseconds(applicationRemoteClock) + 1.0 <
+          applicationRemoteFrameDeadline
+        appsystem.sleep(1)
+      end while
+      while appsystem.milliseconds(applicationRemoteClock) <
+          applicationRemoteFrameDeadline
+        appsystem.sleep(0)
+      end while
+    end if
   end while
   appwindow.setMouseCapture(false)
   applicationRemoteDemoShutdown = try(appdemorecording.shutdown(

@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 param(
     [string]$ClassicRoot = 'C:\Program Files (x86)\Steam\steamapps\common\Quake 2',
+    [string]$ClassicExecutable = '',
     [string]$MiniQuake2Exe = '',
-    [int]$Port = 27931
+    [int]$Port = 27931,
+    [int]$StartupTimeoutSeconds = 10
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,7 +13,10 @@ $workspace = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($MiniQuake2Exe)) {
     $MiniQuake2Exe = Join-Path $workspace 'build\MiniQuake2.exe'
 }
-$classicExe = Join-Path $ClassicRoot 'quake2.exe'
+if ([string]::IsNullOrWhiteSpace($ClassicExecutable)) {
+    $ClassicExecutable = Join-Path $ClassicRoot 'quake2.exe'
+}
+$classicExe = $ClassicExecutable
 $gameDll = Join-Path $ClassicRoot 'baseq2\gamex86.dll'
 if (-not (Test-Path -LiteralPath $classicExe -PathType Leaf)) { throw "Classic quake2.exe not found: $classicExe" }
 if (-not (Test-Path -LiteralPath $gameDll -PathType Leaf)) { throw "Classic gamex86.dll not found: $gameDll" }
@@ -57,6 +62,28 @@ function Stop-OwnedProcess($Process) {
     }
 }
 
+# Return the currently running Quake II processes without assuming that Steam
+# keeps the executable requested by the caller alive.
+function Get-QuakeProcesses {
+    return @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -match '^quake2.*\.exe$'
+    })
+}
+
+# Stop only processes that were created after this harness started.  Steam may
+# replace classic quake2.exe with the rerelease executable, so the Process
+# object returned by Start-Process is not always the process that must be
+# cleaned up.
+function Stop-OwnedProcessIds([int[]]$ProcessIds) {
+    foreach ($processId in $ProcessIds) {
+        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($null -ne $process) {
+            Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            Wait-Process -Id $processId -Timeout 3 -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 $classicBytes = [IO.File]::ReadAllBytes($classicExe)
 $single320 = Find-BytePatternCount $classicBytes ([BitConverter]::GetBytes([single]3.20))
 $single319 = Find-BytePatternCount $classicBytes ([BitConverter]::GetBytes([single]3.19))
@@ -77,6 +104,8 @@ $classicServer = $null
 $miniClient = $null
 $miniServer = $null
 $classicClient = $null
+$ownedRedirectProcessIds = @()
+$baselineQuakeProcessIds = @(Get-QuakeProcesses | ForEach-Object { [int]$_.ProcessId })
 
 try {
     $classicArguments = @(
@@ -90,12 +119,33 @@ try {
     $classicServer = Start-Process -FilePath $classicExe -ArgumentList $classicArguments `
         -WorkingDirectory $ClassicRoot -WindowStyle Hidden `
         -RedirectStandardOutput $classicServerOut -RedirectStandardError $classicServerErr -PassThru
-    Start-Sleep -Seconds 2
-    $classicStatus = Query-ClassicStatus $Port 1500
+    $classicStatus = $null
+    $deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
+    do {
+        Start-Sleep -Milliseconds 250
+        $classicStatus = Query-ClassicStatus $Port 250
+        $newQuakeProcesses = @(Get-QuakeProcesses | Where-Object {
+            $baselineQuakeProcessIds -notcontains [int]$_.ProcessId -and
+            ($_.CommandLine -match "(?<!\d)$Port(?!\d)" -or
+             [int]$_.ProcessId -eq $classicServer.Id)
+        })
+        $ownedRedirectProcessIds = @($newQuakeProcesses | Where-Object {
+            [int]$_.ProcessId -ne $classicServer.Id
+        } | ForEach-Object { [int]$_.ProcessId } | Select-Object -Unique)
+    } while ($null -eq $classicStatus -and (Get-Date) -lt $deadline)
     if ($classicServer.HasExited -or $null -eq $classicStatus) {
         $exitText = 'running'
         if ($classicServer.HasExited) { $exitText = "$($classicServer.ExitCode)" }
-        Write-Output "BLOCKED classic-3.20-dedicated-start exit=$exitText udp-status=false"
+        $redirectedProcesses = @(Get-QuakeProcesses | Where-Object {
+            $ownedRedirectProcessIds -contains [int]$_.ProcessId
+        })
+        if ($redirectedProcesses.Count -gt 0) {
+            $redirectEvidence = @($redirectedProcesses | ForEach-Object {
+                "$($_.Name):$($_.ProcessId)"
+            }) -join ','
+            Write-Output "BLOCKED classic-3.20 launch redirected by distribution client processes=$redirectEvidence"
+        }
+        Write-Output "BLOCKED classic-3.20-dedicated-start exit=$exitText udp-status=false timeout-seconds=$StartupTimeoutSeconds"
         Write-Output 'BLOCKED MiniQuake2-client -> installed classic server was not executable on this host'
         Write-Output 'BLOCKED installed classic client -> MiniQuake2-server cannot be automated until the same Win32 startup blocker is resolved'
         exit 3
@@ -136,6 +186,17 @@ try {
         -RedirectStandardOutput $classicClientOut -RedirectStandardError $classicClientErr -PassThru
     Start-Sleep -Seconds 8
     if ($classicClient.HasExited) {
+        $newClientProcesses = @(Get-QuakeProcesses | Where-Object {
+            $baselineQuakeProcessIds -notcontains [int]$_.ProcessId -and
+            [int]$_.ProcessId -ne $classicClient.Id -and
+            $_.CommandLine -match "(?<!\d)$miniPort(?!\d)"
+        })
+        $ownedRedirectProcessIds = @($ownedRedirectProcessIds + @(
+            $newClientProcesses | ForEach-Object { [int]$_.ProcessId }
+        ) | Select-Object -Unique)
+        if ($newClientProcesses.Count -gt 0) {
+            throw "Classic client was redirected to a different Quake II process before interoperability observation"
+        }
         throw "Classic client exited before interoperability observation, exit=$($classicClient.ExitCode)"
     }
     Stop-OwnedProcess $classicClient
@@ -153,4 +214,5 @@ finally {
     Stop-OwnedProcess $miniClient
     Stop-OwnedProcess $miniServer
     Stop-OwnedProcess $classicServer
+    Stop-OwnedProcessIds $ownedRedirectProcessIds
 }

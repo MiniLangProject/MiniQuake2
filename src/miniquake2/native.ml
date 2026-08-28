@@ -31,6 +31,7 @@ extern function winRestoreDisplayMode() from "miniquake_native.dll" symbol "mq_w
 extern function winDestroy() from "miniquake_native.dll" symbol "mq_win_destroy" returns void
 extern function winPoll() from "miniquake_native.dll" symbol "mq_win_poll" returns i32
 extern function winSwap() from "miniquake_native.dll" symbol "mq_win_swap" returns void
+extern function winSetSwapInterval(interval as i32) from "miniquake_native.dll" symbol "mq_win_set_swap_interval" returns i32
 extern function winClientWidth() from "miniquake_native.dll" symbol "mq_win_client_width" returns i32
 extern function winClientHeight() from "miniquake_native.dll" symbol "mq_win_client_height" returns i32
 extern function winResizeClient(width as i32, height as i32) from "miniquake_native.dll" symbol "mq_win_resize_client" returns i32
