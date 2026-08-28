@@ -33,6 +33,7 @@ end struct
 struct ElevatorPlayerContext
   imports
   players
+  touchTriggers
 end struct
 
 // Store elevator export data.
@@ -56,6 +57,7 @@ end struct
 struct ElevatorPlayer
   edict
   groundEntity
+  groundLinkCount
   health
 end struct
 
@@ -68,6 +70,11 @@ elevatorTracePassNumber = -1
 elevatorTraceMask = 0
 elevatorThinkCount = 0
 elevatorThinkOrigin = 0.0
+elevatorTriggerTouchCount = 0
+elevatorTeamSecondNumber = -1
+elevatorTeamFirstRiderNumber = -1
+elevatorTeamSecondLinked = false
+elevatorTeamFirstTraceSawSecond = false
 
 // Assert the elevator test condition.
 function elevatorAssert(value, message)
@@ -89,18 +96,28 @@ end function
 function elevatorTrace(start, mins, maxs, finish, passEntity, mask)
   global elevatorTraceMode, elevatorTraceCount, elevatorTraceStationary
   global elevatorTracePassNumber, elevatorTraceMask
+  global elevatorTeamFirstRiderNumber, elevatorTeamSecondLinked
+  global elevatorTeamFirstTraceSawSecond
   if start.x != finish.x or start.y != finish.y or start.z != finish.z then
     elevatorTraceStationary = false
   end if
   elevatorTraceCount = elevatorTraceCount + 1
   elevatorTraceMask = mask
-  if passEntity is not void then elevatorTracePassNumber = passEntity.state.number end if
+  if passEntity is not void then
+    elevatorTracePassNumber = passEntity.state.number
+    if elevatorTracePassNumber == elevatorTeamFirstRiderNumber then
+      elevatorTeamFirstTraceSawSecond = elevatorTeamSecondLinked
+    end if
+  end if
   startSolid = false
   // Mode 1 models a downward elevator whose carried destination is obstructed
   // while the translation-only fallback remains clear.
   if elevatorTraceMode == 1 and elevatorTraceCount == 1 then startSolid = true end if
   if elevatorTraceMode == 2 then startSolid = true end if
   if elevatorTraceMode == 3 and elevatorTraceCount == 1 then startSolid = true end if
+  // Mode 4 blocks only the second team part's contacted body so the test can
+  // prove that the first part and its rider join the same rollback transaction.
+  if elevatorTraceMode == 4 and elevatorTracePassNumber == 93 then startSolid = true end if
   return elevatortestqtypes.Trace(false, startSolid, 1.0, finish,
     elevatortestqtypes.Plane(elevatortestqtypes.zeroVec3(), 0.0, 0, 0),
     elevatortestqtypes.CollisionSurface("", 0, 0), 0, void)
@@ -108,6 +125,22 @@ end function
 
 // Ignore elevator edict link.
 function ignoreElevatorEdictLink(entity)
+  return true
+end function
+
+// Record when the second pusher part is published to the world collision tree.
+function recordElevatorTeamLink(entity)
+  global elevatorTeamSecondNumber, elevatorTeamSecondLinked
+  if entity.number == elevatorTeamSecondNumber then
+    elevatorTeamSecondLinked = true
+  end if
+  return true
+end function
+
+// Record the post-commit trigger pass for a carried player.
+function recordElevatorTriggerTouch(player)
+  global elevatorTriggerTouchCount
+  elevatorTriggerTouchCount = elevatorTriggerTouchCount + 1
   return true
 end function
 
@@ -175,7 +208,7 @@ fallbackEdicts = array(22, void)
 fallbackEdicts[20] = elevatortestgametypes.zeroEdict(20)
 fallbackEdicts[21] = elevatortestgametypes.zeroEdict(21)
 fallbackImports = ElevatorImports(elevatorTrace, ignoreElevatorEdictLink)
-fallbackContext = ElevatorPlayerContext(fallbackImports, [])
+fallbackContext = ElevatorPlayerContext(fallbackImports, [], void)
 fallbackRuntime = ElevatorRuntime(fallbackWorld, fallbackContext, [], void,
   ElevatorExport(fallbackEdicts, 22), emptyWeaponContext())
 elevatorTraceMode = 1; elevatorTraceCount = 0
@@ -207,14 +240,16 @@ yawEdict.mins = elevatortestqtypes.Vec3(-0.5, -0.5, 0.0)
 yawEdict.maxs = elevatortestqtypes.Vec3(0.5, 0.5, 1.0)
 yawEdict.clipMask = elevatortestqconstants.MASK_PLAYERSOLID
 yawGroundEdict = elevatortestgametypes.zeroEdict(30)
-yawPlayer = ElevatorPlayer(yawEdict, yawGroundEdict, 100)
+yawPlayer = ElevatorPlayer(yawEdict, yawGroundEdict, 0, 100)
 elevatortestworld.addEntity(yawWorld, yawTrain)
 yawEdicts = array(32, void); yawEdicts[30] = elevatortestgametypes.zeroEdict(30)
 yawEdicts[31] = yawEdict
-yawContext = ElevatorPlayerContext(fallbackImports, [yawPlayer])
+yawContext = ElevatorPlayerContext(fallbackImports, [yawPlayer],
+  recordElevatorTriggerTouch)
 yawRuntime = ElevatorRuntime(yawWorld, yawContext, [], void,
   ElevatorExport(yawEdicts, 32), emptyWeaponContext())
 elevatorTraceMode = 0; elevatorTraceCount = 0
+elevatorTriggerTouchCount = 0
 yawCapture = elevatortestpusher.capture(yawRuntime)
 elevatortestworld.runFrame(yawWorld)
 elevatorAssert(elevatortestpusher.resolve(yawRuntime, yawCapture) == 1,
@@ -222,6 +257,8 @@ elevatorAssert(elevatortestpusher.resolve(yawRuntime, yawCapture) == 1,
 elevatorAssert(yawEdict.client.playerState.pmove.deltaAngles[1] == 90 and
   yawEdict.state.angles.y == 0.0,
   "rotating pusher did not apply stock client delta-yaw semantics")
+elevatorAssert(elevatorTriggerTouchCount == 1,
+  "committed elevator rider did not touch triggers exactly once")
 
 // MOVETYPE_STOP still carries an entity whose groundentity is the pusher; it
 // differs from MOVETYPE_PUSH only for contacted non-riders.
@@ -315,27 +352,143 @@ blockedTrain.maxs = elevatortestqtypes.Vec3(8.0, 8.0, 1.0)
 blockedTrain.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
 blockedTrain.think = recordElevatorThink
 blockedTrain.nextThink = 0.1
-blockedRider = elevatortesttypes.createEntity(71, "blocked-rider")
-blockedRider.solid = elevatortestconstants.SOLID_BBOX
-blockedRider.moveType = elevatortestconstants.MOVETYPE_TOSS
-blockedRider.mins = elevatortestqtypes.Vec3(-1.0, -1.0, 0.0)
-blockedRider.maxs = elevatortestqtypes.Vec3(1.0, 1.0, 2.0)
-blockedRider.origin = elevatortestqtypes.Vec3(0.0, 0.0, 1.0)
-blockedRider.groundEntity = blockedTrain
+blockedPlayerEdict = elevatortestgametypes.zeroEdict(71)
+blockedPlayerEdict.inUse = true
+blockedPlayerEdict.solid = elevatortestconstants.SOLID_BBOX
+blockedPlayerEdict.client = elevatortestgametypes.zeroGameClient()
+blockedPlayerEdict.state.origin = elevatortestqtypes.Vec3(0.0, 0.0, 1.0)
+blockedPlayerEdict.mins = elevatortestqtypes.Vec3(-1.0, -1.0, 0.0)
+blockedPlayerEdict.maxs = elevatortestqtypes.Vec3(1.0, 1.0, 2.0)
+blockedPlayerEdict.clipMask = elevatortestqconstants.MASK_PLAYERSOLID
+blockedGroundEdict = elevatortestgametypes.zeroEdict(70)
+blockedPlayer = ElevatorPlayer(blockedPlayerEdict, blockedGroundEdict, 0, 100)
 elevatortestworld.addEntity(blockedWorld, blockedTrain)
-elevatortestworld.addEntity(blockedWorld, blockedRider)
 blockedEdicts = array(72, void)
 blockedEdicts[70] = elevatortestgametypes.zeroEdict(70)
-blockedEdicts[71] = elevatortestgametypes.zeroEdict(71)
-blockedRuntime = ElevatorRuntime(blockedWorld, fallbackContext, [], void,
+blockedEdicts[71] = blockedPlayerEdict
+blockedContext = ElevatorPlayerContext(fallbackImports, [blockedPlayer],
+  recordElevatorTriggerTouch)
+blockedRuntime = ElevatorRuntime(blockedWorld, blockedContext, [], void,
   ElevatorExport(blockedEdicts, 72), emptyWeaponContext())
 elevatorTraceMode = 2; elevatorTraceCount = 0; elevatorThinkCount = 0
+elevatorTriggerTouchCount = 0
 blockedCapture = elevatortestpusher.capture(blockedRuntime)
 elevatortestpusher.deferDueThinks(blockedCapture, 0.1)
 elevatortestworld.runFrame(blockedWorld)
 elevatorAssert(elevatortestpusher.resolve(blockedRuntime, blockedCapture) == 0 and
   blockedTrain.origin.x == 0.0 and elevatorThinkCount == 0 and
-  blockedTrain.nextThink == 0.2,
+  blockedTrain.nextThink == 0.2 and blockedPlayerEdict.state.origin.x == 0.0 and
+  elevatorTriggerTouchCount == 0,
   "blocked pusher did not roll back and delay its due think")
+
+// SV_Physics_Pusher publishes and resolves one team-chain member at a time.
+// The first rider trace must therefore run before the second brush is linked.
+teamWorld = elevatortestworld.createWorld(void)
+teamWorld.callbacks.linkEntity = recordElevatorTeamLink
+teamFirst = elevatortesttypes.createEntity(80, "func_door")
+teamFirst.moveType = elevatortestconstants.MOVETYPE_PUSH
+teamFirst.solid = elevatortestconstants.SOLID_BSP
+teamFirst.mins = elevatortestqtypes.Vec3(-2.0, -2.0, -1.0)
+teamFirst.maxs = elevatortestqtypes.Vec3(2.0, 2.0, 1.0)
+teamFirst.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+teamSecond = elevatortesttypes.createEntity(81, "func_door")
+teamSecond.moveType = elevatortestconstants.MOVETYPE_PUSH
+teamSecond.solid = elevatortestconstants.SOLID_BSP
+teamSecond.origin = elevatortestqtypes.Vec3(100.0, 0.0, 0.0)
+teamSecond.mins = elevatortestqtypes.Vec3(-2.0, -2.0, -1.0)
+teamSecond.maxs = elevatortestqtypes.Vec3(2.0, 2.0, 1.0)
+teamSecond.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+teamFirst.teamMaster = teamFirst; teamFirst.teamChain = teamSecond
+teamSecond.teamMaster = teamFirst
+teamRiderEdict = elevatortestgametypes.zeroEdict(82)
+teamRiderEdict.inUse = true
+teamRiderEdict.solid = elevatortestconstants.SOLID_BBOX
+teamRiderEdict.client = elevatortestgametypes.zeroGameClient()
+teamRiderEdict.state.origin = elevatortestqtypes.Vec3(0.0, 0.0, 1.0)
+teamRiderEdict.mins = elevatortestqtypes.Vec3(-0.5, -0.5, 0.0)
+teamRiderEdict.maxs = elevatortestqtypes.Vec3(0.5, 0.5, 1.0)
+teamRiderEdict.clipMask = elevatortestqconstants.MASK_PLAYERSOLID
+teamGroundEdict = elevatortestgametypes.zeroEdict(80)
+teamRider = ElevatorPlayer(teamRiderEdict, teamGroundEdict, 0, 100)
+elevatortestworld.addEntity(teamWorld, teamFirst)
+elevatortestworld.addEntity(teamWorld, teamSecond)
+teamEdicts = array(83, void)
+teamEdicts[80] = teamGroundEdict
+teamEdicts[81] = elevatortestgametypes.zeroEdict(81)
+teamEdicts[82] = teamRiderEdict
+teamContext = ElevatorPlayerContext(fallbackImports, [teamRider], void)
+teamRuntime = ElevatorRuntime(teamWorld, teamContext, [], void,
+  ElevatorExport(teamEdicts, 83), emptyWeaponContext())
+elevatorTraceMode = 0; elevatorTraceCount = 0
+elevatorTeamSecondNumber = 81; elevatorTeamFirstRiderNumber = 82
+elevatorTeamSecondLinked = false; elevatorTeamFirstTraceSawSecond = false
+teamCapture = elevatortestpusher.capture(teamRuntime)
+elevatortestworld.runFrame(teamWorld)
+elevatorAssert(elevatortestpusher.resolve(teamRuntime, teamCapture) == 1 and
+  teamFirst.origin.x == 1.0 and teamSecond.origin.x == 101.0 and
+  teamRiderEdict.state.origin.x == 1.0 and
+  not elevatorTeamFirstTraceSawSecond,
+  "pusher team parts were not linked and resolved sequentially")
+
+// A blocker encountered by a later team part rolls back every already-linked
+// part and every rider carried by an earlier part.
+rollbackWorld = elevatortestworld.createWorld(void)
+rollbackWorld.callbacks.linkEntity = recordElevatorTeamLink
+rollbackFirst = elevatortesttypes.createEntity(90, "func_door")
+rollbackFirst.moveType = elevatortestconstants.MOVETYPE_PUSH
+rollbackFirst.solid = elevatortestconstants.SOLID_BSP
+rollbackFirst.mins = elevatortestqtypes.Vec3(-2.0, -2.0, -1.0)
+rollbackFirst.maxs = elevatortestqtypes.Vec3(2.0, 2.0, 1.0)
+rollbackFirst.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+rollbackSecond = elevatortesttypes.createEntity(91, "func_door")
+rollbackSecond.moveType = elevatortestconstants.MOVETYPE_PUSH
+rollbackSecond.solid = elevatortestconstants.SOLID_BSP
+rollbackSecond.origin = elevatortestqtypes.Vec3(20.0, 0.0, 0.0)
+rollbackSecond.mins = elevatortestqtypes.Vec3(-2.0, -2.0, -1.0)
+rollbackSecond.maxs = elevatortestqtypes.Vec3(2.0, 2.0, 1.0)
+rollbackSecond.velocity = elevatortestqtypes.Vec3(10.0, 0.0, 0.0)
+rollbackFirst.teamMaster = rollbackFirst; rollbackFirst.teamChain = rollbackSecond
+rollbackSecond.teamMaster = rollbackFirst
+rollbackRiderEdict = elevatortestgametypes.zeroEdict(92)
+rollbackRiderEdict.inUse = true
+rollbackRiderEdict.solid = elevatortestconstants.SOLID_BBOX
+rollbackRiderEdict.client = elevatortestgametypes.zeroGameClient()
+rollbackRiderEdict.state.origin = elevatortestqtypes.Vec3(0.0, 0.0, 1.0)
+rollbackRiderEdict.mins = elevatortestqtypes.Vec3(-0.5, -0.5, 0.0)
+rollbackRiderEdict.maxs = elevatortestqtypes.Vec3(0.5, 0.5, 1.0)
+rollbackRiderEdict.clipMask = elevatortestqconstants.MASK_PLAYERSOLID
+rollbackGroundEdict = elevatortestgametypes.zeroEdict(90)
+rollbackRider = ElevatorPlayer(rollbackRiderEdict, rollbackGroundEdict, 0, 100)
+rollbackBlockerEdict = elevatortestgametypes.zeroEdict(93)
+rollbackBlockerEdict.inUse = true
+rollbackBlockerEdict.solid = elevatortestconstants.SOLID_BBOX
+rollbackBlockerEdict.client = elevatortestgametypes.zeroGameClient()
+rollbackBlockerEdict.state.origin = elevatortestqtypes.Vec3(21.0, 0.0, 0.0)
+rollbackBlockerEdict.mins = elevatortestqtypes.Vec3(-0.5, -0.5, -0.5)
+rollbackBlockerEdict.maxs = elevatortestqtypes.Vec3(0.5, 0.5, 0.5)
+rollbackBlockerEdict.clipMask = elevatortestqconstants.MASK_PLAYERSOLID
+rollbackBlocker = ElevatorPlayer(rollbackBlockerEdict, void, 0, 100)
+elevatortestworld.addEntity(rollbackWorld, rollbackFirst)
+elevatortestworld.addEntity(rollbackWorld, rollbackSecond)
+rollbackEdicts = array(94, void)
+rollbackEdicts[90] = rollbackGroundEdict
+rollbackEdicts[91] = elevatortestgametypes.zeroEdict(91)
+rollbackEdicts[92] = rollbackRiderEdict
+rollbackEdicts[93] = rollbackBlockerEdict
+rollbackContext = ElevatorPlayerContext(fallbackImports,
+  [rollbackRider, rollbackBlocker], recordElevatorTriggerTouch)
+rollbackRuntime = ElevatorRuntime(rollbackWorld, rollbackContext, [], void,
+  ElevatorExport(rollbackEdicts, 94), emptyWeaponContext())
+elevatorTraceMode = 4; elevatorTraceCount = 0
+elevatorTriggerTouchCount = 0; elevatorTeamSecondNumber = 91
+rollbackCapture = elevatortestpusher.capture(rollbackRuntime)
+elevatortestworld.runFrame(rollbackWorld)
+elevatorAssert(elevatortestpusher.resolve(rollbackRuntime,
+    rollbackCapture) == 0 and
+  rollbackFirst.origin.x == 0.0 and rollbackSecond.origin.x == 20.0 and
+  rollbackRiderEdict.state.origin.x == 0.0 and
+  rollbackBlockerEdict.state.origin.x == 21.0 and
+  elevatorTriggerTouchCount == 0,
+  "later team blocker did not roll back the complete pusher transaction")
 
 print "gameplay_elevator_pusher_tests: PASS"

@@ -160,6 +160,7 @@ struct ClassicBrushModel
   modelIndex
   model
   draws
+  selectionScratch
 end struct
 
 // Store classic brush submission data.

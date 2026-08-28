@@ -128,6 +128,7 @@ struct PackArchive
   filename
   data
   files
+  lookup
 end struct
 
 // Store search path data.

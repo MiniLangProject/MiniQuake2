@@ -174,6 +174,25 @@ function testClassicDrawingHelpers()
   assertEqual(particleRecord[3], 123, "particle record alpha")
 end function
 
+// Verify the lightweight product RefDef guard used by a live GL context.
+function testProductRefDefPreparation()
+  frame = rt.defaultRefDef(640, 480)
+  frame.entities = [rt.emptyEntity()]
+  frame.numEntities = 0
+  assertEqual(ogl.prepareProductRefDef(frame), true,
+    "product RefDef accepted")
+  assertEqual(frame.numEntities, 1,
+    "effect-mutated entity count synchronized")
+  minimized = rt.defaultRefDef(0, 0)
+  assertEqual(ogl.prepareProductRefDef(minimized), false,
+    "minimized zero viewport skipped")
+  malformed = rt.defaultRefDef(640, 480)
+  malformed.lightStyles = []
+  assertEqual(typeof(try(ogl.prepareProductRefDef(malformed))), "error",
+    "malformed product light styles rejected precisely")
+end function
+
 testHeadlessLifecycle()
 testClassicDrawingHelpers()
-print("MiniQuake2 OpenGL adapter tests passed: 2")
+testProductRefDefPreparation()
+print("MiniQuake2 OpenGL adapter tests passed: 3")

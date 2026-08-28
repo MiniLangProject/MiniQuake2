@@ -116,6 +116,20 @@ struct ProductMenuSelection
   productConfig
 end struct
 
+// Store the process-wide read-only retail filesystem and decoded sound cache.
+// A product session visits many media and map states, but all of them address
+// the same immutable PAK data. Keeping one index avoids re-reading every PAK
+// and retains commonly shared WAV decodes across map and video transitions.
+struct ApplicationResourceCache
+  root
+  filesystem
+  soundNames
+  sounds
+  soundCount
+end struct
+
+const APPLICATION_SOUND_CACHE_CAPACITY = 512
+
 previewFileSystem = void
 playAssetState = void
 playAssetBindings = void
@@ -151,6 +165,40 @@ applicationLevelCapturePath = ""
 applicationLevelCaptureChecksum = 0
 applicationLevelCaptureError = void
 applicationPersistProductConfig = true
+applicationResourceCache = ApplicationResourceCache("", void,
+  array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
+  array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
+
+// Return the shared read-only filesystem for one retail data root.
+function applicationSharedFileSystem(baseDirectory)
+  if typeof(baseDirectory) != "string" or baseDirectory == "" then
+    return error(9912, "retail filesystem root is required")
+  end if
+  cache = applicationResourceCache
+  if cache.filesystem is not void and
+      apptext.equalInsensitive(cache.root, baseDirectory) then
+    return cache.filesystem
+  end if
+  cache.root = baseDirectory
+  cache.filesystem = appfs.initialize(baseDirectory, "")
+  cache.soundNames = array(APPLICATION_SOUND_CACHE_CAPACITY, "")
+  cache.sounds = array(APPLICATION_SOUND_CACHE_CAPACITY)
+  cache.soundCount = 0
+  return cache.filesystem
+end function
+
+// Reset decoded sounds when a direct tool path selects a different data root.
+function applicationSynchronizeSoundCache(filesystem)
+  cache = applicationResourceCache
+  if not apptext.equalInsensitive(cache.root, filesystem.baseDirectory) then
+    cache.root = filesystem.baseDirectory
+    cache.filesystem = filesystem
+    cache.soundNames = array(APPLICATION_SOUND_CACHE_CAPACITY, "")
+    cache.sounds = array(APPLICATION_SOUND_CACHE_CAPACITY)
+    cache.soundCount = 0
+  end if
+  return cache
+end function
 
 // Load preview file.
 function loadPreviewFile(path)
@@ -215,6 +263,8 @@ end function
 
 // Load play sound.
 function loadPlaySound(name)
+  // Normalize the virtual name, probe the root-scoped decode cache, then read,
+  // validate and publish a bounded cached WAV only on a miss.
   global previewFileSystem
   if previewFileSystem is void then return void end if
   if typeof(name) != "string" or name == "" then return void end if
@@ -224,10 +274,32 @@ function loadPlaySound(name)
   if not apptext.startsWith(applicationPlaySoundLowerHolder, "sound/") then
     applicationPlaySoundPathHolder = "sound/" + applicationPlaySoundPathHolder
   end if
+  applicationPlaySoundKeyHolder = apptext.lower(applicationPlaySoundPathHolder)
+  applicationPlaySoundCacheHolder = applicationSynchronizeSoundCache(
+    applicationPlaySoundFileSystemHolder)
+  applicationPlaySoundCacheIndexHolder = 0
+  while applicationPlaySoundCacheIndexHolder <
+      applicationPlaySoundCacheHolder.soundCount
+    if applicationPlaySoundCacheHolder.soundNames[
+        applicationPlaySoundCacheIndexHolder] == applicationPlaySoundKeyHolder then
+      return applicationPlaySoundCacheHolder.sounds[
+        applicationPlaySoundCacheIndexHolder]
+    end if
+    applicationPlaySoundCacheIndexHolder = applicationPlaySoundCacheIndexHolder + 1
+  end while
   applicationPlaySoundDataHolder = try(appfs.readFile(applicationPlaySoundFileSystemHolder, applicationPlaySoundPathHolder))
   if applicationPlaySoundDataHolder is error then return void end if
   applicationPlaySoundResultHolder = try(appwav.parse(applicationPlaySoundDataHolder, applicationPlaySoundPathHolder))
   if applicationPlaySoundResultHolder is error then return void end if
+  if applicationPlaySoundCacheHolder.soundCount <
+      APPLICATION_SOUND_CACHE_CAPACITY then
+    applicationPlaySoundCacheIndexHolder = applicationPlaySoundCacheHolder.soundCount
+    applicationPlaySoundCacheHolder.soundNames[
+      applicationPlaySoundCacheIndexHolder] = applicationPlaySoundKeyHolder
+    applicationPlaySoundCacheHolder.sounds[
+      applicationPlaySoundCacheIndexHolder] = applicationPlaySoundResultHolder
+    applicationPlaySoundCacheHolder.soundCount = applicationPlaySoundCacheHolder.soundCount + 1
+  end if
   return applicationPlaySoundResultHolder
 end function
 
@@ -544,7 +616,7 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping,
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9923, "cinematic frame limit outside [0,36000]") end if
   if typeof(looping) != "bool" then return error(9924, "cinematic looping flag must be boolean") end if
   if typeof(attractLoop) != "bool" then return error(9924, "cinematic attract flag must be boolean") end if
-  applicationCinematicFileSystemHolder = appfs.initialize(baseDirectory, "")
+  applicationCinematicFileSystemHolder = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = applicationCinematicFileSystemHolder
   appproducthost.showProductLoading(productHost, "loading " + name)
   applicationCinematicPathHolder = cinematicPath(name)
@@ -673,7 +745,7 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9927, "picture requires the Quake II install root") end if
   if typeof(frameLimit) != "int" or frameLimit < 0 or frameLimit > 36000 then return error(9928, "picture frame limit outside [0,36000]") end if
-  applicationPictureFileSystemHolder = appfs.initialize(baseDirectory, "")
+  applicationPictureFileSystemHolder = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = applicationPictureFileSystemHolder
   appproducthost.showProductLoading(productHost, "loading " + name)
   applicationPicturePathHolder = picturePath(name)
@@ -783,7 +855,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
   if typeof(attractLoop) != "bool" then
     return error(9950, "demo attract flag must be boolean")
   end if
-  applicationDemoFileSystemHolder = appfs.initialize(baseDirectory, "")
+  applicationDemoFileSystemHolder = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = applicationDemoFileSystemHolder
   appproducthost.showProductLoading(productHost, "loading " + name)
   applicationDemoFilePathHolder = demoPath(name)
@@ -1084,7 +1156,7 @@ function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
   // A preceding map deliberately clears its gameplay filesystem before it
   // returns. The shared loading screen still needs conchars before the next
   // media step establishes its own filesystem/registration phase.
-  previewFileSystem = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationSharedFileSystem(baseDirectory)
   applicationMediaCinematics = 0
   applicationMediaPictures = 0
   applicationMediaMaps = 0
@@ -1192,7 +1264,7 @@ function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
         applicationMediaNextIs3d = applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_MAP or
           applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_DM2
         if applicationMediaNextIs3d then
-          previewFileSystem = appfs.initialize(baseDirectory, "")
+          previewFileSystem = applicationSharedFileSystem(baseDirectory)
           appproducthost.resetProductRenderer(productHost,
             applicationRendererImports())
         end if
@@ -1206,7 +1278,7 @@ function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
         applicationMediaNextIs3d = applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_MAP or
           applicationMediaNextStepHolder.kind == appmediaseq.MEDIA_DM2
         if applicationMediaCurrentIs3d and applicationMediaNextIs3d then
-          previewFileSystem = appfs.initialize(baseDirectory, "")
+          previewFileSystem = applicationSharedFileSystem(baseDirectory)
           appproducthost.resetProductRenderer(productHost,
             applicationRendererImports())
         end if
@@ -1259,7 +1331,7 @@ end function
 function assetSmoke(baseDirectory, mapName)
   if baseDirectory == "" then return error(9910, "asset smoke requires the Quake II install root containing baseq2") end if
   if mapName == "" then mapName = "base1" end if
-  filesystem = appfs.initialize(baseDirectory, "")
+  filesystem = applicationSharedFileSystem(baseDirectory)
   path = mapPath(mapName)
   map = appbsp.parse(appfs.readFile(filesystem, path), path)
   collision = appcollision.create(map)
@@ -1337,7 +1409,7 @@ function runRetailMediaAudit(baseDirectory)
   if not appstartup.retailRootValid(baseDirectory) then
     return error(9953, "retail media audit requires a Quake II root")
   end if
-  applicationAuditFileSystem = appfs.initialize(baseDirectory, "")
+  applicationAuditFileSystem = applicationSharedFileSystem(baseDirectory)
   applicationAuditAttract = ""
   applicationAuditAttractIndex = 0
   while applicationAuditAttractIndex < appmediaseq.STOCK_ATTRACT_STEPS
@@ -1578,7 +1650,7 @@ function previewMap(baseDirectory, mapName, frameLimit)
   // Keep preview map phases explicit: validate inputs, update owned state, then publish the result.
   global previewFileSystem
   if frameLimit < 1 or frameLimit > 36000 then return error(9911, "preview frame limit outside [1,36000]") end if
-  filesystem = appfs.initialize(baseDirectory, "")
+  filesystem = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = filesystem
   path = mapPath(mapName)
   map = appbsp.parse(appfs.readFile(filesystem, path), path)
@@ -1648,17 +1720,17 @@ function previewMap(baseDirectory, mapName, frameLimit)
   return frames
 end function
 
-// Native product acceptance for the same host-restart path used by the live
+// Native product acceptance for the same mode-apply path used by the live
 // Video menu. The network/game session deliberately does not participate:
-// the gate isolates destruction, mode recreation and complete BSP resource
-// registration on the replacement Renderer API generation.
+// the gate isolates the Win32 mode change and verifies that the registered
+// BSP remains usable on the same renderer generation.
 function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
     targetVideoMode)
   global previewFileSystem
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9938, "video restart smoke requires the Quake II install root")
   end if
-  applicationVideoSmokeFileSystem = appfs.initialize(baseDirectory, "")
+  applicationVideoSmokeFileSystem = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = applicationVideoSmokeFileSystem
   applicationVideoSmokePath = mapPath(mapName)
   applicationVideoSmokeMap = appbsp.parse(appfs.readFile(
@@ -1690,14 +1762,19 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
   applicationVideoSmokeBefore = appgl.submitClassicWorld(applicationVideoSmokeRenderer,
     applicationVideoSmokeWorld, applicationVideoSmokeFrame)
   applicationVideoSmokeRenderer.exports.EndFrame()
-  appgl.releaseClassicWorld(applicationVideoSmokeRenderer, applicationVideoSmokeWorld)
+  applicationVideoSmokeRetainedAssets = appgl.classicRegistrationAssets(
+    applicationVideoSmokeRenderer)
+  applicationVideoSmokePreviousRendererGeneration = applicationVideoSmokeHost.rendererGeneration
 
   // Matching Win32 desktop metrics prove that supported exclusive modes use
   // ChangeDisplaySettingsW. Unsupported fixed menu modes must instead keep
   // the current desktop and create a safe borderless fullscreen host.
+  applicationVideoSmokeSwitchClock = appsystem.createClock()
   appproducthost.restartProductHost(applicationVideoSmokeHost,
     "MiniQuake2 Video Restart", targetVideoMode, true,
     applicationRendererImports())
+  applicationVideoSmokeSwitchMilliseconds = appbyteio.truncInt(
+    appsystem.milliseconds(applicationVideoSmokeSwitchClock))
   applicationVideoSmokeAppliedWidth = applicationVideoSmokeHost.window.width
   applicationVideoSmokeAppliedHeight = applicationVideoSmokeHost.window.height
   applicationVideoSmokeDesktopWidth = appnative.winDesktopWidth()
@@ -1710,7 +1787,13 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
         applicationVideoSmokeDesktopHeight != applicationVideoSmokeRequestedHeight then
       appproducthost.closeProductHost(applicationVideoSmokeHost)
       previewFileSystem = void
-      return error(9945, "exclusive fullscreen did not apply its Win32 display mode")
+      return error(9945, "exclusive fullscreen did not apply its Win32 display mode" +
+        " requested=" + applicationVideoSmokeRequestedWidth + "x" +
+          applicationVideoSmokeRequestedHeight +
+        " client=" + applicationVideoSmokeAppliedWidth + "x" +
+          applicationVideoSmokeAppliedHeight +
+        " desktop=" + applicationVideoSmokeDesktopWidth + "x" +
+          applicationVideoSmokeDesktopHeight)
     end if
   else
     if applicationVideoSmokeAppliedWidth != applicationVideoSmokeOriginalDesktopWidth or
@@ -1723,14 +1806,13 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
     end if
   end if
 
-  appproducthost.showProductLoading(applicationVideoSmokeHost, "loading " + mapName)
   applicationVideoSmokeRenderer = applicationVideoSmokeHost.renderer
-  applicationVideoSmokeRenderer.exports.BeginRegistration(applicationVideoSmokePath)
-  appgl.adoptClassicMapModel(applicationVideoSmokeRenderer,
-    applicationVideoSmokeMap, applicationVideoSmokePath)
-  applicationVideoSmokeWorld = appgl.prepareClassicWorld(applicationVideoSmokeRenderer,
-    applicationVideoSmokeMap, loadPreviewFile, apprtypes.defaultLightStyles(), 0, 1.0)
-  applicationVideoSmokeRenderer.exports.EndRegistration()
+  if applicationVideoSmokeHost.rendererGeneration !=
+      applicationVideoSmokePreviousRendererGeneration then
+    applicationVideoSmokeWorld = appgl.restoreClassicRegistration(
+      applicationVideoSmokeRenderer, applicationVideoSmokeWorld,
+      applicationVideoSmokeRetainedAssets)
+  end if
   applicationVideoSmokeFrame = apprtypes.defaultRefDef(
     applicationVideoSmokeHost.window.width, applicationVideoSmokeHost.window.height)
   applicationVideoSmokeRenderer.exports.BeginFrame(0.0)
@@ -1740,6 +1822,7 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
   applicationVideoSmokeRenderer.exports.EndFrame()
 
   applicationVideoSmokeGeneration = applicationVideoSmokeHost.generation
+  applicationVideoSmokeRendererGeneration = applicationVideoSmokeHost.rendererGeneration
   applicationVideoSmokeWidth = applicationVideoSmokeHost.window.width
   applicationVideoSmokeHeight = applicationVideoSmokeHost.window.height
   applicationVideoSmokeLoadingFrames = applicationVideoSmokeHost.loadingFrames
@@ -1750,11 +1833,23 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
   appproducthost.closeProductHost(applicationVideoSmokeHost)
   previewFileSystem = void
   if applicationVideoSmokeGeneration != 2 or
+      applicationVideoSmokeRendererGeneration !=
+        applicationVideoSmokePreviousRendererGeneration or
       applicationVideoSmokeWidth != applicationVideoSmokeAppliedWidth or
       applicationVideoSmokeHeight != applicationVideoSmokeAppliedHeight or
-      applicationVideoSmokeLoadingFrames != 2 or
+      applicationVideoSmokeLoadingFrames != 1 or
       not applicationVideoSmokeFullScreen then
-    return error(9939, "video restart host lifecycle mismatch")
+    return error(9939, "video restart host lifecycle mismatch" +
+      " generation=" + applicationVideoSmokeGeneration +
+      " renderer-generation=" + applicationVideoSmokeRendererGeneration +
+      " previous-renderer-generation=" +
+        applicationVideoSmokePreviousRendererGeneration +
+      " mode=" + applicationVideoSmokeWidth + "x" +
+        applicationVideoSmokeHeight +
+      " applied=" + applicationVideoSmokeAppliedWidth + "x" +
+        applicationVideoSmokeAppliedHeight +
+      " loading-frames=" + applicationVideoSmokeLoadingFrames +
+      " fullscreen=" + applicationVideoSmokeFullScreen)
   end if
   if applicationVideoSmokeBeforeVisible != applicationVideoSmokeAfterVisible then
     return error(9940, "video restart changed deterministic BSP visibility")
@@ -1763,7 +1858,9 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
     applicationVideoSmokeHeight, applicationVideoSmokeLoadingFrames,
     applicationVideoSmokeBeforeVisible, applicationVideoSmokeAfterVisible,
     applicationVideoSmokeFullScreen, applicationVideoSmokeFallback,
-    applicationVideoSmokeRequestedWidth, applicationVideoSmokeRequestedHeight]
+    applicationVideoSmokeRequestedWidth, applicationVideoSmokeRequestedHeight,
+    applicationVideoSmokeSwitchMilliseconds,
+    applicationVideoSmokeRendererGeneration]
 end function
 
 // Run retail video restart smoke.
@@ -1821,7 +1918,7 @@ end function
 function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     initialProfile)
   global previewFileSystem
-  previewFileSystem = appfs.initialize(baseDirectory, "")
+  previewFileSystem = applicationSharedFileSystem(baseDirectory)
   applicationProductWindow = productHost.window
   applicationProductRenderer = productHost.renderer
   applicationProductInput = appuikeys.createInputState()
@@ -2133,7 +2230,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   // phase boundaries. Restore the release horizon in case a prior persistent
   // session left the lower steady-state threshold active.
   gc_set_limit(1536 * 1024 * 1024)
-  filesystem = appfs.initialize(baseDirectory, "")
+  filesystem = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = filesystem
   appproducthost.showProductLoading(productHost, "loading " + mapName)
   applicationCurrentMapName = mapName
@@ -2695,8 +2792,12 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     end if
     if commandState.videoRestartRequested then
       commandState.videoRestartRequested = false
-      appgl.releaseClassicWorld(renderer, world)
-      world = void
+      // The common mode-change path keeps the native OpenGL context as well as
+      // the game session and level. Retain the immutable CPU registration graph
+      // for the uncommon destroy/recreate fallback; even there, only GPU names
+      // and uploads need rebuilding, never the BSP, model, sound or client data.
+      applicationVideoRetainedAssets = appgl.classicRegistrationAssets(renderer)
+      applicationVideoPreviousRendererGeneration = productHost.rendererGeneration
       applicationVideoRestartResult = try(appproducthost.restartProductHost(productHost,
         "MiniQuake2 - " + applicationCurrentMapName, commandState.videoMode,
         commandState.fullScreen, applicationRendererImports()))
@@ -2721,22 +2822,22 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       window = productHost.window
       renderer = productHost.renderer
       appgl.setHandedness(renderer, input.config.hand)
-      appproducthost.showProductLoading(productHost,
-        "loading " + applicationCurrentMapName)
-      renderer.exports.BeginRegistration(path)
-      appgl.adoptClassicMapModel(renderer, map, path)
-      world = appgl.prepareClassicWorld(renderer, map, loadPreviewFile,
-        apprtypes.defaultLightStyles(), 0, 1.0)
-      assetState = appclientassets.createForRenderer(renderer.exports,
-        loadPlaySound, noteMissingPlayAsset)
-      playAssetState = assetState
-      appclientassets.registerConfigStrings(assetState,
-        session.client.integrated.network.configStrings, applicationCurrentMapName)
-      playAssetBindings = appclientassets.bindings(assetState)
-      renderer.exports.EndRegistration()
+      if productHost.rendererGeneration !=
+          applicationVideoPreviousRendererGeneration then
+        applicationVideoRegistrationRestore = try(appgl.restoreClassicRegistration(
+          renderer, world, applicationVideoRetainedAssets))
+        if applicationVideoRegistrationRestore is error then
+          appuiconsole.appendLine(screen.console,
+            "Video resource restore failed: " +
+              applicationVideoRegistrationRestore.message,
+            appbyteio.truncInt(started))
+          commandState.quitRequested = true
+          continue
+        end if
+      end if
       appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
       appuiconsole.appendLine(screen.console,
-        "Video restarted: " + window.width + "x" + window.height,
+        "Video mode applied: " + window.width + "x" + window.height,
         appbyteio.truncInt(started))
     end if
     networkMsec = started - networkTime
@@ -3116,13 +3217,11 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       applicationHeapMaximum = applicationHeapNow
     end if
     applicationHeapLast = applicationHeapNow
-    // Win32 Sleep(1..7) can round up to a full scheduler tick when no
-    // high-resolution timer period is active. A single Sleep(0), however,
-    // left the loop effectively uncapped and filled the compositor swapchain,
-    // producing a large block every few hundred frames. Yield repeatedly
-    // against the QPC-backed clock for a stable 125-Hz render cadence without
-    // coarse-timer oversleep; the 10-Hz game/network cadence remains separate.
-    applicationFrameDeadline = started + 8.0
+    // The 10-Hz game/network cadence is independent from presentation. Keep a
+    // modern 250-Hz ceiling so fast GPUs are no longer artificially limited to
+    // 125 FPS, while repeated Sleep(0) yields still prevent an unbounded DWM
+    // swap queue and avoid coarse Win32 timer oversleep.
+    applicationFrameDeadline = started + 4.0
     while appsystem.milliseconds(clock) < applicationFrameDeadline
       appsystem.sleep(0)
     end while
@@ -3381,7 +3480,15 @@ function runChangeLevelSmoke(baseDirectory, mapName, nextMap, frameLimit)
           appgameplayconstants.FL_POWER_ARMOR)) !=
         (appgameplayconstants.FL_GODMODE | appgameplayconstants.FL_NOTARGET |
           appgameplayconstants.FL_POWER_ARMOR) then
-    return error(9937, "retail successor lost inventory, weapon or flag state")
+    return error(9937, "retail successor lost inventory, weapon or flag state" +
+      " rocket=" + applicationChangeLevelHandover.inventoryCounts[
+        applicationChangeLevelRocket.index] +
+      " rockets=" + applicationChangeLevelHandover.inventoryCounts[
+        applicationChangeLevelRockets.index] +
+      " selected=" + applicationChangeLevelHandover.selectedItem +
+      " current=" + applicationChangeLevelHandover.currentWeaponIndex +
+      " last=" + applicationChangeLevelHandover.lastWeaponIndex +
+      " flags=" + applicationChangeLevelHandover.savedFlags)
   end if
   return [mapName, nextMap, applicationChangeLevelSmokeResult[0],
     applicationChangeLevelSmokeResult[2],
@@ -3519,7 +3626,7 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
   global applicationRemoteRegistrationMapPath
   global applicationRemoteRegistrationAssets
   applicationRemoteEndpoint = appstartup.parseEndpoint(endpoint)
-  applicationRemoteFileSystem = appfs.initialize(baseDirectory, "")
+  applicationRemoteFileSystem = applicationSharedFileSystem(baseDirectory)
   previewFileSystem = applicationRemoteFileSystem
   applicationRemoteUserInfo = appstartup.playerUserInfo(playerProfile)
   applicationRemoteSession = appclientsession.create(

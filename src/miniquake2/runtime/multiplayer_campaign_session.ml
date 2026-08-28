@@ -52,8 +52,9 @@ function advanceCore(session, targetMap, entityText, collision, maximumSteps)
     return error(8490, "multiplayer campaign step limit must be positive")
   end if
   mpcampaignCorePrepared = prepareAdvance(session, targetMap)
-  mpcampaignCoreChanged = mpcampaignsession.changeMapCore(session, targetMap,
-    entityText, collision, maximumSteps)
+  mpcampaignCoreChanged = mpcampaignsession.changeMapCore(session,
+    mpcampaignCorePrepared[1].selectedMapSpec, entityText, collision,
+    maximumSteps)
   if not mpcampaignCoreChanged.changed then
     return error(8491, "multiplayer core campaign change did not commit")
   end if
@@ -72,7 +73,7 @@ function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
   end if
   mpcampaignRetailPrepared = prepareAdvance(session, targetMap)
   mpcampaignRetailChanged = mpcampaignsession.changeMapRetail(session,
-    baseDirectory, targetMap, maximumSteps)
+    baseDirectory, mpcampaignRetailPrepared[1].selectedMapSpec, maximumSteps)
   if not mpcampaignRetailChanged.changed then
     return error(8493, "multiplayer retail campaign change did not commit")
   end if

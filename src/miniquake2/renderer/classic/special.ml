@@ -60,7 +60,7 @@ function classicSpecialTextureCoordinates(draw, vertex, time)
 end function
 
 // Return the classic special base texture value.
-function classicSpecialBaseTexture(draw, time)
+function inline classicSpecialBaseTexture(draw, time)
   if len(draw.baseTextures) == 0 then return draw.baseTexture end if
   frame = rspecialbyteio.truncInt(time * 2.0)
   index = frame % len(draw.baseTextures)
@@ -253,17 +253,20 @@ function classicSpecialSortTransparent(draws, origin)
 end function
 
 // Return the classic special pass plan origin.
-function classicSpecialPassPlanOrigin(draws, viewOrigin)
+function classicSpecialPassPlanOriginPrefix(draws, drawCount, viewOrigin)
   opaqueCount = 0; warpCount = 0; skyCount = 0; transparentCount = 0
-  for each draw in draws
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
     category = draw.surface.category
     if category == rclassicconstants.MATERIAL_OPAQUE then opaqueCount = opaqueCount + 1
     else if category == rclassicconstants.MATERIAL_WARP then warpCount = warpCount + 1
     else if category == rclassicconstants.MATERIAL_SKY then skyCount = skyCount + 1
     else if category == rclassicconstants.MATERIAL_TRANSPARENT then transparentCount = transparentCount + 1
     end if
-  end for
-  if opaqueCount == len(draws) then
+    drawIndex = drawIndex + 1
+  end while
+  if opaqueCount == drawCount and drawCount == len(draws) then
     return rclassictypes.ClassicSpecialPassPlan(draws, [], [], [])
   end if
   // Count first and allocate the exact pass sizes. The old one-pass builder
@@ -272,7 +275,9 @@ function classicSpecialPassPlanOrigin(draws, viewOrigin)
   opaque = array(opaqueCount); warp = array(warpCount)
   sky = array(skyCount); transparent = array(transparentCount)
   opaqueIndex = 0; warpIndex = 0; skyIndex = 0; transparentIndex = 0
-  for each draw in draws
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
     category = draw.surface.category
     if category == rclassicconstants.MATERIAL_OPAQUE then
       opaque[opaqueIndex] = draw; opaqueIndex = opaqueIndex + 1
@@ -284,11 +289,17 @@ function classicSpecialPassPlanOrigin(draws, viewOrigin)
       transparent[transparentIndex] = draw
       transparentIndex = transparentIndex + 1
     end if
-  end for
+    drawIndex = drawIndex + 1
+  end while
   transparentDraws = classicSpecialSortTransparent(transparent, viewOrigin)
   return rclassictypes.ClassicSpecialPassPlan(
     opaque, warp, sky, transparentDraws
   )
+end function
+
+// Return the classic special pass plan origin.
+function classicSpecialPassPlanOrigin(draws, viewOrigin)
+  return classicSpecialPassPlanOriginPrefix(draws, len(draws), viewOrigin)
 end function
 
 // Return the classic special pass plan value.

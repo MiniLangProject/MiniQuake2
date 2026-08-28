@@ -154,6 +154,15 @@ end function
 function playerBodyInto(snapshot, player)
   playerEdict = player.edict
   playerState = playerEdict.state
+  if player.groundEntity is not void then
+    playerGroundLinkProbe = try(player.groundEntity.linkCount)
+    if playerGroundLinkProbe is error or
+        typeof(playerGroundLinkProbe) != "int" or
+        playerGroundLinkProbe != player.groundLinkCount then
+      player.groundEntity = void
+      player.groundLinkCount = 0
+    end if
+  end if
   groundNumber = bodyGroundNumber(player.groundEntity)
   return bodySnapshotInto(snapshot, "player", player, playerEdict,
     playerState.number, playerState.origin, playerState.angles,
@@ -615,6 +624,30 @@ function finishTeamThinks(runtime, team, blocked)
   return true
 end function
 
+// Run trigger passes only after the complete pusher team commits.
+// g_phys.c defers G_TouchTriggers until SV_Push succeeds, so a rolled-back
+// rider must never activate a trigger at its temporary carried position.
+function touchCommittedBodies(runtime, bodies, movedBodies)
+  touched = 0
+  bodyTouchProbe = try(runtime.pusherTriggerTouch)
+  index = 0
+  while index < len(bodies)
+    body = bodies[index]
+    if movedBodies[index] and typeof(bodyTouchProbe) == "function" then
+      bodyTouchCallback = bodyTouchProbe
+      touched = touched + bodyTouchCallback(runtime, body.kind, body.value)
+    else if movedBodies[index] and body.kind == "player" and
+        runtime.playerContext is not void and
+        runtime.playerContext.touchTriggers is not void then
+      touchTriggersCallback = runtime.playerContext.touchTriggers
+      touchTriggersCallback(body.value)
+      touched = touched + 1
+    end if
+    index = index + 1
+  end while
+  return touched
+end function
+
 // Resolve team.
 function resolveTeam(runtime, captureState, masterNumber)
   teamCount = 0
@@ -638,66 +671,62 @@ function resolveTeam(runtime, captureState, masterNumber)
     return false
   end if
 
-  // g_phys.c::SV_Push publishes every moving team part before it tests riders.
-  // Body traces must see the final inline hull, and a successful transaction
-  // must leave the server's spatial cache at that same transform.
-  for each movedSnapshot in team
-    if moved(movedSnapshot) then publishPusherMove(runtime, movedSnapshot) end if
-  end for
-
   blocker = void
   blockedPusher = void
-  for each body in captureState.bodies
-    if teamHas(team, body.number) == false then
-      rider = void
-      for each pusherSnapshot in team
-        if pusherCanContactBodies(pusherSnapshot.entity) and
-            standingOn(body, pusherSnapshot) then
-          rider = pusherSnapshot
-          break
-        end if
-      end for
-      if rider is not void then
-        destination = carryOrigin(body, rider)
-        destinationAngles = pushCopy(body.angles)
-        if bodyPositionBlocked(runtime, body, destination) then
-          destination = translatedFallback(destination, rider)
-          if bodyPositionBlocked(runtime, body, destination) then blocker = body; blockedPusher = rider.entity end if
-        end if
-        if blocker is void then
-          setBody(body, destination, destinationAngles)
-          addPlayerDeltaYaw(body, rider.entity.angles.y - rider.angles.y)
-          linkBody(runtime, body)
-        end if
-      end if
-      if blocker is void then
-        liveBodyOrigin = currentOrigin(body)
-        liveBodyAngles = currentAngles(body)
-        bodyBox = bodyBoundsAt(body, liveBodyOrigin, liveBodyAngles)
-        for each pusherSnapshot in team
-          pusherBox = void
-          if pusherCanContactBodies(pusherSnapshot.entity) then
+  movedBodies = array(len(captureState.bodies), false)
+  // SV_Physics_Pusher calls SV_Push for each team-chain part in order.  Each
+  // part is linked and tested before the next part moves, while pushed[] keeps
+  // one transaction for the complete team.  In particular, traces for the
+  // first part must still see every later part at its old linked transform.
+  for each pusherSnapshot in team
+    if moved(pusherSnapshot) then
+      publishPusherMove(runtime, pusherSnapshot)
+      bodyIndex = 0
+      for each body in captureState.bodies
+        if teamHas(team, body.number) == false then
+          rider = pusherCanContactBodies(pusherSnapshot.entity) and
+            standingOn(body, pusherSnapshot)
+          if rider then
+            destination = carryOrigin(body, pusherSnapshot)
+            destinationAngles = pushCopy(body.angles)
+            if bodyPositionBlocked(runtime, body, destination) then
+              destination = translatedFallback(destination, pusherSnapshot)
+              if bodyPositionBlocked(runtime, body, destination) then
+                blocker = body; blockedPusher = pusherSnapshot.entity
+              end if
+            end if
+            if blocker is void then
+              setBody(body, destination, destinationAngles)
+              addPlayerDeltaYaw(body, pusherSnapshot.entity.angles.y -
+                pusherSnapshot.angles.y)
+              linkBody(runtime, body)
+              movedBodies[bodyIndex] = true
+            end if
+          else if pusherCanContactBodies(pusherSnapshot.entity) then
+            liveBodyOrigin = currentOrigin(body)
+            liveBodyAngles = currentAngles(body)
+            bodyBox = bodyBoundsAt(body, liveBodyOrigin, liveBodyAngles)
             pusherBox = rotatedBounds(pusherSnapshot.entity.origin,
               pusherSnapshot.entity.angles, pusherSnapshot.entity.mins,
               pusherSnapshot.entity.maxs)
-          end if
-          if pusherBox is not void and strictOverlap(bodyBox, pusherBox) then
-            if bodyIntersectsFinalPusher(runtime, body) == false then
-              continue
-            else if pushBody(runtime, body, pusherSnapshot) then
-              liveBodyOrigin = currentOrigin(body)
-              liveBodyAngles = currentAngles(body)
-              bodyBox = bodyBoundsAt(body, liveBodyOrigin, liveBodyAngles)
-            else
-              blocker = body; blockedPusher = pusherSnapshot.entity; break
+            if strictOverlap(bodyBox, pusherBox) and
+                bodyIntersectsFinalPusher(runtime, body) then
+              if pushBody(runtime, body, pusherSnapshot) then
+                movedBodies[bodyIndex] = true
+              else
+                blocker = body; blockedPusher = pusherSnapshot.entity
+              end if
             end if
           end if
-        end for
-      end if
+        end if
+        if blocker is not void then break end if
+        bodyIndex = bodyIndex + 1
+      end for
     end if
     if blocker is not void then break end if
   end for
   if blocker is void then
+    touchCommittedBodies(runtime, captureState.bodies, movedBodies)
     finishTeamThinks(runtime, team, false)
     return true
   end if

@@ -86,10 +86,14 @@ assertEqual(frame.numParticles, 8, "particle handoff")
 assertEqual(frame.numEntities, 3, "beam laser explosion entities")
 assertEqual(frame.entities[0].flags & rc.RF_BEAM, 0,
   "model cable uses MD2 segments rather than RF_BEAM geometry")
-assertEqual(frame.entities[2].frame, 2, "classic explosion current frame")
-assertEqual(frame.entities[2].oldFrame, 1, "classic explosion previous frame")
-assertEqual(frame.entities[2].alpha, 0.9375, "classic polygon explosion fade")
-assertEqual(frame.dLights[1].intensity, 140.625, "explosion light follows alpha")
+assertEqual(frame.entities[2].frame, 1,
+  "classic explosion begins with its first interpolated frame")
+assertEqual(frame.entities[2].oldFrame, 0,
+  "classic explosion does not skip its initial frame")
+assertEqual(frame.entities[2].alpha, 1.0,
+  "classic polygon explosion begins fully opaque")
+assertEqual(frame.dLights[1].intensity, 150.0,
+  "initial explosion light follows full alpha")
 assertTrue(rvalidation.validateRefDef(frame).valid, "renderer validates effect RefDef")
 
 longBeamState = cestate.createSilent(7)

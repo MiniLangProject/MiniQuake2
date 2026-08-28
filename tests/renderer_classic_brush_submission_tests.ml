@@ -8,6 +8,7 @@ import miniquake2.format.types as rbrushtestformattypes
 import miniquake2.qcommon.types as rbrushtestqtypes
 import miniquake2.renderer.constants as rbrushtestrendererconstants
 import miniquake2.renderer.types as rbrushtestrenderertypes
+import miniquake2.renderer.assets as rbrushtestassets
 import miniquake2.renderer.opengl as rbrushtestopengl
 import miniquake2.renderer.classic.visibility as rbrushtestvisibility
 import miniquake2.renderer.classic.special as rbrushtestspecial
@@ -189,6 +190,8 @@ function testProductShapedInlineBrushSubmission()
 
   assertEqual(inlineHandle.id, repeated.id, "product RegisterModel inline cache")
   assertEqual(worldHandle.generation, inlineHandle.generation, "shared registration generation")
+  assertEqual(rbrushtestassets.findModelByHandle(renderer.state.assets,
+    inlineHandle).modelIndex, 1, "inline model index parsed once at registration")
   assertEqual(len(world.brushModels), 1, "prepared inline model table")
   assertEqual(len(world.brushModels[0].draws), 4, "inline face range only")
   assertEqual(len(world.textures), 8,

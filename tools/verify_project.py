@@ -29,6 +29,9 @@ EXCLUDED_DIR_NAMES = {
     "build",
     "build_debug",
 }
+EXCLUDED_ROOT_FILES = {
+    "miniquake2-crash.log",
+}
 FORBIDDEN_BUILD_SUFFIXES = {
     ".bsp",
     ".cin",
@@ -81,6 +84,8 @@ def sha256(path: Path) -> str:
 
 def is_excluded(rel: Path) -> bool:
     """Return whether *rel* belongs to generated or reference material."""
+    if len(rel.parts) == 1 and rel.as_posix() in EXCLUDED_ROOT_FILES:
+        return True
     if rel.parts and rel.parts[0] == REFERENCE_TREE:
         return True
     return any(part in EXCLUDED_DIR_NAMES for part in rel.parts)

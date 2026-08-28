@@ -68,7 +68,8 @@ end function
 function advanceCore(session, targetMap, entityText, collision, maximumSteps)
   if maximumSteps < 1 then return error(8477, "campaign maximum steps must be positive") end if
   campaignCorePrepared = campaignPrepareAdvance(session, targetMap)
-  campaignCommitCore(session, targetMap, entityText, collision, maximumSteps)
+  campaignCommitCore(session, campaignCorePrepared[1].selectedMapSpec,
+    entityText, collision, maximumSteps)
   campaignplay.runUntilActive(session, maximumSteps)
   return CampaignAdvanceResult(true, campaignCorePrepared[0], targetMap,
     campaignCorePrepared[1], session.server.networkRuntime.spawnCount, session.steps)
@@ -79,7 +80,8 @@ function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
   if maximumSteps < 1 then return error(8477, "campaign maximum steps must be positive") end if
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(8478, "campaign retail root is required") end if
   campaignRetailPrepared = campaignPrepareAdvance(session, targetMap)
-  campaignCommitRetail(session, baseDirectory, targetMap, maximumSteps)
+  campaignCommitRetail(session, baseDirectory,
+    campaignRetailPrepared[1].selectedMapSpec, maximumSteps)
   campaignplay.runUntilActive(session, maximumSteps)
   return CampaignAdvanceResult(true, campaignRetailPrepared[0], targetMap,
     campaignRetailPrepared[1], session.server.networkRuntime.spawnCount, session.steps)

@@ -177,11 +177,28 @@ function testWeaponStateMachine(registry)
   end while
   assertEqual(player.weaponState, gpconstants.WEAPON_READY, "firing to ready")
 
+  // A stock weapon callback may run on an advertised fire frame after its
+  // ammo was consumed by an earlier frame.  This is a normal no-shot result,
+  // not a state-machine contract failure.
+  player.inventory.counts[machinegun.index] = 1
+  player.inventory.counts[bullets.index] = 0
+  player.currentWeapon = machinegun
+  player.ammoIndex = bullets.index
+  player.newWeapon = void
+  player.weaponState = gpconstants.WEAPON_FIRING
+  player.gunFrame = 4
+  exhausted = machinegun.weaponThink(player, machinegun, registry, 0)
+  assertEqual(exhausted.fired, false, "exhausted fire callback result")
+  assertTrue(exhausted.noAmmo, "exhausted fire callback no-ammo state")
+  assertEqual(player.gunFrame, 5, "exhausted fire callback frame progress")
+  assertEqual(player.newWeapon.index, blaster.index, "exhausted fire callback fallback")
+
   player.inventory.counts[shotgun.index] = 1
   player.inventory.counts[shells.index] = 0
   player.inventory.counts[machinegun.index] = 1
   player.inventory.counts[bullets.index] = 10
   player.currentWeapon = shotgun
+  player.newWeapon = void
   player.weaponState = gpconstants.WEAPON_READY
   player.gunFrame = 19
   player.buttons = gameconstants.BUTTON_ATTACK

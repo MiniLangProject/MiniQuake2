@@ -28,6 +28,7 @@ extern function winPoll() from "miniquake_native.dll" symbol "mq_win_poll" retur
 extern function winSwap() from "miniquake_native.dll" symbol "mq_win_swap" returns void
 extern function winClientWidth() from "miniquake_native.dll" symbol "mq_win_client_width" returns i32
 extern function winClientHeight() from "miniquake_native.dll" symbol "mq_win_client_height" returns i32
+extern function winResizeClient(width as i32, height as i32) from "miniquake_native.dll" symbol "mq_win_resize_client" returns i32
 extern function winDesktopWidth() from "miniquake_native.dll" symbol "mq_win_desktop_width" returns i32
 extern function winDesktopHeight() from "miniquake_native.dll" symbol "mq_win_desktop_height" returns i32
 extern function winHasFocus() from "miniquake_native.dll" symbol "mq_win_has_focus" returns i32

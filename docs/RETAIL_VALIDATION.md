@@ -538,14 +538,16 @@ The original `SV_Map` grammar is additionally exercised with the installed
 `eou1_.cin+*bunk1$start` and `end.cin+victory.pcx` chains. CIN, terminal PCX
 and named map spawn all pass through one product-owned window/renderer
 lifecycle; `end.cin+victory.pcx` reports generation 1 and two loading frames.
-The native `--video-restart-smoke` replaces a 640x480 windowed renderer with a
-1920x1080 exclusive fullscreen window, verifies matching Win32 desktop metrics,
-re-registers `base1`, and produces the same visible surfaces before and after
-the renderer change. Its optional mode argument additionally proves that a
-3840x2160 request on the current 2560x1440 output uses desktop fullscreen
-without exiting, preserves all 68 visible surfaces, and restores the desktop
-on shutdown. A focused lifecycle regression injects a failed replacement
-window and verifies reconstruction of the last known-good renderer; see
+The native `--video-restart-smoke` changes a 640x480 windowed host to
+1920x1080 exclusive fullscreen in place, verifies matching Win32 desktop
+metrics and produces the same 68 visible `base1` surfaces on renderer
+generation 1 before and after Apply. It emits only the initial loading frame;
+there is no second BSP parse or resource-registration phase. Its optional mode
+argument additionally proves that a 3840x2160 request on the current
+2560x1440 output uses desktop fullscreen without exiting, preserves all 68
+visible surfaces and restores the desktop on shutdown. A focused lifecycle
+regression injects a failed in-place change and failed replacement window,
+then verifies reconstruction of the last known-good renderer; see
 [`MEDIA_SEQUENCE_ACCEPTANCE.md`](MEDIA_SEQUENCE_ACCEPTANCE.md).
 
 The combined one-command host gate, hardware inventory, native audio result and
@@ -678,8 +680,8 @@ command buffer and a clean process exit. Additional retail results:
 - 39 consecutive Protocol-34 retail map sessions without a masked sign-on
   error;
 - 600-frame bounded menu smoke, normal stock-attract startup gate and 1920x1080
-  fullscreen video restart with identical 68-surface visibility before/after
-  restart;
+  live fullscreen Apply with identical 68-surface visibility before/after and
+  no renderer-generation change;
 - 600 real movement/weapon snapshots, 1,342 packets and zero rejects;
 - live Blaster chain with nine projectiles linked/freed and visibility at
   server export, snapshot, renderer and particle stages (1,183 particles max).

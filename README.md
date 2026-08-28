@@ -101,6 +101,11 @@ Start a map directly when required:
 
 The final `0` keeps the interactive session open until the window is closed.
 
+Unhandled runtime errors leave fullscreen and mouse capture before opening a
+topmost crash dialog. The complete report is copied to the Windows clipboard
+and written to `miniquake2-crash.log`; if the clipboard is temporarily busy,
+focus the dialog and press `Ctrl+C` to copy its contents.
+
 ## Building
 
 Requirements:

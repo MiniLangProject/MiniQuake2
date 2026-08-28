@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 package miniquake2.game.player.userinfo
 
 import miniquake2.game.gameplay.item_rules as gprules
+import miniquake2.game.player.effects as gplayerinfoeffects
 import miniquake2.game.player.types as gplayertypes
 import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.qcommon.constants as qconstants
@@ -112,6 +113,10 @@ end function
 function ClientDisconnect(context, player)
   if player.persistent.connected != true then return false end if
   context.messages = context.messages + [player.persistent.netName + " disconnected"]
+  // p_client.c sends the logout flash while the edict still has its final
+  // origin and remains linked/visible to the multicast builder.
+  gplayerinfoeffects.EmitConnectionEffect(context, player,
+    miniquake2.game.constants.MZ_LOGOUT)
   context.imports.unlinkEntity(player.edict)
   player.edict.state.modelIndex = 0
   player.edict.solid = miniquake2.game.constants.SOLID_NOT

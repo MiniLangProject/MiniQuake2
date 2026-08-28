@@ -121,7 +121,8 @@ runtime.randomState.seed = 305419896
 item = runtime.items[0]; item.hidden = true; item.nextThink = 12.5; item.count = 9
 player = context.players[0]; player.health = 73; player.maxHealth = 125; player.gameplay.inventory.counts[2] = 17
 player.powerups.quadFrame = 321; player.persistent.score = 6
-player.gravity = 0.5; player.flySoundDebounceTime = 6.25
+player.gravity = 0.5; player.powerArmorTime = 4.75
+player.flySoundDebounceTime = 6.25
 player.gameplay.inventory.maxBullets = 300
 player.gameplay.inventory.maxShells = 200
 player.gameplay.inventory.maxRockets = 100
@@ -251,8 +252,9 @@ restoreAssert(restoredDroppedItem is not void and
 restoredPlayer = restoredContext.players[0]
 restoreAssert(restoredPlayer.health == 73 and restoredPlayer.maxHealth == 125, "player health restored")
 restoreAssert(restoredPlayer.gravity == 0.5 and
+  restoredPlayer.powerArmorTime == 4.75 and
   restoredPlayer.flySoundDebounceTime == 6.25,
-  "private v16 restores player gravity/push debounce")
+  "private v20 restores player gravity/power-armor/push timing")
 restoreAssert(restoredPlayer.gameplay.inventory.counts[2] == 17 and restoredPlayer.powerups.quadFrame == 321 and restoredPlayer.persistent.score == 6, "inventory/powerup/score restored")
 restoreAssert(restoredPlayer.gameplay.inventory.maxBullets == 300 and
   restoredPlayer.gameplay.inventory.maxShells == 200 and

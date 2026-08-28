@@ -153,6 +153,7 @@ struct PlayerData
   floodWhenHead
   floodLockTill
   gravity
+  powerArmorTime
   flySoundDebounceTime
 end struct
 
@@ -195,6 +196,7 @@ struct PlayerContext
   messages
   viewSettings
   damagePlayer
+  playerNoise
 end struct
 
 // Store connect result data.
@@ -290,7 +292,7 @@ function createPlayer(number, registry)
     gplayerconstants.DAMAGE_AIM, 22.0, 0, 0, void, 0,
     0, 0, 0, false, 0.0, 0.0, void, 0,
     false, false, false, 0.0, powerups, 0, 0, "", view, void,
-    array(10, 0.0), 0, 0.0, 1.0, 0.0
+    array(10, 0.0), 0, 0.0, 1.0, 0.0, 0.0
   )
 end function
 
@@ -301,7 +303,8 @@ function createContext(imports, registry, pmoveTrace)
     0.0, 0, 0, gplayerconstants.DEFAULT_GRAVITY, 0.0, false, "",
     "", "", 4, 0, 0.0, "", "", "",
     void, void, pmoveTrace, imports.pointContents, imports.pmove,
-    void, void, void, void, void, void, void, [], defaultViewSettings(), void
+    void, void, void, void, void, void, void, [], defaultViewSettings(), void,
+    void
   )
 end function
 

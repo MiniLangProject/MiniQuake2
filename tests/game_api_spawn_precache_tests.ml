@@ -197,7 +197,17 @@ assertEqual(runtime.monsters[6].edict.state.sound, boss2Loop,
 
 client = sppgameapi.edictAt(1)
 assertTrue(api.clientConnect(client, "\\name\\Ranger\\skin\\male/grunt"), "client connect")
+loginMulticastCount = len(server.pendingMulticasts)
 assertTrue(api.clientBegin(client), "client begin")
+assertEqual(len(server.pendingMulticasts), loginMulticastCount + 1,
+  "multiplayer begin login multicast count")
+loginWire = server.pendingMulticasts[loginMulticastCount]
+assertTrue(loginWire.destination == sppgameconstants.MULTICAST_PVS and
+  len(loginWire.payload) == 4 and
+  loginWire.payload[0] == sppqconstants.SVC_MUZZLEFLASH and
+  loginWire.payload[1] == 1 and loginWire.payload[2] == 0 and
+  loginWire.payload[3] == sppgameconstants.MZ_LOGIN,
+  "multiplayer begin MZ_LOGIN framing")
 api.runFrame()
 player = sppgameapi.playerContext().players[0]
 assertTrue(player.edict.state.modelIndex > 0, "player entity model index")
@@ -563,6 +573,16 @@ assertTrue(not runtime.edictUseHistory[sharedItemSlot] and
   runtime.edictFreeTimes[sharedItemSlot] == 201.0,
   "shared item free transition records allocator time")
 
+logoutMulticastCount = len(server.pendingMulticasts)
 api.clientDisconnect(client)
+assertEqual(len(server.pendingMulticasts), logoutMulticastCount + 1,
+  "disconnect logout multicast count")
+logoutWire = server.pendingMulticasts[logoutMulticastCount]
+assertTrue(logoutWire.destination == sppgameconstants.MULTICAST_PVS and
+  len(logoutWire.payload) == 4 and
+  logoutWire.payload[0] == sppqconstants.SVC_MUZZLEFLASH and
+  logoutWire.payload[1] == 1 and logoutWire.payload[2] == 0 and
+  logoutWire.payload[3] == sppgameconstants.MZ_LOGOUT,
+  "disconnect MZ_LOGOUT framing")
 api.shutdown()
 print "MiniQuake2 Game API spawn precache tests passed: 2"

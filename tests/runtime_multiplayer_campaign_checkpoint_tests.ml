@@ -20,7 +20,11 @@ end function
 function mpcpEntities(nextMap, origin)
   return "{\"classname\" \"worldspawn\"}" +
     "{\"classname\" \"info_player_start\" \"origin\" \"" + origin + "\"}" +
+    "{\"classname\" \"info_player_start\" \"targetname\" \"start\" " +
+      "\"origin\" \"" + origin + "\"}" +
     "{\"classname\" \"info_player_coop\" \"origin\" \"64 0 0\"}" +
+    "{\"classname\" \"info_player_coop\" \"targetname\" \"start\" " +
+      "\"origin\" \"96 0 0\"}" +
     "{\"classname\" \"trigger_once\" \"target\" \"exit_goal\"}" +
     "{\"classname\" \"target_changelevel\" \"targetname\" \"exit_goal\" \"map\" \"" +
       nextMap + "$start\"}"

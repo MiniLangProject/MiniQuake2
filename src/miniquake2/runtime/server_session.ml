@@ -77,6 +77,49 @@ end struct
 serverSessionFatPvsLeafScratch = array(64, 0)
 serverSessionClientPacketEntityScratch = array(ssnc.MAX_PACKET_ENTITIES, void)
 
+// Split a classic level specification into the BSP map and optional named
+// spawn point.  A preceding cinematic/picture segment and the unit marker are
+// server-side metadata; the persistent game session loads the final BSP.
+function mapChangeComponents(specification)
+  if typeof(specification) != "string" or specification == "" then
+    return error(9986, "map transition specification is empty")
+  end if
+  // Resolve the final +chain entry first, strip the unit-reset marker, then
+  // split its optional $spawnpoint suffix under the protocol path limits.
+  start = 0
+  scan = 0
+  while scan < len(specification)
+    if specification[scan] == "+" then start = scan + 1 end if
+    scan = scan + 1
+  end while
+  if start < len(specification) and specification[start] == "*" then
+    start = start + 1
+  end if
+  separator = len(specification)
+  scan = start
+  while scan < len(specification)
+    if specification[scan] == "$" then separator = scan; break end if
+    scan = scan + 1
+  end while
+  mapName = ""
+  scan = start
+  while scan < separator
+    mapName = mapName + specification[scan]
+    scan = scan + 1
+  end while
+  spawnPoint = ""
+  scan = separator + 1
+  while scan < len(specification)
+    spawnPoint = spawnPoint + specification[scan]
+    scan = scan + 1
+  end while
+  if mapName == "" or len(bytes(mapName)) >= ssqc.MAX_QPATH or
+      len(bytes(spawnPoint)) >= ssqc.MAX_QPATH then
+    return error(9986, "map transition specification is invalid")
+  end if
+  return [mapName, spawnPoint]
+end function
+
 // Return the vector value.
 function vector(value)
   if typeof(value) == "array" then return [value[0], value[1], value[2]] end if
@@ -748,7 +791,9 @@ end function
 // Map change core.
 function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeSessionHolder = session
-  serverSessionChangeMapNameHolder = mapName
+  serverSessionChangeComponentsHolder = mapChangeComponents(mapName)
+  serverSessionChangeMapNameHolder = serverSessionChangeComponentsHolder[0]
+  serverSessionChangeSpawnPointHolder = serverSessionChangeComponentsHolder[1]
   serverSessionChangeEntityTextHolder = entityText
   serverSessionChangeCollisionHolder = collision
   if serverSessionChangeSessionHolder.closed then return error(9978, "cannot change map on a closed server session") end if
@@ -791,11 +836,13 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder)
   serverSessionChangeOldNextSoundSerial = serverSessionChangeBridgeHolder.nextSoundSerial
   serverSessionChangeOldLogsHolder = serverSessionChangeBridgeHolder.logs
+  serverSessionChangeOldSpawnPointHolder = ssgame.playerContext().spawnPoint
 
   resetBridgeLevel(serverSessionChangeBridgeHolder, serverSessionChangeMapNameHolder,
     serverSessionChangePlanHolder.spawnCount, serverSessionChangeCollisionHolder)
   serverSessionChangeSpawnedHolder = try(serverSessionChangeSessionHolder.gameExport.spawnEntities(
-    serverSessionChangeMapNameHolder, serverSessionChangeEntityTextHolder, ""))
+    serverSessionChangeMapNameHolder, serverSessionChangeEntityTextHolder,
+    serverSessionChangeSpawnPointHolder))
   if serverSessionChangeSpawnedHolder is error then
     serverSessionChangeBridgeHolder.mapName = serverSessionChangeOldBridgeMapHolder
     serverSessionChangeBridgeHolder.spawnCount = serverSessionChangeOldBridgeSpawn
@@ -811,8 +858,10 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder.triggerCount = 0
     ssqsz.clear(serverSessionChangeBridgeHolder.multicastBuffer)
     ssqsz.writeBytes(serverSessionChangeBridgeHolder.multicastBuffer, serverSessionChangeOldMulticastHolder)
-    serverSessionChangeRestoredHolder = try(serverSessionChangeSessionHolder.gameExport.spawnEntities(
-      serverSessionChangeOldMapNameHolder, serverSessionChangeOldEntityTextHolder, ""))
+    serverSessionChangeRestoredHolder = try(
+      serverSessionChangeSessionHolder.gameExport.spawnEntities(
+        serverSessionChangeOldMapNameHolder, serverSessionChangeOldEntityTextHolder,
+        serverSessionChangeOldSpawnPointHolder))
     serverSessionChangeBridgeHolder.pendingMulticasts = serverSessionChangeOldPendingMulticastsHolder
     serverSessionChangeBridgeHolder.nextMulticastSerial = serverSessionChangeOldNextMulticastSerial
     serverSessionChangeBridgeHolder.pendingUnicasts = serverSessionChangeOldPendingUnicastsHolder
@@ -846,7 +895,9 @@ function changeMapRetail(session, baseDirectory, mapName)
     session.retailFileSystem = filesystem
     session.retailBaseDirectory = baseDirectory
   end if
-  path = "maps/" + mapName + ".bsp"
+  serverSessionRetailComponentsHolder = mapChangeComponents(mapName)
+  serverSessionRetailMapNameHolder = serverSessionRetailComponentsHolder[0]
+  path = "maps/" + serverSessionRetailMapNameHolder + ".bsp"
   serverSessionChangeRetailBytes = ssfs.readFile(filesystem, path)
   map = ssbsp.parse(serverSessionChangeRetailBytes, path)
   serverSessionChangeRetailResult = changeMapCore(session, mapName,

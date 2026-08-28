@@ -333,11 +333,15 @@ end function
 
 // Return the smoke and flash value.
 function smokeAndFlash(state, position)
+  // The C client stores `serverTime - 100`, while its interpolated `cl.time`
+  // normally renders at that same epoch. `state.time` is already the product
+  // client's render-clock epoch, so subtracting another 100 ms skipped frame
+  // zero and discarded the two-frame impact flash before its first draw.
   cestate.addExplosionExact(state, "misc", position, qt.zeroVec3(),
-    "models/objects/smoke/tris.md2", 4, 0.0, [0.0, 0.0, 0.0], state.time - 100,
+    "models/objects/smoke/tris.md2", 4, 0.0, [0.0, 0.0, 0.0], state.time,
     0, rc.RF_TRANSLUCENT, 1.0, 0)
   return cestate.addExplosionExact(state, "flash", position, qt.zeroVec3(),
-    "models/objects/flash/tris.md2", 2, 0.0, [0.0, 0.0, 0.0], state.time - 100,
+    "models/objects/flash/tris.md2", 2, 0.0, [0.0, 0.0, 0.0], state.time,
     0, rc.RF_FULLBRIGHT, 1.0, 0)
 end function
 
@@ -362,7 +366,7 @@ function blasterExplosion(state, type, position, direction)
   if type == ceconstants.TE_BLASTER2 then color = [0.0, 1.0, 0.0]; skinNum = 1 end if
   if type == ceconstants.TE_FLECHETTE then color = [0.19, 0.41, 0.75]; skinNum = 2 end if
   value = cestate.addExplosionExact(state, type, position, impactAngles(direction),
-    "models/objects/explode/tris.md2", 4, 150.0, color, state.time - 100,
+    "models/objects/explode/tris.md2", 4, 150.0, color, state.time,
     0, rc.RF_FULLBRIGHT | rc.RF_TRANSLUCENT, 1.0, skinNum)
   namedSound(state, position, 0, 0, "weapons/lashit.wav", 1.0, 1.0, 0.0)
   return value
@@ -387,7 +391,7 @@ function polyExplosion(state, type, position)
     sound = "weapons/xpld_wat.wav"
   end if
   value = cestate.addExplosionExact(state, type, position, angles, model, frames,
-    350.0, [1.0, 0.5, 0.5], state.time - 100, baseFrame, rc.RF_FULLBRIGHT, 1.0, 0)
+    350.0, [1.0, 0.5, 0.5], state.time, baseFrame, rc.RF_FULLBRIGHT, 1.0, 0)
   if particles then cestate.explosionParticles(state, position, 0xe0, 8, 256, 384) end if
   namedSound(state, position, 0, 0, sound, 1.0, 1.0, 0.0)
   return value
@@ -631,7 +635,7 @@ function parseTempEntity(state, buffer)
   end if
   if type == ceconstants.TE_BFG_EXPLOSION then
     return cestate.addExplosionExact(state, type, position, qt.zeroVec3(),
-      "sprites/s_bfg2.sp2", 4, 350.0, [0.0, 1.0, 0.0], state.time - 100,
+      "sprites/s_bfg2.sp2", 4, 350.0, [0.0, 1.0, 0.0], state.time,
       0, rc.RF_FULLBRIGHT | rc.RF_TRANSLUCENT, 0.30, 0)
   end if
   return polyExplosion(state, type, position)

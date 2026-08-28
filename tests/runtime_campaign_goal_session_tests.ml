@@ -16,6 +16,8 @@ end function
 function goalRuntimeEntities(nextMap, origin)
   return "{\"classname\" \"worldspawn\"}" +
     "{\"classname\" \"info_player_start\" \"origin\" \"" + origin + "\"}" +
+    "{\"classname\" \"info_player_start\" \"targetname\" \"start\" " +
+      "\"origin\" \"" + origin + "\"}" +
     "{\"classname\" \"trigger_once\" \"target\" \"exit_goal\"}" +
     "{\"classname\" \"target_changelevel\" \"targetname\" \"exit_goal\" \"map\" \"" + nextMap + "$start\"}"
 end function

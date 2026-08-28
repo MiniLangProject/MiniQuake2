@@ -73,6 +73,43 @@ function create(title, width, height, fullscreen)
   return Window(nativeHandle, native.winClientWidth(), native.winClientHeight(), fullscreen, false)
 end function
 
+// Reconfigure one live Win32 window without destroying its OpenGL context.
+// Changing display mode and frame style in place preserves every registered
+// GPU resource and, consequently, the active level and client presentation.
+function reconfigure(window, width, height, fullscreen)
+  if window.closed then return error(2924, "cannot reconfigure a closed window") end if
+  if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
+  fullscreenValue = 0
+  if fullscreen then fullscreenValue = 1 end if
+  exclusiveAvailable = true
+  if fullscreen then
+    exclusiveAvailable = native.winTestDisplayMode(width, height, 32, 0) != 0
+  end if
+  displayMode = try(resolvedDisplayMode(width, height, fullscreen,
+    exclusiveAvailable, native.winDesktopWidth(), native.winDesktopHeight()))
+  windowWidth = displayMode[0]
+  windowHeight = displayMode[1]
+  // The native backend owns the display-mode bookkeeping, frame style and
+  // client-size verification. Its resize entry point deliberately preserves
+  // the HWND, HDC and WGL context while applying the staged mode below.
+  if native.winConfigureDisplayMode(windowWidth, windowHeight, 32, 0,
+      fullscreenValue, displayMode[2]) == 0 then
+    return error(2923, "requested fullscreen display mode is unavailable")
+  end if
+  if native.winResizeClient(windowWidth, windowHeight) == 0 then
+    return error(2924, "live window resize failed")
+  end if
+  if fullscreen and exclusiveAvailable and
+      (native.winDesktopWidth() != windowWidth or
+       native.winDesktopHeight() != windowHeight) then
+    return error(2924, "live exclusive display mode was not retained")
+  end if
+  window.width = native.winClientWidth()
+  window.height = native.winClientHeight()
+  window.fullscreen = fullscreen
+  return window
+end function
+
 // Poll state.
 function poll(window)
   if window.closed then return false end if

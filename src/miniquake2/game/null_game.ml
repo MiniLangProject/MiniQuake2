@@ -28,6 +28,7 @@ import miniquake2.game.player.userinfo as ngplayerinfo
 import miniquake2.game.player.spawn as ngplayerspawn
 import miniquake2.game.player.client as ngplayerclient
 import miniquake2.game.player.commands as ngplayercommands
+import miniquake2.game.player.effects as ngplayereffects
 import miniquake2.game.player.frame as ngplayerframe
 import miniquake2.game.player.view as ngplayerview
 import miniquake2.game.player.constants as ngplayerconstants
@@ -37,6 +38,7 @@ import miniquake2.qcommon.types as ngqtypes
 import miniquake2.qcommon.text as ngtext
 import miniquake2.server.administration as ngserveradmin
 import std.string as ngstring
+import std.math as ngmath
 
 // Original BaseQ2 layout programs. Keeping each program in one immutable
 // literal avoids the repeated string concatenation used by the C source while
@@ -73,15 +75,16 @@ activePlayerContext = void
 activeMaxClients = 4
 activeSkill = 1
 activePmovePassEntity = void
+activePmoveContentMask = qc.MASK_PLAYERSOLID
 
 // Trace player pmove.
 function playerPmoveTrace(start, mins, maxs, finish)
-  global activeImports, activePmovePassEntity
+  global activeImports, activePmovePassEntity, activePmoveContentMask
   // p_client.c assigns pm_passent before gi.Pmove. Once the server clips
   // dynamic SOLID_BBOX edicts, omitting this pass entity makes every player
   // start-solid against its own linked box and prevents all movement.
   return activeImports.trace(start, mins, maxs, finish,
-    activePmovePassEntity, qc.MASK_PLAYERSOLID)
+    activePmovePassEntity, activePmoveContentMask)
 end function
 
 // Return the runtime edict value.
@@ -368,16 +371,29 @@ function playerDamage(context, player, amount, damageFlags, meansOfDeath)
   ngpowerups.SyncFromPlayerData(player.gameplay, player)
   ngpowerups.SyncArmorToCombatant(player.gameplay, combatant, context.registry)
   point = [player.edict.state.origin.x, player.edict.state.origin.y, player.edict.state.origin.z]
-  request = nggtypes.damageRequest([0.0, 0.0, 0.0], point, amount, 0, damageFlags, meansOfDeath)
+  effectiveAmount = amount
+  if activeSkill == 0 and not context.deathmatch and effectiveAmount > 0 then
+    effectiveAmount = ngmath.floor(effectiveAmount * 0.5)
+    if effectiveAmount == 0 then effectiveAmount = 1 end if
+  end if
+  powerArmorResult = ngpowerups.CheckPowerArmor(player.gameplay,
+    context.registry, effectiveAmount, damageFlags, false)
+  if powerArmorResult.saved > 0 then
+    player.powerArmorTime = context.time + 0.2
+    ngbaseq2.integratedPowerArmorEffect(player.edict.state.origin,
+      ngqtypes.zeroVec3(), powerArmorResult.armorType)
+  end if
+  request = nggtypes.damageRequest([0.0, 0.0, 0.0], point,
+    effectiveAmount - powerArmorResult.saved, 0, damageFlags, meansOfDeath)
   request.currentFrame = context.frameNumber
-  // g_combat.c halves incoming client damage on skill 0 outside deathmatch.
-  // The combat layer already owns the exact rounding/minimum-one rule; the
-  // live Game API must mark the request with the selected new-game skill.
-  request.easyMode = activeSkill == 0 and not context.deathmatch
+  request.easyMode = false
   result = ngcombat.T_Damage(combatant, request)
   player.health = combatant.health
   ngpowerups.SyncArmorFromCombatant(player.gameplay, combatant)
-  if result.armorSaved > 0 then ngplayerview.RecordDamage(player, 0, result.armorSaved, 0, 0, point) end if
+  if result.armorSaved > 0 or powerArmorResult.saved > 0 then
+    ngplayerview.RecordDamage(player, 0, result.armorSaved,
+      powerArmorResult.saved, 0, point)
+  end if
   return result.taken
 end function
 
@@ -404,6 +420,7 @@ function configureIntegratedRuntime(runtime, playerContext)
   runtime.aiContext.clearShot = ngbaseq2.aiClearShot
   runtime.aiContext.inPHS = ngbaseq2.aiInPHS
   runtime.aiContext.areasConnected = ngbaseq2.aiAreasConnected
+  runtime.pusherTriggerTouch = ngbaseq2.touchPushedBody
   playerContext.touchTriggers = playerTouchTriggers
   playerContext.touchEntity = playerTouchEntity
   playerContext.weaponThink = ngbaseq2.thinkPlayerWeapon
@@ -411,6 +428,7 @@ function configureIntegratedRuntime(runtime, playerContext)
   playerContext.deathGrenade = ngbaseq2.tossClientHeldGrenade
   playerContext.damagePlayer = playerDamage
   playerContext.copyBody = playerCopyBody
+  playerContext.playerNoise = ngbaseq2.integratedPlayerNoise
   return true
 end function
 
@@ -634,7 +652,25 @@ function SpawnEntities(mapName, entityString, spawnPoint)
       levelSpawnSpots)
   end if
   exportTable = activeExport
-  exportTable.numEdicts = 1
+  // g_spawn.c clears every level edict while retaining the separately owned
+  // gclient records.  Re-root connected PlayerData on fresh client slots so a
+  // same-session map change cannot inherit origin, PMove or mover ground from
+  // the previous BSP and so ClientBegin must place it at the new spawn point.
+  for each levelPlayer in activePlayerContext.players
+    levelPlayerNumber = levelPlayer.edict.state.number
+    if levelPlayerNumber > 0 and levelPlayerNumber <= activeMaxClients then
+      retainedClient = levelPlayer.edict.client
+      freshClientEdict = gt.zeroEdict(levelPlayerNumber)
+      freshClientEdict.client = retainedClient
+      exportTable.edicts[levelPlayerNumber] = freshClientEdict
+      levelPlayer.edict = freshClientEdict
+      levelPlayer.gameplay.edict = freshClientEdict
+      levelPlayer.groundEntity = void
+      levelPlayer.groundLinkCount = 0
+      levelPlayer.oldPmove = gt.zeroPmoveState()
+    end if
+  end for
+  exportTable.numEdicts = activeMaxClients + 1
   spawnedBaseEdicts = spawnedEdicts
   lastSpawnResult = spawned
   index = 0
@@ -865,10 +901,17 @@ end function
 
 // Begin client.
 function ClientBegin(entity)
+  global activeMaxClients
   slot = checkedClientEdict(entity, "ClientBegin")
   player = playerForEdict(slot, "ClientBegin", false)
   context = activePlayerContext
-  if len(context.spawnSpots) > 0 then ngplayerclient.ClientBegin(context, player)
+  if len(context.spawnSpots) > 0 then
+    ngplayerclient.ClientBegin(context, player)
+    // ClientBeginDeathmatch always sends MZ_LOGIN; cooperative/other
+    // multiplayer sends it whenever maxclients is greater than one.
+    if context.deathmatch or activeMaxClients > 1 then
+      ngplayereffects.EmitConnectionEffect(context, player, gc.MZ_LOGIN)
+    end if
   else slot.inUse = true end if
   if activeBaseRuntime is not void then ngbaseq2.syncPlayers(activeBaseRuntime, context) end if
   index = slot.state.number
@@ -1394,31 +1437,49 @@ function ClientCommand(entity)
     return true
   end if
   if command == "invnext" then
-    ngplayercommands.selectNextItem(player, activePlayerContext.registry, -1)
+    if player.chaseTarget is not void then
+      ngplayerclient.ChaseNext(activePlayerContext, player)
+    else ngplayercommands.selectNextItem(player, activePlayerContext.registry, -1)
+    end if
     return true
   end if
   if command == "invprev" then
-    ngplayercommands.selectPreviousItem(player, activePlayerContext.registry, -1)
+    if player.chaseTarget is not void then
+      ngplayerclient.ChasePrev(activePlayerContext, player)
+    else ngplayercommands.selectPreviousItem(player, activePlayerContext.registry, -1)
+    end if
     return true
   end if
   if command == "invnextw" then
-    ngplayercommands.selectNextItem(player, activePlayerContext.registry,
+    if player.chaseTarget is not void then
+      ngplayerclient.ChaseNext(activePlayerContext, player)
+    else ngplayercommands.selectNextItem(player, activePlayerContext.registry,
       nggpconstants.IT_WEAPON)
+    end if
     return true
   end if
   if command == "invprevw" then
-    ngplayercommands.selectPreviousItem(player, activePlayerContext.registry,
+    if player.chaseTarget is not void then
+      ngplayerclient.ChasePrev(activePlayerContext, player)
+    else ngplayercommands.selectPreviousItem(player, activePlayerContext.registry,
       nggpconstants.IT_WEAPON)
+    end if
     return true
   end if
   if command == "invnextp" then
-    ngplayercommands.selectNextItem(player, activePlayerContext.registry,
+    if player.chaseTarget is not void then
+      ngplayerclient.ChaseNext(activePlayerContext, player)
+    else ngplayercommands.selectNextItem(player, activePlayerContext.registry,
       nggpconstants.IT_POWERUP)
+    end if
     return true
   end if
   if command == "invprevp" then
-    ngplayercommands.selectPreviousItem(player, activePlayerContext.registry,
+    if player.chaseTarget is not void then
+      ngplayerclient.ChasePrev(activePlayerContext, player)
+    else ngplayercommands.selectPreviousItem(player, activePlayerContext.registry,
       nggpconstants.IT_POWERUP)
+    end if
     return true
   end if
   if command == "invuse" then
@@ -1469,7 +1530,7 @@ end function
 
 // Run client.
 function ClientThink(entity, command)
-  global activeExport, activePmovePassEntity
+  global activeExport, activePmovePassEntity, activePmoveContentMask
   slot = checkedClientEdict(entity, "ClientThink")
   if slot.client is void then return error(3818, "ClientThink: client is not connected") end if
   if typeof(command) != "struct" then return error(3819, "ClientThink: usercmd must be a struct") end if
@@ -1477,9 +1538,12 @@ function ClientThink(entity, command)
   context = activePlayerContext
   if len(context.spawnSpots) > 0 then
     activePmovePassEntity = player.edict
+    activePmoveContentMask = qc.MASK_PLAYERSOLID
+    if player.health <= 0 then activePmoveContentMask = qc.MASK_DEADSOLID end if
     ngPlayerThinkResultHolder = try(ngplayerclient.ClientThink(context,
       player, command))
     activePmovePassEntity = void
+    activePmoveContentMask = qc.MASK_PLAYERSOLID
     if ngPlayerThinkResultHolder is error then return ngPlayerThinkResultHolder end if
   else
     // The no-map compatibility contract has no spawn state from which real

@@ -21,9 +21,10 @@ Protocol-34 `clc_stringcmd` messages.
 - `quit` exits through the normal audio, renderer, window and UDP shutdown;
 - the Controls page captures the next keyboard, mouse-button or wheel press,
   replaces the previous binding for that command and treats Escape as cancel;
-- `vid_restart` recreates the selected window mode and OpenGL renderer, then
-  re-registers the current BSP, textures, models and sounds without replacing
-  the live network/Game session;
+- Video Apply changes the mode and Win32 frame on the live window while keeping
+  the OpenGL context, registered BSP, textures, models, sounds and live
+  network/Game session intact. A guarded context-recreation fallback reuploads
+  retained CPU resources without reparsing the level;
 - `vid_gamma` applies and restores the hardware ramp when the active display
   supports it, with a deterministic validated fallback table;
 - `in_joystick` persists controller enablement; analog movement/look and menu

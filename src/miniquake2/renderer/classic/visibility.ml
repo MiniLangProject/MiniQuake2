@@ -52,9 +52,54 @@ struct ClassicVisibilityCacheSlot
   areaCulled
 end struct
 
+// Minimal per-frame brush bounds used by the frustum culler. Keeping this
+// separate from ClassicWorldDraw avoids allocating empty texture/vertex arrays
+// and a full draw record for every moving door, platform and lift each frame.
+struct ClassicBrushBounds
+  mins
+  maxs
+  centerX
+  centerY
+  centerZ
+  extentX
+  extentY
+  extentZ
+end struct
+
+// Pair the visible brush prefix with the already-computed local camera point
+// so the OpenGL planner does not repeat rotated-axis trigonometry.
+struct ClassicBrushSelection
+  draws
+  count
+  localView
+end struct
+
+// Store the three view axes in one record. The former `[forward, right, up]`
+// representation allocated an array and three Vec3 values on every frustum
+// build and again for each rotated brush transform.
+struct ClassicVisibilityAxes
+  forwardX
+  forwardY
+  forwardZ
+  rightX
+  rightY
+  rightZ
+  upX
+  upY
+  upZ
+end struct
+
 classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999, void,
   [], 0, 0)
 classicVisibilitySelectionScratch = []
+classicVisibilityFrustumScratch = [
+  ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
+  ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
+  ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
+  ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
+  ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
+  ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0)
+]
 
 // Report whether classic visibility area bits equal.
 function inline classicVisibilityAreaBitsEqual(first, second)
@@ -129,7 +174,7 @@ function classicVisibilityMarkLeafFaces(map, leaf, marked)
   while offset < leaf.numLeafFaces
     faceIndex = map.leafFaces[leaf.firstLeafFace + offset]
     if faceIndex < 0 or faceIndex >= len(map.faces) then return error(9756, "BSP leaf marksurface outside face table") end if
-    marked[faceIndex] = true
+    marked[faceIndex] = 1
     offset = offset + 1
   end while
 end function
@@ -159,18 +204,17 @@ function classicVisibilityAngleAxes(angles)
   pitchSine = rvisibilitymath.sin(pitch); pitchCosine = rvisibilitymath.cos(pitch)
   yawSine = rvisibilitymath.sin(yaw); yawCosine = rvisibilitymath.cos(yaw)
   rollSine = rvisibilitymath.sin(roll); rollCosine = rvisibilitymath.cos(roll)
-  forward = ft.Vec3(pitchCosine * yawCosine, pitchCosine * yawSine, -pitchSine)
-  right = ft.Vec3(
-    -rollSine * pitchSine * yawCosine + rollCosine * yawSine,
-    -rollSine * pitchSine * yawSine - rollCosine * yawCosine,
-    -rollSine * pitchCosine
-  )
-  up = ft.Vec3(
-    rollCosine * pitchSine * yawCosine + rollSine * yawSine,
-    rollCosine * pitchSine * yawSine - rollSine * yawCosine,
-    rollCosine * pitchCosine
-  )
-  return [forward, right, up]
+  forwardX = pitchCosine * yawCosine
+  forwardY = pitchCosine * yawSine
+  forwardZ = -pitchSine
+  rightX = -rollSine * pitchSine * yawCosine + rollCosine * yawSine
+  rightY = -rollSine * pitchSine * yawSine - rollCosine * yawCosine
+  rightZ = -rollSine * pitchCosine
+  upX = rollCosine * pitchSine * yawCosine + rollSine * yawSine
+  upY = rollCosine * pitchSine * yawSine - rollSine * yawCosine
+  upZ = rollCosine * pitchCosine
+  return ClassicVisibilityAxes(forwardX, forwardY, forwardZ,
+    rightX, rightY, rightZ, upX, upY, upZ)
 end function
 
 // Return the classic visibility box outside plane value.
@@ -183,7 +227,7 @@ function inline classicVisibilityBoxOutsidePlane(draw, plane)
 end function
 
 // Return the classic visibility plane value.
-function classicVisibilityPlane(normalX, normalY, normalZ, distance)
+function inline classicVisibilityPlane(normalX, normalY, normalZ, distance)
   fixedX = rvisibilitybyteio.truncInt(normalX * rclassicconstants.CULL_NORMAL_SCALE)
   fixedY = rvisibilitybyteio.truncInt(normalY * rclassicconstants.CULL_NORMAL_SCALE)
   fixedZ = rvisibilitybyteio.truncInt(normalZ * rclassicconstants.CULL_NORMAL_SCALE)
@@ -196,33 +240,48 @@ function classicVisibilityPlane(normalX, normalY, normalZ, distance)
     absX, absY, absZ)
 end function
 
+// Update one reusable fixed-point frustum plane without allocating a record.
+function inline classicVisibilitySetPlane(plane, normalX, normalY, normalZ,
+    distance)
+  fixedX = rvisibilitybyteio.truncInt(normalX * rclassicconstants.CULL_NORMAL_SCALE)
+  fixedY = rvisibilitybyteio.truncInt(normalY * rclassicconstants.CULL_NORMAL_SCALE)
+  fixedZ = rvisibilitybyteio.truncInt(normalZ * rclassicconstants.CULL_NORMAL_SCALE)
+  fixedDistance = rvisibilitybyteio.truncInt(distance *
+    rclassicconstants.CULL_PRODUCT_SCALE)
+  absX = fixedX; if absX < 0 then absX = -absX end if
+  absY = fixedY; if absY < 0 then absY = -absY end if
+  absZ = fixedZ; if absZ < 0 then absZ = -absZ end if
+  plane.normalX = fixedX; plane.normalY = fixedY; plane.normalZ = fixedZ
+  plane.distance = fixedDistance
+  plane.absX = absX; plane.absY = absY; plane.absZ = absZ
+end function
+
 // Return the classic visibility frustum value.
 function classicVisibilityFrustum(frame)
   axes = classicVisibilityAngleAxes(frame.viewAngles)
-  forward = axes[0]; right = axes[1]; up = axes[2]
   halfX = frame.fovX * VISIBILITY_DEG_TO_RAD * 0.5
   halfY = frame.fovY * VISIBILITY_DEG_TO_RAD * 0.5
   tanX = rvisibilitymath.sin(halfX) / rvisibilitymath.cos(halfX)
   tanY = rvisibilitymath.sin(halfY) / rvisibilitymath.cos(halfY)
 
-  planes = array(6)
-  normalX = forward.x * tanX + right.x; normalY = forward.y * tanX + right.y; normalZ = forward.z * tanX + right.z
+  planes = classicVisibilityFrustumScratch
+  normalX = axes.forwardX * tanX + axes.rightX; normalY = axes.forwardY * tanX + axes.rightY; normalZ = axes.forwardZ * tanX + axes.rightZ
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  planes[0] = classicVisibilityPlane(normalX, normalY, normalZ, planeDistance)
-  normalX = forward.x * tanX - right.x; normalY = forward.y * tanX - right.y; normalZ = forward.z * tanX - right.z
+  classicVisibilitySetPlane(planes[0], normalX, normalY, normalZ, planeDistance)
+  normalX = axes.forwardX * tanX - axes.rightX; normalY = axes.forwardY * tanX - axes.rightY; normalZ = axes.forwardZ * tanX - axes.rightZ
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  planes[1] = classicVisibilityPlane(normalX, normalY, normalZ, planeDistance)
-  normalX = forward.x * tanY + up.x; normalY = forward.y * tanY + up.y; normalZ = forward.z * tanY + up.z
+  classicVisibilitySetPlane(planes[1], normalX, normalY, normalZ, planeDistance)
+  normalX = axes.forwardX * tanY + axes.upX; normalY = axes.forwardY * tanY + axes.upY; normalZ = axes.forwardZ * tanY + axes.upZ
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  planes[2] = classicVisibilityPlane(normalX, normalY, normalZ, planeDistance)
-  normalX = forward.x * tanY - up.x; normalY = forward.y * tanY - up.y; normalZ = forward.z * tanY - up.z
+  classicVisibilitySetPlane(planes[2], normalX, normalY, normalZ, planeDistance)
+  normalX = axes.forwardX * tanY - axes.upX; normalY = axes.forwardY * tanY - axes.upY; normalZ = axes.forwardZ * tanY - axes.upZ
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ
-  planes[3] = classicVisibilityPlane(normalX, normalY, normalZ, planeDistance)
-  planeDistance = frame.viewOrigin.x * forward.x + frame.viewOrigin.y * forward.y + frame.viewOrigin.z * forward.z + VISIBILITY_NEAR
-  planes[4] = classicVisibilityPlane(forward.x, forward.y, forward.z, planeDistance)
-  normalX = -forward.x; normalY = -forward.y; normalZ = -forward.z
+  classicVisibilitySetPlane(planes[3], normalX, normalY, normalZ, planeDistance)
+  planeDistance = frame.viewOrigin.x * axes.forwardX + frame.viewOrigin.y * axes.forwardY + frame.viewOrigin.z * axes.forwardZ + VISIBILITY_NEAR
+  classicVisibilitySetPlane(planes[4], axes.forwardX, axes.forwardY, axes.forwardZ, planeDistance)
+  normalX = -axes.forwardX; normalY = -axes.forwardY; normalZ = -axes.forwardZ
   planeDistance = frame.viewOrigin.x * normalX + frame.viewOrigin.y * normalY + frame.viewOrigin.z * normalZ - VISIBILITY_FAR
-  planes[5] = classicVisibilityPlane(normalX, normalY, normalZ, planeDistance)
+  classicVisibilitySetPlane(planes[5], normalX, normalY, normalZ, planeDistance)
   return planes
 end function
 
@@ -275,9 +334,7 @@ function classicVisibilityBrushBounds(brushModel, entity)
       origin.z + model.mins.z)
     maxs = ft.Vec3(origin.x + model.maxs.x, origin.y + model.maxs.y,
       origin.z + model.maxs.z)
-    return rclassictypes.ClassicWorldDraw(
-      void, void, array(0), void, 0, 0, array(0), 0,
-      mins, maxs,
+    return ClassicBrushBounds(mins, maxs,
       rvisibilitybyteio.truncInt((mins.x + maxs.x) * 0.5 *
         rclassicconstants.CULL_COORD_SCALE),
       rvisibilitybyteio.truncInt((mins.y + maxs.y) * 0.5 *
@@ -289,8 +346,7 @@ function classicVisibilityBrushBounds(brushModel, entity)
       rvisibilitybyteio.truncInt((maxs.y - mins.y) * 0.5 *
         rclassicconstants.CULL_COORD_SCALE) + 1,
       rvisibilitybyteio.truncInt((maxs.z - mins.z) * 0.5 *
-        rclassicconstants.CULL_COORD_SCALE) + 1,
-      0, 0, 0, 0, 0
+        rclassicconstants.CULL_COORD_SCALE) + 1
     )
   end if
   extentX = model.mins.x; if extentX < 0.0 then extentX = -extentX end if
@@ -303,8 +359,7 @@ function classicVisibilityBrushBounds(brushModel, entity)
   candidate = model.maxs.z; if candidate < 0.0 then candidate = -candidate end if
   if candidate > extentZ then extentZ = candidate end if
   radius = rvisibilitymath.sqrt(extentX * extentX + extentY * extentY + extentZ * extentZ)
-  return rclassictypes.ClassicWorldDraw(
-    void, void, array(0), void, 0, 0, array(0), 0,
+  return ClassicBrushBounds(
     ft.Vec3(origin.x - radius, origin.y - radius, origin.z - radius),
     ft.Vec3(origin.x + radius, origin.y + radius, origin.z + radius),
     rvisibilitybyteio.truncInt(origin.x * rclassicconstants.CULL_COORD_SCALE),
@@ -312,8 +367,7 @@ function classicVisibilityBrushBounds(brushModel, entity)
     rvisibilitybyteio.truncInt(origin.z * rclassicconstants.CULL_COORD_SCALE),
     rvisibilitybyteio.truncInt(radius * rclassicconstants.CULL_COORD_SCALE) + 1,
     rvisibilitybyteio.truncInt(radius * rclassicconstants.CULL_COORD_SCALE) + 1,
-    rvisibilitybyteio.truncInt(radius * rclassicconstants.CULL_COORD_SCALE) + 1,
-    0, 0, 0, 0, 0
+    rvisibilitybyteio.truncInt(radius * rclassicconstants.CULL_COORD_SCALE) + 1
   )
 end function
 
@@ -325,11 +379,10 @@ function classicVisibilityBrushWorldPoint(entity, localPoint)
     return ft.Vec3(origin.x + localPoint.x, origin.y + localPoint.y, origin.z + localPoint.z)
   end if
   axes = classicVisibilityAngleAxes(angles)
-  forward = axes[0]; right = axes[1]; up = axes[2]
   return ft.Vec3(
-    origin.x + localPoint.x * forward.x - localPoint.y * right.x + localPoint.z * up.x,
-    origin.y + localPoint.x * forward.y - localPoint.y * right.y + localPoint.z * up.y,
-    origin.z + localPoint.x * forward.z - localPoint.y * right.z + localPoint.z * up.z
+    origin.x + localPoint.x * axes.forwardX - localPoint.y * axes.rightX + localPoint.z * axes.upX,
+    origin.y + localPoint.x * axes.forwardY - localPoint.y * axes.rightY + localPoint.z * axes.upY,
+    origin.z + localPoint.x * axes.forwardZ - localPoint.y * axes.rightZ + localPoint.z * axes.upZ
   )
 end function
 
@@ -340,11 +393,10 @@ function classicVisibilityBrushLocalView(entity, viewOrigin)
   angles = entity.angles
   if angles.x == 0.0 and angles.y == 0.0 and angles.z == 0.0 then return ft.Vec3(deltaX, deltaY, deltaZ) end if
   axes = classicVisibilityAngleAxes(angles)
-  forward = axes[0]; right = axes[1]; up = axes[2]
   return ft.Vec3(
-    deltaX * forward.x + deltaY * forward.y + deltaZ * forward.z,
-    -(deltaX * right.x + deltaY * right.y + deltaZ * right.z),
-    deltaX * up.x + deltaY * up.y + deltaZ * up.z
+    deltaX * axes.forwardX + deltaY * axes.forwardY + deltaZ * axes.forwardZ,
+    -(deltaX * axes.rightX + deltaY * axes.rightY + deltaZ * axes.rightZ),
+    deltaX * axes.upX + deltaY * axes.upY + deltaZ * axes.upZ
   )
 end function
 
@@ -355,14 +407,28 @@ function classicVisibilityBrushModelVisible(brushModel, entity, frame)
   return classicVisibilityInsideFrustum(bounds, frame)
 end function
 
-// Select classic brush model.
-function selectClassicBrushModel(brushModel, entity, frame)
-  if not classicVisibilityBrushModelVisible(brushModel, entity, frame) then return array(0) end if
+// Report whether classic visibility brush model visible in prepared frustum.
+function classicVisibilityBrushModelVisiblePrepared(brushModel, entity, planes)
+  if len(brushModel.draws) == 0 then return false end if
+  return classicVisibilityInsidePreparedFrustum(
+    classicVisibilityBrushBounds(brushModel, entity), planes)
+end function
+
+// Select a classic brush model using the frame-owned frustum and retain the
+// local view point needed by the special-surface planner.
+function selectClassicBrushModelPrepared(brushModel, entity, frame, planes)
+  if not classicVisibilityBrushModelVisiblePrepared(brushModel, entity,
+      planes) then return ClassicBrushSelection(brushModel.selectionScratch,
+        0, void) end if
   localView = classicVisibilityBrushLocalView(entity, frame.viewOrigin)
   localViewX = rvisibilitybyteio.truncInt(localView.x * rclassicconstants.CULL_COORD_SCALE)
   localViewY = rvisibilitybyteio.truncInt(localView.y * rclassicconstants.CULL_COORD_SCALE)
   localViewZ = rvisibilitybyteio.truncInt(localView.z * rclassicconstants.CULL_COORD_SCALE)
-  selected = array(len(brushModel.draws))
+  selected = brushModel.selectionScratch
+  if len(selected) != len(brushModel.draws) then
+    selected = array(len(brushModel.draws))
+    brushModel.selectionScratch = selected
+  end if
   selectedCount = 0
   for each draw in brushModel.draws
     if classicVisibilityFrontFacingFixed(draw, localViewX, localViewY,
@@ -371,8 +437,16 @@ function selectClassicBrushModel(brushModel, entity, frame)
       selectedCount = selectedCount + 1
     end if
   end for
-  if selectedCount == len(selected) then return selected end if
-  return rvisibilityarray.slice(selected, 0, selectedCount)
+  return ClassicBrushSelection(selected, selectedCount, localView)
+end function
+
+// Select classic brush model.
+function selectClassicBrushModel(brushModel, entity, frame)
+  selection = selectClassicBrushModelPrepared(brushModel, entity, frame,
+    classicVisibilityFrustum(frame))
+  if selection.count == len(selection.draws) then return selection.draws end if
+  if selection.count == 0 then return array(0) end if
+  return rvisibilityarray.slice(selection.draws, 0, selection.count)
 end function
 
 // Return the compact classic draws value.
@@ -396,16 +470,18 @@ function classicVisibilitySelectPvs(world, frame)
     return ClassicPvsSelection(array(0), -1, -1, total, 0)
   end if
   map = world.map
-  pvsMarked = array(len(map.faces), false)
-  areaMarked = array(len(map.faces), false)
+  // One byte per face is sufficient and avoids two pointer-width managed
+  // arrays on every PVS cache miss.
+  pvsMarked = bytes(len(map.faces))
+  areaMarked = bytes(len(map.faces))
   viewLeaf = classicVisibilityPointLeaf(map, frame.viewOrigin)
   viewCluster = -1
   if viewLeaf >= 0 then viewCluster = map.leafs[viewLeaf].cluster end if
 
   if len(map.leafs) == 0 then
     for each draw in world.draws
-      pvsMarked[draw.surface.index] = true
-      areaMarked[draw.surface.index] = true
+      pvsMarked[draw.surface.index] = 1
+      areaMarked[draw.surface.index] = 1
     end for
   else
     row = bytes(0)
@@ -432,9 +508,9 @@ function classicVisibilitySelectPvs(world, frame)
   pvsCulled = 0; areaCulled = 0
   for each draw in world.draws
     faceIndex = draw.surface.index
-    if not pvsMarked[faceIndex] then
+    if pvsMarked[faceIndex] == 0 then
       pvsCulled = pvsCulled + 1
-    else if not areaMarked[faceIndex] then
+    else if areaMarked[faceIndex] == 0 then
       areaCulled = areaCulled + 1
     else
       candidates[candidateCount] = draw

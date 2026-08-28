@@ -387,6 +387,19 @@ function G_SetClientEffects(context, player)
   player.edict.state.effects = 0
   player.edict.state.renderFx = 0
   if player.health <= 0 or context.intermissionTime > 0.0 then return 0 end if
+  if player.powerArmorTime > context.time then
+    powerArmorType = miniquake2.game.gameplay.powerups.PowerArmorType(
+      player.gameplay, context.registry)
+    if powerArmorType == gpconstants.POWER_ARMOR_SCREEN then
+      player.edict.state.effects = player.edict.state.effects |
+        miniquake2.game.constants.EF_POWERSCREEN
+    else if powerArmorType == gpconstants.POWER_ARMOR_SHIELD then
+      player.edict.state.effects = player.edict.state.effects |
+        miniquake2.game.constants.EF_COLOR_SHELL
+      player.edict.state.renderFx = player.edict.state.renderFx |
+        miniquake2.game.constants.RF_SHELL_GREEN
+    end if
+  end if
   if player.powerups.quadFrame > context.frameNumber then
     remaining = player.powerups.quadFrame - context.frameNumber
     if remaining > 30 or (remaining & 4) != 0 then player.edict.state.effects = player.edict.state.effects | miniquake2.game.constants.EF_QUAD end if

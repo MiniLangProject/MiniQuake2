@@ -12,6 +12,7 @@ import miniquake2.renderer.opengl as producthostgl
 // Store product host callbacks data.
 struct ProductHostCallbacks
   createWindow
+  reconfigureWindow
   destroyWindow
   createRenderer
   initRenderer
@@ -26,6 +27,7 @@ struct ProductHost
   videoMode
   fullScreen
   generation
+  rendererGeneration
   loadingFrames
   closed
   gammaState
@@ -34,6 +36,11 @@ end struct
 // Create product host window.
 function productHostCreateWindow(title, width, height, fullScreen)
   return producthostwindow.create(title, width, height, fullScreen)
+end function
+
+// Reconfigure product host window.
+function productHostReconfigureWindow(window, width, height, fullScreen)
+  return producthostwindow.reconfigure(window, width, height, fullScreen)
 end function
 
 // Return the product host destroy window value.
@@ -58,8 +65,10 @@ end function
 
 // Return the product host default callbacks value.
 function productHostDefaultCallbacks()
-  return ProductHostCallbacks(productHostCreateWindow, productHostDestroyWindow,
-    productHostCreateRenderer, productHostInitRenderer, productHostShutdownRenderer)
+  return ProductHostCallbacks(productHostCreateWindow,
+    productHostReconfigureWindow, productHostDestroyWindow,
+    productHostCreateRenderer, productHostInitRenderer,
+    productHostShutdownRenderer)
 end function
 
 // Return the product host dimensions.
@@ -81,6 +90,7 @@ end function
 function productHostRequireCallbacks(callbacks)
   if typeof(callbacks) != "struct" or
       typeof(callbacks.createWindow) != "function" or
+      typeof(callbacks.reconfigureWindow) != "function" or
       typeof(callbacks.destroyWindow) != "function" or
       typeof(callbacks.createRenderer) != "function" or
       typeof(callbacks.initRenderer) != "function" or
@@ -117,7 +127,7 @@ function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererIm
     return productHostInitResult
   end if
   return ProductHost(productHostCallbacksHolder, productHostWindowHolder,
-    productHostRendererHolder, videoMode, fullScreen, 1, 0, false, void)
+    productHostRendererHolder, videoMode, fullScreen, 1, 1, 0, false, void)
 end function
 
 // Recreate the last known-good video host after a target mode, context or
@@ -159,6 +169,7 @@ function restoreProductHost(host, title, videoMode, fullScreen,
   host.videoMode = videoMode
   host.fullScreen = fullScreen
   host.generation = host.generation + 1
+  host.rendererGeneration = host.rendererGeneration + 1
   host.closed = false
   if gamma != 1.0 then applyProductGamma(host, gamma, true) end if
   return true
@@ -232,6 +243,23 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
     producthostgamma.restore(host.gammaState)
     host.gammaState = void
   end if
+
+  // The common path keeps HWND, HDC, WGL context and renderer resources live.
+  // A native failure falls through to the original destroy/recreate rollback
+  // path, which remains the last-known-good safety net.
+  productHostLiveResult = try(productHostRestartCallbacks.reconfigureWindow(
+    host.window, productHostRestartDimensions[0],
+    productHostRestartDimensions[1], fullScreen))
+  if productHostLiveResult is not error then
+    host.window = productHostLiveResult
+    host.videoMode = videoMode
+    host.fullScreen = fullScreen
+    host.generation = host.generation + 1
+    if productHostRestartGamma != 1.0 then
+      applyProductGamma(host, productHostRestartGamma, true)
+    end if
+    return true
+  end if
   productHostRestartCallbacks.shutdownRenderer(host.renderer)
   productHostRestartCallbacks.destroyWindow(host.window)
 
@@ -266,6 +294,7 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   host.videoMode = videoMode
   host.fullScreen = fullScreen
   host.generation = host.generation + 1
+  host.rendererGeneration = host.rendererGeneration + 1
   if productHostRestartGamma != 1.0 then
     applyProductGamma(host, productHostRestartGamma, true)
   end if
@@ -305,6 +334,7 @@ function resetProductRenderer(host, rendererImports)
   end if
   host.renderer = productHostResetRenderer
   host.generation = host.generation + 1
+  host.rendererGeneration = host.rendererGeneration + 1
   return true
 end function
 

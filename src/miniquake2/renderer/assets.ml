@@ -18,6 +18,7 @@ import miniquake2.renderer.types as rt
 struct ModelAsset
   handle
   kind
+  modelIndex
   source
   mesh
   skins
@@ -182,7 +183,7 @@ function adoptBspModel(registry, map, name)
   if typeof(map) != "struct" or len(map.models) == 0 then return error(9658, "adopted BSP map has no world model") end if
   // ClassicWorld owns the world polygons, so do not duplicate them as an
   // expanded debug mesh. Inline *n models remain lazily expandable below.
-  asset = ModelAsset(nextHandle(registry, "model", name), "bsp", map, void,
+  asset = ModelAsset(nextHandle(registry, "model", name), "bsp", 0, map, void,
     array(0), array(0))
   registry.models = registry.models + [asset]
   storeResource(registry, asset)
@@ -221,12 +222,12 @@ function registerModel(registry, imports, name)
     modelIndex = toNumber(indexText)
     mesh = rgeom.bspModelMesh(world.source, modelIndex)
     asset = ModelAsset(nextHandle(registry, "model", name), "bsp-inline",
-      world.source, mesh, array(0), array(0))
+      modelIndex, world.source, mesh, array(0), array(0))
   else
     data = loadBytes(imports, name)
     if endsWith(name, ".bsp") then
       source = fbsp.parse(data, name)
-      asset = ModelAsset(nextHandle(registry, "model", name), "bsp", source,
+      asset = ModelAsset(nextHandle(registry, "model", name), "bsp", 0, source,
         rgeom.bspModelMesh(source, 0), array(0), array(0))
     else if endsWith(name, ".md2") then
       source = fmd2.parse(data, name)
@@ -234,11 +235,11 @@ function registerModel(registry, imports, name)
       handle = nextHandle(registry, "model", name)
       initialMesh = rgeom.md2FrameMesh(source, 0, 0, 0.0)
       frameBounds = md2FrameBounds(source)
-      asset = ModelAsset(handle, "md2", source, initialMesh, skins, frameBounds)
+      asset = ModelAsset(handle, "md2", -1, source, initialMesh, skins, frameBounds)
     else if endsWith(name, ".sp2") then
       source = fsprite.parse(data, name)
       frames = registerSpriteFrames(registry, imports, source)
-      asset = ModelAsset(nextHandle(registry, "model", name), "sprite", source,
+      asset = ModelAsset(nextHandle(registry, "model", name), "sprite", -1, source,
         void, frames, array(0))
     else
       return error(9652, "unsupported renderer model format: " + name)

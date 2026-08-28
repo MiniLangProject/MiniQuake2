@@ -244,7 +244,7 @@ function releaseOpenGlTextureRecords(backend)
 end function
 
 // Return the color byte value.
-function colorByte(value, shift)
+function inline colorByte(value, shift)
   return (value >> shift) & 255
 end function
 
@@ -1561,6 +1561,45 @@ function openGlEndRegistration()
   backend.core.state.registrationOpen = false
 end function
 
+// Normalize the mutable effect handoff counts and validate its constant-time
+// product contract. A zero client viewport is a normal minimized-window state,
+// not a fatal renderer error.
+function prepareProductRefDef(frame)
+  if frame is void or typeof(frame) != "struct" then
+    return error(9604, "product refdef is missing")
+  end if
+  if typeof(frame.width) != "int" or typeof(frame.height) != "int" then
+    return error(9604, "product refdef viewport is not integral")
+  end if
+  if frame.width <= 0 or frame.height <= 0 then return false end if
+  if typeof(frame.entities) != "array" or typeof(frame.dLights) != "array" or
+      typeof(frame.particles) != "array" then
+    return error(9604, "product refdef render collections are not arrays")
+  end if
+  // Entity effects append to the typed RefDef after construction. Treat the
+  // arrays as authoritative and repair redundant C-ABI count mirrors here.
+  frame.numEntities = len(frame.entities)
+  frame.numDLights = len(frame.dLights)
+  frame.numParticles = len(frame.particles)
+  if frame.numEntities > rc.MAX_ENTITIES then
+    return error(9604, "product refdef entity limit exceeded")
+  end if
+  if frame.numDLights > rc.MAX_DLIGHTS then
+    return error(9604, "product refdef dynamic-light limit exceeded")
+  end if
+  if frame.numParticles > rc.MAX_PARTICLES then
+    return error(9604, "product refdef particle limit exceeded")
+  end if
+  if typeof(frame.blend) != "array" or len(frame.blend) != 4 then
+    return error(9604, "product refdef blend must contain four values")
+  end if
+  if typeof(frame.lightStyles) != "array" or
+      len(frame.lightStyles) != rc.MAX_LIGHTSTYLES then
+    return error(9604, "product refdef must contain 256 light styles")
+  end if
+  return true
+end function
+
 // Open gl render frame.
 function openGlRenderFrame(frame)
   backend = openGlBackendSlot.backend
@@ -1570,18 +1609,8 @@ function openGlRenderFrame(frame)
   // shape check avoids allocating hundreds of ValidationResult records for
   // the 256 light styles on every rendered frame.
   if backend.contextActive then
-    if frame is void then return error(9604, "product refdef is void") end if
-    if frame.width <= 0 or frame.height <= 0 or
-        frame.numEntities != len(frame.entities) or
-        frame.numDLights != len(frame.dLights) or
-        frame.numParticles != len(frame.particles) or
-        frame.numEntities < 0 or frame.numDLights < 0 or frame.numParticles < 0 or
-        frame.numEntities > rc.MAX_ENTITIES or frame.numDLights > rc.MAX_DLIGHTS or
-        frame.numParticles > rc.MAX_PARTICLES or
-        typeof(frame.blend) != "array" or len(frame.blend) != 4 or
-        len(frame.lightStyles) != rc.MAX_LIGHTSTYLES then
-      return error(9604, "invalid product refdef shape")
-    end if
+    productFrameReady = prepareProductRefDef(frame)
+    if not productFrameReady then return false end if
   else
     checked = validation.validateRefDef(frame)
     if not checked.valid then return error(9604, checked.code + ": " + checked.message) end if
@@ -1937,6 +1966,72 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
   return world
 end function
 
+// Return the CPU-side registration graph retained across a video mode change.
+function classicRegistrationAssets(binding)
+  if binding is void or typeof(binding.state) != "struct" then
+    return error(9637, "classic registration renderer is invalid")
+  end if
+  return binding.state.assets
+end function
+
+// Rebind an intact CPU-side world and asset graph to a replacement OpenGL
+// context. Resolution/fullscreen changes invalidate native texture names, but
+// do not require reparsing the BSP, WAL, PCX, MD2, SP2 or WAV resources.
+function restoreClassicRegistration(binding, world, registrationAssets)
+  // Validate the retained CPU graph, transfer registry ownership, recreate
+  // native textures/geometry, then publish the rebound world atomically.
+  if binding is void or typeof(binding.state) != "struct" or
+      world is void or typeof(world) != "struct" or world.released or
+      world.map is void or registrationAssets is void or
+      typeof(registrationAssets) != "struct" then
+    return error(9637, "classic registration restore requires live CPU resources")
+  end if
+  state = binding.state
+  state.assets = registrationAssets
+  state.core.state.registrationGeneration = registrationAssets.generation
+  state.core.state.registrationOpen = false
+  state.textureRecords = []
+  state.nextTextureId = 1
+  state.particleTextureId = 0
+  state.rawTextureId = 0
+  state.rawPixels = bytes(0)
+
+  for each picture in registrationAssets.pictures
+    picture.textureId = 0
+    ensureOpenGlPictureTexture(state, picture)
+    if state.contextActive then uploadPicture(state, picture) end if
+  end for
+
+  world.generation = registrationAssets.generation
+  for each texture in world.textures
+    texture.generation = world.generation
+    texture.released = false
+    texture.uploaded = false
+    record = allocateTextureRecord(state, world.name + ":" + texture.name,
+      texture.role, world.generation, texture.width, texture.height)
+    texture.id = record.id
+    if state.contextActive then uploadClassicTexture(binding, texture) end if
+  end for
+  requiredBatchBytes = len(world.draws) * 16
+  if len(state.batchRecords) < requiredBatchBytes then
+    state.batchRecords = bytes(requiredBatchBytes)
+  end if
+  if state.contextActive then
+    precacheOpenGlClassicGeometry(world)
+    ensureOpenGlParticleTexture(state)
+    shadeRowIndex = 0
+    while shadeRowIndex < len(state.md2ShadeRows)
+      if state.md2ShadeRows[shadeRowIndex] is void then
+        state.md2ShadeRows[shadeRowIndex] = buildOpenGlMd2ShadeRow(shadeRowIndex)
+      end if
+      shadeRowIndex = shadeRowIndex + 1
+    end while
+    openGlMd2NormalVectors(state)
+  end if
+  state.activeWorld = world
+  return world
+end function
+
 // Return the upload classic texture value.
 function uploadClassicTexture(binding, texture)
   if texture.released then return error(9623, "classic texture handle is not active") end if
@@ -1990,7 +2085,7 @@ function emitClassicDraw(draw, lightmap, time)
 end function
 
 // Report whether classic draw can cache.
-function classicDrawCanCache(draw)
+function inline classicDrawCanCache(draw)
   flags = draw.surface.texInfo.flags
   return (flags & (ropenglformatconstants.SURF_WARP |
     ropenglformatconstants.SURF_FLOWING)) == 0
@@ -2070,7 +2165,7 @@ function inline openGlBatchDrawsEqual(first, second)
 end function
 
 // Write open gl multitexture record.
-function writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId,
+function inline writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId,
     lightmapTextureId)
   offset = index * 16
   key = nativeRawValue(draw)
@@ -2433,27 +2528,41 @@ function prepareClassicBrushFrame(binding, world, frame)
   submissions = array(frame.numEntities)
   submissionCount = 0
   culledEntities = 0; surfaces = 0; triangles = 0; dirtyLightmaps = 0
+  brushFrustum = void
   entityIndex = 0
   while entityIndex < frame.numEntities
     entity = frame.entities[entityIndex]
     modelAsset = rassets.findModelByHandle(binding.state.assets, entity.model)
     if modelAsset is not void and modelAsset.kind == "bsp-inline" then
       if modelAsset.source != world.map then return error(9635, "inline BSP entity belongs to a different ClassicWorld") end if
-      modelIndex = classicInlineModelIndex(modelAsset)
-      brushModel = rclassicworld.findBrushModel(world, modelIndex)
-      if brushModel is void then return error(9636, "ClassicWorld has no prepared inline BSP model " + modelIndex) end if
-      selectedDraws = rclassicvisibility.selectClassicBrushModel(brushModel, entity, frame)
-      if len(selectedDraws) == 0 then
+      modelIndex = modelAsset.modelIndex
+      if modelIndex < 1 or modelIndex > len(world.brushModels) then
+        return error(9636, "ClassicWorld has no prepared inline BSP model " + modelIndex)
+      end if
+      brushModel = world.brushModels[modelIndex - 1]
+      if brushFrustum is void then
+        brushFrustum = rclassicvisibility.classicVisibilityFrustum(frame)
+      end if
+      brushSelection = rclassicvisibility.selectClassicBrushModelPrepared(
+        brushModel, entity, frame, brushFrustum)
+      selectedDraws = brushSelection.draws
+      selectedCount = brushSelection.count
+      if selectedCount == 0 then
         culledEntities = culledEntities + 1
       else
-        localView = rclassicvisibility.classicVisibilityBrushLocalView(entity, frame.viewOrigin)
-        brushPlan = rclassicspecial.classicSpecialPassPlanOrigin(selectedDraws, localView)
+        localView = brushSelection.localView
+        brushPlan = rclassicspecial.classicSpecialPassPlanOriginPrefix(
+          selectedDraws, selectedCount, localView)
         lightmapResult = classicBrushDynamicLightmaps(world, entity, brushPlan, frame)
         submissions[submissionCount] = rclassictypes.ClassicBrushSubmission(entity, brushModel, brushPlan, lightmapResult[0])
         submissionCount = submissionCount + 1
         dirtyLightmaps = dirtyLightmaps + lightmapResult[1]
-        surfaces = surfaces + len(selectedDraws)
-        for each draw in selectedDraws triangles = triangles + draw.triangleCount end for
+        surfaces = surfaces + selectedCount
+        selectedIndex = 0
+        while selectedIndex < selectedCount
+          triangles = triangles + selectedDraws[selectedIndex].triangleCount
+          selectedIndex = selectedIndex + 1
+        end while
       end if
     end if
     entityIndex = entityIndex + 1
@@ -2576,7 +2685,7 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
 end function
 
 // Return the classic transparent distance value.
-function classicTransparentDistance(draw, entity, viewOrigin)
+function inline classicTransparentDistance(draw, entity, viewOrigin)
   centerX = (draw.mins.x + draw.maxs.x) * 0.5
   centerY = (draw.mins.y + draw.maxs.y) * 0.5
   centerZ = (draw.mins.z + draw.maxs.z) * 0.5

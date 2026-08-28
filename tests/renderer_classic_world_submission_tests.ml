@@ -151,6 +151,40 @@ function testBackendLifecycle()
   renderer.exports.Shutdown()
 end function
 
+// Verify context replacement reuses the prepared CPU registration graph.
+function testRegistrationRestore()
+  original = ropengl.createOpenGlRenderer(false)
+  original.exports.Init(void, void)
+  original.exports.BeginRegistration("maps/synthetic.bsp")
+  retainedMap = makeMap()
+  ropengl.adoptClassicMapModel(original, retainedMap, "maps/synthetic.bsp")
+  retainedWorld = ropengl.prepareClassicWorld(original, retainedMap,
+    loadClassicFile, rt.defaultLightStyles(), 0, 1.0)
+  original.exports.EndRegistration()
+  retainedAssets = ropengl.classicRegistrationAssets(original)
+  signature = rclassicworld.planSignature(retainedWorld)
+  original.exports.Shutdown()
+
+  replacement = ropengl.createOpenGlRenderer(false)
+  replacement.exports.Init(void, void)
+  restored = ropengl.restoreClassicRegistration(replacement, retainedWorld,
+    retainedAssets)
+  assertEqual(restored, retainedWorld, "registration restore preserves world")
+  assertEqual(rclassicworld.planSignature(restored), signature,
+    "registration restore preserves CPU plan")
+  assertEqual(restored.released, false,
+    "registration restore keeps world live")
+  assertEqual(restored.generation, replacement.state.assets.generation,
+    "registration restore adopts replacement generation")
+  assertEqual(len(replacement.state.textureRecords), len(restored.textures),
+    "registration restore rebinds texture records")
+  frame = rt.defaultRefDef(640, 480)
+  stats = ropengl.submitClassicWorld(replacement, restored, frame)
+  assertEqual(stats.surfaces, 0, "restored headless submission")
+  ropengl.releaseClassicWorld(replacement, restored)
+  replacement.exports.Shutdown()
+end function
+
 // Verify context mode factories.
 function testContextModeFactories()
   headless = ropengl.createOpenGlRenderer(false)
@@ -209,6 +243,7 @@ end function
 
 testWorldPlanAndPalette()
 testBackendLifecycle()
+testRegistrationRestore()
 testContextModeFactories()
 testAliasPointLighting()
 print("renderer classic world submission tests passed")

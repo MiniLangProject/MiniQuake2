@@ -6,14 +6,17 @@ SPDX-License-Identifier: GPL-2.0-or-later
 package miniquake2.game.player.client
 
 import miniquake2.game.player.constants as gplayerconstants
+import miniquake2.game.player.effects as gplayereffects
 import miniquake2.game.player.spawn as gplayerspawn
 import miniquake2.game.player.types as gplayertypes
 import miniquake2.game.player.userinfo as gplayeruserinfo
 import miniquake2.game.gameplay.weapons as gplayerweapons
 import miniquake2.game.types as gtypes
 import miniquake2.qcommon.byteio as qbyteio
+import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.info as qinfo
 import miniquake2.qcommon.types as qtypes
+import miniquake2.physics.vector as gplayervector
 import std.math as gplayermath
 
 // Copy pmove state.
@@ -23,6 +26,22 @@ function copyPmoveState(state)
     [state.velocity[0], state.velocity[1], state.velocity[2]],
     state.flags, state.time, state.gravity,
     [state.deltaAngles[0], state.deltaAngles[1], state.deltaAngles[2]])
+end function
+
+// Report whether two pmove states are byte-contract equivalent.
+function pmoveStateEqual(first, second)
+  if first.moveType != second.moveType or first.flags != second.flags or
+      first.time != second.time or first.gravity != second.gravity then
+    return false
+  end if
+  index = 0
+  while index < 3
+    if first.origin[index] != second.origin[index] or
+        first.velocity[index] != second.velocity[index] or
+        first.deltaAngles[index] != second.deltaAngles[index] then return false end if
+    index = index + 1
+  end while
+  return true
 end function
 
 // Return the angle to short value.
@@ -72,6 +91,11 @@ end function
 // Write client in server.
 function PutClientInServer(context, player)
   selection = gplayerspawn.SelectSpawnPoint(context, player)
+  // Spawn/respawn starts without a supporting level edict. The original
+  // p_client.c clears groundentity before KillBox and the first PMove.
+  player.groundEntity = void
+  player.groundLinkCount = 0
+  player.powerArmorTime = 0.0
   savedUserInfo = player.persistent.userInfo
   savedRespawn = player.respawn
   if context.deathmatch then
@@ -254,18 +278,157 @@ function spectator_respawn(context, player)
   player.respawn.score = player.persistent.score
   player.edict.serverFlags = player.edict.serverFlags & ~miniquake2.game.constants.SVF_NOCLIENT
   PutClientInServer(context, player)
+  if player.persistent.spectator != true then
+    gplayereffects.EmitConnectionEffect(context, player,
+      miniquake2.game.constants.MZ_LOGIN)
+    player.edict.client.playerState.pmove.flags = miniquake2.game.constants.PMF_TIME_TELEPORT
+    player.edict.client.playerState.pmove.time = 14
+  end if
   if player.persistent.spectator then context.messages = context.messages + [player.persistent.netName + " moved to the sidelines"]
   else context.messages = context.messages + [player.persistent.netName + " joined the game"]
   end if
   return true
 end function
 
-// Return the chase candidate value.
-function chaseCandidate(context, player)
+// Report whether a player is a live, non-spectator chase target.
+function chaseTargetEligible(candidate)
+  return candidate is not void and candidate.edict.inUse and
+    candidate.persistent.connected and candidate.respawn.spectator != true
+end function
+
+// Select the next chase target in client-edict order, wrapping at maxclients.
+function ChaseNext(context, player)
+  if player.chaseTarget is void then return false end if
+  currentNumber = player.chaseTarget.edict.state.number
+  nextTarget = void
+  wrappedTarget = void
   for each candidate in context.players
-    if nativeRawValue(candidate) != nativeRawValue(player) and candidate.edict.inUse and candidate.respawn.spectator != true then return candidate end if
+    if chaseTargetEligible(candidate) then
+      number = candidate.edict.state.number
+      if wrappedTarget is void or number < wrappedTarget.edict.state.number then
+        wrappedTarget = candidate
+      end if
+      if number > currentNumber and
+          (nextTarget is void or number < nextTarget.edict.state.number) then
+        nextTarget = candidate
+      end if
+    end if
   end for
-  return void
+  if nextTarget is void then nextTarget = wrappedTarget end if
+  if nextTarget is void then return false end if
+  player.chaseTarget = nextTarget
+  return true
+end function
+
+// Select the previous chase target in client-edict order, wrapping at one.
+function ChasePrev(context, player)
+  if player.chaseTarget is void then return false end if
+  currentNumber = player.chaseTarget.edict.state.number
+  previousTarget = void
+  wrappedTarget = void
+  for each candidate in context.players
+    if chaseTargetEligible(candidate) then
+      number = candidate.edict.state.number
+      if wrappedTarget is void or number > wrappedTarget.edict.state.number then
+        wrappedTarget = candidate
+      end if
+      if number < currentNumber and
+          (previousTarget is void or number > previousTarget.edict.state.number) then
+        previousTarget = candidate
+      end if
+    end if
+  end for
+  if previousTarget is void then previousTarget = wrappedTarget end if
+  if previousTarget is void then return false end if
+  player.chaseTarget = previousTarget
+  return true
+end function
+
+// Update one spectator camera from its current target, matching g_chase.c.
+function UpdateChaseCam(context, player)
+  // Resolve a valid target, trace the stock camera hull, then publish the
+  // spectator PMove/view state as three explicit phases.
+  if player.chaseTarget is void then return false end if
+  if not chaseTargetEligible(player.chaseTarget) then
+    oldTarget = player.chaseTarget
+    if not ChaseNext(context, player) or
+        nativeRawValue(player.chaseTarget) == nativeRawValue(oldTarget) then
+      player.chaseTarget = void
+      player.edict.client.playerState.pmove.flags = player.edict.client.playerState.pmove.flags &
+        ~miniquake2.game.constants.PMF_NO_PREDICTION
+      return false
+    end if
+  end if
+
+  target = player.chaseTarget
+  targetOrigin = target.edict.state.origin
+  ownerView = qtypes.Vec3(targetOrigin.x, targetOrigin.y,
+    targetOrigin.z + target.viewHeight)
+  targetAngles = target.edict.client.playerState.viewAngles
+  cameraAngles = qtypes.Vec3(targetAngles.x, targetAngles.y, targetAngles.z)
+  if cameraAngles.x > 56.0 then cameraAngles.x = 56.0 end if
+  forward = gplayervector.normalized(
+    gplayervector.angleVectors(cameraAngles)[0])[0]
+  camera = gplayervector.multiplyAdd(ownerView, -30.0, forward)
+  minimumZ = targetOrigin.z + 20.0
+  if camera.z < minimumZ then camera.z = minimumZ end if
+  if target.groundEntity is void then camera.z = camera.z + 16.0 end if
+
+  zero = qtypes.zeroVec3()
+  trace = context.imports.trace(ownerView, zero, zero, camera,
+    target.edict, qconstants.MASK_SOLID)
+  goal = gplayervector.multiplyAdd(trace.endPosition, 2.0, forward)
+  ceiling = qtypes.Vec3(goal.x, goal.y, goal.z + 6.0)
+  trace = context.imports.trace(goal, zero, zero, ceiling,
+    target.edict, qconstants.MASK_SOLID)
+  if trace.fraction < 1.0 then
+    goal = qtypes.Vec3(trace.endPosition.x, trace.endPosition.y,
+      trace.endPosition.z - 6.0)
+  end if
+  floor = qtypes.Vec3(goal.x, goal.y, goal.z - 6.0)
+  trace = context.imports.trace(goal, zero, zero, floor,
+    target.edict, qconstants.MASK_SOLID)
+  if trace.fraction < 1.0 then
+    goal = qtypes.Vec3(trace.endPosition.x, trace.endPosition.y,
+      trace.endPosition.z + 6.0)
+  end if
+
+  state = player.edict.client.playerState
+  if target.deadFlag != gplayerconstants.DEAD_NO then
+    state.pmove.moveType = miniquake2.game.constants.PM_DEAD
+    state.viewAngles = qtypes.Vec3(-15.0, target.killerYaw, 40.0)
+  else
+    state.pmove.moveType = miniquake2.game.constants.PM_FREEZE
+    state.viewAngles = qtypes.Vec3(targetAngles.x, targetAngles.y,
+      targetAngles.z)
+  end if
+  player.edict.state.origin = goal
+  state.pmove.deltaAngles = [
+    angleToShort(targetAngles.x - player.respawn.commandAngles[0]),
+    angleToShort(targetAngles.y - player.respawn.commandAngles[1]),
+    angleToShort(targetAngles.z - player.respawn.commandAngles[2])
+  ]
+  player.viewHeight = 0.0
+  state.pmove.flags = state.pmove.flags |
+    miniquake2.game.constants.PMF_NO_PREDICTION
+  context.imports.linkEntity(player.edict)
+  return true
+end function
+
+// Acquire the first live non-spectator and initialize the camera immediately.
+function GetChaseTarget(context, player)
+  selected = void
+  for each candidate in context.players
+    if chaseTargetEligible(candidate) and
+        (selected is void or candidate.edict.state.number <
+          selected.edict.state.number) then selected = candidate end if
+  end for
+  if selected is void then
+    context.imports.centerprintf(player.edict, "No other players to chase.")
+    return false
+  end if
+  player.chaseTarget = selected
+  return UpdateChaseCam(context, player)
 end function
 
 // Run client.
@@ -293,6 +456,7 @@ function ClientThink(context, player, command)
     pmove.state = copyPmoveState(player.edict.client.playerState.pmove)
     pmove.state.origin = [qbyteio.truncInt(player.edict.state.origin.x * 8.0), qbyteio.truncInt(player.edict.state.origin.y * 8.0), qbyteio.truncInt(player.edict.state.origin.z * 8.0)]
     pmove.state.velocity = [qbyteio.truncInt(player.velocity[0] * 8.0), qbyteio.truncInt(player.velocity[1] * 8.0), qbyteio.truncInt(player.velocity[2] * 8.0)]
+    pmove.snapInitial = not pmoveStateEqual(player.oldPmove, pmove.state)
     pmove.command = command
     pmove.mins = player.edict.mins
     pmove.maxs = player.edict.maxs
@@ -307,7 +471,29 @@ function ClientThink(context, player, command)
     player.viewHeight = pmove.viewHeight
     player.waterLevel = pmove.waterLevel
     player.waterType = pmove.waterType
+    // p_client.c emits a sexed voice sound and a self-noise exactly on the
+    // grounded-to-airborne transition caused by an ordinary jump.  This must
+    // run before groundEntity is replaced with PMove's new value.
+    if player.groundEntity is not void and pmove.groundEntity is void and
+        command.upMove >= 10 and pmove.waterLevel == 0 then
+      context.imports.sound(player.edict,
+        miniquake2.game.constants.CHAN_VOICE,
+        context.imports.soundIndex("*jump1.wav"), 1.0,
+        miniquake2.game.constants.ATTN_NORM, 0.0)
+      if context.playerNoise is not void then
+        playerNoiseCallback = context.playerNoise
+        playerNoiseCallback(player.gameplay, player.edict.state.origin, 0)
+      end if
+    end if
     player.groundEntity = pmove.groundEntity
+    player.groundLinkCount = 0
+    if pmove.groundEntity is not void then
+      groundLinkCountProbe = try(pmove.groundEntity.linkCount)
+      if groundLinkCountProbe is not error and
+          typeof(groundLinkCountProbe) == "int" then
+        player.groundLinkCount = groundLinkCountProbe
+      end if
+    end if
     player.respawn.commandAngles = [shortToAngle(command.angles[0]), shortToAngle(command.angles[1]), shortToAngle(command.angles[2])]
     if player.deadFlag != gplayerconstants.DEAD_NO then player.edict.client.playerState.viewAngles = qtypes.Vec3(-15.0, player.killerYaw, 40.0)
     else player.edict.client.playerState.viewAngles = qtypes.Vec3(pmove.viewAngles.x, pmove.viewAngles.y, pmove.viewAngles.z)
@@ -339,19 +525,50 @@ function ClientThink(context, player, command)
     if player.respawn.spectator then
       player.latchedButtons = 0
       if player.chaseTarget is not void then player.chaseTarget = void; player.edict.client.playerState.pmove.flags = player.edict.client.playerState.pmove.flags & ~miniquake2.game.constants.PMF_NO_PREDICTION
-      else player.chaseTarget = chaseCandidate(context, player)
+      else GetChaseTarget(context, player)
       end if
     else if player.weaponThunk != true then
       player.weaponThunk = true
       fired = ThinkWeapon(context, player) != false
     end if
   end if
+  if player.respawn.spectator then
+    if command.upMove >= 10 then
+      if (player.edict.client.playerState.pmove.flags &
+          miniquake2.game.constants.PMF_JUMP_HELD) == 0 then
+        player.edict.client.playerState.pmove.flags = player.edict.client.playerState.pmove.flags |
+          miniquake2.game.constants.PMF_JUMP_HELD
+        if player.chaseTarget is not void then ChaseNext(context, player)
+        else GetChaseTarget(context, player)
+        end if
+      end if
+    else
+      player.edict.client.playerState.pmove.flags = player.edict.client.playerState.pmove.flags &
+        ~miniquake2.game.constants.PMF_JUMP_HELD
+    end if
+  end if
+  // ClientThink updates every camera following this player after the target's
+  // authoritative movement, exactly as the original maxclients loop does.
+  for each follower in context.players
+    if follower.edict.inUse and follower.chaseTarget is not void and
+        nativeRawValue(follower.chaseTarget) == nativeRawValue(player) then
+      UpdateChaseCam(context, follower)
+    end if
+  end for
   return gplayertypes.FrameResult(moved, fired, false, context.exitIntermission)
 end function
 
 // Begin client server frame.
 function ClientBeginServerFrame(context, player)
   if context.intermissionTime > 0.0 then return gplayertypes.FrameResult(false, false, false, false) end if
+  if player.groundEntity is not void then
+    groundLinkProbe = try(player.groundEntity.linkCount)
+    if groundLinkProbe is error or typeof(groundLinkProbe) != "int" or
+        groundLinkProbe != player.groundLinkCount then
+      player.groundEntity = void
+      player.groundLinkCount = 0
+    end if
+  end if
   if context.deathmatch and player.persistent.spectator != player.respawn.spectator and context.time - player.respawnTime >= 5.0 then
     changed = spectator_respawn(context, player)
     return gplayertypes.FrameResult(false, false, changed, false)

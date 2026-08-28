@@ -10,6 +10,7 @@ import miniquake2.runtime.diagnostics as runtimeDiagnostics
 import miniquake2.runtime.application as runtimeApplication
 import miniquake2.qcommon.byteio as mainByteio
 import miniquake2.runtime.product_startup as productStartup
+import miniquake2.runtime.crash_report as crashReport
 
 const MINIQUAKE2_VERSION = "0.5.0-foundation"
 const QUAKE2_REFERENCE_VERSION = "3.19"
@@ -39,7 +40,7 @@ function printUsage()
   print "  --cinematic ROOT NAME [FRAMES] [LOOP] play a retail CIN (FRAMES=0 until completion, LOOP=0|1)"
   print "  --media-sequence ROOT SPEC [FRAMES] play classic CIN/PCX/map +nextserver chains"
   print "  --demo ROOT NAME [FRAMES] play a release or Protocol-34 DM2 through the product renderer"
-  print "  --video-restart-smoke ROOT [MAP] [MODE] rebuild the live window/renderer and retail BSP resources"
+  print "  --video-restart-smoke ROOT [MAP] [MODE] apply a live video mode without rebuilding the active BSP"
   print "  --dedicated ROOT MAP [PORT] [FRAMES] run a Protocol-34 dedicated server (FRAMES=0 runs until stopped)"
   print "  --listen ROOT MAP [FRAMES] run a headless local client/listen-server session"
   print "  --connect IPV4 [PORT] [FRAMES] run a headless Protocol-34 interoperability client"
@@ -405,7 +406,9 @@ function runVideoRestartSmokeCommand(args)
     " loading-frames=" + videoRestartResult[3] +
     " fullscreen=" + videoRestartResult[6] +
     " fallback=" + videoRestartResult[7] + " requested=" +
-    videoRestartResult[8] + "x" + videoRestartResult[9]
+    videoRestartResult[8] + "x" + videoRestartResult[9] +
+    " switch-ms=" + videoRestartResult[10] +
+    " renderer-generation=" + videoRestartResult[11]
   print "  visible-before=" + videoRestartResult[4] +
     " visible-after=" + videoRestartResult[5]
   return 0
@@ -465,7 +468,7 @@ function runCliSmoke(args)
 end function
 
 // Dispatch the asset-free bootstrap commands.
-function main(args)
+function dispatchMain(args)
   // Keep main phases explicit: validate inputs, update owned state, then publish the result.
   if len(args) == 0 then
     productRoot = try(discoverDefaultProductRoot())
@@ -506,4 +509,13 @@ function main(args)
   print "MiniQuake2: unknown or malformed command " + command
   printUsage()
   return 2
+end function
+
+// Catch every propagated MiniLang error at the process boundary. Keeping the
+// original error value preserves its source file, line and function for the
+// persistent report and the copyable Windows crash dialog.
+function main(args)
+  result = try(dispatchMain(args))
+  if result is error then return crashReport.handle(result, MINIQUAKE2_VERSION) end if
+  return result
 end function

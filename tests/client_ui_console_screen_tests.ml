@@ -72,6 +72,18 @@ uiScreenState.layoutText = ""
 uiScreenConfig[qc.CS_STATUSBAR] = ""
 uiScreenAssertEqual(cuiscreen.draw(uiScreenState, 5000, 640, 480, uiScreenStats,
   uiScreenConfig, 50, 0, uiScreenRenderer.exports), 0, "expired overlays")
+// Truncated or hostile Protocol-34 layout strings must be isolated at the UI
+// boundary instead of terminating a multiplayer client.
+uiScreenState.layoutText = "if"
+uiScreenConfig[qc.CS_STATUSBAR] = "if"
+uiScreenMalformedDraw = try(cuiscreen.draw(uiScreenState, 5100, 640, 480,
+  uiScreenStats, uiScreenConfig, 51, 0, uiScreenRenderer.exports))
+uiScreenAssertEqual(uiScreenMalformedDraw is error, false,
+  "malformed multiplayer layouts do not escape screen draw")
+uiScreenAssertEqual(len(uiScreenState.statusbarTokens), 0,
+  "malformed statusbar disabled after one report")
+uiScreenAssertEqual(len(uiScreenState.layoutTokens), 0,
+  "malformed transient layout disabled after one report")
 uiScreenConsole.visibleFraction = 0.5
 uiScreenAssertEqual(cuiconsole.draw(uiScreenConsole, 640, 480, uiScreenRenderer.exports) > 0, true, "full console draw")
 uiScreenRenderer.exports.Shutdown()

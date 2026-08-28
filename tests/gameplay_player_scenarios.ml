@@ -22,9 +22,20 @@ import miniquake2.game.player.userinfo as gplayeruserinfo
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.types as qtypes
 import miniquake2.server.game_bridge as gbridge
+import miniquake2.server.sound_events as gplayersoundevents
 import std.string as gplayerstring
 
 weaponThinkCount = 0
+jumpNoiseCount = 0
+jumpNoiseType = -1
+jumpNoisePosition = qtypes.zeroVec3()
+jumpWaterLevel = 0
+jumpSnapInitial = false
+
+// Store a test ground entity link count.
+struct JumpGround
+  linkCount
+end struct
 
 // Assert the equal test condition.
 function assertEqual(actual, expected, name)
@@ -65,6 +76,28 @@ end function
 function weaponThink(player, context)
   global weaponThinkCount
   weaponThinkCount = weaponThinkCount + 1
+  return true
+end function
+
+// Record one player-noise callback from the jump transition.
+function recordJumpNoise(player, position, noiseType)
+  global jumpNoiseCount, jumpNoiseType, jumpNoisePosition
+  jumpNoiseCount = jumpNoiseCount + 1
+  jumpNoiseType = noiseType
+  jumpNoisePosition = qtypes.Vec3(position.x, position.y, position.z)
+  return true
+end function
+
+// Model PMove's post-jump airborne result without involving world geometry.
+function jumpPmove(pmove)
+  global jumpWaterLevel, jumpSnapInitial
+  jumpSnapInitial = pmove.snapInitial
+  pmove.state.flags = pmove.state.flags & ~gameconstants.PMF_ON_GROUND
+  pmove.state.velocity[2] = 2160
+  pmove.groundEntity = void
+  pmove.waterLevel = jumpWaterLevel
+  pmove.waterType = 0
+  pmove.viewAngles = qtypes.zeroVec3()
   return true
 end function
 
@@ -327,6 +360,149 @@ function testThinkRespawnAndSpectator()
   return true
 end function
 
+// Verify the stock grounded-to-airborne jump sound and AI self-noise edge.
+function testJumpSoundAndNoise()
+  global jumpNoiseCount, jumpNoiseType, jumpNoisePosition, jumpWaterLevel
+  global jumpSnapInitial
+  runtime = gbridge.createRuntime(1)
+  imports = gbridge.makeImports(runtime)
+  registry = gpregistry.defaultRegistry()
+  context = gplayertypes.createContext(imports, registry, emptyTrace)
+  context.pmove = jumpPmove
+  context.playerNoise = recordJumpNoise
+  player = gplayertypes.createPlayer(1, registry)
+  player.edict.inUse = true
+  player.edict.state.origin = qtypes.Vec3(4.0, 8.0, 24.0)
+  player.groundEntity = JumpGround(37)
+  command = qtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 10, 0, 0)
+
+  jumpNoiseCount = 0; jumpNoiseType = -1; jumpWaterLevel = 0
+  gplayerclient.ClientThink(context, player, command)
+  events = gplayersoundevents.pendingSnapshot(runtime)
+  assertEqual(len(events), 1, "jump emits one sound")
+  assertEqual(runtime.soundNames[events[0].soundIndex], "*jump1.wav",
+    "jump uses sexed stock sound")
+  assertTrue(events[0].entity == 1 and
+      events[0].channel == gameconstants.CHAN_VOICE and
+      events[0].volume == 1.0 and
+      events[0].attenuation == gameconstants.ATTN_NORM,
+    "jump sound protocol fields")
+  assertTrue(jumpNoiseCount == 1 and jumpNoiseType == 0 and
+      jumpNoisePosition.z == player.edict.state.origin.z,
+    "jump publishes one self-noise at the moved origin")
+  assertEqual(player.groundLinkCount, 0,
+    "airborne jump clears ground link count")
+  assertTrue(jumpSnapInitial,
+    "externally changed pmove state requests an initial snap")
+
+  // Holding jump while already airborne must not retrigger either event.
+  gplayerclient.ClientThink(context, player, command)
+  assertEqual(len(gplayersoundevents.pendingSnapshot(runtime)), 1,
+    "airborne held jump does not repeat sound")
+  assertEqual(jumpNoiseCount, 1,
+    "airborne held jump does not repeat self-noise")
+  assertTrue(not jumpSnapInitial,
+    "unchanged pmove state does not repeat the initial snap")
+
+  gplayersoundevents.clearPending(runtime)
+  jumpNoiseCount = 0
+  player.groundEntity = JumpGround(38)
+  lowCommand = qtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 9, 0, 0)
+  gplayerclient.ClientThink(context, player, lowCommand)
+  assertTrue(len(gplayersoundevents.pendingSnapshot(runtime)) == 0 and
+      jumpNoiseCount == 0, "sub-threshold upmove is silent")
+
+  player.groundEntity = JumpGround(39)
+  jumpWaterLevel = 1
+  gplayerclient.ClientThink(context, player, command)
+  assertTrue(len(gplayersoundevents.pendingSnapshot(runtime)) == 0 and
+      jumpNoiseCount == 0, "water jump is silent")
+  return true
+end function
+
+// Verify stock chase acquisition, cycling, camera placement and follower refresh.
+function testChaseCameraParity()
+  context = makeContext(3)
+  context.deathmatch = true
+  observer = gplayertypes.createPlayer(1, context.registry)
+  targetA = gplayertypes.createPlayer(2, context.registry)
+  targetB = gplayertypes.createPlayer(3, context.registry)
+  gplayeruserinfo.ClientConnect(context, observer,
+    "\\name\\Observer\\spectator\\1")
+  gplayeruserinfo.ClientConnect(context, targetA, "\\name\\Alpha")
+  gplayeruserinfo.ClientConnect(context, targetB, "\\name\\Bravo")
+  observer.edict.inUse = true; observer.respawn.spectator = true
+  targetA.edict.inUse = true; targetA.respawn.spectator = false
+  targetB.edict.inUse = true; targetB.respawn.spectator = false
+  targetA.edict.state.origin = qtypes.Vec3(100.0, 0.0, 24.0)
+  targetA.edict.client.playerState.viewAngles = qtypes.Vec3(0.0, 0.0, 0.0)
+  targetA.viewHeight = 22.0
+  targetA.groundEntity = JumpGround(1)
+  targetB.edict.state.origin = qtypes.Vec3(200.0, 0.0, 24.0)
+  targetB.edict.client.playerState.viewAngles = qtypes.Vec3(0.0, 90.0, 0.0)
+  targetB.viewHeight = 22.0
+  targetB.groundEntity = JumpGround(1)
+  // Deliberately scramble storage order: stock chase selection follows edict
+  // numbers, not the order in which managed values happen to be retained.
+  context.players = [observer, targetB, targetA]
+
+  assertTrue(gplayerclient.GetChaseTarget(context, observer),
+    "chase acquires first live client")
+  assertTrue(nativeRawValue(observer.chaseTarget) == nativeRawValue(targetA),
+    "chase acquisition uses edict order")
+  assertTrue(observer.edict.state.origin.x == 72.0 and
+      observer.edict.state.origin.y == 0.0 and
+      observer.edict.state.origin.z == 46.0,
+    "grounded chase camera stock offset")
+  assertTrue(observer.edict.client.playerState.pmove.moveType ==
+      gameconstants.PM_FREEZE and
+      (observer.edict.client.playerState.pmove.flags &
+        gameconstants.PMF_NO_PREDICTION) != 0,
+    "live chase freezes and disables prediction")
+
+  assertTrue(gplayerclient.ChaseNext(context, observer) and
+      nativeRawValue(observer.chaseTarget) == nativeRawValue(targetB),
+    "chase next selects higher client")
+  assertTrue(gplayerclient.ChasePrev(context, observer) and
+      nativeRawValue(observer.chaseTarget) == nativeRawValue(targetA),
+    "chase previous selects lower client")
+
+  // A rising spectator upmove cycles only once until the button is released.
+  upCommand = qtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 10, 0, 0)
+  gplayerclient.ClientThink(context, observer, upCommand)
+  assertTrue(nativeRawValue(observer.chaseTarget) == nativeRawValue(targetB),
+    "spectator jump cycles chase target")
+  gplayerclient.ClientThink(context, observer, upCommand)
+  assertTrue(nativeRawValue(observer.chaseTarget) == nativeRawValue(targetB),
+    "held spectator jump does not cycle twice")
+  releaseCommand = qtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 0, 0, 0)
+  gplayerclient.ClientThink(context, observer, releaseCommand)
+  gplayerclient.ClientThink(context, observer, upCommand)
+  assertTrue(nativeRawValue(observer.chaseTarget) == nativeRawValue(targetA),
+    "released spectator jump permits next cycle")
+
+  // ClientThink on the target owns follower camera refresh after movement.
+  observer.edict.state.origin = qtypes.Vec3(-500.0, -500.0, -500.0)
+  targetCommand = qtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 0, 0, 0)
+  gplayerclient.ClientThink(context, targetA, targetCommand)
+  assertTrue(observer.edict.state.origin.x != -500.0 and
+      (observer.edict.client.playerState.pmove.flags &
+        gameconstants.PMF_NO_PREDICTION) != 0,
+    "target think refreshes every follower camera")
+
+  targetA.respawn.spectator = true
+  assertTrue(gplayerclient.UpdateChaseCam(context, observer) and
+      nativeRawValue(observer.chaseTarget) == nativeRawValue(targetB),
+    "invalid target advances to another live client")
+  targetB.respawn.spectator = true
+  assertTrue(not gplayerclient.UpdateChaseCam(context, observer) and
+      observer.chaseTarget is void and
+      (observer.edict.client.playerState.pmove.flags &
+        gameconstants.PMF_NO_PREDICTION) == 0,
+    "last invalid target releases chase prediction")
+  return true
+end function
+
 // Verify death score rules and hud.
 function testDeathScoreRulesAndHud()
   context = makeContext(2)
@@ -455,11 +631,13 @@ function runTests()
   testConnectUserinfoAndSpectator()
   testSpawnSelectionAndPutClient()
   testThinkRespawnAndSpectator()
+  testJumpSoundAndNoise()
+  testChaseCameraParity()
   testDeathScoreRulesAndHud()
   testCooperativeDeathCheckpointAndPowerArmorReset()
   testRepeatedSpawnpointLifetime()
   testStockCoopSpawnFixupsAndIntermissionSelection()
-  print "MiniQuake2 gameplay player scenarios passed: 7"
+  print "MiniQuake2 gameplay player scenarios passed: 9"
 end function
 
 runTests()

@@ -986,14 +986,15 @@ function addExplosion(state, kind, origin, modelName, frames, light, lightColor,
   if kind == ceconstants.TE_FLECHETTE then skinNum = 2 end if
   return addExplosionExact(state, kind, origin,
     qt.Vec3(0.0, (random(state) % 360) * 1.0, 0.0), modelName, frames,
-    light, lightColor, state.time - 100, 0, flags, alpha, skinNum)
+    light, lightColor, state.time, 0, flags, alpha, skinNum)
 end function
 
 // Advance state.
 function advance(state, now)
   // Keep advance phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(now) != "int" or now < state.time then return error(7313, "effect time must be monotonic integer milliseconds") end if
-  seconds = (now - state.time) * 0.001
+  previousTime = state.time
+  seconds = (now - previousTime) * 0.001
   state.time = now
   activeSustainCount = 0
   for each sustain in state.sustains
@@ -1016,7 +1017,12 @@ function advance(state, now)
   state.sustains = compact(state.sustains, activeSustainCount)
   activeLightCount = 0
   for each light in state.dLights
-    if light.radius > 0.0 and light.die >= now then
+    // The original client parses and draws with one frame-stable `cl.time`.
+    // Our packet and render clocks can differ by a few milliseconds, so retain
+    // a newly parsed zero-duration muzzle light through its first advance.
+    sameFrameLight = light.die >= previousTime and
+      light.die <= previousTime + 1.0
+    if light.radius > 0.0 and (light.die >= now or sameFrameLight) then
       light.radius = light.radius - seconds * light.decay
       if light.radius > 0.0 then
         state.dLights[activeLightCount] = light

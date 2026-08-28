@@ -23,5 +23,32 @@ spawnPointAssert(spawnPointSession.server.bridgeRuntime.commands is not void and
   spawnPointPlayer.edict.state.origin.x == 128.0 and
   spawnPointPlayer.edict.state.origin.y == 16.0,
   "named spawn point did not reach PutClientInServer")
+
+// A persistent map change receives the classic map$spawnpoint string.  The
+// old level edict must be replaced, while persistent client data survives and
+// ClientBegin places the player at the named successor start.
+spawnPointOldEdictIdentity = nativeRawValue(spawnPointPlayer.edict)
+spawnPointPlayer.health = 77
+spawnPointPlayer.persistent.health = 77
+spawnPointPlayer.edict.state.origin.x = 4096.0
+spawnPointPlayer.groundEntity = spawnPointPlayer.edict
+spawnPointNextEntities = "{\"classname\" \"worldspawn\"}" +
+  "{\"classname\" \"info_player_start\" \"origin\" \"32 0 24\"}" +
+  "{\"classname\" \"info_player_start\" \"targetname\" \"entry\" " +
+  "\"origin\" \"256 48 24\"}"
+spawnPointChanged = spawnpointtestplay.changeMapCore(spawnPointSession,
+  "spawnpoint_next$entry", spawnPointNextEntities, void)
+spawnPointAssert(spawnPointChanged.changed and
+  spawnPointSession.server.mapName == "spawnpoint_next",
+  "map$spawnpoint change did not commit normalized map")
+spawnpointtestplay.runUntilActive(spawnPointSession, 500)
+spawnPointSuccessor = spawnpointtestgame.playerContext().players[0]
+spawnPointAssert(nativeRawValue(spawnPointSuccessor.edict) !=
+    spawnPointOldEdictIdentity and spawnPointSuccessor.health == 77 and
+    spawnPointSuccessor.edict.state.origin.x == 256.0 and
+    spawnPointSuccessor.edict.state.origin.y == 48.0 and
+    spawnPointSuccessor.groundEntity is void and
+    spawnPointSuccessor.groundLinkCount == 0,
+  "same-session successor inherited stale level state or lost named spawn")
 spawnpointtestplay.shutdown(spawnPointSession)
 print("runtime_session_spawnpoint_tests: PASS")

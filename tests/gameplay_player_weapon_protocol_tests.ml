@@ -8,6 +8,8 @@ import miniquake2.game.integration.baseq2 as weaponprotocolintegration
 import miniquake2.game.gameplay.registry as weaponprotocolregistry
 import miniquake2.game.gameplay.item_rules as weaponprotocolitems
 import miniquake2.game.gameplay.constants as weaponprotocolgameplayconstants
+import miniquake2.game.gameplay.types as weaponprotocolgameplaytypes
+import miniquake2.game.player.view as weaponprotocolplayerview
 import miniquake2.game.weapons.constants as weaponprotocolconstants
 import miniquake2.game.weapons.types as weaponprotocoltypes
 import miniquake2.game.weapons.core as weaponprotocolcore
@@ -77,6 +79,15 @@ weaponApi.spawnEntities("weapon-protocol", weaponFixture, "")
 weaponClient = weaponApi.edicts[1]
 weaponProtocolAssert(weaponApi.clientConnect(weaponClient, "\\name\\ProtocolRanger\\skin\\male/grunt"), "client connect")
 weaponProtocolAssert(weaponApi.clientBegin(weaponClient), "client begin")
+weaponProtocolAssert(len(weaponServer.pendingMulticasts) == 1 and
+  weaponServer.pendingMulticasts[0].destination ==
+    weaponprotocolgameconstants.MULTICAST_PVS and
+  len(weaponServer.pendingMulticasts[0].payload) == 4 and
+  weaponServer.pendingMulticasts[0].payload[0] ==
+    weaponprotocolqconstants.SVC_MUZZLEFLASH and
+  weaponServer.pendingMulticasts[0].payload[3] ==
+    weaponprotocolgameconstants.MZ_LOGIN,
+  "client begin login muzzle framing")
 weaponFrame = 0
 while weaponFrame < 5
   weaponApi.runFrame()
@@ -84,10 +95,12 @@ while weaponFrame < 5
 end while
 weaponPlayer = weaponprotocolgame.playerContext().players[0]
 weaponPlayer.gameplay.silencerShots = 1
+weaponMuzzleEventBase = len(weaponServer.pendingMulticasts)
 weaponApi.clientThink(weaponClient, weaponprotocolqtypes.UserCmd(0, weaponprotocolgameconstants.BUTTON_ATTACK, [0, 0, 0], 0, 0, 0, 0, 64))
 weaponApi.clientThink(weaponClient, weaponprotocolqtypes.UserCmd(0, 0, [0, 0, 0], 0, 0, 0, 0, 64))
-weaponProtocolAssert(len(weaponServer.pendingMulticasts) == 1, "real Blaster muzzle queued")
-weaponMuzzleEvent = weaponServer.pendingMulticasts[0]
+weaponProtocolAssert(len(weaponServer.pendingMulticasts) ==
+  weaponMuzzleEventBase + 1, "real Blaster muzzle queued")
+weaponMuzzleEvent = weaponServer.pendingMulticasts[weaponMuzzleEventBase]
 weaponProtocolAssert(weaponMuzzleEvent.destination == weaponprotocolgameconstants.MULTICAST_PVS and
   len(weaponMuzzleEvent.payload) == 4 and weaponMuzzleEvent.payload[0] == weaponprotocolqconstants.SVC_MUZZLEFLASH and
   weaponMuzzleEvent.payload[3] == (weaponprotocolconstants.MZ_BLASTER | weaponprotocolconstants.MZ_SILENCED),
@@ -96,6 +109,13 @@ weaponProtocolAssert(weaponPlayer.gameplay.silencerShots == 0, "silencer shot co
 weaponNoiseRuntime = weaponprotocolgame.baseRuntime()
 weaponProtocolAssert(weaponNoiseRuntime.aiContext.soundEntity is void,
   "silenced Blaster published a weapon noise")
+weaponGameplayNoisePosition = weaponprotocolqtypes.Vec3(16.0, 4.0, 32.0)
+weaponProtocolAssert(weaponprotocolintegration.integratedPlayerNoise(
+  weaponPlayer.gameplay, weaponGameplayNoisePosition, 0) and
+  weaponNoiseRuntime.aiContext.soundEntity is not void and
+  weaponNoiseRuntime.aiContext.soundEntity.edict.state.origin.x == 16.0,
+  "GameplayPlayer jump noise owner resolution")
+weaponNoiseRuntime.aiContext.soundEntity = void
 weaponNoiseOwner = weaponprotocolintegration.playerWeaponTarget(weaponPlayer, weaponRegistry)
 weaponImpactNoisePosition = weaponprotocolqtypes.Vec3(80.0, -12.0, 36.0)
 weaponProtocolAssert(weaponprotocolintegration.integratedPlayerNoise(
@@ -114,6 +134,83 @@ weaponProtocolAssert(weaponprotocolintegration.integratedPlayerNoise(
   weaponNoiseRuntime.aiContext.soundEntity is void,
   "deathmatch published a player noise")
 weaponprotocolgame.playerContext().deathmatch = false
+
+// Live g_combat.c parity: player power armor must participate in the real
+// WeaponContext damage path, consume cells and use its dedicated effect.
+weaponShield = weaponprotocolitems.findByPickupName(weaponRegistry, "Power Shield")
+weaponScreen = weaponprotocolitems.findByPickupName(weaponRegistry, "Power Screen")
+weaponCells = weaponprotocolitems.findByPickupName(weaponRegistry, "Cells")
+weaponProtocolAssert(weaponShield is not void and weaponScreen is not void and
+  weaponCells is not void, "power-armor registry items")
+weaponPlayer.flags = weaponPlayer.flags | weaponprotocolgameplayconstants.FL_POWER_ARMOR
+weaponPlayer.gameplay.inventory.counts[weaponShield.index] = 1
+weaponPlayer.gameplay.inventory.counts[weaponScreen.index] = 0
+weaponPlayer.gameplay.inventory.counts[weaponCells.index] = 50
+weaponPlayer.health = 100
+weaponPlayer.edict.state.angles = weaponprotocolqtypes.Vec3(0.0, 0.0, 0.0)
+weaponPlayer.view.damageBlood = 0
+weaponPlayer.view.damageArmor = 0
+weaponPlayer.view.damagePowerArmor = 0
+weaponPowerTarget = weaponprotocolintegration.playerWeaponTarget(weaponPlayer,
+  weaponRegistry)
+weaponPowerEvents = len(weaponServer.pendingMulticasts)
+weaponPowerRequest = weaponprotocolgameplaytypes.damageRequest(
+  [1.0, 0.0, 0.0], [64.0, 0.0, 24.0], 90, 0, 0,
+  weaponprotocolgameplayconstants.MOD_BLASTER)
+weaponPowerResult = weaponprotocolintegration.integratedWeaponDamage(
+  weaponPowerTarget.combatant, weaponPowerRequest)
+weaponProtocolAssert(weaponPowerResult.taken == 30 and
+  weaponPowerResult.armorSaved == 60 and weaponPlayer.health == 70 and
+  weaponPlayer.gameplay.inventory.counts[weaponCells.index] == 20,
+  "live Power Shield absorption/cell consumption")
+weaponProtocolAssert(weaponPlayer.view.damagePowerArmor == 60 and
+  weaponPlayer.view.damageArmor == 0 and weaponPlayer.view.damageBlood == 30,
+  "Power Shield damage feedback buckets")
+weaponprotocolplayerview.G_SetClientEffects(weaponprotocolgame.playerContext(),
+  weaponPlayer)
+weaponProtocolAssert(weaponPlayer.powerArmorTime >
+    weaponprotocolgame.playerContext().time and
+  (weaponPlayer.edict.state.effects & weaponprotocolgameconstants.EF_COLOR_SHELL) != 0 and
+  (weaponPlayer.edict.state.renderFx & weaponprotocolgameconstants.RF_SHELL_GREEN) != 0,
+  "Power Shield timed client shell")
+weaponProtocolAssert(len(weaponServer.pendingMulticasts) == weaponPowerEvents + 2 and
+  weaponServer.pendingMulticasts[weaponPowerEvents].payload[1] ==
+    weaponprotocolconstants.TE_SHIELD_SPARKS and
+  weaponServer.pendingMulticasts[weaponPowerEvents + 1].payload[1] ==
+    weaponprotocolconstants.TE_BLOOD,
+  "Power Shield effect framing")
+
+weaponPlayer.gameplay.inventory.counts[weaponShield.index] = 0
+weaponPlayer.gameplay.inventory.counts[weaponScreen.index] = 1
+weaponPlayer.gameplay.inventory.counts[weaponCells.index] = 30
+weaponPlayer.health = 100
+weaponPlayer.view.damageBlood = 0
+weaponPlayer.view.damageArmor = 0
+weaponPlayer.view.damagePowerArmor = 0
+weaponScreenTarget = weaponprotocolintegration.playerWeaponTarget(weaponPlayer,
+  weaponRegistry)
+weaponScreenEvents = len(weaponServer.pendingMulticasts)
+weaponScreenRequest = weaponprotocolgameplaytypes.damageRequest(
+  [1.0, 0.0, 0.0], [64.0, 0.0, 24.0], 90, 0, 0,
+  weaponprotocolgameplayconstants.MOD_BLASTER)
+weaponScreenResult = weaponprotocolintegration.integratedWeaponDamage(
+  weaponScreenTarget.combatant, weaponScreenRequest)
+weaponProtocolAssert(weaponScreenResult.taken == 60 and
+  weaponScreenResult.armorSaved == 30 and weaponPlayer.health == 40 and
+  weaponPlayer.gameplay.inventory.counts[weaponCells.index] == 0,
+  "front-facing Power Screen absorption")
+weaponProtocolAssert(len(weaponServer.pendingMulticasts) == weaponScreenEvents + 2 and
+  weaponServer.pendingMulticasts[weaponScreenEvents].payload[1] ==
+    weaponprotocolconstants.TE_SCREEN_SPARKS,
+  "Power Screen effect framing")
+weaponprotocolplayerview.G_SetClientEffects(weaponprotocolgame.playerContext(),
+  weaponPlayer)
+weaponProtocolAssert((weaponPlayer.edict.state.effects &
+  weaponprotocolgameconstants.EF_POWERSCREEN) != 0,
+  "Power Screen timed client effect")
+weaponPlayer.flags = weaponPlayer.flags & ~weaponprotocolgameplayconstants.FL_POWER_ARMOR
+weaponPlayer.gameplay.inventory.counts[weaponScreen.index] = 0
+weaponPlayer.health = 100
 weaponLinkedBolt = weaponprotocolgame.baseRuntime().weaponContext.projectiles[0]
 weaponProtocolAssert(weaponLinkedBolt.engineNumber > weaponClient.state.number and
   weaponLinkedBolt.engineNumber < weaponApi.numEdicts,
@@ -281,6 +378,46 @@ weaponProtocolAssert(weaponSequenceGameplay.gunFrame == 12 and
   weaponSequenceGameplay.fireCount == weaponSequenceFireBefore and
   weaponSequencePlayer.view.weaponSound == 0,
   "HyperBlaster release spin-down")
+
+// Ammo can be depleted between consecutive advertised fire frames.  Preserve
+// each stock callback's frame transition and let Weapon_Generic request the
+// fallback weapon without converting the legal no-shot result into a crash.
+weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry, "weapon_machinegun", 4,
+  weaponSequenceAttack, 0)
+weaponMachineEmpty = weaponprotocolintegration.integratedPlayerFire(
+  weaponSequenceGameplay, weaponRegistry)
+weaponProtocolAssert(weaponMachineEmpty == false and
+  weaponSequenceGameplay.gunFrame == 6,
+  "Machinegun empty-belt transition")
+
+weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry, "weapon_hyperblaster", 11,
+  weaponSequenceAttack, 0)
+weaponSequencePlayer.view.weaponSound = 1
+weaponHyperEmpty = weaponprotocolintegration.integratedPlayerFire(
+  weaponSequenceGameplay, weaponRegistry)
+weaponProtocolAssert(weaponHyperEmpty == false and
+  weaponSequenceGameplay.gunFrame == 12 and
+  weaponSequencePlayer.view.weaponSound == 0,
+  "HyperBlaster empty-cell spin-down")
+
+weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry, "weapon_chaingun", 21,
+  weaponSequenceAttack, 0)
+weaponSequencePlayer.view.weaponSound = 1
+weaponSequencePlayer.view.painDebounceTime = weaponprotocolgame.playerContext().time
+weaponEmptySoundBase = weaponServer.pendingSoundCount
+weaponChainEmpty = weaponprotocolintegration.thinkPlayerWeapon(
+  weaponSequencePlayer, weaponprotocolgame.playerContext())
+weaponProtocolAssert(weaponChainEmpty.fired == false and weaponChainEmpty.noAmmo and
+  weaponSequenceGameplay.gunFrame == 22 and
+  weaponSequenceGameplay.newWeapon.className == "weapon_blaster" and
+  weaponSequencePlayer.view.weaponSound == 0,
+  "Chaingun empty-belt Weapon_Generic transition")
+weaponProtocolAssert(weaponServer.pendingSoundCount == weaponEmptySoundBase + 2 and
+  weaponServer.soundNames[weaponServer.pendingSounds[weaponEmptySoundBase].soundIndex] ==
+    "weapons/chngnd1a.wav" and
+  weaponServer.soundNames[weaponServer.pendingSounds[weaponEmptySoundBase + 1].soundIndex] ==
+    "weapons/noammo.wav",
+  "Chaingun empty-belt spin-down and no-ammo sounds")
 
 weaponprotocolgame.playerContext().dmFlags = weaponprotocolgameconstants.DF_INFINITE_AMMO
 weaponProtocolConfigure(weaponSequencePlayer, weaponRegistry, "weapon_chaingun", 14, weaponSequenceAttack, 10)

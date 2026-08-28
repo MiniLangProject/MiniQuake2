@@ -565,6 +565,26 @@ The extended soak exposed and closed the previously unconsumed
 [`HARDWARE_ACCEPTANCE.md`](HARDWARE_ACCEPTANCE.md) for exact measurements and
 the reproducible command.
 
+## 2026-08-27 live video Apply and loading validation
+
+Video Apply now keeps the live HWND, WGL context, renderer registration,
+client assets and PlaySession. The retail `base1` smoke reports renderer
+generation 1 and 68 visible surfaces both before and after each change, with
+one initial loading frame and no Apply-time loading frame. In the final gate a
+true 1920x1080 exclusive desktop switch took 951 ms on this monitor; the
+native-desktop 2560x1440 mode took 361 ms and the safe
+3840x2160-to-desktop fallback took 106 ms. Those intervals are Win32
+display-mode transitions, not level loads.
+
+The loading path now retains one read-only PAK filesystem per retail root,
+uses an 8,192-slot open-addressing index instead of a linear PAK-entry scan,
+retains up to 512 decoded WAV assets and reads each large local PAK directly
+into its final byte storage rather than copying 4-KiB chunks in MiniLang. Three
+fresh-process `--play-input-smoke ROOT base1 48` runs improved from a 763.3-ms
+median to 671.6 ms on the same host (-12.0%). Same-process media and level
+transitions additionally avoid reparsing all PAK directories and can reuse
+shared sound decodes.
+
 ## Remaining external acceptance
 
 This gate closes the deterministic local build/package and single-host

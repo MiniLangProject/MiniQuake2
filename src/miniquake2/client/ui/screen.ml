@@ -149,11 +149,19 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
       screen.statusbarCommands = array(len(screen.statusbarTokens) * 2)
     end if
     if len(screen.statusbarTokens) > 0 then
-      statusCommandCount = clayout.parseTokensContextInto(
+      statusCommandCount = try(clayout.parseTokensContextInto(
         screen.statusbarCommands, screen.statusbarTokens, stats, configStrings,
-        screenWidth, screenHeight, serverFrame, playerNumber)
-      count = count + clayout.drawCount(screen.statusbarCommands,
-        statusCommandCount, exports)
+        screenWidth, screenHeight, serverFrame, playerNumber))
+      if statusCommandCount is error then
+        cuiconsole.appendLine(screen.console,
+          "Ignored malformed server statusbar: " + statusCommandCount.message,
+          now)
+        screen.statusbarTokens = []
+        screen.statusbarCommands = []
+      else
+        count = count + clayout.drawCount(screen.statusbarCommands,
+          statusCommandCount, exports)
+      end if
     end if
     if screen.layoutText != screen.layoutTokenText then
       screen.layoutTokenText = screen.layoutText
@@ -162,11 +170,19 @@ function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
       screen.layoutCommands = array(len(screen.layoutTokens) * 2)
     end if
     if len(screen.layoutTokens) > 0 then
-      layoutCommandCount = clayout.parseTokensContextInto(screen.layoutCommands,
+      layoutCommandCount = try(clayout.parseTokensContextInto(screen.layoutCommands,
         screen.layoutTokens, stats, configStrings, screenWidth, screenHeight,
-        serverFrame, playerNumber)
-      count = count + clayout.drawCount(screen.layoutCommands,
-        layoutCommandCount, exports)
+        serverFrame, playerNumber))
+      if layoutCommandCount is error then
+        cuiconsole.appendLine(screen.console,
+          "Ignored malformed server layout: " + layoutCommandCount.message,
+          now)
+        screen.layoutTokens = []
+        screen.layoutCommands = []
+      else
+        count = count + clayout.drawCount(screen.layoutCommands,
+          layoutCommandCount, exports)
+      end if
     end if
   end if
   count = count + drawInventory(screen, screenWidth, screenHeight, exports)

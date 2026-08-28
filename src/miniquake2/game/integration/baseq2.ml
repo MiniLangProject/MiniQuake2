@@ -75,6 +75,7 @@ struct IntegratedBaseQ2
   bodyQueueIndex
   edictFreeTimes
   edictUseHistory
+  pusherTriggerTouch
 end struct
 
 // Store integrated dynamic clip data.
@@ -1561,7 +1562,73 @@ function integratedWeaponDamage(combatant, request)
   actor = integratedMonsterByNumber(runtime, number)
   worldEntity = ibworld.findByNumber(runtime.world, number)
   if player is not void and player.deadFlag != ibplayerconstants.DEAD_NO then return false end if
+  attackerNumber = ibwpcore.damageAttackerNumber()
+  attackerPlayer = integratedPlayerByNumber(runtime, attackerNumber)
+  // Stock g_combat.c doubles a direct hit against a living monster which has
+  // not acquired an enemy yet, but only when the attacker is a client.
+  surpriseMonster = actor is not void and actor.isMonster and
+    actor.enemy is void and actor.health > 0
+  if not surpriseMonster and worldEntity is not void and
+      (worldEntity.serverFlags & ibworldconstants.SVF_MONSTER) != 0 and
+      worldEntity.enemy is void and worldEntity.health > 0 then
+    surpriseMonster = true
+  end if
+  if surpriseMonster and attackerPlayer is not void and
+      (request.flags & ibgpconstants.DAMAGE_RADIUS) == 0 then
+    request.damage = request.damage * 2
+  end if
   powerArmorSaved = 0
+  powerArmorType = ibgpconstants.POWER_ARMOR_NONE
+  // Stock g_combat.c applies easy-skill scaling before either power-armor
+  // layer.  Do it explicitly for clients so their cell consumption and both
+  // armor saves are calculated from the same reduced damage value.
+  if player is not void and runtime.playerContext is not void and
+      runtime.aiContext.skill == 0 and not runtime.playerContext.deathmatch and
+      request.damage > 0 then
+    request.damage = ibmath.floor(request.damage * 0.5)
+    if request.damage == 0 then request.damage = 1 end if
+    request.easyMode = false
+  end if
+  // Invulnerability uses the entity pain debounce in the original game, so
+  // repeated hits share its two-second protect4 sound throttle.
+  if player is not void and combatant.takeDamage == true and
+      runtime.playerContext is not void and
+      (request.flags & ibgpconstants.DAMAGE_NO_PROTECTION) == 0 and
+      combatant.invincibleUntilFrame > request.currentFrame and
+      player.view.painDebounceTime < runtime.playerContext.time then
+    ibInvulnerabilityImportsHolder = runtime.playerContext.imports
+    ibInvulnerabilityImportsHolder.sound(player.edict, ibgconstants.CHAN_ITEM,
+      ibInvulnerabilityImportsHolder.soundIndex("items/protect4.wav"), 1.0,
+      ibgconstants.ATTN_NORM, 0.0)
+    player.view.painDebounceTime = runtime.playerContext.time + 2.0
+  end if
+  if player is not void and runtime.playerContext is not void then
+    powerArmorInput = request.damage
+    if (request.flags & ibgpconstants.DAMAGE_NO_PROTECTION) == 0 and
+        ((combatant.flags & ibgpconstants.FL_GODMODE) != 0 or
+        combatant.invincibleUntilFrame > request.currentFrame) then
+      powerArmorInput = 0
+    end if
+    powerArmorInFront = false
+    powerArmorForward = ibwpvector.angleVectors(player.edict.state.angles)[0]
+    powerArmorHitOffset = ibwpvector.subtract(weaponVector(request.point),
+      player.edict.state.origin)
+    powerArmorHitDirection = ibwpvector.normalized(powerArmorHitOffset)[0]
+    if ibwpvector.dot(powerArmorHitDirection, powerArmorForward) > 0.3 then
+      powerArmorInFront = true
+    end if
+    powerArmorResult = ibpowerups.CheckPowerArmor(player.gameplay,
+      runtime.playerContext.registry, powerArmorInput, request.flags,
+      powerArmorInFront)
+    powerArmorSaved = powerArmorResult.saved
+    powerArmorType = powerArmorResult.armorType
+    if powerArmorSaved > 0 then
+      request.damage = request.damage - powerArmorSaved
+      player.powerArmorTime = runtime.aiContext.time + 0.2
+      integratedPowerArmorEffect(weaponVector(request.point),
+        weaponVector(request.direction), powerArmorType)
+    end if
+  end if
   if actor is not void and actor.deadFlag == ibaiconstants.DEAD_NO and
       actor.powerArmorPower > 0 and
       actor.powerArmorType != ibaiconstants.POWER_ARMOR_NONE and
@@ -1582,31 +1649,25 @@ function integratedWeaponDamage(combatant, request)
       request.damage = request.damage - powerArmorSaved
     end if
   end if
-  // g_combat.c applies easy-skill scaling to every client target, including
-  // hitscan, projectile and monster attacks routed through WeaponContext.
-  // Monster/world targets deliberately retain their full incoming damage.
-  if player is not void and runtime.playerContext is not void and
-      runtime.aiContext.skill == 0 and not runtime.playerContext.deathmatch then
-    request.easyMode = true
-  end if
   result = ibgpcombat.T_Damage(combatant, request)
+  normalArmorSaved = result.armorSaved
   result.armorSaved = result.armorSaved + powerArmorSaved
   ibDamagePointHolder = weaponVector(request.point)
   ibDamageDirectionHolder = weaponVector(request.direction)
   ibDamageWasBullet = (request.flags & ibgpconstants.DAMAGE_BULLET) != 0
-  if result.armorSaved > 0 or result.protectedDamage > 0 then
+  if normalArmorSaved > 0 or result.protectedDamage > 0 then
     integratedDamageEffect(ibDamagePointHolder, ibDamageDirectionHolder, false, ibDamageWasBullet)
   end if
   if result.taken > 0 then
     integratedDamageEffect(ibDamagePointHolder, ibDamageDirectionHolder,
       player is not void or actor is not void, ibDamageWasBullet)
   end if
-  attackerNumber = ibwpcore.damageAttackerNumber()
   if player is not void then
     player.health = combatant.health
     player.velocity = combatant.velocity
     ibpowerups.SyncArmorFromCombatant(player.gameplay, combatant)
-    ibplayerview.RecordDamage(player, result.taken, result.armorSaved, 0, request.knockback, request.point)
+    ibplayerview.RecordDamage(player, result.taken, normalArmorSaved,
+      powerArmorSaved, request.knockback, request.point)
     if result.killed and player.deadFlag == ibplayerconstants.DEAD_NO then
       attackerPlayer = integratedPlayerByNumber(runtime, attackerNumber)
       ibplayerrules.player_die(runtime.playerContext, player, void, attackerPlayer, result.taken, request.point, result.meansOfDeath)
@@ -1965,6 +2026,23 @@ end function
 // Reserve spawner edict.
 function reserveSpawnerEdict(runtime)
   return reserveEdict(runtime)
+end function
+
+// Emit the stock power-screen or power-shield impact feedback.
+function integratedPowerArmorEffect(point, direction, armorType)
+  global activeIntegrationRuntime
+  runtime = activeIntegrationRuntime
+  if runtime is void or runtime.playerContext is void then return false end if
+  effectType = ibwpconstants.TE_SCREEN_SPARKS
+  if armorType == ibgpconstants.POWER_ARMOR_SHIELD then
+    effectType = ibwpconstants.TE_SHIELD_SPARKS
+  end if
+  imports = runtime.playerContext.imports
+  imports.writeByte(ibqconstants.SVC_TEMP_ENTITY)
+  imports.writeByte(effectType)
+  imports.writePosition(point)
+  imports.writeDirection(direction)
+  return imports.multicast(point, ibgconstants.MULTICAST_PVS)
 end function
 
 // Release reserved edict.
@@ -2655,13 +2733,33 @@ function integratedWeaponFree(entity)
   return releaseEdict(ibProjectileFreeRuntimeHolder, entity.engineNumber)
 end function
 
+// Resolve either a WeaponTarget or GameplayPlayer to its engine edict number.
+function integratedPlayerNoiseOwnerNumber(owner)
+  if owner is void or typeof(owner) != "struct" then return -1 end if
+  directNumber = try(owner.number)
+  if directNumber is not error and typeof(directNumber) == "int" then
+    return directNumber
+  end if
+  ownerEdict = try(owner.edict)
+  if ownerEdict is error or ownerEdict is void or
+      typeof(ownerEdict) != "struct" then return -1 end if
+  ownerState = try(ownerEdict.state)
+  if ownerState is error or ownerState is void or
+      typeof(ownerState) != "struct" then return -1 end if
+  stateNumber = try(ownerState.number)
+  if stateNumber is error or typeof(stateNumber) != "int" then return -1 end if
+  return stateNumber
+end function
+
 // Return the integrated player noise value.
 function integratedPlayerNoise(owner, position, noiseType)
   // Keep integrated player noise phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
   if runtime is void or noiseType < 0 or noiseType > 2 then return false end if
-  source = findAIPlayer(runtime, owner.number)
+  ownerNumber = integratedPlayerNoiseOwnerNumber(owner)
+  if ownerNumber < 0 then return false end if
+  source = findAIPlayer(runtime, ownerNumber)
   if source is void then return false end if
   if runtime.playerContext is not void and runtime.playerContext.deathmatch then return false end if
   if (source.flags & ibaiconstants.FL_NOTARGET) != 0 then return false end if
@@ -3221,7 +3319,7 @@ function create(spawnResult)
   end if
   playerTrail = ibaitrail.create(true)
   runtime = IntegratedBaseQ2(world, aiContext, monsters, items, [], weaponContext, void, void,
-    ibCreateRandomStateHolder, playerTrail, false, void, 0, [], 0, [], [])
+    ibCreateRandomStateHolder, playerTrail, false, void, 0, [], 0, [], [], void)
   activeIntegrationRuntime = runtime
   configureAI(aiContext)
   for each preparedActor in runtime.monsters
@@ -3936,6 +4034,12 @@ function integratedPlayerFire(gameplayPlayer, registry)
   preFrame = gameplayPlayer.gunFrame
   attackHeld = (gameplayPlayer.buttons & ibgconstants.BUTTON_ATTACK) != 0
   shooter = playerWeaponTarget(player, registry)
+  // Weapon_Generic emits the Quad cue exactly when it dispatches one of the
+  // weapon's declared fire frames, including stock wind-up/pump callbacks.
+  if player.powerups.quadFrame > runtime.playerContext.frameNumber then
+    emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_ITEM,
+      "items/damage3.wav", ibgconstants.ATTN_NORM)
+  end if
   if item.className == "weapon_shotgun" and preFrame == 9 then
     setPlayerGameplayGunFrame(gameplayPlayer, preFrame + 1)
     return true
@@ -3972,10 +4076,49 @@ function integratedPlayerFire(gameplayPlayer, registry)
     emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO, "weapons/chngnd1a.wav", ibgconstants.ATTN_IDLE)
     return true
   end if
+  availableAmmo = 0
+  if gameplayPlayer.ammoIndex != 0 then
+    availableAmmo = gameplayPlayer.inventory.counts[gameplayPlayer.ammoIndex]
+  end if
+  // Machinegun_Fire and Weapon_HyperBlaster_Fire own their no-ammo frame
+  // transitions.  Returning false tells the MiniLang Weapon_Generic adapter
+  // that the advertised callback ran but did not emit a projectile.
+  if item.className == "weapon_machinegun" and availableAmmo < 1 then
+    setPlayerGameplayGunFrame(gameplayPlayer, 6)
+    return false
+  end if
+  if item.className == "weapon_hyperblaster" and availableAmmo < 1 then
+    setPlayerGameplayGunFrame(gameplayPlayer, preFrame + 1)
+    if gameplayPlayer.gunFrame == 12 then
+      player.view.weaponSound = 0
+      emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO,
+        "weapons/hyprbd1a.wav", ibgconstants.ATTN_NORM)
+    end if
+    return false
+  end if
   effectiveFrame = preFrame + 1
-  if item.className == "weapon_chaingun" and preFrame == 21 and attackHeld then effectiveFrame = 15 end if
+  // Chaingun_Fire only loops frame 21 back to 15 while at least one bullet
+  // remains.  With an empty belt it advances to frame 22 and spins down.
+  if item.className == "weapon_chaingun" and preFrame == 21 and attackHeld and
+      availableAmmo > 0 then effectiveFrame = 15 end if
   shots = playerWeaponShotCount(gameplayPlayer, item, effectiveFrame)
-  if shots <= 0 then return false end if
+  if shots <= 0 then
+    setPlayerGameplayGunFrame(gameplayPlayer, effectiveFrame)
+    if item.className == "weapon_chaingun" then
+      if preFrame == 5 then
+        emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO,
+          "weapons/chngnu1a.wav", ibgconstants.ATTN_IDLE)
+      end if
+      if effectiveFrame == 22 then
+        player.view.weaponSound = 0
+        emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_AUTO,
+          "weapons/chngnd1a.wav", ibgconstants.ATTN_IDLE)
+      else
+        player.view.weaponSound = runtime.playerContext.imports.soundIndex("weapons/chngnl1a.wav")
+      end if
+    end if
+    return false
+  end if
   silenced = gameplayPlayer.silencerShots > 0
   infiniteAmmo = (runtime.playerContext.dmFlags & ibgconstants.DF_INFINITE_AMMO) != 0
   previousAmmo = 0
@@ -4158,7 +4301,12 @@ function thinkPlayerWeapon(player, playerContext)
     beginPlayerAttackAnimation(player)
   end if
   if result.noAmmo then
-    emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_VOICE, "weapons/noammo.wav", ibgconstants.ATTN_NORM)
+    // p_weapon.c shares pain_debounce_time with the one-second no-ammo cue.
+    if player.view.painDebounceTime <= playerContext.time then
+      emitPlayerWeaponSound(runtime, player, ibgconstants.CHAN_VOICE,
+        "weapons/noammo.wav", ibgconstants.ATTN_NORM)
+      player.view.painDebounceTime = playerContext.time + 1.0
+    end if
   end if
   player.latchedButtons = player.gameplay.latchedButtons
   return result
@@ -5283,6 +5431,49 @@ function updateWorldTossWater(runtime, entity, oldOrigin)
   return true
 end function
 
+// Match SV_PushEntity's post-link G_TouchTriggers pass for toss/bounce world
+// records. baseWorldLink mirrors the server-computed expanded abs bounds back
+// onto the managed entity before this query.
+function touchWorldTossTriggers(runtime, entity)
+  if runtime is void or runtime.playerContext is void or not entity.inUse then
+    return 0
+  end if
+  if (entity.isClient or
+      (entity.serverFlags & ibworldconstants.SVF_MONSTER) != 0) and
+      entity.health <= 0 then return 0 end if
+  candidates = runtime.playerContext.imports.boxEdicts(entity.absoluteMins,
+    entity.absoluteMaxs, 2)
+  touched = 0
+  for each candidateEdict in candidates
+    if candidateEdict.inUse and candidateEdict.state.number != entity.number then
+      trigger = ibworld.findByNumber(runtime.world,
+        candidateEdict.state.number)
+      if trigger is not void and ibworld.touchEntity(runtime.world, trigger,
+          entity) then touched = touched + 1 end if
+    end if
+  end for
+  return touched
+end function
+
+// Dispatch the post-commit G_TouchTriggers pass for every pusher body kind.
+// PlayerData, Actor and WorldEntity retain different authoritative shapes, so
+// each branch reuses its normal trigger adapter instead of leaking snapshots.
+function touchPushedBody(runtime, kind, value)
+  if runtime is void or value is void then return 0 end if
+  if kind == "player" then
+    if runtime.playerContext is void or
+        runtime.playerContext.touchTriggers is void then return 0 end if
+    callback = runtime.playerContext.touchTriggers
+    result = callback(value)
+    if typeof(result) == "int" then return result end if
+    if result == true then return 1 end if
+    return 0
+  end if
+  if kind == "monster" then return integratedAITouchTriggers(value) end if
+  if kind == "world" then return touchWorldTossTriggers(runtime, value) end if
+  return 0
+end function
+
 // Advance world toss entities.
 function advanceWorldTossEntities(runtime)
   // Keep advance world toss entities phases explicit: validate inputs, update owned state, then publish the result.
@@ -5310,7 +5501,12 @@ function advanceWorldTossEntities(runtime)
           passEdict = runtime.exportTable.edicts[entity.number]
         end if
         mask = entity.clipMask
-        if mask == 0 then mask = ibqconstants.MASK_MONSTERSOLID end if
+        if mask == 0 then
+          mask = ibqconstants.MASK_SOLID
+          if (entity.serverFlags & ibworldconstants.SVF_MONSTER) != 0 then
+            mask = ibqconstants.MASK_MONSTERSOLID
+          end if
+        end if
         trace = imports.trace(entity.origin, entity.mins, entity.maxs,
           finish, passEdict, mask)
         entity.origin.x = trace.endPosition.x
@@ -5339,6 +5535,7 @@ function advanceWorldTossEntities(runtime)
         end if
         updateWorldTossWater(runtime, entity, entity.oldOrigin)
         runtime.world.callbacks.linkEntity(entity)
+        if entity.inUse then touchWorldTossTriggers(runtime, entity) end if
         moved = moved + 1
       end if
     end if

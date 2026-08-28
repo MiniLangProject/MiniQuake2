@@ -35,6 +35,8 @@ fakeProductShutdowns = 0
 fakeProductFrames = 0
 fakeProductCharacters = 0
 fakeProductFailNextCreate = false
+fakeProductReconfigures = 0
+fakeProductFailNextReconfigure = false
 
 // Initialize fake product.
 function fakeProductInit(first, second)
@@ -85,6 +87,19 @@ function fakeProductCreateWindow(title, width, height, fullScreen)
   return FakeWindow(width, height, false)
 end function
 
+// Reconfigure fake product window.
+function fakeProductReconfigureWindow(window, width, height, fullScreen)
+  global fakeProductReconfigures, fakeProductFailNextReconfigure
+  fakeProductReconfigures = fakeProductReconfigures + 1
+  if fakeProductFailNextReconfigure then
+    fakeProductFailNextReconfigure = false
+    return error(9944, "injected live reconfigure failure")
+  end if
+  window.width = width
+  window.height = height
+  return window
+end function
+
 // Return the fake product destroy window value.
 function fakeProductDestroyWindow(window)
   global fakeProductDestroys
@@ -117,7 +132,8 @@ function productHostAssert(condition, message)
 end function
 
 productHostCallbacks = testproducthost.ProductHostCallbacks(
-  fakeProductCreateWindow, fakeProductDestroyWindow, fakeProductCreateRenderer,
+  fakeProductCreateWindow, fakeProductReconfigureWindow,
+  fakeProductDestroyWindow, fakeProductCreateRenderer,
   fakeProductInitRenderer, fakeProductShutdownRenderer)
 productHost = testproducthost.openProductHostWith(productHostCallbacks,
   "MiniQuake2", 3, false, void)
@@ -133,32 +149,38 @@ productHostAssert(fakeProductFrames == 2 and productHost.loadingFrames == 2 and
   fakeProductCharacters == len(bytes("loading base1")) + len(bytes("loading end.cin")),
   "loading plaque frames")
 testproducthost.resetProductRenderer(productHost, void)
-productHostAssert(productHost.generation == 2 and fakeProductCreates == 1 and
+productHostAssert(productHost.generation == 2 and
+  productHost.rendererGeneration == 2 and fakeProductCreates == 1 and
   fakeProductDestroys == 0 and fakeProductInits == 2 and fakeProductShutdowns == 1,
   "renderer reset preserves the native window")
 testproducthost.restartProductHost(productHost, "MiniQuake2", 1, true, void)
 productHostAssert(productHost.window.width == 800 and productHost.window.height == 600 and
-  productHost.fullScreen and productHost.videoMode == 1 and productHost.generation == 3,
+  productHost.fullScreen and productHost.videoMode == 1 and
+  productHost.generation == 3 and productHost.rendererGeneration == 2,
   "live video restart applies mode")
-productHostAssert(fakeProductCreates == 2 and fakeProductInits == 3 and
-  fakeProductDestroys == 1 and fakeProductShutdowns == 2,
-  "restart replaces exactly one window and renderer")
+productHostAssert(fakeProductReconfigures == 1 and fakeProductCreates == 1 and
+  fakeProductInits == 2 and fakeProductDestroys == 0 and
+  fakeProductShutdowns == 1,
+  "live restart preserves window and renderer")
 testproducthost.restartProductHost(productHost, "MiniQuake2", 7, false, void)
 productHostAssert(productHost.window.width == 3840 and
   productHost.window.height == 2160 and not productHost.fullScreen and
   productHost.videoMode == 7 and productHost.generation == 4,
   "4K video restart applies modern mode")
+fakeProductFailNextReconfigure = true
 fakeProductFailNextCreate = true
 failedProductRestart = try(testproducthost.restartProductHost(productHost,
   "MiniQuake2", 5, true, void))
 productHostAssert(failedProductRestart is error and not productHost.closed and
   productHost.videoMode == 7 and not productHost.fullScreen and
   productHost.window.width == 3840 and productHost.window.height == 2160 and
-  not productHost.window.closed and productHost.generation == 5,
+  not productHost.window.closed and productHost.generation == 5 and
+  productHost.rendererGeneration == 3,
   "failed video restart restores the last known-good host")
 productHostAssert(testproducthost.closeProductHost(productHost), "first close")
 productHostAssert(not testproducthost.closeProductHost(productHost), "idempotent close")
-productHostAssert(fakeProductDestroys == 4 and fakeProductShutdowns == 5,
+productHostAssert(fakeProductReconfigures == 3 and fakeProductDestroys == 2 and
+  fakeProductShutdowns == 3,
   "one final shutdown")
 
 print "runtime_product_host_tests: PASS"

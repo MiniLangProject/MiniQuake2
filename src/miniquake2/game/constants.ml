@@ -53,6 +53,12 @@ const BUTTON_ATTACK = 1
 const BUTTON_USE = 2
 const BUTTON_ANY = 128
 
+// Player muzzleflash effects from q_shared.h. The game emits these on
+// multiplayer joins and disconnects; clients turn them into the stock
+// teleport particles, colored light and grenade-launcher sound.
+const MZ_LOGIN = 9
+const MZ_LOGOUT = 10
+
 // entity_state_t effects used across the game/renderer boundary.
 const EF_ROTATE = 0x00000001
 const EF_GIB = 0x00000002

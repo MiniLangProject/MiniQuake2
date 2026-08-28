@@ -33,11 +33,12 @@ The moved `func_plat`/`func_train` state was not relinked after a successful
 pusher resolution. Its origin advanced while the server broad-phase bounds
 remained at the old floor, allowing Pmove to miss the elevator hull. The port
 now follows `SV_Push` by quantizing translation to one eighth of a unit,
-relinking every moved team part before rider tests, performing a stationary
-target-position trace with the body's clip mask and self pass-entity, applying
-the translation-only fallback, updating player delta-yaw, and rolling the
-complete team transaction back on a blocker. `MOVETYPE_STOP` carries explicit
-ground-entity riders but does not push non-riders.
+relinking and resolving each moving team-chain part in original order,
+performing a stationary target-position trace with the body's clip mask and
+self pass-entity, applying the translation-only fallback, updating player
+delta-yaw, and rolling the complete team transaction back on a blocker.
+`MOVETYPE_STOP` carries explicit ground-entity riders but does not push
+non-riders.
 
 The authoritative server trace now also clips against linked dynamic
 `SOLID_BBOX` entities. It maintains an O(1) link/unlink index, performs a
@@ -109,7 +110,9 @@ state.
 
 Private-Save version 18 adds ammunition capacities, selected item,
 silencer-shot count, Power-Cube mask, and the cooperative checkpoint while
-retaining backward readers for older versions.
+retaining backward readers for older versions. Version 20 additionally keeps
+the short player `powerarmor_time` render window across a level-save round
+trip.
 
 `target_changelevel` now receives `other` and `activator`, rejects a dead
 single-player exit, applies the deathmatch no-exit `MOD_EXIT` damage policy,
@@ -149,10 +152,33 @@ The four bounded differences identified by this audit are now implemented:
 - separate player-persistent `game_helpchanged`/`helpchanged` counters;
 - shared `FLYMISSILE`/pusher rollback plus success/blocked mover-think ordering.
 
+A second independent original-source comparison closed the live defects which
+were not exercised by the first matrix:
+
+- grounded-to-airborne jumps now emit the sexed `*jump1.wav` and one
+  `PNOISE_SELF`, while dead PMove uses `MASK_DEADSOLID`, external state changes
+  set `snapInitial`, and stale mover grounds are rejected by link count;
+- map changes preserve `$spawnpoint`, replace level-owned client edicts while
+  retaining `gclient` data, and respawn at the named successor instead of
+  carrying the old origin/ground state into the next BSP;
+- pusher team parts move in original sequence with one shared rollback, and
+  every committed moved player, monster or world body receives its deferred
+  trigger pass; toss/bounce entities use the original default mask and touch
+  triggers after linking;
+- live player Power Screen/Shield damage consumes Cells, emits the dedicated
+  temp entity, fills the separate HUD damage bucket, and publishes the timed
+  client render effect; easy-skill ordering matches `g_combat.c`;
+- Quad fire callbacks, throttled Invulnerability hit sound, and direct
+  surprise damage against unaware monsters now match the original branches;
+- the spectator chase camera, target cycling/follower refresh, and Protocol-34
+  `MZ_LOGIN`/`MZ_LOGOUT` effects are wired through the live Game API.
+
 Focused regressions cover live Game API numbering and corpse copies, allocator
 reuse timing, save/restore, per-player help reminders, missile displacement,
-successful post-move thinks and blocked-frame think deferral. The remaining
-declared scope boundaries are unchanged:
+successful post-move thinks, blocked-frame think deferral, jump sound/noise,
+named successor spawns, multi-part elevator rollback, toss masks/triggers,
+Power Armor, damage sounds, surprise damage, chase cameras, and connection
+effects. The remaining declared scope boundaries are unchanged:
 
 - foreign native `gamex86.dll` and renderer DLL loading, the software renderer,
   CTF, non-Windows platforms, and additional rendering backends remain the

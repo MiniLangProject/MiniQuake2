@@ -223,7 +223,7 @@ end function
 function packLightmapDraw(state, draw)
   if draw.surface.category != rclassicconstants.MATERIAL_OPAQUE then return false end if
   faceIndex = draw.surface.index
-  if state.facePacked[faceIndex] then
+  if state.facePacked[faceIndex] != 0 then
     draw.lightmapTexture = state.faceTextures[faceIndex]
     draw.lightmapX = state.faceX[faceIndex]
     draw.lightmapY = state.faceY[faceIndex]
@@ -251,7 +251,7 @@ function packLightmapDraw(state, draw)
   draw.lightmapX = atlasX; draw.lightmapY = atlasY
   state.faceTextures[faceIndex] = state.current
   state.faceX[faceIndex] = atlasX; state.faceY[faceIndex] = atlasY
-  state.facePacked[faceIndex] = true
+  state.facePacked[faceIndex] = 1
   // Triangle lists retain these SurfaceVertex records by reference, so update
   // each source polygon vertex exactly once.
   for each vertex in draw.surface.vertices
@@ -269,7 +269,7 @@ end function
 function packLightmapAtlases(draws, brushModels, generation, faceCount)
   state = LightmapAtlasState([], void, 0, 0, 0, generation,
     array(faceCount), array(faceCount, 0), array(faceCount, 0),
-    array(faceCount, false))
+    bytes(faceCount))
   for each draw in draws packLightmapDraw(state, draw) end for
   for each brushModel in brushModels
     for each brushDraw in brushModel.draws
@@ -404,7 +404,8 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
   while modelIndex < len(map.models)
     brushResult = buildModelDraws(scene, textures, generation, map.models[modelIndex])
     textures = brushResult[0]
-    brushModels[modelIndex - 1] = rclassictypes.ClassicBrushModel(modelIndex, map.models[modelIndex], brushResult[1])
+    brushModels[modelIndex - 1] = rclassictypes.ClassicBrushModel(modelIndex,
+      map.models[modelIndex], brushResult[1], array(len(brushResult[1])))
     modelIndex = modelIndex + 1
   end while
   lightmapAtlases = packLightmapAtlases(draws, brushModels, generation,

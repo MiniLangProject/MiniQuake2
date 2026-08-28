@@ -26,7 +26,7 @@ import miniquake2.game.player.constants as privateplayerconstants
 import miniquake2.game.gameplay.types as privategameplaytypes
 
 const PRIVATE_MAGIC = "MQ2BASEQ2"
-const PRIVATE_VERSION = 19
+const PRIVATE_VERSION = 20
 
 // Store private restore data.
 struct PrivateRestore
@@ -314,6 +314,9 @@ function encode(runtime, playerContext, entityString, spawnPoint)
       for each cooperativeCount in player.respawn.cooperativeInventory
         privatemessage.writeLong(buffer, cooperativeCount)
       end for
+      // Version 20 persists edict_t::powerarmor_time so the short client
+      // render effect survives a level-save round trip.
+      privatemessage.writeFloat(buffer, player.powerArmorTime)
     end for
   end if
   return privatesizebuf.dataSlice(buffer)
@@ -436,6 +439,7 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
       privateSaveVersion != 11 and privateSaveVersion != 12 and
       privateSaveVersion != 13 and privateSaveVersion != 14 and
       privateSaveVersion != 15 and privateSaveVersion != 16 and
+      privateSaveVersion != 19 and
       privateSaveVersion != PRIVATE_VERSION then
     return error(3873, "unsupported private BaseQ2 save version")
   end if
@@ -994,6 +998,10 @@ function restore(data, mapName, maxClients, exportTable, playerContext)
         player.respawn.cooperativeInventory[privateCooperativeIndex] = privatechecked.readLong(buffer, "private cooperative inventory value")
         privateCooperativeIndex = privateCooperativeIndex + 1
       end while
+    end if
+    if privateSaveVersion >= 20 then
+      player.powerArmorTime = privateReadFloat(buffer,
+        "private player power armor time")
     end if
     playerContext.players = playerContext.players + [player]
     playerCount = playerCount - 1

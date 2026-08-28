@@ -112,6 +112,13 @@ function testMuzzleFlashes()
   assertNear(monster.origin.z, 58.7, 0.0001, "monster muzzle vertical offset")
   assertEqual(state.soundEvents[2].soundName, "tank/tnkatck3.wav", "tank blaster sound")
 
+  cestate.advance(state, 4)
+  assertEqual(len(state.dLights), 1,
+    "zero-duration muzzle light survives its first render advance")
+  cestate.advance(state, 8)
+  assertEqual(len(state.dLights), 0,
+    "zero-duration muzzle light expires after one rendered frame")
+
   soldierState = cestate.createSilent(9)
   ceparser.parseMuzzleFlash2(soldierState, reading(bytes([1, 0, 43])), resolveEntity)
   assertEqual(soldierState.particleCount, 40, "soldier machinegun particles")
@@ -130,6 +137,12 @@ function testMuzzleFlashes()
   assertNear(chainState.soundEvents[1].timeOffset, 0.033, 0.0001, "chaingun second delay")
   assertNear(chainState.soundEvents[2].timeOffset, 0.066, 0.0001, "chaingun third delay")
   assertNear(chainLight.die, 0.1, 0.0001, "chaingun source dlight lifetime")
+  cestate.advance(chainState, 4)
+  assertEqual(len(chainState.dLights), 1,
+    "sub-millisecond chaingun light survives its first render advance")
+  cestate.advance(chainState, 8)
+  assertEqual(len(chainState.dLights), 0,
+    "sub-millisecond chaingun light expires after one rendered frame")
 
   loginState = cestate.createSilent(19)
   loginLight = ceparser.parseMuzzleFlash(loginState, reading(bytes([1, 0, ceconstants.MZ_LOGIN])), resolveEntity)
@@ -200,6 +213,14 @@ function testStockImpactParity()
     "gunshot smoke model")
   assertEqual(gunshotState.explosions[1].modelName, "models/objects/flash/tris.md2",
     "gunshot flash model")
+  cestate.advance(gunshotState, gunshotState.time)
+  assertEqual(len(gunshotState.explosions), 2,
+    "gunshot smoke and flash survive their first render advance")
+  cestate.advance(gunshotState, gunshotState.time + 101)
+  assertEqual(len(gunshotState.explosions), 1,
+    "one-frame gunshot flash expires after being rendered")
+  assertEqual(gunshotState.explosions[0].modelName,
+    "models/objects/smoke/tris.md2", "gunshot smoke outlives flash")
 
   blasterState = cestate.createSilent(5)
   blaster = bytes([ceconstants.TE_BLASTER, 0, 0, 0, 0, 0, 0, 52])
@@ -209,6 +230,9 @@ function testStockImpactParity()
   assertNear(blasterState.explosions[0].angles.x, 90.0, 0.001, "blaster impact pitch")
   assertNear(blasterState.explosions[0].angles.y, 0.0, 0.001, "blaster impact yaw")
   assertEqual(blasterState.soundEvents[0].soundName, "weapons/lashit.wav", "blaster impact sound")
+  cestate.advance(blasterState, blasterState.time)
+  assertEqual(len(blasterState.explosions), 1,
+    "blaster impact survives its first render advance")
 
   screenState = cestate.createSilent(7)
   screen = bytes([ceconstants.TE_SCREEN_SPARKS, 0, 0, 0, 0, 0, 0, 5])

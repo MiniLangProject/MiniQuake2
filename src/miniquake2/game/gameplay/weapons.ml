@@ -178,8 +178,20 @@ function Weapon_Generic(player, frames, registry, fireCallback, pauseRoll)
 
   if player.weaponState == gpconstants.WEAPON_FIRING then
     if hasFrame(frames.fireFrames, player.gunFrame) then
+      callbackFrame = player.gunFrame
       fired = fireCallback(player, registry)
-      if fired != true then return error(9353, "Weapon_Generic: fire callback rejected an advertised fire frame") end if
+      // Stock p_weapon.c callbacks return void and may legally emit no shot
+      // after ammo is exhausted during a multi-frame firing sequence.  Treat a
+      // false result as that no-ammo outcome, preserve any weapon-specific
+      // frame change, and guarantee progress for the component fallback.
+      if fired != true then
+        NoAmmoWeaponChange(player, registry)
+        noAmmo = true
+        if player.gunFrame == callbackFrame then
+          player.gunFrame = player.gunFrame + 1
+          mirrorGunFrame(player)
+        end if
+      end if
     else
       player.gunFrame = player.gunFrame + 1
       mirrorGunFrame(player)
