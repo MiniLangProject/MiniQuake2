@@ -224,31 +224,54 @@ function appendBounded(values, value)
   return output
 end function
 
+// Append two small transient event collections. Persistent render state is
+// read directly from the latest immutable client snapshot; only one-shot UI
+// and audio events need ordered aggregation when several packets arrive in a
+// single product pump.
+function appendEvents(first, second)
+  if len(first) == 0 then return second end if
+  if len(second) == 0 then return first end if
+  output = array(len(first) + len(second))
+  index = 0
+  while index < len(first)
+    output[index] = first[index]
+    index = index + 1
+  end while
+  secondIndex = 0
+  while secondIndex < len(second)
+    output[index + secondIndex] = second[secondIndex]
+    secondIndex = secondIndex + 1
+  end while
+  return output
+end function
+
 // Commit state.
 function commit(runtime, now)
   if typeof(now) != "int" then return error(8380, "frame handoff time must be integer milliseconds") end if
   current = runtime.client.current
   if current is void or current.number <= runtime.committedServerFrame then return void end if
 
-  // Construct every owned copy before draining transient queues. Callers can
-  // therefore observe either the previous state or one complete new frame.
+  // Snapshots are immutable after publication and config strings are a
+  // same-thread read-only view. Transfer transient queues instead of deep
+  // copying the complete renderer/effect state every 10-Hz server frame.
   value = crtypes.FrameHandoff(runtime.handoffSerial, current.number,
     runtime.client.serverTime, now, void, void, void, void, void, void, void,
     void, void, void, void, void, void, void)
-  value.snapshot = copySnapshot(current)
-  value.previousSnapshot = copySnapshot(runtime.client.previous)
-  value.configStrings = copyValues(runtime.network.configStrings)
-  value.dLights = copyLights(runtime.effects.dLights)
-  value.particles = copyParticles(runtime.effects.particles, runtime.effects.particleCount)
-  value.beams = copyBeams(runtime.effects.beams)
-  value.lasers = copyLasers(runtime.effects.lasers)
-  value.explosions = copyExplosions(runtime.effects.explosions)
-  value.sustains = copySustains(runtime.effects.sustains)
-  value.sounds = copySounds(runtime.effects.soundEvents)
-  value.prints = copyPrints(runtime.prints)
-  value.centerPrints = copyCenters(runtime.centerPrints)
-  value.layouts = copyLayouts(runtime.layouts)
-  value.inventories = copyInventories(runtime.inventories)
+  value.snapshot = current
+  value.previousSnapshot = runtime.client.previous
+  value.configStrings = runtime.network.configStrings
+  // Persistent collections are shallow same-thread views. The latest consumer
+  // uses them before the next simulation advance; no per-element copy is
+  // required, while legacy diagnostics can still inspect the committed FX.
+  value.dLights = runtime.effects.dLights; value.particles = []
+  value.beams = runtime.effects.beams; value.lasers = runtime.effects.lasers
+  value.explosions = runtime.effects.explosions
+  value.sustains = runtime.effects.sustains
+  value.sounds = runtime.effects.soundEvents
+  value.prints = runtime.prints
+  value.centerPrints = runtime.centerPrints
+  value.layouts = runtime.layouts
+  value.inventories = runtime.inventories
 
   runtime.effects.soundEvents = []
   runtime.prints = []
@@ -257,7 +280,24 @@ function commit(runtime, now)
   runtime.inventories = []
   runtime.committedServerFrame = current.number
   runtime.handoffSerial = runtime.handoffSerial + 1
-  runtime.frameHandoffs = appendBounded(runtime.frameHandoffs, value)
+  // Coalesce queued snapshots immediately: only the newest persistent state is
+  // meaningful, while every one-shot event remains ordered and owned.
+  if len(runtime.frameHandoffs) > 0 then
+    sounds = []; prints = []; centers = []; layouts = []; inventories = []
+    for each queuedValue in runtime.frameHandoffs
+      sounds = appendEvents(sounds, queuedValue.sounds)
+      prints = appendEvents(prints, queuedValue.prints)
+      centers = appendEvents(centers, queuedValue.centerPrints)
+      layouts = appendEvents(layouts, queuedValue.layouts)
+      inventories = appendEvents(inventories, queuedValue.inventories)
+    end for
+    value.sounds = appendEvents(sounds, value.sounds)
+    value.prints = appendEvents(prints, value.prints)
+    value.centerPrints = appendEvents(centers, value.centerPrints)
+    value.layouts = appendEvents(layouts, value.layouts)
+    value.inventories = appendEvents(inventories, value.inventories)
+  end if
+  runtime.frameHandoffs = [value]
   return value
 end function
 
@@ -279,6 +319,19 @@ end function
 function takeLatest(runtime)
   if len(runtime.frameHandoffs) == 0 then return void end if
   value = runtime.frameHandoffs[len(runtime.frameHandoffs) - 1]
+  if len(runtime.frameHandoffs) > 1 then
+    sounds = []; prints = []; centers = []; layouts = []; inventories = []
+    for each pendingValue in runtime.frameHandoffs
+      sounds = appendEvents(sounds, pendingValue.sounds)
+      prints = appendEvents(prints, pendingValue.prints)
+      centers = appendEvents(centers, pendingValue.centerPrints)
+      layouts = appendEvents(layouts, pendingValue.layouts)
+      inventories = appendEvents(inventories, pendingValue.inventories)
+    end for
+    value.sounds = sounds; value.prints = prints
+    value.centerPrints = centers; value.layouts = layouts
+    value.inventories = inventories
+  end if
   runtime.frameHandoffs = []
   return value
 end function

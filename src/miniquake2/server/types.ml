@@ -28,6 +28,7 @@ struct PendingSoundEvent
   attenuation
   timeOffset
   position
+  routingPosition
 end struct
 
 // Store pending multicast event data.

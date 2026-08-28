@@ -89,6 +89,7 @@ while serial < 256
     nrrfrag_gc.CHAN_VOICE,
     nrrfrag_gc.CHAN_VOICE | nrrfrag_gc.CHAN_RELIABLE,
     1, 0.5, 0.5, 0.025,
+    nrrfrag_qt.Vec3(serial * 1.0, 2.0, 3.0),
     nrrfrag_qt.Vec3(serial * 1.0, 2.0, 3.0))]
   serial = serial + 1
 end while

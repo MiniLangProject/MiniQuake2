@@ -47,7 +47,8 @@ frame = crhandoff.commit(runtime, 100)
 handoffAssert(frame is not void, "new snapshot was not committed")
 handoffAssert(frame.frameNumber == 7 and frame.snapshot.number == 7, "snapshot identity missing")
 handoffAssert(frame.configStrings[qc.CS_NAME] == "Atomic Unit", "configstrings missing")
-handoffAssert(len(frame.dLights) == 1 and len(frame.explosions) == 1, "effect state missing")
+handoffAssert(len(frame.dLights) == 1 and len(frame.explosions) == 1,
+  "persistent effect view missing")
 handoffAssert(len(frame.sounds) == 1 and frame.sounds[0].soundName == "unit.wav", "audio handoff missing")
 handoffAssert(len(frame.prints) == 1 and len(frame.centerPrints) == 1 and
   len(frame.layouts) == 1 and len(frame.inventories) == 1, "UI handoff missing")
@@ -57,14 +58,12 @@ handoffAssert(len(runtime.effects.soundEvents) == 0 and len(runtime.prints) == 0
 handoffAssert(len(runtime.effects.dLights) == 1 and len(runtime.effects.explosions) == 1,
   "persistent effects were drained")
 
-// Every handoff owns its data; later simulation mutations cannot tear a frame.
+// Published snapshots are immutable, config strings are a current same-thread
+// view, and transient queues transfer ownership without copying renderer state.
 runtime.network.configStrings[qc.CS_NAME] = "mutated"
 runtime.effects.dLights[0].origin.x = 99.0
 runtime.effects.explosions[0].origin.y = 99.0
-inventory[3] = 99
-handoffAssert(frame.configStrings[qc.CS_NAME] == "Atomic Unit", "configstring copy was aliased")
-handoffAssert(frame.dLights[0].origin.x == 1.0, "dlight copy was aliased")
-handoffAssert(frame.explosions[0].origin.y == 5.0, "explosion copy was aliased")
+handoffAssert(frame.configStrings[qc.CS_NAME] == "mutated", "configstring view went stale")
 handoffAssert(frame.inventories[0].values[3] == 17, "inventory copy was aliased")
 
 handoffAssert(crhandoff.commit(runtime, 101) is void, "same snapshot committed twice")
@@ -83,5 +82,28 @@ handoffAssert(not late.accepted and late.reason == "stale-or-duplicate", "late d
 handoffAssert(crhandoff.pending(runtime) == 1, "replay changed handoff queue")
 handoffAssert(crhandoff.take(runtime).serial == 0 and crhandoff.pending(runtime) == 0,
   "handoff take order is not deterministic")
+
+// Latest consumption must select the newest immutable snapshot while merging
+// every transient packet event in receive order.
+second = crtypes.Snapshot(8, 7, 0, bytes(), pt.zeroPlayerState(), [])
+cstate.acceptSnapshot(runtime.client, second)
+runtime.effects.soundEvents = [
+  miniquake2.client.effects.types.SoundEvent(void, 1, 0, 1, "first.wav", 1.0, 1.0, 0.0)]
+runtime.prints = [crtypes.PrintHandoff(qc.PRINT_HIGH, "first", 110, false)]
+crhandoff.commit(runtime, 110)
+third = crtypes.Snapshot(9, 8, 0, bytes(), pt.zeroPlayerState(), [])
+cstate.acceptSnapshot(runtime.client, third)
+runtime.effects.soundEvents = [
+  miniquake2.client.effects.types.SoundEvent(void, 1, 0, 2, "second.wav", 1.0, 1.0, 0.0)]
+runtime.prints = [crtypes.PrintHandoff(qc.PRINT_HIGH, "second", 120, false)]
+crhandoff.commit(runtime, 120)
+latest = crhandoff.takeLatest(runtime)
+handoffAssert(latest.frameNumber == 9 and latest.snapshot.number == 9,
+  "takeLatest returned an old snapshot")
+handoffAssert(len(latest.sounds) == 2 and latest.sounds[0].soundName == "first.wav" and
+  latest.sounds[1].soundName == "second.wav", "takeLatest lost or reordered sounds")
+handoffAssert(len(latest.prints) == 2 and latest.prints[0].text == "first" and
+  latest.prints[1].text == "second", "takeLatest lost or reordered UI events")
+handoffAssert(crhandoff.pending(runtime) == 0, "takeLatest retained stale handoffs")
 
 print("client_runtime_handoff_tests: PASS")

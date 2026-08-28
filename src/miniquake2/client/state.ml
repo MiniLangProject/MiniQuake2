@@ -133,6 +133,14 @@ function inline currentEntity(client, number)
   return client.entityLookup[number]
 end function
 
+// Return the last entity state published during this map epoch. Effects such
+// as muzzle flashes may arrive in a packet whose snapshot omits an otherwise
+// unchanged source entity, matching cl_entities[number].current in stock.
+function inline lastKnownEntity(client, number)
+  if number <= 0 or number >= qc.MAX_EDICTS then return void end if
+  return client.entityLookup[number]
+end function
+
 // Find entity.
 function findEntity(entities, number)
   index = 0
@@ -483,7 +491,12 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
   fraction = clampFraction(fraction)
   renderTime = client.serverTime - (1.0 - fraction) * 100.0
   oldEntities = []
-  if client.previous is not void then oldEntities = client.previous.entities end if
+  // A dropped server frame has no valid interpolation predecessor. Stock
+  // CL_DeltaEntity falls back to the incoming state's old_origin in that case.
+  if client.previous is not void and
+      client.previous.number == client.current.number - 1 then
+    oldEntities = client.previous.entities
+  end if
   capacity = 0
   for each countedState in client.current.entities
     if countedState.number != localEntityNumber then

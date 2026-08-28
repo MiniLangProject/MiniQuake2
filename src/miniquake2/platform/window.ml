@@ -80,12 +80,9 @@ function create(title, width, height, fullscreen)
     fullscreen, false, verticalSync)
 end function
 
-// Reconfigure one live Win32 window without destroying its OpenGL context.
-// Changing display mode and frame style in place preserves every registered
-// GPU resource and, consequently, the active level and client presentation.
-function reconfigure(window, width, height, fullscreen)
-  if window.closed then return error(2924, "cannot reconfigure a closed window") end if
-  if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
+// Apply one native mode transaction and return the verified client size. The
+// caller retains the logical Window fields until this transaction succeeds.
+function applyNativeWindowMode(width, height, fullscreen)
   fullscreenValue = 0
   if fullscreen then fullscreenValue = 1 end if
   exclusiveAvailable = true
@@ -94,11 +91,8 @@ function reconfigure(window, width, height, fullscreen)
   end if
   displayMode = try(resolvedDisplayMode(width, height, fullscreen,
     exclusiveAvailable, native.winDesktopWidth(), native.winDesktopHeight()))
-  windowWidth = displayMode[0]
-  windowHeight = displayMode[1]
-  // The native backend owns the display-mode bookkeeping, frame style and
-  // client-size verification. Its resize entry point deliberately preserves
-  // the HWND, HDC and WGL context while applying the staged mode below.
+  if displayMode is error then return displayMode end if
+  windowWidth = displayMode[0]; windowHeight = displayMode[1]
   if native.winConfigureDisplayMode(windowWidth, windowHeight, 32, 0,
       fullscreenValue, displayMode[2]) == 0 then
     return error(2923, "requested fullscreen display mode is unavailable")
@@ -111,8 +105,34 @@ function reconfigure(window, width, height, fullscreen)
        native.winDesktopHeight() != windowHeight) then
     return error(2924, "live exclusive display mode was not retained")
   end if
-  window.width = native.winClientWidth()
-  window.height = native.winClientHeight()
+  return [native.winClientWidth(), native.winClientHeight()]
+end function
+
+// Reconfigure one live Win32 window without destroying its OpenGL context.
+// Changing display mode and frame style in place preserves every registered
+// GPU resource and, consequently, the active level and client presentation.
+function reconfigure(window, width, height, fullscreen)
+  if window.closed then return error(2924, "cannot reconfigure a closed window") end if
+  if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
+  previousWidth = window.width; previousHeight = window.height
+  previousFullscreen = window.fullscreen
+  // The native backend owns the display-mode bookkeeping, frame style and
+  // client-size verification. Its resize entry point deliberately preserves
+  // the HWND, HDC and WGL context while applying the staged mode below.
+  resized = try(applyNativeWindowMode(width, height, fullscreen))
+  if resized is error then
+    // ConfigureDisplaySettings and frame-style changes are not atomic. Restore
+    // the last verified mode before returning the original failure.
+    rollback = try(applyNativeWindowMode(previousWidth, previousHeight,
+      previousFullscreen))
+    if rollback is not error then
+      window.width = rollback[0]; window.height = rollback[1]
+      window.fullscreen = previousFullscreen
+    end if
+    return resized
+  end if
+  window.width = resized[0]
+  window.height = resized[1]
   window.fullscreen = fullscreen
   return window
 end function
@@ -146,7 +166,10 @@ end function
 
 // Return the destroy value.
 function destroy(window)
-  if window.closed == false then native.winDestroy(); window.closed = true end if
+  // WM_CLOSE marks the logical object closed before application teardown.
+  // Native destruction is idempotent and must still release HWND/HDC/WGL.
+  native.winDestroy()
+  window.closed = true
   return true
 end function
 

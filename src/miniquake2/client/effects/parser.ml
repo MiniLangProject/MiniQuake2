@@ -397,7 +397,7 @@ function polyExplosion(state, type, position)
   return value
 end function
 
-// Parse beam.
+// Parse normal beam.
 function parseBeam(state, buffer, modelName, withOffset, playerLinked)
   entity = pchecked.readShort(buffer, "beam entity")
   start = readPosition(buffer, "beam start")
@@ -405,9 +405,23 @@ function parseBeam(state, buffer, modelName, withOffset, playerLinked)
   offset = qt.zeroVec3()
   if withOffset then offset = readPosition(buffer, "beam offset") end if
   if playerLinked and not withOffset then offset = qt.Vec3(2.0, 7.0, -3.0) end if
-  duration = 200
-  if playerLinked then duration = 100 end if
-  return cestate.addBeam(state, entity, 0, modelName, start, finish, offset, playerLinked, duration)
+  return cestate.addBeam(state, entity, 0, modelName, start, finish, offset,
+    playerLinked, 200)
+end function
+
+// Parse Rogue heat/player beam. The dedicated player-beam pool is selected for
+// every source entity, while only the local entity is anchored to the camera.
+function parsePlayerBeam(state, buffer, modelName, localEntityNumber)
+  entity = pchecked.readShort(buffer, "player beam entity")
+  start = readPosition(buffer, "player beam start")
+  finish = readPosition(buffer, "player beam end")
+  offset = qt.Vec3(2.0, 7.0, -3.0)
+  if modelName == "models/proj/widowbeam/tris.md2" then
+    modelName = "models/proj/beam/tris.md2"
+    offset = qt.zeroVec3()
+  end if
+  return cestate.addPlayerBeam(state, entity, modelName, start, finish, offset,
+    entity == localEntityNumber, 100)
 end function
 
 // Parse lightning.
@@ -451,14 +465,22 @@ end function
 // Decode one svc_temp_entity payload and immediately publish its bounded
 // client-side representation. Each branch consumes exactly the bytes defined
 // by the original CL_ParseTEnt switch so the next server command stays aligned.
-function parseTempEntity(state, buffer)
+function parseTempEntityForPlayer(state, buffer, localEntityNumber)
   type = pchecked.readByte(buffer, "temp entity type")
   if type < 0 or type > ceconstants.TE_FLECHETTE or type == ceconstants.TE_FLAME then return error(7336, "unsupported temp entity type " + type) end if
 
   if type == ceconstants.TE_PARASITE_ATTACK or type == ceconstants.TE_MEDIC_CABLE_ATTACK then return parseBeam(state, buffer, "models/monsters/parasite/segment/tris.md2", false, false) end if
-  if type == ceconstants.TE_GRAPPLE_CABLE then return parseBeam(state, buffer, "models/ctf/segment/tris.md2", true, false) end if
-  if type == ceconstants.TE_HEATBEAM then return parseBeam(state, buffer, "models/proj/beam/tris.md2", false, true) end if
-  if type == ceconstants.TE_MONSTER_HEATBEAM then return parseBeam(state, buffer, "models/proj/widowbeam/tris.md2", false, false) end if
+  if type == ceconstants.TE_GRAPPLE_CABLE then
+    grappleEntity = pchecked.readShort(buffer, "beam entity")
+    grappleStart = readPosition(buffer, "beam start")
+    grappleFinish = readPosition(buffer, "beam end")
+    grappleOffset = readPosition(buffer, "beam offset")
+    return cestate.addBeam(state, grappleEntity, 0,
+      "models/ctf/segment/tris.md2", grappleStart, grappleFinish,
+      grappleOffset, grappleEntity == localEntityNumber, 200)
+  end if
+  if type == ceconstants.TE_HEATBEAM then return parsePlayerBeam(state, buffer, "models/proj/beam/tris.md2", localEntityNumber) end if
+  if type == ceconstants.TE_MONSTER_HEATBEAM then return parsePlayerBeam(state, buffer, "models/proj/widowbeam/tris.md2", localEntityNumber) end if
   if type == ceconstants.TE_LIGHTNING then return parseLightning(state, buffer) end if
   if type == ceconstants.TE_STEAM then return parseSteam(state, buffer) end if
 
@@ -641,6 +663,11 @@ function parseTempEntity(state, buffer)
   return polyExplosion(state, type, position)
 end function
 
+// Compatibility entry point for parser unit tests without a connected client.
+function parseTempEntity(state, buffer)
+  return parseTempEntityForPlayer(state, buffer, 0)
+end function
+
 // Handle entity event.
 function handleEntityEvent(state, entityState)
   if entityState is void or entityState.number < 1 or entityState.number >= pc.MAX_EDICTS then return error(7337, "entity event source outside protocol range") end if
@@ -669,10 +696,11 @@ function handleEntityEvent(state, entityState)
 end function
 
 // Parse service command.
-function parseServiceCommand(state, buffer, opcode, entityResolver)
+function parseServiceCommand(state, buffer, opcode, entityResolver, localEntityNumber)
   if opcode == qc.SVC_SOUND then return parseSound(state, buffer) end if
   if opcode == qc.SVC_MUZZLEFLASH then return parseMuzzleFlash(state, buffer, entityResolver) end if
   if opcode == qc.SVC_MUZZLEFLASH2 then return parseMuzzleFlash2(state, buffer, entityResolver) end if
-  if opcode == qc.SVC_TEMP_ENTITY then return parseTempEntity(state, buffer) end if
+  if opcode == qc.SVC_TEMP_ENTITY then return parseTempEntityForPlayer(state,
+    buffer, localEntityNumber) end if
   return error(7338, "opcode is not a client effect service command")
 end function

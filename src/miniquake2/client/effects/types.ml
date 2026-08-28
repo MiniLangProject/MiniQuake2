@@ -112,6 +112,7 @@ struct State
   particles
   particleCount
   beams
+  playerBeams
   lasers
   explosions
   sustains

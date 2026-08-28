@@ -37,6 +37,7 @@ import miniquake2.qcommon.info as nginfo
 import miniquake2.qcommon.types as ngqtypes
 import miniquake2.qcommon.text as ngtext
 import miniquake2.server.administration as ngserveradmin
+import miniquake2.server.game_bridge as nggamebridge
 import std.string as ngstring
 import std.math as ngmath
 
@@ -58,6 +59,11 @@ stockLightStyles = [
 ]
 
 activeImports = void
+// G_RunFrame snapshots every edict origin before gameplay. Keep both the value
+// and owning edict identity so a slot freed and reused later in the same frame
+// cannot inherit the previous occupant's interpolation origin.
+runFrameEdictScratch = array(qc.MAX_EDICTS, void)
+runFrameOriginScratch = array(qc.MAX_EDICTS, void)
 activeExport = void
 initialized = false
 mapLoaded = false
@@ -436,6 +442,10 @@ end function
 function linkManagedEdicts()
   global activeExport, activeImports
   exportTable = activeExport
+  bridgeRuntime = nggamebridge.activeRuntime()
+  if bridgeRuntime is not void then
+    nggamebridge.clearSpatialCaches(bridgeRuntime)
+  end if
   index = 0
   while index < exportTable.numEdicts
     engineEdict = exportTable.edicts[index]
@@ -444,6 +454,43 @@ function linkManagedEdicts()
         return error(3829, "linkManagedEdicts: malformed state at edict " + index)
       end if
       activeImports.linkEntity(engineEdict)
+    end if
+    index = index + 1
+  end while
+  return true
+end function
+
+// Capture the stock `s.old_origin = s.origin` value-copy contract before any
+// player, mover, monster or projectile mutates the exported state.
+function captureRunFrameOrigins(exportTable)
+  global runFrameEdictScratch, runFrameOriginScratch
+  index = 0
+  while index < exportTable.numEdicts
+    edict = exportTable.edicts[index]
+    runFrameEdictScratch[index] = edict
+    origin = edict.state.origin
+    previous = ngqtypes.Vec3(origin.x, origin.y, origin.z)
+    runFrameOriginScratch[index] = previous
+    edict.state.oldOrigin = ngqtypes.Vec3(previous.x, previous.y, previous.z)
+    index = index + 1
+  end while
+  return exportTable.numEdicts
+end function
+
+// Reapply captured origins after managed world synchronization. Internal world
+// records may use their own historical positions, but Protocol EntityState
+// must always expose the value captured at the start of this server frame.
+function publishRunFrameOrigins(exportTable, capturedCount)
+  global runFrameEdictScratch, runFrameOriginScratch
+  index = 0
+  while index < exportTable.numEdicts
+    edict = exportTable.edicts[index]
+    if edict.inUse then
+      previous = void
+      if index < capturedCount and nativeRawValue(runFrameEdictScratch[index]) ==
+          nativeRawValue(edict) then previous = runFrameOriginScratch[index] end if
+      if previous is void then previous = edict.state.origin end if
+      edict.state.oldOrigin = ngqtypes.Vec3(previous.x, previous.y, previous.z)
     end if
     index = index + 1
   end while
@@ -1560,6 +1607,7 @@ function RunFrame()
   if mapLoaded != true then return error(3820, "RunFrame: no level has been spawned") end if
   index = 0
   exportTable = activeExport
+  capturedOriginCount = captureRunFrameOrigins(exportTable)
   while index < exportTable.numEdicts
     exportTable.edicts[index].state.event = gc.EV_NONE
     index = index + 1
@@ -1577,7 +1625,10 @@ function RunFrame()
   // BaseQ2 exits an intermission before treating any edict in turn. In
   // particular, no late projectile, monster or mover think may leak into the
   // successor-level handoff.
-  if not continueFrame then return true end if
+  if not continueFrame then
+    publishRunFrameOrigins(exportTable, capturedOriginCount)
+    return true
+  end if
   if activeBaseRuntime is not void then
     runtime = activeBaseRuntime
     ngbaseq2.runFrame(runtime)
@@ -1614,6 +1665,7 @@ function RunFrame()
   else if activeBaseRuntime is not void then
     ngbaseq2.syncGameEdicts(activeBaseRuntime, exportTable)
   end if
+  publishRunFrameOrigins(exportTable, capturedOriginCount)
   return true
 end function
 

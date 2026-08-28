@@ -135,6 +135,11 @@ end function
 // Return the beam origin.
 function beamOrigin(beam, refDef)
   if not beam.playerLinked then return cestate.add(beam.start, beam.offset) end if
+  if beam.modelName != "models/proj/beam/tris.md2" then
+    return qt.Vec3(refDef.viewOrigin.x + beam.offset.x,
+      refDef.viewOrigin.y + beam.offset.y,
+      refDef.viewOrigin.z - 22.0 + beam.offset.z)
+  end if
   pitch = refDef.viewAngles.x * 0.017453292519943295
   yaw = refDef.viewAngles.y * 0.017453292519943295
   roll = refDef.viewAngles.z * 0.017453292519943295
@@ -277,7 +282,7 @@ function applyPrepared(state, refDef, now, modelResolver)
   // A cable/lightning effect is a chain of 30-35 unit MD2 segments in the
   // original client. Reserve the renderer ceiling once and fill it in-place.
   effectEntities = []
-  if len(state.beams) > 0 or len(state.lasers) > 0 or
+  if len(state.beams) > 0 or len(state.playerBeams) > 0 or len(state.lasers) > 0 or
       len(state.explosions) > 0 then
     effectEntities = array(rc.MAX_ENTITIES)
   end if
@@ -285,6 +290,10 @@ function applyPrepared(state, refDef, now, modelResolver)
   for each beam in state.beams
     effectEntityCount = appendBeamEntities(effectEntities, effectEntityCount,
       rc.MAX_ENTITIES, beam, now, modelResolver, refDef)
+  end for
+  for each playerBeam in state.playerBeams
+    effectEntityCount = appendBeamEntities(effectEntities, effectEntityCount,
+      rc.MAX_ENTITIES, playerBeam, now, modelResolver, refDef)
   end for
   for each laser in state.lasers
     if effectEntityCount < rc.MAX_ENTITIES then

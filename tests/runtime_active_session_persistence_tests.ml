@@ -151,6 +151,10 @@ saveGateFrameBeforeRestore = saveGateSession.server.frameNumber
 saveGateClientFrameBeforeRestore = saveGateSession.client.integrated.network.client.currentFrame.serverFrame
 saveGateServerOutgoingBeforeRestore = saveGateServerChannel.outgoingSequence
 saveGateClientOutgoingBeforeRestore = saveGateClientChannel.outgoingSequence
+saveGateSession.client.integrated.effects.beams = [1]
+saveGateSession.client.integrated.effects.lasers = [1]
+saveGateSession.client.integrated.effects.particles = [1]
+saveGateSession.client.integrated.frameHandoffs = [1]
 saveGateRestore = savegatetestpersistence.restorePlaySession(saveGateSession, saveGateCheckpoint)
 saveGateAssert(saveGateRestore.restored and not saveGateRestore.reSignon and
   saveGateRestore.channelPreserved, "same-map restore did not preserve channels")
@@ -163,6 +167,13 @@ saveGateAssert(nativeRawValue(saveGateServerChannel) == nativeRawValue(
   nativeRawValue(saveGateClientChannel) == nativeRawValue(
   saveGateSession.client.integrated.network.client.channel),
   "restore replaced a live Netchan")
+saveGateAssert(saveGateSession.client.integrated.client.current is void and
+  saveGateSession.client.integrated.client.previous is void and
+  len(saveGateSession.client.integrated.effects.beams) == 0 and
+  len(saveGateSession.client.integrated.effects.lasers) == 0 and
+  len(saveGateSession.client.integrated.effects.particles) == 0 and
+  len(saveGateSession.client.integrated.frameHandoffs) == 0,
+  "same-map restore retained the pre-load presentation epoch")
 
 saveGateRestoredRuntime = savegatetestgameapi.baseRuntime()
 saveGateRestoredContext = savegatetestgameapi.playerContext()

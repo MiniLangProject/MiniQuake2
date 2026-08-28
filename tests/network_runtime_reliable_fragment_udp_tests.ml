@@ -87,7 +87,8 @@ while serial < 256
   sounds = sounds + [nrfudp_stypes.PendingSoundEvent(serial, true, 1,
     nrfudp_gc.CHAN_VOICE,
     nrfudp_gc.CHAN_VOICE | nrfudp_gc.CHAN_RELIABLE,
-    1, 0.5, 0.5, 0.025, nrfudp_qt.Vec3(serial * 1.0, 2.0, 3.0))]
+    1, 0.5, 0.5, 0.025, nrfudp_qt.Vec3(serial * 1.0, 2.0, 3.0),
+    nrfudp_qt.Vec3(serial * 1.0, 2.0, 3.0))]
   serial = serial + 1
 end while
 soundResult = nrfudp_sound.dispatchRouted(serverRuntime, serverSocket,

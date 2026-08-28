@@ -150,6 +150,11 @@ for each gibEntity in runtime.world.entities
     deathEffectAssert(gibEntity.modelIndex > 0 and (gibEntity.effects & deatheffectconstants.EF_GIB) != 0 and
       api.edicts[gibEntity.number].inUse and api.edicts[gibEntity.number].state.modelIndex == gibEntity.modelIndex,
       "gib is visible through exported EntityState")
+    deathEffectAssert(gibEntity.oldOrigin.x == gibEntity.origin.x and
+      gibEntity.oldOrigin.y == gibEntity.origin.y and
+      gibEntity.oldOrigin.z == gibEntity.origin.z and
+      nativeRawValue(gibEntity.oldOrigin) != nativeRawValue(gibEntity.origin),
+      "new gib did not own an initialized old-origin value copy")
   end if
 end for
 api.runFrame()
@@ -190,6 +195,10 @@ metalOriginZ = movingMetalGib.origin.z
 api.runFrame()
 deathEffectAssert(movingMetalGib.origin.z != metalOriginZ,
   "integrated world frame advances MOVETYPE_BOUNCE death parts")
+deathEffectAssert(api.edicts[movingMetalGib.number].state.oldOrigin.z ==
+    metalOriginZ and nativeRawValue(api.edicts[movingMetalGib.number].state.oldOrigin) !=
+    nativeRawValue(api.edicts[movingMetalGib.number].state.origin),
+  "G_RunFrame did not publish the pre-physics old-origin value copy")
 
 waterGibNumber = movingMetalGib.number
 movingMetalGib.origin.x = 2000.0

@@ -45,7 +45,8 @@ end function
 // Return the positioned event value.
 function positionedEvent(serial, flags, attenuation)
   return nrroute_st.PendingSoundEvent(serial, false, 0, flags & 7, flags,
-    1, 1.0, attenuation, 0.0, nrroute_qt.Vec3(8.0, 0.0, 0.0))
+    1, 1.0, attenuation, 0.0, nrroute_qt.Vec3(8.0, 0.0, 0.0),
+    nrroute_qt.Vec3(8.0, 0.0, 0.0))
 end function
 
 // Return the routing session value.
@@ -107,10 +108,12 @@ routingAssert(len(routedSpawnedOnly[0]) == 1 and len(routedSpawnedOnly[1]) == 0,
   "sound routing included a client which was not spawned")
 
 entityBound = nrroute_st.PendingSoundEvent(3, true, 3, nrroute_gc.CHAN_VOICE,
-  nrroute_gc.CHAN_VOICE, 1, 1.0, nrroute_gc.ATTN_NORM, 0.0, void)
+  nrroute_gc.CHAN_VOICE, 1, 1.0, nrroute_gc.ATTN_NORM, 0.0, void,
+  nrroute_qt.Vec3(8.0, 0.0, 2.0))
+session.gameExport.edicts[3].state.origin.x = 512.0
 derived = nrroute_session.soundEventOrigin(session, entityBound)
 routingAssert(derived.x == 8.0 and derived.y == 0.0 and derived.z == 2.0,
-  "SOLID_BSP entity sound did not use the bounds-centered origin")
+  "queued entity sound did not freeze its bounds-centered routing origin")
 nrroute_collision.setAreaPortalState(collision, 0, false)
 
 noPhs = positionedEvent(1, nrroute_gc.CHAN_VOICE | nrroute_gc.CHAN_NO_PHS_ADD,
@@ -154,6 +157,22 @@ channel.reliableBuffer = bytes([77])
 reliable = positionedEvent(4, nrroute_gc.CHAN_WEAPON | nrroute_gc.CHAN_RELIABLE,
   nrroute_gc.ATTN_NORM)
 outgoingBefore = channel.outgoingSequence
+laterOrdinary = positionedEvent(5, nrroute_gc.CHAN_WEAPON,
+  nrroute_gc.ATTN_NORM)
+mixedPlan = nrroute_dispatch.buildPlan(runtime, 0,
+  [ordinary, reliable, laterOrdinary])
+routingAssert(mixedPlan != false and mixedPlan is not void and
+  len(mixedPlan.unreliablePackets) == 1 and
+  len(mixedPlan.reliableFragments) == 1,
+  "ordinary weapon sound after reliable sound was retained for an ACK")
+mixedTransient = nrroute_session.soundReliabilitySubset(
+  [ordinary, reliable, laterOrdinary], false)
+mixedReliable = nrroute_session.soundReliabilitySubset(
+  [ordinary, reliable, laterOrdinary], true)
+routingAssert(len(mixedTransient) == 2 and
+  mixedTransient[0].serial == 0 and mixedTransient[1].serial == 5 and
+  len(mixedReliable) == 1 and mixedReliable[0].serial == 4,
+  "server frame did not split sound reliability in original order")
 busyPlan = nrroute_dispatch.buildPlan(runtime, 0, [reliable])
 routingAssert(busyPlan != false and busyPlan is not void and
   len(busyPlan.reliableFragments) == 1,

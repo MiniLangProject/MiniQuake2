@@ -44,6 +44,22 @@ unicastRouteAssert(len(routedConnected[0]) == 1 and len(routedConnected[1]) == 0
 server.clients[1].state = nrur_nc.CS_SPAWNED
 
 channel = server.clients[1].channel
+laterTransient = nrur_stypes.PendingUnicastEvent(2, 2, false,
+  bytes([nrur_qc.SVC_NOP]))
+mixedPlan = nrur_dispatch.buildPlan(runtime, 1,
+  [second, laterTransient])
+unicastRouteAssert(mixedPlan != false and mixedPlan is not void and
+  len(mixedPlan.unreliablePackets) == 1 and
+  len(mixedPlan.reliableFragments) == 1,
+  "transient unicast after reliable event was retained for an ACK")
+mixedTransient = nrur_session.unicastReliabilitySubset(
+  [second, laterTransient], false)
+mixedReliable = nrur_session.unicastReliabilitySubset(
+  [second, laterTransient], true)
+unicastRouteAssert(len(mixedTransient) == 1 and
+  mixedTransient[0].serial == 2 and len(mixedReliable) == 1 and
+  mixedReliable[0].serial == 1,
+  "server frame did not split unicast reliability in original order")
 fullQueue = array(nrur_pc.MAX_RELIABLE_QUEUE_FRAGMENTS,
   bytes(nrur_pc.RELIABLE_BUFFER_SIZE))
 nrur_netchan.queueReliableFragments(channel, fullQueue)

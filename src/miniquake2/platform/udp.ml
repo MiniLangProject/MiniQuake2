@@ -74,7 +74,11 @@ function receive(socket, capacity)
   count = native.udpReceive(socket.handle, buffer, capacity)
   // The native bridge maps WSAEWOULDBLOCK to zero. Protocol 34 never uses an
   // empty datagram, so zero is the nonblocking "no packet" sentinel here.
-  if count <= 0 then return void end if
+  if count < 0 then
+    return error(2919, "UDP receive failed (native error " +
+      native.udpLastError() + ")")
+  end if
+  if count == 0 then return void end if
   payload = bytes(count)
   copyBytes(payload, 0, buffer, 0, count)
   return Datagram(payload, native.udpLastAddress(), native.udpLastPort())

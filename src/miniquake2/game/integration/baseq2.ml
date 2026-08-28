@@ -803,6 +803,8 @@ function integratedAIDeathEffect(actor, effect)
     ibDeathOriginHolder.y + (((ibDeathSeed * 3) % 33) - 16),
     ibDeathOriginHolder.z + (((ibDeathSeed * 7) % 25) - 4)
   )
+  ibDeathGibHolder.oldOrigin = ibqtypes.Vec3(ibDeathGibHolder.origin.x,
+    ibDeathGibHolder.origin.y, ibDeathGibHolder.origin.z)
   ibDeathVelocityScale = 0.5
   if effect.gibType == ibdeatheffects.GIB_METALLIC then ibDeathVelocityScale = 1.0 end if
   ibDeathGibHolder.velocity = ibqtypes.Vec3(
@@ -826,7 +828,9 @@ function integratedAIDeathEffect(actor, effect)
   ibDeathGibEdictHolder.inUse = true
   ibDeathGibEdictHolder.solid = ibworldconstants.SOLID_NOT
   ibDeathGibEdictHolder.state.origin = ibDeathGibHolder.origin
-  ibDeathGibEdictHolder.state.oldOrigin = ibDeathGibHolder.origin
+  ibDeathGibEdictHolder.state.oldOrigin = ibqtypes.Vec3(
+    ibDeathGibHolder.origin.x, ibDeathGibHolder.origin.y,
+    ibDeathGibHolder.origin.z)
   ibDeathGibEdictHolder.state.effects = ibDeathGibHolder.effects
   ibDeathGibEdictHolder.mins = ibqtypes.Vec3(0.0, 0.0, 0.0)
   ibDeathGibEdictHolder.maxs = ibqtypes.Vec3(0.0, 0.0, 0.0)

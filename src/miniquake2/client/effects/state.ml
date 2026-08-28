@@ -15,7 +15,7 @@ import miniquake2.client.effects.audio as ceaudio
 // Create state.
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
-  return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [],
+  return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [], [],
     array(486, 0.0), array(ceconstants.MAX_ENTITY_TRAILS, false), [], [],
     array(ceconstants.MAX_DLIGHTS, void), [], audioCallbacks)
 end function
@@ -941,21 +941,51 @@ function resetEntityTrails(state)
   return state
 end function
 
-// Add beam.
-function addBeam(state, entity, destinationEntity, modelName, start, finish, offset, playerLinked, duration)
-  for each beam in state.beams
-    if beam.entity == entity and (not playerLinked or beam.playerLinked) and
+// Add a beam to the stock normal-beam or player-beam pool.
+function addBeamToPool(state, entity, destinationEntity, modelName, start, finish,
+    offset, playerLinked, duration, playerPool)
+  collection = state.beams
+  if playerPool then collection = state.playerBeams end if
+  for each beam in collection
+    if beam.entity == entity and
         (destinationEntity == 0 or beam.destinationEntity == destinationEntity) then
       beam.destinationEntity = destinationEntity; beam.modelName = modelName
-      beam.endTime = state.time + duration; beam.start = copyVec(start); beam.finish = copyVec(finish)
+      refreshedDuration = duration
+      if playerPool then refreshedDuration = 200 end if
+      beam.endTime = state.time + refreshedDuration; beam.start = copyVec(start); beam.finish = copyVec(finish)
       beam.offset = copyVec(offset); beam.playerLinked = playerLinked
       return beam
     end if
   end for
   beam = cetypes.Beam(entity, destinationEntity, modelName, state.time + duration,
     copyVec(offset), copyVec(start), copyVec(finish), playerLinked)
-  if len(state.beams) < ceconstants.MAX_BEAMS then state.beams = state.beams + [beam] end if
+  freeIndex = 0
+  while freeIndex < len(collection)
+    if collection[freeIndex].endTime < state.time then
+      collection[freeIndex] = beam
+      return beam
+    end if
+    freeIndex = freeIndex + 1
+  end while
+  if len(collection) < ceconstants.MAX_BEAMS then
+    if playerPool then state.playerBeams = state.playerBeams + [beam]
+    else state.beams = state.beams + [beam] end if
+  end if
   return beam
+end function
+
+// Add normal beam.
+function addBeam(state, entity, destinationEntity, modelName, start, finish, offset, playerLinked, duration)
+  return addBeamToPool(state, entity, destinationEntity, modelName, start, finish,
+    offset, playerLinked, duration, false)
+end function
+
+// Add Rogue player beam. Remote players still use this separate reuse pool;
+// playerLinked only controls whether the local camera supplies its origin.
+function addPlayerBeam(state, entity, modelName, start, finish, offset,
+    playerLinked, duration)
+  return addBeamToPool(state, entity, 0, modelName, start, finish, offset,
+    playerLinked, duration, true)
 end function
 
 // Add laser.
@@ -1052,6 +1082,14 @@ function advance(state, now)
     end if
   end for
   state.beams = compact(state.beams, activeBeamCount)
+  activePlayerBeamCount = 0
+  for each playerBeam in state.playerBeams
+    if playerBeam.endTime >= now then
+      state.playerBeams[activePlayerBeamCount] = playerBeam
+      activePlayerBeamCount = activePlayerBeamCount + 1
+    end if
+  end for
+  state.playerBeams = compact(state.playerBeams, activePlayerBeamCount)
   activeLaserCount = 0
   for each laser in state.lasers
     if laser.endTime >= now then
@@ -1075,7 +1113,7 @@ end function
 // Clear state.
 function clear(state)
   state.particleCount = 0
-  state.dLights = []; state.beams = []; state.lasers = []
+  state.dLights = []; state.beams = []; state.playerBeams = []; state.lasers = []
   state.explosions = []; state.sustains = []; state.soundEvents = []
   resetEntityTrails(state)
   return state

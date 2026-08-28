@@ -178,6 +178,16 @@ function testMessages()
   assertEqual(shortBuffer.readCount, 5, "subsequent underrun advances")
   msg.beginReading(shortBuffer)
   assertBytes(msg.readData(shortBuffer, 3), bytes([7, 255, 255]), "MSG_ReadData underrun byte conversion")
+
+  emptyString = sz.alloc(1)
+  emptyString.data[0] = 0
+  emptyString.curSize = 1
+  assertBytes(msg.readStringBytes(emptyString), bytes(), "empty string exact allocation")
+  assertEqual(emptyString.readCount, 1, "empty string consumes terminator")
+  ffString = sz.alloc(2)
+  ffString.data[0] = 255; ffString.data[1] = 0; ffString.curSize = 2
+  assertBytes(msg.readStringBytes(ffString), bytes(), "signed ff terminates stock string")
+  assertEqual(ffString.readCount, 1, "signed ff terminator cursor")
   return true
 end function
 

@@ -7,12 +7,15 @@ import miniquake2.platform.system as psystem
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.message as qmsg
 import miniquake2.qcommon.types as qt
+import miniquake2.protocol.constants as pc
+import miniquake2.protocol.netchan as pnetchan
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.runtime.handoff as crhandoff
 import miniquake2.network.constants as nc
 import miniquake2.runtime.client_session as plclienttest
 import miniquake2.runtime.server_session as plservertest
 import miniquake2.runtime.play_session as playsession
+import miniquake2.game.constants as gc
 import miniquake2.game.null_game as playgame
 
 // Assert the play test condition.
@@ -156,6 +159,36 @@ playAssert(crhandoff.commit(session.client.integrated, 9999) is void,
   "duplicate snapshot produced another handoff")
 playAssert(crhandoff.pending(session.client.integrated) == pendingBefore,
   "duplicate snapshot changed the handoff queue")
+
+// Reproduce the reported multicast overflow shape: one reliable fragment is
+// blocked behind a completely full Netchan queue while hundreds of ordinary
+// effects continue to arrive. Stock client datagrams are attempted and then
+// discarded per frame; only the reliable event may remain in the bridge.
+channel.reliableLength = 1
+channel.reliableBuffer = bytes([qc.SVC_NOP])
+channel.reliableQueue = []
+channel.reliableQueuedBytes = 0
+fullReliableQueue = array(pc.MAX_RELIABLE_QUEUE_FRAGMENTS,
+  bytes(pc.RELIABLE_BUFFER_SIZE))
+playAssert(pnetchan.queueReliableFragments(channel, fullReliableQueue) != false,
+  "could not stage multicast backpressure fixture")
+backlogImports = playgame.playerContext().imports
+backlogImports.writeByte(qc.SVC_NOP)
+backlogImports.multicast(qt.zeroVec3(), gc.MULTICAST_ALL_R)
+backlogTransient = 0
+while backlogTransient < 300
+  backlogImports.writeByte(qc.SVC_NOP)
+  backlogImports.multicast(qt.zeroVec3(), gc.MULTICAST_ALL)
+  plservertest.step(session.server)
+  backlogTransient = backlogTransient + 1
+end while
+backlogRemaining = session.server.bridgeRuntime.pendingMulticasts
+backlogOnlyReliable = true
+if len(backlogRemaining) == 1 then
+  backlogOnlyReliable = backlogRemaining[0].destination == gc.MULTICAST_ALL_R
+end if
+playAssert(len(backlogRemaining) <= 1 and backlogOnlyReliable,
+  "transient multicast traffic accumulated behind reliable backpressure")
 
 shutdownReceivedBefore = session.server.packetsReceived
 playAssert(playsession.shutdown(session), "first shutdown failed")

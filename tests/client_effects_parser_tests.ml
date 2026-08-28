@@ -204,6 +204,8 @@ end function
 
 // Verify stock impact parity.
 function testStockImpactParity()
+  // Cover stock impact particles/models first, then extended mission-pack
+  // beams and finally the large teleport/sustain particle families.
   gunshotState = cestate.createSilent(3)
   gunshot = bytes([ceconstants.TE_GUNSHOT, 0, 0, 0, 0, 0, 0, 52])
   ceparser.parseTempEntity(gunshotState, reading(gunshot))
@@ -279,8 +281,53 @@ function testStockImpactParity()
   heat = bytes([ceconstants.TE_MONSTER_HEATBEAM, 5, 0,
     0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0])
   ceparser.parseTempEntity(heatState, reading(heat))
-  assertEqual(heatState.beams[0].modelName, "models/proj/widowbeam/tris.md2",
-    "monster heatbeam model")
+  assertEqual(len(heatState.beams), 0, "monster heatbeam entered normal pool")
+  assertEqual(heatState.playerBeams[0].modelName, "models/proj/beam/tris.md2",
+    "monster heatbeam uses stock heatbeam model")
+  assertTrue(not heatState.playerBeams[0].playerLinked,
+    "remote monster heatbeam linked to local camera")
+  assertEqual(heatState.playerBeams[0].endTime, 100,
+    "new player beam stock lifetime")
+  heatState.time = 25
+  ceparser.parseTempEntity(heatState, reading(heat))
+  assertEqual(len(heatState.playerBeams), 1,
+    "same-source player beam did not reuse its slot")
+  assertEqual(heatState.playerBeams[0].endTime, 225,
+    "refreshed player beam stock lifetime")
+
+  fullBeamState = cestate.createSilent(22)
+  fullBeamIndex = 0
+  while fullBeamIndex < ceconstants.MAX_BEAMS
+    cestate.addPlayerBeam(fullBeamState, fullBeamIndex + 1,
+      "models/proj/beam/tris.md2", miniquake2.qcommon.types.zeroVec3(),
+      miniquake2.qcommon.types.Vec3(32.0, 0.0, 0.0),
+      miniquake2.qcommon.types.zeroVec3(), false, 100)
+    fullBeamIndex = fullBeamIndex + 1
+  end while
+  fullBeamState.time = 101
+  cestate.addPlayerBeam(fullBeamState, 999, "models/proj/beam/tris.md2",
+    miniquake2.qcommon.types.zeroVec3(),
+    miniquake2.qcommon.types.Vec3(32.0, 0.0, 0.0),
+    miniquake2.qcommon.types.zeroVec3(), false, 100)
+  assertEqual(len(fullBeamState.playerBeams), ceconstants.MAX_BEAMS,
+    "expired player-beam slot changed pool capacity")
+  assertEqual(fullBeamState.playerBeams[0].entity, 999,
+    "expired player-beam slot was not reused at parse time")
+
+  localHeatState = cestate.createSilent(22)
+  ceparser.parseTempEntityForPlayer(localHeatState, reading(heat), 5)
+  assertTrue(localHeatState.playerBeams[0].playerLinked,
+    "local heatbeam was not linked to the camera")
+
+  grappleState = cestate.createSilent(23)
+  grapple = bytes([ceconstants.TE_GRAPPLE_CABLE, 5, 0,
+    0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0,
+    8, 0, 16, 0, 24, 0])
+  ceparser.parseTempEntityForPlayer(grappleState, reading(grapple), 5)
+  assertTrue(grappleState.beams[0].playerLinked,
+    "local grapple cable was not linked to the camera")
+  assertEqual(len(grappleState.playerBeams), 0,
+    "grapple cable entered Rogue player-beam pool")
 
   bossTeleportState = cestate.createSilent(23)
   bossTeleport = bytes([ceconstants.TE_BOSSTPORT, 0, 0, 0, 0, 0, 0])

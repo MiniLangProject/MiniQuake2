@@ -13,6 +13,11 @@ end function
 
 // Verify same-root reuse and different-root invalidation.
 function resourceCacheCore()
+  resourceCacheAssert(resourcecacheapplication.applicationAudioRefillBudget(0) == 2 and
+      resourcecacheapplication.applicationAudioRefillBudget(6) == 2 and
+      resourcecacheapplication.applicationAudioRefillBudget(7) == 1 and
+      resourcecacheapplication.applicationAudioRefillBudget(8) == 0,
+    "audio refill work is not bounded per rendered frame")
   first = resourcecacheapplication.applicationSharedFileSystem(
     "synthetic-cache-root-a")
   first.links = ["sentinel"]

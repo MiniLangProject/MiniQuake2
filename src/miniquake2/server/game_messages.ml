@@ -16,6 +16,21 @@ const MAX_MULTICAST_FRAGMENT_BYTES = 1392
 const MAX_PENDING_UNICAST_EVENTS = 256
 const MAX_PENDING_UNICAST_BYTES = 88576
 
+// Claim one ordering token shared by every GameImport message class. Stock
+// Quake II appends multicast, unicast and sound commands to client buffers at
+// the instant they are emitted; independent per-type counters lose that order
+// when the managed bridge drains its typed queues at the frame boundary.
+function claimEmissionSerial(runtime)
+  serial = runtime.nextMulticastSerial
+  if runtime.nextUnicastSerial > serial then serial = runtime.nextUnicastSerial end if
+  if runtime.nextSoundSerial > serial then serial = runtime.nextSoundSerial end if
+  next = serial + 1
+  runtime.nextMulticastSerial = next
+  runtime.nextUnicastSerial = next
+  runtime.nextSoundSerial = next
+  return serial
+end function
+
 // Return the numeric value.
 function numeric(value)
   return typeof(value) == "int" or typeof(value) == "float"
@@ -95,10 +110,9 @@ function enqueue(runtime, origin, destination, payload)
     ownedPayload[payloadIndex] = payload[payloadIndex]
     payloadIndex = payloadIndex + 1
   end while
-  event = sgmtypes.PendingMulticastEvent(runtime.nextMulticastSerial,
+  event = sgmtypes.PendingMulticastEvent(claimEmissionSerial(runtime),
     destination, ownedOrigin, ownedPayload)
   runtime.pendingMulticasts = runtime.pendingMulticasts + [event]
-  runtime.nextMulticastSerial = runtime.nextMulticastSerial + 1
   return event
 end function
 
@@ -163,10 +177,9 @@ function enqueueUnicast(runtime, entity, reliable, payload)
       queuedUnicastBytes(runtime.pendingUnicasts) + len(payload) > MAX_PENDING_UNICAST_BYTES then
     return error(3952, "pending server unicast queue is full")
   end if
-  event = sgmtypes.PendingUnicastEvent(runtime.nextUnicastSerial, entityNumber,
+  event = sgmtypes.PendingUnicastEvent(claimEmissionSerial(runtime), entityNumber,
     reliable, copyPayload(payload))
   runtime.pendingUnicasts = runtime.pendingUnicasts + [event]
-  runtime.nextUnicastSerial = runtime.nextUnicastSerial + 1
   return event
 end function
 

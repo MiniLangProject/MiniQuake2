@@ -45,6 +45,10 @@ if ([System.IO.Path]::GetExtension($Compiler) -ieq ".py") {
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $AudioExe -PathType Leaf)) {
   throw "audio replay compilation failed"
 }
+foreach ($RuntimeDll in Get-ChildItem -LiteralPath (Join-Path $Root "native") -Filter "*.dll" -File) {
+  Copy-Item -Force -LiteralPath $RuntimeDll.FullName -Destination (
+    Join-Path $OutputDirectory $RuntimeDll.Name)
+}
 $AudioFirst = @(& $AudioExe 2>&1)
 if ($LASTEXITCODE -ne 0) { throw "first audio replay failed" }
 $AudioSecond = @(& $AudioExe 2>&1)

@@ -55,17 +55,20 @@ end function
 
 // Apply state.
 function apply(state, gamma, active)
-  ramp = buildRamp(gamma)
-  state.value = gamma * 1.0
+  ramp = try(buildRamp(gamma))
+  if ramp is error then return ramp end if
   if not state.supported then state.applied = false; return false end if
   if not active or gamma == 1.0 or gamma == 1 then
-    videogammanative.winSetGammaRamp(state.originalRamp, len(state.originalRamp))
-    state.applied = false
-    return true
+    restored = videogammanative.winSetGammaRamp(state.originalRamp,
+      len(state.originalRamp)) != 0
+    if restored then state.value = gamma * 1.0; state.applied = false end if
+    return restored
   end if
-  state.applied = videogammanative.winSetGammaRamp(ramp, len(ramp)) != 0
-  if not state.applied then state.supported = false end if
-  return state.applied
+  applied = videogammanative.winSetGammaRamp(ramp, len(ramp)) != 0
+  if applied then state.value = gamma * 1.0; state.applied = true end if
+  // A transient HDR/RDP/driver refusal must remain retryable. Do not mark the
+  // captured hardware capability permanently unsupported after one failure.
+  return applied
 end function
 
 // Restore state.
@@ -75,7 +78,7 @@ function restore(state)
   end if
   restored = videogammanative.winSetGammaRamp(state.originalRamp,
     len(state.originalRamp)) != 0
-  state.applied = false
+  if restored then state.applied = false end if
   return restored
 end function
 

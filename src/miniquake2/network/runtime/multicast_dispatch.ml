@@ -37,16 +37,6 @@ function payloadCapacity(client)
   return capacity
 end function
 
-// Return the first reliable value.
-function firstReliable(events)
-  index = 0
-  while index < len(events)
-    if nrtmulticastmessages.reliableDestination(events[index].destination) then return index end if
-    index = index + 1
-  end while
-  return len(events)
-end function
-
 // Return the packetize value.
 function packetize(events, first, last, maximumPayload)
   packetCapacity = last - first
@@ -87,26 +77,40 @@ function buildPlan(runtime, slot, events)
     return error(7293, "routed multicast recipient Netchan is corrupt")
   end if
 
-  reliableStart = firstReliable(events)
-  unreliablePackets = []
-  if reliableStart > 0 then
-    capacity = payloadCapacity(client)
-    if reliableStart < len(events) then
-      if client.channel.message.curSize > 0 then return false end if
-      capacity = nrtmulticastpc.MAX_MSGLEN - nrtmulticastpc.PACKET_HEADER_SERVER
+  unreliableCount = 0
+  reliableCount = 0
+  for each countedEvent in events
+    if nrtmulticastmessages.reliableDestination(countedEvent.destination) then
+      reliableCount = reliableCount + 1
+    else unreliableCount = unreliableCount + 1
     end if
-    if capacity <= 0 then return false end if
-    unreliablePackets = packetize(events, 0, reliableStart, capacity)
-    if unreliablePackets == false then return false end if
+  end for
+  unreliableEvents = array(unreliableCount, void)
+  reliableFragments = array(reliableCount, void)
+  unreliableIndex = 0
+  reliableIndex = 0
+  for each classifiedEvent in events
+    if nrtmulticastmessages.reliableDestination(classifiedEvent.destination) then
+      reliableFragments[reliableIndex] = classifiedEvent.payload
+      reliableIndex = reliableIndex + 1
+    else
+      unreliableEvents[unreliableIndex] = classifiedEvent
+      unreliableIndex = unreliableIndex + 1
+    end if
+  end for
+  unreliablePackets = []
+  if unreliableCount > 0 then
+    capacity = payloadCapacity(client)
+    // Stock client datagrams allow overflow: transient effects are dropped
+    // instead of being retained behind an unrelated reliable ACK.
+    if capacity > 0 then
+      unreliablePackets = packetize(unreliableEvents, 0,
+        unreliableCount, capacity)
+      if unreliablePackets == false then unreliablePackets = [] end if
+    end if
   end if
 
-  reliableFragments = array(len(events) - reliableStart, void)
-  if reliableStart < len(events) then
-    index = reliableStart
-    while index < len(events)
-      reliableFragments[index - reliableStart] = events[index].payload
-      index = index + 1
-    end while
+  if reliableCount > 0 then
     if not nrtmulticastnetchan.canQueueReliableFragments(client.channel, reliableFragments) then return false end if
   end if
   return MulticastClientPlan(slot, unreliablePackets, reliableFragments)
@@ -138,19 +142,28 @@ function dispatchRouted(runtime, socket, events, routedEvents, now)
   planIndex = 0
   while planIndex < planCount
     plan = plans[planIndex]
-    for each payload in plan.unreliablePackets
-      stats = nrtmulticastpump.sendServerPayload(runtime, socket, plan.slot, now, payload)
-      if typeof(stats) != "struct" then return error(7295, "multicast recipient became unavailable") end if
-      sent = sent + stats.sent
-    end for
+    packetIndex = 0
     if len(plan.reliableFragments) > 0 then
       client = runtime.server.clients[plan.slot]
       queued = nrtmulticastnetchan.queueReliableFragments(client.channel, plan.reliableFragments)
       if queued == false then return error(7296, "multicast fragment preflight became stale") end if
-      stats = nrtmulticastpump.sendServerPayload(runtime, socket, plan.slot, now, bytes())
+      firstPayload = bytes()
+      if len(plan.unreliablePackets) > 0 then
+        firstPayload = plan.unreliablePackets[0]
+        packetIndex = 1
+      end if
+      stats = nrtmulticastpump.sendServerPayload(runtime, socket, plan.slot, now,
+        firstPayload)
       if typeof(stats) != "struct" then return error(7295, "multicast recipient became unavailable") end if
       sent = sent + stats.sent
     end if
+    while packetIndex < len(plan.unreliablePackets)
+      payload = plan.unreliablePackets[packetIndex]
+      stats = nrtmulticastpump.sendServerPayload(runtime, socket, plan.slot, now, payload)
+      if typeof(stats) != "struct" then return error(7295, "multicast recipient became unavailable") end if
+      sent = sent + stats.sent
+      packetIndex = packetIndex + 1
+    end while
     planIndex = planIndex + 1
   end while
   return MulticastDispatchResult(sent, true, 0)

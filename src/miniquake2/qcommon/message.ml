@@ -107,60 +107,59 @@ function beginReading(buffer)
   return buffer
 end function
 
-// Quake II readers advance even after an underrun. Keeping that behavior is
-// important because parsers commonly inspect readCount after a failure.
-function readAvailable(buffer, width)
-  offset = buffer.readCount
-  buffer.readCount = buffer.readCount + width
-  return [offset, offset >= 0 and offset + width <= buffer.curSize]
-end function
-
 // Read char.
 function readChar(buffer)
-  state = readAvailable(buffer, 1)
-  if not state[1] then return -1 end if
-  return bio.i8(buffer.data, state[0])
+  offset = buffer.readCount
+  buffer.readCount = offset + 1
+  if offset < 0 or offset + 1 > buffer.curSize then return -1 end if
+  return bio.i8(buffer.data, offset)
 end function
 
 // Read byte.
 function readByte(buffer)
-  state = readAvailable(buffer, 1)
-  if not state[1] then return -1 end if
-  return bio.u8(buffer.data, state[0])
+  offset = buffer.readCount
+  buffer.readCount = offset + 1
+  if offset < 0 or offset + 1 > buffer.curSize then return -1 end if
+  return bio.u8(buffer.data, offset)
 end function
 
 // Read short.
 function readShort(buffer)
-  state = readAvailable(buffer, 2)
-  if not state[1] then return -1 end if
-  return bio.i16(buffer.data, state[0])
+  offset = buffer.readCount
+  buffer.readCount = offset + 2
+  if offset < 0 or offset + 2 > buffer.curSize then return -1 end if
+  return bio.i16(buffer.data, offset)
 end function
 
 // Read long.
 function readLong(buffer)
-  state = readAvailable(buffer, 4)
-  if not state[1] then return -1 end if
-  return bio.i32(buffer.data, state[0])
+  offset = buffer.readCount
+  buffer.readCount = offset + 4
+  if offset < 0 or offset + 4 > buffer.curSize then return -1 end if
+  return bio.i32(buffer.data, offset)
 end function
 
 // Read float.
 function readFloat(buffer)
-  state = readAvailable(buffer, 4)
-  if not state[1] then return -1.0 end if
-  return bio.f32(buffer.data, state[0])
+  offset = buffer.readCount
+  buffer.readCount = offset + 4
+  if offset < 0 or offset + 4 > buffer.curSize then return -1.0 end if
+  return bio.f32(buffer.data, offset)
 end function
 
 // Read string bytes.
 function readStringBytes(buffer)
-  output = bytes(2047)
+  start = buffer.readCount
   count = 0
   while count < 2047
     value = readChar(buffer)
     if value == -1 or value == 0 then break end if
-    output[count] = value & 255
     count = count + 1
   end while
-  return slice(output, 0, count)
+  if count == 0 then return bytes() end if
+  output = bytes(count)
+  bio.copyInto(output, 0, buffer.data, start, count)
+  return output
 end function
 
 // Read string.
@@ -170,15 +169,17 @@ end function
 
 // Read string line bytes.
 function readStringLineBytes(buffer)
-  output = bytes(2047)
+  start = buffer.readCount
   count = 0
   while count < 2047
     value = readChar(buffer)
     if value == -1 or value == 0 or value == 10 then break end if
-    output[count] = value & 255
     count = count + 1
   end while
-  return slice(output, 0, count)
+  if count == 0 then return bytes() end if
+  output = bytes(count)
+  bio.copyInto(output, 0, buffer.data, start, count)
+  return output
 end function
 
 // Read string line.

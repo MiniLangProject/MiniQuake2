@@ -76,6 +76,13 @@ const GL_VENDOR = 0x1F00
 const GL_RENDERER = 0x1F01
 const GL_VERSION = 0x1F02
 const DEG_TO_RAD = 0.017453292519943295
+// Native renderer texture identifiers occupy 14 bits. Keep a dense retained
+// table so registration never grows the array through repeated concatenation.
+const OPEN_GL_MAX_TEXTURE_ID = 16383
+// ref_gl accepts at most 66 source vertices. Each of the six clip planes can
+// add at most one vertex, so recursive scratch buffers require 72 entries.
+const OPEN_GL_SKY_SOURCE_CAPACITY = 66
+const OPEN_GL_SKY_CLIP_CAPACITY = 72
 
 // Store open gl state data.
 struct OpenGlState
@@ -242,18 +249,21 @@ end function
 
 // Allocate texture record.
 function allocateTextureRecord(backend, name, role, generation, width, height)
+  if backend.nextTextureId < 1 or
+      backend.nextTextureId > OPEN_GL_MAX_TEXTURE_ID then
+    return error(9640, "OpenGL texture record capacity exhausted")
+  end if
   record = GlTextureRecord(backend.nextTextureId, name, role, generation, width, height, false, false)
+  backend.textureRecords[backend.nextTextureId - 1] = record
   backend.nextTextureId = backend.nextTextureId + 1
-  backend.textureRecords = backend.textureRecords + [record]
   return record
 end function
 
 // Find texture record.
 function findTextureRecord(backend, id)
-  for each record in backend.textureRecords
-    if record.id == id then return record end if
-  end for
-  return void
+  if id < 1 or id >= backend.nextTextureId or
+      id > OPEN_GL_MAX_TEXTURE_ID then return void end if
+  return backend.textureRecords[id - 1]
 end function
 
 // Release open gl texture record.
@@ -275,9 +285,15 @@ end function
 // Release open gl texture records.
 function releaseOpenGlTextureRecords(backend)
   released = 0
-  for each record in backend.textureRecords
+  recordIndex = 0
+  recordCount = backend.nextTextureId - 1
+  while recordIndex < recordCount
+    record = backend.textureRecords[recordIndex]
     if releaseOpenGlTextureRecord(backend, record) then released = released + 1 end if
-  end for
+    recordIndex = recordIndex + 1
+  end while
+  backend.textureRecords = array(OPEN_GL_MAX_TEXTURE_ID)
+  backend.nextTextureId = 1
   return released
 end function
 
@@ -385,8 +401,9 @@ function ensureOpenGlParticleTexture(backend)
   record = void
   if backend.particleTextureId != 0 then record = findTextureRecord(backend, backend.particleTextureId) end if
   if record is void or record.released then
-    record = allocateTextureRecord(backend, "***particle***", "particle",
-      backend.assets.generation, 16, 16)
+    record = try(allocateTextureRecord(backend, "***particle***", "particle",
+      backend.assets.generation, 16, 16))
+    if record is error then return record end if
     backend.particleTextureId = record.id
   end if
   if backend.contextActive and not record.uploaded then
@@ -407,8 +424,9 @@ function ensureOpenGlRawTexture(backend)
   record = void
   if backend.rawTextureId != 0 then record = findTextureRecord(backend, backend.rawTextureId) end if
   if record is void or record.released then
-    record = allocateTextureRecord(backend, "***cinematic***", "raw",
-      backend.assets.generation, 256, 256)
+    record = try(allocateTextureRecord(backend, "***cinematic***", "raw",
+      backend.assets.generation, 256, 256))
+    if record is error then return record end if
     backend.rawTextureId = record.id
   end if
   return record
@@ -621,7 +639,8 @@ end function
 // Draw particles.
 function drawParticles(backend, frame, axes)
   if frame.numParticles <= 0 then return void end if
-  textureId = ensureOpenGlParticleTexture(backend)
+  textureId = try(ensureOpenGlParticleTexture(backend))
+  if textureId is error then return textureId end if
   viewOrigin = frame.viewOrigin
   scaledUpX = axes.upX * 1.5; scaledUpY = axes.upY * 1.5; scaledUpZ = axes.upZ * 1.5
   scaledRightX = axes.rightX * 1.5; scaledRightY = axes.rightY * 1.5; scaledRightZ = axes.rightZ * 1.5
@@ -784,7 +803,9 @@ function ensureOpenGlPictureTexture(backend, asset)
   record = void
   if asset.textureId != 0 then record = findTextureRecord(backend, asset.textureId) end if
   if record is void then
-    record = allocateTextureRecord(backend, asset.handle.name, "picture", asset.handle.generation, asset.width, asset.height)
+    record = try(allocateTextureRecord(backend, asset.handle.name, "picture",
+      asset.handle.generation, asset.width, asset.height))
+    if record is error then return record end if
     asset.textureId = record.id
   end if
   if record.released then return error(9622, "attempted upload of released picture texture") end if
@@ -836,7 +857,8 @@ end function
 
 // Return the upload picture value.
 function uploadPicture(backend, asset)
-  record = ensureOpenGlPictureTexture(backend, asset)
+  record = try(ensureOpenGlPictureTexture(backend, asset))
+  if record is error then return record end if
   textureId = asset.textureId
   if record.uploaded then return textureId end if
   textureWidth = asset.width; textureHeight = asset.height
@@ -1341,8 +1363,14 @@ end function
 
 // Return the immutable GPU cache state for one MD2 frame pair.
 function inline openGlMd2GeometryState(frameIndex, oldFrameIndex)
-  return ((frameIndex * 73856093) ^ (oldFrameIndex * 19349663) ^
-    0x4d4432) & 0x7fffffff
+  return frameIndex * 512 + oldFrameIndex
+end function
+
+// Power-shell vertices depend on backLerp and therefore cannot reuse the
+// immutable native frame-pair cache used by ordinary MD2 geometry.
+function inline openGlMd2StaticGeometryPass(frameIndex, oldFrameIndex, shell)
+  if shell then return -1 end if
+  return openGlMd2GeometryState(frameIndex, oldFrameIndex)
 end function
 
 // Draw open gl md 2 scalars.
@@ -1414,9 +1442,9 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
     end if
   end if
   native.glDrawAliasRgbEnd()
-  cachePass = geometryState
-  if shell then cachePass = cachePass + 10000000 end if
-  if native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
+  cachePass = openGlMd2StaticGeometryPass(frameIndex, oldFrameIndex, shell)
+  if cachePass >= 0 and
+      native.glStaticGeometryCall(nativeRawValue(modelAsset), cachePass) != 0 then
     endOpenGlMd2Draw(drawState)
     return Md2SubmitStats(true, triangleCount, triangleCount * 3,
       drawState.textureId, bounds)
@@ -1678,7 +1706,8 @@ function openGlRegisterModel(name)
   modelAsset = rassets.registerModel(backend.assets, backend.imports, name)
   if modelAsset.kind == "md2" or modelAsset.kind == "sprite" then
     for each skinAsset in modelAsset.skins
-      ensureOpenGlPictureTexture(backend, skinAsset)
+      skinRecord = try(ensureOpenGlPictureTexture(backend, skinAsset))
+      if skinRecord is error then return skinRecord end if
       if backend.contextActive then uploadPicture(backend, skinAsset) end if
     end for
   end if
@@ -1694,7 +1723,8 @@ function openGlRegisterSkin(name)
     return recording.registerResource(backend.core.state, "skin", name)
   end if
   asset = rassets.registerPicture(backend.assets, backend.imports, name)
-  ensureOpenGlPictureTexture(backend, asset)
+  skinRecord = try(ensureOpenGlPictureTexture(backend, asset))
+  if skinRecord is error then return skinRecord end if
   if backend.contextActive then uploadPicture(backend, asset) end if
   return asset.handle
 end function
@@ -1708,7 +1738,8 @@ function openGlRegisterPic(name)
     return recording.registerResource(backend.core.state, "pic", name)
   end if
   asset = rassets.registerPicture(backend.assets, backend.imports, name)
-  ensureOpenGlPictureTexture(backend, asset)
+  pictureRecord = try(ensureOpenGlPictureTexture(backend, asset))
+  if pictureRecord is error then return pictureRecord end if
   if backend.contextActive then uploadPicture(backend, asset) end if
   return asset.handle
 end function
@@ -1735,9 +1766,11 @@ function openGlEndRegistration()
     // all registered image work while the product loading screen is active;
     // it also covers projectile particles before the first shot.
     for each registeredPicture in backend.assets.pictures
-      uploadPicture(backend, registeredPicture)
+      uploadedPicture = try(uploadPicture(backend, registeredPicture))
+      if uploadedPicture is error then return uploadedPicture end if
     end for
-    ensureOpenGlParticleTexture(backend)
+    particleTexture = try(ensureOpenGlParticleTexture(backend))
+    if particleTexture is error then return particleTexture end if
     // Alias-model lighting quantizes yaw into sixteen shadedot rows. Building
     // the first row lazily was the remaining >200-ms second-frame stall, and
     // later monster rotations could repeat it for the other rows. Generate the
@@ -1933,7 +1966,8 @@ function openGlDrawStretchRaw(x, y, width, height, columns, rows, data)
   if typeof(palette) != "bytes" or len(palette) != 768 then palette = backend.gamePalette end if
   raw = prepareOpenGlRawFrame(columns, rows, data, palette, backend.rawPixels)
   backend.rawPixels = raw.rgba
-  record = ensureOpenGlRawTexture(backend)
+  record = try(ensureOpenGlRawTexture(backend))
+  if record is error then return record end if
   setup2d()
   native.glEnable(GL_TEXTURE_2D)
   native.glDisable(GL_BLEND)
@@ -2023,7 +2057,7 @@ end function
 // Create open gl renderer.
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -2036,7 +2070,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, [], bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -2045,9 +2079,12 @@ end function
 // Report whether set context active.
 function setContextActive(binding, active)
   if not active then
-    for each record in binding.state.textureRecords
+    recordIndex = 0
+    while recordIndex < binding.state.nextTextureId - 1
+      record = binding.state.textureRecords[recordIndex]
       record.uploaded = false
-    end for
+      recordIndex = recordIndex + 1
+    end while
   end if
   binding.state.contextActive = active
   if active and binding.state.core.state.initialized then
@@ -2149,10 +2186,11 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
   rclassicworld.configureSky(world, loadFile, skyName, skyRotate, skyAxis)
   if len(world.scene.skySurfaces) > 0 then ensureOpenGlSkyClipScratch() end if
   for each texture in world.textures
-    record = allocateTextureRecord(
+    record = try(allocateTextureRecord(
       binding.state, world.name + ":" + texture.name, texture.role,
       world.generation, texture.width, texture.height
-    )
+    ))
+    if record is error then return record end if
     texture.id = record.id
   end for
   // One reusable record buffer serves every visible-set submission. The
@@ -2215,7 +2253,7 @@ function restoreClassicRegistration(binding, world, registrationAssets)
   state.assets = registrationAssets
   state.core.state.registrationGeneration = registrationAssets.generation
   state.core.state.registrationOpen = false
-  state.textureRecords = []
+  state.textureRecords = array(OPEN_GL_MAX_TEXTURE_ID)
   state.nextTextureId = 1
   state.particleTextureId = 0
   state.rawTextureId = 0
@@ -2223,7 +2261,8 @@ function restoreClassicRegistration(binding, world, registrationAssets)
 
   for each picture in registrationAssets.pictures
     picture.textureId = 0
-    ensureOpenGlPictureTexture(state, picture)
+    pictureRecord = try(ensureOpenGlPictureTexture(state, picture))
+    if pictureRecord is error then return pictureRecord end if
     if state.contextActive then uploadPicture(state, picture) end if
   end for
 
@@ -2232,8 +2271,9 @@ function restoreClassicRegistration(binding, world, registrationAssets)
     texture.generation = world.generation
     texture.released = false
     texture.uploaded = false
-    record = allocateTextureRecord(state, world.name + ":" + texture.name,
-      texture.role, world.generation, texture.width, texture.height)
+    record = try(allocateTextureRecord(state, world.name + ":" + texture.name,
+      texture.role, world.generation, texture.width, texture.height))
+    if record is error then return record end if
     texture.id = record.id
     if state.contextActive then uploadClassicTexture(binding, texture) end if
   end for
@@ -2243,7 +2283,8 @@ function restoreClassicRegistration(binding, world, registrationAssets)
   end if
   if state.contextActive then
     precacheOpenGlClassicGeometry(world)
-    ensureOpenGlParticleTexture(state)
+    particleTexture = try(ensureOpenGlParticleTexture(state))
+    if particleTexture is error then return particleTexture end if
     shadeRowIndex = 0
     while shadeRowIndex < len(state.md2ShadeRows)
       if state.md2ShadeRows[shadeRowIndex] is void then
@@ -2474,7 +2515,7 @@ end function
 
 // Create one fixed-capacity sky vertex buffer.
 function createOpenGlSkyVertexBuffer()
-  result = array(66)
+  result = array(OPEN_GL_SKY_CLIP_CAPACITY)
   index = 0
   while index < len(result)
     result[index] = ropenglqtypes.Vec3(0.0, 0.0, 0.0)
@@ -2492,7 +2533,8 @@ function ensureOpenGlSkyClipScratch()
   frontBuffers = array(6); backBuffers = array(6)
   stage = 0
   while stage < 6
-    distances[stage] = array(66, 0.0); sides[stage] = array(66, 0)
+    distances[stage] = array(OPEN_GL_SKY_CLIP_CAPACITY, 0.0)
+    sides[stage] = array(OPEN_GL_SKY_CLIP_CAPACITY, 0)
     frontBuffers[stage] = createOpenGlSkyVertexBuffer()
     backBuffers[stage] = createOpenGlSkyVertexBuffer()
     stage = stage + 1
@@ -2577,6 +2619,9 @@ function clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage, scratch)
   // Keep clip open gl sky polygon phases explicit: validate inputs, update owned state, then publish the result.
   if count < 3 then return false end if
   if stage == 6 then return projectOpenGlSkyPolygon(bounds, vertices, count) end if
+  if count >= OPEN_GL_SKY_CLIP_CAPACITY then
+    return error(9641, "sky clip polygon exceeds retained vertex capacity")
+  end if
   distances = scratch.distances[stage]; sides = scratch.sides[stage]
   front = false; back = false
   vertexIndex = 0
@@ -2584,7 +2629,9 @@ function clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage, scratch)
     distance = openGlSkyClipDistance(vertices[vertexIndex], stage)
     distances[vertexIndex] = distance
     if distance > 0.1 then sides[vertexIndex] = 1; front = true
-    else if distance < -0.1 then sides[vertexIndex] = -1; back = true end if
+    else if distance < -0.1 then sides[vertexIndex] = -1; back = true
+    else sides[vertexIndex] = 0
+    end if
     vertexIndex = vertexIndex + 1
   end while
   if not front or not back then
@@ -2624,10 +2671,12 @@ function clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage, scratch)
     end if
     vertexIndex = vertexIndex + 1
   end while
-  clipOpenGlSkyPolygonScratch(bounds, frontVertices, frontCount, stage + 1,
-    scratch)
-  clipOpenGlSkyPolygonScratch(bounds, backVertices, backCount, stage + 1,
-    scratch)
+  frontResult = try(clipOpenGlSkyPolygonScratch(bounds, frontVertices,
+    frontCount, stage + 1, scratch))
+  if frontResult is error then return frontResult end if
+  backResult = try(clipOpenGlSkyPolygonScratch(bounds, backVertices,
+    backCount, stage + 1, scratch))
+  if backResult is error then return backResult end if
   return true
 end function
 
@@ -2643,7 +2692,7 @@ function openGlSkyBounds(draws, viewOrigin)
   bounds = resetOpenGlSkyBounds(scratch.bounds)
   for each draw in draws
     count = len(draw.surface.vertices)
-    if count > 66 then return error(9639,
+    if count > OPEN_GL_SKY_SOURCE_CAPACITY then return error(9639,
       "sky portal exceeds ClipSkyPolygon vertex capacity") end if
     translated = scratch.translated
     vertexIndex = 0
@@ -2654,7 +2703,9 @@ function openGlSkyBounds(draws, viewOrigin)
         position.z - viewOrigin.z)
       vertexIndex = vertexIndex + 1
     end while
-    clipOpenGlSkyPolygonScratch(bounds, translated, count, 0, scratch)
+    clipped = try(clipOpenGlSkyPolygonScratch(bounds, translated, count, 0,
+      scratch))
+    if clipped is error then return clipped end if
   end for
   return bounds
 end function
@@ -3333,7 +3384,8 @@ function registerMd2Model(binding, name, loadFile)
   modelAsset = rassets.registerModel(binding.state.assets, imports, name)
   if modelAsset.kind != "md2" then return error(9629, "registered model is not MD2") end if
   for each skinAsset in modelAsset.skins
-    ensureOpenGlPictureTexture(binding.state, skinAsset)
+    skinRecord = try(ensureOpenGlPictureTexture(binding.state, skinAsset))
+    if skinRecord is error then return skinRecord end if
     if binding.state.contextActive then uploadPicture(binding.state, skinAsset) end if
   end for
   return modelAsset.handle

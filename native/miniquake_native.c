@@ -2336,6 +2336,7 @@ static MQ_DEVMODEW mq_display_modes[MQ_DISPLAY_MODE_CAPACITY];
 static mq_u32 mq_display_mode_count_value = 0;
 static mq_u8 mq_original_gamma_ramp[1536];
 static mq_i32 mq_original_gamma_valid = 0;
+static mq_i32 mq_cursor_capture_requested = 0;
 static mq_i32 mq_cursor_captured = 0;
 static mq_i32 mq_mouse_ready = 0;
 static mq_i32 mq_mouse_delta_x = 0;
@@ -2442,6 +2443,33 @@ static mq_i32 mq_update_clip_cursor(void) {
     rectangle.right = lower_right.x;
     rectangle.bottom = lower_right.y;
     return ClipCursor(&rectangle) != 0;
+}
+
+/* Reconcile requested gameplay capture with the window's actual focus. Win32
+ * releases SetCapture during application switches, so retaining only one
+ * "captured" flag leaves a restored window believing it still owns the mouse. */
+static void mq_apply_cursor_capture_state(void) {
+    mq_i32 should_capture =
+        mq_cursor_capture_requested && mq_window != MQ_NULL && mq_active_app &&
+        GetForegroundWindow() == mq_window;
+    if (should_capture && !mq_cursor_captured) {
+        while (ShowCursor(MQ_FALSE) >= 0) { }
+        SetCapture(mq_window);
+        mq_cursor_captured = 1;
+        mq_mouse_ready = 0;
+        mq_mouse_delta_x = 0;
+        mq_mouse_delta_y = 0;
+        mq_center_mouse_cursor();
+        mq_update_clip_cursor();
+    } else if (!should_capture && mq_cursor_captured) {
+        while (ShowCursor(MQ_TRUE) < 0) { }
+        ClipCursor(MQ_NULL);
+        ReleaseCapture();
+        mq_cursor_captured = 0;
+        mq_mouse_ready = 0;
+        mq_mouse_delta_x = 0;
+        mq_mouse_delta_y = 0;
+    }
 }
 
 /* Submit input event to the native queue. */
@@ -2719,6 +2747,7 @@ static LRESULT MQ_WINAPI mq_window_proc(HWND window, UINT message, WPARAM w_para
         mq_active_app = w_param != 0;
         mq_minimized = IsIconic(window) != 0;
         if (w_param == 0) {
+            mq_apply_cursor_capture_state();
             mq_release_all_input_keys();
             mq_push_input_event(MQ_INPUT_EVENT_FOCUS, 0, 0);
             mq_mouse_ready = 0;
@@ -2736,6 +2765,7 @@ static LRESULT MQ_WINAPI mq_window_proc(HWND window, UINT message, WPARAM w_para
             }
             mq_push_input_event(MQ_INPUT_EVENT_FOCUS, 0, 1);
             mq_mouse_ready = 0;
+            mq_apply_cursor_capture_state();
         }
         return 0;
     }
@@ -2998,6 +3028,7 @@ MQ_EXPORT void mq_win_activate(mq_i32 active, mq_i32 minimized) {
             SetForegroundWindow(mq_window);
         }
     }
+    mq_apply_cursor_capture_state();
 }
 
 /* Create and initialize create. */
@@ -3365,6 +3396,7 @@ MQ_EXPORT void mq_win_destroy(void) {
     mq_active_app = 0;
     mq_minimized = 0;
     mq_raw_mouse_registered = 0;
+    mq_cursor_capture_requested = 0;
 }
 
 /* Poll the native queue without blocking the game loop. */
@@ -3616,24 +3648,8 @@ MQ_EXPORT void mq_win_set_title(const unsigned short *title) {
 
 /* Update backend state for cursor capture. */
 MQ_EXPORT void mq_win_set_cursor_capture(mq_i32 enabled) {
-    if (enabled && !mq_cursor_captured) {
-        while (ShowCursor(MQ_FALSE) >= 0) { }
-        SetCapture(mq_window);
-        mq_cursor_captured = 1;
-        mq_mouse_ready = 0;
-        mq_mouse_delta_x = 0;
-        mq_mouse_delta_y = 0;
-        mq_center_mouse_cursor();
-        mq_update_clip_cursor();
-    } else if (!enabled && mq_cursor_captured) {
-        while (ShowCursor(MQ_TRUE) < 0) { }
-        ClipCursor(MQ_NULL);
-        ReleaseCapture();
-        mq_cursor_captured = 0;
-        mq_mouse_ready = 0;
-        mq_mouse_delta_x = 0;
-        mq_mouse_delta_y = 0;
-    }
+    mq_cursor_capture_requested = enabled != 0;
+    mq_apply_cursor_capture_state();
 }
 
 /* Read or update the requested native input state. */
@@ -3653,6 +3669,8 @@ MQ_EXPORT mq_i32 mq_win_mouse_dy(void) {
 /* Read or update the requested native input state. */
 MQ_EXPORT mq_i32 mq_win_mouse_buttons(void) {
     mq_i32 buttons = 0;
+    if (mq_window != MQ_NULL &&
+        (!mq_active_app || GetForegroundWindow() != mq_window)) return 0;
     if (GetAsyncKeyState(MQ_VK_LBUTTON) & 0x8000) buttons |= 1;
     if (GetAsyncKeyState(MQ_VK_RBUTTON) & 0x8000) buttons |= 2;
     if (GetAsyncKeyState(MQ_VK_MBUTTON) & 0x8000) buttons |= 4;

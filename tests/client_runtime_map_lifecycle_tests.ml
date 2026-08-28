@@ -56,8 +56,17 @@ runtime.network.spawnCount = 7
 runtime.network.levelName = "old-map"
 runtime.network.configStrings[crmap_qc.CS_NAME] = "old-map"
 runtime.network.baselines[9].modelIndex = 5
-oldFrame = crmap_crtypes.Snapshot(77, -1, 0, bytes(), void, [])
+oldEntity = miniquake2.protocol.types.zeroEntityState()
+oldEntity.number = 1
+oldEntity.origin = [64.0, 0.0, 0.0]
+oldFrame = crmap_crtypes.Snapshot(77, -1, 0, bytes(), void, [oldEntity])
 crmap_state.acceptSnapshot(runtime.client, oldFrame)
+clientMapAssert(crmap_dispatcher.entity(runtime, 1).origin[0] == 64.0,
+  "persistent effect resolver did not retain current entity")
+omittedFrame = crmap_crtypes.Snapshot(78, 77, 0, bytes(), void, [])
+crmap_state.acceptSnapshot(runtime.client, omittedFrame)
+clientMapAssert(crmap_dispatcher.entity(runtime, 1).origin[0] == 64.0,
+  "effect resolver fell back to spawn baseline when current frame omitted entity")
 runtime.network.client.currentFrame = "old-network-frame"
 runtime.prints = [crmap_crtypes.PrintHandoff(crmap_qc.PRINT_HIGH, "old-print", 1, false)]
 runtime.sequenceInitialized = true
@@ -73,7 +82,7 @@ clientMapAssert(runtime.network.spawnCount == 7 and runtime.network.levelName ==
   runtime.network.configStrings[crmap_qc.CS_NAME] == "old-map" and
   runtime.network.baselines[9].modelIndex == 5,
   "malformed serverdata partially reset map tables")
-clientMapAssert(runtime.client.current.number == 77 and runtime.network.client.currentFrame == "old-network-frame" and
+clientMapAssert(runtime.client.current.number == 78 and runtime.network.client.currentFrame == "old-network-frame" and
   len(runtime.prints) == 1 and runtime.lastSequence == 9,
   "malformed serverdata partially reset client state")
 
@@ -84,6 +93,8 @@ clientMapAssert(runtime.network.configStrings[crmap_qc.CS_NAME] == "" and
   runtime.network.baselines[9].modelIndex == 0 and runtime.network.client.currentFrame is void and
   runtime.client.current is void and runtime.client.state == "connected" and len(runtime.prints) == 0,
   "serverdata did not clear all per-level client state")
+clientMapAssert(crmap_dispatcher.entity(runtime, 1).origin[0] == 0.0,
+  "map reset leaked the previous map's last-known effect entity")
 
 // svc_reconnect is the separate server-restart path.  It is terminal and
 // retires the old dispatcher/Netchan sequence generation atomically.

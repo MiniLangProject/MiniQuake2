@@ -157,8 +157,19 @@ while mpdClientIndex < 2
         mpdSawMuzzleSound[mpdClientIndex] = true
       end if
     end for
-    if len(mpdWeaponHandoff.particles) > 0 then mpdSawDamageParticles[mpdClientIndex] = true end if
   end for
+  // Persistent particles are a same-thread live view after the handoff
+  // allocation optimization. Verify the actual renderer source and require a
+  // Quake II blood palette entry rather than accepting an unrelated trail.
+  mpdParticleIndex = 0
+  while mpdParticleIndex < mpdSession.clients[mpdClientIndex].integrated.effects.particleCount
+    mpdParticle = mpdSession.clients[mpdClientIndex].integrated.effects.particles[
+      mpdParticleIndex]
+    if mpdParticle.color >= 0xe8 and mpdParticle.color <= 0xef then
+      mpdSawDamageParticles[mpdClientIndex] = true
+    end if
+    mpdParticleIndex = mpdParticleIndex + 1
+  end while
   mpdClientIndex = mpdClientIndex + 1
 end while
 mpdAssert(mpdSawMuzzleLight[0] and mpdSawMuzzleLight[1] and

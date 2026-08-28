@@ -141,6 +141,14 @@ function testClassicDrawingHelpers()
   assertEqual(ogl.openGlMd2GeometryState(4, 3) !=
     ogl.openGlMd2GeometryState(5, 4), true,
     "MD2 GPU cache distinguishes animation frame pairs")
+  assertEqual(ogl.openGlMd2GeometryState(233, 138) !=
+    ogl.openGlMd2GeometryState(251, 68), true,
+    "MD2 GPU cache key avoids former hash collision")
+  assertEqual(ogl.openGlMd2StaticGeometryPass(4, 3, false),
+    ogl.openGlMd2GeometryState(4, 3),
+    "ordinary MD2 frame pair uses immutable cache")
+  assertEqual(ogl.openGlMd2StaticGeometryPass(4, 3, true), -1,
+    "backLerp-dependent shell bypasses immutable cache")
   assertEqual(ogl.md2ShadowEligible(renderer, shadow), true,
     "enabled opaque world alias casts shadow")
   shadow.flags = rc.RF_TRANSLUCENT
@@ -183,6 +191,31 @@ function testClassicDrawingHelpers()
   assertEqual(particleRecord[3], 123, "particle record alpha")
 end function
 
+// Verify retained sky clipping capacity and epsilon classification.
+function testSkyClipScratchContracts()
+  scratch = ogl.ensureOpenGlSkyClipScratch()
+  assertEqual(len(scratch.translated), 72,
+    "sky clipping reserves six split vertices")
+  source = array(66)
+  index = 0
+  while index < len(source)
+    source[index] = qt.vec3(1.0, 1.0, 1.0)
+    index = index + 1
+  end while
+  assertEqual(typeof(try(ogl.clipOpenGlSkyPolygon(
+    ogl.createOpenGlSkyBounds(), source, 66, 0))) != "error", true,
+    "66-vertex source polygon remains within retained workspace")
+
+  // Prime the retained side byte, then place a vertex exactly inside the
+  // epsilon band. It must be classified as ON instead of inheriting history.
+  scratch.sides[0][0] = 1
+  epsilonVertices = [qt.vec3(1.0, -1.0, 1.0),
+    qt.vec3(2.0, 0.0, 1.0), qt.vec3(-2.0, 0.0, 1.0)]
+  ogl.clipOpenGlSkyPolygon(ogl.createOpenGlSkyBounds(), epsilonVertices, 3, 0)
+  assertEqual(scratch.sides[0][0], 0,
+    "sky epsilon vertex clears retained side state")
+end function
+
 // Verify the lightweight product RefDef guard used by a live GL context.
 function testProductRefDefPreparation()
   frame = rt.defaultRefDef(640, 480)
@@ -204,4 +237,5 @@ end function
 testHeadlessLifecycle()
 testClassicDrawingHelpers()
 testProductRefDefPreparation()
-print("MiniQuake2 OpenGL adapter tests passed: 3")
+testSkyClipScratchContracts()
+print("MiniQuake2 OpenGL adapter tests passed: 4")

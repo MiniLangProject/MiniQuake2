@@ -37,20 +37,10 @@ function payloadCapacity(client)
   return capacity
 end function
 
-// Return the first reliable value.
-function firstReliable(events)
-  index = 0
-  while index < len(events)
-    if (events[index].channelFlags & nrtsoundgc.CHAN_RELIABLE) != 0 then return index end if
-    index = index + 1
-  end while
-  return len(events)
-end function
-
-// Build every datagram/staging mutation before touching a Netchan.  Once a
-// reliable sound occurs, the remaining ordered fragments for that recipient
-// are upgraded into the same reliable tail.  This prevents an ordinary sound
-// later in the frame from overtaking a reliable one while its ACK is pending.
+// Build every datagram/staging mutation before touching a Netchan. Stock
+// SV_StartSound routes each fragment independently: CHAN_RELIABLE enters the
+// Netchan message, while ordinary weapon and movement sounds remain transient
+// client datagrams even when they occur later in the same server frame.
 function buildPlan(runtime, slot, events)
   if typeof(events) != "array" then return error(7276, "routed sound list must be an array") end if
   if len(events) == 0 then return void end if
@@ -64,40 +54,43 @@ function buildPlan(runtime, slot, events)
   end if
 
   fragments = nrtsoundevents.encodeAll(events)
-  reliableStart = firstReliable(events)
-  unreliablePackets = []
-  if reliableStart > 0 then
-    capacity = payloadCapacity(client)
-    if reliableStart < len(events) then
-      // A pre-existing staged message would be transmitted with the prefix,
-      // leaving the new reliable tail blocked behind an outstanding ACK.
-      if client.channel.message.curSize > 0 then return false end if
-      capacity = nrtsoundpc.MAX_MSGLEN - nrtsoundpc.PACKET_HEADER_SERVER
+  unreliableCount = 0
+  reliableCount = 0
+  for each countedEvent in events
+    if (countedEvent.channelFlags & nrtsoundgc.CHAN_RELIABLE) != 0 then
+      reliableCount = reliableCount + 1
+    else unreliableCount = unreliableCount + 1
     end if
+  end for
+  unreliableFragments = array(unreliableCount, void)
+  reliableFragments = array(reliableCount, void)
+  unreliableIndex = 0
+  reliableIndex = 0
+  index = 0
+  while index < len(events)
+    if (events[index].channelFlags & nrtsoundgc.CHAN_RELIABLE) != 0 then
+      reliableFragments[reliableIndex] = fragments[index]
+      reliableIndex = reliableIndex + 1
+    else
+      unreliableFragments[unreliableIndex] = fragments[index]
+      unreliableIndex = unreliableIndex + 1
+    end if
+    index = index + 1
+  end while
+  unreliablePackets = []
+  if unreliableCount > 0 then
+    capacity = payloadCapacity(client)
     if capacity < nrtsoundevents.MAX_SOUND_FRAGMENT_BYTES then
       // Stock svc_sound events without CHAN_RELIABLE live only in this
-      // frame's datagram. If an outstanding reliable payload leaves no room,
-      // Quake II drops those transient sounds; retaining them behind the ACK
-      // incorrectly accumulates idle/step sounds across server frames.
-      if reliableStart == len(events) then
-        return SoundClientPlan(slot, [], [])
-      end if
-      return false
+      // frame's datagram and are discarded when no packet room remains.
+      unreliablePackets = []
+    else
+      unreliablePackets = nrtsoundevents.packetize(unreliableFragments,
+        capacity)
     end if
-    unreliablePackets = nrtsoundevents.packetize(nrtsoundarray.slice(fragments, 0, reliableStart), capacity)
   end if
 
-  reliableFragments = []
-  if reliableStart < len(events) then
-    reliableBuffer = array(len(fragments) - reliableStart, void)
-    reliableCount = 0
-    index = reliableStart
-    while index < len(fragments)
-      reliableBuffer[reliableCount] = fragments[index]
-      reliableCount = reliableCount + 1
-      index = index + 1
-    end while
-    reliableFragments = nrtsoundarray.slice(reliableBuffer, 0, reliableCount)
+  if reliableCount > 0 then
     if not nrtsoundnetchan.canQueueReliableFragments(client.channel,
         reliableFragments) then return false end if
   end if
@@ -134,20 +127,29 @@ function dispatchRouted(runtime, socket, events, routedEvents, now)
   // validation therefore fails atomically and leaves the bridge queue intact.
   sent = 0
   for each plan in plans
-    for each payload in plan.unreliablePackets
-      stats = nrtsoundpump.sendServerPayload(runtime, socket, plan.slot, now, payload)
-      if typeof(stats) != "struct" then return error(7275, "sound recipient became unavailable") end if
-      sent = sent + stats.sent
-    end for
+    packetIndex = 0
     if len(plan.reliableFragments) > 0 then
       client = runtime.server.clients[plan.slot]
       queued = nrtsoundnetchan.queueReliableFragments(client.channel,
         plan.reliableFragments)
       if queued == false then return error(7285, "sound fragment preflight became stale") end if
-      stats = nrtsoundpump.sendServerPayload(runtime, socket, plan.slot, now, bytes())
+      firstPayload = bytes()
+      if len(plan.unreliablePackets) > 0 then
+        firstPayload = plan.unreliablePackets[0]
+        packetIndex = 1
+      end if
+      stats = nrtsoundpump.sendServerPayload(runtime, socket, plan.slot, now,
+        firstPayload)
       if typeof(stats) != "struct" then return error(7275, "sound recipient became unavailable") end if
       sent = sent + stats.sent
     end if
+    while packetIndex < len(plan.unreliablePackets)
+      payload = plan.unreliablePackets[packetIndex]
+      stats = nrtsoundpump.sendServerPayload(runtime, socket, plan.slot, now, payload)
+      if typeof(stats) != "struct" then return error(7275, "sound recipient became unavailable") end if
+      sent = sent + stats.sent
+      packetIndex = packetIndex + 1
+    end while
   end for
   return SoundDispatchResult(sent, true, 0)
 end function

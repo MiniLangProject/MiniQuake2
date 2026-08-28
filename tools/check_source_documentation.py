@@ -60,7 +60,7 @@ class Coverage:
 def source_files(root: Path) -> list[Path]:
     """Return every maintained code file in deterministic repository order."""
     files = set(source_hygiene.maintained_source_files(root))
-    for directory in source_hygiene.SOURCE_DIRS + ("native",):
+    for directory in source_hygiene.SOURCE_DIRS:
         base = root / directory
         if not base.is_dir():
             continue

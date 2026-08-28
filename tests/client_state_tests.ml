@@ -331,6 +331,19 @@ function testSnapshotsAndRefDef()
   assertEqual(replacementFrame.entities[0].angles.y, 120.0,
     "model replacement owns current angles")
 
+  droppedClient = cstate.create()
+  droppedOld = makeEntity(8.0, 0)
+  droppedNew = makeEntity(80.0, 0)
+  droppedNew.oldOrigin = [40.0, 0.0, 0.0]
+  cstate.acceptSnapshot(droppedClient, ssnap.SnapshotFrame(20, -1, 0,
+    bytes([]), effectPlayer, [droppedOld]))
+  cstate.acceptSnapshot(droppedClient, ssnap.SnapshotFrame(22, 20, 0,
+    bytes([]), effectPlayer, [droppedNew]))
+  droppedFrame = cstate.buildRefDef(droppedClient, 0.5, 640, 480,
+    testResolvers, 0, testRandom)
+  assertEqual(droppedFrame.entities[0].origin.x, 60.0,
+    "dropped snapshot uses protocol old origin instead of stale frame")
+
   denseStates = array(rc.MAX_ENTITIES + 16)
   denseIndex = 0
   while denseIndex < len(denseStates)

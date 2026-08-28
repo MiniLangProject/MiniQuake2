@@ -164,6 +164,7 @@ applicationWeaponWheelStage = 0
 applicationProjectileSnapshotMaximum = 0
 applicationProjectileRenderMaximum = 0
 applicationProjectileParticleMaximum = 0
+applicationProjectileWeaponSoundMaximum = 0
 applicationProjectileServerMaximum = 0
 applicationProjectileAttackCommands = 0
 applicationProjectileExportMaximum = 0
@@ -181,6 +182,53 @@ applicationResourceCache = ApplicationResourceCache("", void,
   array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
   array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
 applicationPusherOffsetValue = appqtypes.zeroVec3()
+
+// Return the camera-space correction produced by rendering one ridden pusher
+// between two adjacent snapshots.  Deriving the correction from the snapshot
+// transforms keeps the rider and brush on the same clock even when Move_Done
+// has already cleared the live gameplay velocity.
+function applicationPusherSnapshotOffset(client, groundNumber, fraction,
+    riderOrigin)
+  global applicationPusherOffsetValue
+  offset = applicationPusherOffsetValue
+  offset.x = 0.0; offset.y = 0.0; offset.z = 0.0
+  if client is void or client.current is void or client.previous is void or
+      client.previous.number != client.current.number - 1 then return offset end if
+  currentPusher = appclientstate.currentEntity(client, groundNumber)
+  previousPusher = appclientstate.findEntity(client.previous.entities,
+    groundNumber)
+  if currentPusher is void or previousPusher is void then return offset end if
+
+  clampedFraction = appclientstate.clampFraction(fraction)
+  renderedOrigin = appqtypes.vec3(
+    appclientstate.lerp(previousPusher.origin[0], currentPusher.origin[0], clampedFraction),
+    appclientstate.lerp(previousPusher.origin[1], currentPusher.origin[1], clampedFraction),
+    appclientstate.lerp(previousPusher.origin[2], currentPusher.origin[2], clampedFraction))
+  currentOrigin = appqtypes.vec3(currentPusher.origin[0],
+    currentPusher.origin[1], currentPusher.origin[2])
+  renderedAngles = appqtypes.vec3(
+    appclientstate.lerpAngle(previousPusher.angles[0], currentPusher.angles[0], clampedFraction),
+    appclientstate.lerpAngle(previousPusher.angles[1], currentPusher.angles[1], clampedFraction),
+    appclientstate.lerpAngle(previousPusher.angles[2], currentPusher.angles[2], clampedFraction))
+  currentAngles = appqtypes.vec3(currentPusher.angles[0],
+    currentPusher.angles[1], currentPusher.angles[2])
+  currentAxes = appphysicsvector.angleVectors(currentAngles)
+  renderedAxes = appphysicsvector.angleVectors(renderedAngles)
+  relative = appphysicsvector.subtract(riderOrigin, currentOrigin)
+  localX = appphysicsvector.dot(relative, currentAxes[0])
+  localY = -appphysicsvector.dot(relative, currentAxes[1])
+  localZ = appphysicsvector.dot(relative, currentAxes[2])
+  renderedRider = appphysicsvector.multiplyAdd(renderedOrigin, localX,
+    renderedAxes[0])
+  renderedRider = appphysicsvector.multiplyAdd(renderedRider, -localY,
+    renderedAxes[1])
+  renderedRider = appphysicsvector.multiplyAdd(renderedRider, localZ,
+    renderedAxes[2])
+  offset.x = renderedRider.x - riderOrigin.x
+  offset.y = renderedRider.y - riderOrigin.y
+  offset.z = renderedRider.z - riderOrigin.z
+  return offset
+end function
 
 // Return the interpolation offset for a locally ridden MOVETYPE_PUSH/STOP
 // brush. Server positions arrive at 10 Hz; subtracting the still-unrendered
@@ -204,11 +252,8 @@ function applicationLocalPusherOffset(session, fraction)
   pusher = appbaseq2.findWorldByNumber(runtime, groundNumber)
   if pusher is void or (pusher.moveType != appworldconstants.MOVETYPE_PUSH and
       pusher.moveType != appworldconstants.MOVETYPE_STOP) then return offset end if
-  backLerpSeconds = (1.0 - fraction) * appworldconstants.FRAME_TIME
-  offset.x = -pusher.velocity.x * backLerpSeconds
-  offset.y = -pusher.velocity.y * backLerpSeconds
-  offset.z = -pusher.velocity.z * backLerpSeconds
-  return offset
+  return applicationPusherSnapshotOffset(session.client.integrated.client,
+    groundNumber, fraction, player.edict.state.origin)
 end function
 
 // Return the shared read-only filesystem for one retail data root.
@@ -420,15 +465,23 @@ function resolvePlayEntityPosition(number)
 end function
 
 // Pump play audio.
+function inline applicationAudioRefillBudget(queuedBlocks)
+  if queuedBlocks < 0 then queuedBlocks = 0 end if
+  missing = 8 - queuedBlocks
+  if missing <= 0 then return 0 end if
+  // At 44.1 kHz two 1,024-frame blocks provide roughly 46 ms.  Capping one
+  // main-thread refill to that amount prevents a queue underrun from turning
+  // into an eight-block decode/mix spike that stalls the following video frame.
+  if missing > 2 then return 2 end if
+  return missing
+end function
+
+// Pump play audio.
 function pumpPlayAudio(device, mixer)
   if device is void or mixer is void then return 0 end if
   submitted = 0
-  // Reusable 1,024-frame blocks halve interpreted mixer dispatch overhead.
-  // Eight queued blocks retain roughly 186 ms of audio at 44.1 kHz, enough to
-  // absorb the measured full-graph GC tail that exhausted the former 70-116
-  // ms horizons. audioQueued reaps completed headers before each refill, so a
-  // finished ring slot is available even while the other seven remain queued.
-  while appaudiodevice.queued(device) < 8 and submitted < 8
+  refillBudget = applicationAudioRefillBudget(appaudiodevice.queued(device))
+  while submitted < refillBudget
     samples = appaudiomixer.mixReusable(mixer, 1024)
     if appaudiodevice.submit(device, samples) == 0 then return submitted end if
     submitted = submitted + 1
@@ -878,8 +931,8 @@ end function
 // Submit application demo frame.
 function applicationSubmitDemoFrame(renderer, world, frame, screen, now,
     window, stats, configStrings)
-  renderer.exports.RenderFrame(frame)
   applicationDemoSubmitStats = appgl.submitClassicWorld(renderer, world, frame)
+  renderer.exports.RenderFrame(frame)
   appuiscreen.draw(screen, now, window.width, window.height,
     stats, configStrings, 0, -1, renderer.exports)
   return applicationDemoSubmitStats
@@ -2389,7 +2442,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   global applicationProjectileVisibilityDiagnostic
   global applicationProjectileLastEngineNumber
   global applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum
-  global applicationProjectileParticleMaximum
+  global applicationProjectileParticleMaximum, applicationProjectileWeaponSoundMaximum
   global applicationAutomatedWeaponWheel, applicationWeaponWheelCommands
   global applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex
   global applicationWeaponWheelStage
@@ -3015,9 +3068,17 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
               applicationCurrentMapName)
             playAssetBindings = appclientassets.bindings(assetState)
             renderer.exports.EndRegistration()
-            applicationRestoredPlayerState = session.client.integrated.client.current.playerState
-            input.viewAngles = appprediction.localInputAngles(
-              applicationRestoredPlayerState)
+          end if
+          // Same-map restores deliberately keep the transport alive but clear
+          // the presentation epoch.  Use the authoritative restored gameplay
+          // angles until the first fresh snapshot republishes client state.
+          applicationRestoredContext = appgame.playerContext()
+          if applicationRestoredContext is not void and
+              len(applicationRestoredContext.players) > 0 then
+            applicationRestoredPlayer = applicationRestoredContext.players[0]
+            input.viewAngles.x = applicationRestoredPlayer.edict.client.playerState.viewAngles.x
+            input.viewAngles.y = applicationRestoredPlayer.edict.client.playerState.viewAngles.y
+            input.viewAngles.z = applicationRestoredPlayer.edict.client.playerState.viewAngles.z
           end if
           appuiconsole.appendLine(screen.console, "Loaded slot " + (applicationLoadSlot + 1),
             appbyteio.truncInt(started))
@@ -3185,6 +3246,19 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         end if
       end if
       latest = stepResult.handoff
+      if applicationAutomatedProjectileAttack and latest is not void then
+        applicationProjectileWeaponSoundCount = 0
+        for each applicationProjectileSound in latest.sounds
+          if applicationProjectileSound.soundName ==
+              "weapons/blastf1a.wav" then
+            applicationProjectileWeaponSoundCount = applicationProjectileWeaponSoundCount + 1
+          end if
+        end for
+        if applicationProjectileWeaponSoundCount >
+            applicationProjectileWeaponSoundMaximum then
+          applicationProjectileWeaponSoundMaximum = applicationProjectileWeaponSoundCount
+        end if
+      end if
       applyPlayHandoff(screen, latest)
       appuiscreen.updateInventoryHotkeys(screen, input)
       appclientassets.refreshConfigStrings(assetState,
@@ -3756,11 +3830,12 @@ end function
 
 // Run projectile visual smoke.
 function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
-  global applicationAutomatedProjectileAttack, applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum, applicationProjectileParticleMaximum, applicationProjectileServerMaximum, applicationProjectileAttackCommands, applicationProjectileExportMaximum, applicationProjectileVisibleMaximum, applicationProjectileVisibilityDiagnostic, applicationProjectileLastEngineNumber
+  global applicationAutomatedProjectileAttack, applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum, applicationProjectileParticleMaximum, applicationProjectileWeaponSoundMaximum, applicationProjectileServerMaximum, applicationProjectileAttackCommands, applicationProjectileExportMaximum, applicationProjectileVisibleMaximum, applicationProjectileVisibilityDiagnostic, applicationProjectileLastEngineNumber
   if frameLimit < 240 then frameLimit = 240 end if
   applicationProjectileSnapshotMaximum = 0
   applicationProjectileRenderMaximum = 0
   applicationProjectileParticleMaximum = 0
+  applicationProjectileWeaponSoundMaximum = 0
   applicationProjectileServerMaximum = 0
   applicationProjectileAttackCommands = 0
   applicationProjectileExportMaximum = 0
@@ -3777,7 +3852,8 @@ function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
     applicationProjectileVisibleMaximum,
     applicationProjectileSnapshotMaximum,
     applicationProjectileRenderMaximum, applicationProjectileParticleMaximum,
-    applicationProjectileVisibilityDiagnostic]
+    applicationProjectileVisibilityDiagnostic,
+    applicationProjectileWeaponSoundMaximum]
 end function
 
 // Run weapon wheel smoke.

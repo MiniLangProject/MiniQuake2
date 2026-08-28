@@ -127,9 +127,12 @@ function testBackendLifecycle()
   renderer.exports.BeginRegistration("maps/synthetic.bsp")
   renderer.exports.EndRegistration()
   frame = rt.defaultRefDef(640, 480)
+  textureTableIdentity = nativeRawValue(renderer.state.textureRecords)
   first = ropengl.prepareClassicWorld(renderer, makeMap(), loadClassicFile, rt.defaultLightStyles(), 0, 1.0)
   assertEqual(first.textures[0].id, 1, "first backend texture id")
-  assertEqual(len(renderer.state.textureRecords), 2, "tracked texture handles")
+  assertEqual(renderer.state.nextTextureId - 1, 2, "tracked texture handles")
+  assertEqual(nativeRawValue(renderer.state.textureRecords),
+    textureTableIdentity, "texture allocation retains fixed table")
   stats = ropengl.submitClassicWorld(renderer, first, frame)
   assertEqual(stats.surfaces, 0, "headless submission avoids GL")
   assertEqual(stats.uploadedTextures, 0, "initial deferred upload count")
@@ -181,7 +184,7 @@ function testRegistrationRestore()
     "registration restore keeps world live")
   assertEqual(restored.generation, replacement.state.assets.generation,
     "registration restore adopts replacement generation")
-  assertEqual(len(replacement.state.textureRecords), len(restored.textures),
+  assertEqual(replacement.state.nextTextureId - 1, len(restored.textures),
     "registration restore rebinds texture records")
   frame = rt.defaultRefDef(640, 480)
   stats = ropengl.submitClassicWorld(replacement, restored, frame)

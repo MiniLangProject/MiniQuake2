@@ -23,7 +23,7 @@ from typing import Iterable, Iterator
 
 ALLOWED_LICENSES = frozenset({"Apache-2.0", "GPL-2.0-or-later"})
 SOURCE_SUFFIXES = frozenset({".c", ".ml", ".py", ".ps1"})
-SOURCE_DIRS = ("src", "tests", "tools", "scripts")
+SOURCE_DIRS = ("src", "tests", "tools", "scripts", "native")
 EXTRA_SOURCE_FILES = ("build.ps1", "docs/reference/generate_port_ledger.py")
 HEADER_LINE_LIMIT = 16
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*#]+)")

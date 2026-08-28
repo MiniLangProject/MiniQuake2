@@ -92,6 +92,34 @@ class SourceDocumentationTests(unittest.TestCase):
             documentation.function_summary("bodyBoundsAt"),
         )
 
+    def test_source_scope_includes_native_c_and_python(self) -> None:
+        """Prevent native implementation functions from escaping the audit."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            c_path = root / "native" / "bridge.c"
+            py_path = root / "native" / "build_bridge.py"
+            c_path.parent.mkdir(parents=True)
+            c_path.write_text(
+                HEADER + "// Return one.\nint bridge_value(void) { return 1; }\n",
+                encoding="utf-8",
+            )
+            py_path.write_text(
+                "# Copyright (c) 2026 Nils Kopal\n"
+                "# SPDX-License-Identifier: Apache-2.0\n\n"
+                "def build_bridge():\n"
+                "    \"\"\"Build the bridge.\"\"\"\n"
+                "    return True\n",
+                encoding="utf-8",
+            )
+            files = documentation.source_files(root)
+            self.assertIn(c_path, files)
+            self.assertIn(py_path, files)
+            c_findings, c_coverage = documentation.audit_file(c_path, root)
+            py_findings, py_coverage = documentation.audit_file(py_path, root)
+            self.assertEqual([], c_findings + py_findings)
+            self.assertEqual(1, c_coverage.documented_functions)
+            self.assertEqual(1, py_coverage.documented_functions)
+
 
 if __name__ == "__main__":
     unittest.main()

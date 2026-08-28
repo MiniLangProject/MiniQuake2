@@ -124,11 +124,15 @@ From the repository root:
 ```
 
 The native Windows, OpenGL, audio, input, Ogg Vorbis and text bridges are fully
-source-owned by this repository. Rebuild them without a MiniQuake checkout:
+source-owned by this repository. A normal build rebuilds both bridges before
+compiling MiniLang so the checked product cannot drift from the C sources:
 
 ```powershell
-.\build.ps1 -RebuildNative
+.\build.ps1
 ```
+
+For a local MiniLang-only iteration, `-SkipNativeRebuild` explicitly reuses the
+checked-in bridge DLLs; release and verification builds must not use it.
 
 Explicit compiler locations can be supplied when the repositories are not
 siblings:

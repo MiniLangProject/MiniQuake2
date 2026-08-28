@@ -82,6 +82,7 @@ MQ_DLLIMPORT double __cdecl sqrt(double value);
 #define MQ_GL_GEQUAL 0x0206u
 #define MQ_GL_GREATER 0x0204u
 #define MQ_GL_FRONT 0x0404u
+#define MQ_GL_BACK 0x0405u
 #define MQ_GL_LINE 0x1B01u
 #define MQ_GL_SRC_ALPHA 0x0302u
 #define MQ_GL_ONE_MINUS_SRC_ALPHA 0x0303u
@@ -247,6 +248,7 @@ static PFN_vkCmdBindVertexBuffers mq_vkCmdBindVertexBuffers;
 static PFN_vkCmdPushConstants mq_vkCmdPushConstants;
 static PFN_vkCmdSetViewport mq_vkCmdSetViewport;
 static PFN_vkCmdSetScissor mq_vkCmdSetScissor;
+static PFN_vkCmdClearAttachments mq_vkCmdClearAttachments;
 static PFN_vkCmdSetCullMode mq_vkCmdSetCullMode;
 static PFN_vkCmdSetFrontFace mq_vkCmdSetFrontFace;
 static PFN_vkCmdSetPrimitiveTopology mq_vkCmdSetPrimitiveTopology;
@@ -814,7 +816,7 @@ mq_i32 mq_vulkan_initialize(mq_ptr window, mq_i32 width, mq_i32 height) {
     memset(&device_info, 0, sizeof(device_info)); device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO; device_info.pNext = &features13; device_info.pEnabledFeatures = &enabled_features; device_info.queueCreateInfoCount = 1u; device_info.pQueueCreateInfos = &queue_info; device_info.enabledExtensionCount = 3u; device_info.ppEnabledExtensionNames = device_extensions;
     if (mq_vkCreateDevice(mq_vk_physical, &device_info, MQ_NULL, &mq_vk_device) != VK_SUCCESS) goto fail;
     mq_vk_get_device_proc = (PFN_vkGetDeviceProcAddr)mq_vk_get_instance_proc(mq_vk_instance, "vkGetDeviceProcAddr"); if (mq_vk_get_device_proc == MQ_NULL) goto fail;
-    MQ_VK_DEVICE(DestroyDevice); MQ_VK_DEVICE(GetDeviceQueue); MQ_VK_DEVICE(DeviceWaitIdle); MQ_VK_DEVICE(QueueSubmit); MQ_VK_DEVICE(QueuePresentKHR); MQ_VK_DEVICE(CreateSwapchainKHR); MQ_VK_DEVICE(DestroySwapchainKHR); MQ_VK_DEVICE(GetSwapchainImagesKHR); MQ_VK_DEVICE(AcquireNextImageKHR); MQ_VK_DEVICE(CreateImageView); MQ_VK_DEVICE(DestroyImageView); MQ_VK_DEVICE(CreateCommandPool); MQ_VK_DEVICE(DestroyCommandPool); MQ_VK_DEVICE(AllocateCommandBuffers); MQ_VK_DEVICE(FreeCommandBuffers); MQ_VK_DEVICE(ResetCommandPool); MQ_VK_DEVICE(ResetCommandBuffer); MQ_VK_DEVICE(BeginCommandBuffer); MQ_VK_DEVICE(EndCommandBuffer); MQ_VK_DEVICE(CreateFence); MQ_VK_DEVICE(DestroyFence); MQ_VK_DEVICE(WaitForFences); MQ_VK_DEVICE(ResetFences); MQ_VK_DEVICE(CreateSemaphore); MQ_VK_DEVICE(DestroySemaphore); MQ_VK_DEVICE(CreateBuffer); MQ_VK_DEVICE(DestroyBuffer); MQ_VK_DEVICE(GetBufferMemoryRequirements); MQ_VK_DEVICE(AllocateMemory); MQ_VK_DEVICE(FreeMemory); MQ_VK_DEVICE(BindBufferMemory); MQ_VK_DEVICE(MapMemory); MQ_VK_DEVICE(UnmapMemory); MQ_VK_DEVICE(CreateImage); MQ_VK_DEVICE(DestroyImage); MQ_VK_DEVICE(GetImageMemoryRequirements); MQ_VK_DEVICE(BindImageMemory); MQ_VK_DEVICE(CreateSampler); MQ_VK_DEVICE(DestroySampler); MQ_VK_DEVICE(CreateDescriptorSetLayout); MQ_VK_DEVICE(DestroyDescriptorSetLayout); MQ_VK_DEVICE(CreateDescriptorPool); MQ_VK_DEVICE(DestroyDescriptorPool); MQ_VK_DEVICE(AllocateDescriptorSets); MQ_VK_DEVICE(UpdateDescriptorSets); MQ_VK_DEVICE(CreatePipelineLayout); MQ_VK_DEVICE(DestroyPipelineLayout); MQ_VK_DEVICE(CreateShaderModule); MQ_VK_DEVICE(DestroyShaderModule); MQ_VK_DEVICE(CreateGraphicsPipelines); MQ_VK_DEVICE(DestroyPipeline); MQ_VK_DEVICE(CmdPipelineBarrier); MQ_VK_DEVICE(CmdCopyBufferToImage); MQ_VK_DEVICE(CmdCopyImageToBuffer); MQ_VK_DEVICE(CmdBeginRendering); MQ_VK_DEVICE(CmdEndRendering); MQ_VK_DEVICE(CmdBindPipeline); MQ_VK_DEVICE(CmdBindDescriptorSets); MQ_VK_DEVICE(CmdBindVertexBuffers); MQ_VK_DEVICE(CmdPushConstants); MQ_VK_DEVICE(CmdSetViewport); MQ_VK_DEVICE(CmdSetScissor); MQ_VK_DEVICE(CmdSetCullMode); MQ_VK_DEVICE(CmdSetFrontFace); MQ_VK_DEVICE(CmdSetPrimitiveTopology); MQ_VK_DEVICE(CmdSetDepthTestEnable); MQ_VK_DEVICE(CmdSetDepthWriteEnable); MQ_VK_DEVICE(CmdSetDepthCompareOp); MQ_VK_DEVICE(CmdSetPolygonModeEXT); MQ_VK_DEVICE(CmdSetColorBlendEnableEXT); MQ_VK_DEVICE(CmdSetColorBlendEquationEXT); MQ_VK_DEVICE(CmdDraw);
+    MQ_VK_DEVICE(DestroyDevice); MQ_VK_DEVICE(GetDeviceQueue); MQ_VK_DEVICE(DeviceWaitIdle); MQ_VK_DEVICE(QueueSubmit); MQ_VK_DEVICE(QueuePresentKHR); MQ_VK_DEVICE(CreateSwapchainKHR); MQ_VK_DEVICE(DestroySwapchainKHR); MQ_VK_DEVICE(GetSwapchainImagesKHR); MQ_VK_DEVICE(AcquireNextImageKHR); MQ_VK_DEVICE(CreateImageView); MQ_VK_DEVICE(DestroyImageView); MQ_VK_DEVICE(CreateCommandPool); MQ_VK_DEVICE(DestroyCommandPool); MQ_VK_DEVICE(AllocateCommandBuffers); MQ_VK_DEVICE(FreeCommandBuffers); MQ_VK_DEVICE(ResetCommandPool); MQ_VK_DEVICE(ResetCommandBuffer); MQ_VK_DEVICE(BeginCommandBuffer); MQ_VK_DEVICE(EndCommandBuffer); MQ_VK_DEVICE(CreateFence); MQ_VK_DEVICE(DestroyFence); MQ_VK_DEVICE(WaitForFences); MQ_VK_DEVICE(ResetFences); MQ_VK_DEVICE(CreateSemaphore); MQ_VK_DEVICE(DestroySemaphore); MQ_VK_DEVICE(CreateBuffer); MQ_VK_DEVICE(DestroyBuffer); MQ_VK_DEVICE(GetBufferMemoryRequirements); MQ_VK_DEVICE(AllocateMemory); MQ_VK_DEVICE(FreeMemory); MQ_VK_DEVICE(BindBufferMemory); MQ_VK_DEVICE(MapMemory); MQ_VK_DEVICE(UnmapMemory); MQ_VK_DEVICE(CreateImage); MQ_VK_DEVICE(DestroyImage); MQ_VK_DEVICE(GetImageMemoryRequirements); MQ_VK_DEVICE(BindImageMemory); MQ_VK_DEVICE(CreateSampler); MQ_VK_DEVICE(DestroySampler); MQ_VK_DEVICE(CreateDescriptorSetLayout); MQ_VK_DEVICE(DestroyDescriptorSetLayout); MQ_VK_DEVICE(CreateDescriptorPool); MQ_VK_DEVICE(DestroyDescriptorPool); MQ_VK_DEVICE(AllocateDescriptorSets); MQ_VK_DEVICE(UpdateDescriptorSets); MQ_VK_DEVICE(CreatePipelineLayout); MQ_VK_DEVICE(DestroyPipelineLayout); MQ_VK_DEVICE(CreateShaderModule); MQ_VK_DEVICE(DestroyShaderModule); MQ_VK_DEVICE(CreateGraphicsPipelines); MQ_VK_DEVICE(DestroyPipeline); MQ_VK_DEVICE(CmdPipelineBarrier); MQ_VK_DEVICE(CmdCopyBufferToImage); MQ_VK_DEVICE(CmdCopyImageToBuffer); MQ_VK_DEVICE(CmdBeginRendering); MQ_VK_DEVICE(CmdEndRendering); MQ_VK_DEVICE(CmdBindPipeline); MQ_VK_DEVICE(CmdBindDescriptorSets); MQ_VK_DEVICE(CmdBindVertexBuffers); MQ_VK_DEVICE(CmdPushConstants); MQ_VK_DEVICE(CmdSetViewport); MQ_VK_DEVICE(CmdSetScissor); MQ_VK_DEVICE(CmdClearAttachments); MQ_VK_DEVICE(CmdSetCullMode); MQ_VK_DEVICE(CmdSetFrontFace); MQ_VK_DEVICE(CmdSetPrimitiveTopology); MQ_VK_DEVICE(CmdSetDepthTestEnable); MQ_VK_DEVICE(CmdSetDepthWriteEnable); MQ_VK_DEVICE(CmdSetDepthCompareOp); MQ_VK_DEVICE(CmdSetPolygonModeEXT); MQ_VK_DEVICE(CmdSetColorBlendEnableEXT); MQ_VK_DEVICE(CmdSetColorBlendEquationEXT); MQ_VK_DEVICE(CmdDraw);
     mq_vkGetDeviceQueue(mq_vk_device, mq_vk_queue_family, 0u, &mq_vk_queue); mq_vkGetPhysicalDeviceMemoryProperties(mq_vk_physical, &mq_vk_memory);
     memset(&pool_info, 0, sizeof(pool_info)); pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO; pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; pool_info.queueFamilyIndex = mq_vk_queue_family; if (mq_vkCreateCommandPool(mq_vk_device, &pool_info, MQ_NULL, &mq_vk_command_pool) != VK_SUCCESS) goto fail;
     if (!mq_vk_create_swapchain(width, height)) goto fail;
@@ -917,6 +919,29 @@ static VkCompareOp mq_vk_compare(mq_u32 value) { if (value == MQ_GL_LEQUAL) retu
 /* Translate the active GL primitive mode to Vulkan topology. */
 static VkPrimitiveTopology mq_vk_topology(mq_u32 mode) { if (mode == MQ_GL_POINTS) return VK_PRIMITIVE_TOPOLOGY_POINT_LIST; if (mode == MQ_GL_LINES) return VK_PRIMITIVE_TOPOLOGY_LINE_LIST; if (mode == MQ_GL_LINE_STRIP || mode == MQ_GL_LINE_LOOP) return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP; if (mode == MQ_GL_TRIANGLE_STRIP) return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP; return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; }
 
+/* Intersect the GL bottom-left viewport with the current framebuffer. Vulkan
+ * rejects out-of-range scissors, and stale mode dimensions must never leak
+ * into a recreated swapchain command buffer. */
+static void mq_vk_clamped_viewport(VkViewport *viewport, VkRect2D *scissor) {
+    mq_i64 left = mq_vk_viewport_x;
+    mq_i64 bottom = mq_vk_viewport_y;
+    mq_i64 right = left + (mq_i64)mq_vk_viewport_width;
+    mq_i64 top = bottom + (mq_i64)mq_vk_viewport_height;
+    mq_i64 framebuffer_width = (mq_i64)mq_vk_extent.width;
+    mq_i64 framebuffer_height = (mq_i64)mq_vk_extent.height;
+    if (left < 0) left = 0; if (left >= framebuffer_width) left = framebuffer_width - 1;
+    if (bottom < 0) bottom = 0; if (bottom >= framebuffer_height) bottom = framebuffer_height - 1;
+    if (right <= left) right = left + 1; if (right > framebuffer_width) right = framebuffer_width;
+    if (top <= bottom) top = bottom + 1; if (top > framebuffer_height) top = framebuffer_height;
+    viewport->x = (float)left; viewport->y = (float)(framebuffer_height - bottom);
+    viewport->width = (float)(right - left); viewport->height = -(float)(top - bottom);
+    viewport->minDepth = 0.0f; viewport->maxDepth = 1.0f;
+    scissor->offset.x = (mq_i32)left;
+    scissor->offset.y = (mq_i32)(framebuffer_height - top);
+    scissor->extent.width = (mq_u32)(right - left);
+    scissor->extent.height = (mq_u32)(top - bottom);
+}
+
 /* Submit draw geometry to the active backend command buffer. */
 static mq_i32 mq_vk_draw(const mq_vk_vertex_t *vertices, mq_u32 count, mq_u32 mode) {
     mq_vk_frame_t *frame = &mq_vk_frames[mq_vk_frame_index];
@@ -959,12 +984,13 @@ static mq_i32 mq_vk_draw(const mq_vk_vertex_t *vertices, mq_u32 count, mq_u32 mo
     mq_vkCmdPushConstants(frame->command, mq_vk_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0u, sizeof(push), &push);
     texture = mq_vk_bound_texture < MQ_VK_MAX_TEXTURES && mq_vk_textures[mq_vk_bound_texture].allocated && mq_vk_textures[mq_vk_bound_texture].image != VK_NULL_HANDLE ? &mq_vk_textures[mq_vk_bound_texture] : &mq_vk_white_texture;
     mq_vkCmdBindDescriptorSets(frame->command, VK_PIPELINE_BIND_POINT_GRAPHICS, mq_vk_pipeline_layout, 0u, 1u, &texture->descriptor, 0u, MQ_NULL);
-    viewport.x = (float)mq_vk_viewport_x; viewport.y = (float)(mq_vk_height - mq_vk_viewport_y); viewport.width = (float)mq_vk_viewport_width; viewport.height = -(float)mq_vk_viewport_height; viewport.minDepth = 0.0f; viewport.maxDepth = 1.0f; mq_vkCmdSetViewport(frame->command, 0u, 1u, &viewport);
-    scissor.offset.x = mq_vk_viewport_x < 0 ? 0 : mq_vk_viewport_x; scissor.offset.y = mq_vk_height - mq_vk_viewport_y - mq_vk_viewport_height; if (scissor.offset.y < 0) scissor.offset.y = 0; scissor.extent.width = (mq_u32)(mq_vk_viewport_width < 1 ? 1 : mq_vk_viewport_width); scissor.extent.height = (mq_u32)(mq_vk_viewport_height < 1 ? 1 : mq_vk_viewport_height); mq_vkCmdSetScissor(frame->command, 0u, 1u, &scissor);
+    mq_vk_clamped_viewport(&viewport, &scissor);
+    mq_vkCmdSetViewport(frame->command, 0u, 1u, &viewport);
+    mq_vkCmdSetScissor(frame->command, 0u, 1u, &scissor);
     mq_vkCmdSetPrimitiveTopology(frame->command, mq_vk_topology(mode));
-    /* GLQuake's projection and Vulkan's negative-height viewport disagree on
-       framebuffer winding.  Conservative no-cull avoids missing front faces. */
-    mq_vkCmdSetCullMode(frame->command, VK_CULL_MODE_NONE);
+    mq_vkCmdSetCullMode(frame->command, mq_vk_cull ?
+        (mq_vk_cull_face_value == MQ_GL_FRONT ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) :
+        VK_CULL_MODE_NONE);
     mq_vkCmdSetFrontFace(frame->command, VK_FRONT_FACE_CLOCKWISE); mq_vkCmdSetDepthTestEnable(frame->command, mq_vk_depth_test); mq_vkCmdSetDepthWriteEnable(frame->command, mq_vk_depth_write); mq_vkCmdSetDepthCompareOp(frame->command, mq_vk_compare(mq_vk_depth_function)); mq_vkCmdSetPolygonModeEXT(frame->command, mq_vk_polygon_mode == MQ_GL_LINE ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL);
     blend = (VkBool32)mq_vk_blend; mq_vkCmdSetColorBlendEnableEXT(frame->command, 0u, 1u, &blend); memset(&equation, 0, sizeof(equation)); equation.srcColorBlendFactor = mq_vk_blend_factor(mq_vk_blend_source); equation.dstColorBlendFactor = mq_vk_blend_factor(mq_vk_blend_destination); equation.colorBlendOp = VK_BLEND_OP_ADD; equation.srcAlphaBlendFactor = equation.srcColorBlendFactor; equation.dstAlphaBlendFactor = equation.dstColorBlendFactor; equation.alphaBlendOp = VK_BLEND_OP_ADD; mq_vkCmdSetColorBlendEquationEXT(frame->command, 0u, 1u, &equation);
     mq_vkCmdDraw(frame->command, count, 1u, 0u, 0u); frame->vertex_count += count; return 1;
@@ -1019,8 +1045,38 @@ void mq_vulkan_texcoord2(mq_u32 s, mq_u32 t) { mq_vk_current_s = mq_vk_bits_floa
 void mq_vulkan_color4ub(mq_u32 r, mq_u32 g, mq_u32 b, mq_u32 a) { mq_vk_current_color[0] = (r & 255u) / 255.0f; mq_vk_current_color[1] = (g & 255u) / 255.0f; mq_vk_current_color[2] = (b & 255u) / 255.0f; mq_vk_current_color[3] = (a & 255u) / 255.0f; }
 /* Update the current immediate-mode vertex attributes. */
 void mq_vulkan_clear_color(mq_u32 r, mq_u32 g, mq_u32 b, mq_u32 a) { mq_vk_clear_color.float32[0] = mq_vk_bits_float(r); mq_vk_clear_color.float32[1] = mq_vk_bits_float(g); mq_vk_clear_color.float32[2] = mq_vk_bits_float(b); mq_vk_clear_color.float32[3] = mq_vk_bits_float(a); }
-/* Clear the selected buffers or pending native state. */
-void mq_vulkan_clear(mq_u32 mask) { mq_vk_clear_mask = mask; }
+/* Clear immediately once dynamic rendering has begun; otherwise retain the
+ * command for the next attachment load operation. */
+void mq_vulkan_clear(mq_u32 mask) {
+    mq_vk_frame_t *frame = &mq_vk_frames[mq_vk_frame_index];
+    if (frame->recording && frame->rendering) {
+        VkClearAttachment attachments[2];
+        VkClearRect rectangle;
+        mq_u32 count = 0u;
+        memset(attachments, 0, sizeof(attachments));
+        if (mask & MQ_GL_COLOR_BUFFER_BIT) {
+            attachments[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            attachments[count].colorAttachment = 0u;
+            attachments[count].clearValue.color = mq_vk_clear_color;
+            ++count;
+        }
+        if (mask & MQ_GL_DEPTH_BUFFER_BIT) {
+            attachments[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+            attachments[count].clearValue.depthStencil.depth =
+                mq_vk_depth_function == MQ_GL_GEQUAL ? 0.0f : 1.0f;
+            ++count;
+        }
+        if (count != 0u) {
+            memset(&rectangle, 0, sizeof(rectangle));
+            rectangle.rect.extent = mq_vk_extent;
+            rectangle.baseArrayLayer = 0u;
+            rectangle.layerCount = 1u;
+            mq_vkCmdClearAttachments(frame->command, count, attachments, 1u, &rectangle);
+        }
+        return;
+    }
+    mq_vk_clear_mask |= mask;
+}
 /* Update the enabled state of enable. */
 void mq_vulkan_enable(mq_u32 capability) { if (capability == MQ_GL_TEXTURE_2D) mq_vk_texture_enabled = 1; else if (capability == MQ_GL_DEPTH_TEST) mq_vk_depth_test = 1; else if (capability == MQ_GL_BLEND) mq_vk_blend = 1; else if (capability == MQ_GL_ALPHA_TEST) mq_vk_alpha_test = 1; else if (capability == MQ_GL_CULL_FACE) mq_vk_cull = 1; }
 /* Update the enabled state of disable. */

@@ -8,7 +8,7 @@ or native game DLL is required.
 import miniquake2.game.constants as c
 import miniquake2.game.types as t
 import miniquake2.game.null_game as game
-import std.string as text
+import std.string as contracttext
 
 logLines = []
 
@@ -27,7 +27,7 @@ end function
 // Assert the error contains test condition.
 function assertErrorContains(value, fragment, name)
   if value is not error then return error(3902, name + ": expected error") end if
-  if text.contains(value.message, fragment) != true then return error(3903, name + ": unexpected message " + value.message) end if
+  if contracttext.contains(value.message, fragment) != true then return error(3903, name + ": unexpected message " + value.message) end if
   return true
 end function
 
@@ -120,7 +120,7 @@ function testLifecycleAndEdicts(api)
   assertErrorContains(try(api.runFrame()), "not initialized", "RunFrame before Init")
   assertTrue(api.init(), "Init dispatch")
   assertEqual(len(logLines), 1, "Init import callback dispatch")
-  assertTrue(text.contains(logLines[0], "Init"), "Init callback message")
+  assertTrue(contracttext.contains(logLines[0], "Init"), "Init callback message")
   assertEqual(api.maxEdicts, 1024, "maximum edicts")
   assertEqual(len(api.edicts), api.maxEdicts, "allocated edict array")
   assertEqual(api.numEdicts, 1, "world edict count")
@@ -192,7 +192,7 @@ function testPersistenceErrorsAndShutdown(api)
   assertEqual(api.maxEdicts, 0, "maximum edicts after Shutdown")
   assertEqual(len(api.edicts), 0, "edict storage after Shutdown")
   assertEqual(len(logLines), 4, "lifecycle and command debug dispatch")
-  assertTrue(text.contains(logLines[3], "Shutdown"), "Shutdown callback message")
+  assertTrue(contracttext.contains(logLines[3], "Shutdown"), "Shutdown callback message")
   assertErrorContains(try(api.shutdown()), "not initialized", "double Shutdown")
   return true
 end function

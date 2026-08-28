@@ -16,7 +16,8 @@ param(
   [switch]$SkipPreflight,
   [switch]$PreflightOnly,
   [switch]$UpdateManifest,
-  [switch]$RebuildNative
+  [switch]$RebuildNative,
+  [switch]$SkipNativeRebuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,6 +33,9 @@ $Output = if ($Configuration -ieq "Debug") { Join-Path $Root "build_debug" } els
 
 if ($PreflightOnly -and $SkipPreflight) {
   throw "-PreflightOnly and -SkipPreflight cannot be used together."
+}
+if ($RebuildNative -and $SkipNativeRebuild) {
+  throw "-RebuildNative and -SkipNativeRebuild cannot be used together."
 }
 # Resolve command or file.
 
@@ -140,11 +144,8 @@ New-Item -ItemType Directory -Force -Path $Output | Out-Null
 $Verifier = Join-Path $Root "tools\verify_project.py"
 if (-not (Test-Path -LiteralPath $Verifier -PathType Leaf)) { throw "Project verifier missing: $Verifier" }
 $SourceHygieneVerifier = Join-Path $Root "tools\source_hygiene.py"
-$SourceHygieneTests = Join-Path $Root "tools\test_source_hygiene.py"
 $SourceDocumentationVerifier = Join-Path $Root "tools\check_source_documentation.py"
-$SourceDocumentationTests = Join-Path $Root "tools\test_source_documentation.py"
 $MarkdownHygieneVerifier = Join-Path $Root "tools\markdown_hygiene.py"
-$MarkdownHygieneTests = Join-Path $Root "tools\test_markdown_hygiene.py"
 if (-not (Test-Path -LiteralPath $SourceHygieneVerifier -PathType Leaf)) {
   throw "Source hygiene verifier missing: $SourceHygieneVerifier"
 }
@@ -155,7 +156,8 @@ if (-not (Test-Path -LiteralPath $MarkdownHygieneVerifier -PathType Leaf)) {
   throw "Markdown hygiene verifier missing: $MarkdownHygieneVerifier"
 }
 
-if ($RebuildNative) {
+$ShouldRebuildNative = $RebuildNative -or (-not $SkipNativeRebuild -and -not $PreflightOnly)
+if ($ShouldRebuildNative) {
   Write-Host "[MiniQuake2] rebuilding repository-owned native bridges"
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @(
     $PythonCommand.Prefix + @((Join-Path $Native "build_bridge.py"), "--clean")
@@ -177,18 +179,14 @@ if (-not $SkipPreflight) {
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($MarkdownHygieneVerifier, "--root", $Root, "--json", (Join-Path $Output "markdown-hygiene.json"), "--quiet")) -Label "Markdown structure/link hygiene"
   if (-not $SkipTests) {
     $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Verifier, "--self-test")) -Label "verifier self-test"
-    if (-not (Test-Path -LiteralPath $SourceHygieneTests -PathType Leaf)) {
-      throw "Source hygiene verifier tests missing: $SourceHygieneTests"
+    $PythonUnitTests = @()
+    $PythonUnitTests += Get-ChildItem -LiteralPath (Join-Path $Root "tools") -Filter "test_*.py" -File
+    $PythonUnitTests += Get-ChildItem -LiteralPath (Join-Path $Root "tests") -Filter "test_*.py" -File
+    foreach ($PythonUnitTest in $PythonUnitTests | Sort-Object FullName) {
+      $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @(
+        $PythonCommand.Prefix + @($PythonUnitTest.FullName)
+      ) -Label ($PythonUnitTest.BaseName + " Python tests")
     }
-    $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceHygieneTests)) -Label "source hygiene verifier tests"
-    if (-not (Test-Path -LiteralPath $SourceDocumentationTests -PathType Leaf)) {
-      throw "Source documentation verifier tests missing: $SourceDocumentationTests"
-    }
-    $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($SourceDocumentationTests)) -Label "source documentation verifier tests"
-    if (-not (Test-Path -LiteralPath $MarkdownHygieneTests -PathType Leaf)) {
-      throw "Markdown hygiene verifier tests missing: $MarkdownHygieneTests"
-    }
-    $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($MarkdownHygieneTests)) -Label "Markdown hygiene verifier tests"
   }
 }
 

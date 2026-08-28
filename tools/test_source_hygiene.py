@@ -146,6 +146,25 @@ class SourceHygieneTests(unittest.TestCase):
             self.assertEqual([path], source_hygiene.maintained_source_files(root))
             self.assertEqual([], source_hygiene.check_file(root, path))
 
+    def test_scope_includes_repository_owned_native_sources(self) -> None:
+        """Keep native C and build Python under the same mandatory gates."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            c_path = root / "native" / "bridge.c"
+            py_path = root / "native" / "build_bridge.py"
+            c_path.parent.mkdir(parents=True)
+            c_path.write_text(
+                "/*\nCopyright (c) 2026 Nils Kopal\n"
+                "SPDX-License-Identifier: GPL-2.0-or-later\n*/\n",
+                encoding="utf-8",
+            )
+            py_path.write_text(
+                "# Copyright (c) 2026 Nils Kopal\n"
+                "# SPDX-License-Identifier: Apache-2.0\n",
+                encoding="utf-8",
+            )
+            self.assertEqual([c_path, py_path], source_hygiene.maintained_source_files(root))
+
     def test_fix_adds_language_defaults_and_preserves_python_preamble(self) -> None:
         """Verify fix adds language defaults and preserves python preamble."""
         with tempfile.TemporaryDirectory() as temporary:

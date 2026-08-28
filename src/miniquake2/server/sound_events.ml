@@ -12,6 +12,7 @@ import miniquake2.qcommon.sizebuf as sseqsz
 import miniquake2.qcommon.types as sseqtypes
 import miniquake2.protocol.constants as ssepc
 import miniquake2.server.types as ssetypes
+import miniquake2.server.game_messages as ssemessages
 
 const MAX_PENDING_SOUND_EVENTS = 1024
 const MAX_SOUND_FRAGMENT_BYTES = 14
@@ -82,6 +83,7 @@ function validateAll(events)
     validateFields(event.hasEntity, event.entity, event.channel,
       event.channelFlags, event.soundIndex, event.volume, event.attenuation,
       event.timeOffset, event.position)
+    copiedPosition(event.routingPosition)
     previousSerial = event.serial
   end for
   return true
@@ -131,7 +133,8 @@ function restorePending(runtime, events)
 end function
 
 // Return the enqueue value.
-function enqueue(runtime, position, entity, channelFlags, soundIndex, volume, attenuation, timeOffset)
+function enqueue(runtime, position, routingPosition, entity, channelFlags,
+    soundIndex, volume, attenuation, timeOffset)
   if runtime.pendingSoundCount >= MAX_PENDING_SOUND_EVENTS or
       runtime.pendingSoundCount >= len(runtime.pendingSounds) then
     return error(3918, "pending server sound queue is full")
@@ -140,14 +143,15 @@ function enqueue(runtime, position, entity, channelFlags, soundIndex, volume, at
   if typeof(channelFlags) != "int" then return error(3913, "sound channel outside supported range") end if
   channel = channelFlags & 7
   ownedPosition = copiedPosition(position)
+  ownedRoutingPosition = copiedPosition(routingPosition)
   validateFields(entityInfo[0], entityInfo[1], channel, channelFlags, soundIndex,
     volume, attenuation, timeOffset, ownedPosition)
-  event = ssetypes.PendingSoundEvent(runtime.nextSoundSerial, entityInfo[0], entityInfo[1],
+  event = ssetypes.PendingSoundEvent(ssemessages.claimEmissionSerial(runtime),
+    entityInfo[0], entityInfo[1],
     channel, channelFlags, soundIndex, volume * 1.0, attenuation * 1.0,
-    timeOffset * 1.0, ownedPosition)
+    timeOffset * 1.0, ownedPosition, ownedRoutingPosition)
   runtime.pendingSounds[runtime.pendingSoundCount] = event
   runtime.pendingSoundCount = runtime.pendingSoundCount + 1
-  runtime.nextSoundSerial = runtime.nextSoundSerial + 1
   return event
 end function
 

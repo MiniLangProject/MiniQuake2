@@ -94,10 +94,15 @@ function resetClientState(runtime)
   runtime.client.lightStyles = clean.lightStyles
   runtime.client.lightStyleMaps = clean.lightStyleMaps
   runtime.client.lightStyleOffset = clean.lightStyleOffset
+  runtime.client.entityLookup = clean.entityLookup
+  runtime.client.entityLookupEpochs = clean.entityLookupEpochs
+  runtime.client.entityLookupEpoch = clean.entityLookupEpoch
+  runtime.client.renderEntities = clean.renderEntities
   runtime.effects.dLights = []
   runtime.effects.particles = []
   runtime.effects.particleCount = 0
   runtime.effects.beams = []
+  runtime.effects.playerBeams = []
   runtime.effects.lasers = []
   runtime.effects.explosions = []
   runtime.effects.sustains = []
@@ -247,10 +252,8 @@ end function
 
 // Return the entity value.
 function entity(runtime, number)
-  if runtime.client.current is not void then
-    value = cstate.findEntity(runtime.client.current.entities, number)
-    if value is not void then return value end if
-  end if
+  value = cstate.lastKnownEntity(runtime.client, number)
+  if value is not void then return value end if
   if number >= 0 and number < len(runtime.network.baselines) then return runtime.network.baselines[number] end if
   return void
 end function
@@ -365,7 +368,8 @@ function parseBuffer(runtime, buffer, now)
     else if opcode == qc.SVC_FRAME then frames = frames + acceptFrame(runtime, buffer)
     else if opcode == qc.SVC_SOUND or opcode == qc.SVC_MUZZLEFLASH or
         opcode == qc.SVC_MUZZLEFLASH2 or opcode == qc.SVC_TEMP_ENTITY then
-      ceparser.parseServiceCommand(runtime.effects, buffer, opcode, resolver)
+      ceparser.parseServiceCommand(runtime.effects, buffer, opcode, resolver,
+        runtime.network.playerNumber + 1)
       effectCommands = effectCommands + 1
     else if opcode == qc.SVC_DISCONNECT then
       runtime.network.client.state = nc.CA_DISCONNECTED

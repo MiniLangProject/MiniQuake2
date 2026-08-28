@@ -91,7 +91,7 @@ soundQueueAssert(overflowRuntime.pendingSoundCount == sseq_test_events.MAX_PENDI
 // previously queued event.
 malformed = sseq_test_types.PendingSoundEvent(
   sseq_test_events.MAX_PENDING_SOUND_EVENTS, false, 0, 0, 0, 300,
-  1.0, 1.0, 0.0, void)
+  1.0, 1.0, 0.0, void, void)
 validBatch = sseq_test_events.pendingSnapshot(overflowRuntime)
 malformedBatch = array(len(validBatch) + 1)
 index = 0

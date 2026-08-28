@@ -275,12 +275,13 @@ function runProjectileVisualSmoke(args)
   if result[7] < 1 then return error(9936, "Blaster projectile was lost during snapshot transport; attack=" + result[1] + " linked=" + result[2] + " freed=" + result[3] + " server=" + result[4] + " export=" + result[5] + " visible=" + result[6]) end if
   if result[8] < 1 then return error(9937, "Blaster projectile never reached the render frame") end if
   if result[9] < 1 then return error(9938, "Blaster projectile emitted no visible particles") end if
+  if result[11] < 1 then return error(9939, "Blaster muzzle flash emitted no client weapon sound") end if
   print "MiniQuake2 projectile visual smoke: PASS"
   print "  attack-commands=" + result[1] + " linked=" + result[2] +
     " freed=" + result[3] + " server-max=" + result[4] +
     " export-max=" + result[5] + " visible-max=" + result[6] +
     " snapshot-max=" + result[7] + " render-max=" + result[8] +
-    " particle-max=" + result[9]
+    " particle-max=" + result[9] + " weapon-sound-max=" + result[11]
   return 0
 end function
 

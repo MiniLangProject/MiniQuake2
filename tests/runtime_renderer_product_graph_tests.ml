@@ -7,11 +7,25 @@ import miniquake2.runtime.diagnostics as productdiagnostics
 import miniquake2.runtime.application as productapplication
 import miniquake2.renderer.opengl as productopengl
 import miniquake2.client.ui.commands as productcommands
+import miniquake2.client.state as productclientstate
+import miniquake2.protocol.types as productprotocoltypes
+import miniquake2.server.snapshot as productsnapshot
+import miniquake2.qcommon.types as productqtypes
 import std.fs as productfs
 
 // Assert the true test condition.
 function assertTrue(value, label)
   if not value then return error(9981, label) end if
+end function
+
+// Build one pusher snapshot entity.
+function pusherEntity(number, x, yaw)
+  entity = productprotocoltypes.zeroEntityState()
+  entity.number = number
+  entity.modelIndex = 2
+  entity.origin[0] = x
+  entity.angles[1] = yaw
+  return entity
 end function
 
 // Run this source file's command-line entry point.
@@ -68,6 +82,31 @@ function main(args)
     activeSelection.endpoint == "127.0.0.1:27910" and
     activeCommands.connectAddress == "",
     "active single-player menu hands connect to the product loop")
+  pusherClient = productclientstate.create()
+  pusherPlayer = productprotocoltypes.zeroPlayerState()
+  productclientstate.acceptSnapshot(pusherClient, productsnapshot.SnapshotFrame(
+    20, -1, 0, bytes([]), pusherPlayer, [pusherEntity(7, 0.0, 0.0)]))
+  productclientstate.acceptSnapshot(pusherClient, productsnapshot.SnapshotFrame(
+    21, 20, 0, bytes([]), pusherPlayer, [pusherEntity(7, 8.0, 0.0)]))
+  stoppedOffset = productapplication.applicationPusherSnapshotOffset(
+    pusherClient, 7, 0.0, productqtypes.vec3(20.0, 0.0, 0.0))
+  assertTrue(stoppedOffset.x == -8.0 and stoppedOffset.y == 0.0 and
+    stoppedOffset.z == 0.0,
+    "stopped elevator derives rider offset from snapshots, not live velocity")
+  finishedOffset = productapplication.applicationPusherSnapshotOffset(
+    pusherClient, 7, 1.0, productqtypes.vec3(20.0, 0.0, 0.0))
+  assertTrue(finishedOffset.x == 0.0 and finishedOffset.y == 0.0 and
+    finishedOffset.z == 0.0, "pusher correction converges at current snapshot")
+
+  rotatingClient = productclientstate.create()
+  productclientstate.acceptSnapshot(rotatingClient, productsnapshot.SnapshotFrame(
+    30, -1, 0, bytes([]), pusherPlayer, [pusherEntity(7, 0.0, 0.0)]))
+  productclientstate.acceptSnapshot(rotatingClient, productsnapshot.SnapshotFrame(
+    31, 30, 0, bytes([]), pusherPlayer, [pusherEntity(7, 0.0, 90.0)]))
+  rotatingOffset = productapplication.applicationPusherSnapshotOffset(
+    rotatingClient, 7, 0.0, productqtypes.vec3(0.0, 10.0, 0.0))
+  assertTrue(rotatingOffset.x != 0.0 or rotatingOffset.y != 0.0,
+    "rotating pusher applies angular rider correction")
   renderer = productopengl.createOpenGlRenderer(false)
   assertTrue(typeof(renderer) == "struct", "product-graph renderer binding")
   assertTrue(typeof(renderer.state) == "struct", "product-graph renderer state")

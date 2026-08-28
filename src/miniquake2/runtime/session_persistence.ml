@@ -11,6 +11,7 @@ import miniquake2.network.constants as savegatenetworkconstants
 import miniquake2.runtime.server_session as savegateserversession
 import miniquake2.runtime.play_session as savegateplaysession
 import miniquake2.runtime.multiplayer_session as savegatemultiplayer
+import miniquake2.client.runtime.dispatcher as savegatedispatcher
 
 // Store session checkpoint data.
 struct SessionCheckpoint
@@ -231,6 +232,11 @@ function restorePlaySession(session, checkpoint)
       nativeRawValue(session.client.integrated.network.client.channel) != nativeRawValue(savegatePlayClientChannel) then
     return error(8454, "active channel state changed during same-map restore")
   end if
+  // A save restore is a presentation discontinuity even when the live Netchan
+  // remains valid.  Stock CL_ClearState discards the old interpolation/effect
+  // epoch; retaining it here makes the first restored snapshot tween from the
+  // pre-load world and replays stale beams, loops and UI handoffs.
+  savegatedispatcher.resetClientState(session.client.integrated)
   return savegatePlayResult
 end function
 
@@ -276,6 +282,12 @@ function restoreMultiplayerSession(session, checkpoint)
   if not savegatemultiplayer.signonComplete(session) then
     return error(8484, "multiplayer restore changed active signon state")
   end if
+  savegateMultiplayerResetIndex = 0
+  while savegateMultiplayerResetIndex < savegateMultiplayerCount
+    savegatedispatcher.resetClientState(session.clients[
+      savegateMultiplayerResetIndex].integrated)
+    savegateMultiplayerResetIndex = savegateMultiplayerResetIndex + 1
+  end while
   savegatemultiplayer.synchronizeScores(session)
   return savegateMultiplayerResult
 end function

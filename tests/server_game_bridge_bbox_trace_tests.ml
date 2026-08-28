@@ -70,6 +70,17 @@ monster = bboxMake(2, 50.0, 0.0, 32.0, bboxgc.SVF_MONSTER)
 bboxAssert(runtime.solidBoxCount == 2 and
   runtime.solidBoxPositions[1] > 0 and runtime.solidBoxPositions[2] > 0,
   "linked SOLID_BBOX index membership")
+// Level reset/load must replace both forward and reverse cache storage. Merely
+// zeroing the count leaves reused entity numbers pointing at stale map objects.
+bboxbridge.clearSpatialCaches(runtime)
+bboxAssert(runtime.solidBoxCount == 0 and runtime.inlineBrushCount == 0 and
+  runtime.triggerCount == 0 and runtime.solidBoxPositions[1] == 0 and
+  runtime.solidBoxPositions[2] == 0,
+  "spatial cache clear retained old entity-number membership")
+bboxbridge.rebuildSpatialCaches(runtime, [world, player, monster], 3)
+bboxAssert(runtime.solidBoxCount == 2 and
+  runtime.solidBoxPositions[1] > 0 and runtime.solidBoxPositions[2] > 0,
+  "spatial cache rebuild missed authoritative BBOX edicts")
 bboxAssert(player.state.solid == (2 | (3 << 5) | (8 << 10)) and
   monster.state.solid == player.state.solid,
   "SV_LinkEdict Protocol-34 BBOX encoding")

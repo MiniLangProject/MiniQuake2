@@ -232,8 +232,8 @@ function captureRetailScene(baseDirectory, mapName, outputPath, width, height,
   while frameIndex < renderedFrames
     frame.time = frameIndex * 0.1
     renderer.exports.BeginFrame(0.0)
-    renderer.exports.RenderFrame(frame)
     lastStats = retailcapturegl.submitClassicWorld(renderer, world, frame)
+    renderer.exports.RenderFrame(frame)
     if frameIndex == renderedFrames - 1 then
       captured = retailcaptureimage.readOpenGlFrame(window.width, window.height)
     end if

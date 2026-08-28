@@ -200,7 +200,10 @@ function step(session)
   // pumpIntegratedClient normally commits after each accepted packet. This
   // fallback also covers tests or callers that injected a snapshot directly.
   plhandoff.commit(session.client.integrated, now)
-  handoff = plhandoff.take(session.client.integrated)
+  // A delayed loopback datagram can make step/poll commit two snapshots in one
+  // tick. Render the latest snapshot while takeLatest preserves all transient
+  // UI/audio events in their original packet order.
+  handoff = plhandoff.takeLatest(session.client.integrated)
   return StepResult(session.client.integrated.network.client.state,
     session.server.frameNumber, signonComplete(session), handoff,
     session.client.packetsReceived + session.server.packetsReceived,

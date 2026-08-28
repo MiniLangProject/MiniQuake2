@@ -14,10 +14,7 @@ from pathlib import Path, PurePosixPath
 EPOCH = (1980, 1, 1, 0, 0, 0)
 RETAIL_SUFFIXES = {".pak", ".bsp", ".md2", ".sp2", ".wal", ".pcx", ".wav", ".cin", ".dm2"}
 GAME_DIRS = {"baseq2", "ctf", "rogue", "xatrix"}
-EXPECTED_DLLS = {
-    "miniquake_native.dll": "22e45cf372f5ae59a239e4827cfa1618adb0189a28771878306ec6d60eef050c",
-    "miniquake_text.dll": "b1d7ec43b116c694ea03a0f1a0c2cc58a5fdcb5d009968cb79b157034ad9f16f",
-}
+EXPECTED_DLL_NAMES = ("miniquake_native.dll", "miniquake_text.dll")
 
 
 def digest(path: Path) -> str:
@@ -27,6 +24,24 @@ def digest(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             value.update(block)
     return value.hexdigest()
+
+
+def manifest_dll_digests(root: Path) -> dict[str, str]:
+    """Return checked native DLL digests from the repository manifest."""
+    manifest = root / "SOURCE_MANIFEST.sha256"
+    expected: dict[str, str] = {}
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        if " *" not in line:
+            continue
+        checksum, relative = line.split(" *", 1)
+        relative = relative.replace("\\", "/")
+        for name in EXPECTED_DLL_NAMES:
+            if relative == f"native/{name}":
+                expected[name] = checksum.lower()
+    missing = [name for name in EXPECTED_DLL_NAMES if name not in expected]
+    if missing:
+        raise ValueError("native DLLs missing from source manifest: " + ", ".join(missing))
+    return expected
 
 
 def safe_name(name: str) -> None:
@@ -75,15 +90,6 @@ def maintained_sources(root: Path) -> list[tuple[Path, str]]:
         raise FileNotFoundError("canonical GPL text is missing from the reference tree")
     entries.append((gpl, "MiniQuake2-source/COPYING.txt"))
 
-    shared_native = root.parent / "MiniQuake" / "native"
-    if not shared_native.is_dir():
-        raise FileNotFoundError("shared native bridge source directory is missing")
-    generated_suffixes = {".dll", ".exe", ".obj", ".lib", ".exp", ".pdb", ".ilk"}
-    for path in shared_native.rglob("*"):
-        if not path.is_file() or path.suffix.lower() in generated_suffixes or "build" in path.relative_to(shared_native).parts:
-            continue
-        relative = path.relative_to(shared_native)
-        entries.append((path, f"MiniQuake2-source/native-source/{relative.as_posix()}"))
     return entries
 
 
@@ -110,7 +116,7 @@ def main() -> int:
     executable = output / "MiniQuake2.exe"
     if not executable.is_file():
         raise FileNotFoundError("build/MiniQuake2.exe is missing; build the release first")
-    for name, expected in EXPECTED_DLLS.items():
+    for name, expected in manifest_dll_digests(root).items():
         path = output / name
         if not path.is_file() or digest(path) != expected:
             raise ValueError(f"native bridge mismatch: {name}")

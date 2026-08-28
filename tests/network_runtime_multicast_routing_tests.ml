@@ -18,6 +18,9 @@ import miniquake2.network.runtime.game_adapter as nrmr_adapter
 import miniquake2.network.runtime.multicast_dispatch as nrmr_dispatch
 import miniquake2.runtime.server_session as nrmr_session
 import miniquake2.server.types as nrmr_stypes
+import miniquake2.server.game_bridge as nrmr_bridge
+import miniquake2.server.game_messages as nrmr_messages
+import miniquake2.server.sound_events as nrmr_sounds
 
 // Assert the multicast route test condition.
 function multicastRouteAssert(value, label)
@@ -42,6 +45,21 @@ function multicastRouteCollision()
     [node], [], [], bytes(), [front, back], [], [], [], [], [], [], [], areas, portals)
   return nrmr_collision.create(map)
 end function
+
+// Every typed GameImport queue claims from one shared emission clock.
+orderingBridge = nrmr_bridge.createRuntime(1)
+orderingClient = nrmr_gtypes.zeroEdict(1)
+orderingMulticast = nrmr_messages.enqueue(orderingBridge,
+  nrmr_qtypes.zeroVec3(), nrmr_gc.MULTICAST_ALL,
+  bytes([nrmr_qc.SVC_NOP]))
+orderingSound = nrmr_sounds.enqueue(orderingBridge, void,
+  nrmr_qtypes.zeroVec3(), orderingClient, nrmr_gc.CHAN_AUTO, 1, 1.0,
+  nrmr_gc.ATTN_NORM, 0.0)
+orderingUnicast = nrmr_messages.enqueueUnicast(orderingBridge,
+  orderingClient, false, bytes([nrmr_qc.SVC_NOP]))
+multicastRouteAssert(orderingMulticast.serial == 0 and
+  orderingSound.serial == 1 and orderingUnicast.serial == 2,
+  "typed GameImport queues did not share an emission serial")
 
 // Export multicast route game.
 function multicastRouteGameExport(edicts)
@@ -89,6 +107,23 @@ multicastRouteAssert(len(routed[0]) == 2 and routed[0][0].serial == 1 and routed
 reliable = nrmr_stypes.PendingMulticastEvent(3, nrmr_gc.MULTICAST_ALL_R,
   source, bytes([nrmr_qc.SVC_NOP]))
 channel = server.clients[0].channel
+laterTransient = nrmr_stypes.PendingMulticastEvent(4,
+  nrmr_gc.MULTICAST_ALL, source, bytes([nrmr_qc.SVC_NOP]))
+mixedPlan = nrmr_dispatch.buildPlan(runtime, 0,
+  [phsEvent, reliable, laterTransient])
+multicastRouteAssert(mixedPlan != false and mixedPlan is not void and
+  len(mixedPlan.unreliablePackets) == 1 and
+  len(mixedPlan.unreliablePackets[0]) == 2 and
+  len(mixedPlan.reliableFragments) == 1,
+  "transient multicast after reliable event was upgraded into ACK backlog")
+mixedTransient = nrmr_session.multicastReliabilitySubset(
+  [phsEvent, reliable, laterTransient], false)
+mixedReliable = nrmr_session.multicastReliabilitySubset(
+  [phsEvent, reliable, laterTransient], true)
+multicastRouteAssert(len(mixedTransient) == 2 and
+  mixedTransient[0].serial == 1 and mixedTransient[1].serial == 4 and
+  len(mixedReliable) == 1 and mixedReliable[0].serial == 3,
+  "server frame did not split multicast reliability in original order")
 fullQueue = array(nrmr_pc.MAX_RELIABLE_QUEUE_FRAGMENTS,
   bytes(nrmr_pc.RELIABLE_BUFFER_SIZE))
 nrmr_netchan.queueReliableFragments(channel, fullQueue)
@@ -100,5 +135,29 @@ multicastRouteAssert(not deferred.delivered and deferred.sent == 0 and
   "multicast reliable backpressure was not failure-atomic")
 multicastRouteAssert(try(nrmr_dispatch.dispatchRouted(runtime, void, [reliable], [], 2)) is error,
   "malformed routed multicast shape was accepted")
+
+// Snapshot and typed GameImport queues share one unreliable datagram. The
+// merged tail follows svc_frame and preserves the original cross-type serial.
+orderedUnicast = nrmr_stypes.PendingUnicastEvent(12, 1, false,
+  bytes([nrmr_qc.SVC_CENTERPRINT, 0]))
+orderedSound = nrmr_stypes.PendingSoundEvent(11, true, 1,
+  nrmr_gc.CHAN_WEAPON, nrmr_gc.CHAN_WEAPON, 1, 1.0,
+  nrmr_gc.ATTN_NORM, 0.0, void, nrmr_qtypes.Vec3(8.0, 0.0, 0.0))
+orderedMulticast = nrmr_stypes.PendingMulticastEvent(10,
+  nrmr_gc.MULTICAST_ALL, source, bytes([nrmr_qc.SVC_NOP]))
+ordered = nrmr_session.frameMessageFragments([orderedUnicast],
+  [orderedMulticast], [orderedSound], false)
+multicastRouteAssert(len(ordered) == 3 and ordered[0].serial == 10 and
+  ordered[1].serial == 11 and ordered[2].serial == 12,
+  "cross-type transient emission order was not preserved")
+composed = nrmr_session.composeClientDatagram(
+  bytes([nrmr_qc.SVC_FRAME, 77]), ordered, 64)
+multicastRouteAssert(len(composed) > 4 and composed[0] == nrmr_qc.SVC_FRAME and
+  composed[2] == nrmr_qc.SVC_NOP and composed[3] == nrmr_qc.SVC_SOUND,
+  "transient commands were not appended after the snapshot")
+overflowed = nrmr_session.composeClientDatagram(bytes(62),
+  [nrmr_session.ServerMessageFragment(0, bytes([1, 2, 3]))], 64)
+multicastRouteAssert(len(overflowed) == 0,
+  "overflow retained an orphan transient tail")
 
 print("network_runtime_multicast_routing_tests: PASS")

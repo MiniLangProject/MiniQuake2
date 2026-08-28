@@ -51,6 +51,15 @@ function testUdpLoopback()
   return true
 end function
 
+// Verify hard native receive failures are distinct from would-block.
+function testUdpReceiveFailure()
+  invalid = udp.Socket(0, "", 0, false)
+  assertEqual(typeof(try(udp.receive(invalid, 1400))), "error",
+    "invalid native socket receive fails explicitly")
+  invalid.closed = true
+  return true
+end function
+
 // Verify display mode fallback.
 function testDisplayModeFallback()
   exclusive = window.resolvedDisplayMode(1920, 1080, true, true,
@@ -73,5 +82,6 @@ end function
 
 testClock()
 testUdpLoopback()
+testUdpReceiveFailure()
 testDisplayModeFallback()
 print "platform_contract_tests: PASS"

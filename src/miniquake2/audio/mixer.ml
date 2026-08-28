@@ -145,14 +145,17 @@ function playMusic(mixer, filesystem, track, looping)
   end if
   probe = bytes(MUSIC_DECODE_FRAMES * channels * 2)
   decoded = amnative.oggDecode(probe, MUSIC_DECODE_FRAMES)
-  if decoded < 1 or amnative.oggSeekStart() == 0 then
+  if decoded < 1 then
     amnative.oggClose()
     return error(2966, "Ogg Vorbis music decode failed for track " + track)
   end if
   sourceStep = ambio.truncInt(rate * MIX_FRAC_ONE / (mixer.sampleRate * 1.0))
   if sourceStep < 1 then sourceStep = 1 end if
-  mixer.music = MusicTrack(track, source, bytes(), rate, channels, frames,
-    0, sourceStep, looping, true, false, 0, 0)
+  // Retain the validation decode as the first streaming block. Seeking and
+  // decoding those same 4096 frames again on the first mix caused a visible
+  // startup spike precisely when level presentation begins.
+  mixer.music = MusicTrack(track, source, probe, rate, channels, frames,
+    0, sourceStep, looping, true, false, 0, decoded)
   return true
 end function
 

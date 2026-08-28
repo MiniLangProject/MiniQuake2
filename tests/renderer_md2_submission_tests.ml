@@ -134,7 +134,7 @@ function testRegistrationInterpolationAndBounds()
   renderer.exports.EndRegistration()
   assertEqual(handle.kind, "model", "MD2 resource handle")
   assertEqual(handle.generation, renderer.state.assets.generation, "registration generation")
-  assertEqual(len(renderer.state.textureRecords), 1, "PCX texture handle allocated")
+  assertEqual(renderer.state.nextTextureId - 1, 1, "PCX texture handle allocated")
   assertEqual(renderer.state.textureRecords[0].uploaded, false, "headless PCX remains CPU-side")
 
   entity = rt.emptyEntity()
@@ -201,18 +201,21 @@ function testRegistrationInterpolationAndBounds()
   assertNear(fallback.mesh.vertices[0].position.x, 0.0, 0.0001,
     "fallback uses first MD2 frame")
 
-  renderer.state.textureRecords[0].uploaded = true
+  oldTextureRecord = renderer.state.textureRecords[0]
+  oldTextureRecord.uploaded = true
   renderer.exports.BeginRegistration("next-generation")
-  assertEqual(renderer.state.textureRecords[0].released, true, "headless logical texture release")
-  assertEqual(renderer.state.textureRecords[0].uploaded, false, "released upload state cleared")
+  assertEqual(oldTextureRecord.released, true, "headless logical texture release")
+  assertEqual(oldTextureRecord.uploaded, false, "released upload state cleared")
   assertEqual(typeof(try(ropengl.prepareMd2Entity(renderer, entity))), "error", "stale model handle rejected")
   replacement = ropengl.registerMd2Model(renderer, "models/test/tris.md2", loadMd2File)
   renderer.exports.EndRegistration()
   assertEqual(replacement.generation, handle.generation + 1, "next model generation")
-  assertEqual(renderer.state.textureRecords[1].id, renderer.state.textureRecords[0].id + 1, "texture ids are not reused")
-  renderer.state.textureRecords[1].uploaded = true
+  replacementTextureRecord = renderer.state.textureRecords[0]
+  assertEqual(replacementTextureRecord.id, 1,
+    "texture ids reset at registration boundary")
+  replacementTextureRecord.uploaded = true
   renderer.exports.Shutdown()
-  assertEqual(renderer.state.textureRecords[1].released, true, "shutdown texture release")
+  assertEqual(replacementTextureRecord.released, true, "shutdown texture release")
 end function
 
 testRegistrationInterpolationAndBounds()

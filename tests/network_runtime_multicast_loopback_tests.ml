@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import miniquake2.qcommon.constants as nrml_qc
 import miniquake2.qcommon.types as nrml_qtypes
 import miniquake2.game.constants as nrml_gc
+import miniquake2.protocol.netchan as nrml_netchan
 import miniquake2.server.game_bridge as nrml_bridge
 import miniquake2.runtime.play_session as nrml_play
 
@@ -20,6 +21,16 @@ entities = "{\n\"classname\" \"worldspawn\"\n}\n" +
 session = nrml_play.createCore("multicast_loop", entities, void,
   "\\name\\MulticastLoop\\rate\\25000")
 nrml_play.runUntilActive(session, 500)
+serverChannel = session.server.networkRuntime.server.clients[0].channel
+settle = 0
+while nrml_netchan.pendingReliableBytes(serverChannel) > 0 and settle < 100
+  nrml_play.step(session)
+  settle = settle + 1
+end while
+multicastLoopAssert(nrml_netchan.pendingReliableBytes(serverChannel) == 0,
+  "signon reliable state did not settle before transient test")
+while nrml_play.takeFrame(session) is not void
+end while
 
 imports = nrml_bridge.makeImports(session.server.bridgeRuntime)
 player = session.server.gameExport.edicts[1]
@@ -31,8 +42,12 @@ imports.multicast(origin, nrml_gc.MULTICAST_PVS)
 multicastLoopAssert(len(session.server.bridgeRuntime.pendingMulticasts) == 1,
   "GameImport multicast did not reach the server queue")
 
+outgoingBeforeTransient = serverChannel.outgoingSequence
 result = nrml_play.step(session)
 handoff = result.handoff
+multicastLoopAssert(serverChannel.outgoingSequence ==
+  outgoingBeforeTransient + 1,
+  "snapshot and transient effect used more than one unreliable transmit")
 multicastLoopAssert(handoff is not void and len(handoff.dLights) == 1,
   "monster muzzle flash did not reach integrated client effects")
 multicastLoopAssert(handoff.dLights[0].key == 1 and handoff.dLights[0].radius >= 200.0,
@@ -48,7 +63,6 @@ multicastLoopAssert(len(session.server.bridgeRuntime.pendingMulticasts) == 0,
 imports.writeByte(nrml_qc.SVC_NOP)
 imports.multicast(origin, nrml_gc.MULTICAST_ALL_R)
 nrml_play.step(session)
-serverChannel = session.server.networkRuntime.server.clients[0].channel
 multicastLoopAssert(serverChannel.reliableLength > 0 and
   len(session.server.bridgeRuntime.pendingMulticasts) == 0,
   "reliable multicast was not staged in Netchan")

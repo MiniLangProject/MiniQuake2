@@ -27,6 +27,12 @@ import miniquake2.physics.vector as sgbvector
 gameBridgeActiveRuntime = void
 const MAX_GAME_BRIDGE_LOGS = 1024
 
+// Return the optional active bridge for Game API-only lifecycle adapters.
+function activeRuntime()
+  global gameBridgeActiveRuntime
+  return gameBridgeActiveRuntime
+end function
+
 // Append game bridge log.
 function gameBridgeAppendLog(context, value)
   if len(context.logs) < MAX_GAME_BRIDGE_LOGS then
@@ -117,6 +123,11 @@ end function
 function sound(entity, channel, soundIndex, volume, attenuation, timeOffset)
   context = requireActive("sound")
   soundPosition = void
+  routingPosition = void
+  if entity is not void then
+    entityOrigin = entity.state.origin
+    routingPosition = qt.Vec3(entityOrigin.x, entityOrigin.y, entityOrigin.z)
+  end if
   if entity is not void and ((entity.serverFlags & gc.SVF_NOCLIENT) != 0 or
       entity.solid == gc.SOLID_BSP) then
     entityOrigin = entity.state.origin
@@ -134,7 +145,8 @@ function sound(entity, channel, soundIndex, volume, attenuation, timeOffset)
       soundPosition = qt.Vec3(entityOrigin.x, entityOrigin.y, entityOrigin.z)
     end if
   end if
-  event = ssoundevents.enqueue(context, soundPosition, entity, channel,
+  if soundPosition is not void then routingPosition = soundPosition end if
+  event = ssoundevents.enqueue(context, soundPosition, routingPosition, entity, channel,
     soundIndex, volume, attenuation, timeOffset)
   gameBridgeAppendLog(context, ["sound", soundIndex])
   return event
@@ -143,7 +155,8 @@ end function
 // Return the positioned sound value.
 function positionedSound(origin, entity, channel, soundIndex, volume, attenuation, timeOffset)
   context = requireActive("positioned-sound")
-  event = ssoundevents.enqueue(context, origin, entity, channel, soundIndex, volume, attenuation, timeOffset)
+  event = ssoundevents.enqueue(context, origin, origin, entity, channel,
+    soundIndex, volume, attenuation, timeOffset)
   gameBridgeAppendLog(context, ["positioned-sound", soundIndex])
   return event
 end function
@@ -828,6 +841,43 @@ function updateSolidBoxCache(context, entity, linked)
     end if
     context.solidBoxCount = last
   end if
+  return true
+end function
+
+// Discard every level-owned spatial index in one atomic replacement. Counts
+// alone are insufficient: the reverse-position tables would make a reused
+// edict number appear to be an old map's brush, trigger or box entity.
+function clearSpatialCaches(context)
+  context.inlineBrushes = array(qc.MAX_EDICTS, void)
+  context.inlineBrushModelNumbers = array(qc.MAX_EDICTS, -1)
+  context.inlineBrushPositions = array(qc.MAX_EDICTS, 0)
+  context.inlineBrushCount = 0
+  context.triggerEdicts = array(qc.MAX_EDICTS, void)
+  context.triggerPositions = array(qc.MAX_EDICTS, 0)
+  context.triggerCount = 0
+  context.solidBoxEdicts = array(qc.MAX_EDICTS, void)
+  context.solidBoxPositions = array(qc.MAX_EDICTS, 0)
+  context.solidBoxCount = 0
+  return true
+end function
+
+// Rebuild the compact spatial sets from the authoritative exported edicts.
+// Save restore replaces that whole array, so retaining any previous references
+// would create phantom collisions or touches after the load.
+function rebuildSpatialCaches(context, edicts, count)
+  if typeof(edicts) != "array" or typeof(count) != "int" or count < 0 or
+      count > len(edicts) then return error(3940, "invalid spatial cache rebuild image") end if
+  clearSpatialCaches(context)
+  index = 1
+  while index < count
+    entity = edicts[index]
+    if entity.inUse then
+      updateInlineBrushCache(context, entity, true)
+      updateTriggerCache(context, entity, true)
+      updateSolidBoxCache(context, entity, true)
+    end if
+    index = index + 1
+  end while
   return true
 end function
 

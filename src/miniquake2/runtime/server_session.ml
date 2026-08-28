@@ -72,6 +72,13 @@ struct MapChangeResult
   reason
 end struct
 
+// One recipient-specific GameImport fragment ordered against all other message
+// classes emitted during the same game frame.
+struct ServerMessageFragment
+  serial
+  payload
+end struct
+
 // SV_FatPVS uses a fixed 64-leaf work array. The server is single-threaded,
 // so the same storage can be reused for every 10 Hz client snapshot.
 serverSessionFatPvsLeafScratch = array(64, 0)
@@ -388,6 +395,7 @@ end function
 
 // Return the sound event origin.
 function soundEventOrigin(session, event)
+  if event.routingPosition is not void then return event.routingPosition end if
   if event.position is not void then return event.position end if
   if not event.hasEntity or session.gameExport is void or event.entity < 0 or
       event.entity >= session.gameExport.numEdicts then return void end if
@@ -573,6 +581,63 @@ function routeUnicasts(session, events)
     end if
   end for
   return routed
+end function
+
+// Return only multicast events whose destination has the requested reliable
+// class. Original Quake II writes reliable messages and transient datagrams to
+// separate client buffers, so one blocked ACK must never retain later effects.
+function multicastReliabilitySubset(events, reliable)
+  count = 0
+  for each countedEvent in events
+    if ssgamemessages.reliableDestination(countedEvent.destination) ==
+        reliable then count = count + 1 end if
+  end for
+  output = array(count, void)
+  index = 0
+  for each selectedEvent in events
+    if ssgamemessages.reliableDestination(selectedEvent.destination) ==
+        reliable then
+      output[index] = selectedEvent
+      index = index + 1
+    end if
+  end for
+  return output
+end function
+
+// Return only unicast events with the requested reliability class.
+function unicastReliabilitySubset(events, reliable)
+  count = 0
+  for each countedEvent in events
+    if countedEvent.reliable == reliable then count = count + 1 end if
+  end for
+  output = array(count, void)
+  index = 0
+  for each selectedEvent in events
+    if selectedEvent.reliable == reliable then
+      output[index] = selectedEvent
+      index = index + 1
+    end if
+  end for
+  return output
+end function
+
+// Return only sound events with the requested CHAN_RELIABLE state.
+function soundReliabilitySubset(events, reliable)
+  count = 0
+  for each countedEvent in events
+    eventReliable = (countedEvent.channelFlags & ssgc.CHAN_RELIABLE) != 0
+    if eventReliable == reliable then count = count + 1 end if
+  end for
+  output = array(count, void)
+  index = 0
+  for each selectedEvent in events
+    eventReliable = (selectedEvent.channelFlags & ssgc.CHAN_RELIABLE) != 0
+    if eventReliable == reliable then
+      output[index] = selectedEvent
+      index = index + 1
+    end if
+  end for
+  return output
 end function
 
 // Synchronize config strings.
@@ -800,8 +865,7 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   ssoundevents.clearPending(bridge)
   bridge.nextSoundSerial = 0
   bridge.collision = collision
-  bridge.inlineBrushCount = 0
-  bridge.triggerCount = 0
+  ssbridge.clearSpatialCaches(bridge)
   return true
 end function
 
@@ -871,8 +935,7 @@ function changeMapCore(session, mapName, entityText, collision)
     serverSessionChangeBridgeHolder.soundNames = serverSessionChangeOldSoundNamesHolder
     serverSessionChangeBridgeHolder.imageNames = serverSessionChangeOldImageNamesHolder
     serverSessionChangeBridgeHolder.collision = serverSessionChangeOldCollisionHolder
-    serverSessionChangeBridgeHolder.inlineBrushCount = 0
-    serverSessionChangeBridgeHolder.triggerCount = 0
+    ssbridge.clearSpatialCaches(serverSessionChangeBridgeHolder)
     ssqsz.clear(serverSessionChangeBridgeHolder.multicastBuffer)
     ssqsz.writeBytes(serverSessionChangeBridgeHolder.multicastBuffer, serverSessionChangeOldMulticastHolder)
     serverSessionChangeRestoredHolder = try(
@@ -933,8 +996,124 @@ function areaBits(session, clientEdict)
   return sscollision.writeAreaBits(session.collision, area)
 end function
 
-// Send snapshots.
-function sendSnapshots(session, now)
+// Merge one client's typed GameImport queues by their shared emission serial.
+// Reliable and transient buffers remain separate, but neither buffer may
+// reorder sound around multicast/unicast commands emitted before it.
+function frameMessageFragments(unicasts, multicasts, sounds, reliable)
+  count = 0
+  for each event in unicasts
+    if event.reliable == reliable then count = count + 1 end if
+  end for
+  for each event in multicasts
+    if ssgamemessages.reliableDestination(event.destination) == reliable then
+      count = count + 1
+    end if
+  end for
+  for each event in sounds
+    if (((event.channelFlags & ssgc.CHAN_RELIABLE) != 0) == reliable) then
+      count = count + 1
+    end if
+  end for
+  output = array(count, void)
+  index = 0
+  for each event in unicasts
+    if event.reliable == reliable then
+      output[index] = ServerMessageFragment(event.serial, event.payload)
+      index = index + 1
+    end if
+  end for
+  for each event in multicasts
+    if ssgamemessages.reliableDestination(event.destination) == reliable then
+      output[index] = ServerMessageFragment(event.serial, event.payload)
+      index = index + 1
+    end if
+  end for
+  for each event in sounds
+    if (((event.channelFlags & ssgc.CHAN_RELIABLE) != 0) == reliable) then
+      output[index] = ServerMessageFragment(event.serial,
+        ssoundevents.encode(event))
+      index = index + 1
+    end if
+  end for
+  // Queues are individually ordered; a compact stable insertion merge keeps
+  // the normal tiny per-frame batch allocation-free beyond the result itself.
+  index = 1
+  while index < len(output)
+    selected = output[index]
+    insertion = index
+    while insertion > 0 and output[insertion - 1].serial > selected.serial
+      output[insertion] = output[insertion - 1]
+      insertion = insertion - 1
+    end while
+    output[insertion] = selected
+    index = index + 1
+  end while
+  return output
+end function
+
+// Return only the encoded bytes from ordered frame fragments.
+function frameFragmentPayloads(fragments)
+  output = array(len(fragments), void)
+  index = 0
+  while index < len(fragments)
+    output[index] = fragments[index].payload
+    index = index + 1
+  end while
+  return output
+end function
+
+// Preflight every recipient before mutating any reliable Netchan queue. A
+// blocked client retains the shared reliable source queues for a later frame.
+function queueReliableFrameMessages(runtime, routedUnicasts,
+    routedMulticasts, routedSounds)
+  plans = array(runtime.server.maxClients, void)
+  slot = 0
+  ready = true
+  while slot < runtime.server.maxClients
+    fragments = frameMessageFragments(routedUnicasts[slot],
+      routedMulticasts[slot], routedSounds[slot], true)
+    payloads = frameFragmentPayloads(fragments)
+    plans[slot] = payloads
+    if len(payloads) > 0 then
+      client = runtime.server.clients[slot]
+      canQueue = ssnetchan.canQueueReliableFragments(client.channel, payloads)
+      if canQueue == false then ready = false end if
+    end if
+    slot = slot + 1
+  end while
+  if not ready then return false end if
+  slot = 0
+  while slot < runtime.server.maxClients
+    if len(plans[slot]) > 0 then
+      queued = ssnetchan.queueReliableFragments(
+        runtime.server.clients[slot].channel, plans[slot])
+      if queued == false then return error(9988,
+        "reliable frame-message preflight became stale") end if
+    end if
+    slot = slot + 1
+  end while
+  return true
+end function
+
+// Append the complete transient tail or drop the entire unreliable message.
+// This mirrors SZ_AllowOverflow + SV_SendClientDatagram: an event is never sent
+// without the snapshot entity state it references.
+function composeClientDatagram(snapshotPayload, fragments, maximumPayload)
+  total = len(snapshotPayload)
+  for each fragment in fragments
+    total = total + len(fragment.payload)
+  end for
+  if total > maximumPayload then return bytes() end if
+  message = ssqsz.alloc(maximumPayload)
+  ssqsz.writeBytes(message, snapshotPayload)
+  for each fragment in fragments
+    ssqsz.writeBytes(message, fragment.payload)
+  end for
+  return ssqsz.dataSlice(message)
+end function
+
+// Send one stock-shaped snapshot plus accumulated transient datagram per client.
+function sendSnapshots(session, now, transientRoutes)
   runtime = session.networkRuntime
   slot = 0
   sent = 0
@@ -947,37 +1126,21 @@ function sendSnapshots(session, now)
       if not droppedForRate then
         edict = session.gameExport.edicts[slot + 1]
         entities = packetEntitiesForClient(session, edict)
-        // Netchan's MAX_MSGLEN includes its eight-byte server header.  Encoding
-        // into a 1400-byte payload buffer could therefore succeed only for
-        // transmit() to discard that unreliable tail.  Dense retail scenes can
-        // reach exactly that narrow 1393..1400-byte window and leave a freshly
-        // spawned client waiting forever for its first frame.
-        //
-        // Preserve entity-number order and trim only the tail until the complete
-        // frame fits.  Failed attempts cannot update frame history because
-        // writeFrameForClient commits history only after the final entity marker.
         maximumPayload = sspc.MAX_MSGLEN - sspc.PACKET_HEADER_SERVER
-        entityCount = len(entities)
-        message = void
         candidate = ssqsz.alloc(maximumPayload)
         snapshotAreaBits = areaBits(session, edict)
         snapshotPlayer = protocolPlayer(edict)
-        while entityCount >= 0 and message is void
-          selected = entities
-          if entityCount != len(entities) then
-            selected = sssessionarray.slice(entities, 0, entityCount)
-          end if
-          frame = sssnapshot.createFrame(session.frameNumber, snapshotAreaBits,
-            snapshotPlayer, selected)
-          ssqsz.clear(candidate)
-          encoded = try(ssserver.writeClientFrame(runtime.server, slot, frame,
-            runtime.baselines, candidate))
-          if encoded is not error then message = candidate
-          else entityCount = entityCount - 1
-          end if
-        end while
-        if message is void then return error(9978, "snapshot player state exceeds packet payload budget") end if
-        payload = ssqsz.dataSlice(message)
+        frame = sssnapshot.createFrame(session.frameNumber, snapshotAreaBits,
+          snapshotPlayer, entities)
+        encoded = try(ssserver.writeClientFrame(runtime.server, slot, frame,
+          runtime.baselines, candidate))
+        snapshotPayload = bytes()
+        if encoded is not error then snapshotPayload = ssqsz.dataSlice(candidate) end if
+        payload = composeClientDatagram(snapshotPayload, transientRoutes[slot],
+          maximumPayload)
+        // A snapshot encoding failure is an overflowing unreliable message in
+        // stock SV_SendClientDatagram. Do not let a transient-only tail escape.
+        if encoded is error then payload = bytes() end if
         stats = sspump.sendServerPayload(runtime, session.socket, slot, now, payload)
         ssserver.recordClientMessage(runtime.server, slot, session.frameNumber, len(payload))
         if typeof(stats) == "struct" then sent = sent + stats.sent end if
@@ -1023,29 +1186,39 @@ function step(session)
   synchronizeConfigStrings(session)
   session.frameNumber = session.frameNumber + 1
   session.networkRuntime.server.realTime = now
-  if len(session.bridgeRuntime.pendingUnicasts) > 0 then
-    routedUnicasts = routeUnicasts(session, session.bridgeRuntime.pendingUnicasts)
-    unicastResult = ssunicastdispatch.dispatchRouted(session.networkRuntime, session.socket,
-      session.bridgeRuntime.pendingUnicasts, routedUnicasts, now)
-    session.packetsSent = session.packetsSent + unicastResult.sent
-    if unicastResult.delivered then session.bridgeRuntime.pendingUnicasts = [] end if
+  // Route all GameImport message classes before mutating Netchan. Reliable
+  // fragments are queued atomically; transient fragments are consumed exactly
+  // once and appended after svc_frame/entities by sendSnapshots.
+  pendingUnicasts = session.bridgeRuntime.pendingUnicasts
+  pendingMulticasts = session.bridgeRuntime.pendingMulticasts
+  pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
+  routedUnicasts = routeUnicasts(session, pendingUnicasts)
+  routedMulticasts = routeMulticasts(session, pendingMulticasts)
+  routedSounds = routeSounds(session, pendingSoundBatch)
+  reliableQueued = queueReliableFrameMessages(session.networkRuntime,
+    routedUnicasts, routedMulticasts, routedSounds)
+  transientRoutes = array(session.networkRuntime.server.maxClients, void)
+  transientSlot = 0
+  while transientSlot < session.networkRuntime.server.maxClients
+    transientRoutes[transientSlot] = frameMessageFragments(
+      routedUnicasts[transientSlot], routedMulticasts[transientSlot],
+      routedSounds[transientSlot], false)
+    transientSlot = transientSlot + 1
+  end while
+  if reliableQueued then
+    session.bridgeRuntime.pendingUnicasts = []
+    session.bridgeRuntime.pendingMulticasts = []
+    ssoundevents.clearPending(session.bridgeRuntime)
+  else
+    session.bridgeRuntime.pendingUnicasts = unicastReliabilitySubset(
+      pendingUnicasts, true)
+    session.bridgeRuntime.pendingMulticasts = multicastReliabilitySubset(
+      pendingMulticasts, true)
+    ssoundevents.restorePending(session.bridgeRuntime,
+      soundReliabilitySubset(pendingSoundBatch, true))
   end if
-  if len(session.bridgeRuntime.pendingMulticasts) > 0 then
-    routedMulticasts = routeMulticasts(session, session.bridgeRuntime.pendingMulticasts)
-    multicastResult = ssmulticastdispatch.dispatchRouted(session.networkRuntime, session.socket,
-      session.bridgeRuntime.pendingMulticasts, routedMulticasts, now)
-    session.packetsSent = session.packetsSent + multicastResult.sent
-    if multicastResult.delivered then session.bridgeRuntime.pendingMulticasts = [] end if
-  end if
-  if session.bridgeRuntime.pendingSoundCount > 0 then
-    pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
-    routedSounds = routeSounds(session, pendingSoundBatch)
-    soundResult = ssounddispatch.dispatchRouted(session.networkRuntime, session.socket,
-      pendingSoundBatch, routedSounds, now)
-    session.packetsSent = session.packetsSent + soundResult.sent
-    if soundResult.delivered then ssoundevents.clearPending(session.bridgeRuntime) end if
-  end if
-  session.packetsSent = session.packetsSent + sendSnapshots(session, now)
+  session.packetsSent = session.packetsSent + sendSnapshots(session, now,
+    transientRoutes)
   if (session.frameNumber % 10) == 0 then sscommands.replenishCommandMsec(session.networkRuntime) end if
   return session.frameNumber
 end function
