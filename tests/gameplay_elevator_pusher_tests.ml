@@ -491,4 +491,22 @@ elevatorAssert(elevatortestpusher.resolve(rollbackRuntime,
   elevatorTriggerTouchCount == 1,
   "later team blocker lost the earlier successful SV_Push trigger pass")
 
+// The native game clock advances in decimal 0.1-second ticks while MiniLang
+// stores them as doubles. Treat a multiplication-derived nextthink as due when
+// accumulated frame time differs only in its final floating-point ulps.
+toleranceWorld = elevatortestworld.createWorld(void)
+tolerancePusher = elevatortesttypes.createEntity(100, "func_door")
+tolerancePusher.moveType = elevatortestconstants.MOVETYPE_PUSH
+tolerancePusher.solid = elevatortestconstants.SOLID_BSP
+tolerancePusher.nextThink = 1.0
+tolerancePusher.think = recordElevatorThink
+elevatortestworld.addEntity(toleranceWorld, tolerancePusher)
+toleranceRuntime = ElevatorRuntime(toleranceWorld, void, [], void, void,
+  emptyWeaponContext())
+toleranceCapture = elevatortestpusher.capture(toleranceRuntime)
+elevatorAssert(elevatortestpusher.deferDueThinks(toleranceCapture,
+    0.9999999999999999) == 1 and
+  toleranceCapture.pushers[0].thinkDue and tolerancePusher.nextThink == 0.0,
+  "floating-point tick drift deferred a due mover by one full frame")
+
 print "gameplay_elevator_pusher_tests: PASS"

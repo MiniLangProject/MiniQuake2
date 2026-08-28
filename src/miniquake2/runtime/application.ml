@@ -451,7 +451,8 @@ end function
 // Play save paths.
 function playSavePaths(baseDirectory, slot)
   if typeof(slot) != "int" or slot < 0 or slot > 14 then return error(9925, "play save slot outside [0,14]") end if
-  applicationSaveDirectory = appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
+  applicationSaveDirectory = productSettingsDirectory(baseDirectory)
+  if applicationSaveDirectory is error then return applicationSaveDirectory end if
   applicationSaveStem = "miniquake2_slot" + (slot + 1)
   return [appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_game.sav"),
     appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_level.sav")]
@@ -525,19 +526,22 @@ end function
 // Play save metadata path.
 function playSaveMetadataPath(baseDirectory, slot)
   applicationSaveMetadataPaths = playSavePaths(baseDirectory, slot)
+  if applicationSaveMetadataPaths is error then return applicationSaveMetadataPaths end if
   return applicationSaveMetadataPaths[0] + ".meta"
 end function
 
 // Play screenshot directory.
 function playScreenshotDirectory(baseDirectory)
-  return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
-    appfs.BASE_DIRECTORY_NAME), "screenshots")
+  applicationScreenshotRoot = productSettingsDirectory(baseDirectory)
+  if applicationScreenshotRoot is error then return applicationScreenshotRoot end if
+  return appnativefs.joinPath(applicationScreenshotRoot, "screenshots")
 end function
 
 // Play demo directory.
 function playDemoDirectory(baseDirectory)
-  return appnativefs.joinPath(appnativefs.joinPath(baseDirectory,
-    appfs.BASE_DIRECTORY_NAME), "demos")
+  applicationDemoRoot = productSettingsDirectory(baseDirectory)
+  if applicationDemoRoot is error then return applicationDemoRoot end if
+  return appnativefs.joinPath(applicationDemoRoot, "demos")
 end function
 
 // Return the ends with value.
@@ -1932,8 +1936,8 @@ end function
 
 // Private `current` archive used between maps within one Quake II unit.
 function playCurrentArchivePaths(baseDirectory)
-  applicationCurrentSaveDirectory = appnativefs.joinPath(baseDirectory,
-    appfs.BASE_DIRECTORY_NAME)
+  applicationCurrentSaveDirectory = productSettingsDirectory(baseDirectory)
+  if applicationCurrentSaveDirectory is error then return applicationCurrentSaveDirectory end if
   return [appnativefs.joinPath(applicationCurrentSaveDirectory,
     "miniquake2_current_game.sav"),
     appnativefs.joinPath(applicationCurrentSaveDirectory,
@@ -2321,6 +2325,26 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     applicationProductFrames, applicationProductFinalConfig)
 end function
 
+// Consume a multiplayer request made from an active local game's menu. The
+// caller tears the current listen session down before the product loop starts
+// the selected replacement, so no single-player Game API state leaks into the
+// new server or remote connection.
+function takeActiveProductSelection(commandState, playerProfile, productConfig)
+  if appuicommands.takeStartServer(commandState) then
+    applicationActiveServerOptions = appuicommands.serverOptions(commandState)
+    return ProductMenuSelection("server", applicationActiveServerOptions.mapName,
+      1, "", applicationActiveServerOptions, playerProfile,
+      appuicommands.downloadPolicy(commandState), 0, productConfig)
+  end if
+  applicationActiveConnectAddress = appuicommands.takeConnectAddress(commandState)
+  if applicationActiveConnectAddress != "" then
+    return ProductMenuSelection("connect", "", 1,
+      applicationActiveConnectAddress, void, playerProfile,
+      appuicommands.downloadPolicy(commandState), 0, productConfig)
+  end if
+  return void
+end function
+
 // Construct and drive one authoritative local/listen session inside an
 // existing product host. Loading, signon and renderer warm-up finish before
 // audio starts; every exit path returns a complete transition/diagnostic value.
@@ -2661,6 +2685,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   applicationPendingMediaSpecification = ""
   applicationNextSkill = skill
   applicationDisconnectRequested = false
+  applicationNextProductSelection = void
   while (frameLimit == 0 or frames < frameLimit) and not commandState.quitRequested and
       not applicationDisconnectRequested and
       applicationPendingMediaSpecification == "" and
@@ -2828,6 +2853,18 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       applicationPendingMediaSpecification = "*base1"
       screen.menu.active = false
       appuikeys.setDestination(input, appuiconstants.KEY_GAME)
+    end if
+    if applicationPendingMediaSpecification == "" then
+      applicationActiveProductConfig = appuiconfig.captureProductConfig(
+        input, commandState, audioMixer, screen)
+      applicationNextProductSelection = takeActiveProductSelection(commandState,
+        applicationCurrentPlayerProfile, applicationActiveProductConfig)
+      if applicationNextProductSelection is not void then
+        applicationDisconnectRequested = true
+        screen.menu.active = false
+        appuikeys.setDestination(input, appuiconstants.KEY_GAME)
+        continue
+      end if
     end if
     applicationForwardedCommands = appuicommands.takeForwarded(commandState)
     for each applicationForwardedCommand in applicationForwardedCommands
@@ -3470,7 +3507,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     applicationPerfInput, applicationPendingMediaSpecification,
     applicationNextSkill, applicationCurrentMapName,
     applicationFinalProductConfig, applicationCurrentPlayerProfile,
-    applicationFinalGameplayHandover]
+    applicationFinalGameplayHandover, applicationNextProductSelection]
 end function
 
 // Report whether run play at on host configured with config.
@@ -4290,6 +4327,7 @@ function runProduct(baseDirectory, frameLimit)
   applicationPersistentMenuFrames = 0
   applicationPersistentGameplayFrames = 0
   applicationPersistentDone = false
+  applicationPersistentQueuedSelection = void
   applicationPersistentAttract = void
   if frameLimit == 0 then
     applicationPersistentAttract = try(runStockAttractLoopOnHost(
@@ -4305,10 +4343,16 @@ function runProduct(baseDirectory, frameLimit)
     end if
   end if
   while not applicationPersistentDone
-    applicationPersistentSelection = runProductMenuOnHost(baseDirectory,
-      applicationPersistentHost, frameLimit, applicationPersistentProfile)
-    applicationPersistentMenuFrames = applicationPersistentMenuFrames +
-      applicationPersistentSelection.frames
+    applicationPersistentSelection = void
+    if applicationPersistentQueuedSelection is void then
+      applicationPersistentSelection = runProductMenuOnHost(baseDirectory,
+        applicationPersistentHost, frameLimit, applicationPersistentProfile)
+      applicationPersistentMenuFrames = applicationPersistentMenuFrames +
+        applicationPersistentSelection.frames
+    else
+      applicationPersistentSelection = applicationPersistentQueuedSelection
+      applicationPersistentQueuedSelection = void
+    end if
     applicationPersistentProfile = applicationPersistentSelection.playerProfile
     if applicationPersistentSelection.action == "quit" then
       applicationPersistentDone = true
@@ -4420,6 +4464,14 @@ function runProduct(baseDirectory, frameLimit)
         applicationPersistentProfile = applicationPersistentMediaResult[9]
       end if
     end if
+    // A user can request multiplayer from any campaign map, including a map
+    // entered through the iterative gamemap/media runner. Inspect the final
+    // returned play result only after that runner has handed it back.
+    if len(applicationPersistentPlayResult) >= 51 and
+        applicationPersistentPlayResult[50] is not void then
+      applicationPersistentQueuedSelection = applicationPersistentPlayResult[50]
+    end if
+    if applicationPersistentQueuedSelection is not void then continue end if
     if len(applicationPersistentPlayResult) < 19 or
         not applicationPersistentPlayResult[18] then
       applicationPersistentDone = true

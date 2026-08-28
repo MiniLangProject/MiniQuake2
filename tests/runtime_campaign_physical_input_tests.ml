@@ -9,6 +9,7 @@ import miniquake2.game.null_game as physicalinputgame
 import miniquake2.game.integration.baseq2 as physicalinputintegration
 import miniquake2.game.world.constants as physicalinputworldconstants
 import miniquake2.qcommon.constants as physicalinputqconstants
+import miniquake2.qcommon.types as physicalinputqtypes
 import miniquake2.game.weapons.constants as physicalinputweaponconstants
 
 // Assert the physical input test condition.
@@ -121,6 +122,74 @@ function physicalInputRetail(baseDirectory)
     " snapshots=" + physicalInputRetailReport.snapshots +
     " packets=" + physicalInputRetailReport.packets)
   physicalinputsession.shutdown(physicalInputRetailSession)
+
+  // base1 exits through a downward shaft into base2$base1. The named base2
+  // spawn sits inside the receiving func_door elevator, so real zero-input
+  // PMove frames must settle on that inline brush instead of falling through
+  // it while the new level finishes its first server frames.
+  physicalInputElevatorSession = physicalinputsession.createRetailAtSkill(
+    baseDirectory, "base2", "base1",
+    "\\name\\ElevatorRetail\\skin\\male/grunt\\rate\\25000", 0)
+  physicalinputsession.runUntilActive(physicalInputElevatorSession, 512)
+  physicalInputElevatorRuntime = physicalinputgame.baseRuntime()
+  physicalInputElevatorPlayer = physicalinputgame.playerContext().players[0]
+  physicalInputElevator = void
+  for each physicalInputElevatorEntity in physicalInputElevatorRuntime.world.entities
+    if physicalInputElevatorEntity.className == "func_door" and
+        physicalInputElevatorEntity.targetName == "t7" then
+      physicalInputElevator = physicalInputElevatorEntity
+    end if
+  end for
+  physicalInputAssert(physicalInputElevator is not void,
+    "retail base2 receiving elevator is missing")
+  physicalInputElevatorStartZ = physicalInputElevatorPlayer.edict.state.origin.z
+  physicalInputElevatorMinimumZ = physicalInputElevatorStartZ
+  physicalInputElevatorStep = 0
+  while physicalInputElevatorStep < 40
+    physicalinputsession.setUserCmd(physicalInputElevatorSession,
+      physicalinputqtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 0, 0, 0))
+    physicalinputsession.step(physicalInputElevatorSession)
+    if physicalInputElevatorPlayer.edict.state.origin.z <
+        physicalInputElevatorMinimumZ then
+      physicalInputElevatorMinimumZ = physicalInputElevatorPlayer.edict.state.origin.z
+    end if
+    physicalInputElevatorStep = physicalInputElevatorStep + 1
+  end while
+  physicalInputAssert(physicalInputElevatorPlayer.health > 0 and
+    physicalInputElevatorMinimumZ >= -263.0 and
+    physicalInputElevatorPlayer.edict.state.origin.z >= -263.0,
+    "retail base2 player fell through the receiving elevator")
+  physicalInputElevatorRestZ = physicalInputElevatorPlayer.edict.state.origin.z
+  physicalInputElevatorBrushStartZ = physicalInputElevator.origin.z
+  physicalInputElevatorProxy = physicalinputintegration.playerWorldProxy(
+    physicalInputElevatorPlayer)
+  physicalInputElevator.use(physicalInputElevator, physicalInputElevatorProxy,
+    physicalInputElevatorProxy, physicalInputElevatorRuntime.world)
+  physicalInputElevatorStep = 0
+  while physicalInputElevatorStep < 90
+    physicalinputsession.setUserCmd(physicalInputElevatorSession,
+      physicalinputqtypes.UserCmd(100, 0, [0, 0, 0], 0, 0, 0, 0, 0))
+    physicalinputsession.step(physicalInputElevatorSession)
+    physicalInputElevatorStep = physicalInputElevatorStep + 1
+  end while
+  print("runtime_campaign_physical_input_tests: retail base2 elevator cycle" +
+    " rest-z=" + physicalInputElevatorRestZ +
+    " player-z=" + physicalInputElevatorPlayer.edict.state.origin.z +
+    " start-brush-z=" + physicalInputElevatorBrushStartZ +
+    " brush-z=" + physicalInputElevator.origin.z)
+  physicalInputAssert(physicalInputElevator.origin.z ==
+      physicalInputElevatorBrushStartZ and
+    physicalInputElevatorPlayer.edict.state.origin.z >=
+      physicalInputElevatorRestZ - 1.0 and
+    physicalInputElevatorPlayer.edict.state.origin.z <=
+      physicalInputElevatorRestZ + 1.0,
+    "retail base2 elevator moved through its player rider")
+  print("runtime_campaign_physical_input_tests: retail base2 elevator PASS" +
+    " start-z=" + physicalInputElevatorStartZ +
+    " minimum-z=" + physicalInputElevatorMinimumZ +
+    " end-z=" + physicalInputElevatorPlayer.edict.state.origin.z +
+    " brush-z=" + physicalInputElevator.origin.z)
+  physicalinputsession.shutdown(physicalInputElevatorSession)
   return true
 end function
 

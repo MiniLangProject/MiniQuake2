@@ -336,7 +336,12 @@ end function
 function deferDueThinks(captureState, targetTime)
   deferred = 0
   for each snapshot in captureState.pushers
-    if snapshot.nextThink > 0.0 and snapshot.nextThink <= targetTime and
+    // MiniLang keeps gameplay time as a double. Repeated 0.1 additions can
+    // leave the frame target a few ulps below a nextthink computed by a
+    // multiplication (for example 5.599999999999999 vs 5.6). Missing that
+    // boundary lets a 100-unit/s door travel one whole extra 10-unit frame.
+    // Quake II's float scheduler treats both values as the same game tick.
+    if snapshot.nextThink > 0.0 and snapshot.nextThink <= targetTime + 0.000001 and
         snapshot.think is not void then
       snapshot.thinkDue = true
       snapshot.entity.nextThink = 0.0
