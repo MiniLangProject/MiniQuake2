@@ -157,10 +157,8 @@ for each gibEntity in runtime.world.entities
       "new gib did not own an initialized old-origin value copy")
   end if
 end for
-api.runFrame()
-api.runFrame()
 deathEffectAssert(soldier.activity == "gib" and soldier.edict.inUse == false,
-  "over-gib terminal hides original monster edict")
+  "over-gib terminal hides original monster edict immediately")
 
 supertankIndex = deathEffectMonsterIndex(runtime, "monster_supertank")
 supertank = runtime.monsters[supertankIndex]
@@ -300,14 +298,23 @@ deathEffectAssert(gunner.health == gunnerCorpseHealth - 10 and
   gunner.activity == "corpse" and gunner.edict.inUse,
   "non-gib corpse damage preserves the terminal corpse")
 gibsBefore = deathEffectWorldGibs(runtime, true)
+// A fly-covered corpse must disappear immediately when later overkilled. The
+// flies think used to outrank the queued gib reaction indefinitely.
+gunner.edict.state.effects = gunner.edict.state.effects |
+  deatheffectconstants.EF_FLIES
+gunner.edict.state.sound = 91
+gunner.thinkKind = "flies-off"
+gunner.nextThink = runtime.world.time + 60.0
 corpseGibDamage = gunner.health - gunner.gibHealth
 deathEffectAssert(deatheffectintegration.damageMonster(runtime, gunnerIndex,
   void, corpseGibDamage), "corpse crossing gib_health dispatches stock gibs")
 deathEffectAssert(deathEffectWorldGibs(runtime, true) - gibsBefore == 7 and
-  gunner.takeDamage == 0, "gunner corpse becomes seven shootable gib edicts")
-api.runFrame(); api.runFrame()
-deathEffectAssert(gunner.activity == "gib" and not gunner.edict.inUse,
-  "gibbed corpse leaves the Protocol snapshot")
+  gunner.takeDamage == 0 and gunner.activity == "gib" and
+  not gunner.edict.inUse and
+  (gunner.edict.state.effects & deatheffectconstants.EF_FLIES) == 0 and
+  gunner.edict.state.sound == 0 and gunner.thinkKind == "none" and
+  gunner.nextThink == 0.0,
+  "fly-covered gunner corpse becomes seven gibs and leaves immediately")
 
 api.shutdown()
 deatheffectfs.delete(deathEffectSavePath)

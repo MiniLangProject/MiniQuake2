@@ -182,6 +182,7 @@ applicationResourceCache = ApplicationResourceCache("", void,
   array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
   array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
 applicationPusherOffsetValue = appqtypes.zeroVec3()
+applicationPusherPredictionOffsetValue = appqtypes.zeroVec3()
 
 // Return the camera-space correction produced by rendering one ridden pusher
 // between two adjacent snapshots.  Deriving the correction from the snapshot
@@ -230,13 +231,36 @@ function applicationPusherSnapshotOffset(client, groundNumber, fraction,
   return offset
 end function
 
-// Return the interpolation offset for a locally ridden MOVETYPE_PUSH/STOP
-// brush. Server positions arrive at 10 Hz; subtracting the still-unrendered
-// part of the current pusher step keeps the camera and view weapon attached to
-// the brush instead of snapping the player forward once per game frame.
+// Return only the pusher correction not already supplied by Quake II's normal
+// prediction-error interpolation. A carried player produces the complete
+// endpoint displacement as a prediction error, so adding the raw snapshot
+// offset again would ease the same 100-ms translation twice. The residual is
+// zero for a translating lift and retains only the curved-path correction for
+// a rotating pusher.
+function applicationPusherPredictionOffset(client, groundNumber, fraction,
+    riderOrigin)
+  global applicationPusherPredictionOffsetValue
+  correction = applicationPusherPredictionOffsetValue
+  correction.x = 0.0; correction.y = 0.0; correction.z = 0.0
+  initialOffset = applicationPusherSnapshotOffset(client, groundNumber, 0.0,
+    riderOrigin)
+  initialX = initialOffset.x; initialY = initialOffset.y
+  initialZ = initialOffset.z
+  renderOffset = applicationPusherSnapshotOffset(client, groundNumber,
+    fraction, riderOrigin)
+  backLerp = 1.0 - appclientstate.clampFraction(fraction)
+  correction.x = renderOffset.x - backLerp * initialX
+  correction.y = renderOffset.y - backLerp * initialY
+  correction.z = renderOffset.z - backLerp * initialZ
+  return correction
+end function
+
+// Return the residual interpolation offset for a locally ridden
+// MOVETYPE_PUSH/STOP brush. Translation is already covered by the stock
+// prediction-error path; rotating pushers still need their nonlinear arc.
 function applicationLocalPusherOffset(session, fraction)
-  global applicationPusherOffsetValue
-  offset = applicationPusherOffsetValue
+  global applicationPusherPredictionOffsetValue
+  offset = applicationPusherPredictionOffsetValue
   offset.x = 0.0; offset.y = 0.0; offset.z = 0.0
   runtime = appgame.baseRuntime()
   playerContext = appgame.playerContext()
@@ -252,7 +276,7 @@ function applicationLocalPusherOffset(session, fraction)
   pusher = appbaseq2.findWorldByNumber(runtime, groundNumber)
   if pusher is void or (pusher.moveType != appworldconstants.MOVETYPE_PUSH and
       pusher.moveType != appworldconstants.MOVETYPE_STOP) then return offset end if
-  return applicationPusherSnapshotOffset(session.client.integrated.client,
+  return applicationPusherPredictionOffset(session.client.integrated.client,
     groundNumber, fraction, player.edict.state.origin)
 end function
 

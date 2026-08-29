@@ -97,6 +97,20 @@ function main(args)
     pusherClient, 7, 1.0, productqtypes.vec3(20.0, 0.0, 0.0))
   assertTrue(finishedOffset.x == 0.0 and finishedOffset.y == 0.0 and
     finishedOffset.z == 0.0, "pusher correction converges at current snapshot")
+  // CL_CheckPredictionError already interpolates the full endpoint delta of a
+  // rider carried by a translating pusher. The host must not add it twice at
+  // any presentation phase between the two 10-Hz snapshots.
+  phaseIndex = 0
+  pusherPhases = [0.0, 0.25, 0.5, 0.75, 1.0]
+  while phaseIndex < len(pusherPhases)
+    phaseOffset = productapplication.applicationPusherPredictionOffset(
+      pusherClient, 7, pusherPhases[phaseIndex],
+      productqtypes.vec3(20.0, 0.0, 0.0))
+    assertTrue(phaseOffset.x == 0.0 and phaseOffset.y == 0.0 and
+      phaseOffset.z == 0.0,
+      "translating elevator was corrected twice during interpolation")
+    phaseIndex = phaseIndex + 1
+  end while
 
   rotatingClient = productclientstate.create()
   productclientstate.acceptSnapshot(rotatingClient, productsnapshot.SnapshotFrame(
@@ -107,6 +121,10 @@ function main(args)
     rotatingClient, 7, 0.0, productqtypes.vec3(0.0, 10.0, 0.0))
   assertTrue(rotatingOffset.x != 0.0 or rotatingOffset.y != 0.0,
     "rotating pusher applies angular rider correction")
+  rotatingResidual = productapplication.applicationPusherPredictionOffset(
+    rotatingClient, 7, 0.5, productqtypes.vec3(0.0, 10.0, 0.0))
+  assertTrue(rotatingResidual.x != 0.0 or rotatingResidual.y != 0.0,
+    "rotating pusher retains nonlinear arc correction")
   renderer = productopengl.createOpenGlRenderer(false)
   assertTrue(typeof(renderer) == "struct", "product-graph renderer binding")
   assertTrue(typeof(renderer.state) == "struct", "product-graph renderer state")

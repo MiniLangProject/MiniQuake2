@@ -157,6 +157,9 @@ function testClassicDrawingHelpers()
   shadow.flags = rc.RF_WEAPONMODEL
   assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
     "view weapon does not cast shadow")
+  shadow.flags = rc.RF_FULLBRIGHT
+  assertEqual(ogl.md2ShadowEligible(renderer, shadow), false,
+    "fullbright flashes and explosions do not cast shadows")
   shadow.flags = 0
   assertNear(ogl.md2ShadowVectorX(0.0), 0.7071067812, 0.000001,
     "classic shadow yaw-zero x vector")

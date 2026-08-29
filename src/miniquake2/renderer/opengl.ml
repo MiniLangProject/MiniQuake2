@@ -41,6 +41,7 @@ const GL_TRIANGLE_FAN = 0x0006
 const GL_QUADS = 0x0007
 const GL_DEPTH_BUFFER_BIT = 0x00000100
 const GL_COLOR_BUFFER_BIT = 0x00004000
+const GL_LESS = 0x0201
 const GL_EQUAL = 0x0202
 const GL_GREATER = 0x0204
 const GL_LEQUAL = 0x0203
@@ -1525,7 +1526,11 @@ end function
 // Open gl md 2 shadow eligible.
 function inline openGlMd2ShadowEligible(backend, entity)
   return backend.shadows and
-    (entity.flags & (rc.RF_TRANSLUCENT | rc.RF_WEAPONMODEL)) == 0
+    // Fullbright aliases are transient flashes, explosions and beam segments.
+    // Projecting them produced nonsensical explosion shadows and made bullet
+    // impact flashes look like world polygons flickering into the view.
+    (entity.flags & (rc.RF_TRANSLUCENT | rc.RF_WEAPONMODEL |
+      rc.RF_FULLBRIGHT)) == 0
 end function
 
 // Open gl md 2 shadow vector x.
@@ -1553,6 +1558,11 @@ function drawOpenGlMd2ShadowPass(backend, frame)
   native.glEnable(GL_BLEND)
   native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
   native.glColor4ub(0, 0, 0, 128)
+  // Every projected MD2 triangle lies on the same receiver plane. GL_LEQUAL
+  // blends coplanar back-facing triangles repeatedly, exposing the mesh as
+  // overlapping translucent pieces. The first fragment owns each pixel under
+  // GL_LESS, yielding one coherent silhouette.
+  native.glDepthFunc(GL_LESS)
   submitted = 0
   entityIndex = 0
   while entityIndex < frame.numEntities
@@ -1581,7 +1591,7 @@ function drawOpenGlMd2ShadowPass(backend, frame)
         native.glRotate(bits(entity.angles.y), bits(0.0), bits(0.0), bits(1.0))
         native.glRotate(bits(-entity.angles.x), bits(0.0), bits(1.0), bits(0.0))
         native.glRotate(bits(-entity.angles.z), bits(1.0), bits(0.0), bits(0.0))
-        drawn = native.glDrawMd2ShadowSoft(modelData, len(modelData), frameIndex,
+        drawn = native.glDrawMd2Shadow(modelData, len(modelData), frameIndex,
           oldFrameIndex, bits(backLerp), normalVectors,
           len(ropengldirections.normals), nativeRawValue(modelAsset),
           geometryState, len(modelAsset.source.triangles),
@@ -1598,6 +1608,7 @@ function drawOpenGlMd2ShadowPass(backend, frame)
     entityIndex = entityIndex + 1
   end while
   native.glColor4ub(255, 255, 255, 255)
+  native.glDepthFunc(GL_LEQUAL)
   native.glDisable(GL_BLEND)
   native.glEnable(GL_TEXTURE_2D)
   return submitted

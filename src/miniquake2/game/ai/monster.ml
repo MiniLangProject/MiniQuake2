@@ -1237,9 +1237,18 @@ function DispatchDie(actor, attacker, damage, context)
     if plan.terminalKind == "gib" then
       gaiGibResult = gaideatheffects.emitMonsterGibs(actor, damage, context)
       if gaiGibResult is error then return gaiGibResult end if
-      // The emitted head/gib edicts remain independently shootable. Remove
-      // the original corpse from targeting immediately to prevent duplicates.
+      // ThrowHead removes the original monster immediately in stock Quake II.
+      // A corpse may currently own M_FliesOff; leaving that higher-priority
+      // think installed prevents the one-frame gib reaction from ever reaching
+      // FinishReaction and leaves an invulnerable fly-covered corpse visible.
+      // The emitted head/gib edicts remain independently shootable.
       actor.takeDamage = 0
+      actor.edict.state.effects = actor.edict.state.effects & ~gconstants.EF_FLIES
+      actor.edict.state.sound = 0
+      actor.thinkKind = "none"
+      actor.activity = "gib"
+      actor.nextThink = 0.0
+      actor.edict.inUse = false
     end if
   end if
   if alreadyDead then return result end if

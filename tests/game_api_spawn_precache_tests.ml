@@ -524,9 +524,10 @@ for each bodyGibCandidate in runtime.world.entities
   end if
 end for
 assertTrue(copiedBody.takeDamage == 0 and copiedBody.solid == 0 and
+  copiedBody.clipMask == 0 and copiedBody.groundEntity is void and
   copiedBody.model == "models/objects/gibs/head2/tris.md2" and
   bodyGibsAfter == bodyGibsBefore + 4,
-  "body queue corpse damage produces four gibs and a client head")
+  "body queue corpse damage produces four gibs and a non-player-clipping client head")
 
 // G_Spawn does not reuse an ordinary freed slot for 0.5 seconds once the
 // relaxed first-two-seconds startup interval has elapsed.

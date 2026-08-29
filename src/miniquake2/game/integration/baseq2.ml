@@ -215,6 +215,12 @@ function bodyQueueDie(entity, inflictor, attacker, damage, point, world)
   entity.maxs = ibqtypes.Vec3(16.0, 16.0, 16.0)
   entity.takeDamage = ibworldconstants.DAMAGE_NO
   entity.solid = ibworldconstants.SOLID_NOT
+  // CopyToBodyQue inherits MASK_PLAYERSOLID from the live client. The body
+  // head is a non-solid toss entity and must fall with the stock MASK_SOLID
+  // default; retaining the player mask lets it collide with and rest on a
+  // nearby player in mid-air.
+  entity.clipMask = 0
+  entity.groundEntity = void
   entity.effects = ibgconstants.EF_GIB
   entity.loopSound = 0
   entity.moveType = ibworldconstants.MOVETYPE_BOUNCE
