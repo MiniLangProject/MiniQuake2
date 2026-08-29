@@ -114,6 +114,15 @@ function movedir(angles)
   return qt.Vec3(pitchCosine * yawCosine, pitchCosine * yawSine, -pitchSine)
 end function
 
+// Convert an authored entity angle to a movement direction and clear the
+// render angles exactly as Quake II's G_SetMovedir does.  Brush movers must
+// not retain this angle: it describes translation, not model rotation.
+function setMovedir(entity)
+  direction = movedir(entity.angles)
+  entity.angles = qt.zeroVec3()
+  return direction
+end function
+
 // Return the to angles.
 function toAngles(direction)
   vector = requireWorldVector(direction, "world vector toAngles")

@@ -212,7 +212,7 @@ end function
 
 // Spawn button.
 function spawnButton(entity, world)
-  entity.moveDirection = gwvector.movedir(entity.angles)
+  entity.moveDirection = gwvector.setMovedir(entity)
   entity.moveType = gwconstants.MOVETYPE_STOP
   entity.solid = gwconstants.SOLID_BSP
   if entity.speed == 0.0 then entity.speed = 40.0 end if

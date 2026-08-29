@@ -390,16 +390,23 @@ function testButton()
   receiver.use = countUses
   button = gwcore.spawnEntity(world, "func_button")
   button.size = qt.Vec3(16.0, 8.0, 8.0)
+  button.angles = qt.Vec3(0.0, 180.0, 0.0)
   button.target = "button-out"
   button.wait = 0.2
   gwmovers.spawnButton(button, world)
+  assertNear(button.angles.x, 0.0, 0.000001,
+    "button clears authored pitch after movedir")
+  assertNear(button.angles.y, 0.0, 0.000001,
+    "button clears authored yaw after movedir")
+  assertNear(button.angles.z, 0.0, 0.000001,
+    "button clears authored roll after movedir")
   gwcore.useEntity(world, button, receiver, receiver)
   gwcore.advance(world, 0.39)
   assertEqual(receiver.count, 0, "button target waits for top")
   gwcore.advance(world, 0.4)
   assertEqual(button.moveInfo.state, gwconstants.STATE_TOP, "button reaches top")
   assertEqual(receiver.count, 1, "button fires at top")
-  assertNear(button.origin.x, 12.0, 0.000001, "button top position")
+  assertNear(button.origin.x, -12.0, 0.000001, "button top position")
   gwcore.advance(world, 1.0)
   assertEqual(button.moveInfo.state, gwconstants.STATE_BOTTOM, "button returns")
   assertNear(button.origin.x, 0.0, 0.000001, "button bottom position")

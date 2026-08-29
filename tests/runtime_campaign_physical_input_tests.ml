@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Real UDP UserCmd -> PMove/weapon/snapshot physical playtest gate. */
 import miniquake2.runtime.campaign_playtest as physicalinputplaytest
 import miniquake2.runtime.play_session as physicalinputsession
+import miniquake2.runtime.server_session as physicalinputserversession
 import miniquake2.game.null_game as physicalinputgame
 import miniquake2.game.integration.baseq2 as physicalinputintegration
 import miniquake2.game.world.constants as physicalinputworldconstants
@@ -60,6 +61,9 @@ function physicalInputRetail(baseDirectory)
   physicalInputRetailPlayer = physicalinputgame.playerContext().players[0]
   physicalInputRetailDoorTrigger = void
   physicalInputRetailBarrel = void
+  physicalInputRetailCanalButton = void
+  physicalInputRetailCanalDoor = void
+  physicalInputRetailButtonCount = 0
   physicalInputRetailDoorTriggerCount = 0
   for each physicalInputRetailEntity in physicalInputRetailRuntime.world.entities
     if physicalInputRetailEntity.className == "door_trigger" then
@@ -70,6 +74,14 @@ function physicalInputRetail(baseDirectory)
     else if physicalInputRetailEntity.className == "misc_explobox" and
         physicalInputRetailBarrel is void then
       physicalInputRetailBarrel = physicalInputRetailEntity
+    else if physicalInputRetailEntity.className == "func_button" then
+      physicalInputRetailButtonCount = physicalInputRetailButtonCount + 1
+      if physicalInputRetailEntity.model == "*34" then
+        physicalInputRetailCanalButton = physicalInputRetailEntity
+      end if
+    else if physicalInputRetailEntity.className == "func_door" and
+        physicalInputRetailEntity.model == "*31" then
+      physicalInputRetailCanalDoor = physicalInputRetailEntity
     end if
   end for
   physicalInputAssert(physicalInputRetailDoorTriggerCount >= 2 and
@@ -88,6 +100,89 @@ function physicalInputRetail(baseDirectory)
     physicalInputRetailDoor.moveInfo.state ==
       physicalinputworldconstants.STATE_UP,
     "retail base1 automatic door did not open on player touch")
+
+  // base1 owns two authored func_button inline brushes.  Model *34 is the
+  // visible wall switch whose target t4 opens the canal door *31.  Validate
+  // the complete retail path: spawn, setmodel bounds, protocol snapshot and
+  // touch activation.  A synthetic *1 button cannot catch missing switches in
+  // the shipped BSP because it does not exercise its real PVS/area linkage.
+  physicalInputAssert(physicalInputRetailButtonCount == 2 and
+    physicalInputRetailCanalButton is not void and
+    physicalInputRetailCanalDoor is not void,
+    "retail base1 canal button or target door is missing")
+  physicalInputRetailButtonEdict = physicalInputRetailSession.server.gameExport.edicts[
+    physicalInputRetailCanalButton.number]
+  physicalInputAssert(physicalInputRetailCanalButton.solid ==
+      physicalinputworldconstants.SOLID_BSP and
+    physicalInputRetailCanalButton.modelIndex > 0 and
+    physicalInputRetailButtonEdict.state.modelIndex ==
+      physicalInputRetailCanalButton.modelIndex and
+    physicalInputRetailButtonEdict.state.solid == 31 and
+    physicalInputRetailButtonEdict.absoluteMaxs.x >
+      physicalInputRetailButtonEdict.absoluteMins.x and
+    physicalInputRetailButtonEdict.numClusters != 0,
+    "retail base1 canal button lost its inline BSP network state" +
+    " solid=" + physicalInputRetailCanalButton.solid +
+    " model=" + physicalInputRetailCanalButton.modelIndex +
+    " state-model=" + physicalInputRetailButtonEdict.state.modelIndex +
+    " state-solid=" + physicalInputRetailButtonEdict.state.solid +
+    " clusters=" + physicalInputRetailButtonEdict.numClusters +
+    " min-x=" + physicalInputRetailButtonEdict.absoluteMins.x +
+    " max-x=" + physicalInputRetailButtonEdict.absoluteMaxs.x)
+  physicalInputRetailPlayerEdict = physicalInputRetailPlayer.edict
+  physicalInputRetailSavedOrigin = physicalInputRetailPlayerEdict.state.origin
+  physicalInputRetailButtonCenter = physicalinputqtypes.Vec3(
+    (physicalInputRetailButtonEdict.absoluteMins.x +
+      physicalInputRetailButtonEdict.absoluteMaxs.x) * 0.5,
+    (physicalInputRetailButtonEdict.absoluteMins.y +
+      physicalInputRetailButtonEdict.absoluteMaxs.y) * 0.5,
+    (physicalInputRetailButtonEdict.absoluteMins.z +
+      physicalInputRetailButtonEdict.absoluteMaxs.z) * 0.5)
+  physicalInputRetailButtonVisible = false
+  physicalInputRetailButtonPacket = []
+  physicalInputRetailButtonOffsets = [
+    physicalinputqtypes.Vec3(-64.0, 0.0, 0.0),
+    physicalinputqtypes.Vec3(64.0, 0.0, 0.0),
+    physicalinputqtypes.Vec3(0.0, -64.0, 0.0),
+    physicalinputqtypes.Vec3(0.0, 64.0, 0.0),
+    physicalinputqtypes.Vec3(0.0, 0.0, 64.0)
+  ]
+  for each physicalInputRetailButtonOffset in physicalInputRetailButtonOffsets
+    physicalInputRetailPlayerEdict.state.origin = physicalinputqtypes.Vec3(
+      physicalInputRetailButtonCenter.x + physicalInputRetailButtonOffset.x,
+      physicalInputRetailButtonCenter.y + physicalInputRetailButtonOffset.y,
+      physicalInputRetailButtonCenter.z + physicalInputRetailButtonOffset.z)
+    physicalInputRetailButtonPacket = physicalinputserversession.packetEntitiesForClient(
+      physicalInputRetailSession.server, physicalInputRetailPlayerEdict)
+    for each physicalInputRetailButtonState in physicalInputRetailButtonPacket
+      if physicalInputRetailButtonState.number == physicalInputRetailCanalButton.number then
+        physicalInputRetailButtonVisible = true
+      end if
+    end for
+  end for
+  physicalInputRetailPlayerEdict.state.origin = physicalInputRetailSavedOrigin
+  physicalInputAssert(physicalInputRetailButtonVisible,
+    "retail base1 canal button is absent from nearby client snapshots")
+  physicalInputRetailCanalDoorStart = physicalinputqtypes.Vec3(
+    physicalInputRetailCanalDoor.origin.x,
+    physicalInputRetailCanalDoor.origin.y,
+    physicalInputRetailCanalDoor.origin.z)
+  physicalInputAssert(physicalinputintegration.touchWorld(
+      physicalInputRetailRuntime, physicalInputRetailCanalButton,
+      physicalInputRetailPlayer) and
+    physicalInputRetailCanalButton.moveInfo.state ==
+      physicalinputworldconstants.STATE_UP,
+    "retail base1 canal button did not react to player touch")
+  physicalInputRetailButtonStep = 0
+  while physicalInputRetailButtonStep < 20
+    physicalinputgame.RunFrame()
+    physicalInputRetailButtonStep = physicalInputRetailButtonStep + 1
+  end while
+  physicalInputAssert(physicalInputRetailCanalDoor.origin.x !=
+      physicalInputRetailCanalDoorStart.x or
+    physicalInputRetailCanalDoor.origin.y != physicalInputRetailCanalDoorStart.y or
+    physicalInputRetailCanalDoor.origin.z != physicalInputRetailCanalDoorStart.z,
+    "retail base1 canal button did not open target door t4")
 
   // Every living base1 monster must remain advertised as damageable and be
   // reachable by the same integrated MASK_SHOT path used by player weapons.
@@ -127,12 +222,21 @@ function physicalInputRetail(baseDirectory)
   physicalInputAssert(not physicalInputRetailBarrel.inUse and
     len(physicalInputRetailMulticasts) > physicalInputRetailMulticastBefore,
     "retail base1 barrel did not complete a visible explosion")
-  physicalInputRetailExplosion = physicalInputRetailMulticasts[
-    len(physicalInputRetailMulticasts) - 1]
-  physicalInputAssert(physicalInputRetailExplosion.payload[0] ==
-      physicalinputqconstants.SVC_TEMP_ENTITY and
-    physicalInputRetailExplosion.payload[1] ==
-      physicalinputweaponconstants.TE_EXPLOSION2,
+  physicalInputRetailExplosion = void
+  physicalInputRetailMulticastIndex = physicalInputRetailMulticastBefore
+  while physicalInputRetailMulticastIndex < len(physicalInputRetailMulticasts)
+    physicalInputRetailCandidate = physicalInputRetailMulticasts[
+      physicalInputRetailMulticastIndex]
+    if len(physicalInputRetailCandidate.payload) >= 2 and
+        physicalInputRetailCandidate.payload[0] ==
+          physicalinputqconstants.SVC_TEMP_ENTITY and
+        physicalInputRetailCandidate.payload[1] ==
+          physicalinputweaponconstants.TE_EXPLOSION2 then
+      physicalInputRetailExplosion = physicalInputRetailCandidate
+    end if
+    physicalInputRetailMulticastIndex = physicalInputRetailMulticastIndex + 1
+  end while
+  physicalInputAssert(physicalInputRetailExplosion is not void,
     "retail base1 barrel emitted the wrong explosion protocol event")
   print("runtime_campaign_physical_input_tests: retail base1 PASS" +
     " displacement2=" + physicalInputRetailReport.planarDisplacement +
