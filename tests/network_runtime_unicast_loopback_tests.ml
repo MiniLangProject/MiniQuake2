@@ -23,7 +23,7 @@ player = session.server.gameExport.edicts[1]
 
 imports.cprintf(player, nrul_qc.PRINT_HIGH, "Access denied")
 imports.centerprintf(player, "You need the key")
-unicastLoopAssert(len(session.server.bridgeRuntime.pendingUnicasts) == 2,
+unicastLoopAssert(session.server.bridgeRuntime.pendingUnicastCount == 2,
   "GameImport client prints did not reach unicast queue")
 result = nrul_play.step(session)
 handoff = result.handoff
@@ -34,7 +34,7 @@ unicastLoopAssert(handoff is not void and len(handoff.prints) == 1 and
 unicastLoopAssert(len(handoff.centerPrints) == 1 and
   handoff.centerPrints[0].text == "You need the key",
   "centerprintf did not reach client centerprint handoff")
-unicastLoopAssert(len(session.server.bridgeRuntime.pendingUnicasts) == 0,
+unicastLoopAssert(session.server.bridgeRuntime.pendingUnicastCount == 0,
   "delivered unicast queue was not drained")
 serverChannel = session.server.networkRuntime.server.clients[0].channel
 unicastLoopAssert(serverChannel.reliableLength > 0,
@@ -47,7 +47,7 @@ unicastLoopAssert(serverChannel.reliableLength == 0,
 imports.writeByte(nrul_qc.SVC_NOP)
 imports.unicast(player, false)
 nrul_play.step(session)
-unicastLoopAssert(len(session.server.bridgeRuntime.pendingUnicasts) == 0,
+unicastLoopAssert(session.server.bridgeRuntime.pendingUnicastCount == 0,
   "unreliable unicast was not delivered and drained")
 
 nrul_play.shutdown(session)

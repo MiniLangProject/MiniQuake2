@@ -60,7 +60,7 @@ function mccWaitReliableIdle(session)
   steps = 0
   idle = false
   while not idle and steps < 150
-    idle = len(session.server.bridgeRuntime.pendingUnicasts) == 0
+    idle = session.server.bridgeRuntime.pendingUnicastCount == 0
     index = 0
     while index < len(session.server.networkRuntime.server.clients)
       channel = session.server.networkRuntime.server.clients[index].channel

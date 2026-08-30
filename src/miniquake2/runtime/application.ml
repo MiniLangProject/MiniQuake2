@@ -280,6 +280,32 @@ function applicationLocalPusherOffset(session, fraction)
     groundNumber, fraction, player.edict.state.origin)
 end function
 
+// Wait until the next presentation deadline and return the following one.
+// Quake II's cl_maxfps gate is independent of the renderer swap interval: a
+// blocking swap can satisfy the deadline, while windowed drivers that ignore
+// WGL_EXT_swap_control still receive stable high-resolution pacing here.
+function applicationPaceFrame(clock, deadline, maxFps)
+  if typeof(maxFps) != "int" or maxFps < 30 or maxFps > 1000 then
+    return error(9994, "cl_maxfps outside [30,1000]")
+  end if
+  interval = 1000.0 / maxFps
+  now = appsystem.milliseconds(clock)
+  target = deadline
+  if target <= 0.0 then target = now + interval end if
+  while now < target
+    remaining = target - now
+    if remaining >= 2.0 then
+      appsystem.sleep(appbyteio.truncInt(remaining - 0.5))
+    else
+      appsystem.sleep(0)
+    end if
+    now = appsystem.milliseconds(clock)
+  end while
+  nextDeadline = target + interval
+  if nextDeadline < now then nextDeadline = now end if
+  return nextDeadline
+end function
+
 // Return the shared read-only filesystem for one retail data root.
 function applicationSharedFileSystem(baseDirectory)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
@@ -748,6 +774,7 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping,
   applicationCinematicWindowHolder = productHost.window
   applicationCinematicRendererHolder = productHost.renderer
   applicationCinematicMixerHolder = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(applicationCinematicMixerHolder)
   appaudiomixer.setMasterVolume(applicationCinematicMixerHolder, 0.7)
   applicationCinematicMixerHandoffHolder = appcinaudio.mixerHandoff(applicationCinematicMixerHolder)
   applicationCinematicDeviceResultHolder = try(appaudiodevice.open(44100, 2, 16))
@@ -877,6 +904,7 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
   applicationPictureWindowHolder = productHost.window
   applicationPictureRendererHolder = productHost.renderer
   applicationPictureMixerHolder = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(applicationPictureMixerHolder)
   appaudiomixer.setMasterVolume(applicationPictureMixerHolder, 0.7)
   applicationPictureInputHolder = appuikeys.createInputState()
   appuikeys.bind(applicationPictureInputHolder, appuiconstants.K_SPACE, "nextserver")
@@ -994,6 +1022,7 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
   playEffectState = applicationDemoSessionHolder.runtime.effects
 
   applicationDemoMixerHolder = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(applicationDemoMixerHolder)
   appaudiomixer.setMasterVolume(applicationDemoMixerHolder, 0.7)
   applicationDemoDeviceResult = try(appaudiodevice.open(44100, 2, 16))
   applicationDemoDeviceHolder = void
@@ -1620,6 +1649,7 @@ function runRetailMediaAudit(baseDirectory)
     appqconstants.CS_CDTRACK]
 
   applicationAuditMixer = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(applicationAuditMixer)
   applicationAuditMusicOpen = appaudiomixer.synchronizeMusicTrack(
     applicationAuditMixer, applicationAuditFileSystem,
     applicationAuditLevelTrack)
@@ -2119,6 +2149,7 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
   applicationProductCommands.videoMode = productHost.videoMode
   applicationProductCommands.fullScreen = productHost.fullScreen
   applicationProductMixer = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(applicationProductMixer)
   appaudiomixer.setMasterVolume(applicationProductMixer, 0.7)
   applicationProductAudioResult = try(appaudiodevice.open(44100, 2, 16))
   applicationProductDevice = void
@@ -2231,6 +2262,14 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     applicationProductFullscreenValue)
   appuimenu.setItemValue(applicationProductScreen.menu, "video", "brightness",
     applicationProductCommands.brightness)
+  appuimenu.setItemValue(applicationProductScreen.menu, "video", "maxfps",
+    applicationProductCommands.maxFps)
+  applicationProductVsyncValue = 0
+  if applicationProductCommands.swapInterval then applicationProductVsyncValue = 1 end if
+  appuimenu.setItemValue(applicationProductScreen.menu, "video", "vsync",
+    applicationProductVsyncValue)
+  appwindow.setVerticalSync(applicationProductWindow,
+    applicationProductCommands.swapInterval)
   appuicontroller.configureGamepad(
     applicationProductCommands.joystickEnabled)
   applicationProductJoystickValue = 0
@@ -2247,6 +2286,7 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
   applicationProductBrowser = appstartup.createBrowser()
   applicationProductRconTransport = appstartup.createRconTransport()
   applicationProductClock = appsystem.createClock()
+  applicationProductFrameDeadline = 0.0
   applicationProductFrames = 0
   applicationProductAction = ""
   applicationProductMap = ""
@@ -2263,6 +2303,11 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
       applicationProductNow)
     appuicommands.drain(applicationProductCommands, applicationProductInput,
       applicationProductScreen, applicationProductMixer)
+    if applicationProductWindow.verticalSync !=
+        applicationProductCommands.swapInterval then
+      appwindow.setVerticalSync(applicationProductWindow,
+        applicationProductCommands.swapInterval)
+    end if
     applicationProductRconCommands = appuicommands.takeRconCommands(
       applicationProductCommands)
     for each applicationProductRconCommand in applicationProductRconCommands
@@ -2409,7 +2454,9 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
       applicationProductFpsStart = applicationProductNow
       applicationProductFpsFrames = 0
     end if
-    appsystem.sleep(0)
+    applicationProductFrameDeadline = applicationPaceFrame(
+      applicationProductClock, applicationProductFrameDeadline,
+      applicationProductCommands.maxFps)
   end while
   appstartup.closeBrowser(applicationProductBrowser)
   appstartup.closeRconTransport(applicationProductRconTransport)
@@ -2606,6 +2653,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   gc_set_limit(256 * 1024 * 1024)
 
   audioMixer = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(audioMixer)
   appaudiomixer.setMasterVolume(audioMixer, 0.7)
   audioResult = try(appaudiodevice.open(44100, 2, 16))
   audioDevice = void
@@ -2680,6 +2728,11 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     applicationFullscreenValue)
   appuimenu.setItemValue(screen.menu, "video", "brightness",
     commandState.brightness)
+  appuimenu.setItemValue(screen.menu, "video", "maxfps", commandState.maxFps)
+  applicationVsyncValue = 0
+  if commandState.swapInterval then applicationVsyncValue = 1 end if
+  appuimenu.setItemValue(screen.menu, "video", "vsync", applicationVsyncValue)
+  appwindow.setVerticalSync(window, commandState.swapInterval)
   appuimenu.setItemValue(screen.menu, "player", "hand", input.config.hand)
   appuimenu.setItemText(screen.menu, "player", "name", commandState.playerName)
   appuimenu.setItemText(screen.menu, "player", "password",
@@ -2779,7 +2832,11 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   applicationMaximumAudioMsec = 0.0
   applicationFirstAudioUnderrunFrame = -1
   applicationObservedAudioUnderruns = 0
-  applicationHeapLast = heap_bytes_used()
+  // Detailed phase/heap telemetry is useful for bounded audits, but native
+  // clock and heap probes on every interactive frame add measurable jitter.
+  applicationDetailedMetrics = frameLimit > 0
+  applicationHeapLast = 0
+  if applicationDetailedMetrics then applicationHeapLast = heap_bytes_used() end if
   applicationHeapMaximum = applicationHeapLast
   applicationHeapCollections = 0
   applicationHeapInputGrowth = 0
@@ -2788,6 +2845,7 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   applicationHeapEntitiesGrowth = 0
   applicationHeapHudGrowth = 0
   applicationHeapAudioGrowth = 0
+  applicationFrameDeadline = 0.0
   appwindow.setTitle(window, "MiniQuake2 - " + applicationCurrentMapName +
     " - FPS --")
   latest = void
@@ -2801,7 +2859,10 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       applicationPendingMediaSpecification == "" and
       appwindow.poll(window)
     started = appsystem.milliseconds(clock)
-    applicationHeapFrameStart = heap_bytes_used()
+    applicationHeapFrameStart = applicationHeapLast
+    if applicationDetailedMetrics then
+      applicationHeapFrameStart = heap_bytes_used()
+    end if
     appclientstate.setPredictionRealTime(session.client.integrated.client,
       started)
     appuicontroller.poll(input, screen, started)
@@ -2923,6 +2984,9 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     appuiinput.sampleView(input, appbyteio.truncInt(applicationInputMsec))
     appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
     appuicommands.drain(commandState, input, screen, audioMixer)
+    if window.verticalSync != commandState.swapInterval then
+      appwindow.setVerticalSync(window, commandState.swapInterval)
+    end if
     appuicontroller.configureGamepad(commandState.joystickEnabled)
     applicationWindowActive = appnative.winHasFocus() != 0
     appproducthost.applyProductGamma(productHost, commandState.brightness,
@@ -3321,12 +3385,16 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       end if
     end if
 
-    applicationPerfStart = appsystem.milliseconds(clock)
-    applicationPerfInput = applicationPerfInput + applicationPerfStart - started
-    applicationHeapAfterInput = heap_bytes_used()
-    if applicationHeapAfterInput > applicationHeapFrameStart then
-      applicationHeapInputGrowth = applicationHeapInputGrowth +
-        applicationHeapAfterInput - applicationHeapFrameStart
+    applicationPerfStart = started
+    applicationHeapAfterInput = applicationHeapFrameStart
+    if applicationDetailedMetrics then
+      applicationPerfStart = appsystem.milliseconds(clock)
+      applicationPerfInput = applicationPerfInput + applicationPerfStart - started
+      applicationHeapAfterInput = heap_bytes_used()
+      if applicationHeapAfterInput > applicationHeapFrameStart then
+        applicationHeapInputGrowth = applicationHeapInputGrowth +
+          applicationHeapAfterInput - applicationHeapFrameStart
+      end if
     end if
     fraction = (started - networkTime) / 100.0
     if fraction < 0.0 then fraction = 0.0 end if
@@ -3392,33 +3460,45 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         applicationProjectileParticleMaximum = frame.numParticles
       end if
     end if
-    applicationPerfWorldStart = appsystem.milliseconds(clock)
-    applicationPerfClient = applicationPerfClient +
-      applicationPerfWorldStart - applicationPerfStart
-    applicationHeapAfterClient = heap_bytes_used()
-    if applicationHeapAfterClient > applicationHeapAfterInput then
-      applicationHeapClientGrowth = applicationHeapClientGrowth +
-        applicationHeapAfterClient - applicationHeapAfterInput
+    applicationPerfWorldStart = started
+    applicationHeapAfterClient = applicationHeapAfterInput
+    if applicationDetailedMetrics then
+      applicationPerfWorldStart = appsystem.milliseconds(clock)
+      applicationPerfClient = applicationPerfClient +
+        applicationPerfWorldStart - applicationPerfStart
+      applicationHeapAfterClient = heap_bytes_used()
+      if applicationHeapAfterClient > applicationHeapAfterInput then
+        applicationHeapClientGrowth = applicationHeapClientGrowth +
+          applicationHeapAfterClient - applicationHeapAfterInput
+      end if
     end if
     renderer.exports.BeginFrame(0.0)
     lastWorldStats = appgl.submitClassicWorld(renderer, world, frame)
-    applicationPerfEntityStart = appsystem.milliseconds(clock)
-    applicationPerfWorld = applicationPerfWorld +
-      applicationPerfEntityStart - applicationPerfWorldStart
-    applicationHeapAfterWorld = heap_bytes_used()
-    if applicationHeapAfterWorld > applicationHeapAfterClient then
-      applicationHeapWorldGrowth = applicationHeapWorldGrowth +
-        applicationHeapAfterWorld - applicationHeapAfterClient
+    applicationPerfEntityStart = started
+    applicationHeapAfterWorld = applicationHeapAfterClient
+    if applicationDetailedMetrics then
+      applicationPerfEntityStart = appsystem.milliseconds(clock)
+      applicationPerfWorld = applicationPerfWorld +
+        applicationPerfEntityStart - applicationPerfWorldStart
+      applicationHeapAfterWorld = heap_bytes_used()
+      if applicationHeapAfterWorld > applicationHeapAfterClient then
+        applicationHeapWorldGrowth = applicationHeapWorldGrowth +
+          applicationHeapAfterWorld - applicationHeapAfterClient
+      end if
     end if
     renderer.exports.RenderFrame(frame)
     input.lightLevel = appgl.lightLevel(renderer)
-    applicationPerfHudStart = appsystem.milliseconds(clock)
-    applicationPerfEntities = applicationPerfEntities +
-      applicationPerfHudStart - applicationPerfEntityStart
-    applicationHeapAfterEntities = heap_bytes_used()
-    if applicationHeapAfterEntities > applicationHeapAfterWorld then
-      applicationHeapEntitiesGrowth = applicationHeapEntitiesGrowth +
-        applicationHeapAfterEntities - applicationHeapAfterWorld
+    applicationPerfHudStart = started
+    applicationHeapAfterEntities = applicationHeapAfterWorld
+    if applicationDetailedMetrics then
+      applicationPerfHudStart = appsystem.milliseconds(clock)
+      applicationPerfEntities = applicationPerfEntities +
+        applicationPerfHudStart - applicationPerfEntityStart
+      applicationHeapAfterEntities = heap_bytes_used()
+      if applicationHeapAfterEntities > applicationHeapAfterWorld then
+        applicationHeapEntitiesGrowth = applicationHeapEntitiesGrowth +
+          applicationHeapAfterEntities - applicationHeapAfterWorld
+      end if
     end if
     appuiscreen.draw(screen, started, window.width, window.height,
       session.client.integrated.client.current.playerState.stats,
@@ -3491,18 +3571,25 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
           appbyteio.truncInt(started))
       end if
     end if
-    applicationPerfHud = applicationPerfHud +
-      appsystem.milliseconds(clock) - applicationPerfHudStart
-    applicationHeapAfterHud = heap_bytes_used()
-    if applicationHeapAfterHud > applicationHeapAfterEntities then
-      applicationHeapHudGrowth = applicationHeapHudGrowth +
-        applicationHeapAfterHud - applicationHeapAfterEntities
+    applicationPerfPresentStart = started
+    applicationHeapAfterHud = applicationHeapAfterEntities
+    if applicationDetailedMetrics then
+      applicationPerfPresentStart = appsystem.milliseconds(clock)
+      applicationPerfHud = applicationPerfHud +
+        applicationPerfPresentStart - applicationPerfHudStart
+      applicationHeapAfterHud = heap_bytes_used()
+      if applicationHeapAfterHud > applicationHeapAfterEntities then
+        applicationHeapHudGrowth = applicationHeapHudGrowth +
+          applicationHeapAfterHud - applicationHeapAfterEntities
+      end if
     end if
-    applicationPerfPresentStart = appsystem.milliseconds(clock)
     renderer.exports.EndFrame()
-    applicationPerfAudioStart = appsystem.milliseconds(clock)
-    applicationPerfPresent = applicationPerfPresent +
-      applicationPerfAudioStart - applicationPerfPresentStart
+    applicationPerfAudioStart = started
+    if applicationDetailedMetrics then
+      applicationPerfAudioStart = appsystem.milliseconds(clock)
+      applicationPerfPresent = applicationPerfPresent +
+        applicationPerfAudioStart - applicationPerfPresentStart
+    end if
     // The first few frames can still create one-off HUD/effect resources.
     // Start the queue after that warm-up so playback begins continuously;
     // pending sounds retain their mixer timestamps and are not discarded.
@@ -3514,12 +3601,15 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         applicationFirstAudioUnderrunFrame = frames
       end if
     end if
-    applicationPerfAudio = applicationPerfAudio +
-      appsystem.milliseconds(clock) - applicationPerfAudioStart
-    applicationHeapAfterAudio = heap_bytes_used()
-    if applicationHeapAfterAudio > applicationHeapAfterHud then
-      applicationHeapAudioGrowth = applicationHeapAudioGrowth +
-        applicationHeapAfterAudio - applicationHeapAfterHud
+    applicationHeapAfterAudio = applicationHeapAfterHud
+    if applicationDetailedMetrics then
+      applicationPerfAudio = applicationPerfAudio +
+        appsystem.milliseconds(clock) - applicationPerfAudioStart
+      applicationHeapAfterAudio = heap_bytes_used()
+      if applicationHeapAfterAudio > applicationHeapAfterHud then
+        applicationHeapAudioGrowth = applicationHeapAudioGrowth +
+          applicationHeapAfterAudio - applicationHeapAfterHud
+      end if
     end if
     frames = frames + 1
     applicationFpsFrameCount = applicationFpsFrameCount + 1
@@ -3533,35 +3623,33 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       applicationFpsWindowStart = applicationFpsNow
       applicationFpsFrameCount = 0
     end if
-    elapsed = appsystem.milliseconds(clock) - started
-    if elapsed > applicationMaximumFrameMsec then
-      applicationMaximumFrameMsec = elapsed
-      applicationMaximumFrameIndex = frames - 1
-      applicationMaximumInputMsec = applicationPerfStart - started
-      applicationMaximumClientMsec = applicationPerfWorldStart - applicationPerfStart
-      applicationMaximumWorldMsec = applicationPerfEntityStart - applicationPerfWorldStart
-      applicationMaximumEntitiesMsec = applicationPerfHudStart - applicationPerfEntityStart
-      applicationMaximumHudMsec = applicationPerfPresentStart - applicationPerfHudStart
-      applicationMaximumPresentMsec = applicationPerfAudioStart - applicationPerfPresentStart
-      applicationMaximumAudioMsec = applicationFpsNow - applicationPerfAudioStart
+    if applicationDetailedMetrics then
+      elapsed = appsystem.milliseconds(clock) - started
+      if elapsed > applicationMaximumFrameMsec then
+        applicationMaximumFrameMsec = elapsed
+        applicationMaximumFrameIndex = frames - 1
+        applicationMaximumInputMsec = applicationPerfStart - started
+        applicationMaximumClientMsec = applicationPerfWorldStart - applicationPerfStart
+        applicationMaximumWorldMsec = applicationPerfEntityStart - applicationPerfWorldStart
+        applicationMaximumEntitiesMsec = applicationPerfHudStart - applicationPerfEntityStart
+        applicationMaximumHudMsec = applicationPerfPresentStart - applicationPerfHudStart
+        applicationMaximumPresentMsec = applicationPerfAudioStart - applicationPerfPresentStart
+        applicationMaximumAudioMsec = applicationFpsNow - applicationPerfAudioStart
+      end if
+      applicationPerfFrame = applicationPerfFrame + elapsed
+      applicationHeapNow = heap_bytes_used()
+      if applicationHeapNow < applicationHeapLast then
+        applicationHeapCollections = applicationHeapCollections + 1
+      end if
+      if applicationHeapNow > applicationHeapMaximum then
+        applicationHeapMaximum = applicationHeapNow
+      end if
+      applicationHeapLast = applicationHeapNow
     end if
-    applicationPerfFrame = applicationPerfFrame + elapsed
-    applicationHeapNow = heap_bytes_used()
-    if applicationHeapNow < applicationHeapLast then
-      applicationHeapCollections = applicationHeapCollections + 1
-    end if
-    if applicationHeapNow > applicationHeapMaximum then
-      applicationHeapMaximum = applicationHeapNow
-    end if
-    applicationHeapLast = applicationHeapNow
-    // Simulation remains fixed at 10 Hz, but presentation and Raw Input run as
-    // fast as the renderer permits, matching MiniQuake. Yield once instead of
-    // imposing the former 60/120-Hz ceiling.
-    // The wheel acceptance hook must leave real time for the original 10-Hz
-    // lowering/activation sequence; normal presentation remains uncapped.
-    if applicationAutomatedWeaponWheel then appsystem.sleep(8)
-    else appsystem.sleep(0)
-    end if
+    // The fixed 10-Hz simulation remains independent from the original-style
+    // presentation cap and renderer swap interval.
+    applicationFrameDeadline = applicationPaceFrame(clock,
+      applicationFrameDeadline, commandState.maxFps)
   end while
 
   appwindow.setMouseCapture(false)
@@ -3744,7 +3832,8 @@ function captureLevelStart(baseDirectory, mapName, outputPath, frameLimit)
     "MiniQuake2 level capture - " + mapName, 5, false,
     applicationRendererImports())
   applicationLevelCaptureConfig = appuiconfig.ProductConfig(
-    3.0, false, false, 0, 0.7, 5, false, 1.0, 1, false, [], false)
+    3.0, false, false, 0, 0.7, 5, false, 1.0, 125, false,
+    1, false, [], false)
   applicationLevelCapturePath = outputPath
   applicationLevelCaptureChecksum = 0
   applicationLevelCaptureError = void
@@ -4019,6 +4108,7 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
   playClientRuntime = applicationRemoteSession.integrated.client
   playEffectState = applicationRemoteSession.integrated.effects
   applicationRemoteMixer = appaudiomixer.create(44100)
+  appaudiomixer.enableOptimizedStorage(applicationRemoteMixer)
   appaudiomixer.setMasterVolume(applicationRemoteMixer, 0.7)
   applicationRemoteDeviceResult = try(appaudiodevice.open(44100, 2, 16))
   applicationRemoteDevice = void
@@ -4063,6 +4153,8 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     applicationRemoteJoystickValue)
   appproducthost.applyProductGamma(productHost,
     applicationRemoteCommands.brightness, appnative.winHasFocus() != 0)
+  appwindow.setVerticalSync(applicationRemoteWindow,
+    applicationRemoteCommands.swapInterval)
   appuimenu.setItemValue(applicationRemoteScreen.menu, "player", "hand",
     playerProfile.hand)
   appuimenu.setItemText(applicationRemoteScreen.menu, "player", "name",
@@ -4073,6 +4165,7 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
   applicationRemoteObservedFrame = -1
   applicationRemoteInputTime = applicationRemoteNetworkTime
   applicationRemoteFrames = 0
+  applicationRemoteFrameDeadline = 0.0
   applicationRemoteDisconnect = false
   applicationRemoteFailure = void
   applicationRemoteBoundedComplete = false
@@ -4105,6 +4198,11 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       appuiconstants.KEY_GAME)
     appuicommands.drain(applicationRemoteCommands, applicationRemoteInput,
       applicationRemoteScreen, applicationRemoteMixer)
+    if applicationRemoteWindow.verticalSync !=
+        applicationRemoteCommands.swapInterval then
+      appwindow.setVerticalSync(applicationRemoteWindow,
+        applicationRemoteCommands.swapInterval)
+    end if
     appuicontroller.configureGamepad(
       applicationRemoteCommands.joystickEnabled)
     applicationRemoteWindowActive = appnative.winHasFocus() != 0
@@ -4423,10 +4521,9 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
       applicationRemoteFpsStart = applicationRemoteStarted
       applicationRemoteFpsFrames = 0
     end if
-    if applicationRemoteWorld is void then
-      appsystem.sleep(1)
-    else appsystem.sleep(0)
-    end if
+    applicationRemoteFrameDeadline = applicationPaceFrame(
+      applicationRemoteClock, applicationRemoteFrameDeadline,
+      applicationRemoteCommands.maxFps)
   end while
   appwindow.setMouseCapture(false)
   applicationRemoteDemoShutdown = try(appdemorecording.shutdown(

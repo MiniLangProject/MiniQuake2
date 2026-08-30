@@ -1206,10 +1206,13 @@ function createRuntime(maxClients)
     i = i + 1
   end while
   pendingSoundStorage = array(ssoundevents.MAX_PENDING_SOUND_EVENTS, void)
+  multicastQueue = array(sgmessages.MAX_PENDING_MULTICAST_EVENTS, void)
+  unicastQueue = array(sgmessages.MAX_PENDING_UNICAST_EVENTS, void)
   return st.ServerRuntime(0, "", 0, 0, 0, maxClients, clients,
     array(qc.MAX_CONFIGSTRINGS, ""), array(qc.MAX_CONFIGSTRINGS, false),
     array(qc.MAX_MODELS, ""), array(qc.MAX_SOUNDS, ""), array(qc.MAX_IMAGES, ""),
-    sizebuf.alloc(qc.MAX_MSGLEN), [], 0, [], 0, pendingSoundStorage, 0, 0,
+    sizebuf.alloc(qc.MAX_MSGLEN), multicastQueue, 0, 0, [], 0,
+    unicastQueue, 0, 0, [], 0, true, pendingSoundStorage, 0, 0,
     [], registry, commandSystem, void, void,
     array(qc.MAX_EDICTS, void), 0, array(qc.MAX_EDICTS, 0),
     array(qc.MAX_EDICTS, -1),

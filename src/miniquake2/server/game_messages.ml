@@ -79,6 +79,51 @@ function queuedBytes(events)
   return total
 end function
 
+// Disable compatibility array views for the live server. Tests and component
+// callers can retain the compact public arrays, while the product uses the
+// fixed queues below and materializes one frame snapshot only when routing.
+function enableOptimizedQueues(runtime)
+  runtime.retainMessageViews = false
+  runtime.pendingMulticasts = []
+  runtime.pendingUnicasts = []
+  return runtime
+end function
+
+// Copy the active multicast prefix for one routing transaction.
+function pendingMulticastSnapshot(runtime)
+  output = array(runtime.pendingMulticastCount)
+  index = 0
+  while index < runtime.pendingMulticastCount
+    output[index] = runtime.multicastQueue[index]
+    index = index + 1
+  end while
+  return output
+end function
+
+// Clear multicast queue state while retaining its fixed storage.
+function clearMulticasts(runtime)
+  // The active prefix is governed by the count; stale references are
+  // overwritten on enqueue and never observed by routing.
+  runtime.pendingMulticastCount = 0
+  runtime.pendingMulticastBytes = 0
+  runtime.pendingMulticasts = []
+  return true
+end function
+
+// Restore multicast events after a failed atomic reliable routing attempt.
+function restoreMulticasts(runtime, events)
+  clearMulticasts(runtime)
+  if typeof(events) != "array" then return error(3946, "pending multicast list must be an array") end if
+  validateAll(events)
+  for each event in events
+    runtime.multicastQueue[runtime.pendingMulticastCount] = event
+    runtime.pendingMulticastCount = runtime.pendingMulticastCount + 1
+    runtime.pendingMulticastBytes = runtime.pendingMulticastBytes + len(event.payload)
+  end for
+  if runtime.retainMessageViews then runtime.pendingMulticasts = events end if
+  return true
+end function
+
 // Validate event.
 function validateEvent(event)
   if typeof(event) != "struct" or typeof(event.serial) != "int" or event.serial < 0 then
@@ -100,8 +145,13 @@ function enqueue(runtime, origin, destination, payload)
   if typeof(payload) != "bytes" or len(payload) <= 0 or len(payload) > MAX_MULTICAST_FRAGMENT_BYTES then
     return error(3944, "multicast payload outside one Protocol-34 packet")
   end if
-  if len(runtime.pendingMulticasts) >= MAX_PENDING_MULTICAST_EVENTS or
-      queuedBytes(runtime.pendingMulticasts) + len(payload) > MAX_PENDING_MULTICAST_BYTES then
+  if runtime.pendingMulticastCount >= MAX_PENDING_MULTICAST_EVENTS or
+      runtime.pendingMulticastBytes + len(payload) > MAX_PENDING_MULTICAST_BYTES then
+    // Stock unreliable datagrams are allowed to overflow and be discarded;
+    // a visual burst must never tear down the server. Reliable GameImport
+    // traffic remains failure-atomic because silently losing it would corrupt
+    // client state.
+    if not reliableDestination(destination) then return false end if
     return error(3945, "pending server multicast queue is full")
   end if
   ownedPayload = bytes(len(payload))
@@ -112,7 +162,12 @@ function enqueue(runtime, origin, destination, payload)
   end while
   event = sgmtypes.PendingMulticastEvent(claimEmissionSerial(runtime),
     destination, ownedOrigin, ownedPayload)
-  runtime.pendingMulticasts = runtime.pendingMulticasts + [event]
+  runtime.multicastQueue[runtime.pendingMulticastCount] = event
+  runtime.pendingMulticastCount = runtime.pendingMulticastCount + 1
+  runtime.pendingMulticastBytes = runtime.pendingMulticastBytes + len(ownedPayload)
+  if runtime.retainMessageViews then
+    runtime.pendingMulticasts = runtime.pendingMulticasts + [event]
+  end if
   return event
 end function
 
@@ -155,6 +210,40 @@ function queuedUnicastBytes(events)
   return total
 end function
 
+// Copy the active unicast prefix for one routing transaction.
+function pendingUnicastSnapshot(runtime)
+  output = array(runtime.pendingUnicastCount)
+  index = 0
+  while index < runtime.pendingUnicastCount
+    output[index] = runtime.unicastQueue[index]
+    index = index + 1
+  end while
+  return output
+end function
+
+// Clear unicast queue state while retaining its fixed storage.
+function clearUnicasts(runtime)
+  // Retain storage and reset only the authoritative prefix counters.
+  runtime.pendingUnicastCount = 0
+  runtime.pendingUnicastBytes = 0
+  runtime.pendingUnicasts = []
+  return true
+end function
+
+// Restore unicast events after a failed atomic reliable routing attempt.
+function restoreUnicasts(runtime, events)
+  clearUnicasts(runtime)
+  if typeof(events) != "array" then return error(3954, "pending unicast list must be an array") end if
+  validateUnicastAll(events)
+  for each event in events
+    runtime.unicastQueue[runtime.pendingUnicastCount] = event
+    runtime.pendingUnicastCount = runtime.pendingUnicastCount + 1
+    runtime.pendingUnicastBytes = runtime.pendingUnicastBytes + len(event.payload)
+  end for
+  if runtime.retainMessageViews then runtime.pendingUnicasts = events end if
+  return true
+end function
+
 // Copy payload data.
 function copyPayload(payload)
   ownedPayload = bytes(len(payload))
@@ -173,13 +262,19 @@ function enqueueUnicast(runtime, entity, reliable, payload)
   if typeof(payload) != "bytes" or len(payload) <= 0 or len(payload) > MAX_MULTICAST_FRAGMENT_BYTES then
     return error(3951, "unicast payload outside one Protocol-34 packet")
   end if
-  if len(runtime.pendingUnicasts) >= MAX_PENDING_UNICAST_EVENTS or
-      queuedUnicastBytes(runtime.pendingUnicasts) + len(payload) > MAX_PENDING_UNICAST_BYTES then
+  if runtime.pendingUnicastCount >= MAX_PENDING_UNICAST_EVENTS or
+      runtime.pendingUnicastBytes + len(payload) > MAX_PENDING_UNICAST_BYTES then
+    if not reliable then return false end if
     return error(3952, "pending server unicast queue is full")
   end if
   event = sgmtypes.PendingUnicastEvent(claimEmissionSerial(runtime), entityNumber,
     reliable, copyPayload(payload))
-  runtime.pendingUnicasts = runtime.pendingUnicasts + [event]
+  runtime.unicastQueue[runtime.pendingUnicastCount] = event
+  runtime.pendingUnicastCount = runtime.pendingUnicastCount + 1
+  runtime.pendingUnicastBytes = runtime.pendingUnicastBytes + len(event.payload)
+  if runtime.retainMessageViews then
+    runtime.pendingUnicasts = runtime.pendingUnicasts + [event]
+  end if
   return event
 end function
 

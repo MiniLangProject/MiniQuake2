@@ -35,7 +35,8 @@ uiConfigDefaults = uiconfigtestconfig.decodeProductConfig(
     uiconfigtestconfig.captureProductConfig(uiConfigDefaultInput,
       uiConfigDefaultState, uiConfigDefaultMixer, uiConfigDefaultScreen)))
 uiConfigAssert(uiConfigDefaults.sensitivity == 3.0 and
-  uiConfigDefaults.brightness == 1.0,
+  uiConfigDefaults.brightness == 1.0 and uiConfigDefaults.maxFps == 90 and
+  uiConfigDefaults.swapInterval,
   "integral default floats use decoder-safe archive tokens")
 uiConfigInput = uiconfigtestkeys.createInputState()
 uiconfigtestkeys.bindDefaultGame(uiConfigInput)
@@ -60,6 +61,8 @@ uiConfigState = uiconfigtestcommands.create()
 uiConfigState.videoMode = 7
 uiConfigState.fullScreen = true
 uiConfigState.brightness = 1.2
+uiConfigState.maxFps = 144
+uiConfigState.swapInterval = false
 uiConfigState.joystickEnabled = false
 uiConfigMixer = uiconfigtestmixer.create(8000)
 uiconfigtestmixer.setMasterVolume(uiConfigMixer, 0.4)
@@ -73,6 +76,7 @@ uiconfigtestconfig.saveProductConfig(uiConfigPath, uiConfigCaptured)
 uiConfigLoaded = uiconfigtestconfig.loadProductConfig(uiConfigPath)
 uiConfigAssert(uiConfigLoaded.videoMode == 7 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.brightness == 1.2 and uiConfigLoaded.sensitivity == 6.5 and
+  uiConfigLoaded.maxFps == 144 and not uiConfigLoaded.swapInterval and
   uiConfigLoaded.alwaysRun and uiConfigLoaded.invertMouse and
   uiConfigLoaded.hand == 1 and uiConfigLoaded.crosshair == 3 and
   not uiConfigLoaded.joystick and
@@ -103,6 +107,7 @@ uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, miniquake2.client.ui.constants.K_MWHEELUP) == "weapnext" and
   uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
   uiConfigApplyState.videoMode == 7 and uiConfigApplyMixer.masterVolume == 0.4 and
+  uiConfigApplyState.maxFps == 144 and not uiConfigApplyState.swapInterval and
   not uiConfigApplyState.joystickEnabled and
   uiConfigApplyScreen.crosshair == 3,
   "config applied to live product state")
@@ -120,8 +125,15 @@ uiConfigLegacy = uiconfigtestconfig.decodeProductConfig(
   "MiniQuake2Config 1\nsensitivity 3\ncl_run 0\ns_volume 1\nvid_mode 0\nvid_fullscreen 0\nvid_gamma 1\n")
 uiConfigAssert(uiConfigLegacy.hand == 0 and not uiConfigLegacy.invertMouse and
   uiConfigLegacy.crosshair == 1 and uiConfigLegacy.joystick and
+  uiConfigLegacy.maxFps == 90 and uiConfigLegacy.swapInterval and
   not uiConfigLegacy.bindingsComplete,
   "legacy config defaults to right hand, normal pitch, crosshair one and controller enabled")
+uiConfigV2 = uiconfigtestconfig.decodeProductConfig(
+  "MiniQuake2Config 2\nsensitivity 4\ncl_run 1\nm_invert 1\nhand 2\ns_volume 0.5\nvid_mode 6\nvid_fullscreen 1\nvid_gamma 1.4\ncrosshair 2\nin_joystick 0\n")
+uiConfigAssert(uiConfigV2.maxFps == 90 and uiConfigV2.swapInterval and
+  uiConfigV2.bindingsComplete and uiConfigV2.invertMouse and
+  uiConfigV2.hand == 2 and not uiConfigV2.joystick,
+  "v2 config upgrades frame pacing without losing complete binding semantics")
 uiConfigLegacyInput = uiconfigtestkeys.createInputState()
 uiconfigtestkeys.bindDefaultGame(uiConfigLegacyInput)
 uiConfigLegacyState = uiconfigtestcommands.create()

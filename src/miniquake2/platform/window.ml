@@ -71,11 +71,11 @@ function create(title, width, height, fullscreen)
     native.winRestoreDisplayMode()
     return error(2921, "window creation failed")
   end if
-  // Match MiniQuake's low-latency presentation default. The product loop
-  // yields between frames but no longer hides renderer gains behind a 60-Hz
-  // swap interval or a synthetic 120-Hz fallback cap.
-  native.winSetSwapInterval(0)
-  verticalSync = false
+  // Quake II 3.19 archives gl_swapinterval and defaults it to one. Product
+  // config can change the live interval after creation without rebuilding the
+  // window or OpenGL context.
+  native.winSetSwapInterval(1)
+  verticalSync = true
   return Window(nativeHandle, native.winClientWidth(), native.winClientHeight(),
     fullscreen, false, verticalSync)
 end function
@@ -152,6 +152,20 @@ function swap(window)
   if window.closed then return false end if
   native.winSwap()
   return true
+end function
+
+// Apply the archived Quake II swap interval to the live OpenGL context.
+function setVerticalSync(window, enabled)
+  if window.closed then return false end if
+  if typeof(enabled) != "bool" then return error(2925, "vertical sync must be boolean") end if
+  interval = 0
+  if enabled then interval = 1 end if
+  applied = native.winSetSwapInterval(interval) != 0
+  // Lack of WGL_EXT_swap_control is a supported driver condition. Preserve
+  // the requested logical value so config round trips while the frame limiter
+  // still supplies deterministic pacing.
+  window.verticalSync = enabled
+  return applied
 end function
 
 // Set title.

@@ -15,6 +15,7 @@ import miniquake2.network.constants as nc
 import miniquake2.runtime.client_session as plclienttest
 import miniquake2.runtime.server_session as plservertest
 import miniquake2.runtime.play_session as playsession
+import miniquake2.server.game_messages as playmessages
 import miniquake2.game.constants as gc
 import miniquake2.game.null_game as playgame
 
@@ -182,7 +183,8 @@ while backlogTransient < 300
   plservertest.step(session.server)
   backlogTransient = backlogTransient + 1
 end while
-backlogRemaining = session.server.bridgeRuntime.pendingMulticasts
+backlogRemaining = playmessages.pendingMulticastSnapshot(
+  session.server.bridgeRuntime)
 backlogOnlyReliable = true
 if len(backlogRemaining) == 1 then
   backlogOnlyReliable = backlogRemaining[0].destination == gc.MULTICAST_ALL_R

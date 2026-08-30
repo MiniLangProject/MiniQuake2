@@ -726,6 +726,7 @@ function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindA
     return error(9985, "server session skill outside [0,3]")
   end if
   bridgeRuntime = ssbridge.createRuntime(maxClients)
+  ssgamemessages.enableOptimizedQueues(bridgeRuntime)
   bridgeRuntime.collision = collision
   imports = ssbridge.makeImports(bridgeRuntime)
   gameExport = ssgame.GetGameApi(imports)
@@ -858,9 +859,9 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.soundNames = array(ssqc.MAX_SOUNDS, "")
   bridge.imageNames = array(ssqc.MAX_IMAGES, "")
   ssqsz.clear(bridge.multicastBuffer)
-  bridge.pendingMulticasts = []
+  ssgamemessages.clearMulticasts(bridge)
   bridge.nextMulticastSerial = 0
-  bridge.pendingUnicasts = []
+  ssgamemessages.clearUnicasts(bridge)
   bridge.nextUnicastSerial = 0
   ssoundevents.clearPending(bridge)
   bridge.nextSoundSerial = 0
@@ -909,9 +910,11 @@ function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeOldSoundNamesHolder = serverSessionChangeBridgeHolder.soundNames
   serverSessionChangeOldImageNamesHolder = serverSessionChangeBridgeHolder.imageNames
   serverSessionChangeOldMulticastHolder = ssqsz.dataSlice(serverSessionChangeBridgeHolder.multicastBuffer)
-  serverSessionChangeOldPendingMulticastsHolder = serverSessionChangeBridgeHolder.pendingMulticasts
+  serverSessionChangeOldPendingMulticastsHolder = ssgamemessages.pendingMulticastSnapshot(
+    serverSessionChangeBridgeHolder)
   serverSessionChangeOldNextMulticastSerial = serverSessionChangeBridgeHolder.nextMulticastSerial
-  serverSessionChangeOldPendingUnicastsHolder = serverSessionChangeBridgeHolder.pendingUnicasts
+  serverSessionChangeOldPendingUnicastsHolder = ssgamemessages.pendingUnicastSnapshot(
+    serverSessionChangeBridgeHolder)
   serverSessionChangeOldNextUnicastSerial = serverSessionChangeBridgeHolder.nextUnicastSerial
   serverSessionChangeOldPendingSoundsHolder = ssoundevents.pendingSnapshot(
     serverSessionChangeBridgeHolder)
@@ -942,9 +945,11 @@ function changeMapCore(session, mapName, entityText, collision)
       serverSessionChangeSessionHolder.gameExport.spawnEntities(
         serverSessionChangeOldMapNameHolder, serverSessionChangeOldEntityTextHolder,
         serverSessionChangeOldSpawnPointHolder))
-    serverSessionChangeBridgeHolder.pendingMulticasts = serverSessionChangeOldPendingMulticastsHolder
+    ssgamemessages.restoreMulticasts(serverSessionChangeBridgeHolder,
+      serverSessionChangeOldPendingMulticastsHolder)
     serverSessionChangeBridgeHolder.nextMulticastSerial = serverSessionChangeOldNextMulticastSerial
-    serverSessionChangeBridgeHolder.pendingUnicasts = serverSessionChangeOldPendingUnicastsHolder
+    ssgamemessages.restoreUnicasts(serverSessionChangeBridgeHolder,
+      serverSessionChangeOldPendingUnicastsHolder)
     serverSessionChangeBridgeHolder.nextUnicastSerial = serverSessionChangeOldNextUnicastSerial
     ssoundevents.restorePending(serverSessionChangeBridgeHolder,
       serverSessionChangeOldPendingSoundsHolder)
@@ -1189,8 +1194,8 @@ function step(session)
   // Route all GameImport message classes before mutating Netchan. Reliable
   // fragments are queued atomically; transient fragments are consumed exactly
   // once and appended after svc_frame/entities by sendSnapshots.
-  pendingUnicasts = session.bridgeRuntime.pendingUnicasts
-  pendingMulticasts = session.bridgeRuntime.pendingMulticasts
+  pendingUnicasts = ssgamemessages.pendingUnicastSnapshot(session.bridgeRuntime)
+  pendingMulticasts = ssgamemessages.pendingMulticastSnapshot(session.bridgeRuntime)
   pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
   routedUnicasts = routeUnicasts(session, pendingUnicasts)
   routedMulticasts = routeMulticasts(session, pendingMulticasts)
@@ -1206,14 +1211,14 @@ function step(session)
     transientSlot = transientSlot + 1
   end while
   if reliableQueued then
-    session.bridgeRuntime.pendingUnicasts = []
-    session.bridgeRuntime.pendingMulticasts = []
+    ssgamemessages.clearUnicasts(session.bridgeRuntime)
+    ssgamemessages.clearMulticasts(session.bridgeRuntime)
     ssoundevents.clearPending(session.bridgeRuntime)
   else
-    session.bridgeRuntime.pendingUnicasts = unicastReliabilitySubset(
-      pendingUnicasts, true)
-    session.bridgeRuntime.pendingMulticasts = multicastReliabilitySubset(
-      pendingMulticasts, true)
+    ssgamemessages.restoreUnicasts(session.bridgeRuntime,
+      unicastReliabilitySubset(pendingUnicasts, true))
+    ssgamemessages.restoreMulticasts(session.bridgeRuntime,
+      multicastReliabilitySubset(pendingMulticasts, true))
     ssoundevents.restorePending(session.bridgeRuntime,
       soundReliabilitySubset(pendingSoundBatch, true))
   end if

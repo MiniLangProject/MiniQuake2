@@ -161,6 +161,15 @@ struct ClassicBrushModel
   model
   draws
   selectionScratch
+  specialScratch
+end struct
+
+// Capacity-sized arrays reused while splitting visible surfaces into passes.
+struct ClassicSpecialPassScratch
+  opaqueDraws
+  warpDraws
+  skyDraws
+  transparentDraws
 end struct
 
 // Store classic brush submission data.
@@ -181,6 +190,7 @@ end struct
 // Store classic brush frame plan data.
 struct ClassicBrushFramePlan
   submissions
+  submissionCount
   culledEntities
   surfaces
   triangles
@@ -215,11 +225,16 @@ struct ClassicWorld
   pointEndXStack
   pointEndYStack
   pointEndZStack
+  specialScratch
+  alphaDrawByFaceScratch
+  alphaMarkedScratch
+  alphaOutputScratch
 end struct
 
 // Store classic visibility selection data.
 struct ClassicVisibilitySelection
   draws
+  count
   viewLeaf
   viewCluster
   pvsCulled
@@ -235,6 +250,10 @@ struct ClassicSpecialPassPlan
   warpDraws
   skyDraws
   transparentDraws
+  opaqueCount
+  warpCount
+  skyCount
+  transparentCount
 end struct
 
 // Store classic submit stats data.

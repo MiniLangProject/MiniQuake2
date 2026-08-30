@@ -285,7 +285,8 @@ function classicSpecialPassPlanOriginPrefix(draws, drawCount, viewOrigin)
     drawIndex = drawIndex + 1
   end while
   if opaqueCount == drawCount and drawCount == len(draws) then
-    return rclassictypes.ClassicSpecialPassPlan(draws, [], [], [])
+    return rclassictypes.ClassicSpecialPassPlan(draws, [], [], [],
+      opaqueCount, 0, 0, 0)
   end if
   // Count first and allocate the exact pass sizes. The old one-pass builder
   // allocated four arrays at the full visible-surface count and then sliced
@@ -310,8 +311,40 @@ function classicSpecialPassPlanOriginPrefix(draws, drawCount, viewOrigin)
     drawIndex = drawIndex + 1
   end while
   return rclassictypes.ClassicSpecialPassPlan(
-    opaque, warp, sky, transparent
+    opaque, warp, sky, transparent,
+    opaqueCount, warpCount, skyCount, transparentCount
   )
+end function
+
+// Create pass arrays once for a retained world or inline brush model.
+function createClassicSpecialPassScratch(capacity)
+  return rclassictypes.ClassicSpecialPassScratch(array(capacity),
+    array(capacity), array(capacity), array(capacity))
+end function
+
+// Split a visible prefix into caller-owned capacity arrays without allocation.
+function classicSpecialPassPlanOriginPrefixInto(draws, drawCount, viewOrigin,
+    scratch)
+  opaqueCount = 0; warpCount = 0; skyCount = 0; transparentCount = 0
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
+    category = draw.surface.category
+    if category == rclassicconstants.MATERIAL_OPAQUE then
+      scratch.opaqueDraws[opaqueCount] = draw; opaqueCount = opaqueCount + 1
+    else if category == rclassicconstants.MATERIAL_WARP then
+      scratch.warpDraws[warpCount] = draw; warpCount = warpCount + 1
+    else if category == rclassicconstants.MATERIAL_SKY then
+      scratch.skyDraws[skyCount] = draw; skyCount = skyCount + 1
+    else if category == rclassicconstants.MATERIAL_TRANSPARENT then
+      scratch.transparentDraws[transparentCount] = draw
+      transparentCount = transparentCount + 1
+    end if
+    drawIndex = drawIndex + 1
+  end while
+  return rclassictypes.ClassicSpecialPassPlan(scratch.opaqueDraws,
+    scratch.warpDraws, scratch.skyDraws, scratch.transparentDraws,
+    opaqueCount, warpCount, skyCount, transparentCount)
 end function
 
 // Return the classic special pass plan origin.
@@ -327,9 +360,13 @@ end function
 // Return the classic special pass signature value.
 function classicSpecialPassSignature(plan)
   result = ""
-  for each draw in plan.opaqueDraws result = result + "o" + draw.surface.index + "," end for
-  for each draw in plan.warpDraws result = result + "w" + draw.surface.index + "," end for
-  for each draw in plan.skyDraws result = result + "s" + draw.surface.index + "," end for
-  for each draw in plan.transparentDraws result = result + "a" + draw.surface.index + "@" + draw.surface.alpha + "," end for
+  index = 0
+  while index < plan.opaqueCount result = result + "o" + plan.opaqueDraws[index].surface.index + ","; index = index + 1 end while
+  index = 0
+  while index < plan.warpCount result = result + "w" + plan.warpDraws[index].surface.index + ","; index = index + 1 end while
+  index = 0
+  while index < plan.skyCount result = result + "s" + plan.skyDraws[index].surface.index + ","; index = index + 1 end while
+  index = 0
+  while index < plan.transparentCount result = result + "a" + plan.transparentDraws[index].surface.index + "@" + plan.transparentDraws[index].surface.alpha + ","; index = index + 1 end while
   return result
 end function

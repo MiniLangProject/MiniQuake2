@@ -24,6 +24,8 @@ struct CommandState
   videoMode
   fullScreen
   brightness
+  maxFps
+  swapInterval
   saveSlot
   loadSlot
   executed
@@ -66,7 +68,7 @@ end struct
 
 // Create state.
 function create()
-  return CommandState(false, false, 0, false, 1.0, -1, -1, 0, 0, [], -1, false,
+  return CommandState(false, false, 0, false, 1.0, 90, true, -1, -1, 0, 0, [], -1, false,
     "MiniQuake2", "male", "grunt", "", false, 90, false, "", false, false, false,
     "q2dm1", "MiniQuake2", 0, 8, 0, 0, 0, true, true, true, true, true,
     "", false, false, true, false, "", "", [])
@@ -385,6 +387,16 @@ function localAction(commandState, input, screen, mixer, command)
   if cuicmdName == "disconnect" then
     if len(cuicmdArguments) != 1 then return error(8289, "disconnect takes no arguments") end if
     commandState.disconnectRequested = true
+    return true
+  end if
+  if cuicmdName == "cl_maxfps" then
+    commandState.maxFps = integerArgument(cuicmdArguments, cuicmdName, 30, 1000)
+    commandState.configDirty = true
+    return true
+  end if
+  if cuicmdName == "gl_swapinterval" then
+    commandState.swapInterval = booleanArgument(cuicmdArguments, cuicmdName)
+    commandState.configDirty = true
     return true
   end if
   if cuicmdName == "reconnect" then

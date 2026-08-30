@@ -9,6 +9,7 @@ opaque ClassicWorld submission path.
 package miniquake2.renderer.classic.visibility
 
 import std.array as rvisibilityarray
+import std.bytes as rvisibilitybytes
 import std.math as rvisibilitymath
 import miniquake2.format.bsp as fbsp
 import miniquake2.format.types as ft
@@ -589,8 +590,9 @@ function classicVisibilitySelectPvs(world, frame)
     viewLeaf, viewCluster, viewCluster2, pvsCulled, areaCulled)
 end function
 
-// Finish classic visibility selection.
-function classicVisibilityFinishSelection(pvs, frame)
+// Finish classic visibility selection into reusable prefix storage. The count
+// is authoritative; live rendering must not scan the unused capacity tail.
+function classicVisibilityFinishSelectionPrefix(pvs, frame)
   selected = classicVisibilitySelectionScratch
   if len(selected) < len(pvs.draws) then
     selected = array(len(pvs.draws), void)
@@ -612,19 +614,32 @@ function classicVisibilityFinishSelection(pvs, frame)
       selectedCount = selectedCount + 1
     end if
   end for
-  visibleDraws = pvs.draws
-  if selectedCount != len(pvs.draws) then
-    visibleDraws = compactClassicDraws(selected, selectedCount)
-  end if
   return rclassictypes.ClassicVisibilitySelection(
-    visibleDraws, pvs.viewLeaf, pvs.viewCluster,
+    selected, selectedCount, pvs.viewLeaf, pvs.viewCluster,
     pvs.pvsCulled, pvs.areaCulled, frustumCulled, backfaceCulled
   )
+end function
+
+// Finish classic visibility selection with a compact public array. This keeps
+// the diagnostic API while product rendering avoids the per-frame copy.
+function classicVisibilityFinishSelection(pvs, frame)
+  prefix = classicVisibilityFinishSelectionPrefix(pvs, frame)
+  visibleDraws = compactClassicDraws(prefix.draws, prefix.count)
+  return rclassictypes.ClassicVisibilitySelection(
+    visibleDraws, prefix.count, prefix.viewLeaf, prefix.viewCluster,
+    prefix.pvsCulled, prefix.areaCulled, prefix.frustumCulled,
+    prefix.backfaceCulled)
 end function
 
 // Select classic world.
 function selectClassicWorld(world, frame)
   return classicVisibilityFinishSelection(
+    classicVisibilitySelectPvs(world, frame), frame)
+end function
+
+// Select the world into reusable prefix storage for live OpenGL submission.
+function selectClassicWorldPrefix(world, frame)
+  return classicVisibilityFinishSelectionPrefix(
     classicVisibilitySelectPvs(world, frame), frame)
 end function
 
@@ -657,6 +672,33 @@ function selectClassicWorldCached(world, frame)
   cache.pvsCulled = pvs.pvsCulled
   cache.areaCulled = pvs.areaCulled
   return classicVisibilityFinishSelection(pvs, frame)
+end function
+
+// Cached product selection retaining the capacity-sized reusable output.
+function selectClassicWorldCachedPrefix(world, frame)
+  if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
+    return selectClassicWorldPrefix(world, frame)
+  end if
+  view = classicVisibilityViewClusters(world.map, frame.viewOrigin)
+  viewLeaf = view.leaf; viewCluster = view.cluster
+  viewCluster2 = view.cluster2
+  cache = classicVisibilityCacheSlot
+  if cache.world == world and cache.cluster == viewCluster and
+      cache.cluster2 == viewCluster2 and
+      classicVisibilityAreaBitsEqual(cache.areaBits, frame.areaBits) then
+    cached = ClassicPvsSelection(cache.draws, viewLeaf, viewCluster,
+      viewCluster2, cache.pvsCulled, cache.areaCulled)
+    return classicVisibilityFinishSelectionPrefix(cached, frame)
+  end if
+  pvs = classicVisibilitySelectPvs(world, frame)
+  cache.world = world
+  cache.cluster = pvs.viewCluster
+  cache.cluster2 = pvs.viewCluster2
+  cache.areaBits = classicVisibilityCopyAreaBits(frame.areaBits)
+  cache.draws = pvs.draws
+  cache.pvsCulled = pvs.pvsCulled
+  cache.areaCulled = pvs.areaCulled
+  return classicVisibilityFinishSelectionPrefix(pvs, frame)
 end function
 
 // Append one BSP node in the order produced when R_RecursiveWorldNode's
@@ -709,6 +751,35 @@ function classicVisibilityStockAlphaDraws(world, draws, viewOrigin)
   if state.count == len(draws) then return output end if
   // Malformed or synthetic BSPs can omit node ownership. Preserve their
   // deterministic prepared chain instead of silently dropping a face.
+  return draws
+end function
+
+// Order a visible alpha prefix using world-owned scratch storage. This is the
+// live equivalent of classicVisibilityStockAlphaDraws without allocating two
+// face tables and an output array on every rendered frame.
+function classicVisibilityStockAlphaDrawsPrefix(world, draws, drawCount,
+    viewOrigin)
+  if drawCount <= 1 or len(world.map.nodes) == 0 then return draws end if
+  drawByFace = world.alphaDrawByFaceScratch
+  marked = world.alphaMarkedScratch
+  rvisibilitybytes.fill(marked, 0)
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
+    faceIndex = draw.surface.index
+    if faceIndex >= 0 and faceIndex < len(marked) then
+      marked[faceIndex] = 1
+      drawByFace[faceIndex] = draw
+    end if
+    drawIndex = drawIndex + 1
+  end while
+  output = world.alphaOutputScratch
+  headNode = 0
+  if len(world.map.models) > 0 then headNode = world.map.models[0].headNode end if
+  state = ClassicAlphaOrderState(world.map, drawByFace, marked, output, 0,
+    viewOrigin)
+  classicVisibilityAppendAlphaNode(state, headNode)
+  if state.count == drawCount then return output end if
   return draws
 end function
 

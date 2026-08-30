@@ -172,7 +172,17 @@ interactive sessions remain explicit external acceptance evidence.
 - The active render, visibility, snapshot, prediction, effect and audio paths
   reuse bounded scratch storage. The pending-audio queue no longer scans every
   pending entry for every mixed sample; its 327,680-frame/128-pending benchmark
-  improved from 229.36 ms to 16.89 ms (13.6x).
+  improved from 229.36 ms to 12.89 ms in the final 2026-08-29 release run. Live
+  mixers and server message routing now use fixed-capacity prefix queues, while
+  compatibility views are retained only for diagnostic callers. World
+  visibility, material passes, brush submissions, alpha records and lightmap
+  dirty checks no longer compact or allocate wrappers for every visible
+  surface on every frame. Interactive play also omits detailed heap/phase
+  probes; bounded audit runs retain the complete telemetry.
+- Config v3 archives `cl_maxfps` and `gl_swapinterval`; both are live menu
+  controls, survive map handoff/restart and drive the high-resolution frame
+  deadline plus native swap interval. Config v1/v2 files upgrade with the
+  original 90-fps/vertical-sync defaults.
 
 ## Stock product parity status
 

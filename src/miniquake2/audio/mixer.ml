@@ -61,6 +61,9 @@ struct Mixer
   sampleRate
   channels
   pendingSounds
+  pendingSoundQueue
+  pendingSoundCount
+  retainPendingView
   paintedFrames
   masterVolume
   masterVolumeFixed
@@ -74,8 +77,46 @@ end struct
 // Create state.
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
-  return Mixer(sampleRate, [], [], 0, 1.0, MIX_VOLUME_ONE, -1,
+  return Mixer(sampleRate, [], [], array(MAX_PLAYSOUNDS, void), 0, true,
+    0, 1.0, MIX_VOLUME_ONE, -1,
     void, 0.5, MIX_VOLUME_ONE / 2, bytes())
+end function
+
+// Disable the compact compatibility view in latency-sensitive product paths.
+// The fixed queue remains authoritative and avoids copying every future sound
+// whenever a new playsound is inserted or issued.
+function enableOptimizedStorage(mixer)
+  if mixer is void then return false end if
+  mixer.retainPendingView = false
+  mixer.pendingSounds = []
+  return true
+end function
+
+// Return the number of pending sounds without exposing queue capacity.
+function pendingCount(mixer)
+  if mixer is void then return 0 end if
+  return mixer.pendingSoundCount
+end function
+
+// Return one pending sound from the authoritative fixed queue.
+function pendingAt(mixer, index)
+  if mixer is void or typeof(index) != "int" or index < 0 or
+      index >= mixer.pendingSoundCount then return void end if
+  return mixer.pendingSoundQueue[index]
+end function
+
+// Rebuild the legacy compact view only for component tests and API clients
+// that explicitly retain it. Product mixers disable this allocation path.
+function refreshPendingView(mixer)
+  if not mixer.retainPendingView then return false end if
+  view = array(mixer.pendingSoundCount)
+  index = 0
+  while index < mixer.pendingSoundCount
+    view[index] = mixer.pendingSoundQueue[index]
+    index = index + 1
+  end while
+  mixer.pendingSounds = view
+  return true
 end function
 
 // Set music volume.
@@ -333,7 +374,7 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
       rightVolume > 255 then
     return error(2956, "channel volume outside [0,255]")
   end if
-  if len(mixer.pendingSounds) >= MAX_PLAYSOUNDS then return void end if
+  if mixer.pendingSoundCount >= MAX_PLAYSOUNDS then return void end if
   sourceStep = ambio.truncInt(sound.sampleRate * MIX_FRAC_ONE /
     (mixer.sampleRate * 1.0))
   if sourceStep < 1 then sourceStep = 1 end if
@@ -343,22 +384,19 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
   // Match S_StartSound's sorted pending list. New entries precede an existing
   // entry with the same begin frame, which also preserves stock replacement
   // order for equal-time sounds on the same entity channel.
-  pending = array(len(mixer.pendingSounds) + 1)
-  sourceIndex = 0
-  outputIndex = 0
-  inserted = false
-  while sourceIndex < len(mixer.pendingSounds)
-    if not inserted and mixer.pendingSounds[sourceIndex].startFrame >= startFrame then
-      pending[outputIndex] = channel
-      outputIndex = outputIndex + 1
-      inserted = true
-    end if
-    pending[outputIndex] = mixer.pendingSounds[sourceIndex]
-    outputIndex = outputIndex + 1
-    sourceIndex = sourceIndex + 1
+  insertIndex = 0
+  while insertIndex < mixer.pendingSoundCount and
+      mixer.pendingSoundQueue[insertIndex].startFrame < startFrame
+    insertIndex = insertIndex + 1
   end while
-  if not inserted then pending[outputIndex] = channel end if
-  mixer.pendingSounds = pending
+  moveIndex = mixer.pendingSoundCount
+  while moveIndex > insertIndex
+    mixer.pendingSoundQueue[moveIndex] = mixer.pendingSoundQueue[moveIndex - 1]
+    moveIndex = moveIndex - 1
+  end while
+  mixer.pendingSoundQueue[insertIndex] = channel
+  mixer.pendingSoundCount = mixer.pendingSoundCount + 1
+  refreshPendingView(mixer)
   return channel
 end function
 
@@ -366,38 +404,39 @@ end function
 function issuePending(mixer, absoluteFrame)
   // startSoundAt keeps this queue ordered by startFrame.  Looking only at the
   // head avoids scanning every future sound for every painted sample.
-  if len(mixer.pendingSounds) == 0 or
-      mixer.pendingSounds[0].startFrame > absoluteFrame then return 0 end if
-  remaining = array(len(mixer.pendingSounds))
-  remainingCount = 0
+  if mixer.pendingSoundCount == 0 or
+      mixer.pendingSoundQueue[0].startFrame > absoluteFrame then return 0 end if
+  dueCount = 0
+  while dueCount < mixer.pendingSoundCount and
+      mixer.pendingSoundQueue[dueCount].startFrame <= absoluteFrame
+    dueCount = dueCount + 1
+  end while
   issued = 0
-  for each pending in mixer.pendingSounds
-    if pending.startFrame <= absoluteFrame then
-      slot = pickChannelSlot(mixer, pending.entityNumber,
-        pending.entityChannel)
-      if slot < 0 then pending.active = false
-      else
-        if slot < len(mixer.channels) then mixer.channels[slot] = pending
-        else mixer.channels = mixer.channels + [pending]
-        end if
-        issued = issued + 1
-      end if
+  pendingIndex = 0
+  while pendingIndex < dueCount
+    pending = mixer.pendingSoundQueue[pendingIndex]
+    slot = pickChannelSlot(mixer, pending.entityNumber,
+      pending.entityChannel)
+    if slot < 0 then pending.active = false
     else
-      remaining[remainingCount] = pending
-      remainingCount = remainingCount + 1
+      if slot < len(mixer.channels) then mixer.channels[slot] = pending
+      else mixer.channels = mixer.channels + [pending]
+      end if
+      issued = issued + 1
     end if
-  end for
-  if remainingCount == 0 then mixer.pendingSounds = []
-  else if remainingCount == len(remaining) then mixer.pendingSounds = remaining
-  else
-    compact = array(remainingCount)
-    index = 0
-    while index < remainingCount
-      compact[index] = remaining[index]
-      index = index + 1
-    end while
-    mixer.pendingSounds = compact
-  end if
+    pendingIndex = pendingIndex + 1
+  end while
+  remainingCount = mixer.pendingSoundCount - dueCount
+  pendingIndex = 0
+  while pendingIndex < remainingCount
+    mixer.pendingSoundQueue[pendingIndex] = mixer.pendingSoundQueue[pendingIndex + dueCount]
+    pendingIndex = pendingIndex + 1
+  end while
+  while pendingIndex < mixer.pendingSoundCount
+    pendingIndex = pendingIndex + 1
+  end while
+  mixer.pendingSoundCount = remainingCount
+  refreshPendingView(mixer)
   return issued
 end function
 
@@ -457,7 +496,7 @@ function mixInto(mixer, output, frameCount)
   for each activeChannel in mixer.channels
     if activeChannel.active then hasActiveChannel = true; break end if
   end for
-  if len(mixer.pendingSounds) > 0 then hasActiveChannel = true end if
+  if mixer.pendingSoundCount > 0 then hasActiveChannel = true end if
   if mixer.music is not void and mixer.music.playing and
       not mixer.music.paused and mixer.musicVolume > 0.0 then
     hasActiveChannel = true
@@ -474,7 +513,7 @@ function mixInto(mixer, output, frameCount)
   frameIndex = 0
   while frameIndex < frameCount
     paintedFrame = mixer.paintedFrames + frameIndex
-    if len(mixer.pendingSounds) > 0 then issuePending(mixer, paintedFrame) end if
+    if mixer.pendingSoundCount > 0 then issuePending(mixer, paintedFrame) end if
     mixedLeft = 0
     mixedRight = 0
     for each channel in mixer.channels
@@ -644,8 +683,11 @@ function stopAll(mixer)
   for each channel in mixer.channels
     channel.active = false
   end for
-  for each pending in mixer.pendingSounds
-    pending.active = false
-  end for
+  pendingIndex = 0
+  while pendingIndex < mixer.pendingSoundCount
+    mixer.pendingSoundQueue[pendingIndex].active = false
+    pendingIndex = pendingIndex + 1
+  end while
+  mixer.pendingSoundCount = 0
   mixer.pendingSounds = []
 end function

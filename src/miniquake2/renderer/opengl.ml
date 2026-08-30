@@ -149,6 +149,7 @@ end struct
 struct OpenGlPendingClassicPasses
   binding
   transparentDraws
+  transparentCount
   frame
   active
   stats
@@ -237,11 +238,12 @@ end struct
 // graph; rebinding a package global from a function is not.
 openGlBackendSlot = OpenGlBackendSlot(void)
 openGlFrameSlot = OpenGlFrameSlot(false)
-openGlPendingClassicPasses = OpenGlPendingClassicPasses(void, [], void, false,
-  void)
+openGlPendingClassicPasses = OpenGlPendingClassicPasses(void, [], 0, void,
+  false, void)
 openGlSkyScratchSlot = OpenGlSkyScratchSlot(void)
 openGlParticleRecords = bytes(rc.MAX_PARTICLES * 16)
 openGlClassicTextureCoordinateScratch = array(2, 0.0)
+openGlBrushSubmissionScratch = array(rc.MAX_ENTITIES)
 
 // Return the bits value.
 function inline bits(value)
@@ -1632,11 +1634,11 @@ function flushOpenGlPendingClassicAlpha()
   pending = openGlPendingClassicPasses
   if not pending.active then return 0 end if
   uploaded = drawOpenGlClassicTransparentFrame(pending.binding,
-    pending.transparentDraws, pending.frame)
+    pending.transparentDraws, pending.transparentCount, pending.frame)
   if pending.stats is not void then
     recordClassicDeferredUploads(pending.stats, uploaded)
   end if
-  pending.binding = void; pending.transparentDraws = []; pending.frame = void
+  pending.binding = void; pending.transparentCount = 0; pending.frame = void
   pending.active = false; pending.stats = void
   return uploaded
 end function
@@ -2016,7 +2018,7 @@ function openGlBeginFrame(cameraSeparation)
   if backend.core.state.frameOpen then return error(9612, "BeginFrame called twice") end if
   backend.core.state.frameOpen = true
   pending = openGlPendingClassicPasses
-  pending.binding = void; pending.transparentDraws = []; pending.frame = void
+  pending.binding = void; pending.transparentCount = 0; pending.frame = void
   pending.active = false; pending.stats = void
   frameState = openGlFrameSlot
   frameState.twoDimensional = false
@@ -2463,10 +2465,10 @@ function inline writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId
 end function
 
 // Submit open gl classic multitexture.
-function submitOpenGlClassicMultitexture(binding, draws, time)
+function submitOpenGlClassicMultitexture(binding, draws, drawCount, time)
   // Keep submit open gl classic multitexture phases explicit: validate inputs, update owned state, then publish the result.
-  if len(draws) == 0 or native.glMultitextureAvailable() == 0 then return [false, 0] end if
-  required = len(draws) * 16
+  if drawCount == 0 or native.glMultitextureAvailable() == 0 then return [false, 0] end if
+  required = drawCount * 16
   if len(binding.state.batchRecords) < required then
     binding.state.batchRecords = bytes(required)
     binding.state.batchDraws = []
@@ -2474,10 +2476,10 @@ function submitOpenGlClassicMultitexture(binding, draws, time)
   uploaded = 0
   animationFrame = ropenglbyteio.truncInt(time * 2.0)
   batchHit = binding.state.batchAnimationFrame == animationFrame and
-    openGlBatchDrawsEqual(binding.state.batchDraws, draws)
+    openGlBatchDrawsEqualPrefix(binding.state.batchDraws, draws, drawCount)
   if not batchHit then
     index = 0
-    while index < len(draws)
+    while index < drawCount
       draw = draws[index]
       if not classicDrawCanCache(draw) then return [false, uploaded] end if
       baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, time)
@@ -2487,7 +2489,13 @@ function submitOpenGlClassicMultitexture(binding, draws, time)
         baseTexture.id, draw.lightmapTexture.id)
       index = index + 1
     end while
-    binding.state.batchDraws = draws
+    retainedDraws = array(drawCount)
+    index = 0
+    while index < drawCount
+      retainedDraws[index] = draws[index]
+      index = index + 1
+    end while
+    binding.state.batchDraws = retainedDraws
     binding.state.batchAnimationFrame = animationFrame
   end if
 
@@ -2501,7 +2509,7 @@ function submitOpenGlClassicMultitexture(binding, draws, time)
     binding.state.batchRecords, required)
   native.glDisable(GL_TEXTURE_2D)
   native.glActiveTexture(0)
-  return [submitted == len(draws), uploaded]
+  return [submitted == drawCount, uploaded]
 end function
 
 // Submit open gl classic draw.
@@ -2522,6 +2530,17 @@ end function
 function createOpenGlSkyBounds()
   return rclassictypes.ClassicSkyBounds(array(6, 9999.0),
     array(6, 9999.0), array(6, -9999.0), array(6, -9999.0))
+end function
+
+// Compare an exact retained batch with a capacity-sized visible prefix.
+function inline openGlBatchDrawsEqualPrefix(first, second, count)
+  if len(first) != count then return false end if
+  index = 0
+  while index < count
+    if first[index] != second[index] then return false end if
+    index = index + 1
+  end while
+  return true
 end function
 
 // Create one fixed-capacity sky vertex buffer.
@@ -2698,10 +2717,12 @@ function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
 end function
 
 // Open gl sky bounds.
-function openGlSkyBounds(draws, viewOrigin)
+function openGlSkyBoundsPrefix(draws, drawCount, viewOrigin)
   scratch = ensureOpenGlSkyClipScratch()
   bounds = resetOpenGlSkyBounds(scratch.bounds)
-  for each draw in draws
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
     count = len(draw.surface.vertices)
     if count > OPEN_GL_SKY_SOURCE_CAPACITY then return error(9639,
       "sky portal exceeds ClipSkyPolygon vertex capacity") end if
@@ -2717,8 +2738,14 @@ function openGlSkyBounds(draws, viewOrigin)
     clipped = try(clipOpenGlSkyPolygonScratch(bounds, translated, count, 0,
       scratch))
     if clipped is error then return clipped end if
-  end for
+    drawIndex = drawIndex + 1
+  end while
   return bounds
+end function
+
+// Compatibility wrapper for exact diagnostic arrays.
+function openGlSkyBounds(draws, viewOrigin)
+  return openGlSkyBoundsPrefix(draws, len(draws), viewOrigin)
 end function
 
 // Emit open gl sky vertex.
@@ -2744,11 +2771,11 @@ function emitOpenGlSkyVertex(s, t, axis, texture)
 end function
 
 // Draw open gl sky box.
-function drawOpenGlSkyBox(binding, world, frame, draws)
+function drawOpenGlSkyBox(binding, world, frame, draws, drawCount)
   // Keep draw open gl sky box phases explicit: validate inputs, update owned state, then publish the result.
   if not world.skyBox.active then return 0 end if
   textureOrder = [0, 2, 1, 3, 4, 5]
-  bounds = openGlSkyBounds(draws, frame.viewOrigin)
+  bounds = openGlSkyBoundsPrefix(draws, drawCount, frame.viewOrigin)
   uploaded = 0
   native.glPushMatrix()
   native.glTranslate(bits(frame.viewOrigin.x), bits(frame.viewOrigin.y), bits(frame.viewOrigin.z))
@@ -2873,10 +2900,10 @@ end function
 function classicBrushDynamicLightmaps(world, entity, plan, frame)
   localLights = []
   if frame.numDLights > 0 then localLights = classicBrushLocalLights(entity, frame) end if
-  lightmaps = array(len(plan.opaqueDraws))
+  lightmaps = array(plan.opaqueCount)
   dirtyCount = 0
   drawIndex = 0
-  while drawIndex < len(plan.opaqueDraws)
+  while drawIndex < plan.opaqueCount
     draw = plan.opaqueDraws[drawIndex]
     lightmap = classicDynamicLightmapForDraw(world, draw, frame.lightStyles,
       localLights)
@@ -2892,6 +2919,7 @@ end function
 function prepareClassicBrushFrame(binding, world, frame)
   // Keep prepare classic brush frame phases explicit: validate inputs, update owned state, then publish the result.
   submissions = array(frame.numEntities)
+  if binding.state.contextActive then submissions = openGlBrushSubmissionScratch end if
   submissionCount = 0
   culledEntities = 0; surfaces = 0; triangles = 0; dirtyLightmaps = 0
   brushFrustum = void
@@ -2917,8 +2945,14 @@ function prepareClassicBrushFrame(binding, world, frame)
         culledEntities = culledEntities + 1
       else
         localView = brushSelection.localView
-        brushPlan = rclassicspecial.classicSpecialPassPlanOriginPrefix(
-          selectedDraws, selectedCount, localView)
+        brushPlan = void
+        if binding.state.contextActive then
+          brushPlan = rclassicspecial.classicSpecialPassPlanOriginPrefixInto(
+            selectedDraws, selectedCount, localView, brushModel.specialScratch)
+        else
+          brushPlan = rclassicspecial.classicSpecialPassPlanOriginPrefix(
+            selectedDraws, selectedCount, localView)
+        end if
         lightmapResult = classicBrushDynamicLightmaps(world, entity, brushPlan, frame)
         submissions[submissionCount] = rclassictypes.ClassicBrushSubmission(entity, brushModel, brushPlan, lightmapResult[0])
         submissionCount = submissionCount + 1
@@ -2933,33 +2967,51 @@ function prepareClassicBrushFrame(binding, world, frame)
     end if
     entityIndex = entityIndex + 1
   end while
-  if submissionCount == 0 then return rclassictypes.ClassicBrushFramePlan(array(0), culledEntities, surfaces, triangles, dirtyLightmaps) end if
+  if submissionCount == 0 then
+    if binding.state.contextActive then
+      return rclassictypes.ClassicBrushFramePlan(submissions, 0,
+        culledEntities, surfaces, triangles, dirtyLightmaps)
+    end if
+    return rclassictypes.ClassicBrushFramePlan(array(0), 0, culledEntities,
+      surfaces, triangles, dirtyLightmaps)
+  end if
   sortClassicBrushSubmissionPrefix(submissions, submissionCount,
     frame.viewOrigin)
+  if binding.state.contextActive then
+    return rclassictypes.ClassicBrushFramePlan(submissions, submissionCount,
+      culledEntities, surfaces, triangles, dirtyLightmaps)
+  end if
   exact = array(submissionCount)
   copyIndex = 0
   while copyIndex < submissionCount
     exact[copyIndex] = submissions[copyIndex]
     copyIndex = copyIndex + 1
   end while
-  return rclassictypes.ClassicBrushFramePlan(exact, culledEntities, surfaces, triangles, dirtyLightmaps)
+  return rclassictypes.ClassicBrushFramePlan(exact, submissionCount,
+    culledEntities, surfaces, triangles, dirtyLightmaps)
 end function
 
 // Return the classic brush frame signature value.
 function classicBrushFrameSignature(brushFrame)
-  result = len(brushFrame.submissions) + ":" + brushFrame.culledEntities + ":" + brushFrame.surfaces + ":" + brushFrame.triangles
-  for each submission in brushFrame.submissions
+  result = brushFrame.submissionCount + ":" + brushFrame.culledEntities + ":" + brushFrame.surfaces + ":" + brushFrame.triangles
+  submissionIndex = 0
+  while submissionIndex < brushFrame.submissionCount
+    submission = brushFrame.submissions[submissionIndex]
     origin = submission.entity.origin
     result = result + ":*" + submission.brushModel.modelIndex + "@" + origin.x + "," + origin.y + "," + origin.z + "/" + rclassicspecial.classicSpecialPassSignature(submission.plan)
-  end for
+    submissionIndex = submissionIndex + 1
+  end while
   return result
 end function
 
 // Draw open gl classic draws.
-function drawOpenGlClassicDraws(binding, draws, time, lightmap, entityFrame)
+function drawOpenGlClassicDraws(binding, draws, drawCount, time, lightmap,
+    entityFrame)
   uploaded = 0
   lastTexture = -1
-  for each draw in draws
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
     texture = rclassicspecial.classicSpecialBaseTextureFrame(draw, entityFrame)
     if lightmap then texture = draw.lightmapTexture end if
     if uploadClassicTexture(binding, texture) then uploaded = uploaded + 1 end if
@@ -2969,20 +3021,26 @@ function drawOpenGlClassicDraws(binding, draws, time, lightmap, entityFrame)
       lastTexture = textureId
     end if
     submitOpenGlClassicDraw(draw, lightmap, time)
-  end for
+    drawIndex = drawIndex + 1
+  end while
   return uploaded
 end function
 
 // Return the upload classic brush lightmap value.
 function uploadClassicBrushLightmap(binding, brushLightmap)
-  texture = brushLightmap.draw.lightmapTexture
-  rgbaPixels = brushLightmap.rgbaPixels
   if not brushLightmap.dirty then return false end if
+  return uploadClassicLightmapPixels(binding, brushLightmap.draw,
+    brushLightmap.rgbaPixels)
+end function
+
+// Upload one dirty lightmap rectangle without requiring a per-frame wrapper.
+function uploadClassicLightmapPixels(binding, draw, rgbaPixels)
+  texture = draw.lightmapTexture
   // Atlas objects remain resident. Update only this surface's rectangle and
   // mirror it in the retained CPU payload for context-loss reconstruction.
-  width = brushLightmap.draw.surface.lightWidth
-  height = brushLightmap.draw.surface.lightHeight
-  x = brushLightmap.draw.lightmapX; y = brushLightmap.draw.lightmapY
+  width = draw.surface.lightWidth
+  height = draw.surface.lightHeight
+  x = draw.lightmapX; y = draw.lightmapY
   row = 0
   while row < height
     copyBytes(texture.rgbaPixels, ((y + row) * texture.width + x) * 4,
@@ -2998,15 +3056,26 @@ end function
 
 // Refresh visible world lightmap rectangles before their opaque base/lightmap
 // pass. Dynamic lights are already in world space, unlike inline brush lights.
-function updateClassicWorldLightmaps(binding, world, draws, frame)
+function updateClassicWorldLightmaps(binding, world, draws, drawCount, frame)
   uploaded = 0
-  for each draw in draws
-    lightmap = classicDynamicLightmapForDraw(world, draw, frame.lightStyles,
-      frame.dLights)
-    if uploadClassicBrushLightmap(binding, lightmap) then
-      uploaded = uploaded + 1
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
+    surface = draw.surface
+    previousBits = surface.dlightBits
+    currentBits = rclassiclightmaps.markDynamicLights(surface, frame.dLights)
+    dirty = previousBits != 0 or currentBits != 0 or
+      rclassiclightmaps.lightStylesChanged(surface, frame.lightStyles)
+    if dirty then
+      rgbaPixels = rclassiclightmaps.buildLightmap(surface, frame.lightStyles,
+        frame.dLights, world.modulate)
+      rclassiclightmaps.setCacheState(surface, frame.lightStyles)
+      if uploadClassicLightmapPixels(binding, draw, rgbaPixels) then
+        uploaded = uploaded + 1
+      end if
     end if
-  end for
+    drawIndex = drawIndex + 1
+  end while
   return uploaded
 end function
 
@@ -3048,8 +3117,8 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   native.glDepthFunc(GL_LEQUAL)
   native.glDepthMask(1)
   entityFrame = submission.entity.frame
-  uploaded = drawOpenGlClassicDraws(binding, plan.opaqueDraws, frame.time, false,
-    entityFrame)
+  uploaded = drawOpenGlClassicDraws(binding, plan.opaqueDraws,
+    plan.opaqueCount, frame.time, false, entityFrame)
   native.glEnable(GL_BLEND)
   native.glBlendFunc(GL_ZERO, GL_SRC_COLOR)
   native.glDepthFunc(GL_EQUAL)
@@ -3060,10 +3129,10 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   native.glDisable(GL_BLEND)
   native.glColor4ub(128, 128, 128, 255)
   uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.warpDraws,
-    frame.time, false, entityFrame)
+    plan.warpCount, frame.time, false, entityFrame)
   native.glColor4ub(255, 255, 255, 255)
   uploaded = uploaded + drawOpenGlClassicDraws(binding, plan.skyDraws,
-    frame.time, false, entityFrame)
+    plan.skyCount, frame.time, false, entityFrame)
   native.glPopMatrix()
   return uploaded
 end function
@@ -3083,14 +3152,28 @@ function inline classicTransparentDistance(draw, entity, viewOrigin)
 end function
 
 // Append classic transparent draws.
-function appendClassicTransparentDraws(output, count, draws, entity, entityAlpha, useSurfaceAlpha, viewOrigin)
-  for each draw in draws
+function appendClassicTransparentDraws(output, count, draws, drawCount, entity,
+    entityAlpha, useSurfaceAlpha, viewOrigin)
+  drawIndex = 0
+  while drawIndex < drawCount
+    draw = draws[drawIndex]
     alpha = entityAlpha
     if useSurfaceAlpha then alpha = alpha * draw.surface.alpha end if
     distance = classicTransparentDistance(draw, entity, viewOrigin)
-    output[count] = rclassictypes.ClassicTransparentDraw(draw, entity, alpha, distance)
+    transparentRecord = output[count]
+    if transparentRecord is void then
+      transparentRecord = rclassictypes.ClassicTransparentDraw(draw, entity,
+        alpha, distance)
+      output[count] = transparentRecord
+    else
+      transparentRecord.draw = draw
+      transparentRecord.entity = entity
+      transparentRecord.alpha = alpha
+      transparentRecord.distanceSquared = distance
+    end if
     count = count + 1
-  end for
+    drawIndex = drawIndex + 1
+  end while
   return count
 end function
 
@@ -3128,22 +3211,30 @@ function sortClassicTransparentDrawsInPlace(draws, count)
 end function
 
 // Prepare classic transparent frame.
-function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
-  capacity = len(worldPlan.transparentDraws)
-  for each submission in brushFrame.submissions
+function prepareClassicTransparentFramePrefix(worldPlan, brushFrame, frame)
+  capacity = worldPlan.transparentCount
+  submissionIndex = 0
+  while submissionIndex < brushFrame.submissionCount
+    submission = brushFrame.submissions[submissionIndex]
     entityTranslucent = (submission.entity.flags & rc.RF_TRANSLUCENT) != 0
     if entityTranslucent then
-      capacity = capacity + len(submission.plan.opaqueDraws) + len(submission.plan.warpDraws) + len(submission.plan.skyDraws)
+      capacity = capacity + submission.plan.opaqueCount +
+        submission.plan.warpCount + submission.plan.skyCount
     end if
-    capacity = capacity + len(submission.plan.transparentDraws)
-  end for
-  if capacity == 0 then return array(0) end if
-  output = array(capacity)
+    capacity = capacity + submission.plan.transparentCount
+    submissionIndex = submissionIndex + 1
+  end while
+  pending = openGlPendingClassicPasses
+  if capacity == 0 then pending.transparentCount = 0; return 0 end if
+  if len(pending.transparentDraws) < capacity then
+    pending.transparentDraws = array(capacity)
+  end if
+  output = pending.transparentDraws
   count = 0
   // Brush alpha faces are linked at the global alpha-chain head while entities
   // are drawn. Reverse entity traversal reproduces that head-insertion order;
   // the world chain follows behind them.
-  submissionIndex = len(brushFrame.submissions) - 1
+  submissionIndex = brushFrame.submissionCount - 1
   while submissionIndex >= 0
     submission = brushFrame.submissions[submissionIndex]
     entity = submission.entity
@@ -3151,15 +3242,37 @@ function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
     entityTranslucent = (entity.flags & rc.RF_TRANSLUCENT) != 0
     if entityTranslucent then
       entityAlpha = entity.alpha
-      count = appendClassicTransparentDraws(output, count, submission.plan.opaqueDraws, entity, entityAlpha, false, frame.viewOrigin)
-      count = appendClassicTransparentDraws(output, count, submission.plan.warpDraws, entity, entityAlpha, false, frame.viewOrigin)
-      count = appendClassicTransparentDraws(output, count, submission.plan.skyDraws, entity, entityAlpha, false, frame.viewOrigin)
+      count = appendClassicTransparentDraws(output, count,
+        submission.plan.opaqueDraws, submission.plan.opaqueCount, entity,
+        entityAlpha, false, frame.viewOrigin)
+      count = appendClassicTransparentDraws(output, count,
+        submission.plan.warpDraws, submission.plan.warpCount, entity,
+        entityAlpha, false, frame.viewOrigin)
+      count = appendClassicTransparentDraws(output, count,
+        submission.plan.skyDraws, submission.plan.skyCount, entity,
+        entityAlpha, false, frame.viewOrigin)
     end if
-    count = appendClassicTransparentDraws(output, count, submission.plan.transparentDraws, entity, entityAlpha, true, frame.viewOrigin)
+    count = appendClassicTransparentDraws(output, count,
+      submission.plan.transparentDraws, submission.plan.transparentCount,
+      entity, entityAlpha, true, frame.viewOrigin)
     submissionIndex = submissionIndex - 1
   end while
   count = appendClassicTransparentDraws(output, count,
-    worldPlan.transparentDraws, void, 1.0, true, frame.viewOrigin)
+    worldPlan.transparentDraws, worldPlan.transparentCount, void, 1.0, true,
+    frame.viewOrigin)
+  pending.transparentCount = count
+  return count
+end function
+
+// Compatibility wrapper returning an exact diagnostic array.
+function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
+  count = prepareClassicTransparentFramePrefix(worldPlan, brushFrame, frame)
+  output = array(count)
+  index = 0
+  while index < count
+    output[index] = openGlPendingClassicPasses.transparentDraws[index]
+    index = index + 1
+  end while
   return output
 end function
 
@@ -3175,15 +3288,19 @@ function classicTransparentFrameSignature(draws)
 end function
 
 // Draw open gl classic transparent frame.
-function drawOpenGlClassicTransparentFrame(binding, draws, frame)
-  if len(draws) == 0 then return 0 end if
+function drawOpenGlClassicTransparentFrame(binding, draws, drawCount, frame)
+  // Establish the shared alpha state, submit the retained prefix in stock
+  // order with optional brush transforms, then restore opaque render state.
+  if drawCount == 0 then return 0 end if
   native.glEnable(GL_BLEND)
   native.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
   native.glDepthFunc(GL_LEQUAL)
   native.glDepthMask(0)
   uploaded = 0
   lastTexture = -1
-  for each transparentDraw in draws
+  drawIndex = 0
+  while drawIndex < drawCount
+    transparentDraw = draws[drawIndex]
     draw = transparentDraw.draw
     entity = transparentDraw.entity
     if entity is not void then
@@ -3204,7 +3321,8 @@ function drawOpenGlClassicTransparentFrame(binding, draws, frame)
     native.glColor4ub(128, 128, 128, ropenglbyteio.truncInt(alphaValue * 255.0))
     submitOpenGlClassicDraw(draw, false, frame.time)
     if entity is not void then native.glPopMatrix() end if
-  end for
+    drawIndex = drawIndex + 1
+  end while
   native.glColor4ub(255, 255, 255, 255)
   native.glDepthMask(1)
   native.glDisable(GL_BLEND)
@@ -3219,15 +3337,25 @@ function submitClassicWorld(binding, world, frame)
   if world.generation != binding.state.assets.generation then return error(9626, "classic world belongs to a stale registration generation") end if
   selection = void
   if binding.state.contextActive then
-    selection = rclassicvisibility.selectClassicWorldCached(world, frame)
+    selection = rclassicvisibility.selectClassicWorldCachedPrefix(world, frame)
   else
     selection = rclassicvisibility.selectClassicWorld(world, frame)
   end if
-  visibleSurfaces = len(selection.draws)
+  visibleSurfaces = selection.count
   culledSurfaces = rclassicvisibility.classicVisibilityCulledCount(selection)
-  plan = rclassicspecial.classicSpecialPassPlan(selection.draws, frame)
-  plan.transparentDraws = rclassicvisibility.classicVisibilityStockAlphaDraws(
-    world, plan.transparentDraws, frame.viewOrigin)
+  plan = void
+  if binding.state.contextActive then
+    plan = rclassicspecial.classicSpecialPassPlanOriginPrefixInto(
+      selection.draws, selection.count, frame.viewOrigin,
+      world.specialScratch)
+    plan.transparentDraws = rclassicvisibility.classicVisibilityStockAlphaDrawsPrefix(world,
+        plan.transparentDraws, plan.transparentCount, frame.viewOrigin)
+  else
+    plan = rclassicspecial.classicSpecialPassPlanOriginPrefix(selection.draws,
+      selection.count, frame.viewOrigin)
+    plan.transparentDraws = rclassicvisibility.classicVisibilityStockAlphaDraws(
+      world, plan.transparentDraws, frame.viewOrigin)
+  end if
   // The pass signature is a deterministic diagnostics artifact. Building it
   // concatenates one string fragment per visible surface, so keep it out of
   // the product frame loop where it would repeatedly copy the whole prefix.
@@ -3235,19 +3363,26 @@ function submitClassicWorld(binding, world, frame)
   if not binding.state.contextActive then
     passOrder = rclassicspecial.classicSpecialPassSignature(plan)
   end if
-  opaqueSurfaces = len(plan.opaqueDraws)
-  warpSurfaces = len(plan.warpDraws)
-  skySurfaces = len(plan.skyDraws)
-  transparentSurfaces = len(plan.transparentDraws)
+  opaqueSurfaces = plan.opaqueCount
+  warpSurfaces = plan.warpCount
+  skySurfaces = plan.skyCount
+  transparentSurfaces = plan.transparentCount
   brushFrame = prepareClassicBrushFrame(binding, world, frame)
-  brushEntities = len(brushFrame.submissions)
-  transparentFrame = prepareClassicTransparentFrame(plan, brushFrame, frame)
+  brushEntities = brushFrame.submissionCount
+  transparentDrawCount = 0
+  if binding.state.contextActive then
+    transparentDrawCount = prepareClassicTransparentFramePrefix(plan,
+      brushFrame, frame)
+  else
+    transparentFrame = prepareClassicTransparentFrame(plan, brushFrame, frame)
+    transparentDrawCount = len(transparentFrame)
+  end if
   if not binding.state.contextActive then
     return rclassictypes.ClassicSubmitStats(
       0, 0, 0, 0, 0, visibleSurfaces, culledSurfaces, selection.viewLeaf, selection.viewCluster,
       opaqueSurfaces, warpSurfaces, skySurfaces, transparentSurfaces, passOrder,
       brushEntities, brushFrame.surfaces, brushFrame.triangles, brushFrame.culledEntities,
-      brushFrame.dirtyLightmaps, len(transparentFrame)
+      brushFrame.dirtyLightmaps, transparentDrawCount
     )
   end if
 
@@ -3260,14 +3395,16 @@ function submitClassicWorld(binding, world, frame)
   native.glColor4ub(255, 255, 255, 255)
   uploaded = 0
   uploaded = uploaded + updateClassicWorldLightmaps(binding, world,
-    plan.opaqueDraws, frame)
+    plan.opaqueDraws, plan.opaqueCount, frame)
   multitexture = submitOpenGlClassicMultitexture(binding, plan.opaqueDraws,
-    frame.time)
+    plan.opaqueCount, frame.time)
   usedMultitexture = multitexture[0]
   uploaded = uploaded + multitexture[1]
   if not usedMultitexture then
     lastTexture = -1
-    for each draw in plan.opaqueDraws
+    drawIndex = 0
+    while drawIndex < plan.opaqueCount
+      draw = plan.opaqueDraws[drawIndex]
       baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, frame.time)
       if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
       if lastTexture != baseTexture.id then
@@ -3275,7 +3412,8 @@ function submitClassicWorld(binding, world, frame)
         lastTexture = baseTexture.id
       end if
       submitOpenGlClassicDraw(draw, false, frame.time)
-    end for
+      drawIndex = drawIndex + 1
+    end while
 
     // OpenGL 1.1 fallback for hardware without multitexture: destination base
     // colour is multiplied by the uploaded Quake II lightmap colour.
@@ -3283,11 +3421,14 @@ function submitClassicWorld(binding, world, frame)
     native.glBlendFunc(GL_ZERO, GL_SRC_COLOR)
     native.glDepthFunc(GL_EQUAL)
     native.glDepthMask(0)
-    for each draw in plan.opaqueDraws
+    drawIndex = 0
+    while drawIndex < plan.opaqueCount
+      draw = plan.opaqueDraws[drawIndex]
       if uploadClassicTexture(binding, draw.lightmapTexture) then uploaded = uploaded + 1 end if
       native.glBindTexture(GL_TEXTURE_2D, draw.lightmapTexture.id)
       submitOpenGlClassicDraw(draw, true, frame.time)
-    end for
+      drawIndex = drawIndex + 1
+    end while
     native.glDepthMask(1)
     native.glDepthFunc(GL_LEQUAL)
     native.glDisable(GL_BLEND)
@@ -3295,7 +3436,9 @@ function submitClassicWorld(binding, world, frame)
 
   // Turbulent opaque water is fullbright in ref_gl and owns no lightmap.
   lastTexture = -1
-  for each draw in plan.warpDraws
+  drawIndex = 0
+  while drawIndex < plan.warpCount
+    draw = plan.warpDraws[drawIndex]
     baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, frame.time)
     if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
     if lastTexture != baseTexture.id then
@@ -3304,17 +3447,21 @@ function submitClassicWorld(binding, world, frame)
     end if
     native.glColor4ub(128, 128, 128, 255)
     submitOpenGlClassicDraw(draw, false, frame.time)
-  end for
+    drawIndex = drawIndex + 1
+  end while
   native.glColor4ub(255, 255, 255, 255)
 
   // Visible sky portals gate one six-face environment cube. PCX sky images
   // follow ref_gl's rt/bk/lf/ft/up/dn naming and skytexorder. Missing optional
   // environments retain the deterministic fullbright portal-WAL fallback.
-  if len(plan.skyDraws) > 0 and world.skyBox.active then
-    uploaded = uploaded + drawOpenGlSkyBox(binding, world, frame, plan.skyDraws)
+  if plan.skyCount > 0 and world.skyBox.active then
+    uploaded = uploaded + drawOpenGlSkyBox(binding, world, frame,
+      plan.skyDraws, plan.skyCount)
   else
     lastTexture = -1
-    for each draw in plan.skyDraws
+    drawIndex = 0
+    while drawIndex < plan.skyCount
+      draw = plan.skyDraws[drawIndex]
       baseTexture = rclassicspecial.classicSpecialBaseTexture(draw, frame.time)
       if uploadClassicTexture(binding, baseTexture) then uploaded = uploaded + 1 end if
       if lastTexture != baseTexture.id then
@@ -3322,37 +3469,48 @@ function submitClassicWorld(binding, world, frame)
         lastTexture = baseTexture.id
       end if
       submitOpenGlClassicDraw(draw, false, frame.time)
-    end for
+      drawIndex = drawIndex + 1
+    end while
   end if
 
   // Inline BSP entities share the world's textures/lightmaps but own a model
   // transform and brush-local backface decision. Their opaque passes precede
   // every translucent brush pass.
-  for each brushSubmission in brushFrame.submissions
+  brushSubmissionIndex = 0
+  while brushSubmissionIndex < brushFrame.submissionCount
+    brushSubmission = brushFrame.submissions[brushSubmissionIndex]
     uploaded = uploaded + drawOpenGlClassicBrushOpaque(binding, brushSubmission, frame)
-  end for
+    brushSubmissionIndex = brushSubmissionIndex + 1
+  end while
 
   // Retain stock's tail pass for RenderFrame: aliases and particles must be in
   // the colour buffer before water, glass and translucent brush polygons blend
   // over them. The pending slot also lets shadows consume this frame's light
   // spot instead of the previous frame's value.
   pending = openGlPendingClassicPasses
-  pending.binding = binding; pending.transparentDraws = transparentFrame
+  pending.binding = binding; pending.transparentCount = transparentDrawCount
   pending.frame = frame; pending.active = true; pending.stats = void
 
   triangles = 0
-  for each draw in selection.draws
-    triangles = triangles + draw.triangleCount
-  end for
+  selectedIndex = 0
+  while selectedIndex < selection.count
+    triangles = triangles + selection.draws[selectedIndex].triangleCount
+    selectedIndex = selectedIndex + 1
+  end while
   vertices = triangles * 3
   lightmapVertices = 0
-  for each draw in plan.opaqueDraws lightmapVertices = lightmapVertices + draw.triangleCount * 3 end for
+  drawIndex = 0
+  while drawIndex < plan.opaqueCount
+    lightmapVertices = lightmapVertices +
+      plan.opaqueDraws[drawIndex].triangleCount * 3
+    drawIndex = drawIndex + 1
+  end while
   stats = rclassictypes.ClassicSubmitStats(
     visibleSurfaces, triangles, vertices, lightmapVertices, uploaded,
     visibleSurfaces, culledSurfaces, selection.viewLeaf, selection.viewCluster,
     opaqueSurfaces, warpSurfaces, skySurfaces, transparentSurfaces, passOrder,
     brushEntities, brushFrame.surfaces, brushFrame.triangles, brushFrame.culledEntities,
-    brushFrame.dirtyLightmaps, len(transparentFrame)
+    brushFrame.dirtyLightmaps, transparentDrawCount
   )
   pending.stats = stats
   return stats

@@ -117,7 +117,9 @@ function respatializeDynamic(mixer, entityPositionCallback, origin, right,
   // Pending playsounds are spatialized at S_IssuePlaysound time in the
   // original. Refresh their cached volumes as the listener/entity moves, but
   // do not discard an inaudible future sound before its begin time.
-  for each channel in mixer.pendingSounds
+  pendingIndex = 0
+  while pendingIndex < amixer.pendingCount(mixer)
+    channel = amixer.pendingAt(mixer, pendingIndex)
     if channel.active and channel.spatialized then
       if channel.entityNumber == localEntityNumber then
         channel.leftVolume = qbio.truncInt(channel.masterVolume)
@@ -138,7 +140,8 @@ function respatializeDynamic(mixer, entityPositionCallback, origin, right,
         end if
       end if
     end if
-  end for
+    pendingIndex = pendingIndex + 1
+  end while
   return updated
 end function
 

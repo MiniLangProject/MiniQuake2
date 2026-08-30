@@ -16,6 +16,7 @@ end function
 pendingPerfSound = pendingperfavaw.WavSound("perf/delayed.wav", 44100, 1, 1,
   4, -1, bytes([128, 128, 128, 128]))
 pendingPerfMixer = pendingperfamix.create(44100)
+pendingperfamix.enableOptimizedStorage(pendingPerfMixer)
 pendingPerfIndex = 0
 while pendingPerfIndex < pendingperfamix.MAX_PLAYSOUNDS
   pendingperfamix.startSoundAt(pendingPerfMixer, pendingPerfSound,
@@ -34,7 +35,7 @@ while pendingPerfIteration < 5
 end while
 pendingPerfElapsed = pendingperfsystem.counter(pendingPerfClock) - pendingPerfStarted
 pendingPerfMilliseconds = pendingPerfElapsed * 1000 / pendingPerfClock.frequency
-pendingPerfAssert(len(pendingPerfMixer.pendingSounds) ==
+pendingPerfAssert(pendingperfamix.pendingCount(pendingPerfMixer) ==
   pendingperfamix.MAX_PLAYSOUNDS, "future playsound queue changed")
 print "audio_pending_performance_tests: PASS frames=327680 pending=128 milliseconds=" +
   pendingPerfMilliseconds

@@ -1,7 +1,7 @@
 {
   "schema": "MiniQuake2PortLedger/1",
   "project": "MiniQuake2",
-  "ledger_state": "reference_baseline",
+  "ledger_state": "reference_inventory_with_current_gate_snapshot",
   "compatibility_target": {
     "engine": "Quake II 3.19",
     "reference_platform": "Win32/x86 behavior",
@@ -99,55 +99,55 @@
     {
       "id": "G02",
       "plan_point": 2,
-      "status": "planned",
+      "status": "complete",
       "criterion": "reproducible Windows x64 debug, release, and dedicated builds"
     },
     {
       "id": "G03",
       "plan_point": 3,
-      "status": "planned",
+      "status": "implemented_tested",
       "criterion": "qcommon differential fixtures pass for buffers, commands, cvars, filesystem, checksums, and lifecycle"
     },
     {
       "id": "G04",
       "plan_point": 4,
-      "status": "planned",
+      "status": "implemented_47_map_retail_spawn_smoke_passed",
       "criterion": "BSP38 and asset parsers are bounds-safe; collision/PVS/area results match 3.19"
     },
     {
       "id": "G05",
       "plan_point": 5,
-      "status": "planned",
+      "status": "implemented_manual_device_gate_pending",
       "criterion": "window, input, audio, UDP/loopback, timing, and headless contracts pass"
     },
     {
       "id": "G06",
       "plan_point": 6,
-      "status": "planned",
+      "status": "deterministic_capture_passed_original_pixel_pair_pending",
       "criterion": "OpenGL ref API v3 path renders required scenes with accepted visual evidence"
     },
     {
       "id": "G07",
       "plan_point": 7,
-      "status": "planned",
+      "status": "independent_wire_peer_passed_original_process_blocked",
       "criterion": "Protocol 34 client connects to original 3.19 server and replays reference demos"
     },
     {
       "id": "G08",
       "plan_point": 8,
-      "status": "planned",
+      "status": "independent_wire_peer_passed_original_process_blocked",
       "criterion": "original 3.19 client connects to MiniQuake2 listen/dedicated server across map changes"
     },
     {
       "id": "G09",
       "plan_point": 9,
-      "status": "planned",
+      "status": "complete_baseq2_coverage_with_body_queue_generic_edict_reuse_flymissile_pusher_and_per_player_help_counters_passed",
       "criterion": "baseq2 campaign, save/load, coop, and deathmatch acceptance matrix passes"
     },
     {
       "id": "G10",
       "plan_point": 10,
-      "status": "planned",
+      "status": "retail_soak_physical_ai_trace_and_aggregate_performance_passed_external_closure_pending",
       "criterion": "interop, visual, soak, performance, license, asset, and reproducibility release gates pass"
     }
   ],
@@ -58907,5 +58907,5 @@
       "disposition": "planned_port"
     }
   ],
-  "inventory_sha256": "23aa645c31012b70b52f880a9b0c2d2c8efd37cda3f9a3fcdb5b5e7cca5a5a3a"
+  "inventory_sha256": "b8133fcb7db7e19848f89106de39ce4e9205e048180c5fc4898ff2f050e65c2d"
 }

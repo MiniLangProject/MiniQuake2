@@ -472,7 +472,8 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
     brushResult = buildModelDraws(scene, textures, generation, map.models[modelIndex])
     textures = brushResult[0]
     brushModels[modelIndex - 1] = rclassictypes.ClassicBrushModel(modelIndex,
-      map.models[modelIndex], brushResult[1], array(len(brushResult[1])))
+      map.models[modelIndex], brushResult[1], array(len(brushResult[1])),
+      rclassicspecial.createClassicSpecialPassScratch(len(brushResult[1])))
     modelIndex = modelIndex + 1
   end while
   lightmapAtlases = packLightmapAtlases(draws, brushModels, generation,
@@ -487,7 +488,9 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
     array(pointStackSize, 0), array(pointStackSize, 0),
     array(pointStackSize, 0.0), array(pointStackSize, 0.0),
     array(pointStackSize, 0.0), array(pointStackSize, 0.0),
-    array(pointStackSize, 0.0), array(pointStackSize, 0.0))
+    array(pointStackSize, 0.0), array(pointStackSize, 0.0),
+    rclassicspecial.createClassicSpecialPassScratch(len(draws)),
+    array(len(map.faces), void), bytes(len(map.faces)), array(len(draws)))
 end function
 
 // Return the triangle count.

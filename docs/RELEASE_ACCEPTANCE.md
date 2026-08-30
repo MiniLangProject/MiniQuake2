@@ -635,3 +635,19 @@ external work: a second physical GPU/driver family, explicit alternate audio
 endpoints, hot-unplug/device-loss, controller hardware, manual input latency,
 multi-host networking, or process interoperability with an original executable
 on a compatible host.
+
+## 2026-08-29 frame-pacing and allocation follow-up
+
+The interactive product now separates the fixed 10-Hz game simulation from a
+high-resolution presentation deadline controlled by archived `cl_maxfps` and
+`gl_swapinterval` settings. Config v3 persists both values, and versions 1/2
+upgrade to 90 fps with vertical sync enabled. Detailed per-phase clock and heap
+sampling remains active for bounded acceptance runs but is removed from the
+ordinary unlimited play loop to avoid measurement-induced micro-stutter.
+
+The same pass replaced live multicast, unicast and delayed-audio append/copy
+queues with fixed-capacity prefixes. Renderer visibility, pass splitting,
+brush submissions, alpha records and clean world-lightmap checks reuse retained
+storage. Focused Release regressions cover the compatibility views and the live
+optimized paths; the 327,680-frame/128-pending audio benchmark completed in
+12.89 ms on this host, down from the historical 229.36-ms baseline.

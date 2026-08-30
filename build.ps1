@@ -130,8 +130,24 @@ function Invoke-Checked {
     [Parameter(Mandatory = $true)][string]$Label,
     [string]$LogPath = ""
   )
-  $Lines = @(& $Executable @Arguments 2>&1 | ForEach-Object { $Line = [string]$_; Write-Host $Line; $Line })
-  $ExitCode = [int]$LASTEXITCODE
+  # Native tools are allowed to use stderr for ordinary progress output.  In
+  # particular Python's unittest runner writes its dots and summary there.
+  # The script-wide Stop preference would turn that valid output into a
+  # terminating NativeCommandError before we can inspect LASTEXITCODE, so keep
+  # native invocation non-terminating inside this narrow scope and restore the
+  # caller's preference immediately afterwards.
+  $PreviousErrorActionPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "Continue"
+    $Lines = @(& $Executable @Arguments 2>&1 | ForEach-Object {
+      $Line = [string]$_
+      Write-Host $Line
+      $Line
+    })
+    $ExitCode = [int]$LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $PreviousErrorActionPreference
+  }
   if (-not [string]::IsNullOrWhiteSpace($LogPath)) {
     $Lines | Set-Content -LiteralPath $LogPath -Encoding UTF8
   }

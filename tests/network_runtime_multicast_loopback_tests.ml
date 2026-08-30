@@ -39,7 +39,7 @@ imports.writeByte(nrml_qc.SVC_MUZZLEFLASH2)
 imports.writeShort(1)
 imports.writeByte(57)
 imports.multicast(origin, nrml_gc.MULTICAST_PVS)
-multicastLoopAssert(len(session.server.bridgeRuntime.pendingMulticasts) == 1,
+multicastLoopAssert(session.server.bridgeRuntime.pendingMulticastCount == 1,
   "GameImport multicast did not reach the server queue")
 
 outgoingBeforeTransient = serverChannel.outgoingSequence
@@ -55,7 +55,7 @@ multicastLoopAssert(handoff.dLights[0].key == 1 and handoff.dLights[0].radius >=
 multicastLoopAssert(len(handoff.sounds) == 1 and handoff.sounds[0].entity == 1 and
   handoff.sounds[0].soundName == "chick/chkatck2.wav",
   "monster muzzle flash sound handoff mismatch")
-multicastLoopAssert(len(session.server.bridgeRuntime.pendingMulticasts) == 0,
+multicastLoopAssert(session.server.bridgeRuntime.pendingMulticastCount == 0,
   "delivered multicast queue was not drained")
 
 // Reliable GameImport payloads use the same application-fragment queue and
@@ -64,7 +64,7 @@ imports.writeByte(nrml_qc.SVC_NOP)
 imports.multicast(origin, nrml_gc.MULTICAST_ALL_R)
 nrml_play.step(session)
 multicastLoopAssert(serverChannel.reliableLength > 0 and
-  len(session.server.bridgeRuntime.pendingMulticasts) == 0,
+  session.server.bridgeRuntime.pendingMulticastCount == 0,
   "reliable multicast was not staged in Netchan")
 nrml_play.step(session)
 multicastLoopAssert(serverChannel.reliableLength == 0,

@@ -57,10 +57,26 @@ while index < smq_messages.MAX_PENDING_MULTICAST_EVENTS
     smq_gc.MULTICAST_ALL, bytes([1]))
   index = index + 1
 end while
-multicastQueueAssert(try(smq_messages.enqueue(full, smq_qtypes.Vec3(0.0, 0.0, 0.0),
-  smq_gc.MULTICAST_ALL, bytes([1]))) is error and
+multicastQueueAssert(smq_messages.enqueue(full, smq_qtypes.Vec3(0.0, 0.0, 0.0),
+  smq_gc.MULTICAST_ALL, bytes([1])) == false and
   len(full.pendingMulticasts) == smq_messages.MAX_PENDING_MULTICAST_EVENTS and
   full.nextMulticastSerial == smq_messages.MAX_PENDING_MULTICAST_EVENTS,
-  "bounded multicast overflow changed queue")
+  "unreliable multicast overflow was not dropped atomically")
+multicastQueueAssert(try(smq_messages.enqueue(full,
+  smq_qtypes.Vec3(0.0, 0.0, 0.0), smq_gc.MULTICAST_ALL_R,
+  bytes([1]))) is error, "reliable multicast overflow was silently dropped")
+
+optimized = smq_bridge.createRuntime(1)
+smq_messages.enableOptimizedQueues(optimized)
+smq_messages.enqueue(optimized, smq_qtypes.Vec3(1.0, 1.0, 1.0),
+  smq_gc.MULTICAST_PVS, bytes([7, 8]))
+multicastQueueAssert(len(optimized.pendingMulticasts) == 0 and
+  optimized.pendingMulticastCount == 1 and optimized.pendingMulticastBytes == 2 and
+  smq_messages.pendingMulticastSnapshot(optimized)[0].payload == bytes([7, 8]),
+  "optimized multicast queue did not retain its fixed-storage prefix")
+smq_messages.clearMulticasts(optimized)
+multicastQueueAssert(optimized.pendingMulticastCount == 0 and
+  optimized.pendingMulticastBytes == 0,
+  "optimized multicast queue did not clear its counters")
 
 print("server_multicast_event_queue_tests: PASS")

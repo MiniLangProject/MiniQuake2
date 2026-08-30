@@ -12,6 +12,7 @@ import miniquake2.game.world.constants as physicalinputworldconstants
 import miniquake2.qcommon.constants as physicalinputqconstants
 import miniquake2.qcommon.types as physicalinputqtypes
 import miniquake2.game.weapons.constants as physicalinputweaponconstants
+import miniquake2.server.game_messages as physicalinputmessages
 
 // Assert the physical input test condition.
 function physicalInputAssert(value, message)
@@ -208,8 +209,7 @@ function physicalInputRetail(baseDirectory)
     "retail base1 contains no explobox regression target")
   physicalInputRetailPlayerProxy = physicalinputintegration.playerWorldProxy(
     physicalInputRetailPlayer)
-  physicalInputRetailMulticastBefore = len(
-    physicalInputRetailSession.server.bridgeRuntime.pendingMulticasts)
+  physicalInputRetailMulticastBefore = physicalInputRetailSession.server.bridgeRuntime.pendingMulticastCount
   physicalinputintegration.integratedWorldDamage(physicalInputRetailBarrel,
     physicalInputRetailPlayerProxy, physicalInputRetailPlayerProxy, 15,
     physicalinputworldconstants.MOD_EXPLOSIVE)
@@ -218,7 +218,8 @@ function physicalInputRetail(baseDirectory)
     "retail base1 barrel did not enter its delayed explosion")
   physicalinputgame.RunFrame()
   physicalinputgame.RunFrame()
-  physicalInputRetailMulticasts = physicalInputRetailSession.server.bridgeRuntime.pendingMulticasts
+  physicalInputRetailMulticasts = physicalinputmessages.pendingMulticastSnapshot(
+    physicalInputRetailSession.server.bridgeRuntime)
   physicalInputAssert(not physicalInputRetailBarrel.inUse and
     len(physicalInputRetailMulticasts) > physicalInputRetailMulticastBefore,
     "retail base1 barrel did not complete a visible explosion")

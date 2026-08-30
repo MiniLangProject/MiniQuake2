@@ -67,6 +67,8 @@ function defaultPages()
       "3840x2160 (4K)"], "vid_mode"),
     toggle("fullscreen", "fullscreen", 0, "vid_fullscreen"),
     slider("brightness", "brightness", 1.0, 0.5, 2.0, 0.1, "vid_gamma"),
+    slider("maxfps", "maximum fps", 90, 30, 360, 30, "cl_maxfps"),
+    toggle("vsync", "vertical sync", 1, "gl_swapinterval"),
     action("apply", "apply", "vid_restart")])
   options = cuitypes.MenuPage("options", "OPTIONS", "main", [
     slider("sensitivity", "mouse speed", 3.0, 1.0, 20.0, 0.5, "sensitivity"),

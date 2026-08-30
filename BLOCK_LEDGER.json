@@ -2,8 +2,8 @@
   "schema": "MiniQuake2BlockLedger/1",
   "project": "MiniQuake2",
   "baseline": "Quake II 3.19 / Protocol 34 / BSP38 / Game API v3 / Renderer API v3",
-  "active_blocker_count": 8,
-  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, one-window CIN/PCX/map/DM2 chains, complete installed release-demo replay, live renderer restart, persistent key/config capture, skill-aware New Game, durable same/cross-map save slots, persistent boss2 and scripted-prop progression, collision-bound stock monster movement and PlayerTrail pursuit, zero explicitly simplified retail classes, 22 stock monster damage-emission profiles, exact stock temp-entity/muzzle/particle families plus automatic snapshot projectile trails/lights on reusable pools, real-command two-client DM/coop, independent bidirectional Protocol-34 wire, deterministic GL capture, historical 20000-frame retail soak at 43.89 fps, movement-enabled 5000-frame base1 soak at 190.20 fps, and dense-lab 500-frame soak at 68.31 fps are green; runnable original-process interop, broader visual/event differential, hardware gamma, and manual device acceptance remain",
+  "active_blocker_count": 5,
+  "status": "classic Steam 47-map spawn matrix, persistent-UDP 39-map lifecycle, one-window CIN/PCX/map/DM2 chains, complete installed release-demo replay, live renderer restart, persistent key/config capture, skill-aware New Game, durable same/cross-map save slots, persistent boss2 and scripted-prop progression, collision-bound stock monster movement and PlayerTrail pursuit, zero explicitly simplified retail classes, 22 stock monster damage-emission profiles, exact stock temp-entity/muzzle/particle families plus automatic snapshot projectile trails/lights on reusable pools, real-command two-client DM/coop, independent bidirectional Protocol-34 wire, deterministic GL capture, historical retail performance matrices, hardware gamma, and fixed-storage render/audio/message hot paths are green; runnable original-process interop, broader visual/event differential, second-host GPU/audio, hot-unplug, and manual device acceptance remain",
   "release_blocking_gates": [
     {
       "id": "G01",
@@ -342,9 +342,9 @@
       "id": "R03",
       "classification": "savegame disk-layout mismatch",
       "severity": "high",
-      "status": "controlled_minilang_format_implemented",
+      "status": "controlled_explicit_unsupported_variant",
       "risk": "The 3.19 game save path contains raw structure-size assumptions that do not map to MiniLang or x64 memory.",
-      "mitigation": "Implement field-by-field versioned serialization and an explicit Win32 3.19 import/export adapter; never dump runtime objects.",
+      "mitigation": "Use field-by-field versioned MiniQuake2 serialization, classify native images before decode, and reject the declared Win32/x86 machine-layout variant with a tested diagnostic; never dump or heuristically decode runtime objects.",
       "owner_gate": "G09"
     },
     {

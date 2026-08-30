@@ -62,10 +62,17 @@ struct ServerRuntime
   soundNames
   imageNames
   multicastBuffer
+  multicastQueue
+  pendingMulticastCount
+  pendingMulticastBytes
   pendingMulticasts
   nextMulticastSerial
+  unicastQueue
+  pendingUnicastCount
+  pendingUnicastBytes
   pendingUnicasts
   nextUnicastSerial
+  retainMessageViews
   pendingSounds
   pendingSoundCount
   nextSoundSerial

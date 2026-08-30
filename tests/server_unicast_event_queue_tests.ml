@@ -69,10 +69,26 @@ while index < suq_messages.MAX_PENDING_UNICAST_EVENTS
   suq_messages.enqueueUnicast(full, fullClient, false, bytes([suq_qc.SVC_NOP]))
   index = index + 1
 end while
-unicastQueueAssert(try(suq_messages.enqueueUnicast(full, fullClient, false,
-  bytes([suq_qc.SVC_NOP]))) is error and
+unicastQueueAssert(suq_messages.enqueueUnicast(full, fullClient, false,
+  bytes([suq_qc.SVC_NOP])) == false and
   len(full.pendingUnicasts) == suq_messages.MAX_PENDING_UNICAST_EVENTS and
   full.nextUnicastSerial == suq_messages.MAX_PENDING_UNICAST_EVENTS,
-  "bounded unicast overflow changed queue")
+  "unreliable unicast overflow was not dropped atomically")
+unicastQueueAssert(try(suq_messages.enqueueUnicast(full, fullClient, true,
+  bytes([suq_qc.SVC_NOP]))) is error,
+  "reliable unicast overflow was silently dropped")
+
+optimized = suq_bridge.createRuntime(1)
+suq_messages.enableOptimizedQueues(optimized)
+suq_messages.enqueueUnicast(optimized, fullClient, false,
+  bytes([suq_qc.SVC_NOP]))
+unicastQueueAssert(len(optimized.pendingUnicasts) == 0 and
+  optimized.pendingUnicastCount == 1 and optimized.pendingUnicastBytes == 1 and
+  suq_messages.pendingUnicastSnapshot(optimized)[0].entity == 1,
+  "optimized unicast queue did not retain its fixed-storage prefix")
+suq_messages.clearUnicasts(optimized)
+unicastQueueAssert(optimized.pendingUnicastCount == 0 and
+  optimized.pendingUnicastBytes == 0,
+  "optimized unicast queue did not clear its counters")
 
 print("server_unicast_event_queue_tests: PASS")

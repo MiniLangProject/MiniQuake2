@@ -13,7 +13,8 @@ import miniquake2.client.ui.constants as uiconfigconstants
 import miniquake2.client.ui.keys as uiconfigkeys
 import miniquake2.audio.mixer as uiconfigmixer
 
-const CONFIG_HEADER = "MiniQuake2Config 2"
+const CONFIG_HEADER = "MiniQuake2Config 3"
+const CONFIG_V2_HEADER = "MiniQuake2Config 2"
 const CONFIG_LEGACY_HEADER = "MiniQuake2Config 1"
 const CONFIG_MAX_BYTES = 65536
 const CONFIG_MAX_LINES = 512
@@ -29,6 +30,8 @@ struct ProductConfig
   videoMode
   fullScreen
   brightness
+  maxFps
+  swapInterval
   crosshair
   joystick
   bindings
@@ -60,6 +63,8 @@ function productConfigValidate(config)
       typeof(config.fullScreen) != "bool" or
       (typeof(config.brightness) != "int" and typeof(config.brightness) != "float") or
       config.brightness < 0.5 or config.brightness > 2.0 or
+      typeof(config.maxFps) != "int" or config.maxFps < 30 or
+      config.maxFps > 1000 or typeof(config.swapInterval) != "bool" or
       typeof(config.crosshair) != "int" or config.crosshair < 0 or
       config.crosshair > 3 or
       typeof(config.joystick) != "bool" or
@@ -92,7 +97,8 @@ function captureProductConfig(input, commandState, mixer, screen)
   productConfigCaptured = ProductConfig(input.config.sensitivity,
     input.config.alwaysRun, productConfigInvertMouse, input.config.hand,
     mixer.masterVolume, commandState.videoMode, commandState.fullScreen,
-    commandState.brightness, screen.crosshair, commandState.joystickEnabled,
+    commandState.brightness, commandState.maxFps, commandState.swapInterval,
+    screen.crosshair, commandState.joystickEnabled,
     productConfigBindings, true)
   return productConfigValidate(productConfigCaptured)
 end function
@@ -108,6 +114,8 @@ end function
 
 // Encode product config.
 function encodeProductConfig(config)
+  // Validate the typed snapshot, encode booleans as retail-style numeric
+  // cvars, then append the variable-length binding section.
   productConfigValue = productConfigValidate(config)
   productConfigRunValue = 0
   if productConfigValue.alwaysRun then productConfigRunValue = 1 end if
@@ -117,6 +125,8 @@ function encodeProductConfig(config)
   if productConfigValue.fullScreen then productConfigFullscreenValue = 1 end if
   productConfigJoystickValue = 0
   if productConfigValue.joystick then productConfigJoystickValue = 1 end if
+  productConfigSwapIntervalValue = 0
+  if productConfigValue.swapInterval then productConfigSwapIntervalValue = 1 end if
   productConfigText = CONFIG_HEADER + "\n" +
     "sensitivity " + productConfigEncodedNumber(
       productConfigValue.sensitivity) + "\n" +
@@ -128,6 +138,8 @@ function encodeProductConfig(config)
     "vid_fullscreen " + productConfigFullscreenValue + "\n" +
     "vid_gamma " + productConfigEncodedNumber(
       productConfigValue.brightness) + "\n" +
+    "cl_maxfps " + productConfigValue.maxFps + "\n" +
+    "gl_swapinterval " + productConfigSwapIntervalValue + "\n" +
     "crosshair " + productConfigValue.crosshair + "\n"
   productConfigText = productConfigText + "in_joystick " +
     productConfigJoystickValue + "\n"
@@ -163,11 +175,11 @@ function decodeProductConfig(text)
   productConfigHeader = uiconfigstring.trim(productConfigLines[0])
   if typeof(productConfigLines) != "array" or len(productConfigLines) < 7 or
       len(productConfigLines) > CONFIG_MAX_LINES or
-      (productConfigHeader != CONFIG_HEADER and
+      (productConfigHeader != CONFIG_HEADER and productConfigHeader != CONFIG_V2_HEADER and
        productConfigHeader != CONFIG_LEGACY_HEADER) then
     return error(8295, "product config header or line count is invalid")
   end if
-  productConfigBindingsComplete = productConfigHeader == CONFIG_HEADER
+  productConfigBindingsComplete = productConfigHeader != CONFIG_LEGACY_HEADER
   productConfigSensitivity = void
   productConfigRun = void
   productConfigInvert = void
@@ -176,6 +188,8 @@ function decodeProductConfig(text)
   productConfigMode = void
   productConfigFullscreen = void
   productConfigGamma = void
+  productConfigMaxFps = void
+  productConfigSwapInterval = void
   productConfigCrosshair = void
   productConfigJoystick = void
   productConfigBindings = []
@@ -223,6 +237,16 @@ function decodeProductConfig(text)
         productConfigFullscreen = productConfigSetting != 0
       else if productConfigName == "vid_gamma" and productConfigGamma is void then
         productConfigGamma = productConfigSetting * 1.0
+      else if productConfigName == "cl_maxfps" and productConfigMaxFps is void then
+        productConfigMaxFps = uiconfigbyteio.truncInt(productConfigSetting)
+        if productConfigSetting != productConfigMaxFps or productConfigMaxFps < 30 or
+            productConfigMaxFps > 1000 then
+          return error(8297, "cl_maxfps must be an integer inside [30,1000]")
+        end if
+      else if productConfigName == "gl_swapinterval" and
+          productConfigSwapInterval is void and
+          (productConfigSetting == 0 or productConfigSetting == 1) then
+        productConfigSwapInterval = productConfigSetting != 0
       else if productConfigName == "crosshair" and productConfigCrosshair is void then
         productConfigCrosshair = uiconfigbyteio.truncInt(productConfigSetting)
         if productConfigSetting != productConfigCrosshair or productConfigCrosshair < 0 or
@@ -237,7 +261,9 @@ function decodeProductConfig(text)
   end while
   if productConfigSensitivity is void or productConfigRun is void or
       productConfigVolume is void or productConfigMode is void or
-      productConfigFullscreen is void or productConfigGamma is void then
+      productConfigFullscreen is void or productConfigGamma is void or
+      (productConfigHeader == CONFIG_HEADER and
+       (productConfigMaxFps is void or productConfigSwapInterval is void)) then
     return error(8299, "product config is missing required settings")
   end if
   // Config v1 predates persisted handedness, mouse inversion and crosshair.
@@ -246,10 +272,15 @@ function decodeProductConfig(text)
   if productConfigInvert is void then productConfigInvert = false end if
   if productConfigCrosshair is void then productConfigCrosshair = 1 end if
   if productConfigJoystick is void then productConfigJoystick = true end if
+  // Config versions one and two predate explicit frame pacing. Preserve the
+  // original Quake II defaults when upgrading either format.
+  if productConfigMaxFps is void then productConfigMaxFps = 90 end if
+  if productConfigSwapInterval is void then productConfigSwapInterval = true end if
   return productConfigValidate(ProductConfig(productConfigSensitivity,
     productConfigRun, productConfigInvert, productConfigHand, productConfigVolume,
     productConfigMode, productConfigFullscreen, productConfigGamma,
-    productConfigCrosshair, productConfigJoystick, productConfigBindings,
+    productConfigMaxFps, productConfigSwapInterval, productConfigCrosshair,
+    productConfigJoystick, productConfigBindings,
     productConfigBindingsComplete))
 end function
 
@@ -267,6 +298,8 @@ function applyProductConfig(config, input, commandState, mixer, screen)
   commandState.videoMode = productConfigApply.videoMode
   commandState.fullScreen = productConfigApply.fullScreen
   commandState.brightness = productConfigApply.brightness
+  commandState.maxFps = productConfigApply.maxFps
+  commandState.swapInterval = productConfigApply.swapInterval
   commandState.joystickEnabled = productConfigApply.joystick
   screen.crosshair = productConfigApply.crosshair
   uiconfigmixer.setMasterVolume(mixer, productConfigApply.volume)
