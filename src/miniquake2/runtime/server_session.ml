@@ -83,6 +83,23 @@ end struct
 // so the same storage can be reused for every 10 Hz client snapshot.
 serverSessionFatPvsLeafScratch = array(64, 0)
 serverSessionClientPacketEntityScratch = array(ssnc.MAX_PACKET_ENTITIES, void)
+serverSessionEmptyMessageRouteCache = array(257)
+
+// Return immutable empty recipient routes for a server width. Snapshot code
+// only reads these prefixes, so all sessions with the same maxclients value
+// can safely share the once-allocated routing shape.
+function emptyServerMessageRoutes(maxClients)
+  routes = serverSessionEmptyMessageRouteCache[maxClients]
+  if routes is not void then return routes end if
+  routes = array(maxClients)
+  slot = 0
+  while slot < maxClients
+    routes[slot] = []
+    slot = slot + 1
+  end while
+  serverSessionEmptyMessageRouteCache[maxClients] = routes
+  return routes
+end function
 
 // Split a classic level specification into the BSP map and optional named
 // spawn point.  A preceding cinematic/picture segment and the unit marker are
@@ -1191,36 +1208,48 @@ function step(session)
   synchronizeConfigStrings(session)
   session.frameNumber = session.frameNumber + 1
   session.networkRuntime.server.realTime = now
-  // Route all GameImport message classes before mutating Netchan. Reliable
-  // fragments are queued atomically; transient fragments are consumed exactly
-  // once and appended after svc_frame/entities by sendSnapshots.
-  pendingUnicasts = ssgamemessages.pendingUnicastSnapshot(session.bridgeRuntime)
-  pendingMulticasts = ssgamemessages.pendingMulticastSnapshot(session.bridgeRuntime)
-  pendingSoundBatch = ssoundevents.pendingSnapshot(session.bridgeRuntime)
-  routedUnicasts = routeUnicasts(session, pendingUnicasts)
-  routedMulticasts = routeMulticasts(session, pendingMulticasts)
-  routedSounds = routeSounds(session, pendingSoundBatch)
-  reliableQueued = queueReliableFrameMessages(session.networkRuntime,
-    routedUnicasts, routedMulticasts, routedSounds)
-  transientRoutes = array(session.networkRuntime.server.maxClients, void)
-  transientSlot = 0
-  while transientSlot < session.networkRuntime.server.maxClients
-    transientRoutes[transientSlot] = frameMessageFragments(
-      routedUnicasts[transientSlot], routedMulticasts[transientSlot],
-      routedSounds[transientSlot], false)
-    transientSlot = transientSlot + 1
-  end while
-  if reliableQueued then
-    ssgamemessages.clearUnicasts(session.bridgeRuntime)
-    ssgamemessages.clearMulticasts(session.bridgeRuntime)
-    ssoundevents.clearPending(session.bridgeRuntime)
+  // Most 10 Hz gameplay ticks emit no GameImport messages. Route directly to
+  // a retained empty shape in that common case; only an occupied fixed queue
+  // materializes snapshots and per-recipient fragment arrays.
+  bridge = session.bridgeRuntime
+  noFrameMessages = bridge.pendingUnicastCount == 0 and
+    bridge.pendingMulticastCount == 0 and bridge.pendingSoundCount == 0
+  transientRoutes = void
+  if noFrameMessages then
+    transientRoutes = emptyServerMessageRoutes(
+      session.networkRuntime.server.maxClients)
   else
-    ssgamemessages.restoreUnicasts(session.bridgeRuntime,
-      unicastReliabilitySubset(pendingUnicasts, true))
-    ssgamemessages.restoreMulticasts(session.bridgeRuntime,
-      multicastReliabilitySubset(pendingMulticasts, true))
-    ssoundevents.restorePending(session.bridgeRuntime,
-      soundReliabilitySubset(pendingSoundBatch, true))
+    // Route all GameImport message classes before mutating Netchan. Reliable
+    // fragments are queued atomically; transient fragments are consumed
+    // exactly once and appended after svc_frame/entities by sendSnapshots.
+    pendingUnicasts = ssgamemessages.pendingUnicastSnapshot(bridge)
+    pendingMulticasts = ssgamemessages.pendingMulticastSnapshot(bridge)
+    pendingSoundBatch = ssoundevents.pendingSnapshot(bridge)
+    routedUnicasts = routeUnicasts(session, pendingUnicasts)
+    routedMulticasts = routeMulticasts(session, pendingMulticasts)
+    routedSounds = routeSounds(session, pendingSoundBatch)
+    reliableQueued = queueReliableFrameMessages(session.networkRuntime,
+      routedUnicasts, routedMulticasts, routedSounds)
+    transientRoutes = array(session.networkRuntime.server.maxClients, void)
+    transientSlot = 0
+    while transientSlot < session.networkRuntime.server.maxClients
+      transientRoutes[transientSlot] = frameMessageFragments(
+        routedUnicasts[transientSlot], routedMulticasts[transientSlot],
+        routedSounds[transientSlot], false)
+      transientSlot = transientSlot + 1
+    end while
+    if reliableQueued then
+      ssgamemessages.clearUnicasts(bridge)
+      ssgamemessages.clearMulticasts(bridge)
+      ssoundevents.clearPending(bridge)
+    else
+      ssgamemessages.restoreUnicasts(bridge,
+        unicastReliabilitySubset(pendingUnicasts, true))
+      ssgamemessages.restoreMulticasts(bridge,
+        multicastReliabilitySubset(pendingMulticasts, true))
+      ssoundevents.restorePending(bridge,
+        soundReliabilitySubset(pendingSoundBatch, true))
+    end if
   end if
   session.packetsSent = session.packetsSent + sendSnapshots(session, now,
     transientRoutes)

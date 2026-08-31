@@ -618,8 +618,44 @@ function proxyFor(body)
   proxy.angles = proxyAngles
   proxy.mins = proxyMins
   proxy.maxs = proxyMaxs
-  if body.kind == "player" then proxy.isClient = true; proxy.health = body.value.health end if
-  if body.kind == "monster" then proxy.serverFlags = proxy.serverFlags | pushworldconstants.SVF_MONSTER; proxy.health = body.value.health; proxy.mass = body.value.mass end if
+  // A pusher callback receives an edict in the C game.  Keep this adapter
+  // faithful to that contract: mover callbacks must be able to distinguish a
+  // live, damageable monster from debris or a stale corpse.  In particular,
+  // do not hand door_blocked a zeroed WorldEntity merely because the body is
+  // represented by a managed AI record rather than by world.entities.
+  proxy.inUse = body.edict is not void and body.edict.inUse
+  proxy.solid = body.solid
+  proxy.clipMask = body.clipMask
+  sourceMoveType = try(body.value.moveType)
+  if sourceMoveType is not error and typeof(sourceMoveType) == "int" then
+    proxy.moveType = sourceMoveType
+  end if
+  sourceHealth = try(body.value.health)
+  if sourceHealth is not error and typeof(sourceHealth) == "int" then
+    proxy.health = sourceHealth
+  end if
+  sourceMaxHealth = try(body.value.maxHealth)
+  if sourceMaxHealth is not error and typeof(sourceMaxHealth) == "int" then
+    proxy.maxHealth = sourceMaxHealth
+  end if
+  sourceMass = try(body.value.mass)
+  if sourceMass is not error and typeof(sourceMass) == "int" then
+    proxy.mass = sourceMass
+  end if
+  sourceFlags = try(body.value.flags)
+  if sourceFlags is not error and typeof(sourceFlags) == "int" then
+    proxy.flags = sourceFlags
+  end if
+  sourceTakeDamage = try(body.value.takeDamage)
+  if sourceTakeDamage is not error and typeof(sourceTakeDamage) == "int" then
+    proxy.takeDamage = sourceTakeDamage
+  end if
+  if body.kind == "player" then
+    proxy.isClient = true
+  end if
+  if body.kind == "monster" then
+    proxy.serverFlags = proxy.serverFlags | pushworldconstants.SVF_MONSTER
+  end if
   return proxy
 end function
 

@@ -79,6 +79,27 @@ second = buildState(123)
 assertEqual(first.particles[0].origin.x, second.particles[0].origin.x, "seeded particle origin")
 assertEqual(first.particles[0].velocity.z, second.particles[0].velocity.z, "seeded particle velocity")
 
+// Stock CL_AllocExplosion replaces the oldest active slot rather than a
+// fixed array position when a 33rd simultaneous effect arrives.
+saturatedExplosions = cestate.createSilent(127)
+saturatedIndex = 0
+while saturatedIndex < ceconstants.MAX_EXPLOSIONS
+  cestate.addExplosionExact(saturatedExplosions, 5,
+    qt.Vec3(saturatedIndex * 1.0, 0.0, 0.0), qt.zeroVec3(),
+    "models/explosion.md2", 4, 0.0, [1.0, 0.5, 0.25],
+    1000 + saturatedIndex, 0, 0, 1.0, 0)
+  saturatedIndex = saturatedIndex + 1
+end while
+saturatedExplosions.explosions[17].startTime = 10
+replacementExplosion = cestate.addExplosionExact(saturatedExplosions, 5,
+  qt.Vec3(99.0, 0.0, 0.0), qt.zeroVec3(), "models/explosion.md2",
+  4, 0.0, [1.0, 0.5, 0.25], 2000, 0, 0, 1.0, 0)
+assertEqual(len(saturatedExplosions.explosions), ceconstants.MAX_EXPLOSIONS,
+  "33rd explosion retains fixed pool size")
+assertTrue(saturatedExplosions.explosions[17] == replacementExplosion and
+    saturatedExplosions.explosions[0] != replacementExplosion,
+  "33rd explosion replaces oldest start time")
+
 frame = rt.defaultRefDef(640, 480)
 cehandoff.apply(first, frame, 0, resolveModel)
 assertEqual(frame.numDLights, 2, "dlight plus explosion light")

@@ -213,6 +213,30 @@ pusherAssert(staticDoor.origin.x == 1.0,
 pusherAssert(blockedCount == 1,
   "ignored static helper dispatched an extra blocked callback")
 
+// A door receives a real edict in stock SV_Physics_Pusher.  The managed
+// bridge uses a WorldEntity proxy for monsters, so preserve the live combat
+// state instead of exposing createEntity's DAMAGE_NO defaults.  Otherwise a
+// monster that blocked a door could subsequently be treated as inert by
+// mover-side damage handling.
+monsterProxyRuntime = pushertestintegration.create(pushertestspawn.SpawnEntities(
+  "pusher-monster-proxy", "{\"classname\" \"worldspawn\"}{\"classname\" \"monster_soldier\" \"origin\" \"0 0 0\"}", ""))
+monsterProxyCapture = pushertestphysics.capture(monsterProxyRuntime)
+monsterProxyBody = void
+for each candidateBody in monsterProxyCapture.bodies
+  if candidateBody.kind == "monster" then monsterProxyBody = candidateBody end if
+end for
+pusherAssert(monsterProxyBody is not void,
+  "integrated monster was absent from the pusher transaction")
+monsterPusherProxy = pushertestphysics.proxyFor(monsterProxyBody)
+monsterPusherActor = monsterProxyBody.value
+pusherAssert(monsterPusherProxy.inUse and
+    monsterPusherProxy.solid == monsterProxyBody.solid and
+    monsterPusherProxy.takeDamage == monsterPusherActor.takeDamage and
+    monsterPusherProxy.health == monsterPusherActor.health and
+    monsterPusherProxy.mass == monsterPusherActor.mass and
+    (monsterPusherProxy.serverFlags & pushertestconstants.SVF_MONSTER) != 0,
+  "monster blocking proxy lost its live damage/collision identity")
+
 repeatedRotatingPusherMaps()
 malformedBounds = try(pushertestphysics.rotatedBounds(void, pushertestqtypes.zeroVec3(),
   pushertestqtypes.zeroVec3(), pushertestqtypes.zeroVec3()))

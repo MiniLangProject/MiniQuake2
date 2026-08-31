@@ -106,7 +106,7 @@ function clearMulticasts(runtime)
   // overwritten on enqueue and never observed by routing.
   runtime.pendingMulticastCount = 0
   runtime.pendingMulticastBytes = 0
-  runtime.pendingMulticasts = []
+  if runtime.retainMessageViews then runtime.pendingMulticasts = [] end if
   return true
 end function
 
@@ -226,7 +226,7 @@ function clearUnicasts(runtime)
   // Retain storage and reset only the authoritative prefix counters.
   runtime.pendingUnicastCount = 0
   runtime.pendingUnicastBytes = 0
-  runtime.pendingUnicasts = []
+  if runtime.retainMessageViews then runtime.pendingUnicasts = [] end if
   return true
 end function
 

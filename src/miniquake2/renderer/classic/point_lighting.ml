@@ -170,17 +170,24 @@ end function
 
 // Return the static point light value.
 function staticPointLight(world, lightStyles, origin)
-  return staticPointLightSample(world, lightStyles, origin)
-end function
-
-// Sample point light.
-function pointLightSample(world, frame, origin)
   if world is void or world.released or world.map is void or
       len(world.map.lighting) == 0 then
     return emptyPointSample(1.0, 1.0, 1.0)
   end if
-  sample = staticPointLightSample(world, frame.lightStyles, origin)
-  color = sample
+  return staticPointLightSample(world, lightStyles, origin)
+end function
+
+// Add the current frame's dynamic lights to a copied static sample. Keeping
+// the immutable BSP result separate lets alias renderers cache the expensive
+// point trace while muzzle flashes and projectiles still affect every frame.
+function dynamicPointLightSample(world, frame, origin, staticSample)
+  if world is void or world.released or world.map is void or
+      len(world.map.lighting) == 0 then
+    return emptyPointSample(1.0, 1.0, 1.0)
+  end if
+  color = rpointtypes.ClassicPointLight(staticSample.red, staticSample.green,
+    staticSample.blue, staticSample.spotX, staticSample.spotY,
+    staticSample.spotZ, staticSample.validSpot)
 
   lightIndex = 0
   while lightIndex < frame.numDLights
@@ -199,7 +206,13 @@ function pointLightSample(world, frame, origin)
   color.red = color.red * world.modulate
   color.green = color.green * world.modulate
   color.blue = color.blue * world.modulate
-  return sample
+  return color
+end function
+
+// Sample point light.
+function pointLightSample(world, frame, origin)
+  staticSample = staticPointLight(world, frame.lightStyles, origin)
+  return dynamicPointLightSample(world, frame, origin, staticSample)
 end function
 
 // Return the point light value.

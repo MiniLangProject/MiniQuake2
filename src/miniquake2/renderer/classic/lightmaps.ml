@@ -29,11 +29,12 @@ function isLitSurface(surface)
   return (surface.texInfo.flags & (fc.SURF_SKY | fc.SURF_TRANS33 | fc.SURF_TRANS66 | fc.SURF_WARP)) == 0
 end function
 
-// Mark dynamic lights.
-function markDynamicLights(surface, dLights)
+// Mark a counted dynamic-light prefix. Product brush movers retain capacity
+// storage and therefore must not scan stale slots past the active count.
+function markDynamicLightsPrefix(surface, dLights, dLightCount)
   bits = 0
   lightIndex = 0
-  while lightIndex < len(dLights) and lightIndex < 32
+  while lightIndex < dLightCount and lightIndex < 32
     light = dLights[lightIndex]
     planeDistance = rclassicvector.dot(light.origin, surface.plane.normal) - surface.plane.distance
     planeRadius = light.intensity - smath.abs(planeDistance)
@@ -44,11 +45,16 @@ function markDynamicLights(surface, dLights)
   return bits
 end function
 
-// Add dynamic lights.
-function addDynamicLights(surface, dLights, blockLights)
+// Mark dynamic lights.
+function markDynamicLights(surface, dLights)
+  return markDynamicLightsPrefix(surface, dLights, len(dLights))
+end function
+
+// Add a counted dynamic-light prefix.
+function addDynamicLightsPrefix(surface, dLights, dLightCount, blockLights)
   // Keep add dynamic lights phases explicit: validate inputs, update owned state, then publish the result.
   lightIndex = 0
-  while lightIndex < len(dLights) and lightIndex < 32
+  while lightIndex < dLightCount and lightIndex < 32
     if (surface.dlightBits & (1 << lightIndex)) != 0 then
       light = dLights[lightIndex]
       planeDistance = rclassicvector.dot(light.origin, surface.plane.normal) - surface.plane.distance
@@ -86,6 +92,11 @@ function addDynamicLights(surface, dLights, blockLights)
   return blockLights
 end function
 
+// Add dynamic lights.
+function addDynamicLights(surface, dLights, blockLights)
+  return addDynamicLightsPrefix(surface, dLights, len(dLights), blockLights)
+end function
+
 // Return the store rgba value.
 function storeRgba(blockLights, sampleCount)
   output = bytes(sampleCount * rclassicconstants.LIGHTMAP_BYTES)
@@ -118,8 +129,9 @@ function storeRgba(blockLights, sampleCount)
   return output
 end function
 
-// Build lightmap.
-function buildLightmap(surface, lightStyles, dLights, modulate)
+// Build a lightmap from a counted dynamic-light prefix.
+function buildLightmapPrefix(surface, lightStyles, dLights, dLightCount,
+    modulate)
   if isLitSurface(surface) == false then return error(9720, "R_BuildLightMap called for non-lit surface") end if
   sampleCount = surface.lightWidth * surface.lightHeight
   if sampleCount <= 0 or sampleCount > rclassicconstants.MAX_BLOCKLIGHTS then return error(9721, "classic blocklights size outside limit") end if
@@ -152,8 +164,14 @@ function buildLightmap(surface, lightStyles, dLights, modulate)
     end while
     mapIndex = mapIndex + 1
   end while
-  addDynamicLights(surface, dLights, blockLights)
+  addDynamicLightsPrefix(surface, dLights, dLightCount, blockLights)
   return storeRgba(blockLights, sampleCount)
+end function
+
+// Build lightmap.
+function buildLightmap(surface, lightStyles, dLights, modulate)
+  return buildLightmapPrefix(surface, lightStyles, dLights, len(dLights),
+    modulate)
 end function
 
 // Set cache state.

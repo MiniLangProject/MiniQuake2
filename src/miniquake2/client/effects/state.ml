@@ -1004,7 +1004,20 @@ function addExplosionExact(state, kind, origin, angles, modelName, frames, light
   if len(state.explosions) < ceconstants.MAX_EXPLOSIONS then
     state.explosions = state.explosions + [explosion]
   else
-    state.explosions[0] = explosion
+    // CL_AllocExplosion reuses the oldest start time when all 32 slots are
+    // active; always replacing slot zero visibly drops newer effects first.
+    oldestIndex = 0
+    oldestStartTime = state.explosions[0].startTime
+    explosionIndex = 1
+    while explosionIndex < len(state.explosions)
+      candidateStartTime = state.explosions[explosionIndex].startTime
+      if candidateStartTime < oldestStartTime then
+        oldestStartTime = candidateStartTime
+        oldestIndex = explosionIndex
+      end if
+      explosionIndex = explosionIndex + 1
+    end while
+    state.explosions[oldestIndex] = explosion
   end if
   return explosion
 end function

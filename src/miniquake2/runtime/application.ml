@@ -136,6 +136,16 @@ struct ApplicationResourceCache
   soundCount
 end struct
 
+// Retain the managed pusher paired with the engine Edict held by Player.
+// Player.groundEntity deliberately follows game.h and is an Edict, while the
+// mover interpolation data lives on its WorldEntity counterpart.
+struct ApplicationGroundPusherCache
+  runtime
+  groundEdict
+  number
+  pusher
+end struct
+
 const APPLICATION_SOUND_CACHE_CAPACITY = 512
 
 previewFileSystem = void
@@ -178,6 +188,8 @@ applicationPersistProductConfig = true
 applicationGamemapAutosaveRequested = false
 applicationGamemapEndOfUnit = false
 applicationMediaCooperative = false
+applicationGroundPusherCache = ApplicationGroundPusherCache(void, void, -1,
+  void)
 applicationResourceCache = ApplicationResourceCache("", void,
   array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
   array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
@@ -269,11 +281,24 @@ function applicationLocalPusherOffset(session, fraction)
   if playerNumber < 0 or playerNumber >= len(playerContext.players) then return offset end if
   player = playerContext.players[playerNumber]
   if player.groundEntity is void then return offset end if
-  groundNumber = player.groundEntity.state.number
+  groundEdict = player.groundEntity
+  groundNumber = groundEdict.state.number
   // Worldspawn is the overwhelmingly common ground entity and cannot move.
   // Avoid scanning the managed world array on every ordinary floor frame.
   if groundNumber <= 0 then return offset end if
-  pusher = appbaseq2.findWorldByNumber(runtime, groundNumber)
+  cache = applicationGroundPusherCache
+  pusher = cache.pusher
+  cacheValid = cache.runtime == runtime and cache.groundEdict == groundEdict and
+    cache.number == groundNumber and pusher is not void and pusher.inUse and
+    pusher.number == groundNumber
+  if not cacheValid then
+    // A changed/reused Edict is the defensive fallback boundary. Ordinary
+    // presentation frames riding the same pusher now avoid a complete world
+    // entity scan.
+    pusher = appbaseq2.findWorldByNumber(runtime, groundNumber)
+    cache.runtime = runtime; cache.groundEdict = groundEdict
+    cache.number = groundNumber; cache.pusher = pusher
+  end if
   if pusher is void or (pusher.moveType != appworldconstants.MOVETYPE_PUSH and
       pusher.moveType != appworldconstants.MOVETYPE_STOP) then return offset end if
   return applicationPusherPredictionOffset(session.client.integrated.client,

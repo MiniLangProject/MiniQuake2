@@ -110,6 +110,9 @@ struct OpenGlState
   batchAnimationFrame
   md2ShadeRows
   md2NormalVectors
+  md2LightCache
+  md2LightStyleSignature
+  md2LightStyleEpoch
   md2ShadowSpotZ
   md2ShadowValid
   md2LightSpotZ
@@ -213,6 +216,18 @@ struct Md2DrawState
   shadeGreen
   shadeBlue
   alpha
+end struct
+
+// One static BSP light sample retained for an entity slot. Dynamic lights are
+// deliberately excluded and composed at draw time so moving flashes remain
+// exact without repeating RecursiveLightPoint on every presentation frame.
+struct Md2LightCacheEntry
+  worldGeneration
+  styleEpoch
+  originX
+  originY
+  originZ
+  sample
 end struct
 
 // Store open gl view axes data.
@@ -1119,14 +1134,57 @@ function openGlMd2Shade(entity, time)
     rclassictypes.ClassicPointLight(1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false))
 end function
 
+// Advance the renderer-owned light-style epoch only when RGB content changes.
+// The client mutates its fixed style table at 10 Hz, so array identity alone
+// cannot invalidate cached static point samples.
+function updateOpenGlMd2LightStyleEpoch(backend, lightStyles)
+  signature = 5381
+  styleIndex = 0
+  while styleIndex < len(lightStyles)
+    style = lightStyles[styleIndex]
+    signature = ((signature << 5) + signature) ^ bits(style.rgb[0])
+    signature = ((signature << 5) + signature) ^ bits(style.rgb[1])
+    signature = ((signature << 5) + signature) ^ bits(style.rgb[2])
+    styleIndex = styleIndex + 1
+  end while
+  if signature != backend.md2LightStyleSignature then
+    backend.md2LightStyleSignature = signature
+    backend.md2LightStyleEpoch = backend.md2LightStyleEpoch + 1
+  end if
+  return backend.md2LightStyleEpoch
+end function
+
+// Return a cached static BSP sample for one live RefDef entity slot.
+function openGlMd2StaticLightSample(backend, frame, entity, entityIndex)
+  world = backend.activeWorld
+  if entityIndex < 0 or entityIndex >= rc.MAX_ENTITIES or world is void then
+    return rclassicpointlighting.staticPointLight(world, frame.lightStyles,
+      entity.origin)
+  end if
+  origin = entity.origin
+  cached = backend.md2LightCache[entityIndex]
+  if cached is not void and cached.worldGeneration == world.generation and
+      cached.styleEpoch == backend.md2LightStyleEpoch and
+      cached.originX == origin.x and cached.originY == origin.y and
+      cached.originZ == origin.z then
+    return cached.sample
+  end if
+  sample = rclassicpointlighting.staticPointLight(world, frame.lightStyles,
+    origin)
+  backend.md2LightCache[entityIndex] = Md2LightCacheEntry(world.generation,
+    backend.md2LightStyleEpoch, origin.x, origin.y, origin.z, sample)
+  return sample
+end function
+
 // Open gl md 2 frame shade components.
-function openGlMd2FrameShadeComponents(backend, frame, entity)
+function openGlMd2FrameShadeComponentsAt(backend, frame, entity, entityIndex)
   shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE |
     rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
   baseColor = rclassictypes.ClassicPointLight(
     1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false)
-  sample = rclassicpointlighting.pointLightSample(backend.activeWorld, frame,
-    entity.origin)
+  staticSample = openGlMd2StaticLightSample(backend, frame, entity, entityIndex)
+  sample = rclassicpointlighting.dynamicPointLightSample(backend.activeWorld,
+    frame, entity.origin, staticSample)
   backend.md2LightSpotZ = sample.spotZ
   backend.md2LightSpotValid = sample.validSpot
   if (entity.flags & shellMask) == 0 and
@@ -1140,6 +1198,12 @@ function openGlMd2FrameShadeComponents(backend, frame, entity)
     end if
   end if
   return openGlMd2ShadeComponents(entity, frame.time, frame.rdFlags, baseColor)
+end function
+
+// Open gl md 2 frame shade components for diagnostic callers without a stable
+// live RefDef slot.
+function openGlMd2FrameShadeComponents(backend, frame, entity)
+  return openGlMd2FrameShadeComponentsAt(backend, frame, entity, -1)
 end function
 
 // Open gl md 2 frame shade.
@@ -1216,7 +1280,7 @@ function inline openGlMd2ModelPitch(angle)
 end function
 
 // Begin open gl md 2 draw.
-function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
+function beginOpenGlMd2Draw(backend, skinAsset, entity, frame, entityIndex)
   // Keep begin open gl md 2 draw phases explicit: validate inputs, update owned state, then publish the result.
   entityFlags = entity.flags; entityAlpha = entity.alpha
   entityOrigin = entity.origin; entityAngles = entity.angles
@@ -1251,7 +1315,8 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
     rclassictypes.ClassicPointLight(
       1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false))
   if frame is not void then
-    shadeColor = openGlMd2FrameShadeComponents(backend, frame, entity)
+    shadeColor = openGlMd2FrameShadeComponentsAt(backend, frame, entity,
+      entityIndex)
   end if
   shade = openGlPackMd2Shade(shadeColor)
   native.glColor4ub(colorByte(shade, 0), colorByte(shade, 8), colorByte(shade, 16), alpha)
@@ -1381,7 +1446,7 @@ function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
     vertexCount, resultBounds, entity, frame)
   // Root every managed value before the first native call. The live path uses
   // one flat scalar array, avoiding the temporary MeshVertex object graph.
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame, -1)
   native.glBegin(GL_TRIANGLES)
   emitOpenGlMd2Scalars(glVertices)
   native.glEnd()
@@ -1419,7 +1484,7 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
   geometryState = openGlMd2GeometryState(frameIndex, oldFrameIndex)
   shell = (entity.flags & (rc.RF_SHELL_RED | rc.RF_SHELL_GREEN |
     rc.RF_SHELL_BLUE | rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM)) != 0
-  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame)
+  drawState = beginOpenGlMd2Draw(backend, skinAsset, entity, frame, entityIndex)
   if entityIndex >= 0 and entityIndex < rc.MAX_ENTITIES then
     backend.md2ShadowSpotZ[entityIndex] = backend.md2LightSpotZ
     if backend.md2LightSpotValid then backend.md2ShadowValid[entityIndex] = 1
@@ -1857,6 +1922,7 @@ function openGlRenderFrame(frame)
   backend.core.state.lastRefDef = frame
   backend.core.state.frameCount = backend.core.state.frameCount + 1
   if backend.contextActive then
+    updateOpenGlMd2LightStyleEpoch(backend, frame.lightStyles)
     setup3d(frame)
     if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
       // A menu preview can follow the world view in the same BeginFrame. Drop
@@ -2070,7 +2136,7 @@ end function
 // Create open gl renderer.
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
-  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
+  glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES), -1, 0, array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
   if typeof(glState) != "struct" then return error(9620, "OpenGL state constructor returned " + typeof(glState)) end if
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
@@ -2083,7 +2149,7 @@ function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
   coreBinding = rt.RendererBinding(recording.createState("null", imports), void)
-  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
+  glState = OpenGlState(coreBinding, imports, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES), -1, 0, array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
   openGlFactorySlot = openGlBackendSlot
   openGlFactorySlot.backend = glState
   return rt.RendererBinding(glState, openGlMakeExports())
@@ -2879,6 +2945,32 @@ function classicBrushLocalLights(entity, frame)
   return localLights
 end function
 
+// Transform dynamic lights into one mover's local space using retained
+// capacity storage. Only frame.numDLights entries form the active prefix.
+function classicBrushLocalLightsInto(entity, frame, brushModel)
+  localLights = brushModel.localLightScratch
+  lightIndex = 0
+  while lightIndex < frame.numDLights
+    light = frame.dLights[lightIndex]
+    localOrigin = rclassicvisibility.classicVisibilityBrushLocalView(entity,
+      light.origin)
+    retained = localLights[lightIndex]
+    if retained is void then
+      retained = rt.DLight(localOrigin,
+        ropenglqtypes.Vec3(light.color.x, light.color.y, light.color.z),
+        light.intensity)
+      localLights[lightIndex] = retained
+    else
+      retained.origin.x = localOrigin.x; retained.origin.y = localOrigin.y
+      retained.origin.z = localOrigin.z
+      retained.color.x = light.color.x; retained.color.y = light.color.y
+      retained.color.z = light.color.z; retained.intensity = light.intensity
+    end if
+    lightIndex = lightIndex + 1
+  end while
+  return localLights
+end function
+
 // Rebuild one lightmap only when a style changed, a dynamic light affects the
 // plane, or last frame's dynamic contribution must be removed.
 function classicDynamicLightmapForDraw(world, draw, lightStyles, dLights)
@@ -2894,6 +2986,53 @@ function classicDynamicLightmapForDraw(world, draw, lightStyles, dLights)
     world.modulate)
   rclassiclightmaps.setCacheState(surface, lightStyles)
   return rclassictypes.ClassicBrushLightmap(draw, rgbaPixels, true)
+end function
+
+// Rebuild one mover lightmap into a retained wrapper while observing only the
+// active local-light prefix.
+function classicDynamicLightmapForDrawInto(world, draw, lightStyles, dLights,
+    dLightCount, retained)
+  surface = draw.surface
+  previousBits = surface.dlightBits
+  currentBits = rclassiclightmaps.markDynamicLightsPrefix(surface, dLights,
+    dLightCount)
+  dirty = previousBits != 0 or currentBits != 0 or
+    rclassiclightmaps.lightStylesChanged(surface, lightStyles)
+  rgbaPixels = surface.lightmap
+  if dirty then
+    rgbaPixels = rclassiclightmaps.buildLightmapPrefix(surface, lightStyles,
+      dLights, dLightCount, world.modulate)
+    rclassiclightmaps.setCacheState(surface, lightStyles)
+  end if
+  if retained is void then
+    return rclassictypes.ClassicBrushLightmap(draw, rgbaPixels, dirty)
+  end if
+  retained.draw = draw; retained.rgbaPixels = rgbaPixels
+  retained.dirty = dirty
+  return retained
+end function
+
+// Populate retained per-submission light and lightmap prefixes for the live
+// OpenGL path. This removes the periodic array/wrapper graph produced by each
+// visible door and lift while preserving exact headless diagnostics below.
+function classicBrushDynamicLightmapsInto(world, entity, brushModel, plan,
+    frame)
+  localLights = brushModel.localLightScratch
+  if frame.numDLights > 0 then
+    localLights = classicBrushLocalLightsInto(entity, frame, brushModel)
+  end if
+  lightmaps = brushModel.lightmapScratch
+  dirtyCount = 0
+  drawIndex = 0
+  while drawIndex < plan.opaqueCount
+    lightmap = classicDynamicLightmapForDrawInto(world,
+      plan.opaqueDraws[drawIndex], frame.lightStyles, localLights,
+      frame.numDLights, lightmaps[drawIndex])
+    lightmaps[drawIndex] = lightmap
+    if lightmap.dirty then dirtyCount = dirtyCount + 1 end if
+    drawIndex = drawIndex + 1
+  end while
+  return dirtyCount
 end function
 
 // Return the classic brush dynamic lightmaps value.
@@ -2953,10 +3092,32 @@ function prepareClassicBrushFrame(binding, world, frame)
           brushPlan = rclassicspecial.classicSpecialPassPlanOriginPrefix(
             selectedDraws, selectedCount, localView)
         end if
-        lightmapResult = classicBrushDynamicLightmaps(world, entity, brushPlan, frame)
-        submissions[submissionCount] = rclassictypes.ClassicBrushSubmission(entity, brushModel, brushPlan, lightmapResult[0])
+        lightmapResult = void
+        dirtyResult = 0
+        if binding.state.contextActive then
+          dirtyResult = classicBrushDynamicLightmapsInto(world, entity,
+            brushModel, brushPlan, frame)
+          lightmapResult = brushModel.lightmapScratch
+          submission = submissions[submissionCount]
+          if submission is void then
+            submission = rclassictypes.ClassicBrushSubmission(entity,
+              brushModel, brushPlan, lightmapResult)
+            submissions[submissionCount] = submission
+          else
+            submission.entity = entity; submission.brushModel = brushModel
+            submission.plan = brushPlan
+            submission.dynamicLightmaps = lightmapResult
+          end if
+        else
+          exactLightmaps = classicBrushDynamicLightmaps(world, entity,
+            brushPlan, frame)
+          dirtyResult = exactLightmaps[1]
+          lightmapResult = exactLightmaps[0]
+          submissions[submissionCount] = rclassictypes.ClassicBrushSubmission(
+            entity, brushModel, brushPlan, lightmapResult)
+        end if
         submissionCount = submissionCount + 1
-        dirtyLightmaps = dirtyLightmaps + lightmapResult[1]
+        dirtyLightmaps = dirtyLightmaps + dirtyResult
         surfaces = surfaces + selectedCount
         selectedIndex = 0
         while selectedIndex < selectedCount
@@ -3083,12 +3244,15 @@ end function
 function drawOpenGlClassicBrushLightmaps(binding, submission, time)
   uploaded = 0
   lastTexture = -1
-  for each brushLightmap in submission.dynamicLightmaps
+  lightmapIndex = 0
+  while lightmapIndex < submission.plan.opaqueCount
+    brushLightmap = submission.dynamicLightmaps[lightmapIndex]
     if uploadClassicBrushLightmap(binding, brushLightmap) then uploaded = uploaded + 1 end if
     textureId = brushLightmap.draw.lightmapTexture.id
     if lastTexture != textureId then native.glBindTexture(GL_TEXTURE_2D, textureId); lastTexture = textureId end if
     submitOpenGlClassicDraw(brushLightmap.draw, true, time)
-  end for
+    lightmapIndex = lightmapIndex + 1
+  end while
   return uploaded
 end function
 

@@ -151,7 +151,31 @@ function validationRuntime(runtime)
   networkClient.realTime = sourceNetworkClient.realTime
   networkClient.channel = sourceNetworkClient.channel
   networkClient.timeoutCount = sourceNetworkClient.timeoutCount
-  networkClient.frames = copyArray(sourceNetworkClient.frames)
+  // Allocate the typed history directly in its destination. A generic copy
+  // whose source consists entirely of void slots can lose its array shape in
+  // the self-hosted runtime; this form retains both empty and populated rings.
+  networkClient.frames = array(nc.UPDATE_BACKUP, void)
+  frameIndex = 0
+  while frameIndex < nc.UPDATE_BACKUP
+    sourceFrame = sourceNetworkClient.frames[frameIndex]
+    if sourceFrame is not void then networkClient.frames[frameIndex] = sourceFrame end if
+    frameIndex = frameIndex + 1
+  end while
+  validationBaselines = nrtypes.makeBaselines()
+  baselineIndex = 0
+  while baselineIndex < len(validationBaselines)
+    sourceBaseline = runtime.network.baselines[baselineIndex]
+    if sourceBaseline is not void then
+      validationBaselines[baselineIndex] = sourceBaseline
+    end if
+    baselineIndex = baselineIndex + 1
+  end while
+  validationConfigStrings = array(qc.MAX_CONFIGSTRINGS, "")
+  configIndex = 0
+  while configIndex < len(validationConfigStrings)
+    validationConfigStrings[configIndex] = runtime.network.configStrings[configIndex]
+    configIndex = configIndex + 1
+  end while
   networkClient.currentFrame = sourceNetworkClient.currentFrame
   networkClient.lastPrint = sourceNetworkClient.lastPrint
   networkClient.lastInfo = sourceNetworkClient.lastInfo
@@ -159,14 +183,19 @@ function validationRuntime(runtime)
   network = nrtypes.ClientRuntime(networkClient, runtime.network.protocol,
     runtime.network.spawnCount, runtime.network.attractLoop, runtime.network.gameDir,
     runtime.network.playerNumber, runtime.network.levelName,
-    copyArray(runtime.network.configStrings), copyArray(runtime.network.baselines),
-    copyArray(runtime.network.stuffedTexts), bytes(runtime.network.downloadData),
+    validationConfigStrings, validationBaselines, [],
+    bytes(runtime.network.downloadData),
     runtime.network.downloadPercent, runtime.network.downloadMissing,
     runtime.network.ackPending, runtime.network.parsedMessages)
 
   client = cstate.create()
   client.state = runtime.client.state
-  client.snapshots = copyArray(runtime.client.snapshots)
+  snapshotIndex = 0
+  while snapshotIndex < len(client.snapshots)
+    sourceSnapshot = runtime.client.snapshots[snapshotIndex]
+    if sourceSnapshot is not void then client.snapshots[snapshotIndex] = sourceSnapshot end if
+    snapshotIndex = snapshotIndex + 1
+  end while
   client.current = runtime.client.current
   client.previous = runtime.client.previous
   client.predictedOrigin = runtime.client.predictedOrigin
@@ -180,8 +209,12 @@ function validationRuntime(runtime)
   client.predictionStepOriginValid = runtime.client.predictionStepOriginValid
   client.serverFrame = runtime.client.serverFrame
   client.serverTime = runtime.client.serverTime
-  client.lightStyles = copyArray(runtime.client.lightStyles)
-  client.lightStyleMaps = copyArray(runtime.client.lightStyleMaps)
+  styleIndex = 0
+  while styleIndex < len(client.lightStyles)
+    client.lightStyles[styleIndex] = runtime.client.lightStyles[styleIndex]
+    client.lightStyleMaps[styleIndex] = runtime.client.lightStyleMaps[styleIndex]
+    styleIndex = styleIndex + 1
+  end while
   client.lightStyleOffset = runtime.client.lightStyleOffset
   effects = cestate.createSilent(runtime.effects.randomSeed)
   copy = crtypes.create(network, client, effects)

@@ -162,6 +162,8 @@ struct ClassicBrushModel
   draws
   selectionScratch
   specialScratch
+  localLightScratch
+  lightmapScratch
 end struct
 
 // Capacity-sized arrays reused while splitting visible surfaces into passes.
