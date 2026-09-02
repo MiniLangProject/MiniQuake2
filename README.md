@@ -1,5 +1,8 @@
 # MiniQuake2
 
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/License-GPL--2.0--or--later-blue.svg)](LICENSE.md)
+[![Language: MiniLang](https://img.shields.io/badge/written%20in-MiniLang-5b5bd6.svg)](.)
+
 MiniQuake2 is an unofficial Windows x64 port of the original Quake II 3.19
 engine and `baseq2` game to
 [MiniLang](https://github.com/MiniLangProject). The project aims to preserve
