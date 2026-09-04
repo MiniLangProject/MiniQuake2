@@ -1,3 +1,5 @@
+//! Provides miniquake2 client downloads facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -17,89 +19,172 @@ import miniquake2.qcommon.checksum as cdlchecksum
 import miniquake2.format.md2 as cdlmd2
 import miniquake2.format.bsp as cdlbsp
 
+/// Defines the max download requests constant used by the miniquake2 client downloads module.
 const MAX_DOWNLOAD_REQUESTS = 4096
+/// Defines the max download commands constant used by the miniquake2 client downloads module.
 const MAX_DOWNLOAD_COMMANDS = 16
+/// Defines the max download missing constant used by the miniquake2 client downloads module.
 const MAX_DOWNLOAD_MISSING = 1024
+/// Defines the max download file bytes constant used by the miniquake2 client downloads module.
 const MAX_DOWNLOAD_FILE_BYTES = 0x7fffffff
+/// Defines the generic write constant used by the miniquake2 client downloads module.
 const GENERIC_WRITE = 0x40000000
+/// Defines the file share read constant used by the miniquake2 client downloads module.
 const FILE_SHARE_READ = 1
+/// Defines the open always constant used by the miniquake2 client downloads module.
 const OPEN_ALWAYS = 4
+/// Defines the file attribute normal constant used by the miniquake2 client downloads module.
 const FILE_ATTRIBUTE_NORMAL = 0x80
+/// Defines the file end constant used by the miniquake2 client downloads module.
 const FILE_END = 2
+/// Defines the invalid handle value constant used by the miniquake2 client downloads module.
 const INVALID_HANDLE_VALUE = -1
+/// Defines the invalid set file pointer constant used by the miniquake2 client downloads module.
 const INVALID_SET_FILE_POINTER = 0xffffffff
 
+/// Invokes the native CreateDirectoryW entry point used by the miniquake2 client downloads module.
+/// @param path Path of the file or directory used by the operation.
+/// @param security security value consumed by this operation.
+/// @returns Native bool result produced by the call.
 extern function CreateDirectoryW(path as wstr, security as ptr) from "kernel32.dll" returns bool
+/// Invokes the native CreateFileW entry point used by the miniquake2 client downloads module.
+/// @param path Path of the file or directory used by the operation.
+/// @param access access value consumed by this operation.
+/// @param share share value consumed by this operation.
+/// @param security security value consumed by this operation.
+/// @param creation creation value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param template template value consumed by this operation.
+/// @returns Native ptr result produced by the call.
 extern function CreateFileW(path as wstr, access as int, share as int,
   security as ptr, creation as int, flags as int, template as ptr) from "kernel32.dll" returns ptr
+/// Invokes the native SetFilePointer entry point used by the miniquake2 client downloads module.
+/// @param handle Native or runtime handle used by the operation.
+/// @param distance distance value consumed by this operation.
+/// @param high high value consumed by this operation.
+/// @param method method value consumed by this operation.
+/// @returns Native u32 result produced by the call.
 extern function SetFilePointer(handle as ptr, distance as int, high as ptr,
   method as int) from "kernel32.dll" returns u32
+/// Invokes the native WriteFile entry point used by the miniquake2 client downloads module.
+/// @param handle Native or runtime handle used by the operation.
+/// @param data Input data consumed by the operation.
+/// @param count Number of items or units to process.
+/// @param written written value consumed by this operation.
+/// @param overlapped overlapped value consumed by this operation.
+/// @returns Native bool result produced by the call.
 extern function WriteFile(handle as ptr, data as bytes, count as int,
   written as bytes, overlapped as ptr) from "kernel32.dll" returns bool
+/// Invokes the native FlushFileBuffers entry point used by the miniquake2 client downloads module.
+/// @param handle Native or runtime handle used by the operation.
+/// @returns Native bool result produced by the call.
 extern function FlushFileBuffers(handle as ptr) from "kernel32.dll" returns bool
+/// Invokes the native CloseHandle entry point used by the miniquake2 client downloads module.
+/// @param handle Native or runtime handle used by the operation.
+/// @returns Native bool result produced by the call.
 extern function CloseHandle(handle as ptr) from "kernel32.dll" returns bool
 
-// Store download policy data.
+/// Store download policy data.
 struct DownloadPolicy
+  /// Stores the allow downloads value associated with download policy.
   allowDownloads
+  /// Stores the allow maps value associated with download policy.
   allowMaps
+  /// Stores the allow models value associated with download policy.
   allowModels
+  /// Stores the allow sounds value associated with download policy.
   allowSounds
+  /// Stores the allow images value associated with download policy.
   allowImages
+  /// Stores the allow players value associated with download policy.
   allowPlayers
 end struct
 
-// Store download request data.
+/// Store download request data.
 struct DownloadRequest
+  /// Stores the kind value associated with download request.
   kind
+  /// Stores the name value associated with download request.
   name
 end struct
 
-// Store download manager data.
+/// Store download manager data.
 struct DownloadManager
+  /// Stores the base directory value associated with download manager.
   baseDirectory
+  /// Stores the game directory value associated with download manager.
   gameDirectory
+  /// Stores the policy value associated with download manager.
   policy
+  /// Stores the file exists value associated with download manager.
   fileExists
+  /// Stores the read file value associated with download manager.
   readFile
+  /// Stores the register asset value associated with download manager.
   registerAsset
+  /// Stores the requests value associated with download manager.
   requests
+  /// Stores the request count value associated with download manager.
   requestCount
+  /// Stores the request index value associated with download manager.
   requestIndex
+  /// Stores the current value associated with download manager.
   current
+  /// Stores the final path value associated with download manager.
   finalPath
+  /// Stores the temporary path value associated with download manager.
   temporaryPath
+  /// Stores the offset value associated with download manager.
   offset
+  /// Stores the percent value associated with download manager.
   percent
+  /// Stores the retry count value associated with download manager.
   retryCount
+  /// Stores the awaiting chunk value associated with download manager.
   awaitingChunk
+  /// Stores the spawn count value associated with download manager.
   spawnCount
+  /// Stores the expected map checksum value associated with download manager.
   expectedMapChecksum
+  /// Stores the commands value associated with download manager.
   commands
+  /// Stores the command count value associated with download manager.
   commandCount
+  /// Stores the missing value associated with download manager.
   missing
+  /// Stores the missing count value associated with download manager.
   missingCount
+  /// Stores the completed count value associated with download manager.
   completedCount
+  /// Stores the complete value associated with download manager.
   complete
 end struct
 
-// Return the default policy value.
+/// Return the default policy value.
 function defaultPolicy()
   return DownloadPolicy(true, true, true, true, true, true)
 end function
 
-// Original menu/cvars expose no separate image switch: pics follow the global
-// allow_download value. Keep this adapter as the single product/UI mapping.
+/// Original menu/cvars expose no separate image switch: pics follow the global
+/// allow_download value. Keep this adapter as the single product/UI mapping.
+/// @param allow allow value consumed by this operation.
+/// @param maps maps value consumed by this operation.
+/// @param models models value consumed by this operation.
+/// @param players players value consumed by this operation.
+/// @param sounds sounds value consumed by this operation.
 function classicPolicy(allow, maps, models, players, sounds)
   return DownloadPolicy(allow, maps, models, sounds, allow, players)
 end function
 
-// Ignore register.
+/// Ignore register.
+/// @param kind kind value consumed by this operation.
+/// @param name Name of the affected item.
 function ignoreRegister(kind, name)
   return true
 end function
 
-// Validate game directory.
+/// Validate game directory.
+/// @param name Name of the affected item.
 function validateGameDirectory(name)
   if typeof(name) != "string" or name == "" then return cdlqc.BASEDIRNAME end if
   if name == "." or name == ".." then return error(7680, "download game directory is unsafe") end if
@@ -114,7 +199,13 @@ function validateGameDirectory(name)
   return name
 end function
 
-// Create state.
+/// Creates create for the miniquake2 client downloads module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param gameDirectory gameDirectory value consumed by this operation.
+/// @param policy policy value consumed by this operation.
+/// @param fileExists fileExists value consumed by this operation.
+/// @param readFile readFile value consumed by this operation.
+/// @param registerAsset registerAsset value consumed by this operation.
 function create(baseDirectory, gameDirectory, policy, fileExists, readFile,
     registerAsset)
   if typeof(baseDirectory) != "string" or baseDirectory == "" or
@@ -133,7 +224,9 @@ function create(baseDirectory, gameDirectory, policy, fileExists, readFile,
     array(MAX_DOWNLOAD_MISSING, ""), 0, 0, false)
 end function
 
-// Set game directory.
+/// Set game directory.
+/// @param manager manager value consumed by this operation.
+/// @param gameDirectory gameDirectory value consumed by this operation.
 function setGameDirectory(manager, gameDirectory)
   validated = try(validateGameDirectory(gameDirectory))
   if validated is error then return validated end if
@@ -144,7 +237,8 @@ function setGameDirectory(manager, gameDirectory)
   return true
 end function
 
-// Reset state.
+/// Performs the reset operation for the miniquake2 client downloads module.
+/// @param manager manager value consumed by this operation.
 function reset(manager)
   manager.requests = array(MAX_DOWNLOAD_REQUESTS, void)
   manager.requestCount = 0; manager.requestIndex = 0; manager.current = void
@@ -157,14 +251,17 @@ function reset(manager)
   return true
 end function
 
-// Cancel state.
+/// Cancel state.
+/// @param manager manager value consumed by this operation.
 function cancel(manager)
   manager.current = void; manager.awaitingChunk = false
   manager.commandCount = 0; manager.complete = false
   return true
 end function
 
-// Report whether policy allows.
+/// Report whether policy allows.
+/// @param policy policy value consumed by this operation.
+/// @param kind kind value consumed by this operation.
 function policyAllows(policy, kind)
   if not policy.allowDownloads then return false end if
   if kind == "map" or kind == "sky" or kind == "texture" then return policy.allowMaps end if
@@ -175,7 +272,10 @@ function policyAllows(policy, kind)
   return false
 end function
 
-// Add request.
+/// Add request.
+/// @param manager manager value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param requestedName requestedName value consumed by this operation.
 function addRequest(manager, kind, requestedName)
   if not policyAllows(manager.policy, kind) then return false end if
   canonical = try(cdlqfs.canonicalVirtualName(requestedName))
@@ -195,7 +295,9 @@ function addRequest(manager, kind, requestedName)
   return true
 end function
 
-// Queue command.
+/// Queue command.
+/// @param manager manager value consumed by this operation.
+/// @param command command value consumed by this operation.
 function queueCommand(manager, command)
   if manager.commandCount >= MAX_DOWNLOAD_COMMANDS then
     return error(7686, "download command queue overflow")
@@ -205,7 +307,8 @@ function queueCommand(manager, command)
   return true
 end function
 
-// Consume commands.
+/// Consume commands.
+/// @param manager manager value consumed by this operation.
 function takeCommands(manager)
   output = array(manager.commandCount, "")
   index = 0
@@ -217,7 +320,9 @@ function takeCommands(manager)
   return output
 end function
 
-// Report whether note missing.
+/// Report whether note missing.
+/// @param manager manager value consumed by this operation.
+/// @param name Name of the affected item.
 function noteMissing(manager, name)
   if manager.missingCount < MAX_DOWNLOAD_MISSING then
     manager.missing[manager.missingCount] = name
@@ -226,7 +331,8 @@ function noteMissing(manager, name)
   return true
 end function
 
-// Report whether missing files.
+/// Report whether missing files.
+/// @param manager manager value consumed by this operation.
 function missingFiles(manager)
   output = array(manager.missingCount, "")
   index = 0
@@ -237,7 +343,9 @@ function missingFiles(manager)
   return output
 end function
 
-// Return the persistence root value.
+/// Return the persistence root value.
+/// @param manager manager value consumed by this operation.
+/// @param name Name of the affected item.
 function persistenceRoot(manager, name)
   directory = manager.gameDirectory
   if len(bytes(name)) >= 8 and decode(slice(bytes(name), 0, 8)) == "players/" then
@@ -246,14 +354,17 @@ function persistenceRoot(manager, name)
   return cdlfs.joinPath(manager.baseDirectory, directory)
 end function
 
-// Return the persistent path.
+/// Return the persistent path.
+/// @param manager manager value consumed by this operation.
+/// @param name Name of the affected item.
 function persistentPath(manager, name)
   return cdlfs.joinPath(persistenceRoot(manager, name), name)
 end function
 
-// COM_StripExtension(downloadname) + ".tmp". Matching the retail temporary
-// name preserves resume compatibility with interrupted original-client
-// downloads while the final rename still occurs inside the same directory.
+/// COM_StripExtension(downloadname) + ".tmp". Matching the retail temporary
+/// name preserves resume compatibility with interrupted original-client
+/// downloads while the final rename still occurs inside the same directory.
+/// @param finalPath Path associated with final.
 function temporaryPath(finalPath)
   source = bytes(finalPath); separator = -1; extension = -1; index = 0
   while index < len(source)
@@ -269,7 +380,8 @@ function temporaryPath(finalPath)
   return finalPath + ".tmp"
 end function
 
-// Ensure parent directory.
+/// Ensure parent directory.
+/// @param path Path of the file or directory used by the operation.
 function ensureParentDirectory(path)
   source = bytes(path)
   index = 0
@@ -290,7 +402,9 @@ function ensureParentDirectory(path)
   return true
 end function
 
-// Append chunk.
+/// Append chunk.
+/// @param path Path of the file or directory used by the operation.
+/// @param data Input data consumed by the operation.
 function appendChunk(path, data)
   parent = try(ensureParentDirectory(path))
   if parent is error then return parent end if
@@ -311,13 +425,17 @@ function appendChunk(path, data)
   return true
 end function
 
-// Slice text.
+/// Performs the textSlice operation for the miniquake2 client downloads module.
+/// @param value Value consumed or transformed by the operation.
+/// @param start start value consumed by this operation.
+/// @param count Number of items or units to process.
 function textSlice(value, start, count)
   if count <= 0 then return "" end if
   return decode(slice(bytes(value), start, count))
 end function
 
-// Return the player identity value.
+/// Return the player identity value.
+/// @param value Value consumed or transformed by the operation.
 function playerIdentity(value)
   if typeof(value) != "string" or value == "" then return void end if
   source = bytes(value); identityStart = 0; slash = -1
@@ -339,7 +457,9 @@ function playerIdentity(value)
   return [model, skin]
 end function
 
-// Build precache plan.
+/// Build precache plan.
+/// @param manager manager value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
 function buildPrecachePlan(manager, configStrings)
   // Keep build precache plan phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(configStrings) != "array" or len(configStrings) < cdlqc.MAX_CONFIGSTRINGS then
@@ -406,7 +526,9 @@ function buildPrecachePlan(manager, configStrings)
   return manager.requestCount
 end function
 
-// Discover dependencies.
+/// Discover dependencies.
+/// @param manager manager value consumed by this operation.
+/// @param request request value consumed by this operation.
 function discoverDependencies(manager, request)
   data = try(manager.readFile(request.name))
   if data is error or typeof(data) != "bytes" then return false end if
@@ -436,7 +558,8 @@ function discoverDependencies(manager, request)
   return false
 end function
 
-// Advance state.
+/// Performs the advance operation for the miniquake2 client downloads module.
+/// @param manager manager value consumed by this operation.
 function advance(manager)
   manager.current = void; manager.awaitingChunk = false
   while manager.requestIndex < manager.requestCount
@@ -474,7 +597,10 @@ function advance(manager)
   return void
 end function
 
-// Begin precache.
+/// Begin precache.
+/// @param manager manager value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param spawnCount Number of spawn to process.
 function beginPrecache(manager, configStrings, spawnCount)
   if typeof(spawnCount) != "int" or spawnCount < 0 then
     return error(7691, "download precache spawn count is invalid")
@@ -485,7 +611,11 @@ function beginPrecache(manager, configStrings, spawnCount)
   return advance(manager)
 end function
 
-// Return the request file value.
+/// Return the request file value.
+/// @param manager manager value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param spawnCount Number of spawn to process.
 function requestFile(manager, kind, name, spawnCount)
   reset(manager); manager.spawnCount = spawnCount
   added = try(addRequest(manager, kind, name))
@@ -493,7 +623,8 @@ function requestFile(manager, kind, name, spawnCount)
   return advance(manager)
 end function
 
-// Finish current.
+/// Finish current.
+/// @param manager manager value consumed by this operation.
 function finishCurrent(manager)
   if not cdlfs.isFile(manager.temporaryPath) then
     emptyWritten = try(appendChunk(manager.temporaryPath, bytes()))
@@ -524,7 +655,11 @@ function finishCurrent(manager)
   return advance(manager)
 end function
 
-// Accept chunk.
+/// Accept chunk.
+/// @param manager manager value consumed by this operation.
+/// @param data Input data consumed by the operation.
+/// @param percent percent value consumed by this operation.
+/// @param missing missing value consumed by this operation.
 function acceptChunk(manager, data, percent, missing)
   if not manager.awaitingChunk or manager.current is void then
     return error(7693, "unsolicited download chunk")

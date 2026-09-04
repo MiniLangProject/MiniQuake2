@@ -1,3 +1,5 @@
+//! Provides miniquake2 game persistence facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -15,10 +17,13 @@ import miniquake2.qcommon.message as qmsg
 import miniquake2.protocol.checked as pchecked
 import miniquake2.game.types as gt
 
+/// Defines the save magic constant used by the miniquake2 game persistence module.
 const SAVE_MAGIC = "MQ2SAVE1"
+/// Defines the save version constant used by the miniquake2 game persistence module.
 const SAVE_VERSION = 2
 
-// Save format.
+/// Save format.
+/// @param data Input data consumed by the operation.
 function saveFormat(data)
   if typeof(data) != "bytes" or len(data) < len(bytes(SAVE_MAGIC)) + 1 then
     return "truncated"
@@ -33,35 +38,49 @@ function saveFormat(data)
   return "miniquake2"
 end function
 
-// Store save image data.
+/// Store save image data.
 struct SaveImage
+  /// Stores the kind value associated with save image.
   kind
+  /// Stores the map name value associated with save image.
   mapName
+  /// Stores the frame number value associated with save image.
   frameNumber
+  /// Stores the num edicts value associated with save image.
   numEdicts
+  /// Stores the edicts value associated with save image.
   edicts
+  /// Stores the private data value associated with save image.
   privateData
 end struct
 
-// Write vec 3.
+/// Write vec 3.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeVec3(buffer, value)
   qmsg.writeFloat(buffer, value.x)
   qmsg.writeFloat(buffer, value.y)
   qmsg.writeFloat(buffer, value.z)
 end function
 
-// Read float.
+/// Read float.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readFloat(buffer, operation)
   pchecked.require(buffer, 4, operation)
   return qmsg.readFloat(buffer)
 end function
 
-// Read vec 3.
+/// Read vec 3.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readVec3(buffer, operation)
   return miniquake2.qcommon.types.Vec3(readFloat(buffer, operation + " x"), readFloat(buffer, operation + " y"), readFloat(buffer, operation + " z"))
 end function
 
-// Write pmove state.
+/// Write pmove state.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param state Mutable state inspected or updated by the operation.
 function writePmoveState(buffer, state)
   qmsg.writeLong(buffer, state.moveType)
   index = 0
@@ -76,7 +95,8 @@ function writePmoveState(buffer, state)
   qmsg.writeLong(buffer, state.gravity)
 end function
 
-// Read pmove state.
+/// Read pmove state.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readPmoveState(buffer)
   state = gt.zeroPmoveState()
   state.moveType = pchecked.readLong(buffer, "save pmove type")
@@ -93,7 +113,9 @@ function readPmoveState(buffer)
   return state
 end function
 
-// Write player state.
+/// Write player state.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param state Mutable state inspected or updated by the operation.
 function writePlayerState(buffer, state)
   writePmoveState(buffer, state.pmove)
   writeVec3(buffer, state.viewAngles); writeVec3(buffer, state.viewOffset)
@@ -112,7 +134,8 @@ function writePlayerState(buffer, state)
   end while
 end function
 
-// Read player state.
+/// Read player state.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readPlayerState(buffer)
   state = gt.zeroPlayerState()
   state.pmove = readPmoveState(buffer)
@@ -133,7 +156,9 @@ function readPlayerState(buffer)
   return state
 end function
 
-// Write entity state.
+/// Write entity state.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param state Mutable state inspected or updated by the operation.
 function writeEntityState(buffer, state)
   qmsg.writeLong(buffer, state.number)
   writeVec3(buffer, state.origin); writeVec3(buffer, state.angles); writeVec3(buffer, state.oldOrigin)
@@ -144,7 +169,9 @@ function writeEntityState(buffer, state)
   qmsg.writeLong(buffer, state.solid); qmsg.writeLong(buffer, state.sound); qmsg.writeLong(buffer, state.event)
 end function
 
-// Read entity state.
+/// Read entity state.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param expectedNumber expectedNumber value consumed by this operation.
 function readEntityState(buffer, expectedNumber)
   number = pchecked.readLong(buffer, "save entity number")
   if number != expectedNumber then return error(3850, "save edict numbering is not contiguous") end if
@@ -163,7 +190,12 @@ function readEntityState(buffer, expectedNumber)
   return gt.stabilizeEntityState(gpersistStateHolder)
 end function
 
-// Encode save image with private.
+/// Encode save image with private.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param privateData privateData value consumed by this operation.
 function encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, privateData)
   if kind != "game" and kind != "level" then return error(3851, "invalid save kind") end if
   if exportTable.numEdicts < 1 or exportTable.numEdicts > exportTable.maxEdicts then return error(3852, "invalid exported edict count") end if
@@ -200,17 +232,28 @@ function encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, pri
   return qsz.dataSlice(buffer)
 end function
 
-// Encode state.
+/// Encodes encode for the miniquake2 game persistence workflow.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
 function encode(exportTable, kind, mapName, frameNumber)
   return encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, bytes(0))
 end function
 
-// Encode with private.
+/// Encode with private.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param privateData privateData value consumed by this operation.
 function encodeWithPrivate(exportTable, kind, mapName, frameNumber, privateData)
   return encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, privateData)
 end function
 
-// Decode save image.
+/// Decode save image.
+/// @param data Input data consumed by the operation.
+/// @param maxEdicts maxEdicts value consumed by this operation.
 function decodeSaveImage(data, maxEdicts)
   // Keep decode save image phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(data) != "bytes" or len(data) < 20 then return error(3853, "save image is truncated") end if
@@ -285,24 +328,39 @@ function decodeSaveImage(data, maxEdicts)
   return SaveImage(kind, mapName, frameNumber, numEdicts, edicts, privateData)
 end function
 
-// Decode state.
+/// Decode state.
+/// @param data Input data consumed by the operation.
+/// @param maxEdicts maxEdicts value consumed by this operation.
 function decode(data, maxEdicts)
   return decodeSaveImage(data, maxEdicts)
 end function
 
-// Write file.
+/// Write file.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param filename filename value consumed by this operation.
 function writeFile(exportTable, kind, mapName, frameNumber, filename)
   if typeof(filename) != "string" or filename == "" then return error(3860, "empty save filename") end if
   return savefs.writeAllBytes(filename, encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, bytes(0)))
 end function
 
-// Write file with private.
+/// Write file with private.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param privateData privateData value consumed by this operation.
+/// @param filename filename value consumed by this operation.
 function writeFileWithPrivate(exportTable, kind, mapName, frameNumber, privateData, filename)
   if typeof(filename) != "string" or filename == "" then return error(3860, "empty save filename") end if
   return savefs.writeAllBytes(filename, encodeSaveImageWithPrivate(exportTable, kind, mapName, frameNumber, privateData))
 end function
 
-// Read file.
+/// Read file.
+/// @param filename filename value consumed by this operation.
+/// @param maxEdicts maxEdicts value consumed by this operation.
 function readFile(filename, maxEdicts)
   if typeof(filename) != "string" or filename == "" then return error(3860, "empty save filename") end if
   return decodeSaveImage(savefs.readAllBytes(filename), maxEdicts)

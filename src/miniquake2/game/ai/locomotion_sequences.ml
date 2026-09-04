@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai locomotion sequences facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,69 +10,114 @@ package miniquake2.game.ai.locomotion_sequences
 import miniquake2.game.ai.core as locomotioncore
 import miniquake2.game.ai.types as locomotiontypes
 
-// Store monster locomotion plan data.
+/// Store monster locomotion plan data.
 struct MonsterLocomotionPlan
+  /// Stores the class name value associated with monster locomotion plan.
   className
+  /// Stores the stand first value associated with monster locomotion plan.
   standFirst
+  /// Stores the stand last value associated with monster locomotion plan.
   standLast
+  /// Stores the idle first value associated with monster locomotion plan.
   idleFirst
+  /// Stores the idle last value associated with monster locomotion plan.
   idleLast
+  /// Stores the walk first value associated with monster locomotion plan.
   walkFirst
+  /// Stores the walk last value associated with monster locomotion plan.
   walkLast
+  /// Stores the run first value associated with monster locomotion plan.
   runFirst
+  /// Stores the run last value associated with monster locomotion plan.
   runLast
 end struct
 
-// Variable-distance tables are rooted once per package, mirroring the static
-// mframe_t tables in the 3.19 game DLL.  Move construction therefore never
-// builds them with quadratic array concatenation.
+/// Variable-distance tables are rooted once per package, mirroring the static
 berserkWalkDistances = [9.1, 6.3, 4.9, 6.7, 6.0, 8.2, 7.2, 6.1, 4.9, 4.7, 4.7]
+/// Stores module-wide berserk run distances state for the miniquake2 game ai locomotion sequences module.
 berserkRunDistances = [21.0, 11.0, 21.0, 25.0, 18.0, 19.0]
+/// Stores module-wide gladiator walk distances state for the miniquake2 game ai locomotion sequences module.
 gladiatorWalkDistances = [15.0, 7.0, 6.0, 5.0, 2.0, 0.0, 2.0, 8.0, 12.0, 8.0, 5.0, 5.0, 2.0, 2.0, 1.0, 8.0]
+/// Stores module-wide gladiator run distances state for the miniquake2 game ai locomotion sequences module.
 gladiatorRunDistances = [23.0, 14.0, 14.0, 21.0, 12.0, 13.0]
+/// Stores module-wide gunner walk distances state for the miniquake2 game ai locomotion sequences module.
 gunnerWalkDistances = [0.0, 3.0, 4.0, 5.0, 7.0, 2.0, 6.0, 4.0, 2.0, 7.0, 5.0, 7.0, 4.0]
+/// Stores module-wide gunner run distances state for the miniquake2 game ai locomotion sequences module.
 gunnerRunDistances = [26.0, 9.0, 9.0, 9.0, 15.0, 10.0, 13.0, 6.0]
+/// Stores module-wide infantry walk distances state for the miniquake2 game ai locomotion sequences module.
 infantryWalkDistances = [5.0, 4.0, 4.0, 5.0, 4.0, 5.0, 6.0, 4.0, 4.0, 4.0, 4.0, 5.0]
+/// Stores module-wide infantry run distances state for the miniquake2 game ai locomotion sequences module.
 infantryRunDistances = [10.0, 20.0, 5.0, 7.0, 30.0, 35.0, 2.0, 6.0]
+/// Stores module-wide infantry fidget distances state for the miniquake2 game ai locomotion sequences module.
 infantryFidgetDistances = [1.0, 0.0, 1.0, 3.0, 6.0, 3.0, 0.0, 0.0, 0.0, 0.0,
   1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, -2.0, 1.0,
   1.0, 1.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0,
   0.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0, -3.0, -2.0, -3.0, -3.0, -2.0]
+/// Stores module-wide soldier walk1 distances state for the miniquake2 game ai locomotion sequences module.
 soldierWalk1Distances = [3.0, 6.0, 2.0, 2.0, 2.0, 1.0, 6.0, 5.0, 3.0, -1.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide soldier walk2 distances state for the miniquake2 game ai locomotion sequences module.
 soldierWalk2Distances = [4.0, 4.0, 9.0, 8.0, 5.0, 1.0, 3.0, 7.0, 6.0, 7.0]
+/// Stores module-wide soldier run start distances state for the miniquake2 game ai locomotion sequences module.
 soldierRunStartDistances = [7.0, 5.0]
+/// Stores module-wide soldier run distances state for the miniquake2 game ai locomotion sequences module.
 soldierRunDistances = [10.0, 11.0, 11.0, 16.0, 10.0, 15.0]
+/// Stores module-wide tank start distances state for the miniquake2 game ai locomotion sequences module.
 tankStartDistances = [0.0, 6.0, 6.0, 11.0]
+/// Stores module-wide tank move distances state for the miniquake2 game ai locomotion sequences module.
 tankMoveDistances = [4.0, 5.0, 3.0, 2.0, 5.0, 5.0, 4.0, 4.0, 3.0, 5.0, 4.0, 5.0, 7.0, 7.0, 6.0, 6.0]
+/// Stores module-wide medic walk distances state for the miniquake2 game ai locomotion sequences module.
 medicWalkDistances = [6.2, 18.1, 1.0, 9.0, 10.0, 9.0, 11.0, 11.6, 2.0, 9.9, 14.0, 9.3]
+/// Stores module-wide medic run distances state for the miniquake2 game ai locomotion sequences module.
 medicRunDistances = [18.0, 22.5, 25.4, 23.4, 24.0, 35.6]
+/// Stores module-wide chick run start distances state for the miniquake2 game ai locomotion sequences module.
 chickRunStartDistances = [1.0, 0.0, 0.0, -1.0, -1.0, 0.0, 1.0, 3.0, 6.0, 3.0]
+/// Stores module-wide chick move distances state for the miniquake2 game ai locomotion sequences module.
 chickMoveDistances = [6.0, 8.0, 13.0, 5.0, 7.0, 4.0, 11.0, 5.0, 9.0, 7.0]
+/// Stores module-wide parasite start distances state for the miniquake2 game ai locomotion sequences module.
 parasiteStartDistances = [0.0, 30.0]
+/// Stores module-wide parasite move distances state for the miniquake2 game ai locomotion sequences module.
 parasiteMoveDistances = [30.0, 30.0, 22.0, 19.0, 24.0, 28.0, 25.0]
+/// Stores module-wide brain walk distances state for the miniquake2 game ai locomotion sequences module.
 brainWalkDistances = [7.0, 2.0, 3.0, 3.0, 1.0, 0.0, 0.0, 9.0, -4.0, -1.0, 2.0]
+/// Stores module-wide brain run distances state for the miniquake2 game ai locomotion sequences module.
 brainRunDistances = [9.0, 2.0, 3.0, 3.0, 1.0, 0.0, 0.0, 10.0, -4.0, -1.0, 2.0]
+/// Stores module-wide mutant walk start distances state for the miniquake2 game ai locomotion sequences module.
 mutantWalkStartDistances = [5.0, 5.0, -2.0, 1.0]
+/// Stores module-wide mutant walk distances state for the miniquake2 game ai locomotion sequences module.
 mutantWalkDistances = [3.0, 1.0, 5.0, 10.0, 13.0, 10.0, 0.0, 5.0, 6.0, 16.0, 15.0, 6.0]
+/// Stores module-wide mutant run distances state for the miniquake2 game ai locomotion sequences module.
 mutantRunDistances = [40.0, 40.0, 24.0, 5.0, 17.0, 10.0]
+/// Stores module-wide jorg stand distances state for the miniquake2 game ai locomotion sequences module.
 jorgStandDistances = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 19.0, 11.0, 0.0,
   0.0, 6.0, 9.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0, -17.0, 0.0,
   -12.0, -14.0]
+/// Stores module-wide jorg move distances state for the miniquake2 game ai locomotion sequences module.
 jorgMoveDistances = [17.0, 0.0, 0.0, 0.0, 12.0, 8.0, 10.0, 33.0, 0.0, 0.0, 0.0, 9.0, 9.0, 9.0]
+/// Stores module-wide makron move distances state for the miniquake2 game ai locomotion sequences module.
 makronMoveDistances = [3.0, 12.0, 8.0, 8.0, 8.0, 6.0, 12.0, 9.0, 6.0, 12.0]
 
-// Create locomotion plan.
+/// Create locomotion plan.
+/// @param className className value consumed by this operation.
+/// @param standFirst standFirst value consumed by this operation.
+/// @param standLast standLast value consumed by this operation.
+/// @param idleFirst idleFirst value consumed by this operation.
+/// @param idleLast idleLast value consumed by this operation.
+/// @param walkFirst walkFirst value consumed by this operation.
+/// @param walkLast walkLast value consumed by this operation.
+/// @param runFirst runFirst value consumed by this operation.
+/// @param runLast runLast value consumed by this operation.
 function makeLocomotionPlan(className, standFirst, standLast, idleFirst, idleLast,
     walkFirst, walkLast, runFirst, runLast)
   return MonsterLocomotionPlan(className, standFirst, standLast, idleFirst,
     idleLast, walkFirst, walkLast, runFirst, runLast)
 end function
 
-// Return the stock plan value.
+/// Return the stock plan value.
+/// @param className className value consumed by this operation.
 function stockPlan(className)
   if className == "monster_berserk" then return makeLocomotionPlan(className, 0, 4, 5, 24, 25, 35, 36, 41) end if
   if className == "monster_gladiator" then return makeLocomotionPlan(className, 0, 6, 0, 6, 7, 22, 23, 28) end if
@@ -96,7 +143,8 @@ function stockPlan(className)
   return void
 end function
 
-// Report whether has stock moves.
+/// Report whether has stock moves.
+/// @param className className value consumed by this operation.
 function inline hasStockMoves(className)
   return className == "monster_berserk" or className == "monster_gladiator" or
     className == "monster_gunner" or className == "monster_infantry" or
@@ -111,7 +159,14 @@ function inline hasStockMoves(className)
     className == "monster_jorg" or className == "monster_makron"
 end function
 
-// Create stock move.
+/// Create stock move.
+/// @param name Name of the affected item.
+/// @param firstFrame firstFrame value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param aiFunction aiFunction value consumed by this operation.
+/// @param distances distances value consumed by this operation.
+/// @param defaultDistance defaultDistance value consumed by this operation.
+/// @param endFunction endFunction value consumed by this operation.
 function makeStockMove(name, firstFrame, lastFrame, aiFunction, distances,
     defaultDistance, endFunction)
   frameCount = lastFrame - firstFrame + 1
@@ -126,8 +181,11 @@ function makeStockMove(name, firstFrame, lastFrame, aiFunction, distances,
   return locomotiontypes.MonsterMove(name, firstFrame, lastFrame, frames, endFunction)
 end function
 
-// Return the immutable stock locomotion contract for one class and activity.
-// Unsupported combinations remain explicit instead of inventing frame ranges.
+/// Return the immutable stock locomotion contract for one class and activity.
+/// Unsupported combinations remain explicit instead of inventing frame ranges.
+/// @param className className value consumed by this operation.
+/// @param moveKind moveKind value consumed by this operation.
+/// @param endFunction endFunction value consumed by this operation.
 function stockMove(className, moveKind, endFunction)
   // Keep stock move phases explicit: validate inputs, update owned state, then publish the result.
   soldierClass = className == "monster_soldier_light" or className == "monster_soldier" or className == "monster_soldier_ss"
@@ -246,7 +304,9 @@ function stockMove(className, moveKind, endFunction)
   return void
 end function
 
-// Return the range first value.
+/// Return the range first value.
+/// @param plan plan value consumed by this operation.
+/// @param activity activity value consumed by this operation.
 function rangeFirst(plan, activity)
   if activity == "walk" then return plan.walkFirst end if
   if activity == "run" or activity == "attack" or activity == "melee" then return plan.runFirst end if
@@ -254,7 +314,9 @@ function rangeFirst(plan, activity)
   return plan.standFirst
 end function
 
-// Return the range last value.
+/// Return the range last value.
+/// @param plan plan value consumed by this operation.
+/// @param activity activity value consumed by this operation.
 function rangeLast(plan, activity)
   if activity == "walk" then return plan.walkLast end if
   if activity == "run" or activity == "attack" or activity == "melee" then return plan.runLast end if
@@ -262,7 +324,11 @@ function rangeLast(plan, activity)
   return plan.standLast
 end function
 
-// Return the model frame for the requested position.
+/// Performs the modelFrameAt operation for the miniquake2 game ai locomotion sequences module.
+/// @param plan plan value consumed by this operation.
+/// @param activity activity value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param actorNumber actorNumber value consumed by this operation.
 function modelFrameAt(plan, activity, frameNumber, actorNumber)
   first = rangeFirst(plan, activity)
   last = rangeLast(plan, activity)
@@ -272,7 +338,8 @@ function modelFrameAt(plan, activity, frameNumber, actorNumber)
   return first + (offset % count)
 end function
 
-// Validate plan.
+/// Validates plan for the miniquake2 game ai locomotion sequences workflow.
+/// @param plan plan value consumed by this operation.
 function validatePlan(plan)
   if plan is void or plan.className == "" or plan.standFirst < 0 or
       plan.standLast < plan.standFirst or plan.idleFirst < 0 or plan.idleLast < plan.idleFirst or

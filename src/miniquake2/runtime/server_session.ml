@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime server session facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -43,51 +45,76 @@ import miniquake2.server.sound_events as ssoundevents
 import miniquake2.server.game_messages as ssgamemessages
 import miniquake2.server.administration as ssadministration
 
-// Store server session data.
+/// Store server session data.
 struct ServerSession
+  /// Stores the bridge runtime value associated with server session.
   bridgeRuntime
+  /// Stores the game export value associated with server session.
   gameExport
+  /// Stores the network runtime value associated with server session.
   networkRuntime
+  /// Stores the socket value associated with server session.
   socket
+  /// Stores the clock value associated with server session.
   clock
+  /// Stores the collision value associated with server session.
   collision
+  /// Stores the map name value associated with server session.
   mapName
+  /// Stores the entity text value associated with server session.
   entityText
+  /// Stores the frame number value associated with server session.
   frameNumber
+  /// Stores the packets received value associated with server session.
   packetsReceived
+  /// Stores the packets sent value associated with server session.
   packetsSent
+  /// Stores the packets rejected value associated with server session.
   packetsRejected
+  /// Stores the retail file system value associated with server session.
   retailFileSystem
+  /// Stores the retail base directory value associated with server session.
   retailBaseDirectory
+  /// Stores the closed value associated with server session.
   closed
+  /// Stores the paused value associated with server session.
   paused
 end struct
 
-// Store map change result data.
+/// Store map change result data.
 struct MapChangeResult
+  /// Stores the changed value associated with map change result.
   changed
+  /// Stores the deferred value associated with map change result.
   deferred
+  /// Stores the spawn count value associated with map change result.
   spawnCount
+  /// Stores the map name value associated with map change result.
   mapName
+  /// Stores the reason value associated with map change result.
   reason
 end struct
 
-// One recipient-specific GameImport fragment ordered against all other message
-// classes emitted during the same game frame.
+/// One recipient-specific GameImport fragment ordered against all other message
+/// classes emitted during the same game frame.
 struct ServerMessageFragment
+  /// Stores the serial value associated with server message fragment.
   serial
+  /// Stores the payload value associated with server message fragment.
   payload
 end struct
 
-// SV_FatPVS uses a fixed 64-leaf work array. The server is single-threaded,
-// so the same storage can be reused for every 10 Hz client snapshot.
+/// SV_FatPVS uses a fixed 64-leaf work array. The server is single-threaded,
 serverSessionFatPvsLeafScratch = array(64, 0)
+/// Stores module-wide server session client packet entity scratch state for the miniquake2 runtime server session module.
 serverSessionClientPacketEntityScratch = array(ssnc.MAX_PACKET_ENTITIES, void)
+/// Stores module-wide server session empty message route cache state for the miniquake2 runtime server session module.
 serverSessionEmptyMessageRouteCache = array(257)
 
-// Return immutable empty recipient routes for a server width. Snapshot code
-// only reads these prefixes, so all sessions with the same maxclients value
-// can safely share the once-allocated routing shape.
+/// Return immutable empty recipient routes for a server width. Snapshot code
+/// only reads these prefixes, so all sessions with the same maxclients value
+/// can safely share the once-allocated routing shape.
+/// @param maxClients maxClients value consumed by this operation.
 function emptyServerMessageRoutes(maxClients)
   routes = serverSessionEmptyMessageRouteCache[maxClients]
   if routes is not void then return routes end if
@@ -101,9 +128,10 @@ function emptyServerMessageRoutes(maxClients)
   return routes
 end function
 
-// Split a classic level specification into the BSP map and optional named
-// spawn point.  A preceding cinematic/picture segment and the unit marker are
-// server-side metadata; the persistent game session loads the final BSP.
+/// Split a classic level specification into the BSP map and optional named
+/// spawn point.  A preceding cinematic/picture segment and the unit marker are
+/// server-side metadata; the persistent game session loads the final BSP.
+/// @param specification specification value consumed by this operation.
 function mapChangeComponents(specification)
   if typeof(specification) != "string" or specification == "" then
     return error(9986, "map transition specification is empty")
@@ -144,13 +172,15 @@ function mapChangeComponents(specification)
   return [mapName, spawnPoint]
 end function
 
-// Return the vector value.
+/// Return the vector value.
+/// @param value Value consumed or transformed by the operation.
 function vector(value)
   if typeof(value) == "array" then return [value[0], value[1], value[2]] end if
   return [value.x, value.y, value.z]
 end function
 
-// Return the protocol entity value.
+/// Return the protocol entity value.
+/// @param state Mutable state inspected or updated by the operation.
 function protocolEntity(state)
   ssProtocolGameStateHolder = ssgtypes.stabilizeEntityState(state)
   ssProtocolOutputHolder = sspt.EntityState(
@@ -168,7 +198,8 @@ function protocolEntity(state)
   return ssProtocolOutputHolder
 end function
 
-// Return the protocol player value.
+/// Return the protocol player value.
+/// @param edict edict value consumed by this operation.
 function protocolPlayer(edict)
   if edict.client is void then return sspt.zeroPlayerState() end if
   state = edict.client.playerState
@@ -185,7 +216,8 @@ function protocolPlayer(edict)
   return output
 end function
 
-// Return the packet entities value.
+/// Return the packet entities value.
+/// @param gameExport gameExport value consumed by this operation.
 function packetEntities(gameExport)
   ssPacketExportHolder = gameExport
   ssPacketEntitiesHolder = array(ssPacketExportHolder.numEdicts)
@@ -210,7 +242,12 @@ function packetEntities(gameExport)
   return sssessionarray.slice(ssPacketEntitiesHolder, 0, ssPacketEntityCount)
 end function
 
-// Report whether linked bounds visible.
+/// Report whether linked bounds visible.
+/// @param collisionModel collisionModel value consumed by this operation.
+/// @param nodeNumber nodeNumber value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param row row value consumed by this operation.
 function linkedBoundsVisible(collisionModel, nodeNumber, mins, maxs, row)
   if nodeNumber < 0 then
     leafNumber = -1 - nodeNumber
@@ -233,10 +270,11 @@ function linkedBoundsVisible(collisionModel, nodeNumber, mins, maxs, row)
     mins, maxs, row)
 end function
 
-// SV_BuildClientFrame starts its fat-PVS query at the rendered eye position,
-// not at the player edict origin near the middle of the collision hull. BSP
-// leaves can split vertically between those points (notably at base1's spawn),
-// which otherwise makes muzzle-height projectiles invisible to their owner.
+/// SV_BuildClientFrame starts its fat-PVS query at the rendered eye position,
+/// not at the player edict origin near the middle of the collision hull. BSP
+/// leaves can split vertically between those points (notably at base1's spawn),
+/// which otherwise makes muzzle-height projectiles invisible to their owner.
+/// @param viewer viewer value consumed by this operation.
 function clientViewOrigin(viewer)
   origin = viewer.state.origin
   x = origin.x; y = origin.y; z = origin.z
@@ -248,7 +286,9 @@ function clientViewOrigin(viewer)
   return ssqtypes.Vec3(x, y, z)
 end function
 
-// Return the fat pvs row value.
+/// Return the fat pvs row value.
+/// @param collisionModel collisionModel value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function fatPvsRow(collisionModel, origin)
   global serverSessionFatPvsLeafScratch
   visibility = collisionModel.map.visibility
@@ -275,7 +315,12 @@ function fatPvsRow(collisionModel, origin)
   return output
 end function
 
-// Report whether entity visible from prepared pvs.
+/// Report whether entity visible from prepared pvs.
+/// @param session session value consumed by this operation.
+/// @param viewer viewer value consumed by this operation.
+/// @param viewLeaf viewLeaf value consumed by this operation.
+/// @param preparedPvs preparedPvs value consumed by this operation.
+/// @param edict edict value consumed by this operation.
 function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
     edict)
   if session.collision is void then return true end if
@@ -332,12 +377,19 @@ function entityVisibleFromPreparedPvs(session, viewer, viewLeaf, preparedPvs,
     edict.absoluteMaxs, row)
 end function
 
-// Report whether entity visible from leaf.
+/// Report whether entity visible from leaf.
+/// @param session session value consumed by this operation.
+/// @param viewer viewer value consumed by this operation.
+/// @param viewLeaf viewLeaf value consumed by this operation.
+/// @param edict edict value consumed by this operation.
 function entityVisibleFromLeaf(session, viewer, viewLeaf, edict)
   return entityVisibleFromPreparedPvs(session, viewer, viewLeaf, void, edict)
 end function
 
-// Report whether entity visible.
+/// Report whether entity visible.
+/// @param session session value consumed by this operation.
+/// @param viewer viewer value consumed by this operation.
+/// @param edict edict value consumed by this operation.
 function entityVisible(session, viewer, edict)
   if session.collision is void then return true end if
   origin = clientViewOrigin(viewer)
@@ -346,7 +398,9 @@ function entityVisible(session, viewer, edict)
     fatPvsRow(session.collision, origin), edict)
 end function
 
-// Return the packet entities for client value.
+/// Return the packet entities for client value.
+/// @param session session value consumed by this operation.
+/// @param viewer viewer value consumed by this operation.
 function packetEntitiesForClient(session, viewer)
   ssClientPacketSessionHolder = session
   ssClientPacketViewerHolder = viewer
@@ -410,7 +464,9 @@ function packetEntitiesForClient(session, viewer)
   return sssessionarray.slice(ssClientPacketEntitiesHolder, 0, ssClientPacketEntityCount)
 end function
 
-// Return the sound event origin.
+/// Return the sound event origin.
+/// @param session session value consumed by this operation.
+/// @param event event value consumed by this operation.
 function soundEventOrigin(session, event)
   if event.routingPosition is not void then return event.routingPosition end if
   if event.position is not void then return event.position end if
@@ -426,7 +482,11 @@ function soundEventOrigin(session, event)
   return ssqtypes.Vec3(edict.state.origin.x, edict.state.origin.y, edict.state.origin.z)
 end function
 
-// Return the sound audible to client from leaf.
+/// Return the sound audible to client from leaf.
+/// @param session session value consumed by this operation.
+/// @param event event value consumed by this operation.
+/// @param listener listener value consumed by this operation.
+/// @param listenerLeafNumber listenerLeafNumber value consumed by this operation.
 function soundAudibleToClientFromLeaf(session, event, listener, listenerLeafNumber)
   if (event.channelFlags & ssgc.CHAN_NO_PHS_ADD) != 0 or event.attenuation == ssgc.ATTN_NONE then return true end if
   if session.collision is void then return true end if
@@ -452,7 +512,10 @@ function soundAudibleToClientFromLeaf(session, event, listener, listenerLeafNumb
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
 end function
 
-// Return the sound audible to client value.
+/// Return the sound audible to client value.
+/// @param session session value consumed by this operation.
+/// @param event event value consumed by this operation.
+/// @param listener listener value consumed by this operation.
 function soundAudibleToClient(session, event, listener)
   if session.collision is void then return true end if
   listenerLeafNumber = sscollision.pointLeafNumber(session.collision,
@@ -461,7 +524,9 @@ function soundAudibleToClient(session, event, listener)
     listenerLeafNumber)
 end function
 
-// Return the route sounds value.
+/// Return the route sounds value.
+/// @param session session value consumed by this operation.
+/// @param events events value consumed by this operation.
 function routeSounds(session, events)
   // The full queue is validated before any target list is exposed.
   ssoundevents.encodeAll(events)
@@ -496,7 +561,10 @@ function routeSounds(session, events)
   return routed
 end function
 
-// Report whether multicast visible to client from leaf.
+/// Report whether multicast visible to client from leaf.
+/// @param session session value consumed by this operation.
+/// @param event event value consumed by this operation.
+/// @param listenerLeafNumber listenerLeafNumber value consumed by this operation.
 function multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
   destination = ssgamemessages.baseDestination(event.destination)
   if destination == ssgc.MULTICAST_ALL or session.collision is void then return true end if
@@ -522,7 +590,10 @@ function multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
   return (row[byteIndex] & (1 << (listenerLeaf.cluster & 7))) != 0
 end function
 
-// Report whether multicast visible to client.
+/// Report whether multicast visible to client.
+/// @param session session value consumed by this operation.
+/// @param event event value consumed by this operation.
+/// @param listener listener value consumed by this operation.
 function multicastVisibleToClient(session, event, listener)
   listenerLeafNumber = -1
   if session.collision is not void then
@@ -532,7 +603,9 @@ function multicastVisibleToClient(session, event, listener)
   return multicastVisibleToClientFromLeaf(session, event, listenerLeafNumber)
 end function
 
-// Return the route multicasts value.
+/// Return the route multicasts value.
+/// @param session session value consumed by this operation.
+/// @param events events value consumed by this operation.
 function routeMulticasts(session, events)
   ssgamemessages.validateAll(events)
   runtime = session.networkRuntime
@@ -566,7 +639,9 @@ function routeMulticasts(session, events)
   return routed
 end function
 
-// Return the route unicasts value.
+/// Return the route unicasts value.
+/// @param session session value consumed by this operation.
+/// @param events events value consumed by this operation.
 function routeUnicasts(session, events)
   ssgamemessages.validateUnicastAll(events)
   runtime = session.networkRuntime
@@ -600,9 +675,11 @@ function routeUnicasts(session, events)
   return routed
 end function
 
-// Return only multicast events whose destination has the requested reliable
-// class. Original Quake II writes reliable messages and transient datagrams to
-// separate client buffers, so one blocked ACK must never retain later effects.
+/// Return only multicast events whose destination has the requested reliable
+/// class. Original Quake II writes reliable messages and transient datagrams to
+/// separate client buffers, so one blocked ACK must never retain later effects.
+/// @param events events value consumed by this operation.
+/// @param reliable reliable value consumed by this operation.
 function multicastReliabilitySubset(events, reliable)
   count = 0
   for each countedEvent in events
@@ -621,7 +698,9 @@ function multicastReliabilitySubset(events, reliable)
   return output
 end function
 
-// Return only unicast events with the requested reliability class.
+/// Return only unicast events with the requested reliability class.
+/// @param events events value consumed by this operation.
+/// @param reliable reliable value consumed by this operation.
 function unicastReliabilitySubset(events, reliable)
   count = 0
   for each countedEvent in events
@@ -638,7 +717,9 @@ function unicastReliabilitySubset(events, reliable)
   return output
 end function
 
-// Return only sound events with the requested CHAN_RELIABLE state.
+/// Return only sound events with the requested CHAN_RELIABLE state.
+/// @param events events value consumed by this operation.
+/// @param reliable reliable value consumed by this operation.
 function soundReliabilitySubset(events, reliable)
   count = 0
   for each countedEvent in events
@@ -657,7 +738,8 @@ function soundReliabilitySubset(events, reliable)
   return output
 end function
 
-// Synchronize config strings.
+/// Synchronize config strings.
+/// @param session session value consumed by this operation.
 function synchronizeConfigStrings(session)
   runtime = session.networkRuntime
   bridge = session.bridgeRuntime
@@ -697,7 +779,8 @@ function synchronizeConfigStrings(session)
   return true
 end function
 
-// Synchronize baselines.
+/// Synchronize baselines.
+/// @param session session value consumed by this operation.
 function synchronizeBaselines(session)
   runtime = session.networkRuntime
   for each entity in packetEntities(session.gameExport)
@@ -706,16 +789,19 @@ function synchronizeBaselines(session)
   return true
 end function
 
-// Synchronize server state.
+/// Synchronize server state.
+/// @param session session value consumed by this operation.
 function synchronizeServerState(session)
   synchronizeConfigStrings(session)
   synchronizeBaselines(session)
   return true
 end function
 
-// Protocol 34 download clients compare the BSP's original COM_BlockChecksum
-// before publishing a downloaded map. Core constructors intentionally accept
-// parsed state only, so retail/bootstrap callers attach the raw bytes here.
+/// Protocol 34 download clients compare the BSP's original COM_BlockChecksum
+/// before publishing a downloaded map. Core constructors intentionally accept
+/// parsed state only, so retail/bootstrap callers attach the raw bytes here.
+/// @param session session value consumed by this operation.
+/// @param mapBytes mapBytes value consumed by this operation.
 function setMapChecksum(session, mapBytes)
   if session is void or typeof(mapBytes) != "bytes" or len(mapBytes) < 1 then
     return error(9989, "server map checksum requires BSP bytes")
@@ -728,7 +814,18 @@ function setMapChecksum(session, mapBytes)
   return serverSessionMapChecksum
 end function
 
-// Create core mode at skill.
+/// Create core mode at skill.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative, skill)
   if mapName == "" or typeof(entityText) != "string" then return error(9970, "server session requires map and entity text") end if
@@ -773,38 +870,90 @@ function createCoreModeAtSkill(mapName, entityText, collision, spawnPoint, bindA
   return session
 end function
 
-// Create core mode at.
+/// Create core mode at.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
 function createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative)
   return createCoreModeAtSkill(mapName, entityText, collision, spawnPoint,
     bindAddress, port, maxClients, dedicated, deathmatch, cooperative, 1)
 end function
 
-// Create core mode.
+/// Create core mode.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
 function createCoreMode(mapName, entityText, collision, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   return createCoreModeAt(mapName, entityText, collision, "", bindAddress, port,
     maxClients, dedicated, deathmatch, cooperative)
 end function
 
-// Create core at.
+/// Create core at.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
 function createCoreAt(mapName, entityText, collision, spawnPoint, bindAddress, port, maxClients, dedicated)
   return createCoreModeAt(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false)
 end function
 
-// Create core at skill.
+/// Creates core at skill for the miniquake2 runtime server session module.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createCoreAtSkill(mapName, entityText, collision, spawnPoint, bindAddress,
     port, maxClients, dedicated, skill)
   return createCoreModeAtSkill(mapName, entityText, collision, spawnPoint,
     bindAddress, port, maxClients, dedicated, false, false, skill)
 end function
 
-// Create core.
+/// Creates core for the miniquake2 runtime server session module.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
 function createCore(mapName, entityText, collision, bindAddress, port, maxClients, dedicated)
   return createCoreAt(mapName, entityText, collision, "", bindAddress, port, maxClients, dedicated)
 end function
 
-// Create retail mode at.
+/// Create retail mode at.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
 function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   filesystem = ssfs.initialize(baseDirectory, "")
   path = "maps/" + mapName + ".bsp"
@@ -820,7 +969,17 @@ function createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress, por
   return session
 end function
 
-// Create retail mode at skill.
+/// Create retail mode at skill.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, deathmatch, cooperative, skill)
   serverSessionSkillFileSystem = ssfs.initialize(baseDirectory, "")
@@ -840,31 +999,64 @@ function createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress
   return serverSessionSkillValue
 end function
 
-// Create retail mode.
+/// Create retail mode.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
 function createRetailMode(baseDirectory, mapName, bindAddress, port, maxClients, dedicated, deathmatch, cooperative)
   return createRetailModeAt(baseDirectory, mapName, "", bindAddress, port,
     maxClients, dedicated, deathmatch, cooperative)
 end function
 
-// Create retail at.
+/// Create retail at.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
 function createRetailAt(baseDirectory, mapName, spawnPoint, bindAddress, port, maxClients, dedicated)
   return createRetailModeAt(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false)
 end function
 
-// Create retail at skill.
+/// Creates retail at skill for the miniquake2 runtime server session module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createRetailAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, skill)
   return createRetailModeAtSkill(baseDirectory, mapName, spawnPoint, bindAddress,
     port, maxClients, dedicated, false, false, skill)
 end function
 
-// Create retail.
+/// Creates retail for the miniquake2 runtime server session module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param bindAddress bindAddress value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
 function createRetail(baseDirectory, mapName, bindAddress, port, maxClients, dedicated)
   return createRetailAt(baseDirectory, mapName, "", bindAddress, port, maxClients, dedicated)
 end function
 
-// Reset bridge level.
+/// Reset bridge level.
+/// @param bridge bridge value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnCount Number of spawn to process.
+/// @param collision collision value consumed by this operation.
 function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   bridge.mapName = mapName
   bridge.spawnCount = spawnCount
@@ -887,7 +1079,11 @@ function resetBridgeLevel(bridge, mapName, spawnCount, collision)
   return true
 end function
 
-// Map change core.
+/// Performs the changeMapCore operation for the miniquake2 runtime server session module.
+/// @param session session value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
 function changeMapCore(session, mapName, entityText, collision)
   serverSessionChangeSessionHolder = session
   serverSessionChangeComponentsHolder = mapChangeComponents(mapName)
@@ -988,7 +1184,10 @@ function changeMapCore(session, mapName, entityText, collision)
   return MapChangeResult(true, false, serverSessionChangePlanHolder.spawnCount, serverSessionChangeMapNameHolder, "changed")
 end function
 
-// Map change retail.
+/// Performs the changeMapRetail operation for the miniquake2 runtime server session module.
+/// @param session session value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function changeMapRetail(session, baseDirectory, mapName)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then return error(9982, "map transition base directory is invalid") end if
   filesystem = session.retailFileSystem
@@ -1010,7 +1209,9 @@ function changeMapRetail(session, baseDirectory, mapName)
   return serverSessionChangeRetailResult
 end function
 
-// Return the area bits value.
+/// Return the area bits value.
+/// @param session session value consumed by this operation.
+/// @param clientEdict clientEdict value consumed by this operation.
 function areaBits(session, clientEdict)
   if session.collision is void then return bytes() end if
   area = clientEdict.areaNumber
@@ -1018,9 +1219,13 @@ function areaBits(session, clientEdict)
   return sscollision.writeAreaBits(session.collision, area)
 end function
 
-// Merge one client's typed GameImport queues by their shared emission serial.
-// Reliable and transient buffers remain separate, but neither buffer may
-// reorder sound around multicast/unicast commands emitted before it.
+/// Merge one client's typed GameImport queues by their shared emission serial.
+/// Reliable and transient buffers remain separate, but neither buffer may
+/// reorder sound around multicast/unicast commands emitted before it.
+/// @param unicasts unicasts value consumed by this operation.
+/// @param multicasts multicasts value consumed by this operation.
+/// @param sounds sounds value consumed by this operation.
+/// @param reliable reliable value consumed by this operation.
 function frameMessageFragments(unicasts, multicasts, sounds, reliable)
   count = 0
   for each event in unicasts
@@ -1073,7 +1278,8 @@ function frameMessageFragments(unicasts, multicasts, sounds, reliable)
   return output
 end function
 
-// Return only the encoded bytes from ordered frame fragments.
+/// Return only the encoded bytes from ordered frame fragments.
+/// @param fragments fragments value consumed by this operation.
 function frameFragmentPayloads(fragments)
   output = array(len(fragments), void)
   index = 0
@@ -1084,8 +1290,12 @@ function frameFragmentPayloads(fragments)
   return output
 end function
 
-// Preflight every recipient before mutating any reliable Netchan queue. A
-// blocked client retains the shared reliable source queues for a later frame.
+/// Preflight every recipient before mutating any reliable Netchan queue. A
+/// blocked client retains the shared reliable source queues for a later frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param routedUnicasts routedUnicasts value consumed by this operation.
+/// @param routedMulticasts routedMulticasts value consumed by this operation.
+/// @param routedSounds routedSounds value consumed by this operation.
 function queueReliableFrameMessages(runtime, routedUnicasts,
     routedMulticasts, routedSounds)
   plans = array(runtime.server.maxClients, void)
@@ -1117,9 +1327,12 @@ function queueReliableFrameMessages(runtime, routedUnicasts,
   return true
 end function
 
-// Append the complete transient tail or drop the entire unreliable message.
-// This mirrors SZ_AllowOverflow + SV_SendClientDatagram: an event is never sent
-// without the snapshot entity state it references.
+/// Append the complete transient tail or drop the entire unreliable message.
+/// This mirrors SZ_AllowOverflow + SV_SendClientDatagram: an event is never sent
+/// without the snapshot entity state it references.
+/// @param snapshotPayload snapshotPayload value consumed by this operation.
+/// @param fragments fragments value consumed by this operation.
+/// @param maximumPayload maximumPayload value consumed by this operation.
 function composeClientDatagram(snapshotPayload, fragments, maximumPayload)
   total = len(snapshotPayload)
   for each fragment in fragments
@@ -1134,7 +1347,10 @@ function composeClientDatagram(snapshotPayload, fragments, maximumPayload)
   return ssqsz.dataSlice(message)
 end function
 
-// Send one stock-shaped snapshot plus accumulated transient datagram per client.
+/// Send one stock-shaped snapshot plus accumulated transient datagram per client.
+/// @param session session value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param transientRoutes transientRoutes value consumed by this operation.
 function sendSnapshots(session, now, transientRoutes)
   runtime = session.networkRuntime
   slot = 0
@@ -1173,7 +1389,8 @@ function sendSnapshots(session, now, transientRoutes)
   return sent
 end function
 
-// Advance state.
+/// Performs the step operation for the miniquake2 runtime server session module.
+/// @param session session value consumed by this operation.
 function step(session)
   if session.closed then return error(9972, "server session is closed") end if
   now = ssqbyteio.truncInt(sssystem.milliseconds(session.clock))
@@ -1257,9 +1474,11 @@ function step(session)
   return session.frameNumber
 end function
 
-// Listen-server pause is authoritative: client commands continue to be
-// received and acknowledged, but neither ClientThink nor the Game API world
-// frame advances. Multiplayer always remains live.
+/// Listen-server pause is authoritative: client commands continue to be
+/// received and acknowledged, but neither ClientThink nor the Game API world
+/// frame advances. Multiplayer always remains live.
+/// @param session session value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function setPaused(session, value)
   if typeof(value) != "bool" then return error(9986, "server pause state must be boolean") end if
   if session.networkRuntime.server.maxClients != 1 then
@@ -1270,7 +1489,9 @@ function setPaused(session, value)
   return session.paused
 end function
 
-// Run state.
+/// Runs run for the miniquake2 runtime server session workflow.
+/// @param session session value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function run(session, frameLimit)
   if typeof(frameLimit) != "int" or frameLimit < 0 then return error(9973, "server frame limit must be non-negative") end if
   frames = 0
@@ -1284,7 +1505,8 @@ function run(session, frameLimit)
   return frames
 end function
 
-// Shut down state.
+/// Performs the shutdown operation for the miniquake2 runtime server session module.
+/// @param session session value consumed by this operation.
 function shutdown(session)
   if session.closed then return false end if
   shutdownStats = sspump.shutdownServer(session.networkRuntime, session.socket)

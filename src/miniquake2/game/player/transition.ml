@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player transition facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,38 +10,62 @@ package miniquake2.game.player.transition
 import miniquake2.game.gameplay.constants as transitionconstants
 import miniquake2.game.gameplay.item_rules as transitionitems
 
+/// Defines the persistent flag mask constant used by the miniquake2 game player transition module.
 const PERSISTENT_FLAG_MASK = transitionconstants.FL_GODMODE |
   transitionconstants.FL_NOTARGET | transitionconstants.FL_POWER_ARMOR
 
-// The original game keeps this data in game.clients and game.serverflags while
-// TAG_LEVEL allocations are replaced.  The product host replaces the complete
-// Game API graph instead, so an owned value snapshot must cross that boundary.
+/// The original game keeps this data in game.clients and game.serverflags while
+/// TAG_LEVEL allocations are replaced.  The product host replaces the complete
+/// Game API graph instead, so an owned value snapshot must cross that boundary.
 struct PlayerLevelHandover
+  /// Stores the health value associated with player level handover.
   health
+  /// Stores the max health value associated with player level handover.
   maxHealth
+  /// Stores the inventory counts value associated with player level handover.
   inventoryCounts
+  /// Stores the max bullets value associated with player level handover.
   maxBullets
+  /// Stores the max shells value associated with player level handover.
   maxShells
+  /// Stores the max rockets value associated with player level handover.
   maxRockets
+  /// Stores the max grenades value associated with player level handover.
   maxGrenades
+  /// Stores the max cells value associated with player level handover.
   maxCells
+  /// Stores the max slugs value associated with player level handover.
   maxSlugs
+  /// Stores the selected item value associated with player level handover.
   selectedItem
+  /// Stores the current weapon index value associated with player level handover.
   currentWeaponIndex
+  /// Stores the last weapon index value associated with player level handover.
   lastWeaponIndex
+  /// Stores the saved flags value associated with player level handover.
   savedFlags
+  /// Stores the power cubes value associated with player level handover.
   powerCubes
+  /// Stores the persistent score value associated with player level handover.
   persistentScore
+  /// Stores the respawn score value associated with player level handover.
   respawnScore
+  /// Stores the game help changed value associated with player level handover.
   gameHelpChanged
+  /// Stores the player help changed value associated with player level handover.
   playerHelpChanged
+  /// Stores the server flags value associated with player level handover.
   serverFlags
+  /// Stores the help message1 value associated with player level handover.
   helpMessage1
+  /// Stores the help message2 value associated with player level handover.
   helpMessage2
+  /// Stores the help changed value associated with player level handover.
   helpChanged
 end struct
 
-// Copy counts data.
+/// Copy counts data.
+/// @param counts counts value consumed by this operation.
 function copyCounts(counts)
   transitionCopiedCounts = array(len(counts), 0)
   transitionCopyIndex = 0
@@ -50,13 +76,17 @@ function copyCounts(counts)
   return transitionCopiedCounts
 end function
 
-// Return the item index.
+/// Return the item index.
+/// @param item item value consumed by this operation.
 function itemIndex(item)
   if item is void then return 0 end if
   return item.index
 end function
 
-// Return the checked item value.
+/// Return the checked item value.
+/// @param registry registry value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param label label value consumed by this operation.
 function checkedItem(registry, index, label)
   if index == 0 then return void end if
   transitionResolvedItem = transitionitems.getByIndex(registry, index)
@@ -66,7 +96,10 @@ function checkedItem(registry, index, label)
   return transitionResolvedItem
 end function
 
-// Capture state.
+/// Capture state.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerIndex Zero-based index of player.
 function capture(playerContext, runtime, playerIndex)
   if playerContext is void or runtime is void then
     return error(9781, "level handover requires active game state")
@@ -101,7 +134,11 @@ function capture(playerContext, runtime, playerIndex)
     runtime.world.helpChanged)
 end function
 
-// Restore state.
+/// Restore state.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerIndex Zero-based index of player.
+/// @param handover handover value consumed by this operation.
 function restore(playerContext, runtime, playerIndex, handover)
   if playerContext is void or runtime is void or typeof(handover) != "struct" then
     return error(9783, "level handover restore requires active typed state")

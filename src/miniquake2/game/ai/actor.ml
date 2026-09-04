@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai actor facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -13,28 +15,45 @@ import miniquake2.game.ai.types as actortypes
 import miniquake2.game.constants as actorgameconstants
 import miniquake2.qcommon.types as actorqtypes
 
+/// Stores module-wide actor walk distances state for the miniquake2 game ai actor module.
 actorWalkDistances = [0.0, 6.0, 10.0, 3.0, 2.0, 7.0, 10.0, 1.0]
+/// Stores module-wide actor run distances state for the miniquake2 game ai actor module.
 actorRunDistances = [4.0, 15.0, 15.0, 8.0, 20.0, 15.0]
+/// Stores module-wide actor pain1 distances state for the miniquake2 game ai actor module.
 actorPain1Distances = [-5.0, 4.0, 1.0]
+/// Stores module-wide actor pain2 distances state for the miniquake2 game ai actor module.
 actorPain2Distances = [-4.0, 4.0, 0.0]
+/// Stores module-wide actor pain3 distances state for the miniquake2 game ai actor module.
 actorPain3Distances = [-1.0, 1.0, 0.0]
+/// Stores module-wide actor death1 distances state for the miniquake2 game ai actor module.
 actorDeath1Distances = [0.0, 0.0, -13.0, 14.0, 3.0, -2.0, 1.0]
+/// Stores module-wide actor death2 distances state for the miniquake2 game ai actor module.
 actorDeath2Distances = [0.0, 7.0, -6.0, -5.0, 1.0, 0.0, -1.0,
   -2.0, -1.0, -9.0, -13.0, -13.0, 0.0]
 
-// Return the actor random unit value.
+/// Return the actor random unit value.
+/// @param context Context that carries state for the operation.
+/// @param fallback Value returned when no explicit result is available.
 function actorRandomUnit(context, fallback)
   if typeof(context.nextRandomUnit) == "function" then return context.nextRandomUnit() end if
   return fallback
 end function
 
-// Return the actor random integer value.
+/// Return the actor random integer value.
+/// @param context Context that carries state for the operation.
+/// @param fallback Value returned when no explicit result is available.
 function actorRandomInteger(context, fallback)
   if typeof(context.nextRandomInteger) == "function" then return context.nextRandomInteger() end if
   return fallback
 end function
 
-// Create actor move.
+/// Create actor move.
+/// @param name Name of the affected item.
+/// @param firstFrame firstFrame value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param aiFunction aiFunction value consumed by this operation.
+/// @param distances distances value consumed by this operation.
+/// @param endFunction endFunction value consumed by this operation.
 function actorMakeMove(name, firstFrame, lastFrame, aiFunction, distances,
     endFunction)
   frameCount = lastFrame - firstFrame + 1
@@ -51,13 +70,13 @@ function actorMakeMove(name, firstFrame, lastFrame, aiFunction, distances,
   return actortypes.MonsterMove(name, firstFrame, lastFrame, frames, endFunction)
 end function
 
-// Move actor stand.
+/// Move actor stand.
 function actorStandMove()
   return actorMakeMove("actor-stand", 128, 167, actorcore.ai_stand, void,
     void)
 end function
 
-// Move actor walk.
+/// Move actor walk.
 function actorWalkMove()
   // m_actor.c declares eleven frame records but bounds actor_move_walk to
   // FRAME_walk01..FRAME_walk08. M_MoveFrame therefore consumes exactly the
@@ -66,14 +85,15 @@ function actorWalkMove()
     actorWalkDistances, void)
 end function
 
-// Run actor move.
+/// Run actor move.
 function actorRunMove()
   // The original table likewise bounds its twelve records to run02..run07.
   return actorMakeMove("actor-run", 93, 98, actorcore.ai_run,
     actorRunDistances, void)
 end function
 
-// Handle actor move.
+/// Handle actor move.
+/// @param variant variant value consumed by this operation.
 function actorPainMove(variant)
   if variant == 0 then
     return actorMakeMove("actor-pain1", 74, 76, actorcore.ai_move,
@@ -87,7 +107,8 @@ function actorPainMove(variant)
     actorPain3Distances, actorRun)
 end function
 
-// Move actor taunt.
+/// Move actor taunt.
+/// @param flipOff flipOff value consumed by this operation.
 function actorTauntMove(flipOff)
   if flipOff then
     return actorMakeMove("actor-flipoff", 39, 52, actorcore.ai_turn,
@@ -97,7 +118,8 @@ function actorTauntMove(flipOff)
     void, actorRun)
 end function
 
-// Move actor death.
+/// Move actor death.
+/// @param variant variant value consumed by this operation.
 function actorDeathMove(variant)
   if variant == 0 then
     return actorMakeMove("actor-death1", 4, 10, actorcore.ai_move,
@@ -107,7 +129,9 @@ function actorDeathMove(variant)
     actorDeath2Distances, actorDead)
 end function
 
-// Set actor move.
+/// Set actor move.
+/// @param actor actor value consumed by this operation.
+/// @param move move value consumed by this operation.
 function actorSetMove(actor, move)
   actor.info.currentMove = move
   actor.activity = move.name
@@ -115,7 +139,9 @@ function actorSetMove(actor, move)
   return move
 end function
 
-// Return the actor stand value.
+/// Return the actor stand value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorStand(actor, context)
   move = actorSetMove(actor, actorStandMove())
   if context.time < 1.0 then
@@ -126,12 +152,16 @@ function actorStand(actor, context)
   return move
 end function
 
-// Return the actor walk value.
+/// Return the actor walk value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorWalk(actor, context)
   return actorSetMove(actor, actorWalkMove())
 end function
 
-// Run actor.
+/// Run actor.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorRun(actor, context)
   if context.time < actor.reactionDebounce and actor.enemy is void then
     if actor.moveTarget is not void then return actorWalk(actor, context) end if
@@ -143,7 +173,9 @@ function actorRun(actor, context)
   return actorSetMove(actor, actorRunMove())
 end function
 
-// Run actor.
+/// Run actor.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorAttack(actor, context)
   // The integrated combat timeline owns actor_move_attack's held first frame
   // and machine-gun events. This callback retains the stock attack counter.
@@ -152,7 +184,11 @@ function actorAttack(actor, context)
   return true
 end function
 
-// Use actor.
+/// Use actor.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorUse(actor, other, activator, context)
   actor.goalEntity = context.pickTarget(actor.target)
   actor.moveTarget = actor.goalEntity
@@ -175,7 +211,11 @@ function actorUse(actor, other, activator, context)
   return true
 end function
 
-// Handle actor.
+/// Handle actor.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorPain(actor, attacker, damage, context)
   actor.painCount = actor.painCount + 1
   actor.reactionDebounce = context.time + 3.0
@@ -202,7 +242,9 @@ function actorPain(actor, attacker, damage, context)
   return true
 end function
 
-// Return the actor dead value.
+/// Return the actor dead value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorDead(actor, context)
   actor.mins = [-16.0, -16.0, -24.0]
   actor.maxs = [16.0, 16.0, -8.0]
@@ -220,7 +262,11 @@ function actorDead(actor, context)
   return true
 end function
 
-// Handle actor.
+/// Handle actor.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function actorDie(actor, attacker, damage, context)
   if actor.health <= -80 then
     emitted = actordeatheffects.emitMonsterGibs(actor, damage, context)
@@ -243,7 +289,9 @@ function actorDie(actor, attacker, damage, context)
   return true
 end function
 
-// Configure state.
+/// Performs the configure operation for the miniquake2 game ai actor module.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function configure(actor, context)
   actor.info.aiFlags = actor.info.aiFlags | actorconstants.AI_GOOD_GUY
   actor.info.stand = actorStand
@@ -261,7 +309,9 @@ function configure(actor, context)
   return actor
 end function
 
-// Restore move.
+/// Restore move.
+/// @param actor actor value consumed by this operation.
+/// @param moveName moveName value consumed by this operation.
 function restoreMove(actor, moveName)
   if moveName == "actor-stand" then actor.info.currentMove = actorStandMove()
   else if moveName == "actor-walk" then actor.info.currentMove = actorWalkMove()

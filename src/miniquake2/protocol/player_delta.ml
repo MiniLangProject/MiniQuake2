@@ -1,3 +1,5 @@
+//! Provides miniquake2 protocol player delta facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -13,7 +15,9 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
 
-// Validate state.
+/// Validates state for the miniquake2 protocol player delta workflow.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param operation operation value consumed by this operation.
 function validateState(state, operation)
   if len(state.pmove.origin) != 3 or len(state.pmove.velocity) != 3 or len(state.pmove.deltaAngles) != 3 then
     return error(7040, operation + ": malformed pmove vectors")
@@ -28,17 +32,23 @@ function validateState(state, operation)
   return true
 end function
 
-// Return the vec 3 changed value.
+/// Return the vec 3 changed value.
+/// @param a a value consumed by this operation.
+/// @param b b value consumed by this operation.
 function vec3Changed(a, b)
   return a[0] != b[0] or a[1] != b[1] or a[2] != b[2]
 end function
 
-// Return the vec 4 changed value.
+/// Return the vec 4 changed value.
+/// @param a a value consumed by this operation.
+/// @param b b value consumed by this operation.
 function vec4Changed(a, b)
   return a[0] != b[0] or a[1] != b[1] or a[2] != b[2] or a[3] != b[3]
 end function
 
-// Compute flags.
+/// Compute flags.
+/// @param base base value consumed by this operation.
+/// @param target target value consumed by this operation.
 function computeFlags(base, target)
   validateState(base, "player baseline")
   validateState(target, "player target")
@@ -60,7 +70,10 @@ function computeFlags(base, target)
   return flags
 end function
 
-// Write body.
+/// Write body.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
+/// @param target target value consumed by this operation.
 function writeBody(buffer, base, target)
   // Keep write body phases explicit: validate inputs, update owned state, then publish the result.
   flags = computeFlags(base, target)
@@ -115,13 +128,18 @@ function writeBody(buffer, base, target)
   return flags
 end function
 
-// Write message.
+/// Write message.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
+/// @param target target value consumed by this operation.
 function writeMessage(buffer, base, target)
   qmsg.writeByte(buffer, pc.SVC_PLAYERINFO)
   return writeBody(buffer, base, target)
 end function
 
-// Read body.
+/// Read body.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
 function readBody(buffer, base)
   // Keep read body phases explicit: validate inputs, update owned state, then publish the result.
   target = pt.copyPlayerState(base)
@@ -171,7 +189,9 @@ function readBody(buffer, base)
   return target
 end function
 
-// Read message.
+/// Read message.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
 function readMessage(buffer, base)
   opcode = pchecked.readByte(buffer, "playerinfo opcode")
   if opcode != pc.SVC_PLAYERINFO then return error(7045, "expected svc_playerinfo") end if

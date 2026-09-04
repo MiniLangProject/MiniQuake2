@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime pause policy facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,7 +9,10 @@ package miniquake2.runtime.pause_policy
 
 import miniquake2.client.ui.constants as pauseconstants
 
-// Report whether should pause.
+/// Report whether should pause.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param serverActive serverActive value consumed by this operation.
+/// @param destination destination value consumed by this operation.
 function shouldPause(maxClients, serverActive, destination)
   if typeof(maxClients) != "int" or maxClients < 1 then
     return error(8496, "pause maxClients must be positive")

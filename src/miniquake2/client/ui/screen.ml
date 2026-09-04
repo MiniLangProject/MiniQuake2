@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui screen facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,18 +14,28 @@ import miniquake2.client.ui.menu as cuimenu
 import miniquake2.client.ui.keys as cuiscreenkeys
 import miniquake2.client.ui.types as cuitypes
 
-// Create state.
+/// Creates create for the miniquake2 client ui screen module.
+/// @param console console value consumed by this operation.
+/// @param menu menu value consumed by this operation.
 function create(console, menu)
   return cuitypes.ScreenState(console, menu, "", 0, 0, "", "", [], [], "", [],
     [], [], 0, false, 1, true)
 end function
 
-// Return the crosshair position.
+/// Return the crosshair position.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param pictureWidth pictureWidth value consumed by this operation.
+/// @param pictureHeight pictureHeight value consumed by this operation.
 function crosshairPosition(screenWidth, screenHeight, pictureWidth, pictureHeight)
   return [(screenWidth - pictureWidth) / 2, (screenHeight - pictureHeight) / 2]
 end function
 
-// Draw crosshair.
+/// Draw crosshair.
+/// @param screen screen value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function drawCrosshair(screen, screenWidth, screenHeight, exports)
   if not screen.showHud or screen.crosshair <= 0 or screen.menu.active or
       screen.console.visibleFraction > 0.0 then return 0 end if
@@ -35,7 +47,11 @@ function drawCrosshair(screen, screenWidth, screenHeight, exports)
   return 1
 end function
 
-// Print center.
+/// Print center.
+/// @param screen screen value consumed by this operation.
+/// @param text Text consumed by the operation.
+/// @param now now value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function centerPrint(screen, text, now, duration)
   if duration < 0 then return error(8240, "negative centerprint duration") end if
   screen.centerText = text
@@ -44,7 +60,10 @@ function centerPrint(screen, text, now, duration)
   return true
 end function
 
-// Set inventory.
+/// Set inventory.
+/// @param screen screen value consumed by this operation.
+/// @param items Items consumed or updated by the operation.
+/// @param selected selected value consumed by this operation.
 function setInventory(screen, items, selected)
   screen.inventory = items
   screen.selectedInventory = selected
@@ -52,9 +71,13 @@ function setInventory(screen, items, selected)
   return true
 end function
 
-// Convert the fixed Protocol-34 inventory vector into the compact rows the
-// renderer needs. Receiving an update does not implicitly open the inventory;
-// the local `inven` command owns that user-visible toggle.
+/// Convert the fixed Protocol-34 inventory vector into the compact rows the
+/// renderer needs. Receiving an update does not implicitly open the inventory;
+/// the local `inven` command owns that user-visible toggle.
+/// @param screen screen value consumed by this operation.
+/// @param values values value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param selected selected value consumed by this operation.
 function updateInventory(screen, values, configStrings, selected)
   if typeof(values) != "array" or len(values) != cuiscreenqc.MAX_ITEMS or
       typeof(configStrings) != "array" then
@@ -85,7 +108,9 @@ function updateInventory(screen, values, configStrings, selected)
   return len(cuiscreenInventoryItems)
 end function
 
-// Resolve the first exact `use <item>` binding shown by the stock inventory.
+/// Resolve the first exact `use <item>` binding shown by the stock inventory.
+/// @param screen screen value consumed by this operation.
+/// @param input input value consumed by this operation.
 function updateInventoryHotkeys(screen, input)
   for each cuiscreenHotkeyItem in screen.inventory
     cuiscreenHotkeyItem.hotkey = ""
@@ -100,7 +125,11 @@ function updateInventoryHotkeys(screen, input)
   return true
 end function
 
-// Draw text.
+/// Draws text through the miniquake2 client ui screen rendering path.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param text Text consumed by the operation.
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -109,7 +138,11 @@ function drawText(exports, x, y, text)
   end while
 end function
 
-// Draw centered lines.
+/// Draw centered lines.
+/// @param exports exports value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param startY startY value consumed by this operation.
+/// @param text Text consumed by the operation.
 function drawCenteredLines(exports, screenWidth, startY, text)
   data = bytes(text)
   start = 0
@@ -127,7 +160,11 @@ function drawCenteredLines(exports, screenWidth, startY, text)
   return count
 end function
 
-// Draw inventory.
+/// Draw inventory.
+/// @param screen screen value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function drawInventory(screen, screenWidth, screenHeight, exports)
   if screen.showInventory == false then return 0 end if
   x = screenWidth / 2 - 120
@@ -157,7 +194,16 @@ function drawInventory(screen, screenWidth, screenHeight, exports)
   return count
 end function
 
-// Draw state.
+/// Draws draw through the miniquake2 client ui screen rendering path.
+/// @param screen screen value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param serverFrame serverFrame value consumed by this operation.
+/// @param playerNumber playerNumber value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function draw(screen, now, screenWidth, screenHeight, stats, configStrings,
     serverFrame, playerNumber, exports)
   // Keep draw phases explicit: validate inputs, update owned state, then publish the result.

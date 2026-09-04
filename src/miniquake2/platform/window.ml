@@ -1,3 +1,5 @@
+//! Provides miniquake2 platform window facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,26 +9,41 @@ package miniquake2.platform.window
 
 import miniquake2.native as native
 
-// Store window data.
+/// Store window data.
 struct Window
+  /// Stores the handle value associated with window.
   handle
+  /// Stores the width value associated with window.
   width
+  /// Stores the height value associated with window.
   height
+  /// Stores the fullscreen value associated with window.
   fullscreen
+  /// Stores the closed value associated with window.
   closed
+  /// Stores the vertical sync value associated with window.
   verticalSync
 end struct
 
-// Store input event data.
+/// Store input event data.
 struct InputEvent
+  /// Stores the type value associated with input event.
   type
+  /// Stores the code value associated with input event.
   code
+  /// Stores the value value associated with input event.
   value
 end struct
 
-// Resolve a fixed Quake II menu mode to a mode the active monitor can safely
-// display. The third value selects the native "use current display mode"
-// borderless fallback.
+/// Resolve a fixed Quake II menu mode to a mode the active monitor can safely
+/// display. The third value selects the native "use current display mode"
+/// borderless fallback.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param fullscreen fullscreen value consumed by this operation.
+/// @param exclusiveAvailable exclusiveAvailable value consumed by this operation.
+/// @param desktopWidth desktopWidth value consumed by this operation.
+/// @param desktopHeight desktopHeight value consumed by this operation.
 function resolvedDisplayMode(width, height, fullscreen, exclusiveAvailable,
     desktopWidth, desktopHeight)
   if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
@@ -39,7 +56,11 @@ function resolvedDisplayMode(width, height, fullscreen, exclusiveAvailable,
   return [width, height, 0]
 end function
 
-// Create state.
+/// Creates create for the miniquake2 platform window module.
+/// @param title Human-readable title presented to the user.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param fullscreen fullscreen value consumed by this operation.
 function create(title, width, height, fullscreen)
   if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
   fullscreenValue = 0
@@ -80,8 +101,11 @@ function create(title, width, height, fullscreen)
     fullscreen, false, verticalSync)
 end function
 
-// Apply one native mode transaction and return the verified client size. The
-// caller retains the logical Window fields until this transaction succeeds.
+/// Apply one native mode transaction and return the verified client size. The
+/// caller retains the logical Window fields until this transaction succeeds.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param fullscreen fullscreen value consumed by this operation.
 function applyNativeWindowMode(width, height, fullscreen)
   fullscreenValue = 0
   if fullscreen then fullscreenValue = 1 end if
@@ -108,9 +132,13 @@ function applyNativeWindowMode(width, height, fullscreen)
   return [native.winClientWidth(), native.winClientHeight()]
 end function
 
-// Reconfigure one live Win32 window without destroying its OpenGL context.
-// Changing display mode and frame style in place preserves every registered
-// GPU resource and, consequently, the active level and client presentation.
+/// Reconfigure one live Win32 window without destroying its OpenGL context.
+/// Changing display mode and frame style in place preserves every registered
+/// GPU resource and, consequently, the active level and client presentation.
+/// @param window window value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param fullscreen fullscreen value consumed by this operation.
 function reconfigure(window, width, height, fullscreen)
   if window.closed then return error(2924, "cannot reconfigure a closed window") end if
   if width <= 0 or height <= 0 then return error(2920, "invalid window dimensions") end if
@@ -137,7 +165,8 @@ function reconfigure(window, width, height, fullscreen)
   return window
 end function
 
-// Poll state.
+/// Performs the poll operation for the miniquake2 platform window module.
+/// @param window window value consumed by this operation.
 function poll(window)
   if window.closed then return false end if
   alive = native.winPoll()
@@ -147,14 +176,17 @@ function poll(window)
   return alive != 0
 end function
 
-// Swap state.
+/// Swap state.
+/// @param window window value consumed by this operation.
 function swap(window)
   if window.closed then return false end if
   native.winSwap()
   return true
 end function
 
-// Apply the archived Quake II swap interval to the live OpenGL context.
+/// Apply the archived Quake II swap interval to the live OpenGL context.
+/// @param window window value consumed by this operation.
+/// @param enabled enabled value consumed by this operation.
 function setVerticalSync(window, enabled)
   if window.closed then return false end if
   if typeof(enabled) != "bool" then return error(2925, "vertical sync must be boolean") end if
@@ -168,7 +200,9 @@ function setVerticalSync(window, enabled)
   return applied
 end function
 
-// Set title.
+/// Set title.
+/// @param window window value consumed by this operation.
+/// @param title Human-readable title presented to the user.
 function setTitle(window, title)
   if window.closed then return false end if
   if typeof(title) != "string" or title == "" then
@@ -178,7 +212,8 @@ function setTitle(window, title)
   return true
 end function
 
-// Return the destroy value.
+/// Return the destroy value.
+/// @param window window value consumed by this operation.
 function destroy(window)
   // WM_CLOSE marks the logical object closed before application teardown.
   // Native destruction is idempotent and must still release HWND/HDC/WGL.
@@ -187,14 +222,15 @@ function destroy(window)
   return true
 end function
 
-// Return the pop input event value.
+/// Return the pop input event value.
 function popInputEvent()
   packed = native.winInputEventPop()
   if packed == 0 then return void end if
   return InputEvent((packed >> 24) & 255, (packed >> 8) & 0xffff, packed & 255)
 end function
 
-// Set mouse capture.
+/// Set mouse capture.
+/// @param enabled enabled value consumed by this operation.
 function setMouseCapture(enabled)
   if enabled then native.winSetCursorCapture(1) else native.winSetCursorCapture(0) end if
   return true

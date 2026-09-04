@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic special facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -18,12 +20,17 @@ import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.surfaces as rclassicsurfaces
 
+/// Defines the special pi2 constant used by the miniquake2 renderer classic special module.
 const SPECIAL_PI2 = 6.283185307179586
+/// Defines the special turb scale constant used by the miniquake2 renderer classic special module.
 const SPECIAL_TURB_SCALE = 40.74366543152521
+/// Defines the special subdivide size constant used by the miniquake2 renderer classic special module.
 const SPECIAL_SUBDIVIDE_SIZE = 64.0
+/// Defines the special subdivide margin constant used by the miniquake2 renderer classic special module.
 const SPECIAL_SUBDIVIDE_MARGIN = 8.0
 
-// Return the classic special flow scroll value.
+/// Return the classic special flow scroll value.
+/// @param time time value consumed by this operation.
 function classicSpecialFlowScroll(time)
   phase = time / 40.0
   scroll = -64.0 * (phase - rspecialmath.floor(phase))
@@ -31,27 +38,36 @@ function classicSpecialFlowScroll(time)
   return scroll
 end function
 
-// Return the classic special water scroll value.
+/// Return the classic special water scroll value.
+/// @param time time value consumed by this operation.
 function classicSpecialWaterScroll(time)
   phase = time * 0.5
   return -64.0 * (phase - rspecialmath.floor(phase))
 end function
 
-// Return the classic special warp sine value.
+/// Return the classic special warp sine value.
+/// @param value Value consumed or transformed by the operation.
 function classicSpecialWarpSine(value)
   index = rspecialbyteio.truncInt(value * SPECIAL_TURB_SCALE) & 255
   return rspecialmath.sin(index * SPECIAL_PI2 / 256.0) * 8.0
 end function
 
-// Return the classic special texture coordinates value.
+/// Return the classic special texture coordinates value.
+/// @param draw draw value consumed by this operation.
+/// @param vertex vertex value consumed by this operation.
+/// @param time time value consumed by this operation.
 function classicSpecialTextureCoordinates(draw, vertex, time)
   output = array(2, 0.0)
   classicSpecialTextureCoordinatesInto(output, draw, vertex, time)
   return output
 end function
 
-// Write special coordinates into caller-owned scratch storage for the hot
-// per-vertex renderer path.
+/// Write special coordinates into caller-owned scratch storage for the hot
+/// per-vertex renderer path.
+/// @param output Output collection or buffer populated by the operation.
+/// @param draw draw value consumed by this operation.
+/// @param vertex vertex value consumed by this operation.
+/// @param time time value consumed by this operation.
 function classicSpecialTextureCoordinatesInto(output, draw, vertex, time)
   flags = draw.surface.texInfo.flags
   if (flags & rspecialformatconstants.SURF_WARP) != 0 then
@@ -71,14 +87,18 @@ function classicSpecialTextureCoordinatesInto(output, draw, vertex, time)
   return output
 end function
 
-// Return the classic special base texture value.
+/// Return the classic special base texture value.
+/// @param draw draw value consumed by this operation.
+/// @param time time value consumed by this operation.
 function inline classicSpecialBaseTexture(draw, time)
   return classicSpecialBaseTextureFrame(draw,
     rspecialbyteio.truncInt(time * 2.0))
 end function
 
-// Resolve an animated texture from the owning entity frame. World callers use
-// time*2; inline brush entities pass their server-controlled entity.frame.
+/// Resolve an animated texture from the owning entity frame. World callers use
+/// time*2; inline brush entities pass their server-controlled entity.frame.
+/// @param draw draw value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function inline classicSpecialBaseTextureFrame(draw, frame)
   if len(draw.baseTextures) == 0 then return draw.baseTexture end if
   index = frame % len(draw.baseTextures)
@@ -86,7 +106,8 @@ function inline classicSpecialBaseTextureFrame(draw, frame)
   return draw.baseTextures[index]
 end function
 
-// Return the classic special triangle vertices value.
+/// Return the classic special triangle vertices value.
+/// @param surface surface value consumed by this operation.
 function classicSpecialTriangleVertices(surface)
   triangleCount = len(surface.vertices) - 2
   if triangleCount < 1 then return error(9760, "classic special surface has fewer than three vertices") end if
@@ -103,14 +124,17 @@ function classicSpecialTriangleVertices(surface)
   return result
 end function
 
-// Return the classic special position axis value.
+/// Return the classic special position axis value.
+/// @param position position value consumed by this operation.
+/// @param axis axis value consumed by this operation.
 function classicSpecialPositionAxis(position, axis)
   if axis == 0 then return position.x end if
   if axis == 1 then return position.y end if
   return position.z
 end function
 
-// Return the classic special bounds.
+/// Return the classic special bounds.
+/// @param positions positions value consumed by this operation.
 function classicSpecialBounds(positions)
   first = positions[0]
   mins = rspecialformattypes.Vec3(first.x, first.y, first.z)
@@ -129,7 +153,10 @@ function classicSpecialBounds(positions)
   return [mins, maxs]
 end function
 
-// Interpolate classic special.
+/// Interpolate classic special.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
 function classicSpecialInterpolate(first, second, fraction)
   return rspecialformattypes.Vec3(
     first.x + (second.x - first.x) * fraction,
@@ -138,7 +165,10 @@ function classicSpecialInterpolate(first, second, fraction)
   )
 end function
 
-// Split classic special polygon.
+/// Split classic special polygon.
+/// @param positions positions value consumed by this operation.
+/// @param axis axis value consumed by this operation.
+/// @param split split value consumed by this operation.
 function classicSpecialSplitPolygon(positions, axis, split)
   front = array(len(positions) * 2)
   back = array(len(positions) * 2)
@@ -167,14 +197,18 @@ function classicSpecialSplitPolygon(positions, axis, split)
   ]
 end function
 
-// Return the classic special surface vertex value.
+/// Return the classic special surface vertex value.
+/// @param surface surface value consumed by this operation.
+/// @param position position value consumed by this operation.
 function classicSpecialSurfaceVertex(surface, position)
   rawS = rclassicsurfaces.projected(position, surface.texInfo.s)
   rawT = rclassicsurfaces.projected(position, surface.texInfo.t)
   return rclassictypes.surfaceVertex(position, rawS / surface.image.width, rawT / surface.image.height, 0.0, 0.0)
 end function
 
-// Return the classic special fan value.
+/// Return the classic special fan value.
+/// @param surface surface value consumed by this operation.
+/// @param positions positions value consumed by this operation.
 function classicSpecialFan(surface, positions)
   count = len(positions)
   if count < 3 then return array(0) end if
@@ -196,7 +230,9 @@ function classicSpecialFan(surface, positions)
   return triangles
 end function
 
-// Return the classic special subdivide value.
+/// Return the classic special subdivide value.
+/// @param surface surface value consumed by this operation.
+/// @param positions positions value consumed by this operation.
 function classicSpecialSubdivide(surface, positions)
   if len(positions) < 3 then return array(0) end if
   bounds = classicSpecialBounds(positions)
@@ -218,7 +254,8 @@ function classicSpecialSubdivide(surface, positions)
   return classicSpecialFan(surface, positions)
 end function
 
-// Return the classic special warp vertices value.
+/// Return the classic special warp vertices value.
+/// @param surface surface value consumed by this operation.
 function classicSpecialWarpVertices(surface)
   positions = array(len(surface.vertices))
   index = 0
@@ -229,13 +266,16 @@ function classicSpecialWarpVertices(surface)
   return classicSpecialSubdivide(surface, positions)
 end function
 
-// Draw classic special vertices.
+/// Draw classic special vertices.
+/// @param surface surface value consumed by this operation.
 function classicSpecialDrawVertices(surface)
   if (surface.texInfo.flags & rspecialformatconstants.SURF_WARP) != 0 then return classicSpecialWarpVertices(surface) end if
   return classicSpecialTriangleVertices(surface)
 end function
 
-// Return the classic special distance squared value.
+/// Return the classic special distance squared value.
+/// @param draw draw value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function classicSpecialDistanceSquared(draw, origin)
   centerX = (draw.mins.x + draw.maxs.x) * 0.5
   centerY = (draw.mins.y + draw.maxs.y) * 0.5
@@ -244,7 +284,10 @@ function classicSpecialDistanceSquared(draw, origin)
   return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
 end function
 
-// Return the classic special transparent before value.
+/// Return the classic special transparent before value.
+/// @param candidate candidate value consumed by this operation.
+/// @param previous previous value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function classicSpecialTransparentBefore(candidate, previous, origin)
   candidateDistance = classicSpecialDistanceSquared(candidate, origin)
   previousDistance = classicSpecialDistanceSquared(previous, origin)
@@ -253,7 +296,9 @@ function classicSpecialTransparentBefore(candidate, previous, origin)
   return candidate.surface.index < previous.surface.index
 end function
 
-// Sort classic special transparent.
+/// Sort classic special transparent.
+/// @param draws draws value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function classicSpecialSortTransparent(draws, origin)
   if len(draws) <= 1 then return draws end if
   sorted = array(len(draws))
@@ -270,7 +315,10 @@ function classicSpecialSortTransparent(draws, origin)
   return sorted
 end function
 
-// Return the classic special pass plan origin.
+/// Return the classic special pass plan origin.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function classicSpecialPassPlanOriginPrefix(draws, drawCount, viewOrigin)
   opaqueCount = 0; warpCount = 0; skyCount = 0; transparentCount = 0
   drawIndex = 0
@@ -316,13 +364,18 @@ function classicSpecialPassPlanOriginPrefix(draws, drawCount, viewOrigin)
   )
 end function
 
-// Create pass arrays once for a retained world or inline brush model.
+/// Create pass arrays once for a retained world or inline brush model.
+/// @param capacity capacity value consumed by this operation.
 function createClassicSpecialPassScratch(capacity)
   return rclassictypes.ClassicSpecialPassScratch(array(capacity),
     array(capacity), array(capacity), array(capacity))
 end function
 
-// Split a visible prefix into caller-owned capacity arrays without allocation.
+/// Split a visible prefix into caller-owned capacity arrays without allocation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param viewOrigin viewOrigin value consumed by this operation.
+/// @param scratch scratch value consumed by this operation.
 function classicSpecialPassPlanOriginPrefixInto(draws, drawCount, viewOrigin,
     scratch)
   opaqueCount = 0; warpCount = 0; skyCount = 0; transparentCount = 0
@@ -347,17 +400,22 @@ function classicSpecialPassPlanOriginPrefixInto(draws, drawCount, viewOrigin,
     opaqueCount, warpCount, skyCount, transparentCount)
 end function
 
-// Return the classic special pass plan origin.
+/// Return the classic special pass plan origin.
+/// @param draws draws value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function classicSpecialPassPlanOrigin(draws, viewOrigin)
   return classicSpecialPassPlanOriginPrefix(draws, len(draws), viewOrigin)
 end function
 
-// Return the classic special pass plan value.
+/// Return the classic special pass plan value.
+/// @param draws draws value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicSpecialPassPlan(draws, frame)
   return classicSpecialPassPlanOrigin(draws, frame.viewOrigin)
 end function
 
-// Return the classic special pass signature value.
+/// Return the classic special pass signature value.
+/// @param plan plan value consumed by this operation.
 function classicSpecialPassSignature(plan)
   result = ""
   index = 0

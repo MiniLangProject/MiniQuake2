@@ -1,3 +1,5 @@
+//! Provides miniquake2 client effects state facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,7 +14,9 @@ import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.types as cetypes
 import miniquake2.client.effects.audio as ceaudio
 
-// Create state.
+/// Creates create for the miniquake2 client effects state module.
+/// @param audioCallbacks audioCallbacks value consumed by this operation.
+/// @param randomSeed randomSeed value consumed by this operation.
 function create(audioCallbacks, randomSeed)
   if typeof(randomSeed) != "int" then return error(7310, "effect random seed must be an integer") end if
   return cetypes.State(0, randomSeed & 0xffffffff, [], [], 0, [], [], [], [], [], [],
@@ -20,39 +24,49 @@ function create(audioCallbacks, randomSeed)
     array(ceconstants.MAX_DLIGHTS, void), [], audioCallbacks)
 end function
 
-// Report whether create silent.
+/// Report whether create silent.
+/// @param randomSeed randomSeed value consumed by this operation.
 function createSilent(randomSeed)
   return create(ceaudio.silent(), randomSeed)
 end function
 
-// Return the random value.
+/// Return the random value.
+/// @param state Mutable state inspected or updated by the operation.
 function inline random(state)
   state.randomSeed = (state.randomSeed * 214013 + 2531011) & 0xffffffff
   return (state.randomSeed >> 16) & 0x7fff
 end function
 
-// Copy vec data.
+/// Copy vec data.
+/// @param value Value consumed or transformed by the operation.
 function inline copyVec(value)
   return qt.Vec3(value.x, value.y, value.z)
 end function
 
-// Return the vec from array.
+/// Return the vec from array.
+/// @param value Value consumed or transformed by the operation.
 function vecFromArray(value)
   if typeof(value) != "array" or len(value) != 3 then return error(7311, "effect vector array must contain three values") end if
   return qt.Vec3(value[0] * 1.0, value[1] * 1.0, value[2] * 1.0)
 end function
 
-// Add state.
+/// Adds add to the state managed by the miniquake2 client effects state module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inline add(first, second)
   return qt.Vec3(first.x + second.x, first.y + second.y, first.z + second.z)
 end function
 
-// Return the scaled value.
+/// Return the scaled value.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
 function inline scaled(value, amount)
   return qt.Vec3(value.x * amount, value.y * amount, value.z * amount)
 end function
 
-// Return the compact value.
+/// Return the compact value.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function compact(values, count)
   if count == len(values) then return values end if
   if count <= 0 then return [] end if
@@ -65,7 +79,9 @@ function compact(values, count)
   return output
 end function
 
-// Allocate d light.
+/// Allocate d light.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
 function allocateDLight(state, key)
   if key != 0 then
     for each light in state.dLights
@@ -85,7 +101,14 @@ function allocateDLight(state, key)
   return light
 end function
 
-// Add d light.
+/// Add d light.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param duration duration value consumed by this operation.
+/// @param decay decay value consumed by this operation.
 function addDLight(state, key, origin, radius, color, duration, decay)
   light = allocateDLight(state, key)
   light.origin = copyVec(origin)
@@ -96,7 +119,9 @@ function addDLight(state, key, origin, radius, color, duration, decay)
   return light
 end function
 
-// Reserve particles.
+/// Reserve particles.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param requested requested value consumed by this operation.
 function reserveParticles(state, requested)
   available = ceconstants.MAX_PARTICLES - state.particleCount
   count = requested
@@ -115,7 +140,14 @@ function reserveParticles(state, requested)
   return count
 end function
 
-// Add particle.
+/// Add particle.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param velocity velocity value consumed by this operation.
+/// @param acceleration acceleration value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param alpha alpha value consumed by this operation.
+/// @param alphaVelocity alphaVelocity value consumed by this operation.
 function addParticle(state, origin, velocity, acceleration, color, alpha, alphaVelocity)
   start = state.particleCount
   if reserveParticles(state, 1) == 0 then return false end if
@@ -124,29 +156,34 @@ function addParticle(state, origin, velocity, acceleration, color, alpha, alphaV
   return true
 end function
 
-// Return the unit random value.
+/// Return the unit random value.
+/// @param state Mutable state inspected or updated by the operation.
 function inline unitRandom(state)
   return random(state) / 32767.0
 end function
 
-// Return the centered random value.
+/// Return the centered random value.
+/// @param state Mutable state inspected or updated by the operation.
 function inline centeredRandom(state)
   return unitRandom(state) * 2.0 - 1.0
 end function
 
-// Return the vector length.
+/// Return the vector length.
+/// @param value Value consumed or transformed by the operation.
 function inline vectorLength(value)
   return cemath.sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
 end function
 
-// Return the normalized value.
+/// Performs the normalized operation for the miniquake2 client effects state module.
+/// @param value Value consumed or transformed by the operation.
 function inline normalized(value)
   length = vectorLength(value)
   if length <= 0.000001 then return qt.zeroVec3() end if
   return qt.Vec3(value.x / length, value.y / length, value.z / length)
 end function
 
-// Return the normal right value.
+/// Return the normal right value.
+/// @param forward forward value consumed by this operation.
 function inline normalRight(forward)
   right = qt.Vec3(forward.z, -forward.x, forward.y)
   projection = right.x * forward.x + right.y * forward.y + right.z * forward.z
@@ -154,14 +191,23 @@ function inline normalRight(forward)
     right.y - projection * forward.y, right.z - projection * forward.z))
 end function
 
-// Compute state.
+/// Performs the cross operation for the miniquake2 client effects state module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inline cross(first, second)
   return qt.Vec3(first.y * second.z - first.z * second.y,
     first.z * second.x - first.x * second.z,
     first.x * second.y - first.y * second.x)
 end function
 
-// Return the stock directional particles value.
+/// Return the stock directional particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param fixedColor fixedColor value consumed by this operation.
+/// @param positiveGravity positiveGravity value consumed by this operation.
 function stockDirectionalParticles(state, origin, direction, color, count, fixedColor, positiveGravity)
   if count < 0 then return error(7314, "negative stock particle count") end if
   start = state.particleCount
@@ -190,17 +236,32 @@ function stockDirectionalParticles(state, origin, direction, color, count, fixed
   return index
 end function
 
-// Return the wall particles value.
+/// Return the wall particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param count Number of items or units to process.
 function wallParticles(state, origin, direction, color, count)
   return stockDirectionalParticles(state, origin, direction, color, count, false, false)
 end function
 
-// Return the fixed color particles value.
+/// Return the fixed color particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param positiveGravity positiveGravity value consumed by this operation.
 function fixedColorParticles(state, origin, direction, color, count, positiveGravity)
   return stockDirectionalParticles(state, origin, direction, color, count, true, positiveGravity)
 end function
 
-// Return the blaster particles value.
+/// Return the blaster particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param color color value consumed by this operation.
 function blasterParticles(state, origin, direction, color)
   start = state.particleCount
   count = reserveParticles(state, 40)
@@ -224,7 +285,13 @@ function blasterParticles(state, origin, direction, color)
   return index
 end function
 
-// Return the explosion particles value.
+/// Return the explosion particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param colorRun colorRun value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param velocityRange velocityRange value consumed by this operation.
 function explosionParticles(state, origin, color, colorRun, count, velocityRange)
   start = state.particleCount
   count = reserveParticles(state, count)
@@ -247,7 +314,14 @@ function explosionParticles(state, origin, color, colorRun, count, velocityRange
   return index
 end function
 
-// Return the steam particles value.
+/// Return the steam particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param magnitude magnitude value consumed by this operation.
+/// @param noGravity noGravity value consumed by this operation.
 function steamParticles(state, origin, direction, color, count, magnitude, noGravity)
   forward = copyVec(direction)
   right = normalRight(forward)
@@ -275,7 +349,10 @@ function steamParticles(state, origin, direction, color, count, magnitude, noGra
   return index
 end function
 
-// Return the logout particles value.
+/// Return the logout particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param color color value consumed by this operation.
 function logoutParticles(state, origin, color)
   start = state.particleCount
   count = reserveParticles(state, 500)
@@ -295,7 +372,9 @@ function logoutParticles(state, origin, color)
   return index
 end function
 
-// Return the item respawn particles value.
+/// Return the item respawn particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
 function itemRespawnParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 64)
@@ -314,7 +393,9 @@ function itemRespawnParticles(state, origin)
   return index
 end function
 
-// Return the big teleport particles value.
+/// Return the big teleport particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
 function bigTeleportParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, ceconstants.MAX_PARTICLES)
@@ -345,7 +426,9 @@ function bigTeleportParticles(state, origin)
   return index
 end function
 
-// Return the teleport particles value.
+/// Return the teleport particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
 function teleportParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 1053)
@@ -374,9 +457,11 @@ function teleportParticles(state, origin)
   return index
 end function
 
-// EF_TELEPORTER is a persistent entity flag fired once for every accepted
-// server frame. It is deliberately separate from the 1,053-particle player
-// teleport event above.
+/// EF_TELEPORTER is a persistent entity flag fired once for every accepted
+/// server frame. It is deliberately separate from the 1,053-particle player
+/// teleport event above.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
 function teleporterEntityParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 8)
@@ -398,7 +483,9 @@ function teleporterEntityParticles(state, origin)
   return index
 end function
 
-// Return the widow splash particles value.
+/// Return the widow splash particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
 function widowSplashParticles(state, origin)
   start = state.particleCount
   count = reserveParticles(state, 256)
@@ -420,7 +507,11 @@ function widowSplashParticles(state, origin)
   return index
 end function
 
-// Return the sustain radial particles value.
+/// Return the sustain radial particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param sustain sustain value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param nuke nuke value consumed by this operation.
 function sustainRadialParticles(state, sustain, now, nuke)
   duration = 2100.0; count = 300; distance = 45.0
   if nuke then duration = 1000.0; count = 700; distance = 200.0 end if
@@ -449,7 +540,10 @@ function sustainRadialParticles(state, sustain, now, nuke)
   return index
 end function
 
-// Return the debug trail value.
+/// Return the debug trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
 function debugTrail(state, startPosition, endPosition)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -474,7 +568,12 @@ function debugTrail(state, startPosition, endPosition)
   return written
 end function
 
-// Return the bubble trail value.
+/// Return the bubble trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param spacing spacing value consumed by this operation.
+/// @param rise rise value consumed by this operation.
 function bubbleTrail(state, startPosition, endPosition, spacing, rise)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -514,7 +613,11 @@ function bubbleTrail(state, startPosition, endPosition, spacing, rise)
   return written
 end function
 
-// Return the force wall particles value.
+/// Return the force wall particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param color color value consumed by this operation.
 function forceWallParticles(state, startPosition, endPosition, color)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -541,7 +644,10 @@ function forceWallParticles(state, startPosition, endPosition, color)
   return written
 end function
 
-// Return the rail trail value.
+/// Return the rail trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
 function railTrail(state, startPosition, endPosition)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -582,7 +688,17 @@ function railTrail(state, startPosition, endPosition)
   return written
 end function
 
-// Return the simple entity trail value.
+/// Return the simple entity trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param originSpread originSpread value consumed by this operation.
+/// @param velocitySpread velocitySpread value consumed by this operation.
+/// @param alpha alpha value consumed by this operation.
+/// @param alphaBase alphaBase value consumed by this operation.
+/// @param alphaRange alphaRange value consumed by this operation.
+/// @param inclusive inclusive value consumed by this operation.
 function simpleEntityTrail(state, startPosition, endPosition, color, originSpread,
     velocitySpread, alpha, alphaBase, alphaRange, inclusive)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
@@ -611,7 +727,11 @@ function simpleEntityTrail(state, startPosition, endPosition, color, originSprea
   return written
 end function
 
-// Return the blaster trail value.
+/// Return the blaster trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param green green value consumed by this operation.
 function blasterTrail(state, startPosition, endPosition, green)
   color = 0xe0
   if green then color = 0xd0 end if
@@ -630,13 +750,21 @@ function blasterTrail(state, startPosition, endPosition, green)
   return written
 end function
 
-// Return the flag trail value.
+/// Return the flag trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param inclusive inclusive value consumed by this operation.
 function flagTrail(state, startPosition, endPosition, color, inclusive)
   return simpleEntityTrail(state, startPosition, endPosition, color, 16.0, 5.0,
     1.0, 0.8, 0.2, inclusive)
 end function
 
-// Return the ion ripper trail value.
+/// Return the ion ripper trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
 function ionRipperTrail(state, startPosition, endPosition)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -662,7 +790,12 @@ function ionRipperTrail(state, startPosition, endPosition)
   return written
 end function
 
-// Return the diminishing trail value.
+/// Return the diminishing trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param trail trail value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
 function diminishingTrail(state, startPosition, endPosition, trail, flags)
   // Keep diminishing trail phases explicit: validate inputs, update owned state, then publish the result.
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
@@ -713,7 +846,11 @@ function diminishingTrail(state, startPosition, endPosition, trail, flags)
   return written
 end function
 
-// Return the rocket trail value.
+/// Return the rocket trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param trail trail value consumed by this operation.
 function rocketTrail(state, startPosition, endPosition, trail)
   written = diminishingTrail(state, startPosition, endPosition, trail,
     ceconstants.EF_ROCKET)
@@ -747,7 +884,11 @@ function rocketTrail(state, startPosition, endPosition, trail)
   return written + fireCount
 end function
 
-// Return the tracker trail value.
+/// Return the tracker trail value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param color color value consumed by this operation.
 function trackerTrail(state, startPosition, endPosition, color)
   delta = qt.Vec3(endPosition.x - startPosition.x, endPosition.y - startPosition.y,
     endPosition.z - startPosition.z)
@@ -770,7 +911,12 @@ function trackerTrail(state, startPosition, endPosition, color)
   return written
 end function
 
-// Return the instant shell particles value.
+/// Return the instant shell particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param color color value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param radius radius value consumed by this operation.
 function instantShellParticles(state, origin, color, count, radius)
   start = state.particleCount
   count = reserveParticles(state, count)
@@ -787,7 +933,8 @@ function instantShellParticles(state, origin, color, count, radius)
   return index
 end function
 
-// Ensure angular velocities.
+/// Ensure angular velocities.
+/// @param state Mutable state inspected or updated by the operation.
 function ensureAngularVelocities(state)
   // The original client owns one static 162x3 table and lazily fills it from
   // the same Visual C random stream used by all other client effects.
@@ -800,7 +947,10 @@ function ensureAngularVelocities(state)
   return true
 end function
 
-// Return the fly particles value.
+/// Return the fly particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
+/// @param count Number of items or units to process.
 function flyParticles(state, origin, count)
   if count > 162 then count = 162 end if
   if count <= 0 then return 0 end if
@@ -830,7 +980,10 @@ function flyParticles(state, origin, count)
   return written
 end function
 
-// Return the fly effect value.
+/// Return the fly effect value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param trail trail value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function flyEffect(state, trail, origin)
   startTime = state.time
   if trail.flyStopTime < state.time then
@@ -852,7 +1005,9 @@ function flyEffect(state, trail, origin)
   return flyParticles(state, origin, count)
 end function
 
-// Return the bfg particles value.
+/// Return the bfg particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param origin origin value consumed by this operation.
 function bfgParticles(state, origin)
   ensureAngularVelocities(state)
   start = state.particleCount
@@ -881,7 +1036,9 @@ function bfgParticles(state, origin)
   return index
 end function
 
-// Return the trap particles value.
+/// Return the trap particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param shiftedOrigin shiftedOrigin value consumed by this operation.
 function trapParticles(state, shiftedOrigin)
   start = state.particleCount
   count = reserveParticles(state, 21)
@@ -931,7 +1088,8 @@ function trapParticles(state, shiftedOrigin)
   return written
 end function
 
-// Reset entity trails.
+/// Reset entity trails.
+/// @param state Mutable state inspected or updated by the operation.
 function resetEntityTrails(state)
   index = 0
   while index < len(state.entityTrails)
@@ -941,7 +1099,17 @@ function resetEntityTrails(state)
   return state
 end function
 
-// Add a beam to the stock normal-beam or player-beam pool.
+/// Add a beam to the stock normal-beam or player-beam pool.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param entity entity value consumed by this operation.
+/// @param destinationEntity destinationEntity value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param playerLinked playerLinked value consumed by this operation.
+/// @param duration duration value consumed by this operation.
+/// @param playerPool playerPool value consumed by this operation.
 function addBeamToPool(state, entity, destinationEntity, modelName, start, finish,
     offset, playerLinked, duration, playerPool)
   collection = state.beams
@@ -974,28 +1142,62 @@ function addBeamToPool(state, entity, destinationEntity, modelName, start, finis
   return beam
 end function
 
-// Add normal beam.
+/// Add normal beam.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param entity entity value consumed by this operation.
+/// @param destinationEntity destinationEntity value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param playerLinked playerLinked value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function addBeam(state, entity, destinationEntity, modelName, start, finish, offset, playerLinked, duration)
   return addBeamToPool(state, entity, destinationEntity, modelName, start, finish,
     offset, playerLinked, duration, false)
 end function
 
-// Add Rogue player beam. Remote players still use this separate reuse pool;
-// playerLinked only controls whether the local camera supplies its origin.
+/// Add Rogue player beam. Remote players still use this separate reuse pool;
+/// playerLinked only controls whether the local camera supplies its origin.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param entity entity value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param playerLinked playerLinked value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function addPlayerBeam(state, entity, modelName, start, finish, offset,
     playerLinked, duration)
   return addBeamToPool(state, entity, 0, modelName, start, finish, offset,
     playerLinked, duration, true)
 end function
 
-// Add laser.
+/// Add laser.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param color color value consumed by this operation.
 function addLaser(state, start, finish, color)
   laser = cetypes.Laser(copyVec(start), copyVec(finish), color, state.time + 100)
   if len(state.lasers) < ceconstants.MAX_LASERS then state.lasers = state.lasers + [laser] end if
   return laser
 end function
 
-// Add explosion exact.
+/// Add explosion exact.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param kind kind value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param frames frames value consumed by this operation.
+/// @param light light value consumed by this operation.
+/// @param lightColor lightColor value consumed by this operation.
+/// @param startTime startTime value consumed by this operation.
+/// @param baseFrame baseFrame value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param alpha alpha value consumed by this operation.
+/// @param skinNum skinNum value consumed by this operation.
 function addExplosionExact(state, kind, origin, angles, modelName, frames, light, lightColor,
     startTime, baseFrame, flags, alpha, skinNum)
   explosion = cetypes.Explosion(kind, copyVec(origin), copyVec(angles),
@@ -1022,7 +1224,16 @@ function addExplosionExact(state, kind, origin, angles, modelName, frames, light
   return explosion
 end function
 
-// Add explosion.
+/// Add explosion.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param kind kind value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param frames frames value consumed by this operation.
+/// @param light light value consumed by this operation.
+/// @param lightColor lightColor value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param alpha alpha value consumed by this operation.
 function addExplosion(state, kind, origin, modelName, frames, light, lightColor, flags, alpha)
   skinNum = 0
   if kind == ceconstants.TE_BLASTER2 then skinNum = 1 end if
@@ -1032,7 +1243,9 @@ function addExplosion(state, kind, origin, modelName, frames, light, lightColor,
     light, lightColor, state.time, 0, flags, alpha, skinNum)
 end function
 
-// Advance state.
+/// Performs the advance operation for the miniquake2 client effects state module.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param now now value consumed by this operation.
 function advance(state, now)
   // Keep advance phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(now) != "int" or now < state.time then return error(7313, "effect time must be monotonic integer milliseconds") end if
@@ -1123,7 +1336,8 @@ function advance(state, now)
   return state
 end function
 
-// Clear state.
+/// Clear state.
+/// @param state Mutable state inspected or updated by the operation.
 function clear(state)
   state.particleCount = 0
   state.dLights = []; state.beams = []; state.playerBeams = []; state.lasers = []

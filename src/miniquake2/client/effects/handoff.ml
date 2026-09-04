@@ -1,3 +1,5 @@
+//! Provides miniquake2 client effects handoff facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,7 +15,10 @@ import miniquake2.renderer.types as rt
 import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.effects.state as cestate
 
-// Append limited.
+/// Append limited.
+/// @param values values value consumed by this operation.
+/// @param additions additions value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
 function appendLimited(values, additions, maximum)
   if len(additions) == 0 and len(values) <= maximum then return values end if
   if len(values) == 0 and len(additions) <= maximum then return additions end if
@@ -35,7 +40,9 @@ function appendLimited(values, additions, maximum)
   return result
 end function
 
-// Trim state.
+/// Trim state.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function trim(values, count)
   if count == len(values) then return values end if
   if count <= 0 then return [] end if
@@ -48,7 +55,9 @@ function trim(values, count)
   return compact
 end function
 
-// Return the particle origin.
+/// Return the particle origin.
+/// @param particle particle value consumed by this operation.
+/// @param now now value consumed by this operation.
 function particleOrigin(particle, now)
   elapsed = (now - particle.startTime) * 0.001
   squared = elapsed * elapsed
@@ -58,7 +67,9 @@ function particleOrigin(particle, now)
     particle.origin.z + particle.velocity.z * elapsed + particle.acceleration.z * squared)
 end function
 
-// Return the renderer particles value.
+/// Return the renderer particles value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param now now value consumed by this operation.
 function rendererParticles(state, now)
   // Keep renderer particles phases explicit: validate inputs, update owned state, then publish the result.
   if state.particleCount <= 0 then return [] end if
@@ -104,7 +115,8 @@ function rendererParticles(state, now)
   return trim(output, outputIndex)
 end function
 
-// Return the renderer d lights value.
+/// Return the renderer d lights value.
+/// @param state Mutable state inspected or updated by the operation.
 function rendererDLights(state)
   if len(state.dLights) == 0 then return [] end if
   output = state.renderDLights
@@ -132,7 +144,9 @@ function rendererDLights(state)
   return trim(output, outputIndex)
 end function
 
-// Return the beam origin.
+/// Return the beam origin.
+/// @param beam beam value consumed by this operation.
+/// @param refDef refDef value consumed by this operation.
 function beamOrigin(beam, refDef)
   if not beam.playerLinked then return cestate.add(beam.start, beam.offset) end if
   if beam.modelName != "models/proj/beam/tris.md2" then
@@ -160,7 +174,14 @@ function beamOrigin(beam, refDef)
     origin.z + rightZ * offset.x + forwardZ * offset.y + upZ * offset.z)
 end function
 
-// Append beam entities.
+/// Append beam entities.
+/// @param output Output collection or buffer populated by the operation.
+/// @param count Number of items or units to process.
+/// @param maximum maximum value consumed by this operation.
+/// @param beam beam value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param modelResolver modelResolver value consumed by this operation.
+/// @param refDef refDef value consumed by this operation.
 function appendBeamEntities(output, count, maximum, beam, now, modelResolver, refDef)
   // Keep append beam entities phases explicit: validate inputs, update owned state, then publish the result.
   if count >= maximum then return count end if
@@ -224,19 +245,24 @@ function appendBeamEntities(output, count, maximum, beam, now, modelResolver, re
   return count
 end function
 
-// Return the laser entity value.
+/// Return the laser entity value.
+/// @param laser laser value consumed by this operation.
 function laserEntity(laser)
   return rt.entity(void, qt.zeroVec3(), cestate.copyVec(laser.start), 4,
     cestate.copyVec(laser.finish), 0, 0.0, laser.color, 0, 0.3, void,
     rc.RF_TRANSLUCENT | rc.RF_BEAM)
 end function
 
-// Return the explosion frame value.
+/// Return the explosion frame value.
+/// @param explosion explosion value consumed by this operation.
+/// @param now now value consumed by this operation.
 function explosionFrame(explosion, now)
   return qbio.truncInt((now - explosion.startTime) / 100.0)
 end function
 
-// Return the explosion alpha value.
+/// Return the explosion alpha value.
+/// @param explosion explosion value consumed by this operation.
+/// @param now now value consumed by this operation.
 function explosionAlpha(explosion, now)
   if typeof(explosion.kind) != "int" then return explosion.alpha end if
   fraction = (now - explosion.startTime) / 100.0
@@ -251,7 +277,10 @@ function explosionAlpha(explosion, now)
   return alpha
 end function
 
-// Return the explosion entity value.
+/// Return the explosion entity value.
+/// @param explosion explosion value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param modelResolver modelResolver value consumed by this operation.
 function explosionEntity(explosion, now, modelResolver)
   fraction = (now - explosion.startTime) / 100.0
   frame = qbio.truncInt(fraction)
@@ -275,9 +304,13 @@ function explosionEntity(explosion, now, modelResolver)
     explosionAlpha(explosion, now), void, flags)
 end function
 
-// Product rendering calls entity.emit first, which already advances the shared
-// effect state. Keep that prepared path separate so one frame never scans and
-// compacts every effect collection twice at the same timestamp.
+/// Product rendering calls entity.emit first, which already advances the shared
+/// effect state. Keep that prepared path separate so one frame never scans and
+/// compacts every effect collection twice at the same timestamp.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param refDef refDef value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param modelResolver modelResolver value consumed by this operation.
 function applyPrepared(state, refDef, now, modelResolver)
   // A cable/lightning effect is a chain of 30-35 unit MD2 segments in the
   // original client. Reserve the renderer ceiling once and fill it in-place.
@@ -340,7 +373,11 @@ function applyPrepared(state, refDef, now, modelResolver)
   return refDef
 end function
 
-// Apply state.
+/// Apply state.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param refDef refDef value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param modelResolver modelResolver value consumed by this operation.
 function apply(state, refDef, now, modelResolver)
   cestate.advance(state, now)
   return applyPrepared(state, refDef, now, modelResolver)

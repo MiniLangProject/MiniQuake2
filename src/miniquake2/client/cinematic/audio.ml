@@ -1,3 +1,5 @@
+//! Provides miniquake2 client cinematic audio facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,28 +12,32 @@ import miniquake2.audio.mixer as amixer
 import miniquake2.audio.wav as awav
 import miniquake2.client.cinematic.types as cintypes
 
-// Ignore chunk.
+/// Ignore chunk.
+/// @param chunk chunk value consumed by this operation.
 function ignoreChunk(chunk)
   return true
 end function
 
-// Ignore lifecycle.
+/// Ignore lifecycle.
 function ignoreLifecycle()
   return true
 end function
 
-// Return the callbacks value.
+/// Performs the callbacks operation for the miniquake2 client cinematic audio module.
+/// @param submit submit value consumed by this operation.
 function callbacks(submit)
   if typeof(submit) != "function" then return error(8330, "cinematic audio submit callback must be a function") end if
   return cintypes.AudioCallbacks(submit, ignoreLifecycle, ignoreLifecycle, ignoreLifecycle)
 end function
 
-// Report whether silent.
+/// Report whether silent.
 function silent()
   return callbacks(ignoreChunk)
 end function
 
-// Append bytes.
+/// Append bytes.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function appendBytes(first, second)
   output = bytes(len(first) + len(second))
   if len(first) > 0 then qbio.copyInto(output, 0, first, 0, len(first)) end if
@@ -39,13 +45,16 @@ function appendBytes(first, second)
   return output
 end function
 
-// Create mixer adapter.
+/// Create mixer adapter.
+/// @param mixer mixer value consumed by this operation.
 function createMixerAdapter(mixer)
   if mixer is void then return error(8331, "cinematic mixer adapter requires a mixer") end if
   return cintypes.MixerAdapter(mixer, void, void, 0, 0, 0, false)
 end function
 
-// Submit to mixer.
+/// Submit to mixer.
+/// @param adapter adapter value consumed by this operation.
+/// @param chunk chunk value consumed by this operation.
 function submitToMixer(adapter, chunk)
   if chunk.sampleRate <= 0 or chunk.sampleRate > 192000 or
       (chunk.sampleWidth != 1 and chunk.sampleWidth != 2) or
@@ -86,22 +95,28 @@ function submitToMixer(adapter, chunk)
   return chunk.sampleCount
 end function
 
-// Return the mixer handoff value.
+/// Return the mixer handoff value.
+/// @param mixer mixer value consumed by this operation.
 function mixerHandoff(mixer)
   adapter = createMixerAdapter(mixer)
+  /// Performs the submit operation for the miniquake2 client cinematic audio module.
+  /// @param chunk chunk value consumed by this operation.
   function submit(chunk)
     return submitToMixer(adapter, chunk)
   end function
+  /// Performs the pauseStream operation for the miniquake2 client cinematic audio module.
   function pauseStream()
     adapter.resumeActive = adapter.channel is not void and adapter.channel.active
     if adapter.channel is not void then adapter.channel.active = false end if
     return true
   end function
+  /// Performs the resumeStream operation for the miniquake2 client cinematic audio module.
   function resumeStream()
     if adapter.channel is not void and adapter.resumeActive then adapter.channel.active = true end if
     adapter.resumeActive = false
     return true
   end function
+  /// Stops stream for the miniquake2 client cinematic audio workflow.
   function stopStream()
     adapter.resumeActive = false
     return stopMixerAdapter(adapter)
@@ -110,7 +125,8 @@ function mixerHandoff(mixer)
   return cintypes.MixerHandoff(adapter, values)
 end function
 
-// Stop mixer adapter.
+/// Stop mixer adapter.
+/// @param adapter adapter value consumed by this operation.
 function stopMixerAdapter(adapter)
   if adapter.channel is not void then adapter.channel.active = false end if
   return true

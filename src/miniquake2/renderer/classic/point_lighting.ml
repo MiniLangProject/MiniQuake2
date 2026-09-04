@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic point lighting facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,7 +13,11 @@ import miniquake2.qcommon.byteio as rpointbyteio
 import miniquake2.renderer.classic.constants as rpointconstants
 import miniquake2.renderer.classic.types as rpointtypes
 
-// Return the point plane distance value.
+/// Return the point plane distance value.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
+/// @param plane plane value consumed by this operation.
 function inline pointPlaneDistance(x, y, z, plane)
   if plane.type == 0 then return x - plane.distance end if
   if plane.type == 1 then return y - plane.distance end if
@@ -20,12 +26,18 @@ function inline pointPlaneDistance(x, y, z, plane)
   return x * normal.x + y * normal.y + z * normal.z - plane.distance
 end function
 
-// Return the point projected value.
+/// Return the point projected value.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
+/// @param vector vector value consumed by this operation.
 function inline pointProjected(x, y, z, vector)
   return x * vector[0] + y * vector[1] + z * vector[2] + vector[3]
 end function
 
-// Return the point style rgb value.
+/// Return the point style rgb value.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param styleIndex Zero-based index of style.
 function inline pointStyleRgb(lightStyles, styleIndex)
   if styleIndex >= 0 and styleIndex < len(lightStyles) then
     return lightStyles[styleIndex].rgb
@@ -33,15 +45,21 @@ function inline pointStyleRgb(lightStyles, styleIndex)
   return [1.0, 1.0, 1.0]
 end function
 
-// Construct the no-hit or fullbright sample without temporary vector records.
+/// Construct the no-hit or fullbright sample without temporary vector records.
+/// @param red red value consumed by this operation.
+/// @param green green value consumed by this operation.
+/// @param blue blue value consumed by this operation.
 function inline emptyPointSample(red, green, blue)
   return rpointtypes.ClassicPointLight(
     red, green, blue, 0.0, 0.0, 0.0, false)
 end function
 
-// Iterative equivalent of ref_gl RecursiveLightPoint. Each crossing saves one
-// post-node surface check and far segment. ClassicWorld owns the fixed stacks,
-// so every alias-light query remains allocation-free until its result is returned.
+/// Iterative equivalent of ref_gl RecursiveLightPoint. Each crossing saves one
+/// post-node surface check and far segment. ClassicWorld owns the fixed stacks,
+/// so every alias-light query remains allocation-free until its result is returned.
+/// @param world world value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function staticPointLightSample(world, lightStyles, origin)
   // Keep static point light sample phases explicit: validate inputs, update owned state, then publish the result.
   map = world.map
@@ -168,7 +186,10 @@ function staticPointLightSample(world, lightStyles, origin)
   end while
 end function
 
-// Return the static point light value.
+/// Return the static point light value.
+/// @param world world value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function staticPointLight(world, lightStyles, origin)
   if world is void or world.released or world.map is void or
       len(world.map.lighting) == 0 then
@@ -177,9 +198,13 @@ function staticPointLight(world, lightStyles, origin)
   return staticPointLightSample(world, lightStyles, origin)
 end function
 
-// Add the current frame's dynamic lights to a copied static sample. Keeping
-// the immutable BSP result separate lets alias renderers cache the expensive
-// point trace while muzzle flashes and projectiles still affect every frame.
+/// Add the current frame's dynamic lights to a copied static sample. Keeping
+/// the immutable BSP result separate lets alias renderers cache the expensive
+/// point trace while muzzle flashes and projectiles still affect every frame.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param staticSample staticSample value consumed by this operation.
 function dynamicPointLightSample(world, frame, origin, staticSample)
   if world is void or world.released or world.map is void or
       len(world.map.lighting) == 0 then
@@ -209,13 +234,19 @@ function dynamicPointLightSample(world, frame, origin, staticSample)
   return color
 end function
 
-// Sample point light.
+/// Sample point light.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function pointLightSample(world, frame, origin)
   staticSample = staticPointLight(world, frame.lightStyles, origin)
   return dynamicPointLightSample(world, frame, origin, staticSample)
 end function
 
-// Return the point light value.
+/// Return the point light value.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function pointLight(world, frame, origin)
   return pointLightSample(world, frame, origin)
 end function

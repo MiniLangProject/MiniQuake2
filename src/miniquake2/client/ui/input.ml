@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui input facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,16 +12,22 @@ import miniquake2.client.ui.keys as cuikeys
 import miniquake2.qcommon.types as qt
 import std.math as smath
 
-// Return the action value.
+/// Performs the action operation for the miniquake2 client ui input module.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function action(state, name)
   value = cuikeys.findAction(state, name)
   if value is void or value.down == false then return 0.0 end if
   return 1.0
 end function
 
-// Return the fraction of this command interval for which an action was held.
-// Key-up events contribute their exact timestamped duration; a still-held key
-// contributes from its last down time through the command endpoint.
+/// Return the fraction of this command interval for which an action was held.
+/// Key-up events contribute their exact timestamped duration; a still-held key
+/// contributes from its last down time through the command endpoint.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
+/// @param frameMsec frameMsec value consumed by this operation.
+/// @param consume consume value consumed by this operation.
 function actionFraction(state, name, frameMsec, consume)
   value = cuikeys.findAction(state, name)
   if value is void then return 0.0 end if
@@ -42,34 +50,42 @@ function actionFraction(state, name, frameMsec, consume)
   return fraction
 end function
 
-// Add mouse delta.
+/// Add mouse delta.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param dx dx value consumed by this operation.
+/// @param dy dy value consumed by this operation.
 function addMouseDelta(state, dx, dy)
   state.mouseDx = state.mouseDx + dx
   state.mouseDy = state.mouseDy + dy
   return true
 end function
 
-// Set impulse.
+/// Set impulse.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function setImpulse(state, value)
   if value < 0 or value > 255 then return error(8210, "impulse outside byte range") end if
   state.impulse = value
   return true
 end function
 
-// Clamp pitch.
+/// Clamp pitch.
+/// @param state Mutable state inspected or updated by the operation.
 function clampPitch(state)
   if state.viewAngles[0] > 89.0 then state.viewAngles[0] = 89.0 end if
   if state.viewAngles[0] < -89.0 then state.viewAngles[0] = -89.0 end if
 end function
 
-// Clamp command msec.
+/// Clamp command msec.
+/// @param frameMsec frameMsec value consumed by this operation.
 function inline clampCommandMsec(frameMsec)
   if frameMsec < 1 then return 1 end if
   if frameMsec > 200 then return 200 end if
   return frameMsec
 end function
 
-// Return the angle short value.
+/// Return the angle short value.
+/// @param value Value consumed or transformed by the operation.
 function angleShort(value)
   scaled = value * 65536.0 / 360.0
   result = 0
@@ -79,11 +95,13 @@ function angleShort(value)
   return result
 end function
 
-// Apply view changes independently from the network command cadence.  The
-// product samples this once per rendered frame, matching Quake II's
-// CL_AdjustAngles/IN_Move split and removing the former 100 ms mouse-look lag.
-// Mouse axes routed to strafe/klook deliberately remain accumulated until the
-// next UserCmd because those axes are movement rather than view input.
+/// Apply view changes independently from the network command cadence.  The
+/// product samples this once per rendered frame, matching Quake II's
+/// CL_AdjustAngles/IN_Move split and removing the former 100 ms mouse-look lag.
+/// Mouse axes routed to strafe/klook deliberately remain accumulated until the
+/// next UserCmd because those axes are movement rather than view input.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param frameMsec frameMsec value consumed by this operation.
 function sampleView(state, frameMsec)
   frameMsec = clampCommandMsec(frameMsec)
   seconds = frameMsec / 1000.0
@@ -118,9 +136,12 @@ function sampleView(state, frameMsec)
   return true
 end function
 
-// Construct a command after sampleView has already consumed this render
-// frame's look input.  consumeTransient=false is the side-effect-free preview
-// used by client prediction between network ticks.
+/// Construct a command after sampleView has already consumed this render
+/// frame's look input.  consumeTransient=false is the side-effect-free preview
+/// used by client prediction between network ticks.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param frameMsec frameMsec value consumed by this operation.
+/// @param consumeTransient consumeTransient value consumed by this operation.
 function buildSampledUserCmd(state, frameMsec, consumeTransient)
   frameMsec = clampCommandMsec(frameMsec)
   cfg = state.config
@@ -189,17 +210,23 @@ function buildSampledUserCmd(state, frameMsec, consumeTransient)
     forward, side, up, impulse, state.lightLevel)
 end function
 
-// Create sampled user cmd.
+/// Create sampled user cmd.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param frameMsec frameMsec value consumed by this operation.
 function createSampledUserCmd(state, frameMsec)
   return buildSampledUserCmd(state, frameMsec, true)
 end function
 
-// Return the preview user cmd value.
+/// Return the preview user cmd value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param frameMsec frameMsec value consumed by this operation.
 function previewUserCmd(state, frameMsec)
   return buildSampledUserCmd(state, frameMsec, false)
 end function
 
-// Create user cmd.
+/// Create user cmd.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param frameMsec frameMsec value consumed by this operation.
 function createUserCmd(state, frameMsec)
   sampleView(state, frameMsec)
   return createSampledUserCmd(state, frameMsec)

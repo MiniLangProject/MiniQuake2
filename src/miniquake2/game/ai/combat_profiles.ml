@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai combat profiles facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -5,27 +7,47 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* Data-driven Classic 3.19 attack families for every active stock monster. */
 package miniquake2.game.ai.combat_profiles
 
-// Store monster combat profile data.
+/// Store monster combat profile data.
 struct MonsterCombatProfile
+  /// Stores the class name value associated with monster combat profile.
   className
+  /// Stores the attack kind value associated with monster combat profile.
   attackKind
+  /// Stores the damage value associated with monster combat profile.
   damage
+  /// Stores the knockback value associated with monster combat profile.
   knockback
+  /// Stores the speed value associated with monster combat profile.
   speed
+  /// Stores the splash radius value associated with monster combat profile.
   splashRadius
+  /// Stores the maximum range value associated with monster combat profile.
   maximumRange
+  /// Stores the cooldown value associated with monster combat profile.
   cooldown
+  /// Stores the count value associated with monster combat profile.
   count
+  /// Stores the muzzle flash value associated with monster combat profile.
   muzzleFlash
 end struct
 
-// Return the combat profile value.
+/// Return the combat profile value.
+/// @param className className value consumed by this operation.
+/// @param attackKind attackKind value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param knockback knockback value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param splashRadius splashRadius value consumed by this operation.
+/// @param maximumRange maximumRange value consumed by this operation.
+/// @param cooldown cooldown value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param muzzleFlash muzzleFlash value consumed by this operation.
 function combatProfile(className, attackKind, damage, knockback, speed, splashRadius, maximumRange, cooldown, count, muzzleFlash)
   return MonsterCombatProfile(className, attackKind, damage, knockback, speed,
     splashRadius, maximumRange, cooldown, count, muzzleFlash)
 end function
 
-// Return the stock profiles value.
+/// Return the stock profiles value.
 function stockProfiles()
   return [
     combatProfile("monster_berserk", "melee", 18, 400, 0.0, 0.0, 80.0, 1.0, 1, 0),
@@ -53,7 +75,9 @@ function stockProfiles()
   ]
 end function
 
-// Find profile.
+/// Find profile.
+/// @param profiles profiles value consumed by this operation.
+/// @param className className value consumed by this operation.
 function findProfile(profiles, className)
   for each profile in profiles
     if profile.className == className then return profile end if
@@ -61,7 +85,8 @@ function findProfile(profiles, className)
   return void
 end function
 
-// Return the stock profile value.
+/// Return the stock profile value.
+/// @param className className value consumed by this operation.
 function stockProfile(className)
   // misc_actor is a stock scripted good-guy, not one of the 22 SP_monster_*
   // registry entries validated by stockProfiles. It nevertheless uses the
@@ -73,7 +98,8 @@ function stockProfile(className)
   return findProfile(stockProfiles(), className)
 end function
 
-// Validate profiles.
+/// Validate profiles.
+/// @param profiles profiles value consumed by this operation.
 function validateProfiles(profiles)
   if len(profiles) != 22 then return error(9640, "stock combat profile count must remain 22") end if
   validKinds = ["melee", "drain", "bullet", "shotgun", "blaster", "rocket", "rail"]

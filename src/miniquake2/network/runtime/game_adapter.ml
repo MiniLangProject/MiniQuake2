@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime game adapter facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,45 +11,64 @@ import miniquake2.game.constants as gc
 import miniquake2.network.runtime.types as nrtypes
 import miniquake2.qcommon.cmd as rqcmd
 
+/// Stores module-wide active game export state for the miniquake2 network runtime game adapter module.
 activeGameExport = void
+/// Stores module-wide active command system state for the miniquake2 network runtime game adapter module.
 activeCommandSystem = void
 
-// Connect allow.
+/// Connect allow.
+/// @param slot slot value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function allowConnect(slot, userInfo)
   return true
 end function
 
-// Ignore userinfo.
+/// Ignore userinfo.
+/// @param slot slot value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function ignoreUserinfo(slot, userInfo)
   return true
 end function
 
-// Ignore think.
+/// Ignore think.
+/// @param slot slot value consumed by this operation.
+/// @param command command value consumed by this operation.
 function ignoreThink(slot, command)
   return true
 end function
 
-// Ignore command.
+/// Ignore command.
+/// @param slot slot value consumed by this operation.
+/// @param commandText commandText value consumed by this operation.
 function ignoreCommand(slot, commandText)
   return true
 end function
 
-// Ignore begin.
+/// Ignore begin.
+/// @param slot slot value consumed by this operation.
 function ignoreBegin(slot)
   return true
 end function
 
-// Ignore disconnect.
+/// Ignore disconnect.
+/// @param slot slot value consumed by this operation.
 function ignoreDisconnect(slot)
   return true
 end function
 
-// Ignore ping.
+/// Ignore ping.
+/// @param slot slot value consumed by this operation.
+/// @param ping ping value consumed by this operation.
 function ignorePing(slot, ping)
   return true
 end function
 
-// Create state.
+/// Creates create for the miniquake2 network runtime game adapter module.
+/// @param clientConnect clientConnect value consumed by this operation.
+/// @param clientUserinfoChanged clientUserinfoChanged value consumed by this operation.
+/// @param clientThink clientThink value consumed by this operation.
+/// @param clientCommand clientCommand value consumed by this operation.
+/// @param clientBegin clientBegin value consumed by this operation.
 function create(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin)
   if typeof(clientConnect) != "function" or typeof(clientUserinfoChanged) != "function" or
       typeof(clientThink) != "function" or typeof(clientCommand) != "function" or typeof(clientBegin) != "function" then
@@ -57,7 +78,13 @@ function create(clientConnect, clientUserinfoChanged, clientThink, clientCommand
     clientCommand, clientBegin, ignoreDisconnect, ignorePing)
 end function
 
-// Create with disconnect.
+/// Create with disconnect.
+/// @param clientConnect clientConnect value consumed by this operation.
+/// @param clientUserinfoChanged clientUserinfoChanged value consumed by this operation.
+/// @param clientThink clientThink value consumed by this operation.
+/// @param clientCommand clientCommand value consumed by this operation.
+/// @param clientBegin clientBegin value consumed by this operation.
+/// @param clientDisconnect clientDisconnect value consumed by this operation.
 function createWithDisconnect(clientConnect, clientUserinfoChanged, clientThink, clientCommand, clientBegin, clientDisconnect)
   if typeof(clientDisconnect) != "function" then
     return error(7210, "game callback adapter requires clientDisconnect")
@@ -67,12 +94,14 @@ function createWithDisconnect(clientConnect, clientUserinfoChanged, clientThink,
   return callbacks
 end function
 
-// Return the permissive value.
+/// Return the permissive value.
 function permissive()
   return create(allowConnect, ignoreUserinfo, ignoreThink, ignoreCommand, ignoreBegin)
 end function
 
-// Return the game entity value.
+/// Return the game entity value.
+/// @param slot slot value consumed by this operation.
+/// @param operation operation value consumed by this operation.
 function gameEntity(slot, operation)
   global activeGameExport
   if activeGameExport is void then return error(7211, operation + ": no game export is installed") end if
@@ -84,25 +113,33 @@ function gameEntity(slot, operation)
   return activeGameExport.edicts[index]
 end function
 
-// Export client connect.
+/// Export client connect.
+/// @param slot slot value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function exportClientConnect(slot, userInfo)
   global activeGameExport
   return activeGameExport.clientConnect(gameEntity(slot, "ClientConnect"), userInfo)
 end function
 
-// Export client userinfo changed.
+/// Export client userinfo changed.
+/// @param slot slot value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function exportClientUserinfoChanged(slot, userInfo)
   global activeGameExport
   return activeGameExport.clientUserinfoChanged(gameEntity(slot, "ClientUserinfoChanged"), userInfo)
 end function
 
-// Export client think.
+/// Export client think.
+/// @param slot slot value consumed by this operation.
+/// @param command command value consumed by this operation.
 function exportClientThink(slot, command)
   global activeGameExport
   return activeGameExport.clientThink(gameEntity(slot, "ClientThink"), command)
 end function
 
-// Export client command.
+/// Export client command.
+/// @param slot slot value consumed by this operation.
+/// @param commandText commandText value consumed by this operation.
 function exportClientCommand(slot, commandText)
   global activeGameExport, activeCommandSystem
   // game_export_t obtains argc/argv through game_import_t, as in the C ABI.
@@ -117,19 +154,23 @@ function exportClientCommand(slot, commandText)
   return activeGameExport.clientCommand(gameEntity(slot, "ClientCommand"))
 end function
 
-// Export client begin.
+/// Export client begin.
+/// @param slot slot value consumed by this operation.
 function exportClientBegin(slot)
   global activeGameExport
   return activeGameExport.clientBegin(gameEntity(slot, "ClientBegin"))
 end function
 
-// Export client disconnect.
+/// Export client disconnect.
+/// @param slot slot value consumed by this operation.
 function exportClientDisconnect(slot)
   global activeGameExport
   return activeGameExport.clientDisconnect(gameEntity(slot, "ClientDisconnect"))
 end function
 
-// Export client ping.
+/// Export client ping.
+/// @param slot slot value consumed by this operation.
+/// @param ping ping value consumed by this operation.
 function exportClientPing(slot, ping)
   entity = gameEntity(slot, "ClientPing")
   if entity.client is void then return error(7216, "ClientPing: edict has no game client") end if
@@ -137,7 +178,8 @@ function exportClientPing(slot, ping)
   return true
 end function
 
-// Install game export.
+/// Install game export.
+/// @param gameExport gameExport value consumed by this operation.
 function installGameExport(gameExport)
   global activeGameExport, activeCommandSystem
   if typeof(gameExport) != "struct" or gameExport.apiVersion != gc.GAME_API_VERSION then
@@ -156,7 +198,9 @@ function installGameExport(gameExport)
   return callbacks
 end function
 
-// Install game export with commands.
+/// Install game export with commands.
+/// @param gameExport gameExport value consumed by this operation.
+/// @param commandSystem commandSystem value consumed by this operation.
 function installGameExportWithCommands(gameExport, commandSystem)
   global activeCommandSystem
   callbacks = installGameExport(gameExport)

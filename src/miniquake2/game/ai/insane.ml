@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai insane facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,7 +13,10 @@ import miniquake2.game.ai.types as insanetypes
 import miniquake2.game.constants as insanegameconstants
 import miniquake2.qcommon.types as insaneqtypes
 
-// Emit insane.
+/// Emit insane.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param soundName soundName value consumed by this operation.
 function insaneEmit(actor, context, soundName)
   if typeof(context.playSound) == "function" then
     context.playSound(actor, soundName, insanegameconstants.CHAN_VOICE, insanegameconstants.ATTN_IDLE)
@@ -19,22 +24,30 @@ function insaneEmit(actor, context, soundName)
   return soundName
 end function
 
-// Return the insane fist value.
+/// Return the insane fist value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneFist(actor, context)
   insaneEmit(actor, context, "insane/insane11.wav")
 end function
 
-// Return the insane shake value.
+/// Return the insane shake value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneShake(actor, context)
   insaneEmit(actor, context, "insane/insane5.wav")
 end function
 
-// Return the insane moan value.
+/// Return the insane moan value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneMoan(actor, context)
   insaneEmit(actor, context, "insane/insane7.wav")
 end function
 
-// Return the insane scream value.
+/// Return the insane scream value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneScream(actor, context)
   insaneScreams = [
     "insane/insane1.wav", "insane/insane2.wav", "insane/insane3.wav", "insane/insane4.wav",
@@ -44,7 +57,8 @@ function insaneScream(actor, context)
   insaneEmit(actor, context, insaneScreams[insaneScreamIndex])
 end function
 
-// Return the insane zeros value.
+/// Return the insane zeros value.
+/// @param count Number of items or units to process.
 function insaneZeros(count)
   insaneZeroResult = []
   insaneZeroIndex = 0
@@ -55,7 +69,13 @@ function insaneZeros(count)
   return insaneZeroResult
 end function
 
-// Create insane move.
+/// Create insane move.
+/// @param name Name of the affected item.
+/// @param firstFrame firstFrame value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param aiFunction aiFunction value consumed by this operation.
+/// @param distances distances value consumed by this operation.
+/// @param endFunction endFunction value consumed by this operation.
 function insaneMakeMove(name, firstFrame, lastFrame, aiFunction, distances, endFunction)
   insaneMoveFrames = []
   insaneMoveCount = lastFrame - firstFrame + 1
@@ -69,14 +89,14 @@ function insaneMakeMove(name, firstFrame, lastFrame, aiFunction, distances, endF
   return insanetypes.MonsterMove(name, firstFrame, lastFrame, insaneMoveFrames, endFunction)
 end function
 
-// Move insane stand normal.
+/// Move insane stand normal.
 function insaneStandNormalMove()
   insaneMove = insaneMakeMove("insane-stand-normal", 59, 64, insanecore.ai_stand, insaneZeros(6), insaneStand)
   insaneMove.frames[5].thinkFunction = insaneCheckDown
   return insaneMove
 end function
 
-// Move insane stand insane.
+/// Move insane stand insane.
 function insaneStandInsaneMove()
   insaneMove = insaneMakeMove("insane-stand-insane", 64, 93, insanecore.ai_stand, insaneZeros(30), insaneStand)
   insaneMove.frames[0].thinkFunction = insaneShake
@@ -84,7 +104,7 @@ function insaneStandInsaneMove()
   return insaneMove
 end function
 
-// Move insane up to down.
+/// Move insane up to down.
 function insaneUpToDownMove()
   insaneDistances = insaneZeros(40)
   insaneDistances[20] = 2.7; insaneDistances[21] = 4.1; insaneDistances[22] = 6.0
@@ -95,19 +115,19 @@ function insaneUpToDownMove()
   return insaneMove
 end function
 
-// Move insane down to up.
+/// Move insane down to up.
 function insaneDownToUpMove()
   insaneDistances = [-0.7, -1.2, -1.5, -4.5, -3.5, -0.2, 0.0, -1.3, -3.0, -2.0,
     0.0, 0.0, 0.0, -3.3, -1.6, -0.3, 0.0, 0.0, 0.0]
   return insaneMakeMove("insane-down-to-up", 40, 58, insanecore.ai_move, insaneDistances, insaneStand)
 end function
 
-// Move insane jump down.
+/// Move insane jump down.
 function insaneJumpDownMove()
   return insaneMakeMove("insane-jump-down", 95, 99, insanecore.ai_move, [0.2, 11.5, 5.1, 7.1, 0.0], insaneOnGround)
 end function
 
-// Move insane down.
+/// Move insane down.
 function insaneDownMove()
   insaneDistances = insaneZeros(61)
   insaneDistances[11] = -1.7; insaneDistances[12] = -1.6
@@ -121,7 +141,8 @@ function insaneDownMove()
   return insaneMove
 end function
 
-// Move insane walk normal.
+/// Move insane walk normal.
+/// @param runMove runMove value consumed by this operation.
 function insaneWalkNormalMove(runMove)
   insaneName = "insane-walk-normal"
   if runMove then insaneName = "insane-run-normal" end if
@@ -132,7 +153,8 @@ function insaneWalkNormalMove(runMove)
   return insaneMove
 end function
 
-// Move insane walk insane.
+/// Move insane walk insane.
+/// @param runMove runMove value consumed by this operation.
 function insaneWalkInsaneMove(runMove)
   insaneName = "insane-walk-insane"
   if runMove then insaneName = "insane-run-insane" end if
@@ -144,17 +166,18 @@ function insaneWalkInsaneMove(runMove)
   return insaneMove
 end function
 
-// Handle insane stand move.
+/// Handle insane stand move.
 function insaneStandPainMove()
   return insaneMakeMove("insane-stand-pain", 199, 209, insanecore.ai_move, insaneZeros(11), insaneRun)
 end function
 
-// Move insane stand death.
+/// Move insane stand death.
 function insaneStandDeathMove()
   return insaneMakeMove("insane-stand-death", 210, 226, insanecore.ai_move, insaneZeros(17), insaneDead)
 end function
 
-// Move insane crawl.
+/// Move insane crawl.
+/// @param runMove runMove value consumed by this operation.
 function insaneCrawlMove(runMove)
   insaneName = "insane-crawl"
   if runMove then insaneName = "insane-run-crawl" end if
@@ -164,17 +187,18 @@ function insaneCrawlMove(runMove)
   return insaneMove
 end function
 
-// Handle insane crawl move.
+/// Handle insane crawl move.
 function insaneCrawlPainMove()
   return insaneMakeMove("insane-crawl-pain", 236, 244, insanecore.ai_move, insaneZeros(9), insaneRun)
 end function
 
-// Move insane crawl death.
+/// Move insane crawl death.
 function insaneCrawlDeathMove()
   return insaneMakeMove("insane-crawl-death", 245, 251, insanecore.ai_move, insaneZeros(7), insaneDead)
 end function
 
-// Compute insane move.
+/// Compute insane move.
+/// @param struggle struggle value consumed by this operation.
 function insaneCrossMove(struggle)
   insaneName = "insane-cross"
   insaneFirst = 252; insaneLast = 266; insaneSound = insaneMoan
@@ -184,7 +208,9 @@ function insaneCrossMove(struggle)
   return insaneMove
 end function
 
-// Set insane move.
+/// Set insane move.
+/// @param actor actor value consumed by this operation.
+/// @param move move value consumed by this operation.
 function insaneSetMove(actor, move)
   actor.info.currentMove = move
   actor.activity = move.name
@@ -192,7 +218,8 @@ function insaneSetMove(actor, move)
   return move
 end function
 
-// Apply insane spawn flags.
+/// Apply insane spawn flags.
+/// @param actor actor value consumed by this operation.
 function insaneApplySpawnFlags(actor)
   if (actor.spawnFlags & insaneconstants.INSANE_STAND_GROUND) != 0 then
     actor.info.aiFlags = actor.info.aiFlags | insaneconstants.AI_STAND_GROUND
@@ -208,12 +235,16 @@ function insaneApplySpawnFlags(actor)
   return true
 end function
 
-// Compute insane.
+/// Compute insane.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneCross(actor, context)
   return insaneSetMove(actor, insaneCrossMove(context.randomIdle >= 0.8))
 end function
 
-// Return the insane walk value.
+/// Return the insane walk value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneWalk(actor, context)
   if (actor.spawnFlags & insaneconstants.INSANE_STAND_GROUND) != 0 and actor.edict.state.frame == 244 then
     return insaneSetMove(actor, insaneDownMove())
@@ -223,7 +254,9 @@ function insaneWalk(actor, context)
   return insaneSetMove(actor, insaneWalkInsaneMove(false))
 end function
 
-// Run insane.
+/// Run insane.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneRun(actor, context)
   if (actor.spawnFlags & insaneconstants.INSANE_STAND_GROUND) != 0 and actor.edict.state.frame == 244 then
     return insaneSetMove(actor, insaneDownMove())
@@ -233,12 +266,16 @@ function insaneRun(actor, context)
   return insaneSetMove(actor, insaneWalkInsaneMove(true))
 end function
 
-// Report whether insane on ground.
+/// Report whether insane on ground.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneOnGround(actor, context)
   return insaneSetMove(actor, insaneDownMove())
 end function
 
-// Validate insane down.
+/// Validate insane down.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneCheckDown(actor, context)
   if (actor.spawnFlags & insaneconstants.INSANE_ALWAYS_STAND) != 0 then return false end if
   if context.randomIdle >= 0.3 then return false end if
@@ -247,7 +284,9 @@ function insaneCheckDown(actor, context)
   return true
 end function
 
-// Validate insane up.
+/// Validate insane up.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneCheckUp(actor, context)
   if (actor.spawnFlags & insaneconstants.INSANE_CRAWL) != 0 and
       (actor.spawnFlags & insaneconstants.INSANE_STAND_GROUND) != 0 then return false end if
@@ -255,7 +294,9 @@ function insaneCheckUp(actor, context)
   return false
 end function
 
-// Return the insane stand value.
+/// Return the insane stand value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneStand(actor, context)
   insaneApplySpawnFlags(actor)
   if (actor.spawnFlags & insaneconstants.INSANE_CRUCIFIED) != 0 then
@@ -270,7 +311,11 @@ function insaneStand(actor, context)
   return insaneSetMove(actor, insaneStandInsaneMove())
 end function
 
-// Handle insane.
+/// Handle insane.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insanePain(actor, attacker, damage, context)
   if context.time < actor.info.attackFinished then return false end if
   actor.info.attackFinished = context.time + 3.0
@@ -291,7 +336,9 @@ function insanePain(actor, attacker, damage, context)
   return true
 end function
 
-// Return the insane dead value.
+/// Return the insane dead value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneDead(actor, context)
   if (actor.spawnFlags & insaneconstants.INSANE_CRUCIFIED) != 0 then
     actor.flags = actor.flags | insaneconstants.FL_FLY
@@ -307,7 +354,11 @@ function insaneDead(actor, context)
   return true
 end function
 
-// Handle insane.
+/// Handle insane.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function insaneDie(actor, attacker, damage, context)
   if actor.health <= actor.gibHealth then
     insaneEmit(actor, context, "misc/udeath.wav")
@@ -333,7 +384,9 @@ function insaneDie(actor, attacker, damage, context)
   return true
 end function
 
-// Configure state.
+/// Performs the configure operation for the miniquake2 game ai insane module.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function configure(actor, context)
   actor.info.aiFlags = actor.info.aiFlags | insaneconstants.AI_GOOD_GUY
   actor.info.stand = insaneStand; actor.info.walk = insaneWalk; actor.info.run = insaneRun
@@ -345,7 +398,9 @@ function configure(actor, context)
   return actor
 end function
 
-// Restore move.
+/// Restore move.
+/// @param actor actor value consumed by this operation.
+/// @param moveName moveName value consumed by this operation.
 function restoreMove(actor, moveName)
   if moveName == "insane-stand-normal" then actor.info.currentMove = insaneStandNormalMove()
   else if moveName == "insane-stand-insane" then actor.info.currentMove = insaneStandInsaneMove()

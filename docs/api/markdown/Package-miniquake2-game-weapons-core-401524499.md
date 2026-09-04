@@ -1,0 +1,39 @@
+# Package `miniquake2.game.weapons.core`
+
+[Home](README.md) · [Packages](Packages.md)
+
+## Files
+
+- [src/miniquake2/game/weapons/core.ml](File-src-miniquake2-game-weapons-core-ml-1168965024.md)
+
+## Symbols
+
+- [`miniquake2.game.weapons.core.addTargetOrigin`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-addtargetorigin-function-addtargetorigin-target-src-miniquake2-game-weapons-core-ml-143136412) — function
+- [`miniquake2.game.weapons.core.advance`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-advance-function-advance-context-seconds-src-miniquake2-game-weapons-core-ml-1814675747) — function
+- [`miniquake2.game.weapons.core.alwaysCanDamage`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-alwayscandamage-function-alwayscandamage-target-origin-src-miniquake2-game-weapons-core-ml-1976371070) — function
+- [`miniquake2.game.weapons.core.applyDamage`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-applydamage-function-applydamage-context-target-inflictor-attacker-direction-point-damage-knockback-flags-meansofdeath-src-miniquake2-game-weapons-core-ml-1209065135) — function
+- [`miniquake2.game.weapons.core.clearTrace`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-cleartrace-function-cleartrace-start-mins-maxs-endposition-ignore-mask-src-miniquake2-game-weapons-core-ml-2022919757) — function
+- [`miniquake2.game.weapons.core.combatDamage`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-combatdamage-function-combatdamage-target-request-src-miniquake2-game-weapons-core-ml-219148215) — function
+- [`miniquake2.game.weapons.core.createContext`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-createcontext-function-createcontext-callbacks-src-miniquake2-game-weapons-core-ml-2134583527) — function
+- [`miniquake2.game.weapons.core.damageAttackerNumber`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-damageattackernumber-function-damageattackernumber-src-miniquake2-game-weapons-core-ml-132099343) — function
+- [`miniquake2.game.weapons.core.defaultCallbacks`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-defaultcallbacks-function-defaultcallbacks-src-miniquake2-game-weapons-core-ml-382024627) — function
+- [`miniquake2.game.weapons.core.emitEffect`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-emiteffect-function-emiteffect-context-kind-start-endposition-normal-style-count-src-miniquake2-game-weapons-core-ml-2050169801) — function
+- [`miniquake2.game.weapons.core.emptyContents`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-emptycontents-function-emptycontents-point-src-miniquake2-game-weapons-core-ml-506671653) — function
+- [`miniquake2.game.weapons.core.freeProjectile`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-freeprojectile-function-freeprojectile-context-projectile-src-miniquake2-game-weapons-core-ml-26070121) — function
+- [`miniquake2.game.weapons.core.freeThink`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-freethink-function-freethink-projectile-context-src-miniquake2-game-weapons-core-ml-693218267) — function
+- [`miniquake2.game.weapons.core.MAX_WEAPON_EVENT_HISTORY`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#constant-constant-miniquake2-game-weapons-core-max-weapon-event-history-const-max-weapon-event-history-1024-src-miniquake2-game-weapons-core-ml-1582525487) — constant
+- [`miniquake2.game.weapons.core.noDodge`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-nododge-function-nododge-owner-start-direction-speed-src-miniquake2-game-weapons-core-ml-1562209840) — function
+- [`miniquake2.game.weapons.core.noEffect`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-noeffect-function-noeffect-effect-src-miniquake2-game-weapons-core-ml-378242844) — function
+- [`miniquake2.game.weapons.core.noFree`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-nofree-function-nofree-entity-src-miniquake2-game-weapons-core-ml-1350604474) — function
+- [`miniquake2.game.weapons.core.noLink`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-nolink-function-nolink-entity-src-miniquake2-game-weapons-core-ml-1537577554) — function
+- [`miniquake2.game.weapons.core.noNoise`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-nonoise-function-nonoise-owner-position-noisetype-src-miniquake2-game-weapons-core-ml-1385988175) — function
+- [`miniquake2.game.weapons.core.noRadiusTargets`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-noradiustargets-function-noradiustargets-origin-radius-src-miniquake2-game-weapons-core-ml-48032025) — function
+- [`miniquake2.game.weapons.core.noSound`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-nosound-function-nosound-entity-soundname-src-miniquake2-game-weapons-core-ml-1233763938) — function
+- [`miniquake2.game.weapons.core.radiusDamage`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-radiusdamage-function-radiusdamage-context-inflictor-attacker-basedamage-ignore-radius-meansofdeath-src-miniquake2-game-weapons-core-ml-1302361318) — function
+- [`miniquake2.game.weapons.core.runDueThinks`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-runduethinks-function-runduethinks-context-src-miniquake2-game-weapons-core-ml-2135289272) — function
+- [`miniquake2.game.weapons.core.spawnProjectile`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-spawnprojectile-function-spawnprojectile-context-classname-src-miniquake2-game-weapons-core-ml-896172445) — function
+- [`miniquake2.game.weapons.core.surfaceIsSky`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-surfaceissky-function-surfaceissky-trace-src-miniquake2-game-weapons-core-ml-1594449386) — function
+- [`miniquake2.game.weapons.core.touchProjectile`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-touchprojectile-function-touchprojectile-context-projectile-other-trace-src-miniquake2-game-weapons-core-ml-516060932) — function
+- [`miniquake2.game.weapons.core.weaponCoreAppendEvent`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-weaponcoreappendevent-function-weaponcoreappendevent-context-value-src-miniquake2-game-weapons-core-ml-1999832213) — function
+- [`miniquake2.game.weapons.core.weaponCoreDamageAttackerNumber`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#global-global-miniquake2-game-weapons-core-weaponcoredamageattackernumber-weaponcoredamageattackernumber-src-miniquake2-game-weapons-core-ml-523258395) — global
+- [`miniquake2.game.weapons.core.zeroRandomSigned`](File-src-miniquake2-game-weapons-core-ml-1168965024.md#function-function-miniquake2-game-weapons-core-zerorandomsigned-function-zerorandomsigned-src-miniquake2-game-weapons-core-ml-1912181299) — function

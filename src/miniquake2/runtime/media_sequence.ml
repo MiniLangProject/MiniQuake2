@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime media sequence facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,43 +11,64 @@ import miniquake2.qcommon.constants as mediaseqqc
 import miniquake2.qcommon.cmd as mediaseqcmd
 import miniquake2.qcommon.text as mediaseqtext
 
+/// Defines the media map constant used by the miniquake2 runtime media sequence module.
 const MEDIA_MAP = 0
+/// Defines the media cin constant used by the miniquake2 runtime media sequence module.
 const MEDIA_CIN = 1
+/// Defines the media pcx constant used by the miniquake2 runtime media sequence module.
 const MEDIA_PCX = 2
+/// Defines the media dm2 constant used by the miniquake2 runtime media sequence module.
 const MEDIA_DM2 = 3
+/// Defines the max media steps constant used by the miniquake2 runtime media sequence module.
 const MAX_MEDIA_STEPS = 16
+/// Defines the max media transitions constant used by the miniquake2 runtime media sequence module.
 const MAX_MEDIA_TRANSITIONS = 64
+/// Defines the stock attract steps constant used by the miniquake2 runtime media sequence module.
 const STOCK_ATTRACT_STEPS = 4
 
-// Store media step data.
+/// Store media step data.
 struct MediaStep
+  /// Stores the kind value associated with media step.
   kind
+  /// Stores the name value associated with media step.
   name
+  /// Stores the spawn point value associated with media step.
   spawnPoint
+  /// Stores the end of unit value associated with media step.
   endOfUnit
 end struct
 
-// Store media sequence data.
+/// Store media sequence data.
 struct MediaSequence
+  /// Stores the specification value associated with media sequence.
   specification
+  /// Stores the steps value associated with media sequence.
   steps
 end struct
 
-// Store the persistence operations attached to a gamemap transition.
+/// Store the persistence operations attached to a gamemap transition.
 struct GameMapPolicy
+  /// Stores the archive current value associated with game map policy.
   archiveCurrent
+  /// Stores the wipe unit value associated with game map policy.
   wipeUnit
+  /// Stores the autosave successor value associated with game map policy.
   autosaveSuccessor
 end struct
 
-// Store deterministic timedemo throughput data.
+/// Store deterministic timedemo throughput data.
 struct TimedemoMetrics
+  /// Stores the frames value associated with timedemo metrics.
   frames
+  /// Stores the elapsed msec value associated with timedemo metrics.
   elapsedMsec
+  /// Stores the frames per second value associated with timedemo metrics.
   framesPerSecond
 end struct
 
-// Compute the same frames/time report exposed by Quake II's timedemo path.
+/// Compute the same frames/time report exposed by Quake II's timedemo path.
+/// @param frames frames value consumed by this operation.
+/// @param elapsedMsec elapsedMsec value consumed by this operation.
 function timedemoMetrics(frames, elapsedMsec)
   if typeof(frames) != "int" or frames < 0 or
       (typeof(elapsedMsec) != "int" and typeof(elapsedMsec) != "float") or
@@ -55,8 +78,10 @@ function timedemoMetrics(frames, elapsedMsec)
   return TimedemoMetrics(frames, elapsedMsec, fps)
 end function
 
-// Match SV_GameMap_f: archive the outgoing level inside a unit, wipe the
-// current-unit archive at `*`, and autosave the successfully spawned successor.
+/// Match SV_GameMap_f: archive the outgoing level inside a unit, wipe the
+/// current-unit archive at `*`, and autosave the successfully spawned successor.
+/// @param step step value consumed by this operation.
+/// @param singlePlayer singlePlayer value consumed by this operation.
 function gameMapPolicy(step, singlePlayer)
   if typeof(step) != "struct" or typeof(singlePlayer) != "bool" then
     return error(8501, "gamemap policy inputs are invalid")
@@ -65,7 +90,9 @@ function gameMapPolicy(step, singlePlayer)
     singlePlayer and step.endOfUnit, singlePlayer)
 end function
 
-// Preserve the original ZOID cooperative end-screen loop back to base1.
+/// Preserve the original ZOID cooperative end-screen loop back to base1.
+/// @param step step value consumed by this operation.
+/// @param cooperative cooperative value consumed by this operation.
 function cooperativePictureSuccessor(step, cooperative)
   if typeof(step) != "struct" or typeof(cooperative) != "bool" then
     return error(8502, "cooperative picture policy inputs are invalid")
@@ -77,7 +104,9 @@ function cooperativePictureSuccessor(step, cooperative)
   return ""
 end function
 
-// Return the ends with insensitive value.
+/// Return the ends with insensitive value.
+/// @param value Value consumed or transformed by the operation.
+/// @param suffix suffix value consumed by this operation.
 function endsWithInsensitive(value, suffix)
   mediaseqValue = bytes(mediaseqtext.lower(value))
   mediaseqSuffix = bytes(mediaseqtext.lower(suffix))
@@ -91,7 +120,9 @@ function endsWithInsensitive(value, suffix)
   return true
 end function
 
-// Return the safe name.
+/// Return the safe name.
+/// @param value Value consumed or transformed by the operation.
+/// @param operation operation value consumed by this operation.
 function safeName(value, operation)
   if typeof(value) != "string" or value == "" or len(bytes(value)) >= mediaseqqc.MAX_QPATH then
     return error(8490, operation + " name is empty or exceeds MAX_QPATH")
@@ -113,7 +144,8 @@ function safeName(value, operation)
   return value
 end function
 
-// Parse step.
+/// Parse step.
+/// @param component component value consumed by this operation.
 function parseStep(component)
   if typeof(component) != "string" or component == "" then return error(8492, "empty media sequence step") end if
   mediaseqComponentBytes = bytes(component)
@@ -152,8 +184,9 @@ function parseStep(component)
   return MediaStep(mediaseqKind, mediaseqLevel, mediaseqSpawn, mediaseqEndOfUnit)
 end function
 
-// Stock Quake II 3.19 obtains these four entries from the d1..d4 aliases in
-// baseq2/default.cfg. There is no demos.lst lookup in the original client.
+/// Stock Quake II 3.19 obtains these four entries from the d1..d4 aliases in
+/// baseq2/default.cfg. There is no demos.lst lookup in the original client.
+/// @param index Zero-based index of the affected item.
 function stockAttractStep(index)
   if typeof(index) != "int" or index < 0 or index >= STOCK_ATTRACT_STEPS then
     return error(8499, "stock attract index outside [0,3]")
@@ -163,20 +196,22 @@ function stockAttractStep(index)
   return parseStep("demo2.dm2")
 end function
 
-// Return the next stock attract index.
+/// Return the next stock attract index.
+/// @param index Zero-based index of the affected item.
 function nextStockAttractIndex(index)
   stockAttractStep(index)
   return (index + 1) % STOCK_ATTRACT_STEPS
 end function
 
-// The stock New Game alias is `map *ntro.cin+base1`. The leading star is
-// legal for every SV_Map media kind and marks a new unit/save epoch before
-// SV_Map strips it and classifies the .cin extension.
+/// The stock New Game alias is `map *ntro.cin+base1`. The leading star is
+/// legal for every SV_Map media kind and marks a new unit/save epoch before
+/// SV_Map strips it and classifies the .cin extension.
 function stockNewGameSpecification()
   return "*ntro.cin+base1"
 end function
 
-// Return the game button down value.
+/// Return the game button down value.
+/// @param input input value consumed by this operation.
 function gameButtonDown(input)
   if input is void or typeof(input.keys) != "array" or
       typeof(input.controllerButtons) != "int" then
@@ -192,9 +227,10 @@ function gameButtonDown(input)
   return false
 end function
 
-// keys.c maps any press during cl.attractloop to Escape. Grave/Escape may
-// already have changed key_dest before this check, while ordinary buttons are
-// represented by the held-key table.
+/// keys.c maps any press during cl.attractloop to Escape. Grave/Escape may
+/// already have changed key_dest before this check, while ordinary buttons are
+/// represented by the held-key table.
+/// @param input input value consumed by this operation.
 function attractInterrupted(input)
   if input is void or typeof(input.focused) != "bool" then
     return error(8500, "media input state is invalid")
@@ -204,7 +240,8 @@ function attractInterrupted(input)
   return gameButtonDown(input)
 end function
 
-// Parse state.
+/// Parses parse for the miniquake2 runtime media sequence workflow.
+/// @param specification specification value consumed by this operation.
 function parse(specification)
   if typeof(specification) != "string" or specification == "" or
       len(bytes(specification)) >= mediaseqqc.MAX_STRING_CHARS then
@@ -229,7 +266,8 @@ function parse(specification)
   return MediaSequence(specification, mediaseqSteps)
 end function
 
-// Return the kind name.
+/// Return the kind name.
+/// @param kind kind value consumed by this operation.
 function kindName(kind)
   if kind == MEDIA_MAP then return "map" end if
   if kind == MEDIA_CIN then return "cin" end if
@@ -238,9 +276,10 @@ function kindName(kind)
   return error(8497, "unknown media step kind")
 end function
 
-// The game module queues `gamemap "spec"` through AddCommandString after
-// intermission exit. Validate the complete first command before removing it;
-// unrelated server-console work remains untouched for its own policy layer.
+/// The game module queues `gamemap "spec"` through AddCommandString after
+/// intermission exit. Validate the complete first command before removing it;
+/// unrelated server-console work remains untouched for its own policy layer.
+/// @param commandSystem commandSystem value consumed by this operation.
 function takeQueuedGameMap(commandSystem)
   if commandSystem is void or typeof(commandSystem.buffer) != "string" then
     return error(8498, "server command buffer is invalid")
@@ -260,9 +299,10 @@ function takeQueuedGameMap(commandSystem)
   return mediaseqQueuedSpecification
 end function
 
-// Single-player death uses the original game-DLL AddCommandString boundary to
-// ask the client host for its load-game menu. Keep that request out of the UI
-// module itself, validate it exactly, and preserve unrelated console commands.
+/// Single-player death uses the original game-DLL AddCommandString boundary to
+/// ask the client host for its load-game menu. Keep that request out of the UI
+/// module itself, validate it exactly, and preserve unrelated console commands.
+/// @param commandSystem commandSystem value consumed by this operation.
 function takeQueuedLoadMenu(commandSystem)
   if commandSystem is void or typeof(commandSystem.buffer) != "string" then
     return error(8498, "server command buffer is invalid")

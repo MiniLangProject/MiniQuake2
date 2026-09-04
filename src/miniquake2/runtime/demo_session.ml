@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime demo session facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,24 +17,35 @@ import miniquake2.client.runtime.dispatcher as demortdispatcher
 import miniquake2.client.runtime.handoff as demorthandoff
 import miniquake2.client.state as demortstate
 
-// Store demo session data.
+/// Store demo session data.
 struct DemoSession
+  /// Stores the runtime value associated with demo session.
   runtime
+  /// Stores the player value associated with demo session.
   player
+  /// Stores the packets read value associated with demo session.
   packetsRead
+  /// Stores the frames read value associated with demo session.
   framesRead
+  /// Stores the finished value associated with demo session.
   finished
 end struct
 
-// Store demo step data.
+/// Store demo step data.
 struct DemoStep
+  /// Stores the packets value associated with demo step.
   packets
+  /// Stores the frames value associated with demo step.
   frames
+  /// Stores the handoff value associated with demo step.
   handoff
+  /// Stores the finished value associated with demo step.
   finished
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 runtime demo session module.
+/// @param data Input data consumed by the operation.
+/// @param randomSeed randomSeed value consumed by this operation.
 function create(data, randomSeed)
   if typeof(randomSeed) != "int" then
     return error(9943, "demo session random seed must be an integer")
@@ -49,8 +62,10 @@ function create(data, randomSeed)
     0, 0, demoSessionPlayerHolder.finished)
 end function
 
-// DM2 records contain setup/config packets between rendered snapshots. Consume
-// exactly as many packets as necessary to publish one new atomic frame.
+/// DM2 records contain setup/config packets between rendered snapshots. Consume
+/// exactly as many packets as necessary to publish one new atomic frame.
+/// @param session session value consumed by this operation.
+/// @param now now value consumed by this operation.
 function step(session, now)
   if typeof(session) != "struct" or typeof(now) != "int" then
     return error(9944, "demo step requires a session and integer time")
@@ -79,7 +94,8 @@ function step(session, now)
     0, void, session.finished)
 end function
 
-// Map model path.
+/// Map model path.
+/// @param session session value consumed by this operation.
 function mapModelPath(session)
   if typeof(session) != "struct" or typeof(session.runtime.network.configStrings) != "array" then
     return error(9945, "demo session configstrings are unavailable")
@@ -91,7 +107,8 @@ function mapModelPath(session)
   return demoSessionMapPathHolder
 end function
 
-// Return the level name.
+/// Return the level name.
+/// @param session session value consumed by this operation.
 function levelName(session)
   if typeof(session) != "struct" or typeof(session.runtime.network.levelName) != "string" then
     return ""
@@ -99,7 +116,8 @@ function levelName(session)
   return session.runtime.network.levelName
 end function
 
-// Release state.
+/// Release state.
+/// @param session session value consumed by this operation.
 function release(session)
   if typeof(session) != "struct" then return false end if
   demortdispatcher.releaseResolver()

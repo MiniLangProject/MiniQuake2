@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic world facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -20,50 +22,72 @@ import miniquake2.renderer.classic.materials as rclassicmaterials
 import miniquake2.renderer.classic.scene as rclassicscene
 import miniquake2.renderer.classic.special as rclassicspecial
 
+/// Defines the palette path constant used by the miniquake2 renderer classic world module.
 const PALETTE_PATH = "pics/colormap.pcx"
+/// Defines the lightmap atlas size constant used by the miniquake2 renderer classic world module.
 const LIGHTMAP_ATLAS_SIZE = 256
 
-// Store lightmap atlas state data.
+/// Store lightmap atlas state data.
 struct LightmapAtlasState
+  /// Stores the textures value associated with lightmap atlas state.
   textures
+  /// Stores the current value associated with lightmap atlas state.
   current
+  /// Stores the x value associated with lightmap atlas state.
   x
+  /// Stores the y value associated with lightmap atlas state.
   y
+  /// Stores the row height value associated with lightmap atlas state.
   rowHeight
+  /// Stores the generation value associated with lightmap atlas state.
   generation
+  /// Stores the face textures value associated with lightmap atlas state.
   faceTextures
+  /// Stores the face x value associated with lightmap atlas state.
   faceX
+  /// Stores the face y value associated with lightmap atlas state.
   faceY
+  /// Stores the face packed value associated with lightmap atlas state.
   facePacked
 end struct
 
-// Decoded true-colour TGA used by stock-compatible environment maps.
+/// Decoded true-colour TGA used by stock-compatible environment maps.
 struct ClassicTgaImage
+  /// Stores the width value associated with classic tga image.
   width
+  /// Stores the height value associated with classic tga image.
   height
+  /// Stores the rgba value associated with classic tga image.
   rgba
 end struct
 
-// Read bytes.
+/// Read bytes.
+/// @param loadFile loadFile value consumed by this operation.
+/// @param path Path of the file or directory used by the operation.
 function readBytes(loadFile, path)
   data = loadFile(path)
   if typeof(data) != "bytes" then return error(9740, "classic renderer file not found: " + path) end if
   return data
 end function
 
-// Return the quake palette value.
+/// Return the quake palette value.
+/// @param loadFile loadFile value consumed by this operation.
 function quakePalette(loadFile)
   pcx = fpcx.parse(readBytes(loadFile, PALETTE_PATH))
   if len(pcx.palette) != 768 then return error(9741, "pics/colormap.pcx has no Quake II palette") end if
   return pcx.palette
 end function
 
-// Return the texture path.
+/// Return the texture path.
+/// @param name Name of the affected item.
 function texturePath(name)
   return "textures/" + name + ".wal"
 end function
 
-// Load images.
+/// Load images.
+/// @param map map value consumed by this operation.
+/// @param loadFile loadFile value consumed by this operation.
+/// @param palette palette value consumed by this operation.
 function loadImages(map, loadFile, palette)
   images = []
   for each texInfo in map.texInfo
@@ -79,7 +103,10 @@ function loadImages(map, loadFile, palette)
   return images
 end function
 
-// Find texture.
+/// Find texture.
+/// @param textures textures value consumed by this operation.
+/// @param role role value consumed by this operation.
+/// @param name Name of the affected item.
 function findTexture(textures, role, name)
   for each texture in textures
     if texture.role == role and qtext.equalInsensitive(texture.name, name) then return texture end if
@@ -87,7 +114,10 @@ function findTexture(textures, role, name)
   return void
 end function
 
-// Add base texture.
+/// Add base texture.
+/// @param textures textures value consumed by this operation.
+/// @param image image value consumed by this operation.
+/// @param generation generation value consumed by this operation.
 function addBaseTexture(textures, image, generation)
   existing = findTexture(textures, "base", image.name)
   if existing is not void then return [textures, existing] end if
@@ -99,7 +129,8 @@ function addBaseTexture(textures, image, generation)
   return [textures + [texture], texture]
 end function
 
-// Return the surface bounds.
+/// Return the surface bounds.
+/// @param surface surface value consumed by this operation.
 function surfaceBounds(surface)
   if len(surface.vertices) < 3 then return error(9745, "classic surface bounds require at least three vertices") end if
   first = surface.vertices[0].position
@@ -122,7 +153,11 @@ function surfaceBounds(surface)
   ]
 end function
 
-// Add world draw.
+/// Add world draw.
+/// @param textures textures value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param surface surface value consumed by this operation.
+/// @param generation generation value consumed by this operation.
 function addWorldDraw(textures, draws, surface, generation)
   animationCount = len(surface.animationImages)
   if animationCount == 0 then animationCount = 1 end if
@@ -178,7 +213,8 @@ function addWorldDraw(textures, draws, surface, generation)
   return [textures, draws + [draw]]
 end function
 
-// Return the new lightmap atlas value.
+/// Return the new lightmap atlas value.
+/// @param state Mutable state inspected or updated by the operation.
 function newLightmapAtlas(state)
   index = len(state.textures)
   texture = rclassictypes.ClassicTexture(0, "@lightmap/atlas" + index,
@@ -191,7 +227,12 @@ function newLightmapAtlas(state)
   return texture
 end function
 
-// Copy lightmap atlas row.
+/// Copy lightmap atlas row.
+/// @param destination destination value consumed by this operation.
+/// @param destinationPixel destinationPixel value consumed by this operation.
+/// @param source source value consumed by this operation.
+/// @param sourcePixel sourcePixel value consumed by this operation.
+/// @param pixels pixels value consumed by this operation.
 function copyLightmapAtlasRow(destination, destinationPixel, source,
     sourcePixel, pixels)
   copyBytes(destination, destinationPixel * 4, source, sourcePixel * 4,
@@ -199,7 +240,13 @@ function copyLightmapAtlasRow(destination, destinationPixel, source,
   return pixels
 end function
 
-// Copy lightmap into atlas.
+/// Copy lightmap into atlas.
+/// @param texture texture value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param source source value consumed by this operation.
 function copyLightmapIntoAtlas(texture, x, y, width, height, source)
   destination = texture.rgbaPixels
   row = 0
@@ -226,7 +273,9 @@ function copyLightmapIntoAtlas(texture, x, y, width, height, source)
   return true
 end function
 
-// Pack lightmap draw.
+/// Pack lightmap draw.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param draw draw value consumed by this operation.
 function packLightmapDraw(state, draw)
   if draw.surface.category != rclassicconstants.MATERIAL_OPAQUE then return false end if
   faceIndex = draw.surface.index
@@ -272,7 +321,11 @@ function packLightmapDraw(state, draw)
   return true
 end function
 
-// Pack lightmap atlases.
+/// Pack lightmap atlases.
+/// @param draws draws value consumed by this operation.
+/// @param brushModels brushModels value consumed by this operation.
+/// @param generation generation value consumed by this operation.
+/// @param faceCount Number of face to process.
 function packLightmapAtlases(draws, brushModels, generation, faceCount)
   state = LightmapAtlasState([], void, 0, 0, 0, generation,
     array(faceCount), array(faceCount, 0), array(faceCount, 0),
@@ -286,7 +339,9 @@ function packLightmapAtlases(draws, brushModels, generation, faceCount)
   return state.textures
 end function
 
-// Return the classic world entity value.
+/// Return the classic world entity value.
+/// @param entityText entityText value consumed by this operation.
+/// @param key key value consumed by this operation.
 function classicWorldEntityValue(entityText, key)
   if typeof(entityText) != "string" or entityText == "" then return "" end if
   parts = rclassicworldstring.split(entityText, "\"")
@@ -298,7 +353,8 @@ function classicWorldEntityValue(entityText, key)
   return ""
 end function
 
-// Return the classic world sky axis value.
+/// Return the classic world sky axis value.
+/// @param entityText entityText value consumed by this operation.
 function classicWorldSkyAxis(entityText)
   text = classicWorldEntityValue(entityText, "skyaxis")
   if text == "" then return ft.Vec3(0.0, 0.0, 1.0) end if
@@ -318,7 +374,8 @@ function classicWorldSkyAxis(entityText)
   return ft.Vec3(values[0], values[1], values[2])
 end function
 
-// Rotate classic world sky.
+/// Rotate classic world sky.
+/// @param entityText entityText value consumed by this operation.
 function classicWorldSkyRotate(entityText)
   text = classicWorldEntityValue(entityText, "skyrotate")
   if text == "" then return 0.0 end if
@@ -327,9 +384,11 @@ function classicWorldSkyRotate(entityText)
   return parsed
 end function
 
-// Decode the uncompressed and RLE true-colour TGA variants accepted by ref_gl.
-// The decoder remains MiniLang-owned so custom-server sky data is validated
-// before it enters the renderer resource graph.
+/// Decode the uncompressed and RLE true-colour TGA variants accepted by ref_gl.
+/// The decoder remains MiniLang-owned so custom-server sky data is validated
+/// before it enters the renderer resource graph.
+/// @param data Input data consumed by the operation.
+/// @param path Path of the file or directory used by the operation.
 function classicWorldDecodeTga(data, path)
   // Validate the fixed header, decode raw/RLE packets, then publish one
   // bottom-up RGBA image matching ref_gl's LoadTGA orientation.
@@ -380,7 +439,12 @@ function classicWorldDecodeTga(data, path)
   return ClassicTgaImage(width, height, rgba)
 end function
 
-// Return the classic world sky texture value.
+/// Return the classic world sky texture value.
+/// @param loadFile loadFile value consumed by this operation.
+/// @param skyName skyName value consumed by this operation.
+/// @param suffix suffix value consumed by this operation.
+/// @param generation generation value consumed by this operation.
+/// @param fallbackPalette fallbackPalette value consumed by this operation.
 function classicWorldSkyTexture(loadFile, skyName, suffix, generation, fallbackPalette)
   path = "env/" + skyName + suffix + ".pcx"
   data = loadFile(path)
@@ -400,7 +464,12 @@ function classicWorldSkyTexture(loadFile, skyName, suffix, generation, fallbackP
   return rclassictypes.ClassicTexture(0, "@sky/" + skyName + suffix, pcx.width, pcx.height, rgba, "sky", generation, false, false)
 end function
 
-// Configure sky.
+/// Configure sky.
+/// @param world world value consumed by this operation.
+/// @param loadFile loadFile value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param rotate rotate value consumed by this operation.
+/// @param axis axis value consumed by this operation.
 function configureSky(world, loadFile, name, rotate, axis)
   if name == "" or len(world.scene.skySurfaces) == 0 then return false end if
   suffixes = ["rt", "bk", "lf", "ft", "up", "dn"]
@@ -418,7 +487,11 @@ function configureSky(world, loadFile, name, rotate, axis)
   return true
 end function
 
-// Build model draws.
+/// Build model draws.
+/// @param scene scene value consumed by this operation.
+/// @param textures textures value consumed by this operation.
+/// @param generation generation value consumed by this operation.
+/// @param model model value consumed by this operation.
 function buildModelDraws(scene, textures, generation, model)
   firstFace = model.firstFace
   endFace = firstFace + model.numFaces
@@ -448,7 +521,9 @@ function buildModelDraws(scene, textures, generation, model)
   return [textures, draws]
 end function
 
-// Find brush model.
+/// Find brush model.
+/// @param world world value consumed by this operation.
+/// @param modelIndex Zero-based index of model.
 function findBrushModel(world, modelIndex)
   for each brushModel in world.brushModels
     if brushModel.modelIndex == modelIndex then return brushModel end if
@@ -456,7 +531,13 @@ function findBrushModel(world, modelIndex)
   return void
 end function
 
-// Build state.
+/// Build state.
+/// @param map map value consumed by this operation.
+/// @param loadFile loadFile value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param entityFrame entityFrame value consumed by this operation.
+/// @param modulate modulate value consumed by this operation.
+/// @param generation generation value consumed by this operation.
 function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
   palette = quakePalette(loadFile)
   images = loadImages(map, loadFile, palette)
@@ -494,7 +575,8 @@ function build(map, loadFile, lightStyles, entityFrame, modulate, generation)
     array(len(map.faces), void), bytes(len(map.faces)), array(len(draws)))
 end function
 
-// Return the triangle count.
+/// Return the triangle count.
+/// @param world world value consumed by this operation.
 function triangleCount(world)
   total = 0
   for each draw in world.draws
@@ -503,7 +585,8 @@ function triangleCount(world)
   return total
 end function
 
-// Return the plan signature value.
+/// Return the plan signature value.
+/// @param world world value consumed by this operation.
 function planSignature(world)
   // Compact deterministic replay signature used by tests and diagnostics.
   result = world.name + ":" + len(world.draws) + ":" + triangleCount(world)

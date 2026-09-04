@@ -1,3 +1,5 @@
+//! Provides miniquake2 game world triggers facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,7 +12,9 @@ import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.vector as gwvector
 
-// Initialize trigger.
+/// Initialize trigger.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function initTrigger(entity, world)
   zeroAngles = gwvector.scale(entity.angles, 0.0)
   if gwvector.equal(entity.angles, zeroAngles) == false then
@@ -23,13 +27,17 @@ function initTrigger(entity, world)
   return entity
 end function
 
-// Return the multi wait value.
+/// Return the multi wait value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function multiWait(entity, world)
   entity.nextThink = 0.0
   return true
 end function
 
-// Return the multi trigger value.
+/// Return the multi trigger value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function multiTrigger(entity, world)
   if entity.nextThink != 0.0 then return false end if
   gwcore.useTargets(world, entity, entity.activator)
@@ -47,13 +55,20 @@ function multiTrigger(entity, world)
   return true
 end function
 
-// Use multi.
+/// Use multi.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useMulti(entity, other, activator, world)
   entity.activator = activator
   return multiTrigger(entity, world)
 end function
 
-// Handle multi.
+/// Handle multi.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function touchMulti(entity, other, world)
   if other is void or other.inUse == false then return false end if
   if other.isClient then
@@ -73,7 +88,11 @@ function touchMulti(entity, other, world)
   return multiTrigger(entity, world)
 end function
 
-// Return the enable trigger value.
+/// Return the enable trigger value.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function enableTrigger(entity, other, activator, world)
   entity.solid = gwconstants.SOLID_TRIGGER
   entity.use = useMulti
@@ -81,7 +100,9 @@ function enableTrigger(entity, other, activator, world)
   return true
 end function
 
-// Spawn multiple.
+/// Spawn multiple.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnMultiple(entity, world)
   if entity.sounds == 1 then entity.noise = "misc/secret.wav"
   else if entity.sounds == 2 then entity.noise = "misc/talk.wav"
@@ -106,7 +127,9 @@ function spawnMultiple(entity, world)
   return entity
 end function
 
-// Spawn once.
+/// Spawn once.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnOnce(entity, world)
   // Compatibility with early maps where TRIGGERED incorrectly used bit 1.
   if (entity.spawnFlags & 1) != 0 then
@@ -117,27 +140,38 @@ function spawnOnce(entity, world)
   return spawnMultiple(entity, world)
 end function
 
-// Use relay.
+/// Use relay.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useRelay(entity, other, activator, world)
   return gwcore.useTargets(world, entity, activator)
 end function
 
-// Spawn relay.
+/// Spawn relay.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnRelay(entity, world)
   entity.use = useRelay
   return entity
 end function
 
-// Spawn always.
+/// Spawn always.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnAlways(entity, world)
   if entity.delay < 0.2 then entity.delay = 0.2 end if
   gwcore.useTargets(world, entity, entity)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// trigger_key. Inventory and cooperative power-cube policy remain outside the
-// world package through resolve/has/consume callbacks.
+/// trigger_key. Inventory and cooperative power-cube policy remain outside the
+/// world package through resolve/has/consume callbacks.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function useKey(entity, other, activator, world)
   if entity.item == "" then return false end if
@@ -166,7 +200,9 @@ function useKey(entity, other, activator, world)
   return true
 end function
 
-// Spawn key.
+/// Spawn key.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnKey(entity, world)
   if typeof(entity.item) != "string" or entity.item == "" then
     gwcore.log(world, "no key item for trigger_key")
@@ -189,7 +225,11 @@ function spawnKey(entity, world)
   return entity
 end function
 
-// Use counter.
+/// Use counter.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useCounter(entity, other, activator, world)
   if entity.count == 0 then return false end if
   entity.count = entity.count - 1
@@ -208,7 +248,9 @@ function useCounter(entity, other, activator, world)
   return multiTrigger(entity, world)
 end function
 
-// Spawn counter.
+/// Spawn counter.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnCounter(entity, world)
   entity.wait = -1.0
   if entity.count == 0 then entity.count = 2 end if
@@ -217,7 +259,10 @@ function spawnCounter(entity, world)
   return entity
 end function
 
-// Handle hurt.
+/// Handle hurt.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function hurtTouch(entity, other, world)
   if other is void or other.inUse == false or other.takeDamage == gwconstants.DAMAGE_NO then return false end if
   if world.time < entity.touchDebounceTime then return false end if
@@ -236,7 +281,11 @@ function hurtTouch(entity, other, world)
   return true
 end function
 
-// Use hurt.
+/// Use hurt.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function hurtUse(entity, other, activator, world)
   if entity.solid == gwconstants.SOLID_NOT then entity.solid = gwconstants.SOLID_TRIGGER else entity.solid = gwconstants.SOLID_NOT end if
   world.callbacks.linkEntity(entity)
@@ -244,7 +293,9 @@ function hurtUse(entity, other, activator, world)
   return true
 end function
 
-// Spawn hurt.
+/// Spawn hurt.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnHurt(entity, world)
   initTrigger(entity, world)
   entity.noise = "world/electro.wav"
@@ -256,7 +307,10 @@ function spawnHurt(entity, world)
   return entity
 end function
 
-// Handle push.
+/// Handle push.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function pushTouch(entity, other, world)
   if other is void or other.inUse == false then return false end if
   pushed = other.className == "grenade" or other.health > 0
@@ -274,7 +328,9 @@ function pushTouch(entity, other, world)
   return pushed
 end function
 
-// Spawn push.
+/// Spawn push.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnPush(entity, world)
   initTrigger(entity, world)
   entity.noise = "misc/windfly.wav"
@@ -284,14 +340,19 @@ function spawnPush(entity, world)
   return entity
 end function
 
-// Handle gravity.
+/// Handle gravity.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function gravityTouch(entity, other, world)
   if other is void or other.inUse == false then return false end if
   other.gravity = entity.gravity
   return true
 end function
 
-// Spawn gravity.
+/// Spawn gravity.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnGravity(entity, world)
   // The stock game tests whether the mapper supplied the spawn-temp key, not
   // the edict's physical gravity multiplier (which defaults to one).
@@ -305,7 +366,10 @@ function spawnGravity(entity, world)
   return entity
 end function
 
-// Handle monster jump.
+/// Handle monster jump.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function monsterJumpTouch(entity, other, world)
   if other is void then return false end if
   if (other.flags & (gwconstants.FL_FLY | gwconstants.FL_SWIM)) != 0 then return false end if
@@ -319,7 +383,9 @@ function monsterJumpTouch(entity, other, world)
   return true
 end function
 
-// Spawn monster jump.
+/// Spawn monster jump.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnMonsterJump(entity, world)
   if entity.speed == 0.0 then entity.speed = 200.0 end if
   if entity.height == 0.0 then entity.height = 200.0 end if
@@ -330,43 +396,63 @@ function spawnMonsterJump(entity, world)
   return entity
 end function
 
-// Spawn trigger multiple.
+/// Spawn trigger multiple.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_multiple(entity, world)
   return spawnMultiple(entity, world)
 end function
-// Spawn trigger once.
+/// Spawn trigger once.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_once(entity, world)
   return spawnOnce(entity, world)
 end function
-// Spawn trigger relay.
+/// Spawn trigger relay.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_relay(entity, world)
   return spawnRelay(entity, world)
 end function
-// Spawn trigger always.
+/// Spawn trigger always.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_always(entity, world)
   return spawnAlways(entity, world)
 end function
-// Spawn trigger counter.
+/// Spawn trigger counter.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_counter(entity, world)
   return spawnCounter(entity, world)
 end function
-// Spawn trigger hurt.
+/// Spawn trigger hurt.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_hurt(entity, world)
   return spawnHurt(entity, world)
 end function
-// Spawn trigger push.
+/// Spawn trigger push.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_push(entity, world)
   return spawnPush(entity, world)
 end function
-// Spawn trigger gravity.
+/// Spawn trigger gravity.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_gravity(entity, world)
   return spawnGravity(entity, world)
 end function
-// Spawn trigger monsterjump.
+/// Spawn trigger monsterjump.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_monsterjump(entity, world)
   return spawnMonsterJump(entity, world)
 end function
-// Spawn trigger key.
+/// Spawn trigger key.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_key(entity, world)
   return spawnKey(entity, world)
 end function

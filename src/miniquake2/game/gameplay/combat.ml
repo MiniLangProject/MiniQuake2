@@ -1,3 +1,5 @@
+//! Provides miniquake2 game gameplay combat facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,7 +15,9 @@ import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.byteio as qbyteio
 import std.math as gpmath
 
-// Validate vector.
+/// Validate vector.
+/// @param value Value consumed or transformed by the operation.
+/// @param name Name of the affected item.
 function validateVector(value, name)
   if typeof(value) != "array" or len(value) != 3 then return error(9400, name + " must be a three-component vector") end if
   index = 0
@@ -24,7 +28,8 @@ function validateVector(value, name)
   return true
 end function
 
-// Return the normalized value.
+/// Performs the normalized operation for the miniquake2 game gameplay combat module.
+/// @param value Value consumed or transformed by the operation.
 function normalized(value)
   validateVector(value, "damage direction")
   length = gpmath.sqrt(value[0] * value[0] + value[1] * value[1] + value[2] * value[2])
@@ -32,7 +37,10 @@ function normalized(value)
   return [value[0] / length, value[1] / length, value[2] / length]
 end function
 
-// Save armor.
+/// Save armor.
+/// @param target target value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param damageFlags damageFlags value consumed by this operation.
 function armorSave(target, damage, damageFlags)
   if damage <= 0 or target.armor <= 0 or (damageFlags & gpconstants.DAMAGE_NO_ARMOR) != 0 then return 0 end if
   protection = target.armorNormalProtection
@@ -43,7 +51,11 @@ function armorSave(target, damage, damageFlags)
   return saved
 end function
 
-// Apply knockback.
+/// Apply knockback.
+/// @param target target value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param knockback knockback value consumed by this operation.
+/// @param selfDamage selfDamage value consumed by this operation.
 function applyKnockback(target, direction, knockback, selfDamage)
   if knockback == 0 then return 0.0 end if
   if (target.flags & gpconstants.FL_NO_KNOCKBACK) != 0 then return 0.0 end if
@@ -58,7 +70,9 @@ function applyKnockback(target, direction, knockback, selfDamage)
   return scale
 end function
 
-// Return the t damage value.
+/// Return the t damage value.
+/// @param target target value consumed by this operation.
+/// @param request request value consumed by this operation.
 function T_Damage(target, request)
   if typeof(target) != "struct" or typeof(request) != "struct" then return error(9402, "T_Damage: target and request required") end if
   validateVector(request.point, "damage point")
@@ -105,7 +119,9 @@ function T_Damage(target, request)
   return gptypes.DamageResult(true, take, saved, protectedDamage, knockbackApplied, target.dead, meansOfDeath)
 end function
 
-// Return the distance value.
+/// Return the distance value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function distance(first, second)
   x = first[0] - second[0]
   y = first[1] - second[1]
@@ -113,8 +129,16 @@ function distance(first, second)
   return gpmath.sqrt(x * x + y * y + z * z)
 end function
 
-// Visibility/CanDamage is intentionally supplied as a callback so this layer
-// stays independent of a concrete collision world while retaining game logic.
+/// Visibility/CanDamage is intentionally supplied as a callback so this layer
+/// stays independent of a concrete collision world while retaining game logic.
+/// @param targets targets value consumed by this operation.
+/// @param inflictorOrigin inflictorOrigin value consumed by this operation.
+/// @param attackerNumber attackerNumber value consumed by this operation.
+/// @param baseDamage baseDamage value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param ignoreNumber ignoreNumber value consumed by this operation.
+/// @param canDamageCallback canDamageCallback value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function T_RadiusDamage(targets, inflictorOrigin, attackerNumber, baseDamage, radius, ignoreNumber, canDamageCallback, meansOfDeath)
   validateVector(inflictorOrigin, "inflictor origin")
   if typeof(canDamageCallback) != "function" then return error(9405, "T_RadiusDamage: CanDamage callback required") end if

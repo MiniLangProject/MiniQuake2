@@ -1,3 +1,5 @@
+//! Provides miniquake2 client effects entity facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,12 +15,17 @@ import miniquake2.client.effects.constants as constants
 import miniquake2.client.effects.types as types
 import miniquake2.client.effects.state as statefx
 
-// Return the array origin.
+/// Return the array origin.
+/// @param value Value consumed or transformed by the operation.
 function inline arrayOrigin(value)
   return qt.Vec3(value[0], value[1], value[2])
 end function
 
-// Return the interpolated origin.
+/// Return the interpolated origin.
+/// @param previous previous value consumed by this operation.
+/// @param current current value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param reset reset value consumed by this operation.
 function inline interpolatedOrigin(previous, current, fraction, reset)
   first = void
   if previous is not void and not reset then first = previous.origin
@@ -30,7 +37,9 @@ function inline interpolatedOrigin(previous, current, fraction, reset)
     first[2] + fraction * (current.origin[2] - first[2]))
 end function
 
-// Reset requires.
+/// Reset requires.
+/// @param previous previous value consumed by this operation.
+/// @param current current value consumed by this operation.
 function inline requiresReset(previous, current)
   if previous is void then return true end if
   if previous.modelIndex != current.modelIndex or
@@ -46,7 +55,14 @@ function inline requiresReset(previous, current)
     current.event == constants.EV_OTHER_TELEPORT
 end function
 
-// Append light.
+/// Append light.
+/// @param output Output collection or buffer populated by the operation.
+/// @param count Number of items or units to process.
+/// @param origin origin value consumed by this operation.
+/// @param intensity intensity value consumed by this operation.
+/// @param red red value consumed by this operation.
+/// @param green green value consumed by this operation.
+/// @param blue blue value consumed by this operation.
 function appendLight(output, count, origin, intensity, red, green, blue)
   if count >= len(output) then return count end if
   light = output[count]
@@ -61,7 +77,9 @@ function appendLight(output, count, origin, intensity, red, green, blue)
   return count + 1
 end function
 
-// Return the compact lights value.
+/// Return the compact lights value.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function compactLights(values, count)
   if count == 0 then return [] end if
   if count == len(values) then return values end if
@@ -74,7 +92,12 @@ function compactLights(values, count)
   return output
 end function
 
-// Emit local light.
+/// Emit local light.
+/// @param lights lights value consumed by this operation.
+/// @param lightCount Number of light to process.
+/// @param effects effects value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param now now value consumed by this operation.
 function emitLocalLight(lights, lightCount, effects, origin, now)
   if (effects & constants.EF_FLAG1) != 0 then
     return appendLight(lights, lightCount, origin, 225.0, 1.0, 0.1, 0.1)
@@ -91,7 +114,12 @@ function emitLocalLight(lights, lightCount, effects, origin, now)
   return lightCount
 end function
 
-// Emit spinning light.
+/// Emit spinning light.
+/// @param lights lights value consumed by this operation.
+/// @param lightCount Number of light to process.
+/// @param entity entity value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param now now value consumed by this operation.
 function emitSpinningLight(lights, lightCount, entity, origin, now)
   if (entity.effects & constants.EF_SPINNINGLIGHTS) == 0 then return lightCount end if
   yaw = now / 2.0 + entity.angles[1]
@@ -102,7 +130,15 @@ function emitSpinningLight(lights, lightCount, entity, origin, now)
   return appendLight(lights, lightCount, lightOrigin, 100.0, 1.0, 0.0, 0.0)
 end function
 
-// Emit automatic.
+/// Emit automatic.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param trail trail value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param startPosition startPosition value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param lights lights value consumed by this operation.
+/// @param lightCount Number of light to process.
 function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
     lights, lightCount)
   // Keep emit automatic phases explicit: validate inputs, update owned state, then publish the result.
@@ -198,7 +234,14 @@ function emitAutomatic(state, trail, entity, startPosition, endPosition, now,
   return lightCount
 end function
 
-// Emit state.
+/// Performs the emit operation for the miniquake2 client effects entity module.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param currentSnapshot currentSnapshot value consumed by this operation.
+/// @param previousSnapshot previousSnapshot value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param refDef refDef value consumed by this operation.
 function emit(state, currentSnapshot, previousSnapshot, fraction, now,
     localEntityNumber, refDef)
   // Keep emit phases explicit: validate inputs, update owned state, then publish the result.

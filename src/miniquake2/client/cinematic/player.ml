@@ -1,3 +1,5 @@
+//! Provides miniquake2 client cinematic player facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,7 +11,9 @@ import miniquake2.format.cinematic as cinformat
 import miniquake2.client.cinematic.audio as cinaudio
 import miniquake2.client.cinematic.types as cintypes
 
-// Return the audio chunk value.
+/// Return the audio chunk value.
+/// @param header header value consumed by this operation.
+/// @param data Input data consumed by the operation.
 function audioChunk(header, data)
   frameBytes = header.sampleWidth * header.sampleChannels
   if frameBytes <= 0 or len(data) % frameBytes != 0 then return error(8340, "cinematic audio is not whole sample frames") end if
@@ -17,7 +21,9 @@ function audioChunk(header, data)
     header.sampleChannels, len(data) / frameBytes, bytes(data))
 end function
 
-// Emit audio.
+/// Emit audio.
+/// @param playback playback value consumed by this operation.
+/// @param data Input data consumed by the operation.
 function emitAudio(playback, data)
   if len(data) == 0 then return 0 end if
   chunk = audioChunk(playback.header, data)
@@ -25,7 +31,9 @@ function emitAudio(playback, data)
   return chunk.sampleCount
 end function
 
-// Read next.
+/// Read next.
+/// @param playback playback value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
 function readNext(playback, frameNumber)
   decoded = try(cinformat.readFrame(playback.data, playback.offset, frameNumber,
     playback.header, playback.tables))
@@ -45,7 +53,11 @@ function readNext(playback, frameNumber)
   return true
 end function
 
-// Start state.
+/// Starts start for the miniquake2 client cinematic player workflow.
+/// @param data Input data consumed by the operation.
+/// @param now now value consumed by this operation.
+/// @param looping looping value consumed by this operation.
+/// @param audioCallbacks audioCallbacks value consumed by this operation.
 function start(data, now, looping, audioCallbacks)
   if typeof(data) != "bytes" then return error(8343, "cinematic source must be bytes") end if
   if typeof(now) != "int" then return error(8344, "cinematic start time must be integer milliseconds") end if
@@ -61,7 +73,9 @@ function start(data, now, looping, audioCallbacks)
   return playback
 end function
 
-// Pause state.
+/// Pause state.
+/// @param playback playback value consumed by this operation.
+/// @param now now value consumed by this operation.
 function pause(playback, now)
   if typeof(now) != "int" then return error(8347, "cinematic pause time must be integer milliseconds") end if
   if playback.status != "playing" then return false end if
@@ -71,7 +85,9 @@ function pause(playback, now)
   return true
 end function
 
-// Resume state.
+/// Resume state.
+/// @param playback playback value consumed by this operation.
+/// @param now now value consumed by this operation.
 function resume(playback, now)
   if typeof(now) != "int" then return error(8348, "cinematic resume time must be integer milliseconds") end if
   if playback.status != "paused" then return false end if
@@ -83,7 +99,8 @@ function resume(playback, now)
   return true
 end function
 
-// Stop state.
+/// Stops stop for the miniquake2 client cinematic player workflow.
+/// @param playback playback value consumed by this operation.
 function stop(playback)
   if playback.status == "stopped" then return false end if
   playback.status = "stopped"
@@ -91,7 +108,9 @@ function stop(playback)
   return true
 end function
 
-// Restart loop.
+/// Restart loop.
+/// @param playback playback value consumed by this operation.
+/// @param now now value consumed by this operation.
 function restartLoop(playback, now)
   playback.completions = playback.completions + 1
   playback.offset = playback.header.frameDataOffset
@@ -103,7 +122,9 @@ function restartLoop(playback, now)
   return true
 end function
 
-// Update state.
+/// Update state.
+/// @param playback playback value consumed by this operation.
+/// @param now now value consumed by this operation.
 function update(playback, now)
   if typeof(now) != "int" then return error(8351, "cinematic update time must be integer milliseconds") end if
   if playback.status != "playing" then return false end if
@@ -131,7 +152,11 @@ function update(playback, now)
   return true
 end function
 
-// Draw state.
+/// Draws draw through the miniquake2 client cinematic player rendering path.
+/// @param playback playback value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function draw(playback, screenWidth, screenHeight, exports)
   if screenWidth <= 0 or screenHeight <= 0 then return error(8353, "cinematic draw dimensions must be positive") end if
   if playback.status == "stopped" or playback.status == "completed" then
@@ -149,7 +174,8 @@ function draw(playback, screenWidth, screenHeight, exports)
   return true
 end function
 
-// Report whether is finished.
+/// Report whether is finished.
+/// @param playback playback value consumed by this operation.
 function isFinished(playback)
   return playback.status == "completed" or playback.status == "stopped"
 end function

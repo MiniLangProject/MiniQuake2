@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime soak facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,24 +17,38 @@ import miniquake2.qcommon.types as soakqt
 import miniquake2.runtime.media_sequence as soakmedia
 import miniquake2.runtime.play_session as soakplay
 
-// Store session soak result data.
+/// Store session soak result data.
 struct SessionSoakResult
+  /// Stores the frames value associated with session soak result.
   frames
+  /// Stores the elapsed milliseconds value associated with session soak result.
   elapsedMilliseconds
+  /// Stores the frames per second value associated with session soak result.
   framesPerSecond
+  /// Stores the client state value associated with session soak result.
   clientState
+  /// Stores the server frame value associated with session soak result.
   serverFrame
+  /// Stores the spawn count value associated with session soak result.
   spawnCount
+  /// Stores the packets received value associated with session soak result.
   packetsReceived
+  /// Stores the packets sent value associated with session soak result.
   packetsSent
+  /// Stores the packets rejected value associated with session soak result.
   packetsRejected
+  /// Stores the handle delta value associated with session soak result.
   handleDelta
+  /// Stores the queued map commands value associated with session soak result.
   queuedMapCommands
+  /// Stores the queued load menus value associated with session soak result.
   queuedLoadMenus
+  /// Stores the command buffer bytes value associated with session soak result.
   commandBufferBytes
 end struct
 
-// Return the command for frame value.
+/// Return the command for frame value.
+/// @param frame frame value consumed by this operation.
 function commandForFrame(frame)
   forwardMove = 200
   sideMove = 0
@@ -46,7 +62,10 @@ function commandForFrame(frame)
     forwardMove, sideMove, 0, 0, 0)
 end function
 
-// Run owned.
+/// Run owned.
+/// @param session session value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param handlesBefore handlesBefore value consumed by this operation.
 function runOwned(session, frameLimit, handlesBefore)
   if typeof(frameLimit) != "int" or frameLimit < 1 or frameLimit > 1000000 then
     return error(9930, "session soak frame count outside [1,1000000]")
@@ -118,7 +137,11 @@ function runOwned(session, frameLimit, handlesBefore)
     commandBufferBytes)
 end function
 
-// Run core.
+/// Run core.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runCore(mapName, entityText, collision, frameLimit)
   handlesBefore = soaksystem.handleCount()
   session = soakplay.createCore(mapName, entityText, collision,
@@ -126,7 +149,10 @@ function runCore(mapName, entityText, collision, frameLimit)
   return runOwned(session, frameLimit, handlesBefore)
 end function
 
-// Run retail.
+/// Run retail.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runRetail(baseDirectory, mapName, frameLimit)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9934, "retail session soak requires an install root")

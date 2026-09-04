@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime checksum facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,7 +10,7 @@ package miniquake2.network.runtime.checksum
 import miniquake2.qcommon.byteio as qbio
 import miniquake2.qcommon.crc as qcrc
 
-// Return the table value.
+/// Return the table value.
 function table()
   initialized = [
     0x84, 0x47, 0x51, 0xc1, 0x93, 0x22, 0x21, 0x24, 0x2f, 0x66, 0x60, 0x4d, 0xb0, 0x7c, 0xda, 0x88,
@@ -81,7 +83,11 @@ function table()
   return values
 end function
 
-// Return the block sequence value.
+/// Return the block sequence value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
+/// @param sequence sequence value consumed by this operation.
 function blockSequence(data, offset, count, sequence)
   qbio.requireRange(data, offset, count)
   if typeof(sequence) != "int" or sequence < 0 then return error(7240, "command sequence must be non-negative") end if

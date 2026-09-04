@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai reaction sequences facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,84 +9,124 @@ package miniquake2.game.ai.reaction_sequences
 
 import miniquake2.game.constants as gaireactionconstants
 
-// Store monster reaction plan data.
+/// Store monster reaction plan data.
 struct MonsterReactionPlan
+  /// Stores the class name value associated with monster reaction plan.
   className
+  /// Stores the name value associated with monster reaction plan.
   name
+  /// Stores the reaction kind value associated with monster reaction plan.
   reactionKind
+  /// Stores the first frame value associated with monster reaction plan.
   firstFrame
+  /// Stores the last frame value associated with monster reaction plan.
   lastFrame
+  /// Stores the sound name value associated with monster reaction plan.
   soundName
+  /// Stores the attenuation value associated with monster reaction plan.
   attenuation
+  /// Stores the terminal kind value associated with monster reaction plan.
   terminalKind
 end struct
 
-// Non-zero mframe_t movement columns from the stock 3.19 pain/death tables.
-// Zero-only tables fall through to 0.0 in movementDistanceAt. Keeping these
-// arrays package-rooted avoids rebuilding or concatenating them per AI frame.
+/// Non-zero mframe_t movement columns from the stock 3.19 pain/death tables.
 gaiReactionMoveGunnerPain1 = [2.0, 0.0, -5.0, 3.0, -1.0, 0.0, 0.0, 0.0,
   0.0, 1.0, 1.0, 2.0, 1.0, 0.0, -2.0, -2.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move gunner pain2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveGunnerPain2 = [-2.0, 11.0, 6.0, 2.0, -1.0, -7.0, -2.0, -7.0]
+/// Stores module-wide gai reaction move gunner pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveGunnerPain3 = [-3.0, 1.0, 1.0, 0.0, 1.0]
+/// Stores module-wide gai reaction move infantry pain1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveInfantryPain1 = [-3.0, -2.0, -1.0, -2.0, -1.0, 1.0, -1.0, 1.0, 6.0, 2.0]
+/// Stores module-wide gai reaction move infantry pain2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveInfantryPain2 = [-3.0, -3.0, 0.0, -1.0, -2.0, 0.0, 0.0, 2.0, 5.0, 2.0]
+/// Stores module-wide gai reaction move soldier pain1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierPain1 = [-3.0, 4.0, 1.0, 1.0, 0.0]
+/// Stores module-wide gai reaction move soldier pain2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierPain2 = [-13.0, -1.0, 2.0, 4.0, 2.0, 3.0, 2.0]
+/// Stores module-wide gai reaction move soldier pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierPain3 = [-8.0, 10.0, -4.0, -1.0, -3.0, 0.0, 3.0, 0.0,
   0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 2.0, 4.0, 3.0, 2.0]
+/// Stores module-wide gai reaction move soldier pain4 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierPain4 = [0.0, 0.0, 0.0, -10.0, -6.0, 8.0, 4.0, 1.0,
   0.0, 2.0, 5.0, 2.0, -1.0, -1.0, 3.0, 2.0, 0.0]
+/// Stores module-wide gai reaction move tank pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveTankPain3 = [-7.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 3.0,
   0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move chick pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveChickPain3 = [0.0, 0.0, -6.0, 3.0, 11.0, 3.0, 0.0, 0.0,
   4.0, 1.0, 0.0, -3.0, -4.0, 5.0, 7.0, -2.0, 3.0, -5.0, -2.0, -8.0, 2.0]
+/// Stores module-wide gai reaction move parasite pain state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveParasitePain = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.0, 16.0, -6.0, -7.0, 0.0]
+/// Stores module-wide gai reaction move brain pain1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveBrainPain1 = [-6.0, -2.0, -6.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 2.0, 1.0, 7.0, 0.0, 3.0, -1.0]
+/// Stores module-wide gai reaction move brain pain2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveBrainPain2 = [-2.0, 0.0, 0.0, 0.0, 0.0, 3.0, 1.0, -2.0]
+/// Stores module-wide gai reaction move brain pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveBrainPain3 = [-2.0, 2.0, 1.0, 3.0, 0.0, -4.0]
+/// Stores module-wide gai reaction move hover pain1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveHoverPain1 = [0.0, 0.0, 2.0, -8.0, -4.0, -6.0, -4.0, -3.0,
   1.0, 0.0, 0.0, 0.0, 3.0, 1.0, 0.0, 2.0, 3.0, 2.0, 7.0, 1.0,
   0.0, 0.0, 2.0, 0.0, 0.0, 5.0, 3.0, 4.0]
+/// Stores module-wide gai reaction move mutant pain1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveMutantPain1 = [4.0, -3.0, -8.0, 2.0, 5.0]
+/// Stores module-wide gai reaction move mutant pain2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveMutantPain2 = [-24.0, 11.0, 5.0, -2.0, 6.0, 4.0]
+/// Stores module-wide gai reaction move mutant pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveMutantPain3 = [-22.0, 3.0, 3.0, 2.0, 1.0, 1.0, 6.0, 3.0, 2.0, 0.0, 1.0]
+/// Stores module-wide gai reaction move jorg pain3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveJorgPain3 = [-28.0, -6.0, -3.0, -9.0, 0.0, 0.0, 0.0, 0.0,
   -7.0, 1.0, -11.0, -4.0, 0.0, 0.0, 10.0, 11.0, 0.0, 10.0, 3.0, 10.0,
   7.0, 17.0, 0.0, 0.0, 0.0]
 
+/// Stores module-wide gai reaction move gunner death state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveGunnerDeath = [0.0, 0.0, 0.0, -7.0, -3.0, -5.0, 8.0, 6.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move infantry death1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveInfantryDeath1 = [-4.0, 0.0, 0.0, -1.0, -4.0, 0.0, 0.0, 0.0,
   -1.0, 3.0, 1.0, 1.0, -2.0, 2.0, 2.0, 9.0, 9.0, 5.0, -3.0, -3.0]
+/// Stores module-wide gai reaction move infantry death2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveInfantryDeath2 = [0.0, 1.0, 5.0, -1.0, 0.0, 1.0, 1.0, 4.0,
   3.0, 0.0, -2.0, -2.0, -3.0, -1.0, -2.0, 0.0, 2.0, 2.0, 3.0, -10.0,
   -7.0, -8.0, -6.0, 4.0, 0.0]
+/// Stores module-wide gai reaction move infantry death3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveInfantryDeath3 = [0.0, 0.0, 0.0, -6.0, -11.0, -3.0, -11.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move soldier death1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierDeath1 = [0.0, -10.0, -10.0, -10.0, -5.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move soldier death2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierDeath2 = [-5.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move soldier death3 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierDeath3 = [-5.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move soldier death5 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveSoldierDeath5 = [-5.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move tank death state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveTankDeath = [-7.0, -2.0, -2.0, 1.0, 3.0, 6.0, 1.0, 1.0,
   2.0, 0.0, 0.0, 0.0, -2.0, 0.0, 0.0, -3.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, -4.0, -6.0, -4.0, -5.0, -7.0, -15.0, -5.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move chick death1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveChickDeath1 = [0.0, 0.0, -7.0, 4.0, 11.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move chick death2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveChickDeath2 = [-6.0, 0.0, -1.0, -5.0, 0.0, -1.0, -2.0, 1.0,
   10.0, 2.0, 3.0, 1.0, 2.0, 0.0, 3.0, 3.0, 1.0, -3.0, -5.0, 4.0, 15.0, 14.0, 1.0]
+/// Stores module-wide gai reaction move brain death1 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveBrainDeath1 = [0.0, 0.0, -2.0, 9.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+/// Stores module-wide gai reaction move brain death2 state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveBrainDeath2 = [0.0, 0.0, 0.0, 9.0, 0.0]
+/// Stores module-wide gai reaction move hover death state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveHoverDeath = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -10.0, 3.0, 5.0, 4.0, 7.0]
+/// Stores module-wide gai reaction move makron death state for the miniquake2 game ai reaction sequences module.
 gaiReactionMoveMakronDeath = [-15.0, 3.0, -12.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 11.0, 12.0, 11.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -95,14 +137,26 @@ gaiReactionMoveMakronDeath = [-15.0, 3.0, -12.0, 0.0, 0.0, 0.0, 0.0, 0.0,
   0.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0, 0.0, 2.0, 0.0, 27.0, 26.0,
   0.0, 0.0, 0.0]
 
-// Return the reaction plan value.
+/// Return the reaction plan value.
+/// @param className className value consumed by this operation.
+/// @param suffix suffix value consumed by this operation.
+/// @param reactionKind reactionKind value consumed by this operation.
+/// @param firstFrame firstFrame value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param terminalKind terminalKind value consumed by this operation.
 function reactionPlan(className, suffix, reactionKind, firstFrame, lastFrame,
     soundName, attenuation, terminalKind)
   return MonsterReactionPlan(className, className + "-" + suffix,
     reactionKind, firstFrame, lastFrame, soundName, attenuation, terminalKind)
 end function
 
-// Return the deterministic value.
+/// Return the deterministic value.
+/// @param actorNumber actorNumber value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param salt salt value consumed by this operation.
+/// @param modulus modulus value consumed by this operation.
 function deterministicValue(actorNumber, count, salt, modulus)
   if modulus <= 0 then return 0 end if
   value = actorNumber * 97 + count * 53 + salt * 31 + 17
@@ -110,21 +164,24 @@ function deterministicValue(actorNumber, count, salt, modulus)
   return value % modulus
 end function
 
-// Handle soldier sound.
+/// Handle soldier sound.
+/// @param className className value consumed by this operation.
 function soldierPainSound(className)
   if className == "monster_soldier_light" then return "soldier/solpain2.wav" end if
   if className == "monster_soldier_ss" then return "soldier/solpain3.wav" end if
   return "soldier/solpain1.wav"
 end function
 
-// Return the soldier death sound value.
+/// Return the soldier death sound value.
+/// @param className className value consumed by this operation.
 function soldierDeathSound(className)
   if className == "monster_soldier_light" then return "soldier/soldeth2.wav" end if
   if className == "monster_soldier_ss" then return "soldier/soldeth3.wav" end if
   return "soldier/soldeth1.wav"
 end function
 
-// Handle variant count.
+/// Handle variant count.
+/// @param className className value consumed by this operation.
 function painVariantCount(className)
   if className == "monster_berserk" then return 2 end if
   if className == "monster_gladiator" then return 2 end if
@@ -148,8 +205,10 @@ function painVariantCount(className)
   return 0
 end function
 
-// Select the stock class-specific pain sequence from a zero-based variant.
-// Random selection stays with the caller, keeping this lookup deterministic.
+/// Select the stock class-specific pain sequence from a zero-based variant.
+/// Random selection stays with the caller, keeping this lookup deterministic.
+/// @param className className value consumed by this operation.
+/// @param variant variant value consumed by this operation.
 function painVariant(className, variant)
   // Keep pain variant phases explicit: validate inputs, update owned state, then publish the result.
   if className == "monster_berserk" then
@@ -257,7 +316,12 @@ function painVariant(className, variant)
   return void
 end function
 
-// Select pain plan.
+/// Select pain plan.
+/// @param className className value consumed by this operation.
+/// @param actorNumber actorNumber value consumed by this operation.
+/// @param painCount Number of pain to process.
+/// @param damage damage value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function selectPainPlan(className, actorNumber, painCount, damage, skill)
   // Keep select pain plan phases explicit: validate inputs, update owned state, then publish the result.
   if skill == 3 then return void end if
@@ -305,7 +369,8 @@ function selectPainPlan(className, actorNumber, painCount, damage, skill)
   return painVariant(className, deterministicValue(actorNumber, painCount, 149, variantCount))
 end function
 
-// Return the death variant count.
+/// Return the death variant count.
+/// @param className className value consumed by this operation.
 function deathVariantCount(className)
   if painVariantCount(className) == 0 then return 0 end if
   if className == "monster_berserk" then return 2 end if
@@ -317,7 +382,9 @@ function deathVariantCount(className)
   return 1
 end function
 
-// Return the death variant value.
+/// Return the death variant value.
+/// @param className className value consumed by this operation.
+/// @param variant variant value consumed by this operation.
 function deathVariant(className, variant)
   // Keep death variant phases explicit: validate inputs, update owned state, then publish the result.
   if className == "monster_berserk" then
@@ -370,7 +437,11 @@ function deathVariant(className, variant)
   return void
 end function
 
-// Select death plan.
+/// Select death plan.
+/// @param className className value consumed by this operation.
+/// @param actorNumber actorNumber value consumed by this operation.
+/// @param dieCount Number of die to process.
+/// @param gibbed gibbed value consumed by this operation.
 function selectDeathPlan(className, actorNumber, dieCount, gibbed)
   gaiReactionDeathVariantTotal = deathVariantCount(className)
   if gaiReactionDeathVariantTotal == 0 then return void end if
@@ -385,7 +456,8 @@ function selectDeathPlan(className, actorNumber, dieCount, gibbed)
     gaiReactionDeathVariantTotal))
 end function
 
-// Return the stock dodge plan value.
+/// Return the stock dodge plan value.
+/// @param className className value consumed by this operation.
 function stockDodgePlan(className)
   if className == "monster_gunner" then return reactionPlan(className, "duck", "dodge", 201, 208, "", 1, "run") end if
   if className == "monster_chick" then return reactionPlan(className, "duck", "dodge", 83, 89, "", 1, "run") end if
@@ -398,7 +470,9 @@ function stockDodgePlan(className)
   return void
 end function
 
-// Return the plan by name.
+/// Return the plan by name.
+/// @param className className value consumed by this operation.
+/// @param name Name of the affected item.
 function planByName(className, name)
   if name == className + "-gib" then
     return reactionPlan(className, "gib", "death", 0, 0, "misc/udeath.wav", 1, "gib")
@@ -420,12 +494,15 @@ function planByName(className, name)
   return void
 end function
 
-// Return the duration frames value.
+/// Return the duration frames value.
+/// @param plan plan value consumed by this operation.
 function durationFrames(plan)
   return plan.lastFrame - plan.firstFrame + 1
 end function
 
-// Return the movement distance for the requested position.
+/// Return the movement distance for the requested position.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function inline movementDistanceAt(plan, timelineOffset)
   // Keep movement distance at phases explicit: validate inputs, update owned state, then publish the result.
   offset = timelineOffset
@@ -496,15 +573,20 @@ function inline movementDistanceAt(plan, timelineOffset)
   return 0.0
 end function
 
-// Frame callbacks retained by the stock pain/death mframe_t tables.  Keep the
-// routing scalar and literal-only: these functions run inside MonsterThink and
-// must not concatenate strings or allocate callback tables per frame.
+/// Frame callbacks retained by the stock pain/death mframe_t tables.  Keep the
+/// routing scalar and literal-only: these functions run inside MonsterThink and
+/// must not concatenate strings or allocate callback tables per frame.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function inline frameSoundUsesRandom(plan, timelineOffset)
   return plan.className == "monster_makron" and plan.firstFrame == 387 and
     timelineOffset == 23
 end function
 
-// Return the frame sound name for the requested position.
+/// Return the frame sound name for the requested position.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
+/// @param randomRoll randomRoll value consumed by this operation.
 function inline frameSoundNameAt(plan, timelineOffset, randomRoll)
   className = plan.className
   firstFrame = plan.firstFrame
@@ -537,7 +619,9 @@ function inline frameSoundNameAt(plan, timelineOffset, randomRoll)
   return ""
 end function
 
-// Return the frame sound channel for the requested position.
+/// Return the frame sound channel for the requested position.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function inline frameSoundChannelAt(plan, timelineOffset)
   if plan.className == "monster_makron" then
     if plan.firstFrame == 387 and timelineOffset == 23 then
@@ -553,7 +637,9 @@ function inline frameSoundChannelAt(plan, timelineOffset)
   return gaireactionconstants.CHAN_BODY
 end function
 
-// Return the frame sound attenuation for the requested position.
+/// Return the frame sound attenuation for the requested position.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function inline frameSoundAttenuationAt(plan, timelineOffset)
   if plan.className == "monster_makron" then
     if plan.firstFrame == 387 and (timelineOffset == 15 or timelineOffset == 23) then
@@ -566,7 +652,9 @@ function inline frameSoundAttenuationAt(plan, timelineOffset)
   return gaireactionconstants.ATTN_NORM
 end function
 
-// Return the external frame event for the requested position.
+/// Return the external frame event for the requested position.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function inline externalFrameEventAt(plan, timelineOffset)
   if plan.className == "monster_infantry" and plan.firstFrame == 145 and
       timelineOffset >= 10 and timelineOffset <= 21 then
@@ -580,7 +668,9 @@ function inline externalFrameEventAt(plan, timelineOffset)
   return ""
 end function
 
-// Return the starts boss explosion for the requested position.
+/// Return the starts boss explosion for the requested position.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function inline startsBossExplosionAt(plan, timelineOffset)
   if plan.className == "monster_supertank" and plan.firstFrame == 98 then
     return timelineOffset == 23
@@ -594,7 +684,9 @@ function inline startsBossExplosionAt(plan, timelineOffset)
   return false
 end function
 
-// Return the model frame for the requested position.
+/// Performs the modelFrameAt operation for the miniquake2 game ai reaction sequences module.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function modelFrameAt(plan, timelineOffset)
   if timelineOffset < 0 then timelineOffset = 0 end if
   duration = durationFrames(plan)
@@ -602,7 +694,8 @@ function modelFrameAt(plan, timelineOffset)
   return plan.firstFrame + timelineOffset
 end function
 
-// Validate plan.
+/// Validates plan for the miniquake2 game ai reaction sequences workflow.
+/// @param plan plan value consumed by this operation.
 function validatePlan(plan)
   if plan is void or plan.className == "" or plan.name == "" or
       (plan.reactionKind != "pain" and plan.reactionKind != "death" and plan.reactionKind != "dodge") or

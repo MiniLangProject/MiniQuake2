@@ -1,3 +1,5 @@
+//! Provides miniquake2 game weapons vector facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,8 +10,10 @@ package miniquake2.game.weapons.vector
 import std.math as smath
 import miniquake2.qcommon.types as qt
 
-// Validate the dynamic MiniLang value once and copy every component into a
-// scalar array before callers allocate a result or enter another helper.
+/// Validate the dynamic MiniLang value once and copy every component into a
+/// scalar array before callers allocate a result or enter another helper.
+/// @param value Value consumed or transformed by the operation.
+/// @param operation operation value consumed by this operation.
 function weaponVectorComponents(value, operation)
   if typeof(value) != "struct" then
     return error(9480, operation + ": Vec3-shaped value required")
@@ -28,7 +32,8 @@ function weaponVectorComponents(value, operation)
   return components
 end function
 
-// Copy state.
+/// Performs the copy operation for the miniquake2 game weapons vector module.
+/// @param value Value consumed or transformed by the operation.
 function copy(value)
   components = weaponVectorComponents(value, "weapon vector copy")
   x = components[0]; y = components[1]; z = components[2]
@@ -36,7 +41,9 @@ function copy(value)
   return result
 end function
 
-// Add state.
+/// Adds add to the state managed by the miniquake2 game weapons vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function add(first, second)
   firstComponents = weaponVectorComponents(first, "weapon vector add first operand")
   firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
@@ -46,7 +53,9 @@ function add(first, second)
   return result
 end function
 
-// Subtract state.
+/// Performs the subtract operation for the miniquake2 game weapons vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function subtract(first, second)
   firstComponents = weaponVectorComponents(first, "weapon vector subtract first operand")
   firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
@@ -56,7 +65,9 @@ function subtract(first, second)
   return result
 end function
 
-// Scale state.
+/// Performs the scale operation for the miniquake2 game weapons vector module.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
 function scale(value, amount)
   components = weaponVectorComponents(value, "weapon vector scale")
   x = components[0]; y = components[1]; z = components[2]
@@ -64,7 +75,10 @@ function scale(value, amount)
   return result
 end function
 
-// Add multiply.
+/// Performs the multiplyAdd operation for the miniquake2 game weapons vector module.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function multiplyAdd(value, amount, direction)
   valueComponents = weaponVectorComponents(value, "weapon vector multiplyAdd value")
   valueX = valueComponents[0]; valueY = valueComponents[1]; valueZ = valueComponents[2]
@@ -78,7 +92,9 @@ function multiplyAdd(value, amount, direction)
   return result
 end function
 
-// Compute state.
+/// Performs the dot operation for the miniquake2 game weapons vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function dot(first, second)
   firstComponents = weaponVectorComponents(first, "weapon vector dot first operand")
   firstX = firstComponents[0]; firstY = firstComponents[1]; firstZ = firstComponents[2]
@@ -87,7 +103,8 @@ function dot(first, second)
   return firstX * secondX + firstY * secondY + firstZ * secondZ
 end function
 
-// Return the length.
+/// Performs the length operation for the miniquake2 game weapons vector module.
+/// @param value Value consumed or transformed by the operation.
 function length(value)
   components = weaponVectorComponents(value, "weapon vector length")
   x = components[0]; y = components[1]; z = components[2]
@@ -95,7 +112,8 @@ function length(value)
   return smath.sqrt(squared)
 end function
 
-// Return the normalized value.
+/// Performs the normalized operation for the miniquake2 game weapons vector module.
+/// @param value Value consumed or transformed by the operation.
 function normalized(value)
   components = weaponVectorComponents(value, "weapon vector normalized")
   x = components[0]; y = components[1]; z = components[2]
@@ -112,7 +130,8 @@ function normalized(value)
   return result
 end function
 
-// Return the midpoint value.
+/// Return the midpoint value.
+/// @param target target value consumed by this operation.
 function midpoint(target)
   if typeof(target) != "struct" then return error(9481, "weapon midpoint: target record required") end if
   origin = try(target.origin)
@@ -135,7 +154,8 @@ function midpoint(target)
   return result
 end function
 
-// Return the to array value.
+/// Return the to array value.
+/// @param value Value consumed or transformed by the operation.
 function toArray(value)
   components = weaponVectorComponents(value, "weapon vector toArray")
   x = components[0]; y = components[1]; z = components[2]
@@ -144,7 +164,8 @@ function toArray(value)
   return result
 end function
 
-// Return the vector to angles.
+/// Return the vector to angles.
+/// @param direction direction value consumed by this operation.
 function vectorToAngles(direction)
   components = weaponVectorComponents(direction, "weapon vectorToAngles")
   directionX = components[0]; directionY = components[1]; directionZ = components[2]
@@ -163,7 +184,8 @@ function vectorToAngles(direction)
   return result
 end function
 
-// Return the angle vectors value.
+/// Return the angle vectors value.
+/// @param angles angles value consumed by this operation.
 function angleVectors(angles)
   components = weaponVectorComponents(angles, "weapon angleVectors")
   angleX = components[0]; angleY = components[1]; angleZ = components[2]

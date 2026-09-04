@@ -1,3 +1,5 @@
+//! Provides miniquake2 client runtime dispatcher facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -24,12 +26,18 @@ import miniquake2.client.effects.constants as ceconstants
 import miniquake2.client.runtime.types as crtypes
 import miniquake2.client.state as cstate
 
+/// Stores module-wide active resolver runtime state for the miniquake2 client runtime dispatcher module.
 activeResolverRuntime = void
 
+/// Defines the max print handoffs constant used by the miniquake2 client runtime dispatcher module.
 const MAX_PRINT_HANDOFFS = 64
+/// Defines the max screen handoffs constant used by the miniquake2 client runtime dispatcher module.
 const MAX_SCREEN_HANDOFFS = 16
 
-// Create state.
+/// Creates create for the miniquake2 client runtime dispatcher module.
+/// @param networkRuntime networkRuntime value consumed by this operation.
+/// @param clientState clientState value consumed by this operation.
+/// @param effectState effectState value consumed by this operation.
 function create(networkRuntime, clientState, effectState)
   if networkRuntime is void or clientState is void or effectState is void then return error(8280, "client dispatcher state is incomplete") end if
   runtime = crtypes.create(networkRuntime, clientState, effectState)
@@ -40,14 +48,18 @@ function create(networkRuntime, clientState, effectState)
   return runtime
 end function
 
-// Set demo recorder.
+/// Set demo recorder.
+/// @param runtime runtime value consumed by this operation.
+/// @param demo demo value consumed by this operation.
 function setDemoRecorder(runtime, demo)
   if demo is not void and typeof(demo) != "struct" then return error(8281, "demo recorder must be a Demo") end if
   runtime.demo = demo
   return true
 end function
 
-// Set download manager.
+/// Set download manager.
+/// @param runtime runtime value consumed by this operation.
+/// @param manager manager value consumed by this operation.
 function setDownloadManager(runtime, manager)
   if manager is not void and typeof(manager) != "struct" then
     return error(8281, "download manager must be a struct")
@@ -56,23 +68,26 @@ function setDownloadManager(runtime, manager)
   return true
 end function
 
-// Release DM2 files shipped with Quake II use protocol 26. The 3.19 client
-// kept an explicit demo-only compatibility hack; live network sessions remain
-// strictly Protocol 34.
+/// Release DM2 files shipped with Quake II use protocol 26. The 3.19 client
+/// kept an explicit demo-only compatibility hack; live network sessions remain
+/// strictly Protocol 34.
+/// @param runtime runtime value consumed by this operation.
+/// @param enabled enabled value consumed by this operation.
 function setLegacyDemoCompatibility(runtime, enabled)
   if typeof(enabled) != "bool" then return error(8281, "legacy demo compatibility flag must be boolean") end if
   runtime.allowDemoProtocol26 = enabled
   return true
 end function
 
-// Release resolver.
+/// Release resolver.
 function releaseResolver()
   global activeResolverRuntime
   activeResolverRuntime = void
   return true
 end function
 
-// Reset client state.
+/// Reset client state.
+/// @param runtime runtime value consumed by this operation.
 function resetClientState(runtime)
   if runtime.downloads is not void then cdownloads.cancel(runtime.downloads) end if
   clean = cstate.create()
@@ -89,6 +104,7 @@ function resetClientState(runtime)
   runtime.client.predictionRealTime = clean.predictionRealTime
   runtime.client.predictionStepOriginZ = clean.predictionStepOriginZ
   runtime.client.predictionStepOriginValid = clean.predictionStepOriginValid
+  runtime.client.predictionStepSuppressed = clean.predictionStepSuppressed
   runtime.client.serverFrame = clean.serverFrame
   runtime.client.serverTime = clean.serverTime
   runtime.client.lightStyles = clean.lightStyles
@@ -118,7 +134,8 @@ function resetClientState(runtime)
   return true
 end function
 
-// Begin map change.
+/// Begin map change.
+/// @param runtime runtime value consumed by this operation.
 function beginMapChange(runtime)
   nrlifecycle.resetClientLevel(runtime.network)
   resetClientState(runtime)
@@ -126,7 +143,8 @@ function beginMapChange(runtime)
   return true
 end function
 
-// Copy array data.
+/// Copy array data.
+/// @param values values value consumed by this operation.
 function copyArray(values)
   output = array(len(values), void)
   index = 0
@@ -138,7 +156,8 @@ function copyArray(values)
   return output
 end function
 
-// Return the validation runtime value.
+/// Return the validation runtime value.
+/// @param runtime runtime value consumed by this operation.
 function validationRuntime(runtime)
   sourceNetworkClient = runtime.network.client
   networkClient = nclient.create(sourceNetworkClient.qport, sourceNetworkClient.timeoutMsec)
@@ -207,6 +226,7 @@ function validationRuntime(runtime)
   client.predictionRealTime = runtime.client.predictionRealTime
   client.predictionStepOriginZ = runtime.client.predictionStepOriginZ
   client.predictionStepOriginValid = runtime.client.predictionStepOriginValid
+  client.predictionStepSuppressed = runtime.client.predictionStepSuppressed
   client.serverFrame = runtime.client.serverFrame
   client.serverTime = runtime.client.serverTime
   styleIndex = 0
@@ -222,7 +242,10 @@ function validationRuntime(runtime)
   return copy
 end function
 
-// Append limited.
+/// Append limited.
+/// @param values values value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param maximum maximum value consumed by this operation.
 function appendLimited(values, value, maximum)
   output = []
   start = 0
@@ -235,7 +258,9 @@ function appendLimited(values, value, maximum)
   return output + [value]
 end function
 
-// Read ui string.
+/// Read ui string.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readUiString(buffer, operation)
   value = rmessages.readString(buffer, operation, qc.MAX_STRING_CHARS)
   // Managed destinations mirror the 1024-byte Quake client buffers and keep
@@ -244,7 +269,10 @@ function readUiString(buffer, operation)
   return value
 end function
 
-// Parse print.
+/// Parse print.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param now now value consumed by this operation.
 function parsePrint(runtime, buffer, now)
   level = pchecked.readByte(buffer, "print level")
   if level < qc.PRINT_LOW or level > qc.PRINT_CHAT then return error(8293, "print level outside Protocol-34 range") end if
@@ -254,7 +282,10 @@ function parsePrint(runtime, buffer, now)
   return true
 end function
 
-// Parse center print.
+/// Parse center print.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param now now value consumed by this operation.
 function parseCenterPrint(runtime, buffer, now)
   text = readUiString(buffer, "centerprint text")
   runtime.centerPrints = appendLimited(runtime.centerPrints,
@@ -262,7 +293,10 @@ function parseCenterPrint(runtime, buffer, now)
   return true
 end function
 
-// Parse layout.
+/// Parse layout.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param now now value consumed by this operation.
 function parseLayout(runtime, buffer, now)
   text = readUiString(buffer, "layout text")
   runtime.layouts = appendLimited(runtime.layouts,
@@ -270,7 +304,10 @@ function parseLayout(runtime, buffer, now)
   return true
 end function
 
-// Parse inventory.
+/// Parse inventory.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param now now value consumed by this operation.
 function parseInventory(runtime, buffer, now)
   values = array(qc.MAX_ITEMS, 0)
   index = 0
@@ -283,7 +320,9 @@ function parseInventory(runtime, buffer, now)
   return true
 end function
 
-// Return the entity value.
+/// Return the entity value.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function entity(runtime, number)
   value = cstate.lastKnownEntity(runtime.client, number)
   if value is not void then return value end if
@@ -291,14 +330,17 @@ function entity(runtime, number)
   return void
 end function
 
-// Resolve entity.
+/// Resolve entity.
+/// @param number number value consumed by this operation.
 function resolveEntity(number)
   global activeResolverRuntime
   if activeResolverRuntime is void then return error(8291, "effect entity resolver is not active") end if
   return entity(activeResolverRuntime, number)
 end function
 
-// Append download.
+/// Append download.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function appendDownload(runtime, buffer)
   count = pchecked.readShort(buffer, "download size")
   percent = pchecked.readByte(buffer, "download percent")
@@ -331,7 +373,9 @@ function appendDownload(runtime, buffer)
   return true
 end function
 
-// Accept frame.
+/// Accept frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function acceptFrame(runtime, buffer)
   // network.snapshot.readFrame owns the svc_frame byte. The outer dispatcher
   // already inspected it, so expose it again to the existing parser.
@@ -358,7 +402,10 @@ function acceptFrame(runtime, buffer)
   return 0
 end function
 
-// Parse buffer.
+/// Parse buffer.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param now now value consumed by this operation.
 function parseBuffer(runtime, buffer, now)
   global activeResolverRuntime
   commands = 0
@@ -420,8 +467,10 @@ function parseBuffer(runtime, buffer, now)
   return [commands, effectCommands, frames, reconnecting]
 end function
 
-// Begin a user-requested reconnect through the same atomic retirement path as
-// svc_reconnect, without pretending that a server packet was received.
+/// Begin a user-requested reconnect through the same atomic retirement path as
+/// svc_reconnect, without pretending that a server packet was received.
+/// @param runtime runtime value consumed by this operation.
+/// @param now now value consumed by this operation.
 function beginReconnect(runtime, now)
   beginMapChange(runtime)
   nclient.reconnect(runtime.network.client, now)
@@ -430,7 +479,11 @@ function beginReconnect(runtime, now)
   return true
 end function
 
-// Dispatch state.
+/// Dispatch state.
+/// @param runtime runtime value consumed by this operation.
+/// @param payload payload value consumed by this operation.
+/// @param sequence sequence value consumed by this operation.
+/// @param now now value consumed by this operation.
 function dispatch(runtime, payload, sequence, now)
   if typeof(payload) != "bytes" or len(payload) <= 0 or len(payload) > pc.MAX_MSGLEN then return error(8287, "server payload outside protocol message limit") end if
   if typeof(sequence) != "int" or sequence < 0 or sequence > pc.SEQUENCE_MASK then return error(8288, "server payload sequence outside 31-bit range") end if
@@ -474,7 +527,10 @@ function dispatch(runtime, payload, sequence, now)
   return crtypes.result(true, sequence, parsed[0], parsed[1], parsed[2], "accepted")
 end function
 
-// Return the next demo value.
+/// Return the next demo value.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param now now value consumed by this operation.
 function nextDemo(runtime, player, now)
   packet = cdemo.nextPacket(player)
   if packet is void then return void end if
@@ -485,33 +541,38 @@ function nextDemo(runtime, player, now)
   return dispatch(runtime, packet, sequence, now)
 end function
 
-// Report whether pending stuff text.
+/// Report whether pending stuff text.
+/// @param runtime runtime value consumed by this operation.
 function pendingStuffText(runtime)
   return runtime.network.stuffedTexts
 end function
 
-// Consume prints.
+/// Consume prints.
+/// @param runtime runtime value consumed by this operation.
 function takePrints(runtime)
   output = runtime.prints
   runtime.prints = []
   return output
 end function
 
-// Consume center prints.
+/// Consume center prints.
+/// @param runtime runtime value consumed by this operation.
 function takeCenterPrints(runtime)
   output = runtime.centerPrints
   runtime.centerPrints = []
   return output
 end function
 
-// Consume layouts.
+/// Consume layouts.
+/// @param runtime runtime value consumed by this operation.
 function takeLayouts(runtime)
   output = runtime.layouts
   runtime.layouts = []
   return output
 end function
 
-// Consume inventories.
+/// Consume inventories.
+/// @param runtime runtime value consumed by this operation.
 function takeInventories(runtime)
   output = runtime.inventories
   runtime.inventories = []

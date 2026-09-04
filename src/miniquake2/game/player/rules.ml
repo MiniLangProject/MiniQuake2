@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player rules facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,7 +15,11 @@ import miniquake2.qcommon.text as qtext
 import std.math as gplayermath
 import std.string as gplayerstring
 
-// Return the gender pronoun value.
+/// Return the gender pronoun value.
+/// @param player player value consumed by this operation.
+/// @param neutralWord neutralWord value consumed by this operation.
+/// @param femaleWord femaleWord value consumed by this operation.
+/// @param maleWord maleWord value consumed by this operation.
 function genderPronoun(player, neutralWord, femaleWord, maleWord)
   gender = qinfo.valueForKey(player.persistent.userInfo, "gender")
   if gender == "f" or gender == "F" then return femaleWord end if
@@ -21,7 +27,8 @@ function genderPronoun(player, neutralWord, femaleWord, maleWord)
   return neutralWord
 end function
 
-// Return the environment message value.
+/// Return the environment message value.
+/// @param mod mod value consumed by this operation.
 function environmentMessage(mod)
   if mod == gplayerconstants.MOD_SUICIDE then return "suicides" end if
   if mod == gplayerconstants.MOD_FALLING then return "cratered" end if
@@ -37,7 +44,9 @@ function environmentMessage(mod)
   return ""
 end function
 
-// Return the self message value.
+/// Return the self message value.
+/// @param player player value consumed by this operation.
+/// @param mod mod value consumed by this operation.
 function selfMessage(player, mod)
   if mod == gplayerconstants.MOD_HELD_GRENADE then return "tried to put the pin back in" end if
   if mod == gpconstants.MOD_HG_SPLASH or mod == gpconstants.MOD_G_SPLASH then return "tripped on " + genderPronoun(player, "its", "her", "his") + " own grenade" end if
@@ -46,7 +55,8 @@ function selfMessage(player, mod)
   return "killed " + genderPronoun(player, "itself", "herself", "himself")
 end function
 
-// Return the weapon message value.
+/// Return the weapon message value.
+/// @param mod mod value consumed by this operation.
 function weaponMessage(mod)
   if mod == gpconstants.MOD_BLASTER then return ["was blasted by", ""] end if
   if mod == gpconstants.MOD_SHOTGUN then return ["was gunned down by", ""] end if
@@ -69,13 +79,19 @@ function weaponMessage(mod)
   return ["", ""]
 end function
 
-// Return the same player value.
+/// Return the same player value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function samePlayer(first, second)
   if first is void or second is void then return false end if
   return nativeRawValue(first) == nativeRawValue(second)
 end function
 
-// Return the client obituary value.
+/// Return the client obituary value.
+/// @param context Context that carries state for the operation.
+/// @param victim victim value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function ClientObituary(context, victim, attacker, meansOfDeath)
   friendlyFire = (meansOfDeath & gpconstants.MOD_FRIENDLY_FIRE) != 0
   if context.cooperative and attacker is not void then friendlyFire = true end if
@@ -110,7 +126,10 @@ function ClientObituary(context, victim, attacker, meansOfDeath)
   return gplayertypes.DeathResult(message, victim.respawn.score, attackerScore, friendlyFire)
 end function
 
-// Return the look at killer value.
+/// Return the look at killer value.
+/// @param victim victim value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
 function LookAtKiller(victim, inflictor, attacker)
   source = void
   if attacker is not void and samePlayer(attacker, victim) != true then source = attacker.edict.state.origin
@@ -128,7 +147,14 @@ function LookAtKiller(victim, inflictor, attacker)
   return victim.killerYaw
 end function
 
-// Handle player.
+/// Handle player.
+/// @param context Context that carries state for the operation.
+/// @param victim victim value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function player_die(context, victim, inflictor, attacker, damage, point, meansOfDeath)
   firstDeath = victim.deadFlag == gplayerconstants.DEAD_NO
   result = gplayertypes.DeathResult(victim.obituary, victim.respawn.score, 0, false)
@@ -211,7 +237,8 @@ function player_die(context, victim, inflictor, attacker, damage, point, meansOf
   return result
 end function
 
-// Map next listed.
+/// Map next listed.
+/// @param context Context that carries state for the operation.
 function nextListedMap(context)
   if context.mapList == "" then return "" end if
   maps = gplayerstring.split(context.mapList, " ")
@@ -237,7 +264,9 @@ function nextListedMap(context)
   return ""
 end function
 
-// End dm level.
+/// End dm level.
+/// @param context Context that carries state for the operation.
+/// @param reason reason value consumed by this operation.
 function EndDMLevel(context, reason)
   destination = ""
   if (context.dmFlags & miniquake2.game.constants.DF_SAME_LEVEL) != 0 then destination = context.mapName
@@ -251,7 +280,8 @@ function EndDMLevel(context, reason)
   return gplayertypes.RuleResult(true, reason, destination)
 end function
 
-// Validate dm rules.
+/// Validate dm rules.
+/// @param context Context that carries state for the operation.
 function CheckDMRules(context)
   if context.intermissionTime > 0.0 or context.deathmatch != true then return gplayertypes.RuleResult(false, "", "") end if
   if context.timeLimit > 0.0 and context.time >= context.timeLimit * 60.0 then return EndDMLevel(context, "Timelimit hit.") end if

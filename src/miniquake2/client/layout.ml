@@ -1,3 +1,5 @@
+//! Provides miniquake2 client layout facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,42 +11,59 @@ import miniquake2.qcommon.cmd as lcmd
 import miniquake2.qcommon.constants as lqc
 import miniquake2.game.constants as lgc
 
-// Store layout command data.
+/// Store layout command data.
 struct LayoutCommand
+  /// Stores the operation value associated with layout command.
   operation
+  /// Stores the x value associated with layout command.
   x
+  /// Stores the y value associated with layout command.
   y
+  /// Stores the value value associated with layout command.
   value
+  /// Stores the width value associated with layout command.
   width
+  /// Stores the text value associated with layout command.
   text
+  /// Stores the style value associated with layout command.
   style
 end struct
 
-// Return the integer value.
+/// Return the integer value.
+/// @param token token value consumed by this operation.
+/// @param operation operation value consumed by this operation.
 function integer(token, operation)
   value = toNumber(token)
   if typeof(value) != "int" then return error(7750, operation + ": integer required") end if
   return value
 end function
 
-// Return the stat value.
+/// Return the stat value.
+/// @param stats stats value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function stat(stats, index)
   if index < 0 or index >= len(stats) then return error(7751, "layout stat index outside table") end if
   return stats[index]
 end function
 
-// Require token.
+/// Require token.
+/// @param tokens tokens value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param operation operation value consumed by this operation.
 function requireToken(tokens, index, operation)
   if index >= len(tokens) then return error(7752, operation + ": missing argument") end if
   return tokens[index]
 end function
 
-// Return the tokenize value.
+/// Return the tokenize value.
+/// @param layout layout value consumed by this operation.
 function tokenize(layout)
   return lcmd.tokenize(layout)
 end function
 
-// Return the player identity value.
+/// Return the player identity value.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param playerIndex Zero-based index of player.
 function playerIdentity(configStrings, playerIndex)
   identity = array(2)
   identity[0] = "unnamed"
@@ -70,7 +89,8 @@ function playerIdentity(configStrings, playerIndex)
   return identity
 end function
 
-// Pad left 3.
+/// Pad left 3.
+/// @param value Value consumed or transformed by the operation.
 function padLeft3(value)
   text = value + ""
   if len(bytes(text)) >= 3 then return text end if
@@ -78,7 +98,8 @@ function padLeft3(value)
   return "  " + text
 end function
 
-// Return the fixed player name.
+/// Return the fixed player name.
+/// @param name Name of the affected item.
 function fixedPlayerName(name)
   data = bytes(name)
   if len(data) > 12 then return decode(slice(data, 0, 12)) end if
@@ -89,7 +110,15 @@ function fixedPlayerName(name)
   return output
 end function
 
-// Populate the parse tokens context destination.
+/// Populate the parse tokens context destination.
+/// @param commands commands value consumed by this operation.
+/// @param tokens tokens value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param serverFrame serverFrame value consumed by this operation.
+/// @param playerNumber playerNumber value consumed by this operation.
 function parseTokensContextInto(commands, tokens, stats, configStrings,
     screenWidth, screenHeight, serverFrame, playerNumber)
   // Flash fields and client blocks can emit multiple draws. Callers provide a
@@ -223,7 +252,14 @@ function parseTokensContextInto(commands, tokens, stats, configStrings,
   return commandCount
 end function
 
-// Parse tokens context.
+/// Parse tokens context.
+/// @param tokens tokens value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param serverFrame serverFrame value consumed by this operation.
+/// @param playerNumber playerNumber value consumed by this operation.
 function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHeight,
     serverFrame, playerNumber)
   commands = array(len(tokens) * 2)
@@ -243,24 +279,46 @@ function parseTokensContext(tokens, stats, configStrings, screenWidth, screenHei
   return compact
 end function
 
-// Parse tokens.
+/// Parse tokens.
+/// @param tokens tokens value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
 function parseTokens(tokens, stats, configStrings, screenWidth, screenHeight)
   return parseTokensContext(tokens, stats, configStrings, screenWidth, screenHeight, 0, -1)
 end function
 
-// Parse at frame.
+/// Parse at frame.
+/// @param layout layout value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param serverFrame serverFrame value consumed by this operation.
+/// @param playerNumber playerNumber value consumed by this operation.
 function parseAtFrame(layout, stats, configStrings, screenWidth, screenHeight,
     serverFrame, playerNumber)
   return parseTokensContext(tokenize(layout), stats, configStrings, screenWidth,
     screenHeight, serverFrame, playerNumber)
 end function
 
-// Parse state.
+/// Parses parse for the miniquake2 client layout workflow.
+/// @param layout layout value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
 function parse(layout, stats, configStrings, screenWidth, screenHeight)
   return parseTokens(tokenize(layout), stats, configStrings, screenWidth, screenHeight)
 end function
 
-// Draw text.
+/// Draws text through the miniquake2 client layout rendering path.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param text Text consumed by the operation.
+/// @param style style value consumed by this operation.
 function drawText(exports, x, y, text, style)
   data = bytes(text)
   index = 0
@@ -270,7 +328,13 @@ function drawText(exports, x, y, text, style)
   end while
 end function
 
-// Draw number.
+/// Draw number.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param color color value consumed by this operation.
 function drawNumber(exports, x, y, value, width, color)
   if width > 5 then width = 5 end if
   if width < 1 then return 0 end if
@@ -295,12 +359,17 @@ function drawNumber(exports, x, y, value, width, color)
   return count
 end function
 
-// Draw state.
+/// Draws draw through the miniquake2 client layout rendering path.
+/// @param commands commands value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function draw(commands, exports)
   return drawCount(commands, len(commands), exports)
 end function
 
-// Draw count.
+/// Draw count.
+/// @param commands commands value consumed by this operation.
+/// @param commandCount Number of command to process.
+/// @param exports exports value consumed by this operation.
 function drawCount(commands, commandCount, exports)
   index = 0
   while index < commandCount

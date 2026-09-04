@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai archetypes facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -16,12 +18,22 @@ import miniquake2.game.constants as gconstants
 import miniquake2.qcommon.types as gaiqtypes
 import miniquake2.qcommon.text as qtext
 
-// Return the archetype value.
+/// Return the archetype value.
+/// @param className className value consumed by this operation.
+/// @param model model value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param health health value consumed by this operation.
+/// @param gibHealth gibHealth value consumed by this operation.
+/// @param mass mass value consumed by this operation.
+/// @param movement movement value consumed by this operation.
+/// @param hasAttack hasAttack value consumed by this operation.
+/// @param hasMelee hasMelee value consumed by this operation.
 function archetype(className, model, mins, maxs, health, gibHealth, mass, movement, hasAttack, hasMelee)
   return gaitypes.MonsterArchetype(className, model, mins, maxs, health, gibHealth, mass, movement, hasAttack, hasMelee, 1.0)
 end function
 
-// Return the default registry value.
+/// Performs the defaultRegistry operation for the miniquake2 game ai archetypes module.
 function defaultRegistry()
   commonMins = [-16.0, -16.0, -24.0]
   commonMaxs = [16.0, 16.0, 32.0]
@@ -58,7 +70,9 @@ function defaultRegistry()
   return gaitypes.ArchetypeRegistry(entries, campaignEntries)
 end function
 
-// Find state.
+/// Finds find used by the miniquake2 game ai archetypes module.
+/// @param registry registry value consumed by this operation.
+/// @param className className value consumed by this operation.
 function find(registry, className)
   if typeof(className) != "string" then return error(9683, "monster classname is not text") end if
   for each entry in registry.entries
@@ -74,7 +88,8 @@ function find(registry, className)
   return void
 end function
 
-// Validate state.
+/// Validates validate for the miniquake2 game ai archetypes workflow.
+/// @param registry registry value consumed by this operation.
 function validate(registry)
   if len(registry.entries) != 22 then return error(9680, "stock monster registry must contain 22 active spawn classes") end if
   for each entry in registry.entries
@@ -90,13 +105,15 @@ function validate(registry)
   return true
 end function
 
-// Move idle.
+/// Move idle.
 function idleMove()
   frame = gaitypes.MonsterFrame(gaicore.ai_stand, 0.0, void)
   return gaitypes.MonsterMove("spawn-stand", 0, 0, [frame], void)
 end function
 
-// Return the reinitialize monster value.
+/// Return the reinitialize monster value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ReinitializeMonster(actor, context)
   definition = find(defaultRegistry(), actor.className)
   if definition is void then return error(9686, "cannot resurrect unknown monster " + actor.className) end if
@@ -190,7 +207,11 @@ function ReinitializeMonster(actor, context)
   return actor
 end function
 
-// Spawn monster.
+/// Spawn monster.
+/// @param registry registry value consumed by this operation.
+/// @param className className value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function SpawnMonster(registry, className, number, context)
   definition = find(registry, className)
   if definition is void then return error(9683, "unknown stock monster classname " + className) end if

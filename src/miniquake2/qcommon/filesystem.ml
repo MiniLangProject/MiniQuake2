@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon filesystem facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,20 +12,47 @@ import miniquake2.qcommon.byteio as bio
 import miniquake2.qcommon.text as text
 import std.fs as fs
 
+/// Defines the max files in pack constant used by the miniquake2 qcommon filesystem module.
 const MAX_FILES_IN_PACK = 4096
+/// Defines the pack lookup size constant used by the miniquake2 qcommon filesystem module.
 const PACK_LOOKUP_SIZE = 8192
+/// Defines the base directory name constant used by the miniquake2 qcommon filesystem module.
 const BASE_DIRECTORY_NAME = "baseq2"
 
+/// Invokes the native CreateFileW entry point used by the miniquake2 qcommon filesystem module.
+/// @param path Path of the file or directory used by the operation.
+/// @param access access value consumed by this operation.
+/// @param share share value consumed by this operation.
+/// @param security security value consumed by this operation.
+/// @param creation creation value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param template template value consumed by this operation.
+/// @returns Native ptr result produced by the call.
 extern function CreateFileW(path as wstr, access as int, share as int,
   security as ptr, creation as int, flags as int,
   template as ptr) from "kernel32.dll" returns ptr
+/// Invokes the native GetFileSizeEx entry point used by the miniquake2 qcommon filesystem module.
+/// @param handle Native or runtime handle used by the operation.
+/// @param size Size in the units required by the operation.
+/// @returns Native bool result produced by the call.
 extern function GetFileSizeEx(handle as ptr,
   size as bytes) from "kernel32.dll" returns bool
+/// Invokes the native ReadFile entry point used by the miniquake2 qcommon filesystem module.
+/// @param handle Native or runtime handle used by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param count Number of items or units to process.
+/// @param bytesRead bytesRead value consumed by this operation.
+/// @param overlapped overlapped value consumed by this operation.
+/// @returns Native bool result produced by the call.
 extern function ReadFile(handle as ptr, buffer as bytes, count as int,
   bytesRead as bytes, overlapped as ptr) from "kernel32.dll" returns bool
+/// Invokes the native CloseHandle entry point used by the miniquake2 qcommon filesystem module.
+/// @param handle Native or runtime handle used by the operation.
+/// @returns Native bool result produced by the call.
 extern function CloseHandle(handle as ptr) from "kernel32.dll" returns bool
 
-// Return the deterministic open-addressing slot for a canonical PAK name.
+/// Return the deterministic open-addressing slot for a canonical PAK name.
+/// @param name Name of the affected item.
 function inline packLookupSlot(name)
   source = bytes(name)
   hash = 2166136261
@@ -35,12 +64,14 @@ function inline packLookupSlot(name)
   return hash & (PACK_LOOKUP_SIZE - 1)
 end function
 
-// Report whether virtual name valid.
+/// Report whether virtual name valid.
+/// @param name Name of the affected item.
 function virtualNameValid(name)
   return try(canonicalVirtualName(name)) is not error
 end function
 
-// Normalize virtual name.
+/// Normalize virtual name.
+/// @param name Name of the affected item.
 function normalizeVirtualName(name)
   data = bytes(text.lower(name))
   i = 0
@@ -51,9 +82,10 @@ function normalizeVirtualName(name)
   return decode(data)
 end function
 
-// Resolve dot segments inside the virtual root. Historical retail PAKs contain
-// names such as models/monsters/tank/../ctank/skin.pcx; they are safe once
-// canonicalized, while attempts to walk above the virtual root remain errors.
+/// Resolve dot segments inside the virtual root. Historical retail PAKs contain
+/// names such as models/monsters/tank/../ctank/skin.pcx; they are safe once
+/// canonicalized, while attempts to walk above the virtual root remain errors.
+/// @param name Name of the affected item.
 function canonicalVirtualName(name)
   // Keep canonical virtual name phases explicit: validate inputs, update owned state, then publish the result.
   normalized = normalizeVirtualName(name)
@@ -96,7 +128,9 @@ function canonicalVirtualName(name)
   return decode(slice(output, 0, outputCount))
 end function
 
-// Parse pack.
+/// Parse pack.
+/// @param data Input data consumed by the operation.
+/// @param filename filename value consumed by this operation.
 function parsePack(data, filename)
   if len(data) < 12 then return error(3230, filename + ": PACK header truncated") end if
   if bio.u32(data, 0) != 0x4b434150 then return error(3231, filename + ": PACK ident mismatch") end if
@@ -128,7 +162,8 @@ function parsePack(data, filename)
   return qt.PackArchive(filename, data, files, lookup)
 end function
 
-// Load pack.
+/// Load pack.
+/// @param filename filename value consumed by this operation.
 function loadPack(filename)
   // PAKs are the largest startup reads (pak0 is roughly 184 MB). std.fs uses
   // a deliberately conservative 4-KiB streaming buffer, which is appropriate
@@ -162,7 +197,9 @@ function loadPack(filename)
   return parsePack(data, filename)
 end function
 
-// Find pack file.
+/// Find pack file.
+/// @param pack pack value consumed by this operation.
+/// @param name Name of the affected item.
 function findPackFile(pack, name)
   wanted = try(canonicalVirtualName(name))
   if wanted is error then return void end if
@@ -179,25 +216,33 @@ function findPackFile(pack, name)
   return void
 end function
 
-// Create state.
+/// Creates create for the miniquake2 qcommon filesystem module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param gameDirectory gameDirectory value consumed by this operation.
 function create(baseDirectory, gameDirectory)
   return qt.FileSystem(baseDirectory, gameDirectory, [], [])
 end function
 
-// Add directory.
+/// Add directory.
+/// @param system system value consumed by this operation.
+/// @param directory directory value consumed by this operation.
 function addDirectory(system, directory)
   system.searchPaths = [qt.SearchPath(directory, void)] + system.searchPaths
   return true
 end function
 
-// Add pack.
+/// Add pack.
+/// @param system system value consumed by this operation.
+/// @param filename filename value consumed by this operation.
 function addPack(system, filename)
   pack = loadPack(filename)
   system.searchPaths = [qt.SearchPath("", pack)] + system.searchPaths
   return pack
 end function
 
-// Add game directory.
+/// Add game directory.
+/// @param system system value consumed by this operation.
+/// @param directory directory value consumed by this operation.
 function addGameDirectory(system, directory)
   addDirectory(system, directory)
   i = 0
@@ -210,7 +255,9 @@ function addGameDirectory(system, directory)
   return i
 end function
 
-// Initialize state.
+/// Performs the initialize operation for the miniquake2 qcommon filesystem module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param gameDirectory gameDirectory value consumed by this operation.
 function initialize(baseDirectory, gameDirectory)
   system = create(baseDirectory, gameDirectory)
   addGameDirectory(system, fs.joinPath(baseDirectory, BASE_DIRECTORY_NAME))
@@ -218,7 +265,9 @@ function initialize(baseDirectory, gameDirectory)
   return system
 end function
 
-// Read file.
+/// Read file.
+/// @param system system value consumed by this operation.
+/// @param name Name of the affected item.
 function readFile(system, name)
   normalized = try(canonicalVirtualName(name))
   if normalized is error then return error(3235, "invalid virtual path") end if
@@ -234,13 +283,16 @@ function readFile(system, name)
   return error(3236, "file not found: " + name)
 end function
 
-// Return the file exists value.
+/// Return the file exists value.
+/// @param system system value consumed by this operation.
+/// @param name Name of the affected item.
 function fileExists(system, name)
   result = try(readFile(system, name))
   return result is not error
 end function
 
-// Return the music track name.
+/// Return the music track name.
+/// @param track track value consumed by this operation.
 function musicTrackName(track)
   if typeof(track) != "int" or track < 1 or track > 99 then
     return error(3238, "music track outside [1,99]")
@@ -250,11 +302,13 @@ function musicTrackName(track)
   return "track" + number + ".ogg"
 end function
 
-// Prefer loose files so the native Vorbis bridge owns compressed retail data
-// without retaining a multi-megabyte MiniLang byte array for the whole level.
-// The 2023 Steam release stores the original soundtrack below
-// rerelease/baseq2/music while classic source ports commonly use
-// baseq2/music. PAK-contained replacements remain available through readFile.
+/// Prefer loose files so the native Vorbis bridge owns compressed retail data
+/// without retaining a multi-megabyte MiniLang byte array for the whole level.
+/// The 2023 Steam release stores the original soundtrack below
+/// rerelease/baseq2/music while classic source ports commonly use
+/// baseq2/music. PAK-contained replacements remain available through readFile.
+/// @param system system value consumed by this operation.
+/// @param track track value consumed by this operation.
 function musicTrackPath(system, track)
   filename = musicTrackName(track)
   gameDirectory = system.gameDirectory
@@ -268,7 +322,9 @@ function musicTrackPath(system, track)
   return ""
 end function
 
-// Read music track.
+/// Read music track.
+/// @param system system value consumed by this operation.
+/// @param track track value consumed by this operation.
 function readMusicTrack(system, track)
   filename = musicTrackName(track)
   packed = try(readFile(system, "music/" + filename))

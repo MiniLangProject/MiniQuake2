@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic visibility facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -19,102 +21,158 @@ import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.qcommon.byteio as rvisibilitybyteio
 
+/// Defines the visibility deg to rad constant used by the miniquake2 renderer classic visibility module.
 const VISIBILITY_DEG_TO_RAD = 0.017453292519943295
+/// Defines the visibility near constant used by the miniquake2 renderer classic visibility module.
 const VISIBILITY_NEAR = 4.0
+/// Defines the visibility far constant used by the miniquake2 renderer classic visibility module.
 const VISIBILITY_FAR = 8192.0
+/// Defines the backface epsilon constant used by the miniquake2 renderer classic visibility module.
 const BACKFACE_EPSILON = 0.01
 
-// Store classic frustum plane data.
+/// Store classic frustum plane data.
 struct ClassicFrustumPlane
+  /// Stores the normal x value associated with classic frustum plane.
   normalX
+  /// Stores the normal y value associated with classic frustum plane.
   normalY
+  /// Stores the normal z value associated with classic frustum plane.
   normalZ
+  /// Stores the distance value associated with classic frustum plane.
   distance
+  /// Stores the abs x value associated with classic frustum plane.
   absX
+  /// Stores the abs y value associated with classic frustum plane.
   absY
+  /// Stores the abs z value associated with classic frustum plane.
   absZ
 end struct
 
-// Store classic pvs selection data.
+/// Store classic pvs selection data.
 struct ClassicPvsSelection
+  /// Stores the draws value associated with classic pvs selection.
   draws
+  /// Stores the view leaf value associated with classic pvs selection.
   viewLeaf
+  /// Stores the view cluster value associated with classic pvs selection.
   viewCluster
+  /// Stores the view cluster2 value associated with classic pvs selection.
   viewCluster2
+  /// Stores the pvs culled value associated with classic pvs selection.
   pvsCulled
+  /// Stores the area culled value associated with classic pvs selection.
   areaCulled
 end struct
 
-// Store classic visibility cache slot data.
+/// Store classic visibility cache slot data.
 struct ClassicVisibilityCacheSlot
+  /// Stores the world value associated with classic visibility cache slot.
   world
+  /// Stores the cluster value associated with classic visibility cache slot.
   cluster
+  /// Stores the cluster2 value associated with classic visibility cache slot.
   cluster2
+  /// Stores the area bits value associated with classic visibility cache slot.
   areaBits
+  /// Stores the draws value associated with classic visibility cache slot.
   draws
+  /// Stores the pvs culled value associated with classic visibility cache slot.
   pvsCulled
+  /// Stores the area culled value associated with classic visibility cache slot.
   areaCulled
 end struct
 
-// Primary and water-boundary visibility clusters for one camera origin.
+/// Primary and water-boundary visibility clusters for one camera origin.
 struct ClassicViewClusters
+  /// Stores the leaf value associated with classic view clusters.
   leaf
+  /// Stores the cluster value associated with classic view clusters.
   cluster
+  /// Stores the cluster2 value associated with classic view clusters.
   cluster2
 end struct
 
-// Mutable accumulator for the original far-node / reversed-node / near-node
-// alpha-chain order.
+/// Mutable accumulator for the original far-node / reversed-node / near-node
+/// alpha-chain order.
 struct ClassicAlphaOrderState
+  /// Stores the map value associated with classic alpha order state.
   map
+  /// Stores the draw by face value associated with classic alpha order state.
   drawByFace
+  /// Stores the marked value associated with classic alpha order state.
   marked
+  /// Stores the output value associated with classic alpha order state.
   output
+  /// Stores the count value associated with classic alpha order state.
   count
+  /// Stores the view origin value associated with classic alpha order state.
   viewOrigin
 end struct
 
-// Minimal per-frame brush bounds used by the frustum culler. Keeping this
-// separate from ClassicWorldDraw avoids allocating empty texture/vertex arrays
-// and a full draw record for every moving door, platform and lift each frame.
+/// Minimal per-frame brush bounds used by the frustum culler. Keeping this
+/// separate from ClassicWorldDraw avoids allocating empty texture/vertex arrays
+/// and a full draw record for every moving door, platform and lift each frame.
 struct ClassicBrushBounds
+  /// Stores the mins value associated with classic brush bounds.
   mins
+  /// Stores the maxs value associated with classic brush bounds.
   maxs
+  /// Stores the center x value associated with classic brush bounds.
   centerX
+  /// Stores the center y value associated with classic brush bounds.
   centerY
+  /// Stores the center z value associated with classic brush bounds.
   centerZ
+  /// Stores the extent x value associated with classic brush bounds.
   extentX
+  /// Stores the extent y value associated with classic brush bounds.
   extentY
+  /// Stores the extent z value associated with classic brush bounds.
   extentZ
 end struct
 
-// Pair the visible brush prefix with the already-computed local camera point
-// so the OpenGL planner does not repeat rotated-axis trigonometry.
+/// Pair the visible brush prefix with the already-computed local camera point
+/// so the OpenGL planner does not repeat rotated-axis trigonometry.
 struct ClassicBrushSelection
+  /// Stores the draws value associated with classic brush selection.
   draws
+  /// Stores the count value associated with classic brush selection.
   count
+  /// Stores the local view value associated with classic brush selection.
   localView
 end struct
 
-// Store the three view axes in one record. The former `[forward, right, up]`
-// representation allocated an array and three Vec3 values on every frustum
-// build and again for each rotated brush transform.
+/// Store the three view axes in one record. The former `[forward, right, up]`
+/// representation allocated an array and three Vec3 values on every frustum
+/// build and again for each rotated brush transform.
 struct ClassicVisibilityAxes
+  /// Stores the forward x value associated with classic visibility axes.
   forwardX
+  /// Stores the forward y value associated with classic visibility axes.
   forwardY
+  /// Stores the forward z value associated with classic visibility axes.
   forwardZ
+  /// Stores the right x value associated with classic visibility axes.
   rightX
+  /// Stores the right y value associated with classic visibility axes.
   rightY
+  /// Stores the right z value associated with classic visibility axes.
   rightZ
+  /// Stores the up x value associated with classic visibility axes.
   upX
+  /// Stores the up y value associated with classic visibility axes.
   upY
+  /// Stores the up z value associated with classic visibility axes.
   upZ
 end struct
 
+/// Stores module-wide classic visibility cache slot state for the miniquake2 renderer classic visibility module.
 classicVisibilityCacheSlot = ClassicVisibilityCacheSlot(void, -999999,
   -999999, void,
   [], 0, 0)
+/// Stores module-wide classic visibility selection scratch state for the miniquake2 renderer classic visibility module.
 classicVisibilitySelectionScratch = []
+/// Stores module-wide classic visibility frustum scratch state for the miniquake2 renderer classic visibility module.
 classicVisibilityFrustumScratch = [
   ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
   ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0),
@@ -124,7 +182,9 @@ classicVisibilityFrustumScratch = [
   ClassicFrustumPlane(0, 0, 0, 0, 0, 0, 0)
 ]
 
-// Report whether classic visibility area bits equal.
+/// Report whether classic visibility area bits equal.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inline classicVisibilityAreaBitsEqual(first, second)
   if first is void or second is void then return first is void and second is void end if
   if len(first) != len(second) then return false end if
@@ -136,7 +196,8 @@ function inline classicVisibilityAreaBitsEqual(first, second)
   return true
 end function
 
-// Copy classic visibility area bits.
+/// Copy classic visibility area bits.
+/// @param value Value consumed or transformed by the operation.
 function classicVisibilityCopyAreaBits(value)
   if value is void then return void end if
   copy = bytes(len(value))
@@ -148,7 +209,9 @@ function classicVisibilityCopyAreaBits(value)
   return copy
 end function
 
-// Return the classic visibility point leaf value.
+/// Return the classic visibility point leaf value.
+/// @param map map value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function classicVisibilityPointLeaf(map, origin)
   if len(map.leafs) == 0 then return -1 end if
   if len(map.nodes) == 0 then
@@ -179,7 +242,9 @@ function classicVisibilityPointLeaf(map, origin)
   return leafIndex
 end function
 
-// Return the classic visibility area allowed value.
+/// Return the classic visibility area allowed value.
+/// @param areaBits areaBits value consumed by this operation.
+/// @param area area value consumed by this operation.
 function inline classicVisibilityAreaAllowed(areaBits, area)
   if areaBits is void then return true end if
   if area < 0 then return false end if
@@ -188,7 +253,10 @@ function inline classicVisibilityAreaAllowed(areaBits, area)
   return (areaBits[byteIndex] & (1 << (area & 7))) != 0
 end function
 
-// Mark classic visibility leaf faces.
+/// Mark classic visibility leaf faces.
+/// @param map map value consumed by this operation.
+/// @param leaf leaf value consumed by this operation.
+/// @param marked marked value consumed by this operation.
 function classicVisibilityMarkLeafFaces(map, leaf, marked)
   if leaf.firstLeafFace < 0 or leaf.numLeafFaces < 0 or leaf.firstLeafFace > len(map.leafFaces) or leaf.numLeafFaces > len(map.leafFaces) - leaf.firstLeafFace then
     return error(9755, "BSP leaf marksurface range outside table")
@@ -202,7 +270,9 @@ function classicVisibilityMarkLeafFaces(map, leaf, marked)
   end while
 end function
 
-// Return the classic visibility pvs row value.
+/// Return the classic visibility pvs row value.
+/// @param map map value consumed by this operation.
+/// @param cluster cluster value consumed by this operation.
 function classicVisibilityPvsRow(map, cluster)
   visibility = map.visibility
   if visibility is void or visibility.numClusters <= 0 then return bytes(0) end if
@@ -211,7 +281,9 @@ function classicVisibilityPvsRow(map, cluster)
   return fbsp.decompressVisibility(visibility, cluster, 0)
 end function
 
-// Report whether classic visibility pvs contains.
+/// Report whether classic visibility pvs contains.
+/// @param row row value consumed by this operation.
+/// @param cluster cluster value consumed by this operation.
 function inline classicVisibilityPvsContains(row, cluster)
   if cluster < 0 then return false end if
   byteIndex = cluster >> 3
@@ -219,7 +291,8 @@ function inline classicVisibilityPvsContains(row, cluster)
   return (row[byteIndex] & (1 << (cluster & 7))) != 0
 end function
 
-// Return the classic visibility angle axes value.
+/// Return the classic visibility angle axes value.
+/// @param angles angles value consumed by this operation.
 function classicVisibilityAngleAxes(angles)
   pitch = angles.x * VISIBILITY_DEG_TO_RAD
   yaw = angles.y * VISIBILITY_DEG_TO_RAD
@@ -240,8 +313,10 @@ function classicVisibilityAngleAxes(angles)
     rightX, rightY, rightZ, upX, upY, upZ)
 end function
 
-// Match R_SetupFrame's second-cluster probe so crossing a solid water boundary
-// exposes both PVS rows instead of popping the opposite side of the surface.
+/// Match R_SetupFrame's second-cluster probe so crossing a solid water boundary
+/// exposes both PVS rows instead of popping the opposite side of the surface.
+/// @param map map value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function classicVisibilityViewClusters(map, origin)
   viewLeaf = classicVisibilityPointLeaf(map, origin)
   viewCluster = -1; viewCluster2 = -1
@@ -262,7 +337,9 @@ function classicVisibilityViewClusters(map, origin)
   return ClassicViewClusters(viewLeaf, viewCluster, viewCluster2)
 end function
 
-// Return the classic visibility box outside plane value.
+/// Return the classic visibility box outside plane value.
+/// @param draw draw value consumed by this operation.
+/// @param plane plane value consumed by this operation.
 function inline classicVisibilityBoxOutsidePlane(draw, plane)
   radius = plane.absX * draw.extentX + plane.absY * draw.extentY +
     plane.absZ * draw.extentZ
@@ -271,7 +348,11 @@ function inline classicVisibilityBoxOutsidePlane(draw, plane)
   return distance + radius < -rclassicconstants.CULL_MARGIN
 end function
 
-// Return the classic visibility plane value.
+/// Return the classic visibility plane value.
+/// @param normalX normalX value consumed by this operation.
+/// @param normalY normalY value consumed by this operation.
+/// @param normalZ normalZ value consumed by this operation.
+/// @param distance distance value consumed by this operation.
 function inline classicVisibilityPlane(normalX, normalY, normalZ, distance)
   fixedX = rvisibilitybyteio.truncInt(normalX * rclassicconstants.CULL_NORMAL_SCALE)
   fixedY = rvisibilitybyteio.truncInt(normalY * rclassicconstants.CULL_NORMAL_SCALE)
@@ -285,7 +366,12 @@ function inline classicVisibilityPlane(normalX, normalY, normalZ, distance)
     absX, absY, absZ)
 end function
 
-// Update one reusable fixed-point frustum plane without allocating a record.
+/// Update one reusable fixed-point frustum plane without allocating a record.
+/// @param plane plane value consumed by this operation.
+/// @param normalX normalX value consumed by this operation.
+/// @param normalY normalY value consumed by this operation.
+/// @param normalZ normalZ value consumed by this operation.
+/// @param distance distance value consumed by this operation.
 function inline classicVisibilitySetPlane(plane, normalX, normalY, normalZ,
     distance)
   fixedX = rvisibilitybyteio.truncInt(normalX * rclassicconstants.CULL_NORMAL_SCALE)
@@ -301,7 +387,8 @@ function inline classicVisibilitySetPlane(plane, normalX, normalY, normalZ,
   plane.absX = absX; plane.absY = absY; plane.absZ = absZ
 end function
 
-// Return the classic visibility frustum value.
+/// Return the classic visibility frustum value.
+/// @param frame frame value consumed by this operation.
 function classicVisibilityFrustum(frame)
   axes = classicVisibilityAngleAxes(frame.viewAngles)
   halfX = frame.fovX * VISIBILITY_DEG_TO_RAD * 0.5
@@ -330,7 +417,9 @@ function classicVisibilityFrustum(frame)
   return planes
 end function
 
-// Report whether classic visibility inside prepared frustum.
+/// Report whether classic visibility inside prepared frustum.
+/// @param draw draw value consumed by this operation.
+/// @param planes planes value consumed by this operation.
 function inline classicVisibilityInsidePreparedFrustum(draw, planes)
   // A frustum always has six planes. The explicit checks make this small hot
   // predicate eligible for compiler inlining and remove the generic loop and
@@ -344,15 +433,20 @@ function inline classicVisibilityInsidePreparedFrustum(draw, planes)
   return true
 end function
 
-// Report whether classic visibility inside frustum.
+/// Report whether classic visibility inside frustum.
+/// @param draw draw value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicVisibilityInsideFrustum(draw, frame)
   return classicVisibilityInsidePreparedFrustum(draw,
     classicVisibilityFrustum(frame))
 end function
 
-// Test a conservative world-space sphere against the prepared fixed-point
-// frustum. Alias models use this with their current/previous pose union radius
-// so no interpolated vertex can be clipped prematurely.
+/// Test a conservative world-space sphere against the prepared fixed-point
+/// frustum. Alias models use this with their current/previous pose union radius
+/// so no interpolated vertex can be clipped prematurely.
+/// @param origin origin value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicVisibilitySphereInsideFrustum(origin, radius, frame)
   centerX = rvisibilitybyteio.truncInt(origin.x *
     rclassicconstants.CULL_COORD_SCALE)
@@ -368,7 +462,11 @@ function classicVisibilitySphereInsideFrustum(origin, radius, frame)
     classicVisibilityFrustum(frame))
 end function
 
-// Return the classic visibility front facing fixed value.
+/// Return the classic visibility front facing fixed value.
+/// @param draw draw value consumed by this operation.
+/// @param viewX viewX value consumed by this operation.
+/// @param viewY viewY value consumed by this operation.
+/// @param viewZ viewZ value consumed by this operation.
 function inline classicVisibilityFrontFacingFixed(draw, viewX, viewY, viewZ)
   distance = viewX * draw.planeNormalX + viewY * draw.planeNormalY +
     viewZ * draw.planeNormalZ - draw.planeDistance
@@ -378,7 +476,9 @@ function inline classicVisibilityFrontFacingFixed(draw, viewX, viewY, viewZ)
   return distance <= rclassicconstants.BACKFACE_FIXED_EPSILON
 end function
 
-// Return the classic visibility front facing value.
+/// Return the classic visibility front facing value.
+/// @param draw draw value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function classicVisibilityFrontFacing(draw, viewOrigin)
   return classicVisibilityFrontFacingFixed(draw,
     rvisibilitybyteio.truncInt(viewOrigin.x * rclassicconstants.CULL_COORD_SCALE),
@@ -386,7 +486,9 @@ function classicVisibilityFrontFacing(draw, viewOrigin)
     rvisibilitybyteio.truncInt(viewOrigin.z * rclassicconstants.CULL_COORD_SCALE))
 end function
 
-// Return the classic visibility brush bounds.
+/// Return the classic visibility brush bounds.
+/// @param brushModel brushModel value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function classicVisibilityBrushBounds(brushModel, entity)
   // Keep classic visibility brush bounds phases explicit: validate inputs, update owned state, then publish the result.
   model = brushModel.model
@@ -434,7 +536,9 @@ function classicVisibilityBrushBounds(brushModel, entity)
   )
 end function
 
-// Return the classic visibility brush world point value.
+/// Return the classic visibility brush world point value.
+/// @param entity entity value consumed by this operation.
+/// @param localPoint localPoint value consumed by this operation.
 function classicVisibilityBrushWorldPoint(entity, localPoint)
   origin = entity.origin
   angles = entity.angles
@@ -449,7 +553,9 @@ function classicVisibilityBrushWorldPoint(entity, localPoint)
   )
 end function
 
-// Return the classic visibility brush local view value.
+/// Return the classic visibility brush local view value.
+/// @param entity entity value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function classicVisibilityBrushLocalView(entity, viewOrigin)
   origin = entity.origin
   deltaX = viewOrigin.x - origin.x; deltaY = viewOrigin.y - origin.y; deltaZ = viewOrigin.z - origin.z
@@ -463,22 +569,32 @@ function classicVisibilityBrushLocalView(entity, viewOrigin)
   )
 end function
 
-// Report whether classic visibility brush model visible.
+/// Report whether classic visibility brush model visible.
+/// @param brushModel brushModel value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicVisibilityBrushModelVisible(brushModel, entity, frame)
   if len(brushModel.draws) == 0 then return false end if
   bounds = classicVisibilityBrushBounds(brushModel, entity)
   return classicVisibilityInsideFrustum(bounds, frame)
 end function
 
-// Report whether classic visibility brush model visible in prepared frustum.
+/// Report whether classic visibility brush model visible in prepared frustum.
+/// @param brushModel brushModel value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param planes planes value consumed by this operation.
 function classicVisibilityBrushModelVisiblePrepared(brushModel, entity, planes)
   if len(brushModel.draws) == 0 then return false end if
   return classicVisibilityInsidePreparedFrustum(
     classicVisibilityBrushBounds(brushModel, entity), planes)
 end function
 
-// Select a classic brush model using the frame-owned frustum and retain the
-// local view point needed by the special-surface planner.
+/// Select a classic brush model using the frame-owned frustum and retain the
+/// local view point needed by the special-surface planner.
+/// @param brushModel brushModel value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param planes planes value consumed by this operation.
 function selectClassicBrushModelPrepared(brushModel, entity, frame, planes)
   if not classicVisibilityBrushModelVisiblePrepared(brushModel, entity,
       planes) then return ClassicBrushSelection(brushModel.selectionScratch,
@@ -503,7 +619,10 @@ function selectClassicBrushModelPrepared(brushModel, entity, frame, planes)
   return ClassicBrushSelection(selected, selectedCount, localView)
 end function
 
-// Select classic brush model.
+/// Select classic brush model.
+/// @param brushModel brushModel value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function selectClassicBrushModel(brushModel, entity, frame)
   selection = selectClassicBrushModelPrepared(brushModel, entity, frame,
     classicVisibilityFrustum(frame))
@@ -512,7 +631,9 @@ function selectClassicBrushModel(brushModel, entity, frame)
   return rvisibilityarray.slice(selection.draws, 0, selection.count)
 end function
 
-// Return the compact classic draws value.
+/// Return the compact classic draws value.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function compactClassicDraws(values, count)
   if count <= 0 then return array(0) end if
   if count == len(values) then return values end if
@@ -525,7 +646,9 @@ function compactClassicDraws(values, count)
   return output
 end function
 
-// Select classic visibility pvs.
+/// Select classic visibility pvs.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicVisibilitySelectPvs(world, frame)
   // Keep classic visibility select pvs phases explicit: validate inputs, update owned state, then publish the result.
   total = len(world.draws)
@@ -590,8 +713,10 @@ function classicVisibilitySelectPvs(world, frame)
     viewLeaf, viewCluster, viewCluster2, pvsCulled, areaCulled)
 end function
 
-// Finish classic visibility selection into reusable prefix storage. The count
-// is authoritative; live rendering must not scan the unused capacity tail.
+/// Finish classic visibility selection into reusable prefix storage. The count
+/// is authoritative; live rendering must not scan the unused capacity tail.
+/// @param pvs pvs value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicVisibilityFinishSelectionPrefix(pvs, frame)
   selected = classicVisibilitySelectionScratch
   if len(selected) < len(pvs.draws) then
@@ -620,8 +745,10 @@ function classicVisibilityFinishSelectionPrefix(pvs, frame)
   )
 end function
 
-// Finish classic visibility selection with a compact public array. This keeps
-// the diagnostic API while product rendering avoids the per-frame copy.
+/// Finish classic visibility selection with a compact public array. This keeps
+/// the diagnostic API while product rendering avoids the per-frame copy.
+/// @param pvs pvs value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicVisibilityFinishSelection(pvs, frame)
   prefix = classicVisibilityFinishSelectionPrefix(pvs, frame)
   visibleDraws = compactClassicDraws(prefix.draws, prefix.count)
@@ -631,22 +758,28 @@ function classicVisibilityFinishSelection(pvs, frame)
     prefix.backfaceCulled)
 end function
 
-// Select classic world.
+/// Select classic world.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function selectClassicWorld(world, frame)
   return classicVisibilityFinishSelection(
     classicVisibilitySelectPvs(world, frame), frame)
 end function
 
-// Select the world into reusable prefix storage for live OpenGL submission.
+/// Select the world into reusable prefix storage for live OpenGL submission.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function selectClassicWorldPrefix(world, frame)
   return classicVisibilityFinishSelectionPrefix(
     classicVisibilitySelectPvs(world, frame), frame)
 end function
 
-// Product snapshots carry an area-bit array on every frame even when no door
-// changed. Key the cached candidate list by its contents as well as cluster;
-// treating every non-void array as an override forced a full BSP/PVS scan of
-// roughly 7k surfaces every rendered frame.
+/// Product snapshots carry an area-bit array on every frame even when no door
+/// changed. Key the cached candidate list by its contents as well as cluster;
+/// treating every non-void array as an override forced a full BSP/PVS scan of
+/// roughly 7k surfaces every rendered frame.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function selectClassicWorldCached(world, frame)
   if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
     return selectClassicWorld(world, frame)
@@ -674,7 +807,9 @@ function selectClassicWorldCached(world, frame)
   return classicVisibilityFinishSelection(pvs, frame)
 end function
 
-// Cached product selection retaining the capacity-sized reusable output.
+/// Cached product selection retaining the capacity-sized reusable output.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function selectClassicWorldCachedPrefix(world, frame)
   if (frame.rdFlags & rc.RDF_NOWORLDMODEL) != 0 then
     return selectClassicWorldPrefix(world, frame)
@@ -701,8 +836,10 @@ function selectClassicWorldCachedPrefix(world, frame)
   return classicVisibilityFinishSelectionPrefix(pvs, frame)
 end function
 
-// Append one BSP node in the order produced when R_RecursiveWorldNode's
-// front-to-back traversal inserts transparent surfaces at the chain head.
+/// Append one BSP node in the order produced when R_RecursiveWorldNode's
+/// front-to-back traversal inserts transparent surfaces at the chain head.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param nodeIndex Zero-based index of node.
 function classicVisibilityAppendAlphaNode(state, nodeIndex)
   if nodeIndex < 0 then return state.count end if
   if nodeIndex >= len(state.map.nodes) then return error(9769,
@@ -731,7 +868,10 @@ function classicVisibilityAppendAlphaNode(state, nodeIndex)
   return state.count
 end function
 
-// Order visible world alpha polygons exactly like ref_gl's global alpha chain.
+/// Order visible world alpha polygons exactly like ref_gl's global alpha chain.
+/// @param world world value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function classicVisibilityStockAlphaDraws(world, draws, viewOrigin)
   if len(draws) <= 1 or len(world.map.nodes) == 0 then return draws end if
   drawByFace = array(len(world.map.faces), void)
@@ -754,9 +894,13 @@ function classicVisibilityStockAlphaDraws(world, draws, viewOrigin)
   return draws
 end function
 
-// Order a visible alpha prefix using world-owned scratch storage. This is the
-// live equivalent of classicVisibilityStockAlphaDraws without allocating two
-// face tables and an output array on every rendered frame.
+/// Order a visible alpha prefix using world-owned scratch storage. This is the
+/// live equivalent of classicVisibilityStockAlphaDraws without allocating two
+/// face tables and an output array on every rendered frame.
+/// @param world world value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function classicVisibilityStockAlphaDrawsPrefix(world, draws, drawCount,
     viewOrigin)
   if drawCount <= 1 or len(world.map.nodes) == 0 then return draws end if
@@ -783,7 +927,8 @@ function classicVisibilityStockAlphaDrawsPrefix(world, draws, drawCount,
   return draws
 end function
 
-// Return the classic visibility culled count.
+/// Return the classic visibility culled count.
+/// @param selection selection value consumed by this operation.
 function classicVisibilityCulledCount(selection)
   return selection.pvsCulled + selection.areaCulled + selection.frustumCulled + selection.backfaceCulled
 end function

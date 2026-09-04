@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime product host facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,51 +11,79 @@ import miniquake2.platform.window as producthostwindow
 import miniquake2.platform.gamma as producthostgamma
 import miniquake2.renderer.opengl as producthostgl
 
-// Store product host callbacks data.
+/// Store product host callbacks data.
 struct ProductHostCallbacks
+  /// Stores the create window value associated with product host callbacks.
   createWindow
+  /// Stores the reconfigure window value associated with product host callbacks.
   reconfigureWindow
+  /// Stores the destroy window value associated with product host callbacks.
   destroyWindow
+  /// Stores the create renderer value associated with product host callbacks.
   createRenderer
+  /// Stores the init renderer value associated with product host callbacks.
   initRenderer
+  /// Stores the shutdown renderer value associated with product host callbacks.
   shutdownRenderer
 end struct
 
-// Store product host data.
+/// Store product host data.
 struct ProductHost
+  /// Stores the callbacks value associated with product host.
   callbacks
+  /// Stores the window value associated with product host.
   window
+  /// Stores the renderer value associated with product host.
   renderer
+  /// Stores the video mode value associated with product host.
   videoMode
+  /// Stores the full screen value associated with product host.
   fullScreen
+  /// Stores the generation value associated with product host.
   generation
+  /// Stores the renderer generation value associated with product host.
   rendererGeneration
+  /// Stores the loading frames value associated with product host.
   loadingFrames
+  /// Stores the closed value associated with product host.
   closed
+  /// Stores the gamma state value associated with product host.
   gammaState
 end struct
 
-// Create product host window.
+/// Create product host window.
+/// @param title Human-readable title presented to the user.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param fullScreen fullScreen value consumed by this operation.
 function productHostCreateWindow(title, width, height, fullScreen)
   return producthostwindow.create(title, width, height, fullScreen)
 end function
 
-// Reconfigure product host window.
+/// Reconfigure product host window.
+/// @param window window value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param fullScreen fullScreen value consumed by this operation.
 function productHostReconfigureWindow(window, width, height, fullScreen)
   return producthostwindow.reconfigure(window, width, height, fullScreen)
 end function
 
-// Return the product host destroy window value.
+/// Return the product host destroy window value.
+/// @param window window value consumed by this operation.
 function productHostDestroyWindow(window)
   return producthostwindow.destroy(window)
 end function
 
-// Create product host renderer.
+/// Create product host renderer.
+/// @param imports imports value consumed by this operation.
+/// @param contextActive contextActive value consumed by this operation.
 function productHostCreateRenderer(imports, contextActive)
   return producthostgl.getRefAPI(imports, contextActive)
 end function
 
-// Initialize product host renderer.
+/// Initialize product host renderer.
+/// @param renderer renderer value consumed by this operation.
 function productHostInitRenderer(renderer)
   productHostRendererInit = renderer.exports.Init(void, void)
   if productHostRendererInit is error then return productHostRendererInit end if
@@ -64,12 +94,13 @@ function productHostInitRenderer(renderer)
   return productHostRendererInit
 end function
 
-// Shut down product host renderer.
+/// Shut down product host renderer.
+/// @param renderer renderer value consumed by this operation.
 function productHostShutdownRenderer(renderer)
   return renderer.exports.Shutdown()
 end function
 
-// Return the product host default callbacks value.
+/// Return the product host default callbacks value.
 function productHostDefaultCallbacks()
   return ProductHostCallbacks(productHostCreateWindow,
     productHostReconfigureWindow, productHostDestroyWindow,
@@ -77,7 +108,8 @@ function productHostDefaultCallbacks()
     productHostShutdownRenderer)
 end function
 
-// Return the product host dimensions.
+/// Return the product host dimensions.
+/// @param videoMode videoMode value consumed by this operation.
 function productHostDimensions(videoMode)
   if typeof(videoMode) != "int" or videoMode < 0 or videoMode > 7 then
     return error(9931, "product video mode outside [0,7]")
@@ -92,7 +124,8 @@ function productHostDimensions(videoMode)
   return [3840, 2160]
 end function
 
-// Require product host callbacks.
+/// Require product host callbacks.
+/// @param callbacks callbacks value consumed by this operation.
 function productHostRequireCallbacks(callbacks)
   if typeof(callbacks) != "struct" or
       typeof(callbacks.createWindow) != "function" or
@@ -106,7 +139,12 @@ function productHostRequireCallbacks(callbacks)
   return callbacks
 end function
 
-// Open product host with.
+/// Open product host with.
+/// @param callbacks callbacks value consumed by this operation.
+/// @param title Human-readable title presented to the user.
+/// @param videoMode videoMode value consumed by this operation.
+/// @param fullScreen fullScreen value consumed by this operation.
+/// @param rendererImports rendererImports value consumed by this operation.
 function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererImports)
   productHostCallbacksHolder = productHostRequireCallbacks(callbacks)
   if typeof(title) != "string" or title == "" then
@@ -136,9 +174,15 @@ function openProductHostWith(callbacks, title, videoMode, fullScreen, rendererIm
     productHostRendererHolder, videoMode, fullScreen, 1, 1, 0, false, void)
 end function
 
-// Recreate the last known-good video host after a target mode, context or
-// renderer initialization failure.  The native backend owns one window at a
-// time, so this rollback is necessarily performed after the old host closes.
+/// Recreate the last known-good video host after a target mode, context or
+/// renderer initialization failure.  The native backend owns one window at a
+/// time, so this rollback is necessarily performed after the old host closes.
+/// @param host host value consumed by this operation.
+/// @param title Human-readable title presented to the user.
+/// @param videoMode videoMode value consumed by this operation.
+/// @param fullScreen fullScreen value consumed by this operation.
+/// @param rendererImports rendererImports value consumed by this operation.
+/// @param gamma gamma value consumed by this operation.
 function restoreProductHost(host, title, videoMode, fullScreen,
     rendererImports, gamma)
   productHostRestoreDimensions = productHostDimensions(videoMode)
@@ -181,7 +225,14 @@ function restoreProductHost(host, title, videoMode, fullScreen,
   return true
 end function
 
-// Restart product host error.
+/// Restart product host error.
+/// @param host host value consumed by this operation.
+/// @param title Human-readable title presented to the user.
+/// @param rendererImports rendererImports value consumed by this operation.
+/// @param oldVideoMode oldVideoMode value consumed by this operation.
+/// @param oldFullScreen oldFullScreen value consumed by this operation.
+/// @param gamma gamma value consumed by this operation.
+/// @param restartFailure restartFailure value consumed by this operation.
 function productHostRestartError(host, title, rendererImports, oldVideoMode,
     oldFullScreen, gamma, restartFailure)
   productHostRollbackResult = try(restoreProductHost(host, title, oldVideoMode,
@@ -194,13 +245,21 @@ function productHostRestartError(host, title, rendererImports, oldVideoMode,
     "; previous video mode restored")
 end function
 
-// Open product host.
+/// Open product host.
+/// @param title Human-readable title presented to the user.
+/// @param videoMode videoMode value consumed by this operation.
+/// @param fullScreen fullScreen value consumed by this operation.
+/// @param rendererImports rendererImports value consumed by this operation.
 function openProductHost(title, videoMode, fullScreen, rendererImports)
   return openProductHostWith(productHostDefaultCallbacks(), title, videoMode,
     fullScreen, rendererImports)
 end function
 
-// Draw product host text.
+/// Draw product host text.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param text Text consumed by the operation.
 function productHostDrawText(exports, x, y, text)
   productHostTextBytes = bytes(text)
   productHostTextIndex = 0
@@ -212,7 +271,9 @@ function productHostDrawText(exports, x, y, text)
   return len(productHostTextBytes)
 end function
 
-// Return the show product loading value.
+/// Return the show product loading value.
+/// @param host host value consumed by this operation.
+/// @param label label value consumed by this operation.
 function showProductLoading(host, label)
   if typeof(host) != "struct" or host.closed or host.window.closed then return false end if
   if typeof(label) != "string" then return error(9935, "loading label must be text") end if
@@ -227,7 +288,12 @@ function showProductLoading(host, label)
   return true
 end function
 
-// Restart product host.
+/// Restart product host.
+/// @param host host value consumed by this operation.
+/// @param title Human-readable title presented to the user.
+/// @param videoMode videoMode value consumed by this operation.
+/// @param fullScreen fullScreen value consumed by this operation.
+/// @param rendererImports rendererImports value consumed by this operation.
 function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   // Keep restart product host phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(host) != "struct" or host.closed then
@@ -307,7 +373,10 @@ function restartProductHost(host, title, videoMode, fullScreen, rendererImports)
   return true
 end function
 
-// Apply product gamma.
+/// Apply product gamma.
+/// @param host host value consumed by this operation.
+/// @param gamma gamma value consumed by this operation.
+/// @param active active value consumed by this operation.
 function applyProductGamma(host, gamma, active)
   if typeof(host) != "struct" or host.closed then return false end if
   if host.gammaState is void then host.gammaState = producthostgamma.create() end if
@@ -330,8 +399,10 @@ function applyProductGamma(host, gamma, active)
   return producthostgl.setBrightness(host.renderer, productHostRenderGamma)
 end function
 
-// Rebuild renderer-owned managed state while preserving the native window and
-// its OpenGL context. Media chains use this between heavyweight 3D steps.
+/// Rebuild renderer-owned managed state while preserving the native window and
+/// its OpenGL context. Media chains use this between heavyweight 3D steps.
+/// @param host host value consumed by this operation.
+/// @param rendererImports rendererImports value consumed by this operation.
 function resetProductRenderer(host, rendererImports)
   if typeof(host) != "struct" or host.closed then
     return error(9938, "cannot reset renderer on a closed product host")
@@ -360,7 +431,8 @@ function resetProductRenderer(host, rendererImports)
   return true
 end function
 
-// Close product host.
+/// Close product host.
+/// @param host host value consumed by this operation.
 function closeProductHost(host)
   if typeof(host) != "struct" or host.closed then return false end if
   if host.gammaState is not void then

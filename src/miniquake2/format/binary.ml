@@ -1,3 +1,5 @@
+//! Provides miniquake2 format binary facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,7 +9,10 @@ package miniquake2.format.binary
 
 import miniquake2.native as native
 
-// Require range.
+/// Require range.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
 function requireRange(data, offset, count)
   if typeof(data) != "bytes" then return error(2100, "byte buffer required") end if
   if offset < 0 or count < 0 or offset > len(data) or count > len(data) - offset then
@@ -16,51 +21,68 @@ function requireRange(data, offset, count)
   return true
 end function
 
-// Return the u 8 value.
+/// Return the u 8 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline u8(data, offset)
   requireRange(data, offset, 1)
   return data[offset]
 end function
 
-// Return the i 8 value.
+/// Return the i 8 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline i8(data, offset)
   value = u8(data, offset)
   if value >= 128 then value = value - 256 end if
   return value
 end function
 
-// Return the u 16 value.
+/// Return the u 16 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline u16(data, offset)
   requireRange(data, offset, 2)
   return data[offset] | (data[offset + 1] << 8)
 end function
 
-// Return the i 16 value.
+/// Return the i 16 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline i16(data, offset)
   value = u16(data, offset)
   if value >= 0x8000 then value = value - 0x10000 end if
   return value
 end function
 
-// Return the u 32 value.
+/// Return the u 32 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function u32(data, offset)
   requireRange(data, offset, 4)
   return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24)
 end function
 
-// Return the i 32 value.
+/// Return the i 32 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function i32(data, offset)
   value = u32(data, offset)
   if value >= 0x80000000 then value = value - 0x100000000 end if
   return value
 end function
 
-// Return the f 32 value.
+/// Return the f 32 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline f32(data, offset)
   return native.bitsFloat(u32(data, offset))
 end function
 
-// Return the fixed string value.
+/// Return the fixed string value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param capacity capacity value consumed by this operation.
 function fixedString(data, offset, capacity)
   requireRange(data, offset, capacity)
   count = 0
@@ -73,7 +95,10 @@ function fixedString(data, offset, capacity)
   return value
 end function
 
-// Write u 16.
+/// Write u 16.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function putU16(data, offset, value)
   requireRange(data, offset, 2)
   data[offset] = value & 255
@@ -81,7 +106,10 @@ function putU16(data, offset, value)
   return offset + 2
 end function
 
-// Write u 32.
+/// Write u 32.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function putU32(data, offset, value)
   requireRange(data, offset, 4)
   data[offset] = value & 255

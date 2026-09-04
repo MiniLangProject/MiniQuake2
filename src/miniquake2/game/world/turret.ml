@@ -1,3 +1,5 @@
+//! Provides miniquake2 game world turret facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -16,10 +18,13 @@ import miniquake2.qcommon.byteio as turretbyteio
 import miniquake2.qcommon.constants as turretqconstants
 import miniquake2.qcommon.types as turretqtypes
 
+/// Defines the turret fire request constant used by the miniquake2 game world turret module.
 const TURRET_FIRE_REQUEST = 65536
+/// Defines the turret no knockback constant used by the miniquake2 game world turret module.
 const TURRET_NO_KNOCKBACK = 0x00000800
 
-// Return the turret control value.
+/// Return the turret control value.
+/// @param entity entity value consumed by this operation.
 function turretControl(entity)
   control = entity.item
   if typeof(control) != "struct" then return error(9550, entity.className + " has no TurretControl") end if
@@ -27,7 +32,9 @@ function turretControl(entity)
   return control
 end function
 
-// Attach turret control.
+/// Attach turret control.
+/// @param entity entity value consumed by this operation.
+/// @param control control value consumed by this operation.
 function turretAttachControl(entity, control)
   configuredItem = entity.item
   if typeof(configuredItem) == "string" and configuredItem != "" and entity.itemName == "" then
@@ -37,7 +44,8 @@ function turretAttachControl(entity, control)
   return control
 end function
 
-// Return the turret current skill value.
+/// Return the turret current skill value.
+/// @param control control value consumed by this operation.
 function inline turretCurrentSkill(control)
   skill = control.callbacks.skillValue()
   if typeof(skill) != "int" and typeof(skill) != "float" then skill = control.skill end if
@@ -46,7 +54,8 @@ function inline turretCurrentSkill(control)
   return skill
 end function
 
-// Normalize turret angle.
+/// Normalize turret angle.
+/// @param value Value consumed or transformed by the operation.
 function turretNormalizeAngle(value)
   while value > 360.0
     value = value - 360.0
@@ -57,21 +66,24 @@ function turretNormalizeAngle(value)
   return value
 end function
 
-// Return the turret shortest delta value.
+/// Return the turret shortest delta value.
+/// @param value Value consumed or transformed by the operation.
 function turretShortestDelta(value)
   if value < -180.0 then return value + 360.0 end if
   if value > 180.0 then return value - 360.0 end if
   return value
 end function
 
-// Return the turret snap to eighth value.
+/// Return the turret snap to eighth value.
+/// @param value Value consumed or transformed by the operation.
 function turretSnapToEighth(value)
   scaled = value * 8.0
   if scaled > 0.0 then scaled = scaled + 0.5 else scaled = scaled - 0.5 end if
   return 0.125 * turretbyteio.truncInt(scaled)
 end function
 
-// Return the turret angle vectors value.
+/// Return the turret angle vectors value.
+/// @param angles angles value consumed by this operation.
 function turretAngleVectors(angles)
   pitch = turretmath.degToRad(angles.x)
   yaw = turretmath.degToRad(angles.y)
@@ -95,7 +107,10 @@ function turretAngleVectors(angles)
   return result
 end function
 
-// Append turret team member.
+/// Append turret team member.
+/// @param master master value consumed by this operation.
+/// @param member member value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretAppendTeamMember(master, member, world)
   if master is void or member is void or master == member then return false end if
   if master.teamMaster is void then master.teamMaster = master end if
@@ -118,7 +133,10 @@ function turretAppendTeamMember(master, member, world)
   return true
 end function
 
-// Bind turret team.
+/// Bind turret team.
+/// @param baseEntity baseEntity value consumed by this operation.
+/// @param breach breach value consumed by this operation.
+/// @param world world value consumed by this operation.
 function bindTurretTeam(baseEntity, breach, world)
   if baseEntity is void or breach is void or baseEntity.className != "turret_base" or breach.className != "turret_breach" then
     return error(9552, "bindTurretTeam requires turret_base and turret_breach")
@@ -128,7 +146,9 @@ function bindTurretTeam(baseEntity, breach, world)
   return baseEntity
 end function
 
-// Bind try turret team.
+/// Bind try turret team.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function tryBindTurretTeam(entity, world)
   if entity.team == "" then return false end if
   baseEntity = void
@@ -144,7 +164,10 @@ function tryBindTurretTeam(entity, world)
   return true
 end function
 
-// Report whether turret blocked.
+/// Report whether turret blocked.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretBlocked(entity, other, world)
   if other is void or other.takeDamage == turretworldconstants.DAMAGE_NO then return false end if
   control = turretControl(entity)
@@ -158,7 +181,9 @@ function turretBlocked(entity, other, world)
   return true
 end function
 
-// Fire turret breach.
+/// Fire turret breach.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretBreachFire(entity, world)
   control = turretControl(entity)
   vectors = turretAngleVectors(entity.angles)
@@ -183,7 +208,8 @@ function turretBreachFire(entity, world)
   return true
 end function
 
-// Clamp turret desired angles.
+/// Clamp turret desired angles.
+/// @param entity entity value consumed by this operation.
 function turretClampDesiredAngles(entity)
   desiredPitch = turretNormalizeAngle(entity.moveDirection.x)
   desiredYaw = turretNormalizeAngle(entity.moveDirection.y)
@@ -209,7 +235,9 @@ function turretClampDesiredAngles(entity)
   return true
 end function
 
-// Run turret breach.
+/// Run turret breach.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretBreachThink(entity, world)
   // Keep turret breach think phases explicit: validate inputs, update owned state, then publish the result.
   turretClampDesiredAngles(entity)
@@ -258,7 +286,9 @@ function turretBreachThink(entity, world)
   return true
 end function
 
-// Finish turret breach init.
+/// Finish turret breach init.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretBreachFinishInit(entity, world)
   if entity.target == "" then
     turretcore.log(world, "turret_breach needs a muzzle target")
@@ -282,7 +312,11 @@ function turretBreachFinishInit(entity, world)
   return turretBreachThink(entity, world)
 end function
 
-// Spawn turret breach.
+/// Spawn turret breach.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param control control value consumed by this operation.
+/// @param limits limits value consumed by this operation.
 function spawnTurretBreach(entity, world, control, limits)
   if control is void then control = turrettypes.createTurretControl(void, 1.0) end if
   if limits is void then limits = turrettypes.defaultTurretLimits() end if
@@ -308,7 +342,10 @@ function spawnTurretBreach(entity, world, control, limits)
   return entity
 end function
 
-// Spawn turret base.
+/// Spawn turret base.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param control control value consumed by this operation.
 function spawnTurretBase(entity, world, control)
   if control is void then control = turrettypes.createTurretControl(void, 1.0) end if
   if entity.model == "" then
@@ -326,7 +363,11 @@ function spawnTurretBase(entity, world, control)
   return entity
 end function
 
-// Use turret driver.
+/// Use turret driver.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretDriverUse(entity, other, activator, world)
   control = turretControl(entity)
   if entity.enemy is not void or entity.health <= 0 or activator is void then return false end if
@@ -339,7 +380,13 @@ function turretDriverUse(entity, other, activator, world)
   return control.callbacks.driverUse(entity, other, activator, world)
 end function
 
-// Handle turret driver.
+/// Handle turret driver.
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretDriverDie(entity, inflictor, attacker, damage, point, world)
   control = turretControl(entity)
   breach = entity.targetEntity
@@ -370,7 +417,9 @@ function turretDriverDie(entity, inflictor, attacker, damage, point, world)
   return control.callbacks.driverDie(entity, inflictor, attacker, damage, point, world)
 end function
 
-// Run turret driver.
+/// Run turret driver.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretDriverThink(entity, world)
   // Keep turret driver think phases explicit: validate inputs, update owned state, then publish the result.
   control = turretControl(entity)
@@ -421,7 +470,9 @@ function turretDriverThink(entity, world)
   return true
 end function
 
-// Link turret driver.
+/// Link turret driver.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function turretDriverLink(entity, world)
   if entity.target == "" then
     turretcore.log(world, "turret_driver has no breach target")
@@ -453,7 +504,11 @@ function turretDriverLink(entity, world)
   return true
 end function
 
-// Spawn turret driver.
+/// Spawn turret driver.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param control control value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function spawnTurretDriver(entity, world, control, deathmatch)
   if deathmatch then turretcore.freeEntity(world, entity); return false end if
   if control is void then control = turrettypes.createTurretControl(void, 1.0) end if
@@ -486,24 +541,37 @@ function spawnTurretDriver(entity, world, control, deathmatch)
   return entity
 end function
 
-// Spawn turret base.
+/// Spawn turret base.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param control control value consumed by this operation.
 function SP_turret_base(entity, world, control)
   return spawnTurretBase(entity, world, control)
 end function
 
-// Spawn turret breach.
+/// Spawn turret breach.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param control control value consumed by this operation.
+/// @param limits limits value consumed by this operation.
 function SP_turret_breach(entity, world, control, limits)
   return spawnTurretBreach(entity, world, control, limits)
 end function
 
-// Spawn turret driver.
+/// Spawn turret driver.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param control control value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function SP_turret_driver(entity, world, control, deathmatch)
   return spawnTurretDriver(entity, world, control, deathmatch)
 end function
 
-// Function identities are not serialized. Rebind the stock phase only after
-// private-save reference numbers have been resolved, so an already linked
-// driver resumes turret_driver_think instead of appending itself a second time.
+/// Function identities are not serialized. Rebind the stock phase only after
+/// private-save reference numbers have been resolved, so an already linked
+/// driver resumes turret_driver_think instead of appending itself a second time.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function restoreTurretState(entity, world)
   if entity.className == "turret_base" then
     entity.blocked = turretBlocked

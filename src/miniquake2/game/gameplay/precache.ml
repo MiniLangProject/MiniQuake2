@@ -1,3 +1,5 @@
+//! Provides miniquake2 game gameplay precache facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,7 +11,9 @@ import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.text as qtext
 
-// Find by pickup name.
+/// Finds by pickup name used by the miniquake2 game gameplay precache module.
+/// @param registry registry value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
 function findByPickupName(registry, pickupName)
   if typeof(pickupName) != "string" then return error(9396, "precache pickup name is not text") end if
   for each item in registry.items
@@ -20,13 +24,19 @@ function findByPickupName(registry, pickupName)
   return void
 end function
 
-// Require import function.
+/// Require import function.
+/// @param imports imports value consumed by this operation.
+/// @param fieldValue fieldValue value consumed by this operation.
+/// @param fieldName fieldName value consumed by this operation.
 function requireImportFunction(imports, fieldValue, fieldName)
   if typeof(imports) != "struct" or typeof(fieldValue) != "function" then return error(9380, "PrecacheItem: missing GameImport." + fieldName) end if
   return true
 end function
 
-// Cache model.
+/// Cache model.
+/// @param result Result object populated or inspected by the operation.
+/// @param imports imports value consumed by this operation.
+/// @param path Path of the file or directory used by the operation.
 function cacheModel(result, imports, path)
   if path == "" then return true end if
   requireImportFunction(imports, imports.modelIndex, "modelIndex")
@@ -35,7 +45,10 @@ function cacheModel(result, imports, path)
   return true
 end function
 
-// Cache sound.
+/// Cache sound.
+/// @param result Result object populated or inspected by the operation.
+/// @param imports imports value consumed by this operation.
+/// @param path Path of the file or directory used by the operation.
 function cacheSound(result, imports, path)
   if path == "" then return true end if
   requireImportFunction(imports, imports.soundIndex, "soundIndex")
@@ -44,7 +57,10 @@ function cacheSound(result, imports, path)
   return true
 end function
 
-// Cache image.
+/// Cache image.
+/// @param result Result object populated or inspected by the operation.
+/// @param imports imports value consumed by this operation.
+/// @param path Path of the file or directory used by the operation.
 function cacheImage(result, imports, path)
   if path == "" then return true end if
   requireImportFunction(imports, imports.imageIndex, "imageIndex")
@@ -53,7 +69,11 @@ function cacheImage(result, imports, path)
   return true
 end function
 
-// Cache tokens.
+/// Cache tokens.
+/// @param result Result object populated or inspected by the operation.
+/// @param imports imports value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param itemName itemName value consumed by this operation.
 function cacheTokens(result, imports, value, itemName)
   source = bytes(value)
   index = 0
@@ -78,7 +98,12 @@ function cacheTokens(result, imports, value, itemName)
   return true
 end function
 
-// Populate the precache destination.
+/// Populate the precache destination.
+/// @param registry registry value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param imports imports value consumed by this operation.
+/// @param result Result object populated or inspected by the operation.
+/// @param depth depth value consumed by this operation.
 function precacheInto(registry, item, imports, result, depth)
   if item is void then return true end if
   if depth > len(registry.items) then return error(9382, "PrecacheItem: cyclic ammo dependency") end if
@@ -95,7 +120,10 @@ function precacheInto(registry, item, imports, result, depth)
   return true
 end function
 
-// Return the precache item value.
+/// Return the precache item value.
+/// @param registry registry value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param imports imports value consumed by this operation.
 function PrecacheItem(registry, item, imports)
   result = gptypes.PrecacheResult([], [], [])
   precacheInto(registry, item, imports, result, 0)

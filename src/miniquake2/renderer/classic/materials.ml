@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic materials facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,7 +13,9 @@ import miniquake2.qcommon.text as qtext
 import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
 
-// Return the rgba from indexed.
+/// Return the rgba from indexed.
+/// @param pixels pixels value consumed by this operation.
+/// @param palette palette value consumed by this operation.
 function rgbaFromIndexed(pixels, palette)
   if typeof(pixels) != "bytes" then return bytes(0) end if
   if typeof(palette) != "bytes" or len(palette) < 768 then return bytes(0) end if
@@ -29,8 +33,11 @@ function rgbaFromIndexed(pixels, palette)
   return rgba
 end function
 
-// ref_gl uploads mipmapped world/model textures through its intensity table.
-// The stock default is 2; sky and 2-D pictures deliberately stay unscaled.
+/// ref_gl uploads mipmapped world/model textures through its intensity table.
+/// The stock default is 2; sky and 2-D pictures deliberately stay unscaled.
+/// @param pixels pixels value consumed by this operation.
+/// @param palette palette value consumed by this operation.
+/// @param intensity intensity value consumed by this operation.
 function rgbaFromIndexedIntensity(pixels, palette, intensity)
   rgba = rgbaFromIndexed(pixels, palette)
   if len(rgba) == 0 then return rgba end if
@@ -50,7 +57,9 @@ function rgbaFromIndexedIntensity(pixels, palette, intensity)
   return rgba
 end function
 
-// Return the image from wal.
+/// Return the image from wal.
+/// @param wal wal value consumed by this operation.
+/// @param palette palette value consumed by this operation.
 function imageFromWal(wal, palette)
   pixels = bytes(0)
   if len(wal.mipPixels) > 0 then pixels = wal.mipPixels[0] end if
@@ -60,7 +69,9 @@ function imageFromWal(wal, palette)
   )
 end function
 
-// Return the image from pcx.
+/// Return the image from pcx.
+/// @param name Name of the affected item.
+/// @param pcx pcx value consumed by this operation.
 function imageFromPcx(name, pcx)
   return rclassictypes.ClassicImage(
     name, pcx.width, pcx.height, pcx.pixels, pcx.palette,
@@ -68,7 +79,9 @@ function imageFromPcx(name, pcx)
   )
 end function
 
-// Find image.
+/// Find image.
+/// @param images images value consumed by this operation.
+/// @param name Name of the affected item.
 function findImage(images, name)
   for each image in images
     if qtext.equalInsensitive(image.name, name) then return image end if
@@ -76,14 +89,17 @@ function findImage(images, name)
   return void
 end function
 
-// Return the image or fallback value.
+/// Return the image or fallback value.
+/// @param images images value consumed by this operation.
+/// @param name Name of the affected item.
 function imageOrFallback(images, name)
   image = findImage(images, name)
   if image is void then return rclassictypes.fallbackImage(name) end if
   return image
 end function
 
-// Return the classify value.
+/// Return the classify value.
+/// @param flags Bit flags controlling the operation.
 function classify(flags)
   if (flags & fc.SURF_NODRAW) != 0 then return rclassicconstants.MATERIAL_NODRAW end if
   if (flags & fc.SURF_SKY) != 0 then return rclassicconstants.MATERIAL_SKY end if
@@ -92,14 +108,18 @@ function classify(flags)
   return rclassicconstants.MATERIAL_OPAQUE
 end function
 
-// Return the alpha for flags.
+/// Return the alpha for flags.
+/// @param flags Bit flags controlling the operation.
 function alphaForFlags(flags)
   if (flags & fc.SURF_TRANS33) != 0 then return 0.33 end if
   if (flags & fc.SURF_TRANS66) != 0 then return 0.66 end if
   return 1.0
 end function
 
-// Return the animation images value.
+/// Return the animation images value.
+/// @param map map value consumed by this operation.
+/// @param texInfoIndex Zero-based index of tex info.
+/// @param images images value consumed by this operation.
 function animationImages(map, texInfoIndex, images)
   result = array(len(map.texInfo))
   resultCount = 0
@@ -122,7 +142,9 @@ function animationImages(map, texInfoIndex, images)
   return rclassicarray.slice(result, 0, resultCount)
 end function
 
-// Return the animated image value.
+/// Return the animated image value.
+/// @param frames frames value consumed by this operation.
+/// @param entityFrame entityFrame value consumed by this operation.
 function animatedImage(frames, entityFrame)
   if len(frames) == 0 then return void end if
   index = entityFrame % len(frames)

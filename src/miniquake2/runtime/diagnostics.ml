@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime diagnostics facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -56,7 +58,7 @@ import miniquake2.client.cinematic.audio as dcinaudio
 import miniquake2.runtime.server_session as dserversession
 import miniquake2.runtime.client_session as dclientsession
 
-// Return the capability lines value.
+/// Return the capability lines value.
 function capabilityLines()
   // Referencing the public entry points keeps this file an executable linker
   // closure rather than a documentation-only list.
@@ -99,7 +101,7 @@ function capabilityLines()
   ]
 end function
 
-// Verify link closure.
+/// Verify link closure.
 function verifyLinkClosure()
   lines = capabilityLines()
   return len(lines) == 9 and len(ddirections.normals) == 162

@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime crash report facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,33 +11,87 @@ import std.fs as crashfs
 import miniquake2.native as crashnative
 import miniquake2.runtime.save_metadata as crashmetadata
 
+/// Defines the crash report path constant used by the miniquake2 runtime crash report module.
 const CRASH_REPORT_PATH = "miniquake2-crash.log"
+/// Defines the cf unicodetext constant used by the miniquake2 runtime crash report module.
 const CF_UNICODETEXT = 13
+/// Defines the gmem moveable constant used by the miniquake2 runtime crash report module.
 const GMEM_MOVEABLE = 2
+/// Defines the gmem zeroinit constant used by the miniquake2 runtime crash report module.
 const GMEM_ZEROINIT = 64
+/// Defines the cp utf8 constant used by the miniquake2 runtime crash report module.
 const CP_UTF8 = 65001
+/// Defines the mb ok constant used by the miniquake2 runtime crash report module.
 const MB_OK = 0
+/// Defines the mb iconerror constant used by the miniquake2 runtime crash report module.
 const MB_ICONERROR = 16
+/// Defines the mb setforeground constant used by the miniquake2 runtime crash report module.
 const MB_SETFOREGROUND = 65536
+/// Defines the mb topmost constant used by the miniquake2 runtime crash report module.
 const MB_TOPMOST = 262144
 
+/// Invokes the native MessageBoxW entry point used by the miniquake2 runtime crash report module.
+/// @param owner owner value consumed by this operation.
+/// @param text Text consumed by the operation.
+/// @param caption caption value consumed by this operation.
+/// @param style style value consumed by this operation.
+/// @returns Native i32 result produced by the call.
 extern function MessageBoxW(owner as ptr, text as wstr, caption as wstr,
   style as u32) from "user32.dll" symbol "MessageBoxW" returns i32
+/// Invokes the native OpenClipboard entry point used by the miniquake2 runtime crash report module.
+/// @param owner owner value consumed by this operation.
+/// @returns Native bool result produced by the call.
 extern function OpenClipboard(owner as ptr) from "user32.dll" symbol "OpenClipboard" returns bool
+/// Invokes the native EmptyClipboard entry point used by the miniquake2 runtime crash report module.
+/// @returns Native bool result produced by the call.
 extern function EmptyClipboard() from "user32.dll" symbol "EmptyClipboard" returns bool
+/// Invokes the native SetClipboardData entry point used by the miniquake2 runtime crash report module.
+/// @param format format value consumed by this operation.
+/// @param memory memory value consumed by this operation.
+/// @returns Native ptr result produced by the call.
 extern function SetClipboardData(format as u32, memory as ptr) from "user32.dll" symbol "SetClipboardData" returns ptr
+/// Invokes the native CloseClipboard entry point used by the miniquake2 runtime crash report module.
+/// @returns Native bool result produced by the call.
 extern function CloseClipboard() from "user32.dll" symbol "CloseClipboard" returns bool
+/// Invokes the native GlobalAlloc entry point used by the miniquake2 runtime crash report module.
+/// @param flags Bit flags controlling the operation.
+/// @param size Size in the units required by the operation.
+/// @returns Native ptr result produced by the call.
 extern function GlobalAlloc(flags as u32, size as u64) from "kernel32.dll" symbol "GlobalAlloc" returns ptr
+/// Invokes the native GlobalLock entry point used by the miniquake2 runtime crash report module.
+/// @param memory memory value consumed by this operation.
+/// @returns Native ptr result produced by the call.
 extern function GlobalLock(memory as ptr) from "kernel32.dll" symbol "GlobalLock" returns ptr
+/// Invokes the native GlobalUnlock entry point used by the miniquake2 runtime crash report module.
+/// @param memory memory value consumed by this operation.
+/// @returns Native bool result produced by the call.
 extern function GlobalUnlock(memory as ptr) from "kernel32.dll" symbol "GlobalUnlock" returns bool
+/// Invokes the native GlobalFree entry point used by the miniquake2 runtime crash report module.
+/// @param memory memory value consumed by this operation.
+/// @returns Native ptr result produced by the call.
 extern function GlobalFree(memory as ptr) from "kernel32.dll" symbol "GlobalFree" returns ptr
+/// Invokes the native MultiByteToWideChar entry point used by the miniquake2 runtime crash report module.
+/// @param codePage codePage value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param source source value consumed by this operation.
+/// @param sourceCount Number of source to process.
+/// @param output Output collection or buffer populated by the operation.
+/// @param outputCount Number of output to process.
+/// @returns Native i32 result produced by the call.
 extern function MultiByteToWideChar(codePage as u32, flags as u32,
   source as bytes, sourceCount as i32, output as bytes,
   outputCount as i32) from "kernel32.dll" symbol "MultiByteToWideChar" returns i32
+/// Invokes the native RtlMoveMemoryToPtr entry point used by the miniquake2 runtime crash report module.
+/// @param destination destination value consumed by this operation.
+/// @param source source value consumed by this operation.
+/// @param length length value consumed by this operation.
 extern function RtlMoveMemoryToPtr(destination as ptr, source as bytes,
   length as u64) from "kernel32.dll" symbol "RtlMoveMemory" returns void
 
-// Format one caught MiniLang error without losing its original source origin.
+/// Format one caught MiniLang error without losing its original source origin.
+/// @param caught caught value consumed by this operation.
+/// @param version version value consumed by this operation.
+/// @param timestamp timestamp value consumed by this operation.
 function format(caught, version, timestamp)
   if caught is not error then return error(9985, "crash report requires an error value") end if
   report = "MiniQuake2 crash report\n" +
@@ -57,7 +113,8 @@ function format(caught, version, timestamp)
   return report
 end function
 
-// Convert managed UTF-8 text to the NUL-terminated UTF-16 clipboard format.
+/// Convert managed UTF-8 text to the NUL-terminated UTF-16 clipboard format.
+/// @param text Text consumed by the operation.
 function utf16Bytes(text)
   source = bytes(text)
   if len(source) == 0 then return bytes(2, 0) end if
@@ -69,7 +126,8 @@ function utf16Bytes(text)
   return output
 end function
 
-// Publish the complete report to the Windows clipboard before showing it.
+/// Publish the complete report to the Windows clipboard before showing it.
+/// @param report report value consumed by this operation.
 function copyToClipboard(report)
   wide = try(utf16Bytes(report))
   if wide is error then return wide end if
@@ -100,7 +158,7 @@ function copyToClipboard(report)
   return true
 end function
 
-// Leave exclusive display mode and release mouse capture before a modal error.
+/// Leave exclusive display mode and release mouse capture before a modal error.
 function prepareDesktop()
   crashnative.winSetCursorCapture(0)
   crashnative.winDestroy()
@@ -108,7 +166,9 @@ function prepareDesktop()
   return true
 end function
 
-// Persist, copy and display one otherwise-unhandled product error.
+/// Persist, copy and display one otherwise-unhandled product error.
+/// @param caught caught value consumed by this operation.
+/// @param version version value consumed by this operation.
 function handle(caught, version)
   timestamp = crashmetadata.currentTimestamp()
   report = try(format(caught, version, timestamp))

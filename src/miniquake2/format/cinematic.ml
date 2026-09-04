@@ -1,3 +1,5 @@
+//! Provides miniquake2 format cinematic facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,10 +10,13 @@ package miniquake2.format.cinematic
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
+/// Defines the huffman count bytes constant used by the miniquake2 format cinematic module.
 const HUFFMAN_COUNT_BYTES = 256 * 256
+/// Defines the header bytes constant used by the miniquake2 format cinematic module.
 const HEADER_BYTES = 20 + HUFFMAN_COUNT_BYTES
 
-// Parse header.
+/// Parse header.
+/// @param data Input data consumed by the operation.
 function parseHeader(data)
   if len(data) < HEADER_BYTES then return error(2700, "CIN header or Huffman table is truncated") end if
   width = fbio.i32(data, 0)
@@ -26,7 +31,10 @@ function parseHeader(data)
   return ft.CinematicHeader(width, height, sampleRate, sampleWidth, sampleChannels, slice(data, 20, HUFFMAN_COUNT_BYTES), HEADER_BYTES)
 end function
 
-// Return the smallest node value.
+/// Return the smallest node value.
+/// @param counts counts value consumed by this operation.
+/// @param used used value consumed by this operation.
+/// @param count Number of items or units to process.
 function smallestNode(counts, used, count)
   bestCount = 0x7fffffff
   bestNode = -1
@@ -42,7 +50,8 @@ function smallestNode(counts, used, count)
   return bestNode
 end function
 
-// Build tree.
+/// Build tree.
+/// @param countRow countRow value consumed by this operation.
 function buildTree(countRow)
   if len(countRow) != 256 then return error(2703, "CIN Huffman row must contain 256 counts") end if
   counts = array(511, 0)
@@ -74,7 +83,8 @@ function buildTree(countRow)
   return ft.HuffmanTree(root, left, right)
 end function
 
-// Build tables.
+/// Build tables.
+/// @param header header value consumed by this operation.
 function buildTables(header)
   if len(header.huffmanCounts) != HUFFMAN_COUNT_BYTES then return error(2705, "CIN Huffman table size mismatch") end if
   tables = array(256)
@@ -86,7 +96,10 @@ function buildTables(header)
   return tables
 end function
 
-// Decompress state.
+/// Decompress state.
+/// @param compressed compressed value consumed by this operation.
+/// @param tables tables value consumed by this operation.
+/// @param maximumOutput maximumOutput value consumed by this operation.
 function decompress(compressed, tables, maximumOutput)
   if len(compressed) < 5 then return error(2706, "compressed CIN frame is truncated") end if
   outputCount = fbio.i32(compressed, 0)
@@ -117,7 +130,12 @@ function decompress(compressed, tables, maximumOutput)
   return output
 end function
 
-// Read frame.
+/// Reads frame for the miniquake2 format cinematic workflow.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param header header value consumed by this operation.
+/// @param tables tables value consumed by this operation.
 function readFrame(data, offset, frameNumber, header, tables)
   if offset < header.frameDataOffset or offset + 4 > len(data) then return error(2711, "CIN frame command is truncated") end if
   command = fbio.i32(data, offset)

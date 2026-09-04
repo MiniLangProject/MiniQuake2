@@ -1,3 +1,5 @@
+//! Provides miniquake2 game weapons hand grenade facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,7 +11,14 @@ import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.game.weapons.constants as wbconstants
 import miniquake2.game.weapons.projectiles as wbprojectiles
 
-// Fire weapon grenade.
+/// Fire weapon grenade.
+/// @param context Context that carries state for the operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param held held value consumed by this operation.
 function weaponGrenadeFire(context, state, start, direction, damage, radius, held)
   timer = state.grenadeTime - context.time
   speed = wbconstants.GRENADE_MIN_SPEED + (wbconstants.GRENADE_TIMER - timer) * ((wbconstants.GRENADE_MAX_SPEED - wbconstants.GRENADE_MIN_SPEED) / wbconstants.GRENADE_TIMER)
@@ -21,7 +30,13 @@ function weaponGrenadeFire(context, state, start, direction, damage, radius, hel
   return projectile
 end function
 
-// Advance state.
+/// Performs the step operation for the miniquake2 game weapons hand grenade module.
+/// @param context Context that carries state for the operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param radius radius value consumed by this operation.
 function step(context, state, start, direction, damage, radius)
   // Keep step phases explicit: validate inputs, update owned state, then publish the result.
   if state.weaponState == wbconstants.HAND_READY then
@@ -78,11 +93,24 @@ function step(context, state, start, direction, damage, radius)
   return state.lastProjectile
 end function
 
-// Fire weapon grenade.
+/// Fire weapon grenade.
+/// @param context Context that carries state for the operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param held held value consumed by this operation.
 function weapon_grenade_fire(context, state, start, direction, damage, radius, held)
   return weaponGrenadeFire(context, state, start, direction, damage, radius, held)
 end function
-// Return the weapon grenade value.
+/// Return the weapon grenade value.
+/// @param context Context that carries state for the operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param radius radius value consumed by this operation.
 function Weapon_Grenade(context, state, start, direction, damage, radius)
   return step(context, state, start, direction, damage, radius)
 end function

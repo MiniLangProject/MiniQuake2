@@ -1,3 +1,5 @@
+//! Provides miniquake2 client state facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,44 +17,71 @@ import miniquake2.renderer.constants as crc
 import miniquake2.renderer.types as crt
 import miniquake2.client.effects.constants as cseconstants
 
-// Store client runtime data.
+/// Store client runtime data.
 struct ClientRuntime
+  /// Stores the state value associated with client runtime.
   state
+  /// Stores the snapshots value associated with client runtime.
   snapshots
+  /// Stores the current value associated with client runtime.
   current
+  /// Stores the previous value associated with client runtime.
   previous
+  /// Stores the predicted origin value associated with client runtime.
   predictedOrigin
+  /// Stores the predicted angles value associated with client runtime.
   predictedAngles
+  /// Stores the prediction error value associated with client runtime.
   predictionError
+  /// Stores the prediction valid value associated with client runtime.
   predictionValid
+  /// Stores the predicted step value associated with client runtime.
   predictedStep
+  /// Stores the predicted step time value associated with client runtime.
   predictedStepTime
+  /// Stores the prediction real time value associated with client runtime.
   predictionRealTime
+  /// Stores the prediction step origin z value associated with client runtime.
   predictionStepOriginZ
+  /// Stores the prediction step origin valid value associated with client runtime.
   predictionStepOriginValid
+  /// Stores the prediction step suppressed value associated with client runtime.
+  predictionStepSuppressed
+  /// Stores the server frame value associated with client runtime.
   serverFrame
+  /// Stores the server time value associated with client runtime.
   serverTime
+  /// Stores the light styles value associated with client runtime.
   lightStyles
+  /// Stores the light style maps value associated with client runtime.
   lightStyleMaps
+  /// Stores the light style offset value associated with client runtime.
   lightStyleOffset
+  /// Stores the entity lookup value associated with client runtime.
   entityLookup
+  /// Stores the entity lookup epochs value associated with client runtime.
   entityLookupEpochs
+  /// Stores the entity lookup epoch value associated with client runtime.
   entityLookupEpoch
+  /// Stores the render entities value associated with client runtime.
   renderEntities
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 client state module.
 function create()
   return ClientRuntime("disconnected", array(qc.UPDATE_BACKUP, void), void, void,
     cqt.zeroVec3(), cqt.zeroVec3(), cqt.zeroVec3(), false,
-    0.0, 0.0, 0.0, 0, false, -1, 0, crt.defaultLightStyles(),
+    0.0, 0.0, 0.0, 0, false, false, -1, 0, crt.defaultLightStyles(),
     array(qc.MAX_LIGHTSTYLES, ""), -1, array(qc.MAX_EDICTS),
     array(qc.MAX_EDICTS, 0), 0, [])
 end function
 
-// CL_SetLightstyle decodes CS_LIGHTS strings lazily at their 10 Hz playback
-// rate. Keeping the compact source string avoids a second 256 x MAX_QPATH
-// float table and is cheaper than rebuilding every style on every render.
+/// CL_SetLightstyle decodes CS_LIGHTS strings lazily at their 10 Hz playback
+/// rate. Keeping the compact source string avoids a second 256 x MAX_QPATH
+/// float table and is cheaper than rebuilding every style on every render.
+/// @param client client value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param pattern pattern value consumed by this operation.
 function setLightStyle(client, index, pattern)
   if typeof(index) != "int" or index < 0 or index >= qc.MAX_LIGHTSTYLES then
     return error(7604, "light style index outside table")
@@ -65,7 +94,9 @@ function setLightStyle(client, index, pattern)
   return true
 end function
 
-// Run light styles.
+/// Run light styles.
+/// @param client client value consumed by this operation.
+/// @param renderTime renderTime value consumed by this operation.
 function runLightStyles(client, renderTime)
   offset = cstatemath.floor(renderTime / 100.0)
   if offset == client.lightStyleOffset then return false end if
@@ -85,7 +116,9 @@ function runLightStyles(client, renderTime)
   return true
 end function
 
-// Set connection state.
+/// Set connection state.
+/// @param client client value consumed by this operation.
+/// @param state Mutable state inspected or updated by the operation.
 function setConnectionState(client, state)
   if state != "disconnected" and state != "connecting" and state != "connected" and state != "active" then
     return error(7600, "invalid client connection state")
@@ -93,7 +126,9 @@ function setConnectionState(client, state)
   client.state = state
 end function
 
-// Accept snapshot.
+/// Accept snapshot.
+/// @param client client value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function acceptSnapshot(client, frame)
   if frame.number < 0 then return error(7601, "negative snapshot number") end if
   if client.current is not void and frame.number <= client.current.number then return false end if
@@ -124,7 +159,9 @@ function acceptSnapshot(client, frame)
   return true
 end function
 
-// Return the current entity value.
+/// Return the current entity value.
+/// @param client client value consumed by this operation.
+/// @param number number value consumed by this operation.
 function inline currentEntity(client, number)
   if number <= 0 or number >= qc.MAX_EDICTS or
       client.entityLookupEpochs[number] != client.entityLookupEpoch then
@@ -133,15 +170,19 @@ function inline currentEntity(client, number)
   return client.entityLookup[number]
 end function
 
-// Return the last entity state published during this map epoch. Effects such
-// as muzzle flashes may arrive in a packet whose snapshot omits an otherwise
-// unchanged source entity, matching cl_entities[number].current in stock.
+/// Return the last entity state published during this map epoch. Effects such
+/// as muzzle flashes may arrive in a packet whose snapshot omits an otherwise
+/// unchanged source entity, matching cl_entities[number].current in stock.
+/// @param client client value consumed by this operation.
+/// @param number number value consumed by this operation.
 function inline lastKnownEntity(client, number)
   if number <= 0 or number >= qc.MAX_EDICTS then return void end if
   return client.entityLookup[number]
 end function
 
-// Find entity.
+/// Find entity.
+/// @param entities entities value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findEntity(entities, number)
   index = 0
   while index < len(entities)
@@ -152,20 +193,27 @@ function findEntity(entities, number)
   return void
 end function
 
-// Clamp fraction.
+/// Clamp fraction.
+/// @param value Value consumed or transformed by the operation.
 function inline clampFraction(value)
   if value < 0.0 then return 0.0 end if
   if value > 1.0 then return 1.0 end if
   return value
 end function
 
-// Return the lerp value.
+/// Return the lerp value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
 function inline lerp(first, second, fraction)
   return first + (second - first) * fraction
 end function
 
-// Quake II angles wrap at 360 degrees. A scalar interpolation would spin the
-// long way around when a snapshot crosses north (for example 359 -> 1).
+/// Quake II angles wrap at 360 degrees. A scalar interpolation would spin the
+/// long way around when a snapshot crosses north (for example 359 -> 1).
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
 function inline lerpAngle(first, second, fraction)
   delta = second - first
   if delta > 180.0 then delta = delta - 360.0 end if
@@ -173,7 +221,8 @@ function inline lerpAngle(first, second, fraction)
   return first + fraction * delta
 end function
 
-// Return the interpolation player value.
+/// Return the interpolation player value.
+/// @param client client value consumed by this operation.
 function interpolationPlayer(client)
   player = client.current.playerState
   if client.previous is void or client.previous.number != client.current.number - 1 then
@@ -188,7 +237,10 @@ function interpolationPlayer(client)
   return previous
 end function
 
-// Return the interpolated origin.
+/// Return the interpolated origin.
+/// @param oldState oldState value consumed by this operation.
+/// @param currentState currentState value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
 function interpolatedOrigin(oldState, currentState, fraction)
   if oldState is void then
     return cqt.vec3(currentState.origin[0], currentState.origin[1], currentState.origin[2])
@@ -200,7 +252,10 @@ function interpolatedOrigin(oldState, currentState, fraction)
   )
 end function
 
-// Return the interpolated angles.
+/// Return the interpolated angles.
+/// @param oldState oldState value consumed by this operation.
+/// @param currentState currentState value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
 function interpolatedAngles(oldState, currentState, fraction)
   if oldState is void then return cqt.vec3(currentState.angles[0], currentState.angles[1], currentState.angles[2]) end if
   return cqt.vec3(
@@ -210,11 +265,13 @@ function interpolatedAngles(oldState, currentState, fraction)
   )
 end function
 
-// CL_DeltaEntity deliberately breaks interpolation when an entity changes
-// model, moves more than 512 units between server frames, or reports either
-// teleport event.  Particle trails already observe this rule; the render
-// handoff must use the same predecessor or models visibly sweep through the
-// world after teleports and model replacements.
+/// CL_DeltaEntity deliberately breaks interpolation when an entity changes
+/// model, moves more than 512 units between server frames, or reports either
+/// teleport event.  Particle trails already observe this rule; the render
+/// handoff must use the same predecessor or models visibly sweep through the
+/// world after teleports and model replacements.
+/// @param oldState oldState value consumed by this operation.
+/// @param state Mutable state inspected or updated by the operation.
 function inline entityRequiresLerpReset(oldState, state)
   if oldState is void then return true end if
   if oldState.modelIndex != state.modelIndex or
@@ -231,7 +288,11 @@ function inline entityRequiresLerpReset(oldState, state)
     state.event == cseconstants.EV_OTHER_TELEPORT
 end function
 
-// Render entity origin.
+/// Render entity origin.
+/// @param oldState oldState value consumed by this operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param reset reset value consumed by this operation.
 function inline entityRenderOrigin(oldState, state, fraction, reset)
   if not reset then return interpolatedOrigin(oldState, state, fraction) end if
   first = state.oldOrigin
@@ -242,13 +303,18 @@ function inline entityRenderOrigin(oldState, state, fraction, reset)
     lerp(first[2], state.origin[2], fraction))
 end function
 
-// Render entity angles.
+/// Render entity angles.
+/// @param oldState oldState value consumed by this operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param reset reset value consumed by this operation.
 function inline entityRenderAngles(oldState, state, fraction, reset)
   if reset then return cqt.vec3(state.angles[0], state.angles[1], state.angles[2]) end if
   return interpolatedAngles(oldState, state, fraction)
 end function
 
-// Return the effective effects value.
+/// Return the effective effects value.
+/// @param state Mutable state inspected or updated by the operation.
 function inline effectiveEffects(state)
   effects = state.effects
   if (effects & cseconstants.EF_PENT) != 0 then
@@ -266,7 +332,8 @@ function inline effectiveEffects(state)
   return effects
 end function
 
-// Render effective fx.
+/// Render effective fx.
+/// @param state Mutable state inspected or updated by the operation.
 function inline effectiveRenderFx(state)
   flags = state.renderFx
   if (state.effects & cseconstants.EF_PENT) != 0 then flags = flags | crc.RF_SHELL_RED end if
@@ -276,7 +343,8 @@ function inline effectiveRenderFx(state)
   return flags
 end function
 
-// Return the state model count.
+/// Return the state model count.
+/// @param state Mutable state inspected or updated by the operation.
 function inline stateModelCount(state)
   count = 0
   if state.modelIndex > 0 then count = count + 1 end if
@@ -293,7 +361,10 @@ function inline stateModelCount(state)
   return count
 end function
 
-// Return the animated frame value.
+/// Return the animated frame value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param effects effects value consumed by this operation.
+/// @param renderTime renderTime value consumed by this operation.
 function inline animatedFrame(state, effects, renderTime)
   autoAnimation = cstatemath.floor(2.0 * renderTime / 1000.0)
   if (effects & cseconstants.EF_ANIM01) != 0 then return autoAnimation & 1 end if
@@ -305,7 +376,13 @@ function inline animatedFrame(state, effects, renderTime)
   return state.frame
 end function
 
-// Render angles.
+/// Render angles.
+/// @param oldState oldState value consumed by this operation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param effects effects value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param renderTime renderTime value consumed by this operation.
+/// @param lerpReset lerpReset value consumed by this operation.
 function renderAngles(oldState, state, effects, fraction, renderTime, lerpReset)
   if (effects & cseconstants.EF_ROTATE) != 0 then
     yaw = renderTime / 10.0
@@ -320,7 +397,8 @@ function renderAngles(oldState, state, effects, fraction, renderTime, lerpReset)
   return entityRenderAngles(oldState, state, fraction, lerpReset)
 end function
 
-// Return the disguise family value.
+/// Return the disguise family value.
+/// @param skin skin value consumed by this operation.
 function inline disguiseFamily(skin)
   if skin is void or typeof(skin) != "struct" or
       typeof(skin.name) != "string" then return "" end if
@@ -331,7 +409,18 @@ function inline disguiseFamily(skin)
   return ""
 end function
 
-// Append model entity.
+/// Append model entity.
+/// @param output Output collection or buffer populated by the operation.
+/// @param outputIndex Zero-based index of output.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param oldState oldState value consumed by this operation.
+/// @param modelIndex Zero-based index of model.
+/// @param part part value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param renderTime renderTime value consumed by this operation.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param randomResolver randomResolver value consumed by this operation.
+/// @param lerpReset lerpReset value consumed by this operation.
 function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
     part, fraction, renderTime, assetResolvers, randomResolver, lerpReset)
   // Keep append model entity phases explicit: validate inputs, update owned state, then publish the result.
@@ -402,7 +491,15 @@ function appendModelEntity(output, outputIndex, state, oldState, modelIndex,
   return outputIndex + 1
 end function
 
-// Append color shell.
+/// Append color shell.
+/// @param output Output collection or buffer populated by the operation.
+/// @param outputIndex Zero-based index of output.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param oldState oldState value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param renderTime renderTime value consumed by this operation.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param lerpReset lerpReset value consumed by this operation.
 function appendColorShell(output, outputIndex, state, oldState, fraction,
     renderTime, assetResolvers, lerpReset)
   effects = effectiveEffects(state)
@@ -440,7 +537,15 @@ function appendColorShell(output, outputIndex, state, oldState, fraction,
   return outputIndex + 1
 end function
 
-// Append power screen.
+/// Append power screen.
+/// @param output Output collection or buffer populated by the operation.
+/// @param outputIndex Zero-based index of output.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param oldState oldState value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param renderTime renderTime value consumed by this operation.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param lerpReset lerpReset value consumed by this operation.
 function appendPowerScreen(output, outputIndex, state, oldState, fraction,
     renderTime, assetResolvers, lerpReset)
   effects = effectiveEffects(state)
@@ -459,7 +564,14 @@ function appendPowerScreen(output, outputIndex, state, oldState, fraction,
   return outputIndex + 1
 end function
 
-// Append view weapon.
+/// Append view weapon.
+/// @param output Output collection or buffer populated by the operation.
+/// @param outputIndex Zero-based index of output.
+/// @param client client value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
+/// @param viewAngles viewAngles value consumed by this operation.
 function appendViewWeapon(output, outputIndex, client, fraction, assetResolvers,
     viewOrigin, viewAngles)
   player = client.current.playerState
@@ -484,7 +596,14 @@ function appendViewWeapon(output, outputIndex, client, fraction, assetResolvers,
   return outputIndex + 1
 end function
 
-// Build entities.
+/// Build entities.
+/// @param client client value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param randomResolver randomResolver value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
+/// @param viewAngles viewAngles value consumed by this operation.
 function buildEntities(client, fraction, assetResolvers, localEntityNumber,
     randomResolver, viewOrigin, viewAngles)
   if client.current is void then return [] end if
@@ -562,7 +681,9 @@ function buildEntities(client, fraction, assetResolvers, localEntityNumber,
   return compact
 end function
 
-// Update prediction error.
+/// Update prediction error.
+/// @param client client value consumed by this operation.
+/// @param predictedFixedOrigin predictedFixedOrigin value consumed by this operation.
 function updatePredictionError(client, predictedFixedOrigin)
   if client.current is void then return cqt.zeroVec3() end if
   server = client.current.playerState.pmove.origin
@@ -577,7 +698,10 @@ function updatePredictionError(client, predictedFixedOrigin)
   return client.predictionError
 end function
 
-// Accept prediction.
+/// Accept prediction.
+/// @param client client value consumed by this operation.
+/// @param fixedOrigin fixedOrigin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
 function acceptPrediction(client, fixedOrigin, angles)
   if typeof(fixedOrigin) != "array" or len(fixedOrigin) != 3 then
     return error(7603, "prediction requires a fixed-point origin")
@@ -593,7 +717,9 @@ function acceptPrediction(client, fixedOrigin, angles)
   return true
 end function
 
-// Set prediction real time.
+/// Set prediction real time.
+/// @param client client value consumed by this operation.
+/// @param now now value consumed by this operation.
 function setPredictionRealTime(client, now)
   if typeof(now) != "int" and typeof(now) != "float" then
     return error(7606, "prediction real time must be numeric")
@@ -602,10 +728,35 @@ function setPredictionRealTime(client, now)
   return true
 end function
 
-// CL_PredictMovement recognizes one ordinary stair riser in fixed-point
-// Pmove coordinates (8..20 world units) and records a half-frame-adjusted
-// start time. CL_CalcViewValues then removes that vertical discontinuity over
-// the next 100 ms instead of snapping the camera upward.
+/// Tell the stair smoother whether local prediction is currently carried by a
+/// moving brush. A lift's regular vertical displacement falls inside the
+/// ordinary 8..20-unit stair range, but smoothing it as a stair every server
+/// frame makes the camera repeatedly ease downward and visibly hop upward.
+/// The application derives this flag from Player.groundEntity before it
+/// replays prediction; the underlying movement state remains authoritative.
+/// @param client client value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+function setPredictionStepSuppressed(client, value)
+  if typeof(value) != "bool" then
+    return error(7608, "prediction step suppression must be boolean")
+  end if
+  client.predictionStepSuppressed = value
+  if value then
+    client.predictedStep = 0.0
+    client.predictedStepTime = 0.0
+  end if
+  return true
+end function
+
+/// CL_PredictMovement recognizes one ordinary stair riser in fixed-point
+/// Pmove coordinates (8..20 world units) and records a half-frame-adjusted
+/// start time. CL_CalcViewValues then removes that vertical discontinuity over
+/// the next 100 ms instead of snapping the camera upward.
+/// @param client client value consumed by this operation.
+/// @param previousFixedOrigin previousFixedOrigin value consumed by this operation.
+/// @param currentFixedOrigin currentFixedOrigin value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param frameMsec frameMsec value consumed by this operation.
 function notePredictionStep(client, previousFixedOrigin, currentFixedOrigin,
     flags, frameMsec)
   if typeof(previousFixedOrigin) != "array" or len(previousFixedOrigin) != 3 or
@@ -617,6 +768,9 @@ function notePredictionStep(client, previousFixedOrigin, currentFixedOrigin,
     client.predictionStepOriginZ == currentFixedOrigin[2]
   client.predictionStepOriginZ = currentFixedOrigin[2]
   client.predictionStepOriginValid = true
+  // Pusher translation is rendered from its snapshot pair. Never feed the
+  // same lift rise into CL_CheckPredictionError's separate stair easer.
+  if client.predictionStepSuppressed then return false end if
   if step <= 63 or step >= 160 or (flags & qc.PMF_ON_GROUND) == 0 then
     return false
   end if
@@ -630,7 +784,8 @@ function notePredictionStep(client, previousFixedOrigin, currentFixedOrigin,
   return true
 end function
 
-// Clear prediction.
+/// Clear prediction.
+/// @param client client value consumed by this operation.
 function clearPrediction(client)
   client.predictionValid = false
   client.predictionError = cqt.zeroVec3()
@@ -639,10 +794,20 @@ function clearPrediction(client)
   client.predictionRealTime = 0.0
   client.predictionStepOriginZ = 0
   client.predictionStepOriginValid = false
+  client.predictionStepSuppressed = false
   return true
 end function
 
-// Build ref def internal.
+/// Build ref def internal.
+/// @param client client value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param randomResolver randomResolver value consumed by this operation.
+/// @param usePrediction usePrediction value consumed by this operation.
+/// @param predictionOffset predictionOffset value consumed by this operation.
 function buildRefDefInternal(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, usePrediction, predictionOffset)
   if client.current is void then return error(7602, "cannot render without a snapshot") end if
@@ -716,24 +881,46 @@ function buildRefDefInternal(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, viewOrigin, viewAngles), [], [])
 end function
 
-// Demos and deterministic renderer captures intentionally retain pure server
-// interpolation.  The live product uses the explicit predicted entry point.
+/// Demos and deterministic renderer captures intentionally retain pure server
+/// interpolation.  The live product uses the explicit predicted entry point.
+/// @param client client value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param randomResolver randomResolver value consumed by this operation.
 function buildRefDef(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver)
   return buildRefDefInternal(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, false, cqt.zeroVec3())
 end function
 
-// Build predicted ref def.
+/// Build predicted ref def.
+/// @param client client value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param randomResolver randomResolver value consumed by this operation.
 function buildPredictedRefDef(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver)
   return buildRefDefInternal(client, fraction, width, height, assetResolvers,
     localEntityNumber, randomResolver, true, cqt.zeroVec3())
 end function
 
-// Build a predicted refdef while matching a locally ridden pusher's visual
-// interpolation. The offset is deliberately explicit so ordinary movement
-// prediction, demos and renderer captures cannot accidentally inherit it.
+/// Build a predicted refdef while matching a locally ridden pusher's visual
+/// interpolation. The offset is deliberately explicit so ordinary movement
+/// prediction, demos and renderer captures cannot accidentally inherit it.
+/// @param client client value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param assetResolvers assetResolvers value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param randomResolver randomResolver value consumed by this operation.
+/// @param predictionOffset predictionOffset value consumed by this operation.
 function buildPredictedRefDefWithOffset(client, fraction, width, height,
     assetResolvers, localEntityNumber, randomResolver, predictionOffset)
   return buildRefDefInternal(client, fraction, width, height, assetResolvers,

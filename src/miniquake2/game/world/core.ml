@@ -1,3 +1,5 @@
+//! Provides miniquake2 game world core facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,9 +13,12 @@ import miniquake2.game.world.constants as gwconstants
 import miniquake2.game.world.types as gwtypes
 import miniquake2.game.world.vector as gwvector
 
+/// Defines the max world event history constant used by the miniquake2 game world core module.
 const MAX_WORLD_EVENT_HISTORY = 1024
 
-// Append world core event.
+/// Append world core event.
+/// @param values values value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function worldCoreAppendEvent(values, value)
   if len(values) < MAX_WORLD_EVENT_HISTORY then return values + [value] end if
   output = array(MAX_WORLD_EVENT_HISTORY, void)
@@ -26,120 +31,194 @@ function worldCoreAppendEvent(values, value)
   return output
 end function
 
-// Return the noop log value.
+/// Return the noop log value.
+/// @param message Human-readable message associated with the operation.
 function noopLog(message)
   return true
 end function
-// Print noop center.
+/// Print noop center.
+/// @param entity entity value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function noopCenterPrint(entity, message)
   return true
 end function
-// Return the noop sound value.
+/// Return the noop sound value.
+/// @param entity entity value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
 function noopSound(entity, soundName)
   return true
 end function
-// Return the noop area portal value.
+/// Return the noop area portal value.
+/// @param style style value consumed by this operation.
+/// @param isOpen isOpen value consumed by this operation.
 function noopAreaPortal(style, isOpen)
   return true
 end function
-// Return the noop damage value.
+/// Return the noop damage value.
+/// @param target target value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param means means value consumed by this operation.
 function noopDamage(target, inflictor, attacker, amount, means)
   return true
 end function
-// Return the noop radius damage value.
+/// Return the noop radius damage value.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param means means value consumed by this operation.
 function noopRadiusDamage(inflictor, attacker, amount, radius, means)
   return true
 end function
-// Return the noop effect value.
+/// Return the noop effect value.
+/// @param kind kind value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param style style value consumed by this operation.
+/// @param count Number of items or units to process.
 function noopEffect(kind, origin, style, count)
   return true
 end function
-// Return the noop change level value.
+/// Return the noop change level value.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function noopChangeLevel(entity, other, activator, mapName)
   return true
 end function
-// Spawn noop external.
+/// Spawn noop external.
+/// @param className className value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
+/// @param velocity velocity value consumed by this operation.
 function noopSpawnExternal(className, origin, angles, velocity)
   return true
 end function
-// Link noop entity.
+/// Link noop entity.
+/// @param entity entity value consumed by this operation.
 function noopLinkEntity(entity)
   return true
 end function
-// Kill noop box.
+/// Kill noop box.
+/// @param entity entity value consumed by this operation.
 function noopKillBox(entity)
   return true
 end function
-// Return the zero random signed value.
+/// Return the zero random signed value.
 function zeroRandomSigned()
   return 0.0
 end function
-// Return the zero random index.
+/// Return the zero random index.
+/// @param count Number of items or units to process.
 function zeroRandomIndex(count)
   return 0
 end function
-// Resolve noop key item.
+/// Resolve noop key item.
+/// @param itemClassName itemClassName value consumed by this operation.
 function noopResolveKeyItem(itemClassName)
   return void
 end function
-// Report whether noop has key item.
+/// Report whether noop has key item.
+/// @param activator activator value consumed by this operation.
+/// @param itemClassName itemClassName value consumed by this operation.
 function noopHasKeyItem(activator, itemClassName)
   return false
 end function
-// Consume noop key item.
+/// Consume noop key item.
+/// @param activator activator value consumed by this operation.
+/// @param itemClassName itemClassName value consumed by this operation.
 function noopConsumeKeyItem(activator, itemClassName)
   return false
 end function
-// Return the noop actor message value.
+/// Return the noop actor message value.
+/// @param actor actor value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function noopActorMessage(actor, message)
   return true
 end function
-// Return the noop actor transition value.
+/// Return the noop actor transition value.
+/// @param actor actor value consumed by this operation.
+/// @param waypoint waypoint value consumed by this operation.
+/// @param action action value consumed by this operation.
+/// @param actionTarget actionTarget value consumed by this operation.
+/// @param nextTarget nextTarget value consumed by this operation.
+/// @param wait wait value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
 function noopActorTransition(actor, waypoint, action, actionTarget, nextTarget, wait, flags)
   return true
 end function
-// Return the noop combat point transition value.
+/// Return the noop combat point transition value.
+/// @param actor actor value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param nextTarget nextTarget value consumed by this operation.
+/// @param hold hold value consumed by this operation.
+/// @param clearCombatPoint clearCombatPoint value consumed by this operation.
 function noopCombatPointTransition(actor, point, nextTarget, hold, clearCombatPoint)
   return true
 end function
-// Return the zero clock seconds value.
+/// Return the zero clock seconds value.
 function zeroClockSeconds()
   return 0
 end function
-// Set noop model.
+/// Set noop model.
+/// @param entity entity value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
 function noopSetModel(entity, modelName)
   return true
 end function
-// Return the noop light style value.
+/// Return the noop light style value.
+/// @param style style value consumed by this operation.
+/// @param pattern pattern value consumed by this operation.
 function noopLightStyle(style, pattern)
   return true
 end function
-// Trace noop line.
+/// Trace noop line.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param ignore ignore value consumed by this operation.
 function noopTraceLine(start, finish, ignore)
   return gwtypes.WorldTrace(false, finish, gwcoreqtypes.zeroVec3(), void)
 end function
-// Return the noop laser sparks value.
+/// Return the noop laser sparks value.
+/// @param origin origin value consumed by this operation.
+/// @param normal normal value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param color color value consumed by this operation.
 function noopLaserSparks(origin, normal, count, color)
   return true
 end function
-// Return the noop earthquake value.
+/// Return the noop earthquake value.
+/// @param entity entity value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param playSound playSound value consumed by this operation.
 function noopEarthquake(entity, speed, playSound)
   return 0
 end function
-// Fire noop blaster.
+/// Fire noop blaster.
+/// @param entity entity value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
 function noopFireBlaster(entity, direction, damage, speed)
   return void
 end function
-// Return the noop target explosion value.
+/// Return the noop target explosion value.
+/// @param origin origin value consumed by this operation.
 function noopTargetExplosion(origin)
   return true
 end function
-// Return the noop target splash value.
+/// Return the noop target splash value.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param sounds sounds value consumed by this operation.
 function noopTargetSplash(origin, direction, count, sounds)
   return true
 end function
 
-// Return the default callbacks value.
+/// Return the default callbacks value.
 function defaultCallbacks()
   return gwtypes.WorldCallbacks(
     noopLog, noopCenterPrint, noopSound, noopAreaPortal,
@@ -154,7 +233,8 @@ function defaultCallbacks()
   )
 end function
 
-// Create world.
+/// Create world.
+/// @param callbacks callbacks value consumed by this operation.
 function createWorld(callbacks)
   if callbacks is void then callbacks = defaultCallbacks() end if
   return gwtypes.WorldState(
@@ -163,7 +243,11 @@ function createWorld(callbacks)
   )
 end function
 
-// Emit state.
+/// Performs the emit operation for the miniquake2 game world core module.
+/// @param world world value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param detail detail value consumed by this operation.
 function emit(world, kind, entity, detail)
   number = 0
   if entity is not void then number = entity.number end if
@@ -171,13 +255,17 @@ function emit(world, kind, entity, detail)
   return true
 end function
 
-// Return the log value.
+/// Return the log value.
+/// @param world world value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function log(world, message)
   emit(world, "log", void, message)
   return world.callbacks.log(message)
 end function
 
-// Add entity.
+/// Add entity.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function addEntity(world, entity)
   if entity.number <= 0 then
     entity.number = world.nextEntityNumber
@@ -189,7 +277,9 @@ function addEntity(world, entity)
   return entity
 end function
 
-// Spawn entity.
+/// Spawn entity.
+/// @param world world value consumed by this operation.
+/// @param className className value consumed by this operation.
 function spawnEntity(world, className)
   entity = gwtypes.createEntity(world.nextEntityNumber, className)
   world.nextEntityNumber = world.nextEntityNumber + 1
@@ -197,7 +287,9 @@ function spawnEntity(world, className)
   return entity
 end function
 
-// Release entity.
+/// Release entity.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function freeEntity(world, entity)
   if entity is void or entity.inUse == false then return false end if
   entity.inUse = false
@@ -215,12 +307,16 @@ function freeEntity(world, entity)
   return true
 end function
 
-// Release think.
+/// Release think.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function freeThink(entity, world)
   return freeEntity(world, entity)
 end function
 
-// Find by number.
+/// Find by number.
+/// @param world world value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findByNumber(world, number)
   for each entity in world.entities
     if entity.inUse and entity.number == number then return entity end if
@@ -228,7 +324,9 @@ function findByNumber(world, number)
   return void
 end function
 
-// Return the matching targets value.
+/// Return the matching targets value.
+/// @param world world value consumed by this operation.
+/// @param targetName targetName value consumed by this operation.
 function matchingTargets(world, targetName)
   result = []
   if typeof(targetName) != "string" then return error(9290, "matchingTargets targetName is not text") end if
@@ -243,7 +341,9 @@ function matchingTargets(world, targetName)
   return result
 end function
 
-// Choose target.
+/// Choose target.
+/// @param world world value consumed by this operation.
+/// @param targetName targetName value consumed by this operation.
 function pickTarget(world, targetName)
   choices = matchingTargets(world, targetName)
   if len(choices) == 0 then
@@ -259,7 +359,11 @@ function pickTarget(world, targetName)
   return choices[selected]
 end function
 
-// Use entity.
+/// Use entity.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
 function useEntity(world, entity, other, activator)
   if entity is void or entity.inUse == false or entity.use is void then return false end if
   emit(world, "use", entity, entity.className)
@@ -267,7 +371,10 @@ function useEntity(world, entity, other, activator)
   return true
 end function
 
-// Handle entity.
+/// Handle entity.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
 function touchEntity(world, entity, other)
   if entity is void or entity.inUse == false or entity.touch is void then return false end if
   emit(world, "touch", entity, entity.className)
@@ -275,28 +382,42 @@ function touchEntity(world, entity, other)
   return true
 end function
 
-// Report whether blocked entity.
+/// Report whether blocked entity.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
 function blockedEntity(world, entity, other)
   if entity is void or entity.inUse == false or entity.blocked is void then return false end if
   entity.blocked(entity, other, world)
   return true
 end function
 
-// Kill entity.
+/// Kill entity.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
 function killEntity(world, entity, inflictor, attacker, damage, point)
   if entity is void or entity.inUse == false or entity.die is void then return false end if
   entity.die(entity, inflictor, attacker, damage, point, world)
   return true
 end function
 
-// Run delayed.
+/// Run delayed.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function thinkDelayed(entity, world)
   useTargets(world, entity, entity.activator)
   freeEntity(world, entity)
   return true
 end function
 
-// Use targets.
+/// Use targets.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param activator activator value consumed by this operation.
 function useTargets(world, entity, activator)
   if entity.delay != 0.0 then
     delayed = spawnEntity(world, "DelayedUse")
@@ -361,7 +482,9 @@ function useTargets(world, entity, activator)
   return true
 end function
 
-// Return the integrate value.
+/// Return the integrate value.
+/// @param world world value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function inline integrate(world, duration)
   if duration <= 0.0 then return true end if
   for each entity in world.entities
@@ -386,7 +509,9 @@ function inline integrate(world, duration)
   return true
 end function
 
-// Advance state.
+/// Performs the advance operation for the miniquake2 game world core module.
+/// @param world world value consumed by this operation.
+/// @param targetTime targetTime value consumed by this operation.
 function advance(world, targetTime)
   // Keep advance phases explicit: validate inputs, update owned state, then publish the result.
   if targetTime < world.time then return error(9200, "world time cannot move backwards") end if
@@ -441,17 +566,23 @@ function advance(world, targetTime)
   return true
 end function
 
-// Run frame.
+/// Run frame.
+/// @param world world value consumed by this operation.
 function runFrame(world)
   return advance(world, world.time + world.frameTime)
 end function
 
-// Source-traceable entry points retained for later baseq2 registry wiring.
+/// Source-traceable entry points retained for later baseq2 registry wiring.
+/// @param entity entity value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function G_UseTargets(entity, activator, world)
   return useTargets(world, entity, activator)
 end function
 
-// Run delay.
+/// Run delay.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function Think_Delay(entity, world)
   return thinkDelayed(entity, world)
 end function

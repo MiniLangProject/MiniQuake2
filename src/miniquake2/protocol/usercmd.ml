@@ -1,3 +1,5 @@
+//! Provides miniquake2 protocol usercmd facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -12,7 +14,10 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
 
-// Write delta.
+/// Write delta.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
+/// @param command command value consumed by this operation.
 function writeDelta(buffer, base, command)
   if len(base.angles) != 3 or len(command.angles) != 3 then return error(7020, "usercmd angles must contain three shorts") end if
   bits = 0
@@ -39,7 +44,9 @@ function writeDelta(buffer, base, command)
   return bits
 end function
 
-// Read delta.
+/// Read delta.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
 function readDelta(buffer, base)
   command = pt.copyUserCmd(base)
   bits = pchecked.readByte(buffer, "usercmd flags")
@@ -56,12 +63,17 @@ function readDelta(buffer, base)
   return command
 end function
 
-// Write msg delta usercmd.
+/// Write msg delta usercmd.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
+/// @param command command value consumed by this operation.
 function MSG_WriteDeltaUsercmd(buffer, base, command)
   return writeDelta(buffer, base, command)
 end function
 
-// Read msg delta usercmd.
+/// Read msg delta usercmd.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
 function MSG_ReadDeltaUsercmd(buffer, base)
   return readDelta(buffer, base)
 end function

@@ -1,3 +1,5 @@
+//! Provides miniquake2 protocol checked facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,7 +12,10 @@ package miniquake2.protocol.checked
 
 import miniquake2.qcommon.message as qmsg
 
-// Require state.
+/// Require state.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param count Number of items or units to process.
+/// @param operation operation value consumed by this operation.
 function require(buffer, count, operation)
   if typeof(count) != "int" or count < 0 then return error(7010, operation + ": invalid width") end if
   if typeof(buffer.data) != "bytes" or buffer.maxSize < 0 or buffer.maxSize > len(buffer.data) then
@@ -25,56 +30,77 @@ function require(buffer, count, operation)
   return true
 end function
 
-// Read byte.
+/// Read byte.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readByte(buffer, operation)
   require(buffer, 1, operation)
   return qmsg.readByte(buffer)
 end function
 
-// Read char.
+/// Read char.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readChar(buffer, operation)
   require(buffer, 1, operation)
   return qmsg.readChar(buffer)
 end function
 
-// Read short.
+/// Read short.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readShort(buffer, operation)
   require(buffer, 2, operation)
   return qmsg.readShort(buffer)
 end function
 
-// Read u short.
+/// Read u short.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readUShort(buffer, operation)
   return readShort(buffer, operation) & 0xffff
 end function
 
-// Read long.
+/// Read long.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readLong(buffer, operation)
   require(buffer, 4, operation)
   return qmsg.readLong(buffer)
 end function
 
-// Read u long.
+/// Read u long.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readULong(buffer, operation)
   return readLong(buffer, operation) & 0xffffffff
 end function
 
-// Read coord.
+/// Read coord.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readCoord(buffer, operation)
   return readShort(buffer, operation) * 0.125
 end function
 
-// Read angle.
+/// Read angle.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readAngle(buffer, operation)
   return readChar(buffer, operation) * (360.0 / 256.0)
 end function
 
-// Read angle 16.
+/// Read angle 16.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readAngle16(buffer, operation)
   return readShort(buffer, operation) * (360.0 / 65536.0)
 end function
 
-// Read bytes.
+/// Read bytes.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param count Number of items or units to process.
+/// @param operation operation value consumed by this operation.
 function readBytes(buffer, count, operation)
   require(buffer, count, operation)
   output = slice(buffer.data, buffer.readCount, count)

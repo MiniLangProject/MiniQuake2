@@ -1,3 +1,5 @@
+//! Provides miniquake2 network server facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -18,7 +20,8 @@ import miniquake2.network.address as naddress
 import miniquake2.network.connectionless as nconnectionless
 import miniquake2.network.snapshot as nsnapshot
 
-// Report whether empty client.
+/// Report whether empty client.
+/// @param slot slot value consumed by this operation.
 function emptyClient(slot)
   return nt.ServerClient(slot, nc.CS_FREE, "", "", 0, 0, void, 0, 0, 0, 0,
     void, array(nc.UPDATE_BACKUP, void), 0, 0,
@@ -26,7 +29,13 @@ function emptyClient(slot)
     array(nc.RATE_MESSAGES, 0))
 end function
 
-// Create state.
+/// Creates create for the miniquake2 network server module.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param hostname hostname value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param serverInfo serverInfo value consumed by this operation.
+/// @param dedicated dedicated value consumed by this operation.
+/// @param publicServer publicServer value consumed by this operation.
 function create(maxClients, hostname, mapName, serverInfo, dedicated, publicServer)
   if typeof(maxClients) != "int" or maxClients < 1 or maxClients > 256 then return error(7120, "server maxClients outside protocol range") end if
   if not qinfo.validate(serverInfo) then return error(7121, "serverinfo string is invalid") end if
@@ -41,7 +50,8 @@ function create(maxClients, hostname, mapName, serverInfo, dedicated, publicServ
     nc.DEFAULT_TIMEOUT_MSEC, nc.DEFAULT_ZOMBIE_MSEC, nc.DEFAULT_RECONNECT_MSEC, 1)
 end function
 
-// Return the status string value.
+/// Return the status string value.
+/// @param server server value consumed by this operation.
 function statusString(server)
   output = server.serverInfo + "\n"
   index = 0
@@ -57,7 +67,8 @@ function statusString(server)
   return output
 end function
 
-// Report whether connected count.
+/// Report whether connected count.
+/// @param server server value consumed by this operation.
 function connectedCount(server)
   count = 0
   for each client in server.clients
@@ -66,7 +77,9 @@ function connectedCount(server)
   return count
 end function
 
-// Return the info string value.
+/// Return the info string value.
+/// @param server server value consumed by this operation.
+/// @param version version value consumed by this operation.
 function infoString(server, version)
   if version != pc.PROTOCOL_VERSION then return server.hostname + ": wrong version\n" end if
   return nconnectionless.padLeft(server.hostname, 16) + " " +
@@ -75,13 +88,17 @@ function infoString(server, version)
     nconnectionless.padLeft(server.maxClients, 2) + "\n"
 end function
 
-// Return the next challenge value.
+/// Return the next challenge value.
+/// @param server server value consumed by this operation.
 function nextChallenge(server)
   server.challengeSeed = (server.challengeSeed * 1103515245 + 12345) & 0x7fffffff
   return (server.challengeSeed >> 16) & 0x7fff
 end function
 
-// Return the challenge for the requested input.
+/// Return the challenge for the requested input.
+/// @param server server value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param now now value consumed by this operation.
 function challengeFor(server, address, now)
   oldest = 0
   oldestTime = 0x7fffffff
@@ -99,7 +116,10 @@ function challengeFor(server, address, now)
   return value
 end function
 
-// Report whether challenge valid.
+/// Report whether challenge valid.
+/// @param server server value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function challengeValid(server, address, value)
   if naddress.isLocal(address) then return true end if
   for each entry in server.challenges
@@ -108,7 +128,9 @@ function challengeValid(server, address, value)
   return false
 end function
 
-// Report whether has challenge.
+/// Report whether has challenge.
+/// @param server server value consumed by this operation.
+/// @param address address value consumed by this operation.
 function hasChallenge(server, address)
   if naddress.isLocal(address) then return true end if
   for each entry in server.challenges
@@ -117,7 +139,8 @@ function hasChallenge(server, address)
   return false
 end function
 
-// Return the sanitized name.
+/// Return the sanitized name.
+/// @param userInfo userInfo value consumed by this operation.
 function sanitizedName(userInfo)
   name = qinfo.valueForKey(userInfo, "name")
   source = bytes(name)
@@ -130,8 +153,9 @@ function sanitizedName(userInfo)
   return decode(output)
 end function
 
-// SV_UserinfoChanged clamps the client-requested one-second snapshot budget.
-// Missing or non-numeric values retain the stock 5000 byte default.
+/// SV_UserinfoChanged clamps the client-requested one-second snapshot budget.
+/// Missing or non-numeric values retain the stock 5000 byte default.
+/// @param userInfo userInfo value consumed by this operation.
 function clientRate(userInfo)
   value = qinfo.valueForKey(userInfo, "rate")
   if value == "" then return 5000 end if
@@ -143,7 +167,9 @@ function clientRate(userInfo)
   return rate
 end function
 
-// Apply user info.
+/// Apply user info.
+/// @param client client value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function applyUserInfo(client, userInfo)
   client.userInfo = userInfo
   client.name = sanitizedName(userInfo)
@@ -151,12 +177,21 @@ function applyUserInfo(client, userInfo)
   return client
 end function
 
-// Return the reply value.
+/// Return the reply value.
+/// @param kind kind value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param data Input data consumed by the operation.
+/// @param slot slot value consumed by this operation.
+/// @param text Text consumed by the operation.
 function reply(kind, address, data, slot, text)
   return nt.action(kind, naddress.copy(address), data, slot, text)
 end function
 
-// Handle connect.
+/// Handle connect.
+/// @param server server value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param request request value consumed by this operation.
+/// @param now now value consumed by this operation.
 function handleConnect(server, address, request, now)
   // Keep handle connect phases explicit: validate inputs, update owned state, then publish the result.
   if len(request.arguments) < 5 then return error(7122, "connect request is truncated") end if
@@ -225,7 +260,11 @@ function handleConnect(server, address, request, now)
   return nt.result(true, slot, [action], "connected", void)
 end function
 
-// Handle connectionless.
+/// Handles connectionless for the miniquake2 network server workflow.
+/// @param server server value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param datagram datagram value consumed by this operation.
+/// @param now now value consumed by this operation.
 function handleConnectionless(server, address, datagram, now)
   request = nconnectionless.parsePacket(datagram)
   server.realTime = now
@@ -251,7 +290,11 @@ function handleConnectionless(server, address, datagram, now)
   return nt.result(false, -1, [], "unknown-connectionless-command", void)
 end function
 
-// Receive sequenced.
+/// Receive sequenced.
+/// @param server server value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param datagram datagram value consumed by this operation.
+/// @param now now value consumed by this operation.
 function receiveSequenced(server, address, datagram, now)
   header = ppacket.decodeHeader(datagram, true)
   slot = -1
@@ -274,7 +317,11 @@ function receiveSequenced(server, address, datagram, now)
   return nt.result(true, slot, [], "sequenced", processed.payload)
 end function
 
-// Drop client.
+/// Drop client.
+/// @param server server value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param zombie zombie value consumed by this operation.
 function dropClient(server, slot, now, zombie)
   if slot < 0 or slot >= server.maxClients then return error(7123, "drop client slot outside range") end if
   client = server.clients[slot]
@@ -284,7 +331,9 @@ function dropClient(server, slot, now, zombie)
   return client
 end function
 
-// Validate timeouts.
+/// Validate timeouts.
+/// @param server server value consumed by this operation.
+/// @param now now value consumed by this operation.
 function checkTimeouts(server, now)
   server.realTime = now
   dropped = []
@@ -306,7 +355,9 @@ function checkTimeouts(server, now)
   return dropped
 end function
 
-// Mark spawned.
+/// Mark spawned.
+/// @param server server value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function markSpawned(server, slot)
   if slot < 0 or slot >= server.maxClients then return error(7124, "spawn slot outside range") end if
   if server.clients[slot].state != nc.CS_CONNECTED then return false end if
@@ -314,7 +365,10 @@ function markSpawned(server, slot)
   return true
 end function
 
-// Return the acknowledge frame value.
+/// Return the acknowledge frame value.
+/// @param server server value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
 function acknowledgeFrame(server, slot, frameNumber)
   if slot < 0 or slot >= server.maxClients then return error(7125, "frame acknowledgement slot outside range") end if
   if typeof(frameNumber) != "int" then return error(7126, "frame acknowledgement must be an integer") end if
@@ -332,7 +386,12 @@ function acknowledgeFrame(server, slot, frameNumber)
   return frameNumber
 end function
 
-// Write client frame.
+/// Write client frame.
+/// @param server server value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param current current value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function writeClientFrame(server, slot, current, baselines, buffer)
   if slot < 0 or slot >= server.maxClients then return error(7127, "frame client slot outside range") end if
   client = server.clients[slot]
@@ -344,9 +403,12 @@ function writeClientFrame(server, slot, current, baselines, buffer)
   return selected
 end function
 
-// sv_send.c: SV_RateDrop sums the previous ten 10 Hz datagram sizes. Remote
-// clients over their advertised rate skip this frame and expose the number of
-// skipped frames in the next svc_frame. Loopback is deliberately unlimited.
+/// sv_send.c: SV_RateDrop sums the previous ten 10 Hz datagram sizes. Remote
+/// clients over their advertised rate skip this frame and expose the number of
+/// skipped frames in the next svc_frame. Loopback is deliberately unlimited.
+/// @param server server value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
 function rateDrop(server, slot, frameNumber)
   if slot < 0 or slot >= server.maxClients then return error(7129, "rate-drop client slot outside range") end if
   if typeof(frameNumber) != "int" or frameNumber < 0 then return error(7130, "rate-drop frame must be non-negative") end if
@@ -366,7 +428,11 @@ function rateDrop(server, slot, frameNumber)
   return false
 end function
 
-// Record client message.
+/// Record client message.
+/// @param server server value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param frameNumber frameNumber value consumed by this operation.
+/// @param messageSize messageSize value consumed by this operation.
 function recordClientMessage(server, slot, frameNumber, messageSize)
   if slot < 0 or slot >= server.maxClients then return error(7129, "message-size client slot outside range") end if
   if typeof(frameNumber) != "int" or frameNumber < 0 then return error(7130, "message-size frame must be non-negative") end if
@@ -377,7 +443,10 @@ function recordClientMessage(server, slot, frameNumber, messageSize)
   return messageSize
 end function
 
-// Return the heartbeat actions value.
+/// Return the heartbeat actions value.
+/// @param server server value consumed by this operation.
+/// @param masters masters value consumed by this operation.
+/// @param now now value consumed by this operation.
 function heartbeatActions(server, masters, now)
   server.realTime = now
   if not server.dedicated or not server.publicServer then return [] end if
@@ -394,7 +463,8 @@ function heartbeatActions(server, masters, now)
   return actions
 end function
 
-// Return the master ping actions value.
+/// Return the master ping actions value.
+/// @param masters masters value consumed by this operation.
 function masterPingActions(masters)
   actions = []
   index = 0
@@ -408,7 +478,9 @@ function masterPingActions(masters)
   return actions
 end function
 
-// Shut down actions.
+/// Shut down actions.
+/// @param server server value consumed by this operation.
+/// @param masters masters value consumed by this operation.
 function shutdownActions(server, masters)
   if not server.dedicated or not server.publicServer then return [] end if
   payload = nconnectionless.shutdown()

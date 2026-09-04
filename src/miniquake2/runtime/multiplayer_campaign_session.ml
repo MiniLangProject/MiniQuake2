@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime multiplayer campaign session facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,17 +11,25 @@ import miniquake2.game.integration.campaign_progression as mpcampaignobjectives
 import miniquake2.game.null_game as mpcampaigngame
 import miniquake2.runtime.multiplayer_session as mpcampaignsession
 
-// Store multiplayer campaign advance result data.
+/// Store multiplayer campaign advance result data.
 struct MultiplayerCampaignAdvanceResult
+  /// Stores the advanced value associated with multiplayer campaign advance result.
   advanced
+  /// Stores the source map value associated with multiplayer campaign advance result.
   sourceMap
+  /// Stores the target map value associated with multiplayer campaign advance result.
   targetMap
+  /// Stores the objective value associated with multiplayer campaign advance result.
   objective
+  /// Stores the spawn count value associated with multiplayer campaign advance result.
   spawnCount
+  /// Stores the steps value associated with multiplayer campaign advance result.
   steps
 end struct
 
-// Prepare advance.
+/// Prepare advance.
+/// @param session session value consumed by this operation.
+/// @param targetMap targetMap value consumed by this operation.
 function prepareAdvance(session, targetMap)
   if session is void or session.closed or
       session.mode != mpcampaignsession.MODE_COOP then
@@ -46,7 +56,12 @@ function prepareAdvance(session, targetMap)
   return [mpcampaignSourceMap, mpcampaignObjective]
 end function
 
-// Advance core.
+/// Advance core.
+/// @param session session value consumed by this operation.
+/// @param targetMap targetMap value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function advanceCore(session, targetMap, entityText, collision, maximumSteps)
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
     return error(8490, "multiplayer campaign step limit must be positive")
@@ -63,7 +78,11 @@ function advanceCore(session, targetMap, entityText, collision, maximumSteps)
     session.server.networkRuntime.spawnCount, session.steps)
 end function
 
-// Advance retail.
+/// Advance retail.
+/// @param session session value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param targetMap targetMap value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(8492, "multiplayer retail campaign root is required")
@@ -82,7 +101,9 @@ function advanceRetail(session, baseDirectory, targetMap, maximumSteps)
     session.server.networkRuntime.spawnCount, session.steps)
 end function
 
-// Return the complete value.
+/// Return the complete value.
+/// @param session session value consumed by this operation.
+/// @param terminalTarget terminalTarget value consumed by this operation.
 function complete(session, terminalTarget)
   mpcampaignTerminalObjective = mpcampaignobjectives.driveToMap(
     mpcampaigngame.baseRuntime(), mpcampaigngame.playerContext(), terminalTarget)

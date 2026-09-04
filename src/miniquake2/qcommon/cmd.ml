@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon cmd facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,17 +11,25 @@ import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.text as text
 import miniquake2.qcommon.cvar as cvar
 
+/// Defines the max args constant used by the miniquake2 qcommon cmd module.
 const MAX_ARGS = 80
+/// Defines the command buffer size constant used by the miniquake2 qcommon cmd module.
 const COMMAND_BUFFER_SIZE = 8192
+/// Defines the max alias name constant used by the miniquake2 qcommon cmd module.
 const MAX_ALIAS_NAME = 32
+/// Defines the max string chars constant used by the miniquake2 qcommon cmd module.
 const MAX_STRING_CHARS = 1024
 
-// Create state.
+/// Creates create for the miniquake2 qcommon cmd module.
+/// @param cvars cvars value consumed by this operation.
 function create(cvars)
   return qt.CommandSystem([], [], [], "", "", false, cvars)
 end function
 
-// Add command.
+/// Add command.
+/// @param system system value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param callback Callback invoked when the operation completes or the event occurs.
 function addCommand(system, name, callback)
   for each command in system.commands
     if text.equalInsensitive(command[0], name) then return error(3220, "command already exists: " + name) end if
@@ -29,7 +39,9 @@ function addCommand(system, name, callback)
   return true
 end function
 
-// Remove command.
+/// Remove command.
+/// @param system system value consumed by this operation.
+/// @param name Name of the affected item.
 function removeCommand(system, name)
   result = []
   for each command in system.commands
@@ -39,7 +51,8 @@ function removeCommand(system, name)
   return true
 end function
 
-// Return the tokenize value.
+/// Return the tokenize value.
+/// @param value Value consumed or transformed by the operation.
 function tokenize(value)
   source = bytes(value)
   result = []
@@ -74,7 +87,8 @@ function tokenize(value)
   return result
 end function
 
-// Return the argument tail value.
+/// Return the argument tail value.
+/// @param value Value consumed or transformed by the operation.
 function argumentTail(value)
   tokens = tokenize(value)
   if len(tokens) <= 1 then return "" end if
@@ -88,7 +102,10 @@ function argumentTail(value)
   return result
 end function
 
-// Add alias.
+/// Add alias.
+/// @param system system value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function addAlias(system, name, value)
   if len(bytes(name)) >= MAX_ALIAS_NAME then return error(3222, "alias name too long") end if
   for each alias in system.aliases
@@ -99,21 +116,26 @@ function addAlias(system, name, value)
   return alias
 end function
 
-// Add text.
+/// Add text.
+/// @param system system value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function addText(system, value)
   if len(bytes(system.buffer)) + len(bytes(value)) >= COMMAND_BUFFER_SIZE then return error(3223, "command buffer overflow") end if
   system.buffer = system.buffer + value
   return true
 end function
 
-// Insert text.
+/// Insert text.
+/// @param system system value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function insertText(system, value)
   if len(bytes(system.buffer)) + len(bytes(value)) >= COMMAND_BUFFER_SIZE then return error(3224, "command buffer overflow") end if
   system.buffer = value + system.buffer
   return true
 end function
 
-// Split first.
+/// Split first.
+/// @param value Value consumed or transformed by the operation.
 function splitFirst(value)
   source = bytes(value)
   quoted = false
@@ -130,9 +152,11 @@ function splitFirst(value)
   return [first, rest]
 end function
 
-// Expand unquoted `$cvar` references with the same bounded repeated-scan
-// policy as Cmd_MacroExpandString. Keeping this in qcommon makes config,
-// client-console and dedicated-console command parsing agree.
+/// Expand unquoted `$cvar` references with the same bounded repeated-scan
+/// policy as Cmd_MacroExpandString. Keeping this in qcommon makes config,
+/// client-console and dedicated-console command parsing agree.
+/// @param system system value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function macroExpand(system, value)
   // Validate the initial bound, rescan substituted text with a loop guard,
   // then reject an unmatched quoted region before tokenization.
@@ -173,7 +197,9 @@ function macroExpand(system, value)
   return expanded
 end function
 
-// Execute string.
+/// Execute string.
+/// @param system system value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function executeString(system, value)
   expanded = macroExpand(system, value)
   system.arguments = tokenize(expanded)
@@ -191,7 +217,8 @@ function executeString(system, value)
   return handled[0]
 end function
 
-// Execute buffer.
+/// Execute buffer.
+/// @param system system value consumed by this operation.
 function executeBuffer(system)
   executed = 0
   while system.buffer != ""

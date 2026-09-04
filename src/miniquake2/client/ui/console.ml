@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui console facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,14 +11,18 @@ import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
 import std.math as smath
 
-// Create state.
+/// Creates create for the miniquake2 client ui console module.
+/// @param widthChars widthChars value consumed by this operation.
 function create(widthChars)
   if widthChars < 1 then widthChars = 1 end if
   return cuitypes.ConsoleState([], "", 0, [], 0, widthChars, 0.0,
     cuic.DEFAULT_NOTIFY_LINES, cuic.DEFAULT_NOTIFY_MSEC, [])
 end function
 
-// Append line.
+/// Append line.
+/// @param console console value consumed by this operation.
+/// @param text Text consumed by the operation.
+/// @param time time value consumed by this operation.
 function appendLine(console, text, time)
   console.lines = console.lines + [cuitypes.ConsoleLine(text, time)]
   if len(console.lines) > cuic.MAX_CONSOLE_LINES then
@@ -24,7 +30,10 @@ function appendLine(console, text, time)
   end if
 end function
 
-// Append text.
+/// Append text.
+/// @param console console value consumed by this operation.
+/// @param text Text consumed by the operation.
+/// @param time time value consumed by this operation.
 function appendText(console, text, time)
   data = bytes(text)
   start = 0
@@ -47,14 +56,16 @@ function appendText(console, text, time)
   return true
 end function
 
-// Clear typing.
+/// Clear typing.
+/// @param console console value consumed by this operation.
 function clearTyping(console)
   console.input = ""
   console.cursor = 0
   return true
 end function
 
-// Clear notify.
+/// Clear notify.
+/// @param console console value consumed by this operation.
 function clearNotify(console)
   for each consoleNotifyLine in console.lines
     consoleNotifyLine.time = -2147483647
@@ -62,7 +73,9 @@ function clearNotify(console)
   return true
 end function
 
-// Append history.
+/// Append history.
+/// @param console console value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function appendHistory(console, value)
   if len(console.history) < cuic.MAX_CONSOLE_HISTORY then
     output = array(len(console.history) + 1, void)
@@ -84,7 +97,9 @@ function appendHistory(console, value)
   return len(console.history)
 end function
 
-// Insert byte.
+/// Insert byte.
+/// @param console console value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function insertByte(console, value)
   if value < 32 or value > 126 then return false end if
   data = bytes(console.input)
@@ -96,7 +111,9 @@ function insertByte(console, value)
   return true
 end function
 
-// Return the edit key value.
+/// Return the edit key value.
+/// @param console console value consumed by this operation.
+/// @param key key value consumed by this operation.
 function editKey(console, key)
   data = bytes(console.input)
   if key == cuic.K_BACKSPACE and console.cursor > 0 then
@@ -129,7 +146,8 @@ function editKey(console, key)
   return true
 end function
 
-// Drain commands.
+/// Performs the drainCommands operation for the miniquake2 client ui console module.
+/// @param console console value consumed by this operation.
 function inline drainCommands(console)
   // Preserve the reusable empty queue on idle frames. A non-empty queue is
   // still transferred by ownership so command execution sees a stable array.
@@ -139,7 +157,11 @@ function inline drainCommands(console)
   return output
 end function
 
-// Draw text.
+/// Draws text through the miniquake2 client ui console rendering path.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param text Text consumed by the operation.
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -149,7 +171,10 @@ function drawText(exports, x, y, text)
   end while
 end function
 
-// Notify state.
+/// Notify state.
+/// @param console console value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function notify(console, now, exports)
   first = len(console.lines) - console.notifyLines
   if first < 0 then first = 0 end if
@@ -164,7 +189,11 @@ function notify(console, now, exports)
   return count
 end function
 
-// Draw state.
+/// Draws draw through the miniquake2 client ui console rendering path.
+/// @param console console value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function draw(console, screenWidth, screenHeight, exports)
   height = smath.floor(screenHeight * console.visibleFraction)
   if height <= 0 then return 0 end if

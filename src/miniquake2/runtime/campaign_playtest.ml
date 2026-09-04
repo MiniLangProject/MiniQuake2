@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime campaign playtest facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,22 +12,34 @@ import miniquake2.game.null_game as campaignplaytestgame
 import miniquake2.qcommon.types as campaignplaytestqtypes
 import miniquake2.runtime.play_session as campaignplaytestsession
 
-// Store physical playtest report data.
+/// Store physical playtest report data.
 struct PhysicalPlaytestReport
+  /// Stores the map name value associated with physical playtest report.
   mapName
+  /// Stores the command steps value associated with physical playtest report.
   commandSteps
+  /// Stores the snapshots value associated with physical playtest report.
   snapshots
+  /// Stores the start origin value associated with physical playtest report.
   startOrigin
+  /// Stores the end origin value associated with physical playtest report.
   endOrigin
+  /// Stores the planar displacement value associated with physical playtest report.
   planarDisplacement
+  /// Stores the fire count value associated with physical playtest report.
   fireCount
+  /// Stores the item delta value associated with physical playtest report.
   itemDelta
+  /// Stores the health value associated with physical playtest report.
   health
+  /// Stores the packets value associated with physical playtest report.
   packets
+  /// Stores the rejected packets value associated with physical playtest report.
   rejectedPackets
 end struct
 
-// Return the campaign playtest inventory total value.
+/// Return the campaign playtest inventory total value.
+/// @param player player value consumed by this operation.
 function campaignPlaytestInventoryTotal(player)
   campaignPlaytestInventorySum = 0
   for each campaignPlaytestInventoryCount in player.gameplay.inventory.counts
@@ -34,12 +48,15 @@ function campaignPlaytestInventoryTotal(player)
   return campaignPlaytestInventorySum
 end function
 
-// Return the campaign playtest squared value.
+/// Return the campaign playtest squared value.
+/// @param value Value consumed or transformed by the operation.
 function campaignPlaytestSquared(value)
   return value * value
 end function
 
-// Return the drive value.
+/// Return the drive value.
+/// @param session session value consumed by this operation.
+/// @param commandSteps commandSteps value consumed by this operation.
 function drive(session, commandSteps)
   if session is void or session.closed then return error(8490, "physical playtest session is closed") end if
   if typeof(commandSteps) != "int" or commandSteps < 8 or commandSteps > 10000 then

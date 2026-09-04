@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player userinfo facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,20 +14,26 @@ import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.info as qinfo
 
-// Return the numeric value.
+/// Performs the numeric operation for the miniquake2 game player userinfo module.
+/// @param text Text consumed by the operation.
+/// @param fallback Value returned when no explicit result is available.
 function numeric(text, fallback)
   converted = try(toNumber(text))
   if converted is error or (typeof(converted) != "int" and typeof(converted) != "float") then return fallback end if
   return converted
 end function
 
-// Return the password matches value.
+/// Return the password matches value.
+/// @param required required value consumed by this operation.
+/// @param supplied supplied value consumed by this operation.
 function passwordMatches(required, supplied)
   if required == "" or required == "none" then return true end if
   return supplied == required
 end function
 
-// Initialize client persistent.
+/// Initialize client persistent.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function InitClientPersistent(player, context)
   itemSlots = len(player.gameplay.inventory.counts)
   player.gameplay.inventory.counts = array(itemSlots, 0)
@@ -44,7 +52,10 @@ function InitClientPersistent(player, context)
   return true
 end function
 
-// Return the client userinfo changed value.
+/// Return the client userinfo changed value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function ClientUserinfoChanged(context, player, userInfo)
   if qinfo.validate(userInfo) != true then userInfo = "\\name\\badinfo\\skin\\male/grunt" end if
   name = qinfo.valueForKey(userInfo, "name")
@@ -67,7 +78,9 @@ function ClientUserinfoChanged(context, player, userInfo)
   return userInfo
 end function
 
-// Return the spectator count.
+/// Return the spectator count.
+/// @param context Context that carries state for the operation.
+/// @param ignoredPlayer ignoredPlayer value consumed by this operation.
 function spectatorCount(context, ignoredPlayer)
   count = 0
   for each candidate in context.players
@@ -76,14 +89,19 @@ function spectatorCount(context, ignoredPlayer)
   return count
 end function
 
-// Reject state.
+/// Reject state.
+/// @param userInfo userInfo value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function reject(userInfo, message)
   updated = try(qinfo.setValueForKey(userInfo, "rejmsg", message))
   if updated is error then updated = "\\rejmsg\\" + message end if
   return gplayertypes.connectResult(false, updated, message)
 end function
 
-// Connect client.
+/// Performs the ClientConnect operation for the miniquake2 game player userinfo module.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function ClientConnect(context, player, userInfo)
   if typeof(userInfo) != "string" then return error(9701, "ClientConnect: userinfo text required") end if
   if qinfo.validate(userInfo) != true then userInfo = "\\name\\badinfo\\skin\\male/grunt" end if
@@ -109,7 +127,9 @@ function ClientConnect(context, player, userInfo)
   return gplayertypes.connectResult(true, userInfo, "")
 end function
 
-// Return the client disconnect value.
+/// Return the client disconnect value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ClientDisconnect(context, player)
   if player.persistent.connected != true then return false end if
   context.messages = context.messages + [player.persistent.netName + " disconnected"]

@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon checksum facilities for this project.
+
 /*
 Copyright (C) 1990-2, RSA Data Security, Inc. All rights reserved.
 Copyright (c) 2026 Nils Kopal
@@ -24,50 +26,84 @@ package miniquake2.qcommon.checksum
 
 import miniquake2.qcommon.byteio as bio
 
-// Add 32.
+/// Add 32.
+/// @param a a value consumed by this operation.
+/// @param b b value consumed by this operation.
 function inline add32(a, b)
   return (a + b) & 0xffffffff
 end function
 
-// Rotate left.
+/// Rotate left.
+/// @param value Value consumed or transformed by the operation.
+/// @param count Number of items or units to process.
 function inline rotateLeft(value, count)
   value = value & 0xffffffff
   return ((value << count) | (value >> (32 - count))) & 0xffffffff
 end function
 
-// Choose state.
+/// Choose state.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
 function inline choose(x, y, z)
   return (x & y) | ((~x) & z)
 end function
 
-// Return the majority value.
+/// Return the majority value.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
 function inline majority(x, y, z)
   return (x & y) | (x & z) | (y & z)
 end function
 
-// Return the parity value.
+/// Return the parity value.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
 function inline parity(x, y, z)
   return x ^ y ^ z
 end function
 
-// Return the round 1 value.
+/// Return the round 1 value.
+/// @param a a value consumed by this operation.
+/// @param b b value consumed by this operation.
+/// @param c c value consumed by this operation.
+/// @param d d value consumed by this operation.
+/// @param word word value consumed by this operation.
+/// @param shift shift value consumed by this operation.
 function round1(a, b, c, d, word, shift)
   return rotateLeft(add32(add32(a, choose(b, c, d)), word), shift)
 end function
 
-// Return the round 2 value.
+/// Return the round 2 value.
+/// @param a a value consumed by this operation.
+/// @param b b value consumed by this operation.
+/// @param c c value consumed by this operation.
+/// @param d d value consumed by this operation.
+/// @param word word value consumed by this operation.
+/// @param shift shift value consumed by this operation.
 function round2(a, b, c, d, word, shift)
   value = add32(add32(a, majority(b, c, d)), word)
   return rotateLeft(add32(value, 0x5a827999), shift)
 end function
 
-// Return the round 3 value.
+/// Return the round 3 value.
+/// @param a a value consumed by this operation.
+/// @param b b value consumed by this operation.
+/// @param c c value consumed by this operation.
+/// @param d d value consumed by this operation.
+/// @param word word value consumed by this operation.
+/// @param shift shift value consumed by this operation.
 function round3(a, b, c, d, word, shift)
   value = add32(add32(a, parity(b, c, d)), word)
   return rotateLeft(add32(value, 0x6ed9eba1), shift)
 end function
 
-// Transform state.
+/// Transform state.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param block block value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
 function transform(state, block, offset)
   // Keep transform phases explicit: validate inputs, update owned state, then publish the result.
   words = array(16, 0)
@@ -145,7 +181,10 @@ function transform(state, block, offset)
   return state
 end function
 
-// Return the md 4 value.
+/// Return the md 4 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
 function md4(data, offset, count)
   bio.requireRange(data, offset, count)
 
@@ -174,13 +213,19 @@ function md4(data, offset, count)
   return digest
 end function
 
-// Return the block checksum value.
+/// Return the block checksum value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
 function blockChecksum(data, offset, count)
   digest = md4(data, offset, count)
   return bio.u32(digest, 0) ^ bio.u32(digest, 4) ^ bio.u32(digest, 8) ^ bio.u32(digest, 12)
 end function
 
-// Return the com block checksum value.
+/// Return the com block checksum value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
 function Com_BlockChecksum(data, offset, count)
   return blockChecksum(data, offset, count)
 end function

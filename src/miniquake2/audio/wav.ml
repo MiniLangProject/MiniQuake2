@@ -1,3 +1,5 @@
+//! Provides miniquake2 audio wav facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,25 +9,36 @@ package miniquake2.audio.wav
 
 import miniquake2.qcommon.byteio as awbio
 
-// Store wav sound data.
+/// Store wav sound data.
 struct WavSound
+  /// Stores the name value associated with wav sound.
   name
+  /// Stores the sample rate value associated with wav sound.
   sampleRate
+  /// Stores the channels value associated with wav sound.
   channels
+  /// Stores the width value associated with wav sound.
   width
+  /// Stores the sample count value associated with wav sound.
   sampleCount
+  /// Stores the loop start value associated with wav sound.
   loopStart
+  /// Stores the pcm value associated with wav sound.
   pcm
 end struct
 
-// Return the chunk name.
+/// Return the chunk name.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function chunkName(data, offset)
   value = decode(slice(data, offset, 4))
   if value is void then return error(2940, "invalid WAV chunk id") end if
   return value
 end function
 
-// Parse state.
+/// Parses parse for the miniquake2 audio wav workflow.
+/// @param data Input data consumed by the operation.
+/// @param name Name of the affected item.
 function parse(data, name)
   // Keep parse phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(data) != "bytes" or len(data) < 12 then return error(2941, "WAV header truncated") end if

@@ -1,3 +1,5 @@
+//! Provides miniquake2 game base spawn registry facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -15,10 +17,13 @@ import miniquake2.game.gameplay.item_rules as gprules
 import miniquake2.game.ai.archetypes as gaiarchetypes
 import std.string as bstring
 
+/// Defines the movetype none constant used by the miniquake2 game base spawn registry module.
 const MOVETYPE_NONE = 0
+/// Defines the movetype push constant used by the miniquake2 game base spawn registry module.
 const MOVETYPE_PUSH = 7
 
-// Spawn worldspawn.
+/// Spawn worldspawn.
+/// @param entity entity value consumed by this operation.
 function SP_worldspawn(entity)
   entity.spawnKind = "worldspawn"
   entity.moveType = MOVETYPE_PUSH
@@ -26,7 +31,8 @@ function SP_worldspawn(entity)
   return ""
 end function
 
-// Spawn info player start.
+/// Spawn info player start.
+/// @param entity entity value consumed by this operation.
 function SP_info_player_start(entity)
   entity.spawnKind = "info-player-start"
   entity.moveType = MOVETYPE_NONE
@@ -34,7 +40,8 @@ function SP_info_player_start(entity)
   return ""
 end function
 
-// Spawn info player.
+/// Spawn info player.
+/// @param entity entity value consumed by this operation.
 function SP_info_player(entity)
   entity.spawnKind = "info-player:" + entity.className
   entity.moveType = MOVETYPE_NONE
@@ -42,7 +49,8 @@ function SP_info_player(entity)
   return ""
 end function
 
-// Spawn func door.
+/// Spawn func door.
+/// @param entity entity value consumed by this operation.
 function SP_func_door(entity)
   entity.spawnKind = "mover-door"
   entity.moveType = MOVETYPE_PUSH
@@ -56,7 +64,8 @@ function SP_func_door(entity)
   return ""
 end function
 
-// Spawn trigger once.
+/// Spawn trigger once.
+/// @param entity entity value consumed by this operation.
 function SP_trigger_once(entity)
   entity.spawnKind = "trigger-once"
   entity.moveType = MOVETYPE_NONE
@@ -69,7 +78,8 @@ function SP_trigger_once(entity)
   return ""
 end function
 
-// Spawn target speaker.
+/// Spawn target speaker.
+/// @param entity entity value consumed by this operation.
 function SP_target_speaker(entity)
   entity.spawnKind = "target-speaker"
   entity.moveType = MOVETYPE_NONE
@@ -89,7 +99,8 @@ function SP_target_speaker(entity)
   return ""
 end function
 
-// Spawn gameplay item.
+/// Spawn gameplay item.
+/// @param entity entity value consumed by this operation.
 function SP_gameplay_item(entity)
   item = gprules.findByClassName(gpregistry.stockRegistry(), entity.className)
   if item is void then return "unregistered gameplay item " + entity.className end if
@@ -99,7 +110,8 @@ function SP_gameplay_item(entity)
   return ""
 end function
 
-// Spawn world component.
+/// Spawn world component.
+/// @param entity entity value consumed by this operation.
 function SP_world_component(entity)
   entity.spawnKind = "world:" + entity.className
   entity.moveType = MOVETYPE_NONE
@@ -109,7 +121,8 @@ function SP_world_component(entity)
   return ""
 end function
 
-// Spawn consumed.
+/// Spawn consumed.
+/// @param entity entity value consumed by this operation.
 function SP_consumed(entity)
   entity.spawnKind = "consumed:" + entity.className
   entity.moveType = MOVETYPE_NONE
@@ -117,7 +130,8 @@ function SP_consumed(entity)
   return ""
 end function
 
-// Spawn light.
+/// Spawn light.
+/// @param entity entity value consumed by this operation.
 function SP_light(entity)
   // g_misc.c frees un-targeted static lights; the BSP lightmaps already own
   // their illumination.  Targeted lights remain live for style switching.
@@ -125,7 +139,8 @@ function SP_light(entity)
   return SP_world_component(entity)
 end function
 
-// Spawn brush component.
+/// Spawn brush component.
+/// @param entity entity value consumed by this operation.
 function SP_brush_component(entity)
   entity.spawnKind = "world:" + entity.className
   entity.moveType = MOVETYPE_PUSH
@@ -133,7 +148,8 @@ function SP_brush_component(entity)
   return ""
 end function
 
-// Spawn func water.
+/// Spawn func water.
+/// @param entity entity value consumed by this operation.
 function SP_func_water(entity)
   SP_func_door(entity)
   entity.spawnKind = "world:func_water"
@@ -141,7 +157,8 @@ function SP_func_water(entity)
   return ""
 end function
 
-// Spawn monster.
+/// Spawn monster.
+/// @param entity entity value consumed by this operation.
 function SP_monster(entity)
   archetype = gaiarchetypes.find(gaiarchetypes.defaultRegistry(), entity.className)
   if archetype is void then return "unregistered monster " + entity.className end if
@@ -154,7 +171,8 @@ function SP_monster(entity)
   return ""
 end function
 
-// Spawn misc actor.
+/// Spawn misc actor.
+/// @param entity entity value consumed by this operation.
 function SP_misc_actor(entity)
   // SP_misc_actor frees malformed scripted actors immediately; keeping an
   // inert edict would change target selection and campaign entity numbering.
@@ -169,12 +187,14 @@ function SP_misc_actor(entity)
   return SP_monster(entity)
 end function
 
-// Create registry.
+/// Create registry.
 function createRegistry()
   return btypes.SpawnRegistry([])
 end function
 
-// Find state.
+/// Finds find used by the miniquake2 game base spawn registry module.
+/// @param registry registry value consumed by this operation.
+/// @param className className value consumed by this operation.
 function find(registry, className)
   for each entry in registry.entries
     if entry.className == className then return entry end if
@@ -182,7 +202,10 @@ function find(registry, className)
   return void
 end function
 
-// Register state.
+/// Register state.
+/// @param registry registry value consumed by this operation.
+/// @param className className value consumed by this operation.
+/// @param spawnFunction spawnFunction value consumed by this operation.
 function register(registry, className, spawnFunction)
   if typeof(registry) != "struct" then return error(9050, "spawn registry required") end if
   if typeof(className) != "string" or len(bytes(className)) == 0 then return error(9051, "spawn classname required") end if
@@ -192,7 +215,7 @@ function register(registry, className, spawnFunction)
   return registry
 end function
 
-// Return the default registry value.
+/// Performs the defaultRegistry operation for the miniquake2 game base spawn registry module.
 function defaultRegistry()
   registry = createRegistry()
   register(registry, "worldspawn", SP_worldspawn)

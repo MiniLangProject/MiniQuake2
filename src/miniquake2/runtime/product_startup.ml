@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime product startup facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,92 +16,141 @@ import miniquake2.network.client as productnetworkclient
 import miniquake2.network.runtime.transport as producttransport
 import miniquake2.platform.udp as productudp
 
+/// Defines the default port constant used by the miniquake2 runtime product startup module.
 const DEFAULT_PORT = 27910
+/// Defines the max browser servers constant used by the miniquake2 runtime product startup module.
 const MAX_BROWSER_SERVERS = 8
+/// Defines the browser msec constant used by the miniquake2 runtime product startup module.
 const BROWSER_MSEC = 1200
+/// Defines the preferences header constant used by the miniquake2 runtime product startup module.
 const PREFERENCES_HEADER = "MiniQuake2Multiplayer 2"
+/// Defines the preferences legacy header constant used by the miniquake2 runtime product startup module.
 const PREFERENCES_LEGACY_HEADER = "MiniQuake2Multiplayer 1"
 
-// Store endpoint data.
+/// Store endpoint data.
 struct Endpoint
+  /// Stores the address value associated with endpoint.
   address
+  /// Stores the port value associated with endpoint.
   port
 end struct
 
-// Store server entry data.
+/// Store server entry data.
 struct ServerEntry
+  /// Stores the endpoint value associated with server entry.
   endpoint
+  /// Stores the description value associated with server entry.
   description
+  /// Stores the ping value associated with server entry.
   ping
+  /// Stores the response time value associated with server entry.
   responseTime
 end struct
 
-// Store server browser data.
+/// Store server browser data.
 struct ServerBrowser
+  /// Stores the socket value associated with server browser.
   socket
+  /// Stores the entries value associated with server browser.
   entries
+  /// Stores the started value associated with server browser.
   started
+  /// Stores the deadline value associated with server browser.
   deadline
+  /// Stores the active value associated with server browser.
   active
 end struct
 
-// Store a short-lived main-menu RCON exchange.
+/// Store a short-lived main-menu RCON exchange.
 struct RconTransport
+  /// Stores the socket value associated with rcon transport.
   socket
+  /// Stores the endpoint value associated with rcon transport.
   endpoint
+  /// Stores the deadline value associated with rcon transport.
   deadline
+  /// Stores the active value associated with rcon transport.
   active
 end struct
 
-// Store player profile data.
+/// Store player profile data.
 struct PlayerProfile
+  /// Stores the name value associated with player profile.
   name
+  /// Stores the model value associated with player profile.
   model
+  /// Stores the skin value associated with player profile.
   skin
+  /// Stores the hand value associated with player profile.
   hand
+  /// Stores the rate value associated with player profile.
   rate
+  /// Stores the password value associated with player profile.
   password
+  /// Stores the spectator value associated with player profile.
   spectator
+  /// Stores the fov value associated with player profile.
   fov
 end struct
 
-// Store download policy data.
+/// Store download policy data.
 struct DownloadPolicy
+  /// Stores the allow value associated with download policy.
   allow
+  /// Stores the maps value associated with download policy.
   maps
+  /// Stores the models value associated with download policy.
   models
+  /// Stores the players value associated with download policy.
   players
+  /// Stores the sounds value associated with download policy.
   sounds
 end struct
 
-// Store server options data.
+/// Store server options data.
 struct ServerOptions
+  /// Stores the map name value associated with server options.
   mapName
+  /// Stores the hostname value associated with server options.
   hostname
+  /// Stores the cooperative value associated with server options.
   cooperative
+  /// Stores the max clients value associated with server options.
   maxClients
+  /// Stores the time limit value associated with server options.
   timeLimit
+  /// Stores the frag limit value associated with server options.
   fragLimit
+  /// Stores the dm flags value associated with server options.
   dmFlags
 end struct
 
-// Store product lifecycle data.
+/// Store product lifecycle data.
 struct ProductLifecycle
+  /// Stores the data root value associated with product lifecycle.
   dataRoot
+  /// Stores the phase value associated with product lifecycle.
   phase
+  /// Stores the connected endpoint value associated with product lifecycle.
   connectedEndpoint
+  /// Stores the map name value associated with product lifecycle.
   mapName
+  /// Stores the generation value associated with product lifecycle.
   generation
 end struct
 
-// Store multiplayer preferences data.
+/// Store multiplayer preferences data.
 struct MultiplayerPreferences
+  /// Stores the profile value associated with multiplayer preferences.
   profile
+  /// Stores the downloads value associated with multiplayer preferences.
   downloads
+  /// Stores the addresses value associated with multiplayer preferences.
   addresses
 end struct
 
-// Report whether retail root valid.
+/// Report whether retail root valid.
+/// @param root root value consumed by this operation.
 function retailRootValid(root)
   if typeof(root) != "string" or root == "" then return false end if
   base = productfs.joinPath(root, "baseq2")
@@ -109,14 +160,15 @@ function retailRootValid(root)
   return size is not error and size >= 12
 end function
 
-// Return the standard retail candidates value.
+/// Return the standard retail candidates value.
 function standardRetailCandidates()
   return [".", "..\\Quake 2", "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Quake 2",
     "C:\\Program Files\\Steam\\steamapps\\common\\Quake 2",
     "C:\\GOG Games\\Quake II"]
 end function
 
-// Load selected root.
+/// Load selected root.
+/// @param path Path of the file or directory used by the operation.
 function loadSelectedRoot(path)
   if typeof(path) != "string" or path == "" or not productfs.isFile(path) then return "" end if
   value = try(productfs.readAllText(path))
@@ -126,7 +178,9 @@ function loadSelectedRoot(path)
   return ""
 end function
 
-// Persist selected root.
+/// Persist selected root.
+/// @param path Path of the file or directory used by the operation.
+/// @param root root value consumed by this operation.
 function persistSelectedRoot(path, root)
   if typeof(path) != "string" or path == "" then return error(9944, "data-root selection path is missing") end if
   if not retailRootValid(root) then return error(9945, "selected Quake II data root has no valid baseq2/pak0.pak") end if
@@ -137,7 +191,9 @@ function persistSelectedRoot(path, root)
   return productfs.moveFile(temporary, path, true)
 end function
 
-// Discover retail root.
+/// Discover retail root.
+/// @param selectionPath Path associated with selection.
+/// @param candidates candidates value consumed by this operation.
 function discoverRetailRoot(selectionPath, candidates)
   selected = loadSelectedRoot(selectionPath)
   if selected != "" then return selected end if
@@ -148,7 +204,8 @@ function discoverRetailRoot(selectionPath, candidates)
   return error(9947, "Quake II retail data not found; use --data-root ROOT once or place baseq2 beside MiniQuake2")
 end function
 
-// Parse port.
+/// Parse port.
+/// @param value Value consumed or transformed by the operation.
 function parsePort(value)
   if typeof(value) != "string" or value == "" then return error(9958, "server port is empty") end if
   number = try(toNumber(value))
@@ -158,7 +215,8 @@ function parsePort(value)
   return number
 end function
 
-// Parse endpoint.
+/// Parse endpoint.
+/// @param value Value consumed or transformed by the operation.
 function parseEndpoint(value)
   if typeof(value) != "string" or value == "" or len(bytes(value)) > 63 then
     return error(9957, "server endpoint is invalid")
@@ -198,17 +256,19 @@ function parseEndpoint(value)
   return Endpoint(resolvedAddress, port)
 end function
 
-// Return the endpoint text value.
+/// Return the endpoint text value.
+/// @param endpoint endpoint value consumed by this operation.
 function endpointText(endpoint)
   return endpoint.address + ":" + endpoint.port
 end function
 
-// Create browser.
+/// Create browser.
 function createBrowser()
   return ServerBrowser(void, array(MAX_BROWSER_SERVERS), 0, 0, false)
 end function
 
-// Return the browser entry count.
+/// Return the browser entry count.
+/// @param browser browser value consumed by this operation.
 function browserEntryCount(browser)
   count = 0
   while count < len(browser.entries) and browser.entries[count] is not void
@@ -217,7 +277,11 @@ function browserEntryCount(browser)
   return count
 end function
 
-// Add browser entry.
+/// Add browser entry.
+/// @param browser browser value consumed by this operation.
+/// @param endpoint endpoint value consumed by this operation.
+/// @param description description value consumed by this operation.
+/// @param now now value consumed by this operation.
 function addBrowserEntry(browser, endpoint, description, now)
   count = browserEntryCount(browser)
   text = endpointText(endpoint)
@@ -237,7 +301,10 @@ function addBrowserEntry(browser, endpoint, description, now)
   return entry
 end function
 
-// Start browser.
+/// Start browser.
+/// @param browser browser value consumed by this operation.
+/// @param addresses addresses value consumed by this operation.
+/// @param now now value consumed by this operation.
 function startBrowser(browser, addresses, now)
   if browser.active then productudp.close(browser.socket) end if
   browser.entries = array(MAX_BROWSER_SERVERS)
@@ -263,7 +330,9 @@ function startBrowser(browser, addresses, now)
   return true
 end function
 
-// Pump browser.
+/// Pump browser.
+/// @param browser browser value consumed by this operation.
+/// @param now now value consumed by this operation.
 function pumpBrowser(browser, now)
   if not browser.active then return 0 end if
   received = 0
@@ -282,18 +351,24 @@ function pumpBrowser(browser, now)
   return received
 end function
 
-// Close browser.
+/// Close browser.
+/// @param browser browser value consumed by this operation.
 function closeBrowser(browser)
   if browser.active then productudp.close(browser.socket); browser.active = false; return true end if
   return false
 end function
 
-// Create a disconnected-console RCON transport without retaining a socket.
+/// Create a disconnected-console RCON transport without retaining a socket.
 function createRconTransport()
   return RconTransport(void, void, 0, false)
 end function
 
-// Send one validated connectionless RCON request from a temporary UDP socket.
+/// Send one validated connectionless RCON request from a temporary UDP socket.
+/// @param transport transport value consumed by this operation.
+/// @param endpointTextValue endpointTextValue value consumed by this operation.
+/// @param password password value consumed by this operation.
+/// @param command command value consumed by this operation.
+/// @param now now value consumed by this operation.
 function sendRcon(transport, endpointTextValue, password, command, now)
   if typeof(transport) != "struct" or typeof(now) != "int" then
     return error(9976, "rcon transport inputs are invalid")
@@ -312,7 +387,9 @@ function sendRcon(transport, endpointTextValue, password, command, now)
   return action
 end function
 
-// Pump matching print replies without blocking the menu presentation loop.
+/// Pump matching print replies without blocking the menu presentation loop.
+/// @param transport transport value consumed by this operation.
+/// @param now now value consumed by this operation.
 function pumpRcon(transport, now)
   if typeof(transport) != "struct" or typeof(now) != "int" then
     return error(9976, "rcon pump inputs are invalid")
@@ -337,7 +414,8 @@ function pumpRcon(transport, now)
   return replies
 end function
 
-// Close an outstanding main-menu RCON exchange.
+/// Close an outstanding main-menu RCON exchange.
+/// @param transport transport value consumed by this operation.
 function closeRconTransport(transport)
   if transport.socket is not void and not transport.socket.closed then
     productudp.close(transport.socket)
@@ -346,12 +424,13 @@ function closeRconTransport(transport)
   return true
 end function
 
-// Return the default player profile value.
+/// Return the default player profile value.
 function defaultPlayerProfile()
   return PlayerProfile("MiniQuake2", "male", "grunt", 0, 25000, "", false, 90)
 end function
 
-// Report whether player profile valid.
+/// Report whether player profile valid.
+/// @param profile profile value consumed by this operation.
 function playerProfileValid(profile)
   return typeof(profile) == "struct" and productinfo.componentValid(profile.name) and
     profile.name != "" and len(bytes(profile.name)) <= 15 and
@@ -364,7 +443,8 @@ function playerProfileValid(profile)
     profile.fov >= 1 and profile.fov <= 160
 end function
 
-// Return the player user info value.
+/// Return the player user info value.
+/// @param profile profile value consumed by this operation.
 function playerUserInfo(profile)
   if not playerProfileValid(profile) then return error(9959, "player profile is invalid") end if
   value = ""
@@ -380,18 +460,20 @@ function playerUserInfo(profile)
   return value
 end function
 
-// Return the default download policy value.
+/// Return the default download policy value.
 function defaultDownloadPolicy()
   return DownloadPolicy(true, true, true, true, true)
 end function
 
-// Return the default preferences value.
+/// Return the default preferences value.
 function defaultPreferences()
   return MultiplayerPreferences(defaultPlayerProfile(),
     defaultDownloadPolicy(), ["127.0.0.1:27910", "", "", "", "", "", "", ""])
 end function
 
-// Return the preference text safe value.
+/// Return the preference text safe value.
+/// @param value Value consumed or transformed by the operation.
+/// @param maximum maximum value consumed by this operation.
 function preferenceTextSafe(value, maximum)
   if typeof(value) != "string" or len(bytes(value)) > maximum then return false end if
   for each preferenceByte in bytes(value)
@@ -400,7 +482,8 @@ function preferenceTextSafe(value, maximum)
   return true
 end function
 
-// Report whether preferences valid.
+/// Report whether preferences valid.
+/// @param preferences preferences value consumed by this operation.
 function preferencesValid(preferences)
   if typeof(preferences) != "struct" or
       not playerProfileValid(preferences.profile) or
@@ -425,13 +508,15 @@ function preferencesValid(preferences)
   return true
 end function
 
-// Return the preference bool value.
+/// Return the preference bool value.
+/// @param value Value consumed or transformed by the operation.
 function preferenceBool(value)
   if value then return 1 end if
   return 0
 end function
 
-// Encode preferences.
+/// Encode preferences.
+/// @param preferences preferences value consumed by this operation.
 function encodePreferences(preferences)
   if not preferencesValid(preferences) then return error(9970, "multiplayer preferences are invalid") end if
   value = PREFERENCES_HEADER + "\n" +
@@ -457,7 +542,10 @@ function encodePreferences(preferences)
   return value
 end function
 
-// Return the preference line value.
+/// Return the preference line value.
+/// @param lines lines value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param prefix prefix value consumed by this operation.
 function preferenceLine(lines, index, prefix)
   if index < 0 or index >= len(lines) or
       not producttext.startsWith(lines[index], prefix) then
@@ -468,7 +556,10 @@ function preferenceLine(lines, index, prefix)
   return decode(slice(bytes(lines[index]), len(bytes(prefix)), count))
 end function
 
-// Return the preference integer value.
+/// Return the preference integer value.
+/// @param value Value consumed or transformed by the operation.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
 function preferenceInteger(value, minimum, maximum)
   parsed = try(toNumber(value))
   if parsed is error or typeof(parsed) != "int" or parsed < minimum or
@@ -476,12 +567,14 @@ function preferenceInteger(value, minimum, maximum)
   return parsed
 end function
 
-// Return the preference boolean value.
+/// Return the preference boolean value.
+/// @param value Value consumed or transformed by the operation.
 function preferenceBoolean(value)
   return preferenceInteger(value, 0, 1) != 0
 end function
 
-// Decode preferences.
+/// Decode preferences.
+/// @param text Text consumed by the operation.
 function decodePreferences(text)
   if typeof(text) != "string" or len(bytes(text)) > 4096 then return error(9973, "multiplayer preferences are empty or too large") end if
   lines = productstring.split(productstring.trim(text), "\n")
@@ -525,14 +618,17 @@ function decodePreferences(text)
   return preferences
 end function
 
-// Load preferences.
+/// Load preferences.
+/// @param path Path of the file or directory used by the operation.
 function loadPreferences(path)
   if typeof(path) != "string" or path == "" then return error(9974, "multiplayer preference path is missing") end if
   if not productfs.isFile(path) then return defaultPreferences() end if
   return decodePreferences(productfs.readAllText(path))
 end function
 
-// Save preferences.
+/// Save preferences.
+/// @param path Path of the file or directory used by the operation.
+/// @param preferences preferences value consumed by this operation.
 function savePreferences(path, preferences)
   if typeof(path) != "string" or path == "" then return error(9974, "multiplayer preference path is missing") end if
   encoded = encodePreferences(preferences)
@@ -543,18 +639,21 @@ function savePreferences(path, preferences)
   return productfs.moveFile(temporary, path, true)
 end function
 
-// Return the default server options value.
+/// Return the default server options value.
 function defaultServerOptions()
   return ServerOptions("q2dm1", "MiniQuake2", false, 8, 0, 0, 0)
 end function
 
-// Create lifecycle.
+/// Create lifecycle.
+/// @param dataRoot dataRoot value consumed by this operation.
 function createLifecycle(dataRoot)
   if not retailRootValid(dataRoot) then return error(9960, "product lifecycle requires valid retail data") end if
   return ProductLifecycle(dataRoot, "menu", "", "", 1)
 end function
 
-// Begin local.
+/// Begin local.
+/// @param lifecycle lifecycle value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function beginLocal(lifecycle, mapName)
   if lifecycle.phase != "menu" and lifecycle.phase != "disconnected" then return error(9961, "local session transition requires menu state") end if
   lifecycle.phase = "loading"
@@ -564,7 +663,9 @@ function beginLocal(lifecycle, mapName)
   return true
 end function
 
-// Begin connect.
+/// Begin connect.
+/// @param lifecycle lifecycle value consumed by this operation.
+/// @param endpoint endpoint value consumed by this operation.
 function beginConnect(lifecycle, endpoint)
   if lifecycle.phase != "menu" and lifecycle.phase != "disconnected" then return error(9961, "connect transition requires menu state") end if
   parsed = parseEndpoint(endpoint)
@@ -575,7 +676,9 @@ function beginConnect(lifecycle, endpoint)
   return true
 end function
 
-// Activate state.
+/// Performs the activate operation for the miniquake2 runtime product startup module.
+/// @param lifecycle lifecycle value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function activate(lifecycle, mapName)
   if lifecycle.phase != "loading" and lifecycle.phase != "connecting" then return error(9962, "activation requires a pending session") end if
   lifecycle.phase = "active"
@@ -583,7 +686,8 @@ function activate(lifecycle, mapName)
   return true
 end function
 
-// Return the disconnect value.
+/// Return the disconnect value.
+/// @param lifecycle lifecycle value consumed by this operation.
 function disconnect(lifecycle)
   if lifecycle.phase == "menu" or lifecycle.phase == "disconnected" then return false end if
   lifecycle.phase = "disconnected"
@@ -592,7 +696,8 @@ function disconnect(lifecycle)
   return true
 end function
 
-// Return to menu.
+/// Return to menu.
+/// @param lifecycle lifecycle value consumed by this operation.
 function returnToMenu(lifecycle)
   if lifecycle.phase != "disconnected" then return error(9963, "menu return requires disconnected state") end if
   lifecycle.phase = "menu"

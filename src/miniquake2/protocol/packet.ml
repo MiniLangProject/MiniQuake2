@@ -1,3 +1,5 @@
+//! Provides miniquake2 protocol packet facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -11,12 +13,15 @@ import miniquake2.qcommon.byteio as qbio
 import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 
-// Report whether valid sequence.
+/// Report whether valid sequence.
+/// @param value Value consumed or transformed by the operation.
 function validSequence(value)
   return typeof(value) == "int" and value >= 0 and value <= pc.SEQUENCE_MASK
 end function
 
-// Encode header.
+/// Encode header.
+/// @param header header value consumed by this operation.
+/// @param includeQport includeQport value consumed by this operation.
 function encodeHeader(header, includeQport)
   if not validSequence(header.sequence) or not validSequence(header.acknowledge) then return error(7050, "packet sequence outside 31-bit range") end if
   if header.reliable != 0 and header.reliable != 1 then return error(7051, "packet reliable flag is not a bit") end if
@@ -37,7 +42,9 @@ function encodeHeader(header, includeQport)
   return output
 end function
 
-// Decode header.
+/// Decode header.
+/// @param data Input data consumed by the operation.
+/// @param hasQport hasQport value consumed by this operation.
 function decodeHeader(data, hasQport)
   if typeof(data) != "bytes" then return error(7054, "packet must be bytes") end if
   required = pc.PACKET_HEADER_SERVER
@@ -57,13 +64,18 @@ function decodeHeader(data, hasQport)
     acknowledgeWord & pc.SEQUENCE_MASK, reliableAcknowledged, qport, required)
 end function
 
-// Decode packet.
+/// Decode packet.
+/// @param data Input data consumed by the operation.
+/// @param hasQport hasQport value consumed by this operation.
 function decodePacket(data, hasQport)
   header = decodeHeader(data, hasQport)
   return pt.Packet(header, slice(data, header.headerBytes, len(data) - header.headerBytes))
 end function
 
-// Join state.
+/// Join state.
+/// @param headerBytes headerBytes value consumed by this operation.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function join(headerBytes, first, second)
   if typeof(headerBytes) != "bytes" or typeof(first) != "bytes" or typeof(second) != "bytes" then return error(7058, "packet sections must be bytes") end if
   total = len(headerBytes) + len(first) + len(second)
@@ -75,12 +87,14 @@ function join(headerBytes, first, second)
   return output
 end function
 
-// Report whether is connectionless.
+/// Report whether is connectionless.
+/// @param data Input data consumed by the operation.
 function isConnectionless(data)
   return typeof(data) == "bytes" and len(data) >= 4 and qbio.u32(data, 0) == pc.CONNECTIONLESS_SEQUENCE
 end function
 
-// Encode connectionless.
+/// Encode connectionless.
+/// @param payload payload value consumed by this operation.
 function encodeConnectionless(payload)
   if typeof(payload) != "bytes" then return error(7060, "connectionless payload must be bytes") end if
   if len(payload) > pc.MAX_MSGLEN - 4 then return error(7061, "connectionless payload exceeds MAX_MSGLEN") end if
@@ -90,13 +104,15 @@ function encodeConnectionless(payload)
   return output
 end function
 
-// Encode connectionless text.
+/// Encode connectionless text.
+/// @param text Text consumed by the operation.
 function encodeConnectionlessText(text)
   if typeof(text) != "string" then return error(7062, "connectionless text must be a string") end if
   return encodeConnectionless(bytes(text))
 end function
 
-// Decode connectionless.
+/// Decode connectionless.
+/// @param data Input data consumed by the operation.
 function decodeConnectionless(data)
   if typeof(data) != "bytes" or len(data) < 4 then return error(7063, "connectionless packet is truncated") end if
   if len(data) > pc.MAX_MSGLEN then return error(7064, "connectionless packet exceeds MAX_MSGLEN") end if
@@ -104,7 +120,8 @@ function decodeConnectionless(data)
   return slice(data, 4, len(data) - 4)
 end function
 
-// Decode connectionless text.
+/// Decode connectionless text.
+/// @param data Input data consumed by the operation.
 function decodeConnectionlessText(data)
   payload = decodeConnectionless(data)
   endIndex = len(payload)

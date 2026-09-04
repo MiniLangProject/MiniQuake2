@@ -1,3 +1,5 @@
+//! Provides miniquake2 network connectionless facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -12,7 +14,8 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.packet as ppacket
 import miniquake2.network.types as nt
 
-// Parse decimal.
+/// Parse decimal.
+/// @param value Value consumed or transformed by the operation.
 function parseDecimal(value)
   if typeof(value) != "string" then return error(7100, "decimal token must be a string") end if
   source = bytes(value)
@@ -38,7 +41,8 @@ function parseDecimal(value)
   return result
 end function
 
-// Split payload.
+/// Split payload.
+/// @param payload payload value consumed by this operation.
 function splitPayload(payload)
   endIndex = len(payload)
   index = 0
@@ -59,7 +63,8 @@ function splitPayload(payload)
   return [line, remainder]
 end function
 
-// Parse packet.
+/// Parse packet.
+/// @param datagram datagram value consumed by this operation.
 function parsePacket(datagram)
   payload = ppacket.decodeConnectionless(datagram)
   parts = splitPayload(payload)
@@ -68,17 +73,21 @@ function parsePacket(datagram)
   return nt.ConnectionlessRequest(arguments[0], arguments, parts[0], parts[1])
 end function
 
-// Return the frame text value.
+/// Return the frame text value.
+/// @param text Text consumed by the operation.
 function frameText(text)
   return ppacket.encodeConnectionlessText(text)
 end function
 
-// Return challenge.
+/// Return challenge.
 function getChallenge()
   return frameText("getchallenge\n")
 end function
 
-// Connect state.
+/// Connect state.
+/// @param qport qport value consumed by this operation.
+/// @param challenge challenge value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function connect(qport, challenge, userInfo)
   if typeof(qport) != "int" or qport < 0 or qport > 0xffff then return error(7103, "connect qport outside unsigned-short range") end if
   if typeof(challenge) != "int" then return error(7104, "connect challenge must be an integer") end if
@@ -86,64 +95,72 @@ function connect(qport, challenge, userInfo)
   return frameText("connect " + pc.PROTOCOL_VERSION + " " + qport + " " + challenge + " \"" + userInfo + "\"\n")
 end function
 
-// Return the ping value.
+/// Return the ping value.
 function ping()
   return frameText("ping")
 end function
 
-// Return the status value.
+/// Return the status value.
 function status()
   return frameText("status")
 end function
 
-// Return the info value.
+/// Return the info value.
 function info()
   return frameText("info " + pc.PROTOCOL_VERSION)
 end function
 
-// Return the acknowledgement value.
+/// Return the acknowledgement value.
 function acknowledgement()
   return frameText("ack")
 end function
 
-// Return the challenge value.
+/// Return the challenge value.
+/// @param value Value consumed or transformed by the operation.
 function challenge(value)
   return frameText("challenge " + value)
 end function
 
-// Connect client.
+/// Performs the clientConnect operation for the miniquake2 network connectionless module.
 function clientConnect()
   return frameText("client_connect")
 end function
 
-// Print reply.
+/// Print reply.
+/// @param text Text consumed by the operation.
 function printReply(text)
   return frameText("print\n" + text)
 end function
 
-// Return the info reply value.
+/// Return the info reply value.
+/// @param text Text consumed by the operation.
 function infoReply(text)
   return frameText("info\n" + text)
 end function
 
-// Return the heartbeat value.
+/// Return the heartbeat value.
+/// @param statusText statusText value consumed by this operation.
 function heartbeat(statusText)
   return frameText("heartbeat\n" + statusText)
 end function
 
-// Shut down state.
+/// Performs the shutdown operation for the miniquake2 network connectionless module.
 function shutdown()
   return frameText("shutdown")
 end function
 
-// Return the truncate text value.
+/// Return the truncate text value.
+/// @param value Value consumed or transformed by the operation.
+/// @param maximumBytes maximumBytes value consumed by this operation.
 function truncateText(value, maximumBytes)
   data = bytes(value)
   if len(data) <= maximumBytes then return value end if
   return decode(slice(data, 0, maximumBytes))
 end function
 
-// Pad left.
+/// Pad left.
+/// @param value Value consumed or transformed by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
 function padLeft(value, width)
   output = value
   while len(bytes(output)) < width

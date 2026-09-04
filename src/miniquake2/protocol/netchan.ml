@@ -1,3 +1,5 @@
+//! Provides miniquake2 protocol netchan facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -13,24 +15,33 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.packet as ppacket
 
-// Return the next sequence value.
+/// Return the next sequence value.
+/// @param sequence sequence value consumed by this operation.
 function nextSequence(sequence)
   return (sequence + 1) & pc.SEQUENCE_MASK
 end function
 
-// Modular comparison keeps the reference ordering until the 31-bit counter
-// wraps, then preserves the same stale/duplicate protection across the wrap.
+/// Modular comparison keeps the reference ordering until the 31-bit counter
+/// wraps, then preserves the same stale/duplicate protection across the wrap.
+/// @param candidate candidate value consumed by this operation.
+/// @param current current value consumed by this operation.
 function sequenceNewer(candidate, current)
   difference = (candidate - current) & pc.SEQUENCE_MASK
   return difference != 0 and difference < 0x40000000
 end function
 
-// Return the sequence at least value.
+/// Return the sequence at least value.
+/// @param candidate candidate value consumed by this operation.
+/// @param current current value consumed by this operation.
 function sequenceAtLeast(candidate, current)
   return candidate == current or sequenceNewer(candidate, current)
 end function
 
-// Return the setup value.
+/// Return the setup value.
+/// @param sock sock value consumed by this operation.
+/// @param remoteAddress remoteAddress value consumed by this operation.
+/// @param qport qport value consumed by this operation.
+/// @param now now value consumed by this operation.
 function setup(sock, remoteAddress, qport, now)
   if sock != pc.NS_CLIENT and sock != pc.NS_SERVER then return error(7070, "Netchan socket side is invalid") end if
   if typeof(qport) != "int" or qport < 0 or qport > 0xffff then return error(7071, "Netchan qport outside unsigned-short range") end if
@@ -40,12 +51,14 @@ function setup(sock, remoteAddress, qport, now)
     0, 0, 0, 0, 1, 0, 0, -1, message, 0, bytes(), [], 0)
 end function
 
-// Report whether can reliable.
+/// Report whether can reliable.
+/// @param channel channel value consumed by this operation.
 function canReliable(channel)
   return channel.reliableLength == 0 and len(channel.reliableQueue) == 0
 end function
 
-// Validate reliable queue.
+/// Validate reliable queue.
+/// @param channel channel value consumed by this operation.
 function validateReliableQueue(channel)
   if typeof(channel.reliableQueue) != "array" or
       typeof(channel.reliableQueuedBytes) != "int" or
@@ -67,13 +80,15 @@ function validateReliableQueue(channel)
   return total
 end function
 
-// Report whether pending reliable bytes.
+/// Report whether pending reliable bytes.
+/// @param channel channel value consumed by this operation.
 function pendingReliableBytes(channel)
   validateReliableQueue(channel)
   return channel.reliableLength + channel.reliableQueuedBytes + channel.message.curSize
 end function
 
-// Return the need reliable value.
+/// Return the need reliable value.
+/// @param channel channel value consumed by this operation.
 function needReliable(channel)
   // Quake stores lastReliableSequence after incrementing outgoingSequence.
   // Equality therefore already proves that the peer received a packet after
@@ -85,7 +100,9 @@ function needReliable(channel)
     (len(channel.reliableQueue) > 0 or channel.message.curSize > 0)
 end function
 
-// Queue reliable.
+/// Queue reliable.
+/// @param channel channel value consumed by this operation.
+/// @param payload payload value consumed by this operation.
 function queueReliable(channel, payload)
   if typeof(payload) != "bytes" then return error(7073, "reliable payload must be bytes") end if
   if len(payload) > pc.RELIABLE_BUFFER_SIZE then return error(7073, "reliable payload exceeds one Protocol-34 packet") end if
@@ -100,10 +117,12 @@ function queueReliable(channel, payload)
   return channel
 end function
 
-// Queue complete application payload fragments without splitting the bytes of
-// an svc/clc command.  The operation is failure-atomic: capacity is checked on
-// detached queue/buffer state, then committed in one small mutation boundary.
-// A false result is bounded backpressure; malformed state/input is an error.
+/// Queue complete application payload fragments without splitting the bytes of
+/// an svc/clc command.  The operation is failure-atomic: capacity is checked on
+/// detached queue/buffer state, then committed in one small mutation boundary.
+/// A false result is bounded backpressure; malformed state/input is an error.
+/// @param channel channel value consumed by this operation.
+/// @param fragments fragments value consumed by this operation.
 function queueReliableFragments(channel, fragments)
   // Keep queue reliable fragments phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(fragments) != "array" then return error(7085, "reliable fragments must be an array") end if
@@ -146,7 +165,9 @@ function queueReliableFragments(channel, fragments)
   return channel
 end function
 
-// Report whether can queue reliable fragments.
+/// Report whether can queue reliable fragments.
+/// @param channel channel value consumed by this operation.
+/// @param fragments fragments value consumed by this operation.
 function canQueueReliableFragments(channel, fragments)
   if typeof(fragments) != "array" then return error(7085, "reliable fragments must be an array") end if
   // Evaluate the exact packer against a detached holder so callers can
@@ -166,7 +187,8 @@ function canQueueReliableFragments(channel, fragments)
   return queueReliableFragments(holder, fragments) != false
 end function
 
-// Return the promote reliable value.
+/// Return the promote reliable value.
+/// @param channel channel value consumed by this operation.
 function promoteReliable(channel)
   if channel.reliableLength != 0 then return false end if
   if len(channel.reliableQueue) > 0 then
@@ -192,7 +214,10 @@ function promoteReliable(channel)
   return true
 end function
 
-// Return the transmit value.
+/// Return the transmit value.
+/// @param channel channel value consumed by this operation.
+/// @param unreliable unreliable value consumed by this operation.
+/// @param now now value consumed by this operation.
 function transmit(channel, unreliable, now)
   if typeof(unreliable) != "bytes" then return error(7074, "unreliable payload must be bytes") end if
   if typeof(now) != "int" then return error(7075, "Netchan time must be integer milliseconds") end if
@@ -235,7 +260,10 @@ function transmit(channel, unreliable, now)
   return ppacket.join(headerBytes, reliablePayload, unreliablePayload)
 end function
 
-// Process state.
+/// Process state.
+/// @param channel channel value consumed by this operation.
+/// @param datagram datagram value consumed by this operation.
+/// @param now now value consumed by this operation.
 function process(channel, datagram, now)
   if typeof(datagram) != "bytes" then return error(7077, "Netchan datagram must be bytes") end if
   if typeof(now) != "int" then return error(7081, "Netchan receive time must be integer milliseconds") end if
@@ -269,48 +297,65 @@ function process(channel, datagram, now)
   return pt.ProcessedPacket(true, decoded.payload, header, dropped, "accepted")
 end function
 
-// Return the out of band value.
+/// Return the out of band value.
+/// @param payload payload value consumed by this operation.
 function outOfBand(payload)
   return ppacket.encodeConnectionless(payload)
 end function
 
-// Print out of band.
+/// Print out of band.
+/// @param text Text consumed by the operation.
 function outOfBandPrint(text)
   return ppacket.encodeConnectionlessText(text)
 end function
 
-// Return the netchan setup value.
+/// Return the netchan setup value.
+/// @param sock sock value consumed by this operation.
+/// @param remoteAddress remoteAddress value consumed by this operation.
+/// @param qport qport value consumed by this operation.
+/// @param now now value consumed by this operation.
 function Netchan_Setup(sock, remoteAddress, qport, now)
   return setup(sock, remoteAddress, qport, now)
 end function
 
-// Report whether netchan can reliable.
+/// Report whether netchan can reliable.
+/// @param channel channel value consumed by this operation.
 function Netchan_CanReliable(channel)
   return canReliable(channel)
 end function
 
-// Return the netchan need reliable value.
+/// Return the netchan need reliable value.
+/// @param channel channel value consumed by this operation.
 function Netchan_NeedReliable(channel)
   return needReliable(channel)
 end function
 
-// Return the netchan transmit value.
+/// Return the netchan transmit value.
+/// @param channel channel value consumed by this operation.
+/// @param length length value consumed by this operation.
+/// @param data Input data consumed by the operation.
+/// @param now now value consumed by this operation.
 function Netchan_Transmit(channel, length, data, now)
   if typeof(length) != "int" or length < 0 or typeof(data) != "bytes" or length > len(data) then return error(7079, "invalid Netchan_Transmit payload range") end if
   return transmit(channel, slice(data, 0, length), now)
 end function
 
-// Process netchan.
+/// Process netchan.
+/// @param channel channel value consumed by this operation.
+/// @param datagram datagram value consumed by this operation.
+/// @param now now value consumed by this operation.
 function Netchan_Process(channel, datagram, now)
   return process(channel, datagram, now)
 end function
 
-// Return the netchan out of band value.
+/// Return the netchan out of band value.
+/// @param data Input data consumed by the operation.
 function Netchan_OutOfBand(data)
   return outOfBand(data)
 end function
 
-// Print netchan out of band.
+/// Print netchan out of band.
+/// @param text Text consumed by the operation.
 function Netchan_OutOfBandPrint(text)
   return outOfBandPrint(text)
 end function

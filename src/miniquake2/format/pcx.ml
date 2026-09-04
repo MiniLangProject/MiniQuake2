@@ -1,3 +1,5 @@
+//! Provides miniquake2 format pcx facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,7 +10,8 @@ package miniquake2.format.pcx
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
-// Parse state.
+/// Parses parse for the miniquake2 format pcx workflow.
+/// @param data Input data consumed by the operation.
 function parse(data)
   // Keep parse phases explicit: validate inputs, update owned state, then publish the result.
   if len(data) < 128 then return error(2600, "PCX header is truncated") end if

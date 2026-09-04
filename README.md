@@ -219,6 +219,9 @@ rendered JPEG screenshots are written to `docs/screenshots/levels`.
 
 ## Documentation
 
+- [MiniDoc API reference](docs/api/markdown/README.md) for packages,
+  declarations, source metrics, and dependency graphs; the searchable offline
+  site starts at `docs/api/html/index.html`.
 - [Compatibility and asset contract](docs/COMPATIBILITY_CONTRACT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Current parity audit](docs/PARITY_AUDIT.md)
@@ -226,6 +229,17 @@ rendered JPEG screenshots are written to `docs/screenshots/levels`.
 - [Playability matrix](docs/PLAYABILITY_MATRIX.md)
 - [Release acceptance](docs/RELEASE_ACCEPTANCE.md)
 - [Retail FPS report](docs/ALL_LEVEL_FPS_2026-08-26.md)
+
+Regenerate the MiniDoc reference, or run the strict check without writing
+output:
+
+```powershell
+pwsh .\tools\generate_minidoc.ps1
+pwsh .\tools\generate_minidoc.ps1 -Check
+```
+
+MiniQuake2 uses `//!` file comments and `///` declaration comments with
+structured `@param` and `@returns` contracts.
 
 ## Legal and licensing
 

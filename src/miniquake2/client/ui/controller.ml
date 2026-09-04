@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui controller facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,9 +16,11 @@ import miniquake2.client.ui.gamepad as cuigamepad
 import miniquake2.native as native
 import miniquake2.platform.window as pwindow
 
+/// Stores module-wide controller gamepad state state for the miniquake2 client ui controller module.
 controllerGamepadState = void
 
-// Configure gamepad.
+/// Configure gamepad.
+/// @param enabled enabled value consumed by this operation.
 function configureGamepad(enabled)
   global controllerGamepadState
   if controllerGamepadState is not void and
@@ -27,19 +31,23 @@ function configureGamepad(enabled)
   return controllerGamepadState.available
 end function
 
-// Return the gamepad state.
+/// Return the gamepad state.
 function gamepadState()
   global controllerGamepadState
   if controllerGamepadState is void then controllerGamepadState = cuigamepad.create(true) end if
   return controllerGamepadState
 end function
 
-// Return the gamepad key event value.
+/// Return the gamepad key event value.
+/// @param key key value consumed by this operation.
 function gamepadKeyEvent(key)
   return pwindow.InputEvent(cuic.EVENT_KEY, key, 1)
 end function
 
-// Poll gamepad.
+/// Poll gamepad.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param time time value consumed by this operation.
 function pollGamepad(input, screen, time)
   state = gamepadState()
   // The controller is disabled by default, and an unavailable WinMM device
@@ -85,7 +93,9 @@ function pollGamepad(input, screen, time)
   return count
 end function
 
-// Begin message.
+/// Begin message.
+/// @param input input value consumed by this operation.
+/// @param team team value consumed by this operation.
 function beginMessage(input, team)
   input.message = ""
   input.messageTeam = team
@@ -93,7 +103,8 @@ function beginMessage(input, team)
   return true
 end function
 
-// Finish message.
+/// Finish message.
+/// @param input input value consumed by this operation.
 function finishMessage(input)
   if input.message != "" then
     command = "say "
@@ -105,7 +116,9 @@ function finishMessage(input)
   return true
 end function
 
-// Return the edit message value.
+/// Return the edit message value.
+/// @param input input value consumed by this operation.
+/// @param key key value consumed by this operation.
 function editMessage(input, key)
   data = bytes(input.message)
   if key == cuic.K_ENTER then return finishMessage(input) end if
@@ -118,14 +131,20 @@ function editMessage(input, key)
   return false
 end function
 
-// Open menu.
+/// Open menu.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
 function openMenu(input, screen)
   cuimenu.open(screen.menu, "main")
   cuikeys.setDestination(input, cuic.KEY_MENU)
   return true
 end function
 
-// Handle event.
+/// Handle event.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param event event value consumed by this operation.
+/// @param time time value consumed by this operation.
 function handleEvent(input, screen, event, time)
   if event.type == cuic.EVENT_FOCUS then return cuikeys.handleEvent(input, event, time) end if
   key = cuikeys.eventKey(event)
@@ -168,7 +187,10 @@ function handleEvent(input, screen, event, time)
   return false
 end function
 
-// Poll state.
+/// Performs the poll operation for the miniquake2 client ui controller module.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param time time value consumed by this operation.
 function poll(input, screen, time)
   count = 0
   // The Win32 bridge exposes relative motion as accumulated axes while

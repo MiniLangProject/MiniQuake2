@@ -1,0 +1,34 @@
+# Package `miniquake2.qcommon.filesystem`
+
+[Home](README.md) · [Packages](Packages.md)
+
+## Files
+
+- [src/miniquake2/qcommon/filesystem.ml](File-src-miniquake2-qcommon-filesystem-ml-828451784.md)
+
+## Symbols
+
+- [`miniquake2.qcommon.filesystem.addDirectory`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-adddirectory-function-adddirectory-system-directory-src-miniquake2-qcommon-filesystem-ml-1256148090) — function
+- [`miniquake2.qcommon.filesystem.addGameDirectory`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-addgamedirectory-function-addgamedirectory-system-directory-src-miniquake2-qcommon-filesystem-ml-957938090) — function
+- [`miniquake2.qcommon.filesystem.addPack`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-addpack-function-addpack-system-filename-src-miniquake2-qcommon-filesystem-ml-1975210570) — function
+- [`miniquake2.qcommon.filesystem.BASE_DIRECTORY_NAME`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#constant-constant-miniquake2-qcommon-filesystem-base-directory-name-const-base-directory-name-baseq2-src-miniquake2-qcommon-filesystem-ml-130478317) — constant
+- [`miniquake2.qcommon.filesystem.canonicalVirtualName`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-canonicalvirtualname-function-canonicalvirtualname-name-src-miniquake2-qcommon-filesystem-ml-857976813) — function
+- [`miniquake2.qcommon.filesystem.CloseHandle`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#extern_function-extern-function-miniquake2-qcommon-filesystem-closehandle-extern-function-closehandle-handle-as-ptr-from-kernel32-dll-returns-bool-src-miniquake2-qcommon-filesystem-ml-406630960) — extern_function
+- [`miniquake2.qcommon.filesystem.create`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-create-function-create-basedirectory-gamedirectory-src-miniquake2-qcommon-filesystem-ml-586205907) — function
+- [`miniquake2.qcommon.filesystem.CreateFileW`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#extern_function-extern-function-miniquake2-qcommon-filesystem-createfilew-extern-function-createfilew-path-as-wstr-access-as-int-share-as-int-security-as-ptr-creation-as-int-flags-as-int-template-as-ptr-from-kernel32-dll-returns-ptr-src-miniquake2-qcommon-filesystem-ml-261987902) — extern_function
+- [`miniquake2.qcommon.filesystem.fileExists`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-fileexists-function-fileexists-system-name-src-miniquake2-qcommon-filesystem-ml-1327343512) — function
+- [`miniquake2.qcommon.filesystem.findPackFile`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-findpackfile-function-findpackfile-pack-name-src-miniquake2-qcommon-filesystem-ml-193608704) — function
+- [`miniquake2.qcommon.filesystem.GetFileSizeEx`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#extern_function-extern-function-miniquake2-qcommon-filesystem-getfilesizeex-extern-function-getfilesizeex-handle-as-ptr-size-as-bytes-from-kernel32-dll-returns-bool-src-miniquake2-qcommon-filesystem-ml-503219562) — extern_function
+- [`miniquake2.qcommon.filesystem.initialize`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-initialize-function-initialize-basedirectory-gamedirectory-src-miniquake2-qcommon-filesystem-ml-872343471) — function
+- [`miniquake2.qcommon.filesystem.loadPack`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-loadpack-function-loadpack-filename-src-miniquake2-qcommon-filesystem-ml-1068202595) — function
+- [`miniquake2.qcommon.filesystem.MAX_FILES_IN_PACK`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#constant-constant-miniquake2-qcommon-filesystem-max-files-in-pack-const-max-files-in-pack-4096-src-miniquake2-qcommon-filesystem-ml-1028613242) — constant
+- [`miniquake2.qcommon.filesystem.musicTrackName`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-musictrackname-function-musictrackname-track-src-miniquake2-qcommon-filesystem-ml-109750593) — function
+- [`miniquake2.qcommon.filesystem.musicTrackPath`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-musictrackpath-function-musictrackpath-system-track-src-miniquake2-qcommon-filesystem-ml-1746821662) — function
+- [`miniquake2.qcommon.filesystem.normalizeVirtualName`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-normalizevirtualname-function-normalizevirtualname-name-src-miniquake2-qcommon-filesystem-ml-1886787113) — function
+- [`miniquake2.qcommon.filesystem.PACK_LOOKUP_SIZE`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#constant-constant-miniquake2-qcommon-filesystem-pack-lookup-size-const-pack-lookup-size-8192-src-miniquake2-qcommon-filesystem-ml-238988937) — constant
+- [`miniquake2.qcommon.filesystem.packLookupSlot`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-packlookupslot-inline-function-packlookupslot-name-src-miniquake2-qcommon-filesystem-ml-1255647904) — function
+- [`miniquake2.qcommon.filesystem.parsePack`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-parsepack-function-parsepack-data-filename-src-miniquake2-qcommon-filesystem-ml-420357611) — function
+- [`miniquake2.qcommon.filesystem.ReadFile`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#extern_function-extern-function-miniquake2-qcommon-filesystem-readfile-extern-function-readfile-handle-as-ptr-buffer-as-bytes-count-as-int-bytesread-as-bytes-overlapped-as-ptr-from-kernel32-dll-returns-bool-src-miniquake2-qcommon-filesystem-ml-699235249) — extern_function
+- [`miniquake2.qcommon.filesystem.readFile`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-readfile-function-readfile-system-name-src-miniquake2-qcommon-filesystem-ml-2066577560) — function
+- [`miniquake2.qcommon.filesystem.readMusicTrack`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-readmusictrack-function-readmusictrack-system-track-src-miniquake2-qcommon-filesystem-ml-1191586006) — function
+- [`miniquake2.qcommon.filesystem.virtualNameValid`](File-src-miniquake2-qcommon-filesystem-ml-828451784.md#function-function-miniquake2-qcommon-filesystem-virtualnamevalid-function-virtualnamevalid-name-src-miniquake2-qcommon-filesystem-ml-789927693) — function

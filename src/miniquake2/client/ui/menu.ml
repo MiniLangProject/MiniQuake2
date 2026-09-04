@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui menu facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,44 +14,73 @@ import miniquake2.qcommon.types as cuimenuqtypes
 import miniquake2.renderer.constants as cuimenurc
 import miniquake2.renderer.types as cuimenurtypes
 
+/// Defines the max menu commands constant used by the miniquake2 client ui menu module.
 const MAX_MENU_COMMANDS = 16
 
+/// Stores module-wide menu player preview light styles state for the miniquake2 client ui menu module.
 menuPlayerPreviewLightStyles = void
+/// Stores module-wide menu empty commands state for the miniquake2 client ui menu module.
 menuEmptyCommands = []
 
-// Return the action value.
+/// Performs the action operation for the miniquake2 client ui menu module.
+/// @param id Stable identifier of the affected item.
+/// @param label label value consumed by this operation.
+/// @param command command value consumed by this operation.
 function action(id, label, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], command, true)
 end function
 
-// Toggle state.
+/// Toggle state.
+/// @param id Stable identifier of the affected item.
+/// @param label label value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param command command value consumed by this operation.
 function toggle(id, label, value, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_TOGGLE, value, 0.0, 1.0, 1.0, ["off", "on"], command, true)
 end function
 
-// Return the slider value.
+/// Return the slider value.
+/// @param id Stable identifier of the affected item.
+/// @param label label value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
+/// @param step step value consumed by this operation.
+/// @param command command value consumed by this operation.
 function slider(id, label, value, minimum, maximum, step, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_SLIDER, value, minimum, maximum, step, [], command, true)
 end function
 
-// Return the choice value.
+/// Return the choice value.
+/// @param id Stable identifier of the affected item.
+/// @param label label value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param choices choices value consumed by this operation.
+/// @param command command value consumed by this operation.
 function choice(id, label, value, choices, command)
   return cuitypes.MenuItem(id, label, cuic.MENU_CHOICE, value, 0.0, len(choices) - 1, 1.0, choices, command, true)
 end function
 
-// Return the field value.
+/// Return the field value.
+/// @param id Stable identifier of the affected item.
+/// @param label label value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param maximumLength maximumLength value consumed by this operation.
+/// @param command command value consumed by this operation.
 function field(id, label, value, maximumLength, command)
   if typeof(value) != "string" then value = "" end if
   return cuitypes.MenuItem(id, label, cuic.MENU_FIELD, value, 0, maximumLength,
     1, [], command, true)
 end function
 
-// Return the label value.
+/// Return the label value.
+/// @param id Stable identifier of the affected item.
+/// @param text Text consumed by the operation.
 function label(id, text)
   return cuitypes.MenuItem(id, text, cuic.MENU_ACTION, 0.0, 0.0, 0.0, 0.0, [], "", false)
 end function
 
-// Return the default pages value.
+/// Return the default pages value.
 function defaultPages()
   main = cuitypes.MenuPage("main", "QUAKE II", "", [
     action("game", "game", "menu:game"),
@@ -203,13 +234,15 @@ function defaultPages()
     player, join, addressbook, start, dmoptions, downloads]
 end function
 
-// Create state.
+/// Creates create for the miniquake2 client ui menu module.
 function create()
   return cuitypes.MenuState(defaultPages(), "main", 0, false,
     array(MAX_MENU_COMMANDS), 0)
 end function
 
-// Queue command.
+/// Queue command.
+/// @param menu menu value consumed by this operation.
+/// @param command command value consumed by this operation.
 function queueCommand(menu, command)
   if menu.commandCount >= len(menu.commands) then return error(8234, "menu command queue full") end if
   menu.commands[menu.commandCount] = command
@@ -217,7 +250,8 @@ function queueCommand(menu, command)
   return true
 end function
 
-// Return the page value.
+/// Return the page value.
+/// @param menu menu value consumed by this operation.
 function page(menu)
   for each value in menu.pages
     if value.id == menu.currentPage then return value end if
@@ -225,7 +259,9 @@ function page(menu)
   return void
 end function
 
-// Open state.
+/// Opens open for the miniquake2 client ui menu module.
+/// @param menu menu value consumed by this operation.
+/// @param id Stable identifier of the affected item.
 function open(menu, id)
   for each value in menu.pages
     if value.id == id then menu.currentPage = id; menu.cursor = 0; menu.active = true; return true end if
@@ -233,7 +269,11 @@ function open(menu, id)
   return error(8230, "unknown menu page")
 end function
 
-// Set item label.
+/// Set item label.
+/// @param menu menu value consumed by this operation.
+/// @param pageId Identifier of page.
+/// @param itemId Identifier of item.
+/// @param text Text consumed by the operation.
 function setItemLabel(menu, pageId, itemId, text)
   if typeof(text) != "string" then return error(8232, "menu label must be text") end if
   for each menuLabelPage in menu.pages
@@ -247,7 +287,11 @@ function setItemLabel(menu, pageId, itemId, text)
   return error(8230, "unknown menu page")
 end function
 
-// Set item value.
+/// Set item value.
+/// @param menu menu value consumed by this operation.
+/// @param pageId Identifier of page.
+/// @param itemId Identifier of item.
+/// @param value Value consumed or transformed by the operation.
 function setItemValue(menu, pageId, itemId, value)
   if (typeof(value) != "int" and typeof(value) != "float") or
       value != value then return error(8232, "menu value must be finite") end if
@@ -273,7 +317,11 @@ function setItemValue(menu, pageId, itemId, value)
   return error(8230, "unknown page")
 end function
 
-// Set item text.
+/// Set item text.
+/// @param menu menu value consumed by this operation.
+/// @param pageId Identifier of page.
+/// @param itemId Identifier of item.
+/// @param value Value consumed or transformed by the operation.
 function setItemText(menu, pageId, itemId, value)
   if typeof(value) != "string" then return error(8232, "menu field value must be text") end if
   for each menuTextPage in menu.pages
@@ -292,7 +340,13 @@ function setItemText(menu, pageId, itemId, value)
   return error(8230, "unknown page")
 end function
 
-// Set action command.
+/// Set action command.
+/// @param menu menu value consumed by this operation.
+/// @param pageId Identifier of page.
+/// @param itemId Identifier of item.
+/// @param text Text consumed by the operation.
+/// @param command command value consumed by this operation.
+/// @param enabled enabled value consumed by this operation.
 function setActionCommand(menu, pageId, itemId, text, command, enabled)
   if typeof(text) != "string" or typeof(command) != "string" or typeof(enabled) != "bool" then
     return error(8232, "menu action update is invalid")
@@ -314,7 +368,10 @@ function setActionCommand(menu, pageId, itemId, text, command, enabled)
   return error(8230, "unknown page")
 end function
 
-// Return the item by id value.
+/// Return the item by id value.
+/// @param menu menu value consumed by this operation.
+/// @param pageId Identifier of page.
+/// @param itemId Identifier of item.
 function itemById(menu, pageId, itemId)
   for each menuFindPage in menu.pages
     if menuFindPage.id == pageId then
@@ -327,7 +384,8 @@ function itemById(menu, pageId, itemId)
   return void
 end function
 
-// Return the player skin choices value.
+/// Return the player skin choices value.
+/// @param modelName modelName value consumed by this operation.
 function playerSkinChoices(modelName)
   if modelName == "female" then
     return ["athena", "brianna", "cobalt", "ensign", "jezebel", "jungle",
@@ -339,7 +397,8 @@ function playerSkinChoices(modelName)
     "scout", "sniper", "viper"]
 end function
 
-// Synchronize player skins.
+/// Synchronize player skins.
+/// @param menu menu value consumed by this operation.
 function synchronizePlayerSkins(menu)
   modelItem = itemById(menu, "player", "model")
   skinItem = itemById(menu, "player", "skin")
@@ -353,7 +412,9 @@ function synchronizePlayerSkins(menu)
   return true
 end function
 
-// Move state.
+/// Move state.
+/// @param menu menu value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function move(menu, direction)
   current = page(menu)
   if current is void or len(current.items) == 0 then return false end if
@@ -363,7 +424,9 @@ function move(menu, direction)
   return true
 end function
 
-// Adjust state.
+/// Adjust state.
+/// @param menu menu value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function adjust(menu, direction)
   current = page(menu)
   if current is void or menu.cursor < 0 or menu.cursor >= len(current.items) then return false end if
@@ -384,7 +447,8 @@ function adjust(menu, direction)
   return true
 end function
 
-// Activate state.
+/// Performs the activate operation for the miniquake2 client ui menu module.
+/// @param menu menu value consumed by this operation.
 function activate(menu)
   current = page(menu)
   if current is void or menu.cursor < 0 or menu.cursor >= len(current.items) then return false end if
@@ -402,7 +466,9 @@ function activate(menu)
   return true
 end function
 
-// Handle key.
+/// Handle key.
+/// @param menu menu value consumed by this operation.
+/// @param key key value consumed by this operation.
 function handleKey(menu, key)
   if menu.active == false then return false end if
   if menu.currentPage == "quit" then
@@ -438,7 +504,8 @@ function handleKey(menu, key)
   return false
 end function
 
-// Return the item value.
+/// Return the item value.
+/// @param item item value consumed by this operation.
 function itemValue(item)
   if item.kind == cuic.MENU_TOGGLE or item.kind == cuic.MENU_CHOICE then return item.choices[item.value] end if
   if item.kind == cuic.MENU_SLIDER then return item.value + "" end if
@@ -446,7 +513,8 @@ function itemValue(item)
   return ""
 end function
 
-// Return the player preview path.
+/// Return the player preview path.
+/// @param menu menu value consumed by this operation.
 function playerPreviewPath(menu)
   modelItem = itemById(menu, "player", "model")
   skinItem = itemById(menu, "player", "skin")
@@ -455,14 +523,16 @@ function playerPreviewPath(menu)
     skinItem.choices[skinItem.value] + "_i.pcx"
 end function
 
-// Return the player preview model path.
+/// Return the player preview model path.
+/// @param menu menu value consumed by this operation.
 function playerPreviewModelPath(menu)
   modelItem = itemById(menu, "player", "model")
   if modelItem is void then return "" end if
   return "players/" + modelItem.choices[modelItem.value] + "/tris.md2"
 end function
 
-// Return the player preview skin path.
+/// Return the player preview skin path.
+/// @param menu menu value consumed by this operation.
 function playerPreviewSkinPath(menu)
   modelItem = itemById(menu, "player", "model")
   skinItem = itemById(menu, "player", "skin")
@@ -471,10 +541,15 @@ function playerPreviewSkinPath(menu)
     skinItem.choices[skinItem.value] + ".pcx"
 end function
 
-// PlayerConfig_MenuDraw renders the selected player as a full-bright alias
-// model in a world-less 144x168 view. Register calls are intentionally made
-// here: the renderer deduplicates current-generation resources, while a map
-// registration invalidates old handles and the next menu frame reacquires them.
+/// PlayerConfig_MenuDraw renders the selected player as a full-bright alias
+/// model in a world-less 144x168 view. Register calls are intentionally made
+/// here: the renderer deduplicates current-generation resources, while a map
+/// registration invalidates old handles and the next menu frame reacquires them.
+/// @param menu menu value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function drawPlayerPreview(menu, screenWidth, screenHeight, now, exports)
   global menuPlayerPreviewLightStyles
   modelPath = playerPreviewModelPath(menu)
@@ -503,7 +578,11 @@ function drawPlayerPreview(menu, screenWidth, screenHeight, now, exports)
   return 1
 end function
 
-// Draw text.
+/// Draws text through the miniquake2 client ui menu rendering path.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param text Text consumed by the operation.
 function drawText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -512,7 +591,11 @@ function drawText(exports, x, y, text)
   end while
 end function
 
-// Draw alt text.
+/// Draw alt text.
+/// @param exports exports value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param text Text consumed by the operation.
 function drawAltText(exports, x, y, text)
   data = bytes(text)
   index = 0
@@ -521,7 +604,8 @@ function drawAltText(exports, x, y, text)
   end while
 end function
 
-// Return the banner name.
+/// Return the banner name.
+/// @param pageId Identifier of page.
 function bannerName(pageId)
   if pageId == "game" then return "m_banner_game" end if
   if pageId == "multiplayer" then return "m_banner_multiplayer" end if
@@ -533,19 +617,26 @@ function bannerName(pageId)
   return ""
 end function
 
-// Return the main cursor name.
+/// Return the main cursor name.
+/// @param now now value consumed by this operation.
 function mainCursorName(now)
   cursorFrame = cuimenubyteio.truncInt(now / 100.0) % 15
   return "m_cursor" + cursorFrame
 end function
 
-// Return the menu cursor glyph value.
+/// Return the menu cursor glyph value.
+/// @param now now value consumed by this operation.
 function menuCursorGlyph(now)
   cursorFrame = cuimenubyteio.truncInt(now / 250.0) % 2
   return 12 + cursorFrame
 end function
 
-// Draw main.
+/// Draw main.
+/// @param menu menu value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function drawMain(menu, screenWidth, screenHeight, now, exports)
   names = ["m_main_game", "m_main_multiplayer", "m_main_options",
     "m_main_video", "m_main_quit"]
@@ -574,7 +665,12 @@ function drawMain(menu, screenWidth, screenHeight, now, exports)
   return len(names) + 1
 end function
 
-// Draw state.
+/// Draws draw through the miniquake2 client ui menu rendering path.
+/// @param menu menu value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function draw(menu, screenWidth, screenHeight, now, exports)
   // Keep draw phases explicit: validate inputs, update owned state, then publish the result.
   if menu.active == false then return 0 end if
@@ -616,7 +712,8 @@ function draw(menu, screenWidth, screenHeight, now, exports)
   return len(current.items) + 1
 end function
 
-// Drain commands.
+/// Performs the drainCommands operation for the miniquake2 client ui menu module.
+/// @param menu menu value consumed by this operation.
 function drainCommands(menu)
   // Keep the public state record compatible with callers which replace the
   // historic dynamic command array directly (tests, embedders and restored

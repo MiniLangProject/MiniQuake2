@@ -1,3 +1,5 @@
+//! Provides miniquake2 network address facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -10,7 +12,8 @@ package miniquake2.network.address
 import miniquake2.qcommon.types as qt
 import miniquake2.network.constants as nc
 
-// Copy bytes or array.
+/// Copy bytes or array.
+/// @param values values value consumed by this operation.
 function copyBytesOrArray(values)
   result = array(len(values), 0)
   index = 0
@@ -21,12 +24,15 @@ function copyBytesOrArray(values)
   return result
 end function
 
-// Copy state.
+/// Performs the copy operation for the miniquake2 network address module.
+/// @param address address value consumed by this operation.
 function copy(address)
   return qt.NetAddress(address.type, copyBytesOrArray(address.ip), copyBytesOrArray(address.ipx), address.port)
 end function
 
-// Return the same elements value.
+/// Return the same elements value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function sameElements(first, second)
   if len(first) != len(second) then return false end if
   index = 0
@@ -37,7 +43,9 @@ function sameElements(first, second)
   return true
 end function
 
-// Compare base.
+/// Compare base.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function compareBase(first, second)
   if first is void or second is void or first.type != second.type then return false end if
   if first.type == nc.NA_LOOPBACK then return true end if
@@ -46,17 +54,21 @@ function compareBase(first, second)
   return false
 end function
 
-// Compare state.
+/// Compare state.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function compare(first, second)
   return compareBase(first, second) and first.port == second.port
 end function
 
-// Report whether is local.
+/// Report whether is local.
+/// @param address address value consumed by this operation.
 function isLocal(address)
   return address is not void and address.type == nc.NA_LOOPBACK
 end function
 
-// Return the text value.
+/// Return the text value.
+/// @param address address value consumed by this operation.
 function text(address)
   if address is void then return "unknown" end if
   if address.type == nc.NA_LOOPBACK then return "loopback" end if

@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime unicast dispatch facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,21 +15,28 @@ import miniquake2.network.runtime.pump as nrtunicastpump
 import miniquake2.qcommon.sizebuf as nrtunicastsizebuf
 import miniquake2.server.game_messages as nrtunicastmessages
 
-// Store unicast dispatch result data.
+/// Store unicast dispatch result data.
 struct UnicastDispatchResult
+  /// Stores the sent value associated with unicast dispatch result.
   sent
+  /// Stores the delivered value associated with unicast dispatch result.
   delivered
+  /// Stores the deferred value associated with unicast dispatch result.
   deferred
 end struct
 
-// Store unicast client plan data.
+/// Store unicast client plan data.
 struct UnicastClientPlan
+  /// Stores the slot value associated with unicast client plan.
   slot
+  /// Stores the unreliable packets value associated with unicast client plan.
   unreliablePackets
+  /// Stores the reliable fragments value associated with unicast client plan.
   reliableFragments
 end struct
 
-// Return the payload capacity value.
+/// Performs the payloadCapacity operation for the miniquake2 network runtime unicast dispatch module.
+/// @param client client value consumed by this operation.
 function payloadCapacity(client)
   if client.channel is void then return 0 end if
   reliable = client.channel.reliableLength
@@ -37,7 +46,10 @@ function payloadCapacity(client)
   return capacity
 end function
 
-// Return the packetize value.
+/// Performs the packetize operation for the miniquake2 network runtime unicast dispatch module.
+/// @param events events value consumed by this operation.
+/// @param last last value consumed by this operation.
+/// @param maximumPayload maximumPayload value consumed by this operation.
 function packetize(events, last, maximumPayload)
   packets = array(last, void)
   packetCount = 0
@@ -62,7 +74,10 @@ function packetize(events, last, maximumPayload)
   return nrtunicastarray.slice(packets, 0, packetCount)
 end function
 
-// Build plan.
+/// Build plan.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param events events value consumed by this operation.
 function buildPlan(runtime, slot, events)
   // Validate the target, partition transient/reliable payloads, then preflight
   // both independent client buffers before the dispatcher mutates Netchan.
@@ -114,7 +129,12 @@ function buildPlan(runtime, slot, events)
   return UnicastClientPlan(slot, unreliablePackets, reliableFragments)
 end function
 
-// Dispatch routed.
+/// Dispatch routed.
+/// @param runtime runtime value consumed by this operation.
+/// @param socket socket value consumed by this operation.
+/// @param events events value consumed by this operation.
+/// @param routedEvents routedEvents value consumed by this operation.
+/// @param now now value consumed by this operation.
 function dispatchRouted(runtime, socket, events, routedEvents, now)
   // Keep dispatch routed phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(events) != "array" or typeof(routedEvents) != "array" or

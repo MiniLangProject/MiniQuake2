@@ -1,0 +1,40 @@
+# Package `miniquake2.client.ui.commands`
+
+[Home](README.md) · [Packages](Packages.md)
+
+## Files
+
+- [src/miniquake2/client/ui/commands.ml](File-src-miniquake2-client-ui-commands-ml-90449559.md)
+
+## Symbols
+
+- [`miniquake2.client.ui.commands.booleanArgument`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-booleanargument-function-booleanargument-arguments-name-src-miniquake2-client-ui-commands-ml-677481880) — function
+- [`miniquake2.client.ui.commands.CommandState`](Type-miniquake2-client-ui-commands-commandstate-1004914784.md) — struct
+- [`miniquake2.client.ui.commands.create`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-create-function-create-src-miniquake2-client-ui-commands-ml-1676149817) — function
+- [`miniquake2.client.ui.commands.downloadPolicy`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-downloadpolicy-function-downloadpolicy-commandstate-src-miniquake2-client-ui-commands-ml-1422298823) — function
+- [`miniquake2.client.ui.commands.drain`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-drain-function-drain-commandstate-input-screen-mixer-src-miniquake2-client-ui-commands-ml-735213810) — function
+- [`miniquake2.client.ui.commands.execute`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-execute-function-execute-commandstate-input-screen-mixer-command-src-miniquake2-client-ui-commands-ml-1616757447) — function
+- [`miniquake2.client.ui.commands.integerArgument`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-integerargument-function-integerargument-arguments-name-minimum-maximum-src-miniquake2-client-ui-commands-ml-1407035306) — function
+- [`miniquake2.client.ui.commands.localAction`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-localaction-function-localaction-commandstate-input-screen-mixer-command-src-miniquake2-client-ui-commands-ml-258147699) — function
+- [`miniquake2.client.ui.commands.numericArgument`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-numericargument-function-numericargument-arguments-name-src-miniquake2-client-ui-commands-ml-184322958) — function
+- [`miniquake2.client.ui.commands.playerModelName`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-playermodelname-function-playermodelname-index-src-miniquake2-client-ui-commands-ml-1863374691) — function
+- [`miniquake2.client.ui.commands.playerProfile`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-playerprofile-function-playerprofile-commandstate-input-src-miniquake2-client-ui-commands-ml-1227531791) — function
+- [`miniquake2.client.ui.commands.playerSkinName`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-playerskinname-function-playerskinname-model-index-src-miniquake2-client-ui-commands-ml-18807270) — function
+- [`miniquake2.client.ui.commands.resetOptionDefaults`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-resetoptiondefaults-function-resetoptiondefaults-commandstate-input-screen-mixer-src-miniquake2-client-ui-commands-ml-1496069766) — function
+- [`miniquake2.client.ui.commands.serverOptions`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-serveroptions-function-serveroptions-commandstate-src-miniquake2-client-ui-commands-ml-2084406429) — function
+- [`miniquake2.client.ui.commands.setDmFlag`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-setdmflag-function-setdmflag-commandstate-bit-enabled-src-miniquake2-client-ui-commands-ml-757527945) — function
+- [`miniquake2.client.ui.commands.takeConfigDirty`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takeconfigdirty-function-takeconfigdirty-commandstate-src-miniquake2-client-ui-commands-ml-182128185) — function
+- [`miniquake2.client.ui.commands.takeConnectAddress`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takeconnectaddress-function-takeconnectaddress-commandstate-src-miniquake2-client-ui-commands-ml-409944115) — function
+- [`miniquake2.client.ui.commands.takeDisconnect`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takedisconnect-function-takedisconnect-commandstate-src-miniquake2-client-ui-commands-ml-1636496923) — function
+- [`miniquake2.client.ui.commands.takeForwarded`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takeforwarded-inline-function-takeforwarded-commandstate-src-miniquake2-client-ui-commands-ml-1811981686) — function
+- [`miniquake2.client.ui.commands.takeLoadSlot`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takeloadslot-function-takeloadslot-commandstate-src-miniquake2-client-ui-commands-ml-1394120679) — function
+- [`miniquake2.client.ui.commands.takeNewGameSkill`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takenewgameskill-function-takenewgameskill-commandstate-src-miniquake2-client-ui-commands-ml-1504493351) — function
+- [`miniquake2.client.ui.commands.takePlayerDirty`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takeplayerdirty-function-takeplayerdirty-commandstate-src-miniquake2-client-ui-commands-ml-1556648263) — function
+- [`miniquake2.client.ui.commands.takeRconCommands`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takerconcommands-function-takerconcommands-commandstate-src-miniquake2-client-ui-commands-ml-495314571) — function
+- [`miniquake2.client.ui.commands.takeReconnect`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takereconnect-function-takereconnect-commandstate-src-miniquake2-client-ui-commands-ml-79929819) — function
+- [`miniquake2.client.ui.commands.takeRecordName`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takerecordname-function-takerecordname-commandstate-src-miniquake2-client-ui-commands-ml-1605181927) — function
+- [`miniquake2.client.ui.commands.takeRefreshServers`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takerefreshservers-function-takerefreshservers-commandstate-src-miniquake2-client-ui-commands-ml-2122981967) — function
+- [`miniquake2.client.ui.commands.takeSaveSlot`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takesaveslot-function-takesaveslot-commandstate-src-miniquake2-client-ui-commands-ml-1249986087) — function
+- [`miniquake2.client.ui.commands.takeScreenshot`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takescreenshot-function-takescreenshot-commandstate-src-miniquake2-client-ui-commands-ml-81851095) — function
+- [`miniquake2.client.ui.commands.takeStartServer`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takestartserver-function-takestartserver-commandstate-src-miniquake2-client-ui-commands-ml-2059779295) — function
+- [`miniquake2.client.ui.commands.takeStopRecording`](File-src-miniquake2-client-ui-commands-ml-90449559.md#function-function-miniquake2-client-ui-commands-takestoprecording-function-takestoprecording-commandstate-src-miniquake2-client-ui-commands-ml-499803839) — function

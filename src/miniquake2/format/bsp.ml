@@ -1,3 +1,5 @@
+//! Provides miniquake2 format bsp facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,12 +11,14 @@ import miniquake2.format.constants as fc
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
-// Report whether empty array.
+/// Report whether empty array.
+/// @param count Number of items or units to process.
 function emptyArray(count)
   return array(count)
 end function
 
-// Parse lumps.
+/// Parse lumps.
+/// @param data Input data consumed by the operation.
 function parseLumps(data)
   bspLumpDataHolder = data
   bspHeaderBytes = 8 + fc.HEADER_LUMPS * 8
@@ -36,13 +40,18 @@ function parseLumps(data)
   return bspLumpRecords
 end function
 
-// Require stride.
+/// Require stride.
+/// @param lump lump value consumed by this operation.
+/// @param stride stride value consumed by this operation.
+/// @param name Name of the affected item.
 function requireStride(lump, stride, name)
   if lump.length % stride != 0 then return error(2204, "invalid " + name + " lump stride") end if
   return lump.length / stride
 end function
 
-// Return the vec 3 f value.
+/// Return the vec 3 f value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function vec3f(data, offset)
   bspFloatVectorDataHolder = data
   bspFloatVectorOffset = offset
@@ -52,7 +61,9 @@ function vec3f(data, offset)
   return ft.Vec3(bspFloatVectorX, bspFloatVectorY, bspFloatVectorZ)
 end function
 
-// Return the vec 3 s value.
+/// Return the vec 3 s value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function vec3s(data, offset)
   bspShortVectorDataHolder = data
   bspShortVectorOffset = offset
@@ -62,7 +73,9 @@ function vec3s(data, offset)
   return ft.Vec3(bspShortVectorX, bspShortVectorY, bspShortVectorZ)
 end function
 
-// Parse planes.
+/// Parse planes.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parsePlanes(data, lump)
   bspPlaneDataHolder = data
   bspPlaneLumpHolder = lump
@@ -84,7 +97,9 @@ function parsePlanes(data, lump)
   return bspPlaneRecords
 end function
 
-// Parse vertices.
+/// Parse vertices.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseVertices(data, lump)
   bspVertexDataHolder = data
   bspVertexLumpHolder = lump
@@ -103,7 +118,9 @@ function parseVertices(data, lump)
   return bspVertexRecords
 end function
 
-// Parse visibility.
+/// Parse visibility.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseVisibility(data, lump)
   bspVisibilityDataHolder = data
   bspVisibilityLumpHolder = lump
@@ -141,7 +158,10 @@ function parseVisibility(data, lump)
   return bspVisibilityRecord
 end function
 
-// Decompress visibility.
+/// Decompress visibility.
+/// @param visibility visibility value consumed by this operation.
+/// @param cluster cluster value consumed by this operation.
+/// @param kind kind value consumed by this operation.
 function decompressVisibility(visibility, cluster, kind)
   if cluster < 0 or cluster >= visibility.numClusters then return error(2208, "visibility cluster outside table") end if
   bspDecompressVisibilityHolder = visibility
@@ -168,7 +188,9 @@ function decompressVisibility(visibility, cluster, kind)
   return bspVisibilityRowResult
 end function
 
-// Parse nodes.
+/// Parse nodes.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseNodes(data, lump)
   bspNodeDataHolder = data
   bspNodeLumpHolder = lump
@@ -196,7 +218,9 @@ function parseNodes(data, lump)
   return bspNodeRecords
 end function
 
-// Parse tex info.
+/// Parse tex info.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseTexInfo(data, lump)
   bspTexInfoDataHolder = data
   bspTexInfoLumpHolder = lump
@@ -225,7 +249,9 @@ function parseTexInfo(data, lump)
   return bspTexInfoRecords
 end function
 
-// Parse faces.
+/// Parse faces.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseFaces(data, lump)
   bspFaceDataHolder = data
   bspFaceLumpHolder = lump
@@ -251,7 +277,9 @@ function parseFaces(data, lump)
   return bspFaceRecords
 end function
 
-// Parse leafs.
+/// Parse leafs.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseLeafs(data, lump)
   bspLeafDataHolder = data
   bspLeafLumpHolder = lump
@@ -281,7 +309,10 @@ function parseLeafs(data, lump)
   return bspLeafRecords
 end function
 
-// Parse u 16 array.
+/// Parse u 16 array.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
+/// @param name Name of the affected item.
 function parseU16Array(data, lump, name)
   bspU16DataHolder = data
   bspU16LumpHolder = lump
@@ -295,7 +326,10 @@ function parseU16Array(data, lump, name)
   return bspU16Values
 end function
 
-// Parse i 32 array.
+/// Parse i 32 array.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
+/// @param name Name of the affected item.
 function parseI32Array(data, lump, name)
   bspI32DataHolder = data
   bspI32LumpHolder = lump
@@ -309,7 +343,9 @@ function parseI32Array(data, lump, name)
   return bspI32Values
 end function
 
-// Parse edges.
+/// Parse edges.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseEdges(data, lump)
   bspEdgeDataHolder = data
   bspEdgeLumpHolder = lump
@@ -327,7 +363,9 @@ function parseEdges(data, lump)
   return bspEdgeRecords
 end function
 
-// Parse models.
+/// Parse models.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseModels(data, lump)
   bspModelDataHolder = data
   bspModelLumpHolder = lump
@@ -356,7 +394,9 @@ function parseModels(data, lump)
   return bspModelRecords
 end function
 
-// Parse brushes.
+/// Parse brushes.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseBrushes(data, lump)
   bspBrushDataHolder = data
   bspBrushLumpHolder = lump
@@ -375,7 +415,9 @@ function parseBrushes(data, lump)
   return bspBrushRecords
 end function
 
-// Parse brush sides.
+/// Parse brush sides.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseBrushSides(data, lump)
   bspBrushSideDataHolder = data
   bspBrushSideLumpHolder = lump
@@ -393,7 +435,9 @@ function parseBrushSides(data, lump)
   return bspBrushSideRecords
 end function
 
-// Parse areas.
+/// Parse areas.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseAreas(data, lump)
   bspAreaDataHolder = data
   bspAreaLumpHolder = lump
@@ -411,7 +455,9 @@ function parseAreas(data, lump)
   return bspAreaRecords
 end function
 
-// Parse area portals.
+/// Parse area portals.
+/// @param data Input data consumed by the operation.
+/// @param lump lump value consumed by this operation.
 function parseAreaPortals(data, lump)
   bspAreaPortalDataHolder = data
   bspAreaPortalLumpHolder = lump
@@ -429,7 +475,8 @@ function parseAreaPortals(data, lump)
   return bspAreaPortalRecords
 end function
 
-// Validate references.
+/// Validate references.
+/// @param bspMapToValidate bspMapToValidate value consumed by this operation.
 function validateReferences(bspMapToValidate)
   bspValidatedMapHolder = bspMapToValidate
   if typeof(bspValidatedMapHolder) != "struct" then return error(2215, "BSP map record required") end if
@@ -489,7 +536,9 @@ function validateReferences(bspMapToValidate)
   return true
 end function
 
-// Parse state.
+/// Parses parse for the miniquake2 format bsp workflow.
+/// @param data Input data consumed by the operation.
+/// @param name Name of the affected item.
 function parse(data, name)
   bspParseDataHolder = data
   bspParseMapNameHolder = name

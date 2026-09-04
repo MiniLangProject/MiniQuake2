@@ -1,3 +1,5 @@
+//! Provides miniquake2 network snapshot facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -17,7 +19,9 @@ import miniquake2.protocol.player_delta as pplayer
 import miniquake2.network.constants as nc
 import miniquake2.network.types as nt
 
-// Validate entities.
+/// Validate entities.
+/// @param entities entities value consumed by this operation.
+/// @param operation operation value consumed by this operation.
 function validateEntities(entities, operation)
   if typeof(entities) != "array" or len(entities) > nc.MAX_PARSE_ENTITIES then return error(7130, operation + ": entity list is invalid") end if
   previous = 0
@@ -28,14 +32,21 @@ function validateEntities(entities, operation)
   return true
 end function
 
-// Return the baseline for the requested input.
+/// Return the baseline for the requested input.
+/// @param baselines baselines value consumed by this operation.
+/// @param number number value consumed by this operation.
 function baselineFor(baselines, number)
   if typeof(baselines) != "array" or number < 0 or number >= len(baselines) then return error(7132, "entity baseline is unavailable") end if
   if baselines[number] is void then return pt.zeroEntityState() end if
   return baselines[number]
 end function
 
-// Write packet entities.
+/// Write packet entities.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param oldEntities oldEntities value consumed by this operation.
+/// @param newEntities newEntities value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
 function writePacketEntities(buffer, oldEntities, newEntities, baselines, maxClients)
   validateEntities(oldEntities, "old packet entities")
   validateEntities(newEntities, "new packet entities")
@@ -64,13 +75,18 @@ function writePacketEntities(buffer, oldEntities, newEntities, baselines, maxCli
   return buffer
 end function
 
-// Return the inherit entity value.
+/// Return the inherit entity value.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
 function inheritEntity(buffer, base)
   header = pt.EntityDeltaHeader(base.number, 0, false, false)
   return pentity.readDelta(buffer, base, header)
 end function
 
-// Read packet entities body.
+/// Read packet entities body.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param oldEntities oldEntities value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
 function readPacketEntitiesBody(buffer, oldEntities, baselines)
   // Keep read packet entities body phases explicit: validate inputs, update owned state, then publish the result.
   validateEntities(oldEntities, "old packet entities")
@@ -126,14 +142,21 @@ function readPacketEntitiesBody(buffer, oldEntities, baselines)
   return output
 end function
 
-// Read packet entities.
+/// Read packet entities.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param oldEntities oldEntities value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
 function readPacketEntities(buffer, oldEntities, baselines)
   opcode = pchecked.readByte(buffer, "packetentities opcode")
   if opcode != nc.SVC_PACKETENTITIES then return error(7136, "expected svc_packetentities") end if
   return readPacketEntitiesBody(buffer, oldEntities, baselines)
 end function
 
-// Create frame.
+/// Create frame.
+/// @param serverFrame serverFrame value consumed by this operation.
+/// @param areaBits areaBits value consumed by this operation.
+/// @param playerState playerState value consumed by this operation.
+/// @param entities entities value consumed by this operation.
 function createFrame(serverFrame, areaBits, playerState, entities)
   if typeof(serverFrame) != "int" or serverFrame < 0 then return error(7137, "negative server frame") end if
   if typeof(areaBits) != "bytes" or len(areaBits) > nc.MAX_MAP_AREA_BYTES then return error(7138, "frame area bits exceed protocol capacity") end if
@@ -142,7 +165,10 @@ function createFrame(serverFrame, areaBits, playerState, entities)
     slice(areaBits, 0, len(areaBits)), playerState, entities)
 end function
 
-// Choose delta.
+/// Choose delta.
+/// @param serverFrame serverFrame value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param history history value consumed by this operation.
 function chooseDelta(serverFrame, lastFrame, history)
   if typeof(history) != "array" or len(history) != nc.UPDATE_BACKUP then return error(7139, "frame history must contain UPDATE_BACKUP slots") end if
   if lastFrame <= 0 or lastFrame >= serverFrame or serverFrame - lastFrame >= nc.DELTA_SAFETY_WINDOW then return [-1, void] end if
@@ -151,7 +177,14 @@ function chooseDelta(serverFrame, lastFrame, history)
   return [lastFrame, candidate]
 end function
 
-// Write frame for client.
+/// Write frame for client.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param current current value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param history history value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param suppressCount Number of suppress to process.
 function writeFrameForClient(buffer, current, lastFrame, history, baselines, maxClients, suppressCount)
   if typeof(current.areaBits) != "bytes" or len(current.areaBits) > nc.MAX_MAP_AREA_BYTES then return error(7144, "frame area bits exceed protocol capacity") end if
   if typeof(suppressCount) != "int" or suppressCount < 0 or suppressCount > 255 then return error(7145, "frame suppress count outside byte range") end if
@@ -176,7 +209,11 @@ function writeFrameForClient(buffer, current, lastFrame, history, baselines, max
   return wireLast
 end function
 
-// Read frame protocol.
+/// Read frame protocol.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param history history value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
+/// @param protocol protocol value consumed by this operation.
 function readFrameProtocol(buffer, history, baselines, protocol)
   if typeof(history) != "array" or len(history) != nc.UPDATE_BACKUP then return error(7139, "frame history must contain UPDATE_BACKUP slots") end if
   if protocol != 26 and protocol != 34 then return error(7146, "unsupported snapshot protocol") end if
@@ -209,7 +246,10 @@ function readFrameProtocol(buffer, history, baselines, protocol)
   return frame
 end function
 
-// Read frame.
+/// Reads frame for the miniquake2 network snapshot workflow.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param history history value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
 function readFrame(buffer, history, baselines)
   return readFrameProtocol(buffer, history, baselines, 34)
 end function

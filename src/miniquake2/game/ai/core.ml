@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai core facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,32 +13,39 @@ import miniquake2.qcommon.constants as gaiqconstants
 import miniquake2.qcommon.types as gaiqtypes
 import std.math as gaimath
 
+/// Stores module-wide ai run course scratch state for the miniquake2 game ai core module.
 aiRunCourseScratch = gaiqtypes.Vec3(0.0, 0.0, 0.0)
 
-// Return the vector x value.
+/// Return the vector x value.
+/// @param value Value consumed or transformed by the operation.
 function vectorX(value)
   if typeof(value) == "struct" then return value.x end if
   return value[0]
 end function
 
-// Return the vector y value.
+/// Return the vector y value.
+/// @param value Value consumed or transformed by the operation.
 function vectorY(value)
   if typeof(value) == "struct" then return value.y end if
   return value[1]
 end function
 
-// Return the vector z value.
+/// Return the vector z value.
+/// @param value Value consumed or transformed by the operation.
 function vectorZ(value)
   if typeof(value) == "struct" then return value.z end if
   return value[2]
 end function
 
-// Return the actor yaw.
+/// Return the actor yaw.
+/// @param actor actor value consumed by this operation.
 function actorYaw(actor)
   return vectorY(actor.edict.state.angles)
 end function
 
-// Set actor yaw.
+/// Set actor yaw.
+/// @param actor actor value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function setActorYaw(actor, value)
   if typeof(actor.edict.state.angles) == "struct" then actor.edict.state.angles.y = value
   else actor.edict.state.angles[1] = value
@@ -44,33 +53,40 @@ function setActorYaw(actor, value)
   return value
 end function
 
-// Return the vector length.
+/// Return the vector length.
+/// @param value Value consumed or transformed by the operation.
 function vectorLength(value)
   return gaimath.sqrt(value[0] * value[0] + value[1] * value[1] + value[2] * value[2])
 end function
 
-// Return the vector to yaw.
+/// Return the vector to yaw.
+/// @param value Value consumed or transformed by the operation.
 function vectorToYaw(value)
   yaw = gaimath.radToDeg(gaimath.atan2(value[1], value[0]))
   if yaw < 0.0 then yaw = yaw + 360.0 end if
   return yaw
 end function
 
-// Return the scalar to yaw.
+/// Return the scalar to yaw.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
 function inline scalarToYaw(x, y)
   yaw = gaimath.radToDeg(gaimath.atan2(y, x))
   if yaw < 0.0 then yaw = yaw + 360.0 end if
   return yaw
 end function
 
-// Return the angle mod value.
+/// Return the angle mod value.
+/// @param value Value consumed or transformed by the operation.
 function angleMod(value)
   result = value % 360.0
   if result < 0.0 then result = result + 360.0 end if
   return result
 end function
 
-// Return the direction to value.
+/// Return the direction to value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function directionTo(first, second)
   return [
     vectorX(second.edict.state.origin) - vectorX(first.edict.state.origin),
@@ -79,7 +95,9 @@ function directionTo(first, second)
   ]
 end function
 
-// Copy origin to array.
+/// Copy origin to array.
+/// @param target target value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function inline copyOriginToArray(target, origin)
   target[0] = vectorX(origin)
   target[1] = vectorY(origin)
@@ -87,7 +105,8 @@ function inline copyOriginToArray(target, origin)
   return target
 end function
 
-// Return the pursuit goal value.
+/// Return the pursuit goal value.
+/// @param actor actor value consumed by this operation.
 function pursuitGoal(actor)
   if actor.pursuitGoal is void then
     actor.pursuitGoal = gaitypes.createActor(-1, "ai_pursuit_goal")
@@ -97,7 +116,9 @@ function pursuitGoal(actor)
   return actor.pursuitGoal
 end function
 
-// Return the range value.
+/// Return the range value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function range(first, second)
   distance = vectorLength(directionTo(first, second))
   if distance < gaiconstants.MELEE_DISTANCE then return gaiconstants.RANGE_MELEE end if
@@ -106,7 +127,9 @@ function range(first, second)
   return gaiconstants.RANGE_FAR
 end function
 
-// Return the infront value.
+/// Return the infront value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function infront(first, second)
   direction = directionTo(first, second)
   length = vectorLength(direction)
@@ -116,13 +139,17 @@ function infront(first, second)
   return dot > 0.3
 end function
 
-// Report whether visible.
+/// Report whether visible.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function visible(actor, other, context)
   if typeof(context.visible) != "function" then return error(9600, "visible callback is not installed") end if
   return context.visible(actor, other)
 end function
 
-// Return the change yaw.
+/// Return the change yaw.
+/// @param actor actor value consumed by this operation.
 function ChangeYaw(actor)
   current = angleMod(actorYaw(actor))
   ideal = angleMod(actor.idealYaw)
@@ -135,7 +162,11 @@ function ChangeYaw(actor)
   return setActorYaw(actor, angleMod(current + move))
 end function
 
-// Move walk.
+/// Move walk.
+/// @param actor actor value consumed by this operation.
+/// @param yaw yaw value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function walkMove(actor, yaw, distance, context)
   if typeof(context.walkMove) == "function" then return context.walkMove(actor, yaw, distance) end if
   radians = gaimath.degToRad(yaw)
@@ -149,7 +180,10 @@ function walkMove(actor, yaw, distance, context)
   return true
 end function
 
-// Move to goal.
+/// Move to goal.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function moveToGoal(actor, distance, context)
   if typeof(context.moveToGoal) == "function" then return context.moveToGoal(actor, distance) end if
   if actor.goalEntity is void then return false end if
@@ -158,12 +192,18 @@ function moveToGoal(actor, distance, context)
   return walkMove(actor, actorYaw(actor), distance, context)
 end function
 
-// Move ai.
+/// Move ai.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_move(actor, distance, context)
   return walkMove(actor, actorYaw(actor), distance, context)
 end function
 
-// Return the ai stand value.
+/// Return the ai stand value.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_stand(actor, distance, context)
   if distance != 0.0 then walkMove(actor, actorYaw(actor), distance, context) end if
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then
@@ -192,7 +232,10 @@ function ai_stand(actor, distance, context)
   return true
 end function
 
-// Return the ai walk value.
+/// Return the ai walk value.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_walk(actor, distance, context)
   moveToGoal(actor, distance, context)
   if FindTarget(actor, context) then return true end if
@@ -203,7 +246,10 @@ function ai_walk(actor, distance, context)
   return true
 end function
 
-// Return the ai charge value.
+/// Return the ai charge value.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_charge(actor, distance, context)
   if actor.enemy is void then return false end if
   actor.idealYaw = vectorToYaw(directionTo(actor, actor.enemy))
@@ -212,7 +258,10 @@ function ai_charge(actor, distance, context)
   return true
 end function
 
-// Return the ai turn value.
+/// Return the ai turn value.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_turn(actor, distance, context)
   if distance != 0.0 then walkMove(actor, actorYaw(actor), distance, context) end if
   if FindTarget(actor, context) then return true end if
@@ -220,13 +269,16 @@ function ai_turn(actor, distance, context)
   return true
 end function
 
-// Return the facing ideal value.
+/// Return the facing ideal value.
+/// @param actor actor value consumed by this operation.
 function FacingIdeal(actor)
   delta = angleMod(actorYaw(actor) - actor.idealYaw)
   return not (delta > 45.0 and delta < 315.0)
 end function
 
-// Return the hunt target value.
+/// Return the hunt target value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function HuntTarget(actor, context)
   actor.goalEntity = actor.enemy
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then
@@ -239,7 +291,9 @@ function HuntTarget(actor, context)
   return true
 end function
 
-// Return the found target value.
+/// Return the found target value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FoundTarget(actor, context)
   if actor.enemy is void then return error(9601, "FoundTarget: enemy required") end if
   // Publish a monster that found a client for one frame so nearby monsters
@@ -273,7 +327,9 @@ function FoundTarget(actor, context)
   return true
 end function
 
-// Return the candidate from context.
+/// Return the candidate from context.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function candidateFromContext(actor, context)
   heard = false
   candidate = void
@@ -285,7 +341,9 @@ function candidateFromContext(actor, context)
   return gaitypes.TargetSelection(candidate, heard)
 end function
 
-// Find target.
+/// Find target.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FindTarget(actor, context)
   // Keep find target phases explicit: validate inputs, update owned state, then publish the result.
   if (actor.info.aiFlags & gaiconstants.AI_GOOD_GUY) != 0 then return false end if
@@ -338,7 +396,10 @@ function FindTarget(actor, context)
   return true
 end function
 
-// Validate m attack.
+/// Validate m attack.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param enemyRange enemyRange value consumed by this operation.
 function M_CheckAttack(actor, context, enemyRange)
   if actor.enemy is void then return false end if
   if actor.enemy.health > 0 and typeof(context.clearShot) == "function" and context.clearShot(actor, actor.enemy) != true then return false end if
@@ -367,7 +428,10 @@ function M_CheckAttack(actor, context, enemyRange)
   return false
 end function
 
-// Dispatch attack state.
+/// Dispatch attack state.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param enemyYaw enemyYaw value consumed by this operation.
 function DispatchAttackState(actor, context, enemyYaw)
   actor.idealYaw = enemyYaw
   ChangeYaw(actor)
@@ -380,7 +444,10 @@ function DispatchAttackState(actor, context, enemyYaw)
   return true
 end function
 
-// Return the ai checkattack value.
+/// Return the ai checkattack value.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_checkattack(actor, distance, context)
   actor.enemyVisible = false
   // Stock g_ai.c hunts a player_noise for at most five seconds.
@@ -437,7 +504,10 @@ function ai_checkattack(actor, distance, context)
   return M_CheckAttack(actor, context, enemyRange)
 end function
 
-// Run ai slide.
+/// Run ai slide.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_run_slide(actor, distance, context)
   if actor.enemy is void then return false end if
   actor.idealYaw = vectorToYaw(directionTo(actor, actor.enemy))
@@ -449,8 +519,11 @@ function ai_run_slide(actor, distance, context)
   return walkMove(actor, actor.idealYaw - offset, distance, context)
 end function
 
-// Port the stock ai_run pursuit state machine. Lost-sight flags and temporary
-// goals change in stock order so trail markers are consumed at most once.
+/// Port the stock ai_run pursuit state machine. Lost-sight flags and temporary
+/// goals change in stock order so trail markers are consumed at most once.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ai_run(actor, distance, context)
   if (actor.info.aiFlags & gaiconstants.AI_COMBAT_POINT) != 0 then
     return moveToGoal(actor, distance, context)

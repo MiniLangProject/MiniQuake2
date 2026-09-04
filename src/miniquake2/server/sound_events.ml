@@ -1,3 +1,5 @@
+//! Provides miniquake2 server sound events facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,20 +16,27 @@ import miniquake2.protocol.constants as ssepc
 import miniquake2.server.types as ssetypes
 import miniquake2.server.game_messages as ssemessages
 
+/// Defines the max pending sound events constant used by the miniquake2 server sound events module.
 const MAX_PENDING_SOUND_EVENTS = 1024
+/// Defines the max sound fragment bytes constant used by the miniquake2 server sound events module.
 const MAX_SOUND_FRAGMENT_BYTES = 14
 
-// Return the numeric value.
+/// Performs the numeric operation for the miniquake2 server sound events module.
+/// @param value Value consumed or transformed by the operation.
 function numeric(value)
   return typeof(value) == "int" or typeof(value) == "float"
 end function
 
-// Report whether valid unit.
+/// Report whether valid unit.
+/// @param value Value consumed or transformed by the operation.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
 function validUnit(value, minimum, maximum)
   return numeric(value) and value == value and value >= minimum and value <= maximum
 end function
 
-// Return the copied position.
+/// Return the copied position.
+/// @param position position value consumed by this operation.
 function copiedPosition(position)
   if position is void then return void end if
   if typeof(position) != "struct" or not numeric(position.x) or not numeric(position.y) or not numeric(position.z) then
@@ -41,7 +50,8 @@ function copiedPosition(position)
   return sseqtypes.Vec3(position.x * 1.0, position.y * 1.0, position.z * 1.0)
 end function
 
-// Return the entity fields value.
+/// Return the entity fields value.
+/// @param entity entity value consumed by this operation.
 function entityFields(entity)
   if entity is void then return [false, 0] end if
   if typeof(entity) != "struct" or typeof(entity.state) != "struct" or
@@ -52,7 +62,16 @@ function entityFields(entity)
   return [true, entity.state.number]
 end function
 
-// Validate fields.
+/// Validate fields.
+/// @param hasEntity hasEntity value consumed by this operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param channelFlags channelFlags value consumed by this operation.
+/// @param soundIndex Zero-based index of sound.
+/// @param volume volume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param timeOffset timeOffset value consumed by this operation.
+/// @param position position value consumed by this operation.
 function validateFields(hasEntity, entityNumber, channel, channelFlags, soundIndex,
     volume, attenuation, timeOffset, position)
   if typeof(hasEntity) != "bool" or typeof(entityNumber) != "int" or entityNumber < 0 or
@@ -71,7 +90,8 @@ function validateFields(hasEntity, entityNumber, channel, channelFlags, soundInd
   return true
 end function
 
-// Validate all.
+/// Validate all.
+/// @param events events value consumed by this operation.
 function validateAll(events)
   if typeof(events) != "array" then return error(3919, "pending sound batch is not an array") end if
   previousSerial = -1
@@ -89,8 +109,9 @@ function validateAll(events)
   return true
 end function
 
-// The live bridge owns one fixed-capacity array. Enqueue is O(1); a compact
-// owned view is made only once at the server-frame dispatch boundary.
+/// The live bridge owns one fixed-capacity array. Enqueue is O(1); a compact
+/// owned view is made only once at the server-frame dispatch boundary.
+/// @param runtime runtime value consumed by this operation.
 function pendingSnapshot(runtime)
   count = runtime.pendingSoundCount
   if count < 0 or count > MAX_PENDING_SOUND_EVENTS or
@@ -107,7 +128,8 @@ function pendingSnapshot(runtime)
   return output
 end function
 
-// Report whether clear pending.
+/// Report whether clear pending.
+/// @param runtime runtime value consumed by this operation.
 function clearPending(runtime)
   // Slots are overwritten on the next batch. Keeping the bounded stale
   // references avoids an illegal void write into the runtime's struct-typed
@@ -116,7 +138,9 @@ function clearPending(runtime)
   return true
 end function
 
-// Report whether restore pending.
+/// Report whether restore pending.
+/// @param runtime runtime value consumed by this operation.
+/// @param events events value consumed by this operation.
 function restorePending(runtime, events)
   if len(events) > MAX_PENDING_SOUND_EVENTS or len(events) > len(runtime.pendingSounds) then
     return error(3918, "pending server sound queue is full")
@@ -132,7 +156,16 @@ function restorePending(runtime, events)
   return true
 end function
 
-// Return the enqueue value.
+/// Return the enqueue value.
+/// @param runtime runtime value consumed by this operation.
+/// @param position position value consumed by this operation.
+/// @param routingPosition routingPosition value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param channelFlags channelFlags value consumed by this operation.
+/// @param soundIndex Zero-based index of sound.
+/// @param volume volume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param timeOffset timeOffset value consumed by this operation.
 function enqueue(runtime, position, routingPosition, entity, channelFlags,
     soundIndex, volume, attenuation, timeOffset)
   if runtime.pendingSoundCount >= MAX_PENDING_SOUND_EVENTS or
@@ -155,7 +188,8 @@ function enqueue(runtime, position, routingPosition, entity, channelFlags,
   return event
 end function
 
-// Encode state.
+/// Encodes encode for the miniquake2 server sound events workflow.
+/// @param event event value consumed by this operation.
 function encode(event)
   validateFields(event.hasEntity, event.entity, event.channel, event.channelFlags,
     event.soundIndex, event.volume, event.attenuation, event.timeOffset, event.position)
@@ -177,7 +211,8 @@ function encode(event)
   return sseqsz.dataSlice(buffer)
 end function
 
-// Encode all.
+/// Encode all.
+/// @param events events value consumed by this operation.
 function encodeAll(events)
   validateAll(events)
   fragments = array(len(events))
@@ -189,7 +224,9 @@ function encodeAll(events)
   return fragments
 end function
 
-// Return the packetize value.
+/// Performs the packetize operation for the miniquake2 server sound events module.
+/// @param fragments fragments value consumed by this operation.
+/// @param maximumPayload maximumPayload value consumed by this operation.
 function packetize(fragments, maximumPayload)
   if typeof(maximumPayload) != "int" or maximumPayload < MAX_SOUND_FRAGMENT_BYTES then
     return error(3920, "sound packet payload capacity is too small")

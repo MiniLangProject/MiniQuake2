@@ -1,3 +1,5 @@
+//! Provides miniquake2 game world vector facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,20 +10,25 @@ package miniquake2.game.world.vector
 import std.math as smath
 import miniquake2.qcommon.types as qt
 
-// Require world vector.
+/// Require world vector.
+/// @param value Value consumed or transformed by the operation.
+/// @param operation operation value consumed by this operation.
 function requireWorldVector(value, operation)
   if typeof(value) != "struct" then return error(9190, operation + ": Vec3-shaped value required") end if
   return value
 end function
 
-// Copy state.
+/// Performs the copy operation for the miniquake2 game world vector module.
+/// @param value Value consumed or transformed by the operation.
 function copy(value)
   vector = requireWorldVector(value, "world vector copy")
   x = vector.x; y = vector.y; z = vector.z
   return qt.Vec3(x, y, z)
 end function
 
-// Add state.
+/// Adds add to the state managed by the miniquake2 game world vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function add(first, second)
   firstVector = requireWorldVector(first, "world vector add first operand")
   secondVector = requireWorldVector(second, "world vector add second operand")
@@ -30,7 +37,9 @@ function add(first, second)
   return qt.Vec3(firstX + secondX, firstY + secondY, firstZ + secondZ)
 end function
 
-// Subtract state.
+/// Performs the subtract operation for the miniquake2 game world vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function subtract(first, second)
   firstVector = requireWorldVector(first, "world vector subtract first operand")
   secondVector = requireWorldVector(second, "world vector subtract second operand")
@@ -39,14 +48,19 @@ function subtract(first, second)
   return qt.Vec3(firstX - secondX, firstY - secondY, firstZ - secondZ)
 end function
 
-// Scale state.
+/// Performs the scale operation for the miniquake2 game world vector module.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
 function scale(value, amount)
   vector = requireWorldVector(value, "world vector scale")
   x = vector.x; y = vector.y; z = vector.z
   return qt.Vec3(x * amount, y * amount, z * amount)
 end function
 
-// Add multiply.
+/// Performs the multiplyAdd operation for the miniquake2 game world vector module.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function multiplyAdd(value, amount, direction)
   vector = requireWorldVector(value, "world vector multiplyAdd value")
   directionVector = requireWorldVector(direction, "world vector multiplyAdd direction")
@@ -55,7 +69,9 @@ function multiplyAdd(value, amount, direction)
   return qt.Vec3(x + amount * directionX, y + amount * directionY, z + amount * directionZ)
 end function
 
-// Compute state.
+/// Performs the dot operation for the miniquake2 game world vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function dot(first, second)
   firstVector = requireWorldVector(first, "world vector dot first operand")
   secondVector = requireWorldVector(second, "world vector dot second operand")
@@ -64,7 +80,8 @@ function dot(first, second)
   return firstX * secondX + firstY * secondY + firstZ * secondZ
 end function
 
-// Return the length.
+/// Performs the length operation for the miniquake2 game world vector module.
+/// @param value Value consumed or transformed by the operation.
 function length(value)
   vector = requireWorldVector(value, "world vector length")
   x = vector.x; y = vector.y; z = vector.z
@@ -75,7 +92,8 @@ function length(value)
   return smath.sqrt(squaredLength)
 end function
 
-// Return the normalized value.
+/// Performs the normalized operation for the miniquake2 game world vector module.
+/// @param value Value consumed or transformed by the operation.
 function normalized(value)
   vector = requireWorldVector(value, "world vector normalized")
   x = vector.x; y = vector.y; z = vector.z
@@ -90,7 +108,9 @@ function normalized(value)
   return [unit, magnitude]
 end function
 
-// Report whether equal.
+/// Report whether equal.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function equal(first, second)
   firstVector = requireWorldVector(first, "world vector equal first operand")
   secondVector = requireWorldVector(second, "world vector equal second operand")
@@ -99,7 +119,8 @@ function equal(first, second)
   return firstX == secondX and firstY == secondY and firstZ == secondZ
 end function
 
-// Return the movedir value.
+/// Return the movedir value.
+/// @param angles angles value consumed by this operation.
 function movedir(angles)
   angleVector = requireWorldVector(angles, "world vector movedir angles")
   angleX = angleVector.x; angleY = angleVector.y; angleZ = angleVector.z
@@ -114,16 +135,18 @@ function movedir(angles)
   return qt.Vec3(pitchCosine * yawCosine, pitchCosine * yawSine, -pitchSine)
 end function
 
-// Convert an authored entity angle to a movement direction and clear the
-// render angles exactly as Quake II's G_SetMovedir does.  Brush movers must
-// not retain this angle: it describes translation, not model rotation.
+/// Convert an authored entity angle to a movement direction and clear the
+/// render angles exactly as Quake II's G_SetMovedir does.  Brush movers must
+/// not retain this angle: it describes translation, not model rotation.
+/// @param entity entity value consumed by this operation.
 function setMovedir(entity)
   direction = movedir(entity.angles)
   entity.angles = qt.zeroVec3()
   return direction
 end function
 
-// Return the to angles.
+/// Return the to angles.
+/// @param direction direction value consumed by this operation.
 function toAngles(direction)
   vector = requireWorldVector(direction, "world vector toAngles")
   x = vector.x; y = vector.y; z = vector.z

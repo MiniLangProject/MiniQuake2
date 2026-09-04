@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player client facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -19,7 +21,8 @@ import miniquake2.qcommon.types as qtypes
 import miniquake2.physics.vector as gplayervector
 import std.math as gplayermath
 
-// Copy pmove state.
+/// Copy pmove state.
+/// @param state Mutable state inspected or updated by the operation.
 function copyPmoveState(state)
   return qtypes.PmoveState(state.moveType,
     [state.origin[0], state.origin[1], state.origin[2]],
@@ -28,7 +31,9 @@ function copyPmoveState(state)
     [state.deltaAngles[0], state.deltaAngles[1], state.deltaAngles[2]])
 end function
 
-// Report whether two pmove states are byte-contract equivalent.
+/// Report whether two pmove states are byte-contract equivalent.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function pmoveStateEqual(first, second)
   if first.moveType != second.moveType or first.flags != second.flags or
       first.time != second.time or first.gravity != second.gravity then
@@ -44,21 +49,24 @@ function pmoveStateEqual(first, second)
   return true
 end function
 
-// Return the angle to short value.
+/// Return the angle to short value.
+/// @param angle angle value consumed by this operation.
 function angleToShort(angle)
   value = qbyteio.truncInt(angle * 65536.0 / 360.0) & 65535
   if value >= 32768 then value = value - 65536 end if
   return value
 end function
 
-// Return the short to angle value.
+/// Performs the shortToAngle operation for the miniquake2 game player client module.
+/// @param value Value consumed or transformed by the operation.
 function shortToAngle(value)
   signed = value & 65535
   if signed >= 32768 then signed = signed - 65536 end if
   return signed * (360.0 / 65536.0)
 end function
 
-// Copy inventory counts.
+/// Copy inventory counts.
+/// @param counts counts value consumed by this operation.
 function copyInventoryCounts(counts)
   copied = array(len(counts), 0)
   index = 0
@@ -69,7 +77,9 @@ function copyInventoryCounts(counts)
   return copied
 end function
 
-// Run weapon.
+/// Run weapon.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ThinkWeapon(context, player)
   // p_weapon.c does not run the active weapon state machine for a dead
   // client.  In particular, Weapon_Generic must not consume BUTTON_ATTACK:
@@ -88,7 +98,9 @@ function ThinkWeapon(context, player)
   return result
 end function
 
-// Write client in server.
+/// Write client in server.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function PutClientInServer(context, player)
   selection = gplayerspawn.SelectSpawnPoint(context, player)
   // Spawn/respawn starts without a supporting level edict. The original
@@ -182,7 +194,9 @@ function PutClientInServer(context, player)
   return selection
 end function
 
-// Begin client.
+/// Begin client.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ClientBegin(context, player)
   if player.persistent.connected != true then return error(9720, "ClientBegin: player is not connected") end if
   if player.edict.inUse != true or context.deathmatch then
@@ -202,7 +216,9 @@ function ClientBegin(context, player)
   return true
 end function
 
-// Return the respawn value.
+/// Return the respawn value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function respawn(context, player)
   if context.deathmatch or context.cooperative then
     if player.moveType != gplayerconstants.MOVETYPE_NOCLIP and context.copyBody is not void then context.copyBody(player) end if
@@ -218,8 +234,11 @@ function respawn(context, player)
   return false
 end function
 
-// p_hud.c::MoveClientToIntermission. The caller owns map-change timing and
-// point selection; this routine only applies the stock client-visible state.
+/// p_hud.c::MoveClientToIntermission. The caller owns map-change timing and
+/// point selection; this routine only applies the stock client-visible state.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param spot spot value consumed by this operation.
 function MoveClientToIntermission(context, player, spot)
   if spot is void then return error(9723,
     "MoveClientToIntermission: no intermission spawn point") end if
@@ -253,7 +272,9 @@ function MoveClientToIntermission(context, player, spot)
   return true
 end function
 
-// Return the spectator respawn value.
+/// Return the spectator respawn value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function spectator_respawn(context, player)
   if player.persistent.spectator then
     value = qinfo.valueForKey(player.persistent.userInfo, "spectator")
@@ -290,13 +311,16 @@ function spectator_respawn(context, player)
   return true
 end function
 
-// Report whether a player is a live, non-spectator chase target.
+/// Report whether a player is a live, non-spectator chase target.
+/// @param candidate candidate value consumed by this operation.
 function chaseTargetEligible(candidate)
   return candidate is not void and candidate.edict.inUse and
     candidate.persistent.connected and candidate.respawn.spectator != true
 end function
 
-// Select the next chase target in client-edict order, wrapping at maxclients.
+/// Select the next chase target in client-edict order, wrapping at maxclients.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ChaseNext(context, player)
   if player.chaseTarget is void then return false end if
   currentNumber = player.chaseTarget.edict.state.number
@@ -320,7 +344,9 @@ function ChaseNext(context, player)
   return true
 end function
 
-// Select the previous chase target in client-edict order, wrapping at one.
+/// Select the previous chase target in client-edict order, wrapping at one.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ChasePrev(context, player)
   if player.chaseTarget is void then return false end if
   currentNumber = player.chaseTarget.edict.state.number
@@ -344,7 +370,9 @@ function ChasePrev(context, player)
   return true
 end function
 
-// Update one spectator camera from its current target, matching g_chase.c.
+/// Update one spectator camera from its current target, matching g_chase.c.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function UpdateChaseCam(context, player)
   // Resolve a valid target, trace the stock camera hull, then publish the
   // spectator PMove/view state as three explicit phases.
@@ -415,7 +443,9 @@ function UpdateChaseCam(context, player)
   return true
 end function
 
-// Acquire the first live non-spectator and initialize the camera immediately.
+/// Acquire the first live non-spectator and initialize the camera immediately.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function GetChaseTarget(context, player)
   selected = void
   for each candidate in context.players
@@ -431,7 +461,10 @@ function GetChaseTarget(context, player)
   return UpdateChaseCam(context, player)
 end function
 
-// Run client.
+/// Run client.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param command command value consumed by this operation.
 function ClientThink(context, player, command)
   // Keep client think phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(command) != "struct" then return error(9721, "ClientThink: user command required") end if
@@ -558,7 +591,9 @@ function ClientThink(context, player, command)
   return gplayertypes.FrameResult(moved, fired, false, context.exitIntermission)
 end function
 
-// Begin client server frame.
+/// Begin client server frame.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ClientBeginServerFrame(context, player)
   if context.intermissionTime > 0.0 then return gplayertypes.FrameResult(false, false, false, false) end if
   if player.groundEntity is not void then

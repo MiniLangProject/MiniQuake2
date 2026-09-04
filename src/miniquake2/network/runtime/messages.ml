@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime messages facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -17,7 +19,8 @@ import miniquake2.network.constants as nc
 import miniquake2.network.client as nclient
 import miniquake2.network.runtime.types as nrtypes
 
-// Return the reading buffer value.
+/// Return the reading buffer value.
+/// @param data Input data consumed by the operation.
 function readingBuffer(data)
   if typeof(data) != "bytes" or len(data) > pc.MAX_MSGLEN then return error(7220, "server payload outside MAX_MSGLEN") end if
   buffer = qsz.alloc(len(data))
@@ -26,7 +29,10 @@ function readingBuffer(data)
   return buffer
 end function
 
-// Read string.
+/// Read string.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
 function readString(buffer, operation, maximum)
   if typeof(maximum) != "int" or maximum < 1 then return error(7221, operation + ": invalid string limit") end if
   start = buffer.readCount
@@ -41,7 +47,9 @@ function readString(buffer, operation, maximum)
   return output
 end function
 
-// Append bytes.
+/// Append bytes.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function appendBytes(first, second)
   output = bytes(len(first) + len(second))
   if len(first) > 0 then qbio.copyInto(output, 0, first, 0, len(first)) end if
@@ -49,7 +57,13 @@ function appendBytes(first, second)
   return output
 end function
 
-// Write server data.
+/// Write server data.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param spawnCount Number of spawn to process.
+/// @param attractLoop attractLoop value consumed by this operation.
+/// @param gameDir gameDir value consumed by this operation.
+/// @param playerNumber playerNumber value consumed by this operation.
+/// @param levelName levelName value consumed by this operation.
 function writeServerData(buffer, spawnCount, attractLoop, gameDir, playerNumber, levelName)
   if typeof(spawnCount) != "int" or typeof(playerNumber) != "int" then return error(7236, "serverdata numeric fields must be integers") end if
   if typeof(gameDir) != "string" or len(bytes(gameDir)) >= qc.MAX_QPATH or
@@ -68,7 +82,10 @@ function writeServerData(buffer, spawnCount, attractLoop, gameDir, playerNumber,
   return buffer
 end function
 
-// Write config string.
+/// Write config string.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param index Zero-based index of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function writeConfigString(buffer, index, value)
   if typeof(index) != "int" or index < 0 or index >= qc.MAX_CONFIGSTRINGS then return error(7224, "configstring index outside range") end if
   if typeof(value) != "string" or len(bytes(value)) >= qc.MAX_STRING_CHARS then return error(7225, "configstring is invalid") end if
@@ -78,7 +95,9 @@ function writeConfigString(buffer, index, value)
   return buffer
 end function
 
-// Write spawn baseline.
+/// Write spawn baseline.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param state Mutable state inspected or updated by the operation.
 function writeSpawnBaseline(buffer, state)
   if state.number <= 0 or state.number >= pc.MAX_EDICTS then return error(7226, "baseline entity number outside range") end if
   qmsg.writeByte(buffer, qc.SVC_SPAWNBASELINE)
@@ -86,7 +105,9 @@ function writeSpawnBaseline(buffer, state)
   return buffer
 end function
 
-// Write stuff text.
+/// Write stuff text.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param text Text consumed by the operation.
 function writeStuffText(buffer, text)
   if typeof(text) != "string" or len(bytes(text)) >= qc.MAX_STRING_CHARS then return error(7227, "stufftext is invalid") end if
   qmsg.writeByte(buffer, qc.SVC_STUFFTEXT)
@@ -94,7 +115,12 @@ function writeStuffText(buffer, text)
   return buffer
 end function
 
-// Write download.
+/// Write download.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
+/// @param percent percent value consumed by this operation.
 function writeDownload(buffer, data, offset, count, percent)
   if count < -1 or count > 1024 or percent < 0 or percent > 100 then return error(7228, "download chunk metadata is invalid") end if
   if count >= 0 then qbio.requireRange(data, offset, count) end if
@@ -105,7 +131,10 @@ function writeDownload(buffer, data, offset, count, percent)
   return buffer
 end function
 
-// Parse server data version.
+/// Parse server data version.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param allowLegacyDemo allowLegacyDemo value consumed by this operation.
 function parseServerDataVersion(runtime, buffer, allowLegacyDemo)
   if typeof(allowLegacyDemo) != "bool" then return error(7238, "legacy demo protocol flag must be boolean") end if
   version = pchecked.readLong(buffer, "serverdata protocol")
@@ -137,12 +166,16 @@ function parseServerDataVersion(runtime, buffer, allowLegacyDemo)
   return true
 end function
 
-// Parse server data.
+/// Parse server data.
+/// @param runtime runtime value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function parseServerData(runtime, buffer)
   return parseServerDataVersion(runtime, buffer, false)
 end function
 
-// Parse payload.
+/// Parse payload.
+/// @param runtime runtime value consumed by this operation.
+/// @param payload payload value consumed by this operation.
 function parsePayload(runtime, payload)
   buffer = readingBuffer(payload)
   while buffer.readCount < buffer.curSize

@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime play session facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -16,31 +18,50 @@ import miniquake2.runtime.server_session as plserver
 import miniquake2.server.game_bridge as plbridge
 import miniquake2.platform.system as plsystem
 
-// Store step result data.
+/// Store step result data.
 struct StepResult
+  /// Stores the client state value associated with step result.
   clientState
+  /// Stores the server frame value associated with step result.
   serverFrame
+  /// Stores the signon complete value associated with step result.
   signonComplete
+  /// Stores the handoff value associated with step result.
   handoff
+  /// Stores the packets received value associated with step result.
   packetsReceived
+  /// Stores the packets sent value associated with step result.
   packetsSent
+  /// Stores the packets rejected value associated with step result.
   packetsRejected
 end struct
 
-// Store play session data.
+/// Store play session data.
 struct PlaySession
+  /// Stores the server value associated with play session.
   server
+  /// Stores the client value associated with play session.
   client
+  /// Stores the clock value associated with play session.
   clock
+  /// Stores the steps value associated with play session.
   steps
+  /// Stores the closed value associated with play session.
   closed
+  /// Stores the prediction commands value associated with play session.
   predictionCommands
+  /// Stores the prediction workspace value associated with play session.
   predictionWorkspace
 end struct
 
+/// Stores module-wide play prediction session state for the miniquake2 runtime play session module.
 playPredictionSession = void
 
-// Play prediction trace.
+/// Play prediction trace.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
 function playPredictionTrace(start, mins, maxs, finish)
   global playPredictionSession
   if playPredictionSession is void then return error(8395, "play prediction context is missing") end if
@@ -51,14 +72,17 @@ function playPredictionTrace(start, mins, maxs, finish)
   return plbridge.trace(start, mins, maxs, finish, ignored, plqc.MASK_PLAYERSOLID)
 end function
 
-// Play prediction point contents.
+/// Play prediction point contents.
+/// @param point point value consumed by this operation.
 function playPredictionPointContents(point)
   global playPredictionSession
   if playPredictionSession is void then return error(8395, "play prediction context is missing") end if
   return plbridge.pointContents(point)
 end function
 
-// Wrap state.
+/// Wrap state.
+/// @param server server value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function wrap(server, userInfo)
   if server is void then return error(8390, "play session server is missing") end if
   if typeof(userInfo) != "string" or userInfo == "" then return error(8391, "play session userinfo is missing") end if
@@ -69,47 +93,75 @@ function wrap(server, userInfo)
       playPredictionPointContents))
 end function
 
-// Create core.
+/// Creates core for the miniquake2 runtime play session module.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function createCore(mapName, entityText, collision, userInfo)
   server = plserver.createCoreAt(mapName, entityText, collision, "", "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
-// Create core at.
+/// Create core at.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function createCoreAt(mapName, entityText, collision, spawnPoint, userInfo)
   server = plserver.createCoreAt(mapName, entityText, collision, spawnPoint,
     "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
-// Create core at skill.
+/// Creates core at skill for the miniquake2 runtime play session module.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createCoreAtSkill(mapName, entityText, collision, spawnPoint, userInfo, skill)
   playSkillServer = plserver.createCoreAtSkill(mapName, entityText, collision,
     spawnPoint, "127.0.0.1", 0, 1, false, skill)
   return wrap(playSkillServer, userInfo)
 end function
 
-// Create retail.
+/// Creates retail for the miniquake2 runtime play session module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function createRetail(baseDirectory, mapName, userInfo)
   server = plserver.createRetailAt(baseDirectory, mapName, "", "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
-// Create retail at.
+/// Create retail at.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function createRetailAt(baseDirectory, mapName, spawnPoint, userInfo)
   server = plserver.createRetailAt(baseDirectory, mapName, spawnPoint,
     "127.0.0.1", 0, 1, false)
   return wrap(server, userInfo)
 end function
 
-// Create retail at skill.
+/// Creates retail at skill for the miniquake2 runtime play session module.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createRetailAtSkill(baseDirectory, mapName, spawnPoint, userInfo, skill)
   playSkillRetailServer = plserver.createRetailAtSkill(baseDirectory, mapName,
     spawnPoint, "127.0.0.1", 0, 1, false, skill)
   return wrap(playSkillRetailServer, userInfo)
 end function
 
-// Return the signon complete value.
+/// Return the signon complete value.
+/// @param session session value consumed by this operation.
 function signonComplete(session)
   if session.closed then return false end if
   serverClient = session.server.networkRuntime.server.clients[0]
@@ -117,34 +169,43 @@ function signonComplete(session)
     serverClient.state == plnc.CS_SPAWNED and session.client.integrated.client.current is not void
 end function
 
-// Queue user cmd.
+/// Queue user cmd.
+/// @param session session value consumed by this operation.
+/// @param command command value consumed by this operation.
 function queueUserCmd(session, command)
   if session.closed then return error(8392, "play session is closed") end if
   return plclient.queueUserCmd(session.client, command)
 end function
 
-// Set user cmd.
+/// Set user cmd.
+/// @param session session value consumed by this operation.
+/// @param command command value consumed by this operation.
 function setUserCmd(session, command)
   if session.closed then return error(8392, "play session is closed") end if
   return plclient.setUserCmd(session.client, command)
 end function
 
-// Report whether pending user cmds.
+/// Report whether pending user cmds.
+/// @param session session value consumed by this operation.
 function pendingUserCmds(session)
   if session.closed then return 0 end if
   return plclient.pendingUserCmds(session.client)
 end function
 
-// Set user info.
+/// Set user info.
+/// @param session session value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function setUserInfo(session, userInfo)
   if session.closed then return error(8392, "play session is closed") end if
   now = plbyteio.truncInt(plsystem.milliseconds(session.client.clock))
   return plclient.sendUserInfo(session.client, userInfo, now)
 end function
 
-// Replay the original 64-entry command ring plus a side-effect-free command
-// for the unsent portion of the current render interval. The listen product
-// uses the authoritative collision bridge, including moving inline brushes.
+/// Replay the original 64-entry command ring plus a side-effect-free command
+/// for the unsent portion of the current render interval. The listen product
+/// uses the authoritative collision bridge, including moving inline brushes.
+/// @param session session value consumed by this operation.
+/// @param previewCommand previewCommand value consumed by this operation.
 function predictLocal(session, previewCommand)
   global playPredictionSession
   if session.closed or session.client.integrated.client.current is void then return false end if
@@ -177,19 +238,27 @@ function predictLocal(session, previewCommand)
   return result
 end function
 
-// Map change core.
+/// Performs the changeMapCore operation for the miniquake2 runtime play session module.
+/// @param session session value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
 function changeMapCore(session, mapName, entityText, collision)
   if session.closed then return error(8392, "play session is closed") end if
   return plserver.changeMapCore(session.server, mapName, entityText, collision)
 end function
 
-// Map change retail.
+/// Performs the changeMapRetail operation for the miniquake2 runtime play session module.
+/// @param session session value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function changeMapRetail(session, baseDirectory, mapName)
   if session.closed then return error(8392, "play session is closed") end if
   return plserver.changeMapRetail(session.server, baseDirectory, mapName)
 end function
 
-// Advance state.
+/// Performs the step operation for the miniquake2 runtime play session module.
+/// @param session session value consumed by this operation.
 function step(session)
   if session.closed then return error(8392, "play session is closed") end if
   plclient.step(session.client)
@@ -211,19 +280,23 @@ function step(session)
     session.client.packetsRejected + session.server.packetsRejected)
 end function
 
-// Consume frame.
+/// Consume frame.
+/// @param session session value consumed by this operation.
 function takeFrame(session)
   if session.closed then return void end if
   return plhandoff.take(session.client.integrated)
 end function
 
-// Consume latest frame.
+/// Consume latest frame.
+/// @param session session value consumed by this operation.
 function takeLatestFrame(session)
   if session.closed then return void end if
   return plhandoff.takeLatest(session.client.integrated)
 end function
 
-// Report whether run until active.
+/// Report whether run until active.
+/// @param session session value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function runUntilActive(session, maximumSteps)
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then return error(8393, "play session step limit must be positive") end if
   playSessionActivationStepCount = 0
@@ -237,7 +310,8 @@ function runUntilActive(session, maximumSteps)
   return playSessionActivationLastResult
 end function
 
-// Shut down state.
+/// Performs the shutdown operation for the miniquake2 runtime play session module.
+/// @param session session value consumed by this operation.
 function shutdown(session)
   if session.closed then return false end if
   if not session.client.closed then plclient.shutdown(session.client) end if

@@ -1,3 +1,5 @@
+//! Provides miniquake2 game gameplay registry facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,12 +13,29 @@ import miniquake2.game.gameplay.powerups as gppowerups
 import miniquake2.game.gameplay.types as gptypes
 import miniquake2.game.gameplay.weapons as gpweapons
 
-// Return the frames value.
+/// Return the frames value.
+/// @param activateLast activateLast value consumed by this operation.
+/// @param fireLast fireLast value consumed by this operation.
+/// @param idleLast idleLast value consumed by this operation.
+/// @param deactivateLast deactivateLast value consumed by this operation.
+/// @param pauseFrames pauseFrames value consumed by this operation.
+/// @param fireFrames fireFrames value consumed by this operation.
 function frames(activateLast, fireLast, idleLast, deactivateLast, pauseFrames, fireFrames)
   return gptypes.WeaponFrames(activateLast, fireLast, idleLast, deactivateLast, pauseFrames, fireFrames)
 end function
 
-// Return the weapon value.
+/// Return the weapon value.
+/// @param index Zero-based index of the affected item.
+/// @param className className value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
+/// @param quantity quantity value consumed by this operation.
+/// @param ammo ammo value consumed by this operation.
+/// @param weaponModel weaponModel value consumed by this operation.
+/// @param worldModel worldModel value consumed by this operation.
+/// @param viewModel viewModel value consumed by this operation.
+/// @param icon icon value consumed by this operation.
+/// @param precaches precaches value consumed by this operation.
+/// @param frameContract frameContract value consumed by this operation.
 function weapon(index, className, pickupName, quantity, ammo, weaponModel, worldModel, viewModel, icon, precaches, frameContract)
   pickupCallback = gprules.Pickup_Weapon
   dropCallback = gprules.Drop_Weapon
@@ -31,7 +50,14 @@ function weapon(index, className, pickupName, quantity, ammo, weaponModel, world
   )
 end function
 
-// Return the ammo value.
+/// Return the ammo value.
+/// @param index Zero-based index of the affected item.
+/// @param className className value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
+/// @param quantity quantity value consumed by this operation.
+/// @param tag tag value consumed by this operation.
+/// @param worldModel worldModel value consumed by this operation.
+/// @param icon icon value consumed by this operation.
 function ammo(index, className, pickupName, quantity, tag, worldModel, icon)
   return gptypes.ItemDefinition(
     index, className, gprules.Pickup_Ammo, void, gprules.Drop_Ammo, void,
@@ -40,7 +66,8 @@ function ammo(index, className, pickupName, quantity, tag, worldModel, icon)
   )
 end function
 
-// Return the grenades value.
+/// Return the grenades value.
+/// @param index Zero-based index of the affected item.
 function grenades(index)
   return gptypes.ItemDefinition(
     index, "ammo_grenades", gprules.Pickup_Ammo, gprules.Use_Weapon, gprules.Drop_Ammo, void,
@@ -53,7 +80,7 @@ function grenades(index)
   )
 end function
 
-// Return the default registry value.
+/// Performs the defaultRegistry operation for the miniquake2 game gameplay registry module.
 function defaultRegistry()
   blasterFrames = frames(4, 8, 52, 55, [19, 32], [5])
   shotgunFrames = frames(7, 18, 36, 39, [22, 28, 34], [8, 9])
@@ -86,7 +113,8 @@ function defaultRegistry()
   return gptypes.ItemRegistry(items)
 end function
 
-// Return the inventory slots value.
+/// Return the inventory slots value.
+/// @param registry registry value consumed by this operation.
 function inventorySlots(registry)
   maximum = 0
   for each item in registry.items
@@ -95,7 +123,21 @@ function inventorySlots(registry)
   return maximum + 1
 end function
 
-// Return the stock item value.
+/// Return the stock item value.
+/// @param index Zero-based index of the affected item.
+/// @param className className value consumed by this operation.
+/// @param pickup pickup value consumed by this operation.
+/// @param use use value consumed by this operation.
+/// @param drop drop value consumed by this operation.
+/// @param pickupSound pickupSound value consumed by this operation.
+/// @param worldModel worldModel value consumed by this operation.
+/// @param icon icon value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
+/// @param quantity quantity value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param tag tag value consumed by this operation.
+/// @param precaches precaches value consumed by this operation.
+/// @param ruleData ruleData value consumed by this operation.
 function stockItem(index, className, pickup, use, drop, pickupSound, worldModel, icon, pickupName, quantity, flags, tag, precaches, ruleData)
   return gptypes.ItemDefinition(
     index, className, pickup, use, drop, void,
@@ -104,24 +146,32 @@ function stockItem(index, className, pickup, use, drop, pickupSound, worldModel,
   )
 end function
 
-// Return the armor data value.
+/// Return the armor data value.
+/// @param baseCount Number of base to process.
+/// @param maxCount Number of max to process.
+/// @param normalProtection normalProtection value consumed by this operation.
+/// @param energyProtection energyProtection value consumed by this operation.
 function armorData(baseCount, maxCount, normalProtection, energyProtection)
   return gptypes.itemRuleData("armor", baseCount, maxCount, normalProtection, energyProtection, 0, 0, 0)
 end function
 
-// Return the simple data value.
+/// Return the simple data value.
+/// @param kind kind value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function simpleData(kind, duration)
   return gptypes.itemRuleData(kind, 0, 0, 0.0, 0.0, 0, 0, duration)
 end function
 
-// Return the health data value.
+/// Return the health data value.
+/// @param count Number of items or units to process.
+/// @param style style value consumed by this operation.
 function healthData(count, style)
   return gptypes.itemRuleData("health", 0, 0, 0.0, 0.0, count, style, 0)
 end function
 
-// Additive complete stock registry. defaultRegistry deliberately remains the
-// original weapon/ammo subset so its established indices and golden tests are
-// stable until the integration layer opts into this registry.
+/// Additive complete stock registry. defaultRegistry deliberately remains the
+/// original weapon/ammo subset so its established indices and golden tests are
+/// stable until the integration layer opts into this registry.
 function stockRegistry()
   items = defaultRegistry().items
   extras = [
@@ -157,12 +207,13 @@ function stockRegistry()
   return gptypes.ItemRegistry(items + extras)
 end function
 
-// Return the baseq 2 registry value.
+/// Return the baseq 2 registry value.
 function baseq2Registry()
   return stockRegistry()
 end function
 
-// Validate state.
+/// Validates validate for the miniquake2 game gameplay registry workflow.
+/// @param registry registry value consumed by this operation.
 function validate(registry)
   for each item in registry.items
     if item.index <= 0 or item.className == "" or item.pickupName == "" then return error(9360, "invalid item registry entry") end if

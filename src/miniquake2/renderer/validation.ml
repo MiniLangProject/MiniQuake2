@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer validation facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,30 +10,38 @@ package miniquake2.renderer.validation
 import miniquake2.renderer.constants as rc
 import miniquake2.renderer.types as rt
 
-// Store validation result data.
+/// Store validation result data.
 struct ValidationResult
+  /// Stores the valid value associated with validation result.
   valid
+  /// Stores the code value associated with validation result.
   code
+  /// Stores the message value associated with validation result.
   message
 end struct
 
-// Report whether valid.
+/// Report whether valid.
 function valid()
   return ValidationResult(true, "ok", "")
 end function
 
-// Return the invalid value.
+/// Return the invalid value.
+/// @param code code value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function invalid(code, message)
   return ValidationResult(false, code, message)
 end function
 
-// Return the numeric value.
+/// Performs the numeric operation for the miniquake2 renderer validation module.
+/// @param value Value consumed or transformed by the operation.
 function numeric(value)
   kind = typeof(value)
   return kind == "int" or kind == "float"
 end function
 
-// Validate vec 3.
+/// Validate vec 3.
+/// @param value Value consumed or transformed by the operation.
+/// @param fieldName fieldName value consumed by this operation.
 function validateVec3(value, fieldName)
   if value is void then return invalid("vec3.void", fieldName + " is void") end if
   if typeof(value) != "struct" then return invalid("vec3.type", fieldName + " must be a Vec3 record") end if
@@ -41,7 +51,9 @@ function validateVec3(value, fieldName)
   return valid()
 end function
 
-// Validate entity.
+/// Validate entity.
+/// @param value Value consumed or transformed by the operation.
+/// @param index Zero-based index of the affected item.
 function validateEntity(value, index)
   if typeof(value) != "struct" then return invalid("entity.type", "entities[" + index + "] must be an Entity record") end if
   checked = validateVec3(value.angles, "entities[" + index + "].angles")
@@ -58,7 +70,9 @@ function validateEntity(value, index)
   return valid()
 end function
 
-// Validate d light.
+/// Validate d light.
+/// @param value Value consumed or transformed by the operation.
+/// @param index Zero-based index of the affected item.
 function validateDLight(value, index)
   if typeof(value) != "struct" then return invalid("dlight.type", "dLights[" + index + "] must be a DLight record") end if
   checked = validateVec3(value.origin, "dLights[" + index + "].origin")
@@ -68,7 +82,9 @@ function validateDLight(value, index)
   return valid()
 end function
 
-// Validate particle.
+/// Validate particle.
+/// @param value Value consumed or transformed by the operation.
+/// @param index Zero-based index of the affected item.
 function validateParticle(value, index)
   if typeof(value) != "struct" then return invalid("particle.type", "particles[" + index + "] must be a Particle record") end if
   checked = validateVec3(value.origin, "particles[" + index + "].origin")
@@ -78,7 +94,9 @@ function validateParticle(value, index)
   return valid()
 end function
 
-// Validate light style.
+/// Validate light style.
+/// @param value Value consumed or transformed by the operation.
+/// @param index Zero-based index of the affected item.
 function validateLightStyle(value, index)
   if typeof(value) != "struct" then return invalid("lightstyle.type", "lightStyles[" + index + "] must be a LightStyle record") end if
   if typeof(value.rgb) != "array" or len(value.rgb) != 3 then return invalid("lightstyle.rgb", "lightStyles[" + index + "].rgb must contain three values") end if
@@ -97,7 +115,8 @@ function validateLightStyle(value, index)
   return valid()
 end function
 
-// Validate ref def.
+/// Validate ref def.
+/// @param frame frame value consumed by this operation.
 function validateRefDef(frame)
   // Keep validate ref def phases explicit: validate inputs, update owned state, then publish the result.
   if frame is void then return invalid("refdef.void", "refdef is void") end if
@@ -153,13 +172,16 @@ function validateRefDef(frame)
   return valid()
 end function
 
-// Require function.
+/// Require function.
+/// @param value Value consumed or transformed by the operation.
+/// @param fieldName fieldName value consumed by this operation.
 function requireFunction(value, fieldName)
   if typeof(value) != "function" then return invalid("api.function", fieldName + " must be a function value") end if
   return valid()
 end function
 
-// Validate ref import.
+/// Validate ref import.
+/// @param imports imports value consumed by this operation.
 function validateRefImport(imports)
   if imports is void then return invalid("import.void", "refimport_t is void") end if
   if typeof(imports) != "struct" then return invalid("import.type", "refimport_t must be a RefImport record") end if
@@ -182,7 +204,8 @@ function validateRefImport(imports)
   return valid()
 end function
 
-// Validate ref export.
+/// Validate ref export.
+/// @param exports exports value consumed by this operation.
 function validateRefExport(exports)
   if exports is void then return invalid("export.void", "refexport_t is void") end if
   if typeof(exports) != "struct" then return invalid("export.type", "refexport_t must be a RefExport record") end if

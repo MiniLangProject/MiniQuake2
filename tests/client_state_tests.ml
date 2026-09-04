@@ -414,6 +414,22 @@ function testSnapshotsAndRefDef()
   assertNear(stairCompleteFrame.viewOrigin.z, 5.5625, 0.000001,
     "stair camera reaches predicted height after 100 ms")
 
+  // A continuous pusher rise can have the same fixed-point height as one
+  // stair riser. The host marks that ground contact before replaying Pmove so
+  // the lift does not restart the 100-ms stair easing window every tick.
+  pusherStepClient = cstate.create()
+  cstate.setPredictionRealTime(pusherStepClient, 2000)
+  cstate.setPredictionStepSuppressed(pusherStepClient, true)
+  assertEqual(cstate.notePredictionStep(pusherStepClient, [0, 0, 0],
+    [0, 0, 80], qc.PMF_ON_GROUND, 100), false,
+    "ridden pusher rise does not start stair smoothing")
+  assertNear(pusherStepClient.predictedStep, 0.0, 0.000001,
+    "ridden pusher keeps the stair correction cleared")
+  cstate.setPredictionStepSuppressed(pusherStepClient, false)
+  assertEqual(cstate.notePredictionStep(pusherStepClient, [0, 0, 80],
+    [0, 0, 160], qc.PMF_ON_GROUND, 100), true,
+    "ordinary stair smoothing resumes after leaving the pusher")
+
   // Original Quake II keeps predicted movement for a dead player, but stops
   // predicting view angles once PM_DEAD is reached.
   secondPlayer.pmove.moveType = qc.PM_DEAD

@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui config facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,32 +15,53 @@ import miniquake2.client.ui.constants as uiconfigconstants
 import miniquake2.client.ui.keys as uiconfigkeys
 import miniquake2.audio.mixer as uiconfigmixer
 
+/// Defines the config header constant used by the miniquake2 client ui config module.
 const CONFIG_HEADER = "MiniQuake2Config 3"
+/// Defines the config v2 header constant used by the miniquake2 client ui config module.
 const CONFIG_V2_HEADER = "MiniQuake2Config 2"
+/// Defines the config legacy header constant used by the miniquake2 client ui config module.
 const CONFIG_LEGACY_HEADER = "MiniQuake2Config 1"
+/// Defines the config max bytes constant used by the miniquake2 client ui config module.
 const CONFIG_MAX_BYTES = 65536
+/// Defines the config max lines constant used by the miniquake2 client ui config module.
 const CONFIG_MAX_LINES = 512
+/// Defines the config max bindings constant used by the miniquake2 client ui config module.
 const CONFIG_MAX_BINDINGS = 256
 
-// Store product config data.
+/// Store product config data.
 struct ProductConfig
+  /// Stores the sensitivity value associated with product config.
   sensitivity
+  /// Stores the always run value associated with product config.
   alwaysRun
+  /// Stores the invert mouse value associated with product config.
   invertMouse
+  /// Stores the hand value associated with product config.
   hand
+  /// Stores the volume value associated with product config.
   volume
+  /// Stores the video mode value associated with product config.
   videoMode
+  /// Stores the full screen value associated with product config.
   fullScreen
+  /// Stores the brightness value associated with product config.
   brightness
+  /// Stores the max fps value associated with product config.
   maxFps
+  /// Stores the swap interval value associated with product config.
   swapInterval
+  /// Stores the crosshair value associated with product config.
   crosshair
+  /// Stores the joystick value associated with product config.
   joystick
+  /// Stores the bindings value associated with product config.
   bindings
+  /// Stores the bindings complete value associated with product config.
   bindingsComplete
 end struct
 
-// Return the product config safe command value.
+/// Return the product config safe command value.
+/// @param command command value consumed by this operation.
 function productConfigSafeCommand(command)
   if typeof(command) != "string" or command == "" or len(bytes(command)) > 255 then
     return false
@@ -49,7 +72,8 @@ function productConfigSafeCommand(command)
   return true
 end function
 
-// Validate product config.
+/// Validate product config.
+/// @param config Configuration used by the operation.
 function productConfigValidate(config)
   if typeof(config) != "struct" or
       (typeof(config.sensitivity) != "int" and typeof(config.sensitivity) != "float") or
@@ -85,7 +109,11 @@ function productConfigValidate(config)
   return config
 end function
 
-// Capture product config.
+/// Capture product config.
+/// @param input input value consumed by this operation.
+/// @param commandState commandState value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
+/// @param screen screen value consumed by this operation.
 function captureProductConfig(input, commandState, mixer, screen)
   productConfigBindings = []
   for each productConfigInputBinding in input.bindings
@@ -103,16 +131,18 @@ function captureProductConfig(input, commandState, mixer, screen)
   return productConfigValidate(productConfigCaptured)
 end function
 
-// MiniLang renders an integral float as `3.`. The command tokenizer's numeric
-// grammar deliberately rejects that spelling, so archive integral values as
-// integers and retain the ordinary representation only for fractional values.
+/// MiniLang renders an integral float as `3.`. The command tokenizer's numeric
+/// grammar deliberately rejects that spelling, so archive integral values as
+/// integers and retain the ordinary representation only for fractional values.
+/// @param value Value consumed or transformed by the operation.
 function productConfigEncodedNumber(value)
   productConfigInteger = uiconfigbyteio.truncInt(value)
   if value == productConfigInteger then return productConfigInteger end if
   return value
 end function
 
-// Encode product config.
+/// Encode product config.
+/// @param config Configuration used by the operation.
 function encodeProductConfig(config)
   // Validate the typed snapshot, encode booleans as retail-style numeric
   // cvars, then append the variable-length binding section.
@@ -153,7 +183,9 @@ function encodeProductConfig(config)
   return productConfigText
 end function
 
-// Return the product config number.
+/// Return the product config number.
+/// @param token token value consumed by this operation.
+/// @param name Name of the affected item.
 function productConfigNumber(token, name)
   productConfigNumberResult = try(toNumber(token))
   if productConfigNumberResult is error or
@@ -165,7 +197,8 @@ function productConfigNumber(token, name)
   return productConfigNumberResult
 end function
 
-// Decode product config.
+/// Decode product config.
+/// @param text Text consumed by the operation.
 function decodeProductConfig(text)
   if typeof(text) != "string" or len(bytes(text)) == 0 or
       len(bytes(text)) > CONFIG_MAX_BYTES then
@@ -284,7 +317,12 @@ function decodeProductConfig(text)
     productConfigBindingsComplete))
 end function
 
-// Apply product config.
+/// Apply product config.
+/// @param config Configuration used by the operation.
+/// @param input input value consumed by this operation.
+/// @param commandState commandState value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
+/// @param screen screen value consumed by this operation.
 function applyProductConfig(config, input, commandState, mixer, screen)
   productConfigApply = productConfigValidate(config)
   input.config.sensitivity = productConfigApply.sensitivity
@@ -314,15 +352,19 @@ function applyProductConfig(config, input, commandState, mixer, screen)
   return true
 end function
 
-// A live map-to-map snapshot is authoritative over disk. This mirrors the
-// original client's process-lifetime Cvar/key tables while retaining the file
-// as startup and crash-recovery storage.
+/// A live map-to-map snapshot is authoritative over disk. This mirrors the
+/// original client's process-lifetime Cvar/key tables while retaining the file
+/// as startup and crash-recovery storage.
+/// @param path Path of the file or directory used by the operation.
+/// @param handover handover value consumed by this operation.
 function selectProductConfig(path, handover)
   if handover is not void then return productConfigValidate(handover) end if
   return loadProductConfig(path)
 end function
 
-// Save product config.
+/// Save product config.
+/// @param path Path of the file or directory used by the operation.
+/// @param config Configuration used by the operation.
 function saveProductConfig(path, config)
   if typeof(path) != "string" or path == "" then return error(8300, "product config path is missing") end if
   productConfigEncoded = encodeProductConfig(config)
@@ -343,7 +385,8 @@ function saveProductConfig(path, config)
   return uiconfigfs.moveFile(productConfigTemporaryPath, path, true)
 end function
 
-// Load product config.
+/// Load product config.
+/// @param path Path of the file or directory used by the operation.
 function loadProductConfig(path)
   if typeof(path) != "string" or path == "" then return error(8300, "product config path is missing") end if
   if not uiconfigfs.exists(path) then return void end if

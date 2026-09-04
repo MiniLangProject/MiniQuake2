@@ -1,3 +1,5 @@
+//! Provides miniquake2 game world movers facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,14 +15,18 @@ import miniquake2.game.world.core as gwcore
 import miniquake2.game.world.vector as gwvector
 import miniquake2.game.world.types as gwtypes
 
-// Move done.
+/// Move done.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function moveDone(entity, world)
   entity.velocity = qt.zeroVec3()
   if entity.moveInfo.endFunction is not void then entity.moveInfo.endFunction(entity, world) end if
   return true
 end function
 
-// Move final.
+/// Move final.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function moveFinal(entity, world)
   if entity.moveInfo.remainingDistance == 0.0 then return moveDone(entity, world) end if
   entity.velocity = gwvector.scale(entity.moveInfo.direction, entity.moveInfo.remainingDistance / world.frameTime)
@@ -29,7 +35,9 @@ function moveFinal(entity, world)
   return true
 end function
 
-// Move begin.
+/// Move begin.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function moveBegin(entity, world)
   if entity.moveInfo.speed * world.frameTime >= entity.moveInfo.remainingDistance then return moveFinal(entity, world) end if
   entity.velocity = gwvector.scale(entity.moveInfo.direction, entity.moveInfo.speed)
@@ -40,12 +48,15 @@ function moveBegin(entity, world)
   return true
 end function
 
-// Return the acceleration distance value.
+/// Return the acceleration distance value.
+/// @param target target value consumed by this operation.
+/// @param rate rate value consumed by this operation.
 function accelerationDistance(target, rate)
   return target * ((target / rate) + 1.0) / 2.0
 end function
 
-// Calculate accelerated move.
+/// Calculate accelerated move.
+/// @param moveInfo moveInfo value consumed by this operation.
 function calculateAcceleratedMove(moveInfo)
   moveInfo.moveSpeed = moveInfo.speed
   if moveInfo.remainingDistance < moveInfo.accel then
@@ -63,7 +74,8 @@ function calculateAcceleratedMove(moveInfo)
   return true
 end function
 
-// Move accelerate.
+/// Move accelerate.
+/// @param moveInfo moveInfo value consumed by this operation.
 function accelerateMove(moveInfo)
   if moveInfo.remainingDistance <= moveInfo.decelDistance then
     if moveInfo.remainingDistance < moveInfo.decelDistance then
@@ -101,7 +113,9 @@ function accelerateMove(moveInfo)
   return true
 end function
 
-// Run accelerated move.
+/// Run accelerated move.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function thinkAcceleratedMove(entity, world)
   entity.moveInfo.remainingDistance = entity.moveInfo.remainingDistance - entity.moveInfo.currentSpeed
   if entity.moveInfo.currentSpeed == 0.0 then calculateAcceleratedMove(entity.moveInfo) end if
@@ -113,7 +127,11 @@ function thinkAcceleratedMove(entity, world)
   return true
 end function
 
-// Move calc.
+/// Move calc.
+/// @param entity entity value consumed by this operation.
+/// @param destination destination value consumed by this operation.
+/// @param endFunction endFunction value consumed by this operation.
+/// @param world world value consumed by this operation.
 function moveCalc(entity, destination, endFunction, world)
   entity.velocity = qt.zeroVec3()
   gwMoverMoveInfoHolder = gwtypes.stabilizeMoveInfo(entity.moveInfo)
@@ -145,8 +163,9 @@ function moveCalc(entity, destination, endFunction, world)
   return true
 end function
 
-// -------------------------------------------------------------------------
-// func_button
+/// func_button
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function buttonDone(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
@@ -155,7 +174,9 @@ function buttonDone(entity, world)
   return true
 end function
 
-// Return button.
+/// Return button.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function buttonReturn(entity, world)
   entity.moveInfo.state = gwconstants.STATE_DOWN
   moveCalc(entity, entity.moveInfo.startOrigin, buttonDone, world)
@@ -164,7 +185,9 @@ function buttonReturn(entity, world)
   return true
 end function
 
-// Return the button wait value.
+/// Return the button wait value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function buttonWait(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
   entity.effects = entity.effects & ~gwconstants.EF_ANIM01
@@ -178,7 +201,9 @@ function buttonWait(entity, world)
   return true
 end function
 
-// Fire button.
+/// Fire button.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function buttonFire(entity, world)
   if entity.moveInfo.state == gwconstants.STATE_UP or entity.moveInfo.state == gwconstants.STATE_TOP then return false end if
   entity.moveInfo.state = gwconstants.STATE_UP
@@ -189,20 +214,33 @@ function buttonFire(entity, world)
   return true
 end function
 
-// Use button.
+/// Use button.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function buttonUse(entity, other, activator, world)
   entity.activator = activator
   return buttonFire(entity, world)
 end function
 
-// Handle button.
+/// Handle button.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function buttonTouch(entity, other, world)
   if other is void or other.isClient == false or other.health <= 0 then return false end if
   entity.activator = other
   return buttonFire(entity, world)
 end function
 
-// Return the button killed value.
+/// Return the button killed value.
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 function buttonKilled(entity, inflictor, attacker, damage, point, world)
   entity.activator = attacker
   entity.health = entity.maxHealth
@@ -210,7 +248,9 @@ function buttonKilled(entity, inflictor, attacker, damage, point, world)
   return buttonFire(entity, world)
 end function
 
-// Spawn button.
+/// Spawn button.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnButton(entity, world)
   entity.moveDirection = gwvector.setMovedir(entity)
   entity.moveType = gwconstants.MOVETYPE_STOP
@@ -245,8 +285,10 @@ function spawnButton(entity, world)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// func_door
+/// func_door
+/// @param entity entity value consumed by this operation.
+/// @param isOpen isOpen value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function doorUseAreaPortals(entity, isOpen, world)
   if entity.target == "" then return false end if
@@ -256,7 +298,10 @@ function doorUseAreaPortals(entity, isOpen, world)
   return true
 end function
 
-// Handle door.
+/// Handle door.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorTouch(entity, other, world)
   if other is void or other.health <= 0 then return false end if
   if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then return false end if
@@ -267,7 +312,9 @@ function doorTouch(entity, other, world)
   return true
 end function
 
-// Calculate door move speed.
+/// Calculate door move speed.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function calculateDoorMoveSpeed(entity, world)
   if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
   minimumDistance = smath.abs(entity.moveInfo.distance)
@@ -293,7 +340,10 @@ function calculateDoorMoveSpeed(entity, world)
   return true
 end function
 
-// Handle door trigger.
+/// Handle door trigger.
+/// @param trigger trigger value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorTriggerTouch(trigger, other, world)
   owner = trigger.owner
   if owner is void or other is void or other.health <= 0 then return false end if
@@ -305,7 +355,9 @@ function doorTriggerTouch(trigger, other, world)
   return doorUse(owner, other, other, world)
 end function
 
-// Spawn door trigger.
+/// Spawn door trigger.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnDoorTrigger(entity, world)
   if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
   minimum = gwvector.copy(entity.absoluteMins)
@@ -339,7 +391,9 @@ function spawnDoorTrigger(entity, world)
   return true
 end function
 
-// Return the door hit top value.
+/// Return the door hit top value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorHitTop(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
@@ -357,7 +411,9 @@ function doorHitTop(entity, world)
   return true
 end function
 
-// Return the door hit bottom value.
+/// Return the door hit bottom value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorHitBottom(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
@@ -371,7 +427,9 @@ function doorHitBottom(entity, world)
   return true
 end function
 
-// Return the door go down value.
+/// Return the door go down value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorGoDown(entity, world)
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
     if entity.className == "func_water" and entity.sounds != 0 then
@@ -389,7 +447,10 @@ function doorGoDown(entity, world)
   return moveCalc(entity, entity.moveInfo.startOrigin, doorHitBottom, world)
 end function
 
-// Return the door go up value.
+/// Return the door go up value.
+/// @param entity entity value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorGoUp(entity, activator, world)
   if entity.moveInfo.state == gwconstants.STATE_UP then return false end if
   if entity.moveInfo.state == gwconstants.STATE_TOP then
@@ -411,7 +472,11 @@ function doorGoUp(entity, activator, world)
   return true
 end function
 
-// Use door.
+/// Use door.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorUse(entity, other, activator, world)
   if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
   if (entity.spawnFlags & gwconstants.DOOR_TOGGLE) != 0 and (entity.moveInfo.state == gwconstants.STATE_UP or entity.moveInfo.state == gwconstants.STATE_TOP) then
@@ -434,7 +499,10 @@ function doorUse(entity, other, activator, world)
   return true
 end function
 
-// Report whether door blocked.
+/// Report whether door blocked.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorBlocked(entity, other, world)
   if other is void then return false end if
   if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then
@@ -460,7 +528,13 @@ function doorBlocked(entity, other, world)
   return true
 end function
 
-// Return the door killed value.
+/// Return the door killed value.
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 function doorKilled(entity, inflictor, attacker, damage, point, world)
   master = entity.teamMaster
   if master is void then master = entity end if
@@ -474,7 +548,9 @@ function doorKilled(entity, inflictor, attacker, damage, point, world)
   return doorUse(master, attacker, attacker, world)
 end function
 
-// Spawn door.
+/// Spawn door.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnDoor(entity, world)
   entity.moveDirection = gwvector.movedir(entity.angles)
   entity.moveType = gwconstants.MOVETYPE_PUSH
@@ -524,8 +600,10 @@ function spawnDoor(entity, world)
   return entity
 end function
 
-// func_water reuses door_use only after establishing its distinct defaults:
-// 25-unit speed, zero lip, no blocked callback and a wait=-1 toggle.
+/// func_water reuses door_use only after establishing its distinct defaults:
+/// 25-unit speed, zero lip, no blocked callback and a wait=-1 toggle.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnWater(entity, world)
   entity.moveDirection = gwvector.movedir(entity.angles)
   entity.moveType = gwconstants.MOVETYPE_PUSH
@@ -563,8 +641,10 @@ function spawnWater(entity, world)
   return entity
 end function
 
-// func_door_secret is a two-leg mover. It slides sideways, pauses, moves
-// forward, waits open, then reverses the same two legs.
+/// func_door_secret is a two-leg mover. It slides sideways, pauses, moves
+/// forward, waits open, then reverses the same two legs.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function configureSecretDoorGeometry(entity, world)
   authoredAngles = entity.moveInfo.startAngles
   pitch = smath.degToRad(authoredAngles.x)
@@ -600,13 +680,17 @@ function configureSecretDoorGeometry(entity, world)
   return true
 end function
 
-// Move secret door 2.
+/// Move secret door 2.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorMove2(entity, world)
   entity.count = 3
   return moveCalc(entity, entity.moveInfo.endOrigin, secretDoorMove3, world)
 end function
 
-// Move secret door 1.
+/// Move secret door 1.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorMove1(entity, world)
   entity.count = 2
   entity.think = secretDoorMove2
@@ -614,7 +698,9 @@ function secretDoorMove1(entity, world)
   return true
 end function
 
-// Move secret door 3.
+/// Move secret door 3.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorMove3(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
   entity.count = 4
@@ -628,7 +714,9 @@ function secretDoorMove3(entity, world)
   return true
 end function
 
-// Move secret door 4.
+/// Move secret door 4.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorMove4(entity, world)
   entity.moveInfo.state = gwconstants.STATE_DOWN
   entity.count = 5
@@ -639,7 +727,9 @@ function secretDoorMove4(entity, world)
   return moveCalc(entity, entity.moveInfo.startOrigin, secretDoorMove5, world)
 end function
 
-// Move secret door 5.
+/// Move secret door 5.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorMove5(entity, world)
   entity.count = 6
   entity.think = secretDoorMove6
@@ -647,13 +737,17 @@ function secretDoorMove5(entity, world)
   return true
 end function
 
-// Move secret door 6.
+/// Move secret door 6.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorMove6(entity, world)
   entity.count = 7
   return moveCalc(entity, entity.oldOrigin, secretDoorDone, world)
 end function
 
-// Return the secret door done value.
+/// Return the secret door done value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorDone(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
   entity.count = 0
@@ -669,7 +763,11 @@ function secretDoorDone(entity, world)
   return true
 end function
 
-// Use secret door.
+/// Use secret door.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorUse(entity, other, activator, world)
   if entity.moveInfo.state != gwconstants.STATE_BOTTOM or
       gwvector.equal(entity.origin, entity.oldOrigin) == false then return false end if
@@ -685,7 +783,10 @@ function secretDoorUse(entity, other, activator, world)
   return true
 end function
 
-// Report whether secret door blocked.
+/// Report whether secret door blocked.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorBlocked(entity, other, world)
   if other is void then return false end if
   if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then
@@ -699,13 +800,21 @@ function secretDoorBlocked(entity, other, world)
   return true
 end function
 
-// Handle secret door.
+/// Handle secret door.
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 function secretDoorDie(entity, inflictor, attacker, damage, point, world)
   entity.takeDamage = gwconstants.DAMAGE_NO
   return secretDoorUse(entity, attacker, attacker, world)
 end function
 
-// Spawn secret door.
+/// Spawn secret door.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnSecretDoor(entity, world)
   entity.moveType = gwconstants.MOVETYPE_PUSH
   entity.solid = gwconstants.SOLID_BSP
@@ -737,7 +846,9 @@ function spawnSecretDoor(entity, world)
   return entity
 end function
 
-// Return the rotating door hit bottom value.
+/// Return the rotating door hit bottom value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function rotatingDoorHitBottom(entity, world)
   entity.angularVelocity = qt.zeroVec3()
   entity.angles = gwvector.copy(entity.moveInfo.startAngles)
@@ -751,7 +862,9 @@ function rotatingDoorHitBottom(entity, world)
   return true
 end function
 
-// Return the rotating door go down value.
+/// Return the rotating door go down value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function rotatingDoorGoDown(entity, world)
   entity.moveInfo.state = gwconstants.STATE_DOWN
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
@@ -764,7 +877,9 @@ function rotatingDoorGoDown(entity, world)
   return true
 end function
 
-// Return the rotating door hit top value.
+/// Return the rotating door hit top value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function rotatingDoorHitTop(entity, world)
   entity.angularVelocity = qt.zeroVec3()
   entity.angles = gwvector.copy(entity.moveInfo.endAngles)
@@ -781,7 +896,10 @@ function rotatingDoorHitTop(entity, world)
   return true
 end function
 
-// Return the rotating door go up value.
+/// Return the rotating door go up value.
+/// @param entity entity value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function rotatingDoorGoUp(entity, activator, world)
   if entity.moveInfo.state == gwconstants.STATE_UP then return false end if
   if entity.moveInfo.state == gwconstants.STATE_TOP then
@@ -801,7 +919,11 @@ function rotatingDoorGoUp(entity, activator, world)
   return true
 end function
 
-// Use rotating door.
+/// Use rotating door.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function rotatingDoorUse(entity, other, activator, world)
   if (entity.flags & gwconstants.FL_TEAMSLAVE) != 0 then return false end if
   entity.activator = activator
@@ -827,7 +949,9 @@ function rotatingDoorUse(entity, other, activator, world)
   return true
 end function
 
-// Spawn rotating door.
+/// Spawn rotating door.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnRotatingDoor(entity, world)
   // Keep spawn rotating door phases explicit: validate inputs, update owned state, then publish the result.
   entity.angles = qt.zeroVec3()
@@ -877,8 +1001,9 @@ function spawnRotatingDoor(entity, world)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// func_plat
+/// func_plat
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function platHitTop(entity, world)
   entity.moveInfo.state = gwconstants.STATE_TOP
@@ -891,7 +1016,9 @@ function platHitTop(entity, world)
   return true
 end function
 
-// Return the plat hit bottom value.
+/// Return the plat hit bottom value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function platHitBottom(entity, world)
   entity.moveInfo.state = gwconstants.STATE_BOTTOM
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 then
@@ -901,7 +1028,9 @@ function platHitBottom(entity, world)
   return true
 end function
 
-// Return the plat go down value.
+/// Return the plat go down value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function platGoDown(entity, world)
   entity.moveInfo.state = gwconstants.STATE_DOWN
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
@@ -911,7 +1040,9 @@ function platGoDown(entity, world)
   return moveCalc(entity, entity.moveInfo.endOrigin, platHitBottom, world)
 end function
 
-// Return the plat go up value.
+/// Return the plat go up value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function platGoUp(entity, world)
   entity.moveInfo.state = gwconstants.STATE_UP
   if (entity.flags & gwconstants.FL_TEAMSLAVE) == 0 and entity.soundIndex != 0 then
@@ -921,13 +1052,20 @@ function platGoUp(entity, world)
   return moveCalc(entity, entity.moveInfo.startOrigin, platHitTop, world)
 end function
 
-// Use plat.
+/// Use plat.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function platUse(entity, other, activator, world)
   if entity.nextThink != 0.0 then return false end if
   return platGoDown(entity, world)
 end function
 
-// Handle plat center.
+/// Handle plat center.
+/// @param trigger trigger value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function platCenterTouch(trigger, other, world)
   if other is void or other.isClient == false or other.health <= 0 then return false end if
   plat = trigger.enemy
@@ -940,7 +1078,9 @@ function platCenterTouch(trigger, other, world)
   return false
 end function
 
-// Report whether spawn plat inside trigger.
+/// Report whether spawn plat inside trigger.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnPlatInsideTrigger(entity, world)
   trigger = gwcore.spawnEntity(world, "plat_trigger")
   trigger.touch = platCenterTouch
@@ -966,7 +1106,10 @@ function spawnPlatInsideTrigger(entity, world)
   return true
 end function
 
-// Report whether plat blocked.
+/// Report whether plat blocked.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function platBlocked(entity, other, world)
   if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then
     world.callbacks.damage(other, entity, entity, 100000, gwconstants.MOD_CRUSH)
@@ -979,7 +1122,9 @@ function platBlocked(entity, other, world)
   return true
 end function
 
-// Spawn plat.
+/// Spawn plat.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnPlat(entity, world)
   entity.angles = qt.zeroVec3()
   entity.solid = gwconstants.SOLID_BSP
@@ -1012,9 +1157,11 @@ function spawnPlat(entity, world)
   return entity
 end function
 
-// Inline BSP bounds arrive through game_import_t.setmodel after the managed
-// spawn callbacks have established behavior. Rebuild only the geometric
-// endpoints here; do not reapply speed scaling or allocate trigger helpers.
+/// Inline BSP bounds arrive through game_import_t.setmodel after the managed
+/// spawn callbacks have established behavior. Rebuild only the geometric
+/// endpoints here; do not reapply speed scaling or allocate trigger helpers.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function refreshBrushGeometry(entity, world)
   // Keep refresh brush geometry phases explicit: validate inputs, update owned state, then publish the result.
   if entity.className == "func_button" then
@@ -1056,8 +1203,9 @@ function refreshBrushGeometry(entity, world)
   return true
 end function
 
-// -------------------------------------------------------------------------
-// func_train
+/// func_train
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function trainWait(entity, world)
   corner = entity.targetEntity
@@ -1085,7 +1233,9 @@ function trainWait(entity, world)
   return true
 end function
 
-// Return the train next value.
+/// Return the train next value.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function trainNext(entity, world)
   first = true
   searching = true
@@ -1122,7 +1272,9 @@ function trainNext(entity, world)
   return true
 end function
 
-// Resume train.
+/// Resume train.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function trainResume(entity, world)
   if entity.targetEntity is void then return false end if
   destination = gwvector.subtract(entity.targetEntity.origin, entity.mins)
@@ -1137,7 +1289,9 @@ function trainResume(entity, world)
   return true
 end function
 
-// Find train.
+/// Find train.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function trainFind(entity, world)
   if entity.target == "" then
     gwcore.log(world, "train_find: no target")
@@ -1157,7 +1311,11 @@ function trainFind(entity, world)
   return true
 end function
 
-// Use train.
+/// Use train.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function trainUse(entity, other, activator, world)
   entity.activator = activator
   if (entity.spawnFlags & gwconstants.TRAIN_START_ON) != 0 then
@@ -1174,7 +1332,10 @@ function trainUse(entity, other, activator, world)
   return true
 end function
 
-// Report whether train blocked.
+/// Report whether train blocked.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 function trainBlocked(entity, other, world)
   if other.isClient == false and (other.serverFlags & gwconstants.SVF_MONSTER) == 0 then
     world.callbacks.damage(other, entity, entity, 100000, gwconstants.MOD_CRUSH)
@@ -1187,7 +1348,9 @@ function trainBlocked(entity, other, world)
   return true
 end function
 
-// Spawn train.
+/// Spawn train.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnTrain(entity, world)
   entity.moveType = gwconstants.MOVETYPE_PUSH
   entity.angles = qt.zeroVec3()
@@ -1209,9 +1372,12 @@ function spawnTrain(entity, world)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// trigger_elevator from g_func.c. The train remains the authoritative mover;
-// the trigger only resolves a requested path_corner and resumes it.
+/// trigger_elevator from g_func.c. The train remains the authoritative mover;
+/// the trigger only resolves a requested path_corner and resumes it.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function elevatorUse(entity, other, activator, world)
   train = entity.targetEntity
@@ -1234,7 +1400,9 @@ function elevatorUse(entity, other, activator, world)
   return trainResume(train, world)
 end function
 
-// Initialize elevator.
+/// Initialize elevator.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function elevatorInit(entity, world)
   if entity.target == "" then
     gwcore.log(world, "trigger_elevator has no target")
@@ -1255,15 +1423,18 @@ function elevatorInit(entity, world)
   return true
 end function
 
-// Spawn elevator.
+/// Spawn elevator.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnElevator(entity, world)
   entity.think = elevatorInit
   entity.nextThink = world.time + world.frameTime
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// func_timer
+/// func_timer
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function timerThink(entity, world)
   gwcore.useTargets(world, entity, entity.activator)
@@ -1272,7 +1443,11 @@ function timerThink(entity, world)
   return true
 end function
 
-// Use timer.
+/// Use timer.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function timerUse(entity, other, activator, world)
   entity.activator = activator
   if entity.nextThink != 0.0 then
@@ -1288,7 +1463,9 @@ function timerUse(entity, other, activator, world)
   return true
 end function
 
-// Spawn timer.
+/// Spawn timer.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnTimer(entity, world)
   if entity.wait == 0.0 then entity.wait = 1.0 end if
   entity.use = timerUse
@@ -1305,8 +1482,11 @@ function spawnTimer(entity, world)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// func_conveyor
+/// func_conveyor
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function conveyorUse(entity, other, activator, world)
   if (entity.spawnFlags & 1) != 0 then
@@ -1320,7 +1500,9 @@ function conveyorUse(entity, other, activator, world)
   return true
 end function
 
-// Spawn conveyor.
+/// Spawn conveyor.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnConveyor(entity, world)
   if entity.speed == 0.0 then entity.speed = 100.0 end if
   if (entity.spawnFlags & 1) == 0 then
@@ -1333,8 +1515,13 @@ function spawnConveyor(entity, world)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// func_explosive from g_misc.c (kept here with the brush movers).
+/// func_explosive from g_misc.c (kept here with the brush movers).
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function explosiveExplode(entity, inflictor, attacker, damage, point, world)
   halfSize = gwvector.scale(entity.size, 0.5)
@@ -1361,12 +1548,20 @@ function explosiveExplode(entity, inflictor, attacker, damage, point, world)
   return true
 end function
 
-// Use explosive.
+/// Use explosive.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function explosiveUse(entity, other, activator, world)
   return explosiveExplode(entity, entity, other, entity.health, qt.zeroVec3(), world)
 end function
 
-// Spawn explosive.
+/// Spawn explosive.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function explosiveSpawn(entity, other, activator, world)
   entity.solid = gwconstants.SOLID_BSP
   entity.serverFlags = entity.serverFlags & ~gwconstants.SVF_NOCLIENT
@@ -1376,7 +1571,10 @@ function explosiveSpawn(entity, other, activator, world)
   return true
 end function
 
-// Spawn explosive.
+/// Spawn explosive.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function spawnExplosive(entity, world, deathmatch)
   if deathmatch then
     gwcore.freeEntity(world, entity)
@@ -1402,8 +1600,11 @@ function spawnExplosive(entity, world, deathmatch)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// func_killbox from g_func.c.
+/// func_killbox from g_func.c.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function killBoxUse(entity, other, activator, world)
   world.callbacks.killBox(entity)
@@ -1411,7 +1612,9 @@ function killBoxUse(entity, other, activator, world)
   return true
 end function
 
-// Spawn kill box.
+/// Spawn kill box.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnKillBox(entity, world)
   if entity.model == "" then
     gwcore.log(world, "func_killbox with no model")
@@ -1429,54 +1632,79 @@ function spawnKillBox(entity, world)
   return entity
 end function
 
-// Spawn func button.
+/// Spawn func button.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_button(entity, world)
   return spawnButton(entity, world)
 end function
-// Spawn func door.
+/// Spawn func door.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_door(entity, world)
   return spawnDoor(entity, world)
 end function
-// Spawn func water.
+/// Spawn func water.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_water(entity, world)
   return spawnWater(entity, world)
 end function
-// Spawn func door secret.
+/// Spawn func door secret.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_door_secret(entity, world)
   return spawnSecretDoor(entity, world)
 end function
-// Spawn func plat.
+/// Spawn func plat.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_plat(entity, world)
   return spawnPlat(entity, world)
 end function
-// Spawn func train.
+/// Spawn func train.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_train(entity, world)
   return spawnTrain(entity, world)
 end function
-// Spawn func timer.
+/// Spawn func timer.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_timer(entity, world)
   return spawnTimer(entity, world)
 end function
-// Spawn func conveyor.
+/// Spawn func conveyor.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_conveyor(entity, world)
   return spawnConveyor(entity, world)
 end function
-// Spawn func explosive.
+/// Spawn func explosive.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function SP_func_explosive(entity, world, deathmatch)
   return spawnExplosive(entity, world, deathmatch)
 end function
-// Spawn func killbox.
+/// Spawn func killbox.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_func_killbox(entity, world)
   return spawnKillBox(entity, world)
 end function
-// Spawn trigger elevator.
+/// Spawn trigger elevator.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_trigger_elevator(entity, world)
   return spawnElevator(entity, world)
 end function
 
-// Rebind serialized callback identities from classname/state. Function values
-// are deliberately not written to disk; the deterministic spawn path restores
-// behavior and this boundary restores the currently pending mover callback.
+/// Rebind serialized callback identities from classname/state. Function values
+/// are deliberately not written to disk; the deterministic spawn path restores
+/// behavior and this boundary restores the currently pending mover callback.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function restoreMoverState(entity, world)
   // Keep restore mover state phases explicit: validate inputs, update owned state, then publish the result.
   entity.moveInfo = gwtypes.stabilizeMoveInfo(entity.moveInfo)

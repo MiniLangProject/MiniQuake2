@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime multicast dispatch facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,21 +15,28 @@ import miniquake2.network.runtime.pump as nrtmulticastpump
 import miniquake2.qcommon.sizebuf as nrtmulticastsizebuf
 import miniquake2.server.game_messages as nrtmulticastmessages
 
-// Store multicast dispatch result data.
+/// Store multicast dispatch result data.
 struct MulticastDispatchResult
+  /// Stores the sent value associated with multicast dispatch result.
   sent
+  /// Stores the delivered value associated with multicast dispatch result.
   delivered
+  /// Stores the deferred value associated with multicast dispatch result.
   deferred
 end struct
 
-// Store multicast client plan data.
+/// Store multicast client plan data.
 struct MulticastClientPlan
+  /// Stores the slot value associated with multicast client plan.
   slot
+  /// Stores the unreliable packets value associated with multicast client plan.
   unreliablePackets
+  /// Stores the reliable fragments value associated with multicast client plan.
   reliableFragments
 end struct
 
-// Return the payload capacity value.
+/// Performs the payloadCapacity operation for the miniquake2 network runtime multicast dispatch module.
+/// @param client client value consumed by this operation.
 function payloadCapacity(client)
   if client.channel is void then return 0 end if
   reliable = client.channel.reliableLength
@@ -37,7 +46,11 @@ function payloadCapacity(client)
   return capacity
 end function
 
-// Return the packetize value.
+/// Performs the packetize operation for the miniquake2 network runtime multicast dispatch module.
+/// @param events events value consumed by this operation.
+/// @param first first value consumed by this operation.
+/// @param last last value consumed by this operation.
+/// @param maximumPayload maximumPayload value consumed by this operation.
 function packetize(events, first, last, maximumPayload)
   packetCapacity = last - first
   packets = array(packetCapacity, void)
@@ -63,7 +76,10 @@ function packetize(events, first, last, maximumPayload)
   return nrtmulticastarray.slice(packets, 0, packetCount)
 end function
 
-// Build plan.
+/// Build plan.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param events events value consumed by this operation.
 function buildPlan(runtime, slot, events)
   if typeof(events) != "array" then return error(7290, "routed multicast list must be an array") end if
   if len(events) == 0 then return void end if
@@ -116,7 +132,12 @@ function buildPlan(runtime, slot, events)
   return MulticastClientPlan(slot, unreliablePackets, reliableFragments)
 end function
 
-// Dispatch routed.
+/// Dispatch routed.
+/// @param runtime runtime value consumed by this operation.
+/// @param socket socket value consumed by this operation.
+/// @param events events value consumed by this operation.
+/// @param routedEvents routedEvents value consumed by this operation.
+/// @param now now value consumed by this operation.
 function dispatchRouted(runtime, socket, events, routedEvents, now)
   // Keep dispatch routed phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(events) != "array" or typeof(routedEvents) != "array" or

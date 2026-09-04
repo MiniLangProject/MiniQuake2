@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon message facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -11,13 +13,17 @@ import miniquake2.qcommon.types as qt
 import miniquake2.qcommon.byteio as bio
 import miniquake2.qcommon.sizebuf as sz
 
-// Require integer.
+/// Require integer.
+/// @param value Value consumed or transformed by the operation.
+/// @param operation operation value consumed by this operation.
 function requireInteger(value, operation)
   if typeof(value) != "int" then return error(2300, operation + ": integer argument required") end if
   return value
 end function
 
-// Write char.
+/// Write char.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeChar(buffer, value)
   integer = requireInteger(value, "MSG_WriteChar")
   offset = sz.getSpace(buffer, 1)
@@ -25,7 +31,9 @@ function writeChar(buffer, value)
   return buffer
 end function
 
-// Write byte.
+/// Write byte.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeByte(buffer, value)
   integer = requireInteger(value, "MSG_WriteByte")
   offset = sz.getSpace(buffer, 1)
@@ -33,7 +41,9 @@ function writeByte(buffer, value)
   return buffer
 end function
 
-// Write short.
+/// Write short.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeShort(buffer, value)
   integer = requireInteger(value, "MSG_WriteShort")
   offset = sz.getSpace(buffer, 2)
@@ -41,7 +51,9 @@ function writeShort(buffer, value)
   return buffer
 end function
 
-// Write long.
+/// Write long.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeLong(buffer, value)
   integer = requireInteger(value, "MSG_WriteLong")
   offset = sz.getSpace(buffer, 4)
@@ -49,7 +61,9 @@ function writeLong(buffer, value)
   return buffer
 end function
 
-// Write float.
+/// Write float.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeFloat(buffer, value)
   bits = bio.float32Bits(value)
   offset = sz.getSpace(buffer, 4)
@@ -57,7 +71,9 @@ function writeFloat(buffer, value)
   return buffer
 end function
 
-// Write string bytes.
+/// Write string bytes.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param source source value consumed by this operation.
 function writeStringBytes(buffer, source)
   if typeof(source) != "bytes" then return error(2301, "MSG_WriteString requires bytes") end if
   count = 0
@@ -70,18 +86,24 @@ function writeStringBytes(buffer, source)
   return buffer
 end function
 
-// Write string.
+/// Write string.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param text Text consumed by the operation.
 function writeString(buffer, text)
   if typeof(text) != "string" then return error(2302, "MSG_WriteString requires a string") end if
   return writeStringBytes(buffer, bytes(text))
 end function
 
-// Write coord.
+/// Write coord.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeCoord(buffer, value)
   return writeShort(buffer, bio.truncInt(value * 8.0))
 end function
 
-// Write pos.
+/// Write pos.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param position position value consumed by this operation.
 function writePos(buffer, position)
   writeCoord(buffer, position.x)
   writeCoord(buffer, position.y)
@@ -89,25 +111,31 @@ function writePos(buffer, position)
   return buffer
 end function
 
-// Write angle.
+/// Write angle.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeAngle(buffer, value)
   encoded = bio.truncInt(value * 256.0 / 360.0) & 255
   return writeByte(buffer, encoded)
 end function
 
-// Write angle 16.
+/// Write angle 16.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function writeAngle16(buffer, value)
   encoded = bio.truncInt(value * 65536.0 / 360.0) & 0xffff
   return writeShort(buffer, encoded)
 end function
 
-// Begin reading.
+/// Begin reading.
+/// @param buffer Buffer that receives or supplies the operation data.
 function beginReading(buffer)
   buffer.readCount = 0
   return buffer
 end function
 
-// Read char.
+/// Read char.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readChar(buffer)
   offset = buffer.readCount
   buffer.readCount = offset + 1
@@ -115,7 +143,8 @@ function readChar(buffer)
   return bio.i8(buffer.data, offset)
 end function
 
-// Read byte.
+/// Read byte.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readByte(buffer)
   offset = buffer.readCount
   buffer.readCount = offset + 1
@@ -123,7 +152,8 @@ function readByte(buffer)
   return bio.u8(buffer.data, offset)
 end function
 
-// Read short.
+/// Read short.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readShort(buffer)
   offset = buffer.readCount
   buffer.readCount = offset + 2
@@ -131,7 +161,8 @@ function readShort(buffer)
   return bio.i16(buffer.data, offset)
 end function
 
-// Read long.
+/// Read long.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readLong(buffer)
   offset = buffer.readCount
   buffer.readCount = offset + 4
@@ -139,7 +170,8 @@ function readLong(buffer)
   return bio.i32(buffer.data, offset)
 end function
 
-// Read float.
+/// Read float.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readFloat(buffer)
   offset = buffer.readCount
   buffer.readCount = offset + 4
@@ -147,7 +179,8 @@ function readFloat(buffer)
   return bio.f32(buffer.data, offset)
 end function
 
-// Read string bytes.
+/// Read string bytes.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readStringBytes(buffer)
   start = buffer.readCount
   count = 0
@@ -162,12 +195,14 @@ function readStringBytes(buffer)
   return output
 end function
 
-// Read string.
+/// Read string.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readString(buffer)
   return decode(readStringBytes(buffer))
 end function
 
-// Read string line bytes.
+/// Read string line bytes.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readStringLineBytes(buffer)
   start = buffer.readCount
   count = 0
@@ -182,32 +217,39 @@ function readStringLineBytes(buffer)
   return output
 end function
 
-// Read string line.
+/// Read string line.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readStringLine(buffer)
   return decode(readStringLineBytes(buffer))
 end function
 
-// Read coord.
+/// Read coord.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readCoord(buffer)
   return readShort(buffer) * 0.125
 end function
 
-// Read pos.
+/// Read pos.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readPos(buffer)
   return qt.Vec3(readCoord(buffer), readCoord(buffer), readCoord(buffer))
 end function
 
-// Read angle.
+/// Read angle.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readAngle(buffer)
   return readChar(buffer) * (360.0 / 256.0)
 end function
 
-// Read angle 16.
+/// Read angle 16.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readAngle16(buffer)
   return readShort(buffer) * (360.0 / 65536.0)
 end function
 
-// Read data.
+/// Read data.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param count Number of items or units to process.
 function readData(buffer, count)
   if typeof(count) != "int" or count < 0 then return error(2303, "MSG_ReadData requires a non-negative length") end if
   output = bytes(count)
@@ -219,122 +261,157 @@ function readData(buffer, count)
   return output
 end function
 
-// Return the remaining value.
+/// Return the remaining value.
+/// @param buffer Buffer that receives or supplies the operation data.
 function remaining(buffer)
   return buffer.curSize - buffer.readCount
 end function
 
-// Write msg char.
+/// Write msg char.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteChar(buffer, value)
   return writeChar(buffer, value)
 end function
 
-// Write msg byte.
+/// Write msg byte.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteByte(buffer, value)
   return writeByte(buffer, value)
 end function
 
-// Write msg short.
+/// Write msg short.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteShort(buffer, value)
   return writeShort(buffer, value)
 end function
 
-// Write msg long.
+/// Write msg long.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteLong(buffer, value)
   return writeLong(buffer, value)
 end function
 
-// Write msg float.
+/// Write msg float.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteFloat(buffer, value)
   return writeFloat(buffer, value)
 end function
 
-// Write msg string.
+/// Write msg string.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param text Text consumed by the operation.
 function MSG_WriteString(buffer, text)
   return writeString(buffer, text)
 end function
 
-// Write msg coord.
+/// Write msg coord.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteCoord(buffer, value)
   return writeCoord(buffer, value)
 end function
 
-// Write msg pos.
+/// Write msg pos.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param position position value consumed by this operation.
 function MSG_WritePos(buffer, position)
   return writePos(buffer, position)
 end function
 
-// Write msg angle.
+/// Write msg angle.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteAngle(buffer, value)
   return writeAngle(buffer, value)
 end function
 
-// Write msg angle 16.
+/// Write msg angle 16.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function MSG_WriteAngle16(buffer, value)
   return writeAngle16(buffer, value)
 end function
 
-// Begin msg reading.
+/// Begin msg reading.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_BeginReading(buffer)
   return beginReading(buffer)
 end function
 
-// Read msg char.
+/// Read msg char.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadChar(buffer)
   return readChar(buffer)
 end function
 
-// Read msg byte.
+/// Read msg byte.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadByte(buffer)
   return readByte(buffer)
 end function
 
-// Read msg short.
+/// Read msg short.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadShort(buffer)
   return readShort(buffer)
 end function
 
-// Read msg long.
+/// Read msg long.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadLong(buffer)
   return readLong(buffer)
 end function
 
-// Read msg float.
+/// Read msg float.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadFloat(buffer)
   return readFloat(buffer)
 end function
 
-// Read msg string.
+/// Read msg string.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadString(buffer)
   return readString(buffer)
 end function
 
-// Read msg string line.
+/// Read msg string line.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadStringLine(buffer)
   return readStringLine(buffer)
 end function
 
-// Read msg coord.
+/// Read msg coord.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadCoord(buffer)
   return readCoord(buffer)
 end function
 
-// Read msg pos.
+/// Read msg pos.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadPos(buffer)
   return readPos(buffer)
 end function
 
-// Read msg angle.
+/// Read msg angle.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadAngle(buffer)
   return readAngle(buffer)
 end function
 
-// Read msg angle 16.
+/// Read msg angle 16.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadAngle16(buffer)
   return readAngle16(buffer)
 end function
 
-// Read msg data.
+/// Read msg data.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param count Number of items or units to process.
 function MSG_ReadData(buffer, count)
   return readData(buffer, count)
 end function

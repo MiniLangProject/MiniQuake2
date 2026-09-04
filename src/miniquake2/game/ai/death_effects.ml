@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai death effects facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,41 +9,63 @@ package miniquake2.game.ai.death_effects
 
 import miniquake2.qcommon.types as gaideathqtypes
 
+/// Defines the gib organic constant used by the miniquake2 game ai death effects module.
 const GIB_ORGANIC = 0
+/// Defines the gib metallic constant used by the miniquake2 game ai death effects module.
 const GIB_METALLIC = 1
+/// Defines the te explosion1 constant used by the miniquake2 game ai death effects module.
 const TE_EXPLOSION1 = 5
 
-// Store corpse bounds data.
+/// Store corpse bounds data.
 struct CorpseBounds
+  /// Stores the minimum x value associated with corpse bounds.
   minimumX
+  /// Stores the minimum y value associated with corpse bounds.
   minimumY
+  /// Stores the minimum z value associated with corpse bounds.
   minimumZ
+  /// Stores the maximum x value associated with corpse bounds.
   maximumX
+  /// Stores the maximum y value associated with corpse bounds.
   maximumY
+  /// Stores the maximum z value associated with corpse bounds.
   maximumZ
 end struct
 
-// Store gib spec data.
+/// Store gib spec data.
 struct GibSpec
+  /// Stores the model name value associated with gib spec.
   modelName
+  /// Stores the count value associated with gib spec.
   count
+  /// Stores the gib type value associated with gib spec.
   gibType
+  /// Stores the head value associated with gib spec.
   head
 end struct
 
-// Store monster death effect data.
+/// Store monster death effect data.
 struct MonsterDeathEffect
+  /// Stores the kind value associated with monster death effect.
   kind
+  /// Stores the model name value associated with monster death effect.
   modelName
+  /// Stores the origin value associated with monster death effect.
   origin
+  /// Stores the damage value associated with monster death effect.
   damage
+  /// Stores the gib type value associated with monster death effect.
   gibType
+  /// Stores the head value associated with monster death effect.
   head
+  /// Stores the sequence value associated with monster death effect.
   sequence
+  /// Stores the effect type value associated with monster death effect.
   effectType
 end struct
 
-// Return the corpse bounds.
+/// Return the corpse bounds.
+/// @param className className value consumed by this operation.
 function corpseBounds(className)
   if className == "monster_chick" then return CorpseBounds(-16.0, -16.0, 0.0, 16.0, 16.0, 16.0) end if
   if className == "monster_tank" or className == "monster_tank_commander" then
@@ -64,7 +88,7 @@ function corpseBounds(className)
   return void
 end function
 
-// Return the organic gibs value.
+/// Return the organic gibs value.
 function organicGibs()
   return [
     GibSpec("models/objects/gibs/bone/tris.md2", 2, GIB_ORGANIC, false),
@@ -73,7 +97,8 @@ function organicGibs()
   ]
 end function
 
-// Return the gib plan value.
+/// Return the gib plan value.
+/// @param className className value consumed by this operation.
 function gibPlan(className)
   if className == "monster_flyer" or className == "monster_floater" or
       className == "monster_supertank" or className == "monster_jorg" then return [] end if
@@ -109,7 +134,7 @@ function gibPlan(className)
   return organicGibs()
 end function
 
-// Return the supertank final gibs value.
+/// Return the supertank final gibs value.
 function supertankFinalGibs()
   return [
     GibSpec("models/objects/gibs/sm_meat/tris.md2", 4, GIB_ORGANIC, false),
@@ -119,20 +144,33 @@ function supertankFinalGibs()
   ]
 end function
 
-// Return the effect value.
+/// Return the effect value.
+/// @param kind kind value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param gibType gibType value consumed by this operation.
+/// @param head head value consumed by this operation.
+/// @param sequence sequence value consumed by this operation.
+/// @param effectType effectType value consumed by this operation.
 function effect(kind, modelName, origin, damage, gibType, head, sequence, effectType)
   if typeof(origin) != "struct" then return error(9680, "monster death effect requires an origin") end if
   gaideathOriginHolder = gaideathqtypes.Vec3(origin.x, origin.y, origin.z)
   return MonsterDeathEffect(kind, modelName, gaideathOriginHolder, damage, gibType, head, sequence, effectType)
 end function
 
-// Emit state.
+/// Performs the emit operation for the miniquake2 game ai death effects module.
+/// @param context Context that carries state for the operation.
+/// @param actor actor value consumed by this operation.
+/// @param event event value consumed by this operation.
 function emit(context, actor, event)
   if typeof(context.deathEffect) != "function" then return true end if
   return context.deathEffect(actor, event)
 end function
 
-// Apply corpse.
+/// Apply corpse.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function applyCorpse(actor, context)
   bounds = corpseBounds(actor.className)
   if bounds is void then return false end if
@@ -145,7 +183,11 @@ function applyCorpse(actor, context)
   return emit(context, actor, effect("corpse", "", actor.edict.state.origin, 0, GIB_ORGANIC, false, 0, 0))
 end function
 
-// Emit gib specs.
+/// Emit gib specs.
+/// @param actor actor value consumed by this operation.
+/// @param specs specs value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function emitGibSpecs(actor, specs, damage, context)
   sequence = 0
   for each spec in specs
@@ -161,17 +203,24 @@ function emitGibSpecs(actor, specs, damage, context)
   return sequence
 end function
 
-// Emit monster gibs.
+/// Emit monster gibs.
+/// @param actor actor value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function emitMonsterGibs(actor, damage, context)
   return emitGibSpecs(actor, gibPlan(actor.className), damage, context)
 end function
 
-// Emit supertank final gibs.
+/// Emit supertank final gibs.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function emitSupertankFinalGibs(actor, context)
   return emitGibSpecs(actor, supertankFinalGibs(), 500, context)
 end function
 
-// Return the supertank explosion origin.
+/// Return the supertank explosion origin.
+/// @param actor actor value consumed by this operation.
+/// @param stage stage value consumed by this operation.
 function supertankExplosionOrigin(actor, stage)
   if stage < 0 or stage > 7 then return error(9681, "supertank explosion stage outside stock range") end if
   xOffset = -24.0
@@ -189,7 +238,11 @@ function supertankExplosionOrigin(actor, stage)
   return gaideathqtypes.Vec3(source.x + xOffset, source.y + yOffset, source.z + zOffset)
 end function
 
-// Emit explosion.
+/// Emit explosion.
+/// @param actor actor value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param sequence sequence value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function emitExplosion(actor, origin, sequence, context)
   return emit(context, actor, effect("explosion", "", origin, 0, GIB_ORGANIC, false, sequence, TE_EXPLOSION1))
 end function

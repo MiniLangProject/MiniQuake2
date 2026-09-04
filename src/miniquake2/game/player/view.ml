@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player view facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,14 +16,21 @@ import miniquake2.qcommon.types as qtypes
 import miniquake2.physics.vector as phv
 import std.math as gplayermath
 
-// Emit sound.
+/// Emit sound.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param attenuation attenuation value consumed by this operation.
 function emitSound(context, player, channel, name, attenuation)
   sound = context.imports.soundIndex(name)
   context.imports.sound(player.edict, channel, sound, 1.0, attenuation, 0.0)
   return name
 end function
 
-// Return the random index.
+/// Return the random index.
+/// @param context Context that carries state for the operation.
+/// @param count Number of items or units to process.
 function randomIndex(context, count)
   if count <= 0 then return 0 end if
   result = context.frameNumber % count
@@ -30,13 +39,20 @@ function randomIndex(context, count)
   return result
 end function
 
-// Return the point vector value.
+/// Return the point vector value.
+/// @param point point value consumed by this operation.
 function pointVector(point)
   if typeof(point) != "struct" then return qtypes.Vec3(point[0], point[1], point[2]) end if
   return qtypes.Vec3(point.x, point.y, point.z)
 end function
 
-// Public adapter for the damage accumulators normally filled by T_Damage.
+/// Public adapter for the damage accumulators normally filled by T_Damage.
+/// @param player player value consumed by this operation.
+/// @param blood blood value consumed by this operation.
+/// @param armor armor value consumed by this operation.
+/// @param powerArmor powerArmor value consumed by this operation.
+/// @param knockback knockback value consumed by this operation.
+/// @param point point value consumed by this operation.
 function RecordDamage(player, blood, armor, powerArmor, knockback, point)
   player.view.damageBlood = player.view.damageBlood + blood
   player.view.damageArmor = player.view.damageArmor + armor
@@ -46,8 +62,13 @@ function RecordDamage(player, blood, armor, powerArmor, knockback, point)
   return true
 end function
 
-// A custom callback may apply armor/team/death rules and returns actual health
-// damage. The default keeps the environment layer useful before full wiring.
+/// A custom callback may apply armor/team/death rules and returns actual health
+/// damage. The default keeps the environment layer useful before full wiring.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param damageFlags damageFlags value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function ApplyDamage(context, player, amount, damageFlags, meansOfDeath)
   if amount <= 0 or player.health <= 0 then return 0 end if
   if (damageFlags & gpconstants.DAMAGE_NO_PROTECTION) == 0 then
@@ -67,7 +88,9 @@ function ApplyDamage(context, player, amount, damageFlags, meansOfDeath)
   return applied
 end function
 
-// Return the p world effects value.
+/// Return the p world effects value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function P_WorldEffects(context, player)
   // Keep p world effects phases explicit: validate inputs, update owned state, then publish the result.
   if player.moveType == gplayerconstants.MOVETYPE_NOCLIP then player.view.airFinished = context.time + 12.0; return 0 end if
@@ -140,7 +163,9 @@ function P_WorldEffects(context, player)
   return damage
 end function
 
-// Return the p falling damage value.
+/// Return the p falling damage value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function P_FallingDamage(context, player)
   if player.edict.state.modelIndex != gplayerconstants.PLAYER_MODEL_INDEX or player.moveType == gplayerconstants.MOVETYPE_NOCLIP then return 0 end if
   oldZ = player.view.oldVelocity[2]
@@ -173,7 +198,11 @@ function P_FallingDamage(context, player)
   return ApplyDamage(context, player, damage, 0, gplayerconstants.MOD_FALLING)
 end function
 
-// Return the p damage feedback value.
+/// Return the p damage feedback value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param forward forward value consumed by this operation.
+/// @param right right value consumed by this operation.
 function P_DamageFeedback(context, player, forward, right)
   // Keep p damage feedback phases explicit: validate inputs, update owned state, then publish the result.
   stats = player.edict.client.playerState.stats
@@ -238,14 +267,20 @@ function P_DamageFeedback(context, player, forward, right)
   return true
 end function
 
-// Clamp state.
+/// Clamp state.
+/// @param value Value consumed or transformed by the operation.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
 function clamp(value, minimum, maximum)
   if value < minimum then return minimum end if
   if value > maximum then return maximum end if
   return value
 end function
 
-// Return the sv calc roll value.
+/// Return the sv calc roll value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param right right value consumed by this operation.
 function SV_CalcRoll(context, player, right)
   side = player.velocity[0] * right.x + player.velocity[1] * right.y + player.velocity[2] * right.z
   sign = 1.0
@@ -257,7 +292,11 @@ function SV_CalcRoll(context, player, right)
   return side * sign
 end function
 
-// Return the sv calc view offset.
+/// Return the sv calc view offset.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param forward forward value consumed by this operation.
+/// @param right right value consumed by this operation.
 function SV_CalcViewOffset(context, player, forward, right)
   // Keep sv calc view offset phases explicit: validate inputs, update owned state, then publish the result.
   state = player.edict.client.playerState
@@ -298,7 +337,12 @@ function SV_CalcViewOffset(context, player, forward, right)
   return offset
 end function
 
-// Return the sv calc gun offset.
+/// Return the sv calc gun offset.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param forward forward value consumed by this operation.
+/// @param right right value consumed by this operation.
+/// @param up up value consumed by this operation.
 function SV_CalcGunOffset(context, player, forward, right, up)
   state = player.edict.client.playerState
   roll = player.view.xySpeed * player.view.bobFracSin * 0.005
@@ -330,7 +374,12 @@ function SV_CalcGunOffset(context, player, forward, right, up)
   return state.gunOffset
 end function
 
-// Add sv blend.
+/// Add sv blend.
+/// @param red red value consumed by this operation.
+/// @param green green value consumed by this operation.
+/// @param blue blue value consumed by this operation.
+/// @param alpha alpha value consumed by this operation.
+/// @param blend blend value consumed by this operation.
 function SV_AddBlend(red, green, blue, alpha, blend)
   if alpha <= 0.0 then return blend end if
   totalAlpha = blend[3] + (1.0 - blend[3]) * alpha
@@ -342,7 +391,9 @@ function SV_AddBlend(red, green, blue, alpha, blend)
   return blend
 end function
 
-// Return the sv calc blend value.
+/// Return the sv calc blend value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function SV_CalcBlend(context, player)
   // Keep sv calc blend phases explicit: validate inputs, update owned state, then publish the result.
   state = player.edict.client.playerState
@@ -382,7 +433,9 @@ function SV_CalcBlend(context, player)
   return state.blend
 end function
 
-// Set g client effects.
+/// Set g client effects.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function G_SetClientEffects(context, player)
   player.edict.state.effects = 0
   player.edict.state.renderFx = 0
@@ -415,14 +468,17 @@ function G_SetClientEffects(context, player)
   return player.edict.state.effects
 end function
 
-// Set g client event.
+/// Set g client event.
+/// @param player player value consumed by this operation.
 function G_SetClientEvent(player)
   if player.edict.state.event != miniquake2.game.constants.EV_NONE then return player.edict.state.event end if
   if player.groundEntity is not void and player.view.xySpeed > 225.0 and qbyteio.truncInt(player.view.bobTime + player.view.bobMove) != player.view.bobCycle then player.edict.state.event = miniquake2.game.constants.EV_FOOTSTEP end if
   return player.edict.state.event
 end function
 
-// Set g client sound.
+/// Set g client sound.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function G_SetClientSound(context, player)
   // p_view.c keeps acknowledgement and reminder cadence in client->pers.
   // A target_help update therefore notifies every connected player exactly
@@ -449,7 +505,8 @@ function G_SetClientSound(context, player)
   return player.edict.state.sound
 end function
 
-// Set g client frame.
+/// Set g client frame.
+/// @param player player value consumed by this operation.
 function G_SetClientFrame(player)
   // Keep g set client frame phases explicit: validate inputs, update owned state, then publish the result.
   if player.edict.state.modelIndex != gplayerconstants.PLAYER_MODEL_INDEX then return player.edict.state.frame end if
@@ -491,7 +548,8 @@ function G_SetClientFrame(player)
   return player.edict.state.frame
 end function
 
-// Update bob.
+/// Update bob.
+/// @param player player value consumed by this operation.
 function UpdateBob(player)
   player.view.xySpeed = gplayermath.sqrt(player.velocity[0] * player.velocity[0] + player.velocity[1] * player.velocity[1])
   if player.view.xySpeed < 5.0 then player.view.bobMove = 0.0; player.view.bobTime = 0.0
@@ -509,7 +567,9 @@ function UpdateBob(player)
   return player.view.xySpeed
 end function
 
-// Return the client view frame value.
+/// Return the client view frame value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ClientViewFrame(context, player)
   state = player.edict.client.playerState
   basis = phv.angleVectors(state.viewAngles)

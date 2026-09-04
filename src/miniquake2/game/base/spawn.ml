@@ -1,3 +1,5 @@
+//! Provides miniquake2 game base spawn facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -13,19 +15,29 @@ import miniquake2.game.base.spawn_registry as bregistry
 import miniquake2.game.base.types as btypes
 import std.string as bspawntext
 
+/// Defines the spawnflag not easy constant used by the miniquake2 game base spawn module.
 const SPAWNFLAG_NOT_EASY = 256
+/// Defines the spawnflag not medium constant used by the miniquake2 game base spawn module.
 const SPAWNFLAG_NOT_MEDIUM = 512
+/// Defines the spawnflag not hard constant used by the miniquake2 game base spawn module.
 const SPAWNFLAG_NOT_HARD = 1024
+/// Defines the spawnflag not deathmatch constant used by the miniquake2 game base spawn module.
 const SPAWNFLAG_NOT_DEATHMATCH = 2048
+/// Defines the spawnflag not coop constant used by the miniquake2 game base spawn module.
 const SPAWNFLAG_NOT_COOP = 4096
+/// Defines the spawnflag mode mask constant used by the miniquake2 game base spawn module.
 const SPAWNFLAG_MODE_MASK = 7936
 
-// Append diagnostic.
+/// Append diagnostic.
+/// @param diagnostics diagnostics value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function appendDiagnostic(diagnostics, message)
   return diagnostics + [message]
 end function
 
-// Return the increment skipped value.
+/// Return the increment skipped value.
+/// @param skippedClasses skippedClasses value consumed by this operation.
+/// @param className className value consumed by this operation.
 function incrementSkipped(skippedClasses, className)
   for each entry in skippedClasses
     if entry.className == className then
@@ -36,8 +48,12 @@ function incrementSkipped(skippedClasses, className)
   return skippedClasses + [btypes.SkippedClassCount(className, 1)]
 end function
 
-// g_spawn.c ED_LoadFromFile applies this after parsing and before ED_CallSpawn.
-// The command/*27 correction is an original retail-map compatibility hack.
+/// g_spawn.c ED_LoadFromFile applies this after parsing and before ED_CallSpawn.
+/// The command/*27 correction is an original retail-map compatibility hack.
+/// @param component component value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function shouldInhibit(component, mapName, skill, deathmatch)
   if mapName == "command" and component.className == "trigger_once" and
       component.model == "*27" then
@@ -54,7 +70,14 @@ function shouldInhibit(component, mapName, skill, deathmatch)
   return (component.spawnFlags & SPAWNFLAG_NOT_HARD) != 0
 end function
 
-// Spawn entities with registry mode.
+/// Spawn entities with registry mode.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
+/// @param applyModeFilter applyModeFilter value consumed by this operation.
 function SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     registry, skill, deathmatch, applyModeFilter)
   if typeof(mapName) != "string" or len(bytes(mapName)) == 0 then return error(9070, "SpawnEntities: empty map name") end if
@@ -126,24 +149,40 @@ function SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     len(materializedEntities), skippedCount, skippedClasses, inhibitedCount)
 end function
 
-// Spawn entities with registry.
+/// Spawn entities with registry.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function SpawnEntitiesWithRegistry(mapName, entityString, spawnPoint, registry)
   return SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     registry, 1, false, false)
 end function
 
-// Spawn entities.
+/// Spawn entities.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
 function SpawnEntities(mapName, entityString, spawnPoint)
   return SpawnEntitiesWithRegistry(mapName, entityString, spawnPoint, bregistry.defaultRegistry())
 end function
 
-// Spawn entities for mode.
+/// Spawn entities for mode.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function SpawnEntitiesForMode(mapName, entityString, spawnPoint, skill, deathmatch)
   return SpawnEntitiesWithRegistryMode(mapName, entityString, spawnPoint,
     bregistry.defaultRegistry(), skill, deathmatch, true)
 end function
 
-// Spawn entities logged.
+/// Spawn entities logged.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param logger logger value consumed by this operation.
 function spawnEntitiesLogged(mapName, entityString, spawnPoint, logger)
   if typeof(logger) != "function" then return error(9078, "SpawnEntities: logger must be a function") end if
   result = SpawnEntities(mapName, entityString, spawnPoint)

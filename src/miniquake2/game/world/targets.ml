@@ -1,3 +1,5 @@
+//! Provides miniquake2 game world targets facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,10 +14,12 @@ import miniquake2.game.world.vector as gwvector
 import miniquake2.qcommon.types as targetactorqtypes
 import miniquake2.qcommon.byteio as targetlightrampbyteio
 
-// -------------------------------------------------------------------------
-// target_actor from m_actor.c. AI-private state changes are represented by
-// one explicit transition callback; this package still owns target lookup,
-// pathtarget dispatch, jump velocity and deterministic waypoint chaining.
+/// target_actor from m_actor.c. AI-private state changes are represented by
+/// one explicit transition callback; this package still owns target lookup,
+/// pathtarget dispatch, jump velocity and deterministic waypoint chaining.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function targetActorTouch(entity, other, world)
   // Keep target actor touch phases explicit: validate inputs, update owned state, then publish the result.
@@ -66,7 +70,9 @@ function targetActorTouch(entity, other, world)
   return true
 end function
 
-// Spawn target actor.
+/// Spawn target actor.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnTargetActor(entity, world)
   if entity.targetName == "" then gwcore.log(world, "target_actor with no targetname") end if
   entity.solid = gwconstants.SOLID_TRIGGER
@@ -85,20 +91,30 @@ function spawnTargetActor(entity, world)
   return entity
 end function
 
-// Use temp entity.
+/// Use temp entity.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useTempEntity(entity, other, activator, world)
   world.callbacks.effect("temp-entity", entity.origin, entity.style, 1)
   gwcore.emit(world, "temp-entity", entity, entity.style)
   return true
 end function
 
-// Spawn temp entity.
+/// Spawn temp entity.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnTempEntity(entity, world)
   entity.use = useTempEntity
   return entity
 end function
 
-// Use speaker.
+/// Use speaker.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useSpeaker(entity, other, activator, world)
   if (entity.spawnFlags & 3) != 0 then
     if entity.loopSound != 0 then entity.loopSound = 0 else entity.loopSound = entity.soundIndex end if
@@ -109,7 +125,9 @@ function useSpeaker(entity, other, activator, world)
   return true
 end function
 
-// Spawn speaker.
+/// Spawn speaker.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnSpeaker(entity, world)
   if entity.noise == "" then
     gwcore.log(world, "target_speaker with no noise")
@@ -125,14 +143,20 @@ function spawnSpeaker(entity, world)
   return entity
 end function
 
-// Use help.
+/// Use help.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useHelp(entity, other, activator, world)
   if (entity.spawnFlags & 1) != 0 then world.helpMessage1 = entity.message else world.helpMessage2 = entity.message end if
   world.helpChanged = world.helpChanged + 1
   return true
 end function
 
-// Spawn help.
+/// Spawn help.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnHelp(entity, world)
   if entity.message == "" then
     gwcore.log(world, "target_help with no message")
@@ -143,7 +167,11 @@ function spawnHelp(entity, world)
   return entity
 end function
 
-// Use secret.
+/// Use secret.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useSecret(entity, other, activator, world)
   world.callbacks.sound(entity, entity.noise)
   world.foundSecrets = world.foundSecrets + 1
@@ -152,7 +180,9 @@ function useSecret(entity, other, activator, world)
   return true
 end function
 
-// Spawn secret.
+/// Spawn secret.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnSecret(entity, world)
   entity.use = useSecret
   if entity.noise == "" then entity.noise = "misc/secret.wav" end if
@@ -161,7 +191,11 @@ function spawnSecret(entity, world)
   return entity
 end function
 
-// Use goal.
+/// Use goal.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useGoal(entity, other, activator, world)
   world.callbacks.sound(entity, entity.noise)
   world.foundGoals = world.foundGoals + 1
@@ -171,7 +205,9 @@ function useGoal(entity, other, activator, world)
   return true
 end function
 
-// Spawn goal.
+/// Spawn goal.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnGoal(entity, world)
   entity.use = useGoal
   if entity.noise == "" then entity.noise = "misc/secret.wav" end if
@@ -180,7 +216,9 @@ function spawnGoal(entity, world)
   return entity
 end function
 
-// Run explosion.
+/// Run explosion.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function explosionThink(entity, world)
   // g_target.c publishes TE_EXPLOSION1 through MULTICAST_PHS.  Keep the
   // protocol-specific encoding outside the portable world simulation.
@@ -193,7 +231,11 @@ function explosionThink(entity, world)
   return true
 end function
 
-// Use explosion.
+/// Use explosion.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useExplosion(entity, other, activator, world)
   entity.activator = activator
   if entity.delay == 0.0 then return explosionThink(entity, world) end if
@@ -202,14 +244,20 @@ function useExplosion(entity, other, activator, world)
   return true
 end function
 
-// Spawn explosion.
+/// Spawn explosion.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnExplosion(entity, world)
   entity.use = useExplosion
   entity.serverFlags = gwconstants.SVF_NOCLIENT
   return entity
 end function
 
-// Use change level.
+/// Use change level.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useChangeLevel(entity, other, activator, world)
   if world.intermission then return false end if
   if not world.callbacks.changeLevel(entity, other, activator,
@@ -223,7 +271,9 @@ function useChangeLevel(entity, other, activator, world)
   return true
 end function
 
-// Spawn change level.
+/// Spawn change level.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnChangeLevel(entity, world)
   if entity.map == "" then
     gwcore.log(world, "target_changelevel with no map")
@@ -235,7 +285,11 @@ function spawnChangeLevel(entity, world)
   return entity
 end function
 
-// Use splash.
+/// Use splash.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useSplash(entity, other, activator, world)
   // target_splash uses the map's "sounds" field as the TE_SPLASH color, not
   // style.  Its movedir is part of the wire event and cannot be reconstructed
@@ -246,7 +300,9 @@ function useSplash(entity, other, activator, world)
   return true
 end function
 
-// Spawn splash.
+/// Spawn splash.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnSplash(entity, world)
   entity.use = useSplash
   entity.moveDirection = gwvector.movedir(entity.angles)
@@ -255,14 +311,20 @@ function spawnSplash(entity, world)
   return entity
 end function
 
-// Use spawner.
+/// Use spawner.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useSpawner(entity, other, activator, world)
   world.callbacks.spawnExternal(entity.target, entity.origin, entity.angles, entity.moveDirection)
   gwcore.emit(world, "spawn-external", entity, entity.target)
   return true
 end function
 
-// Spawn spawner.
+/// Spawn spawner.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnSpawner(entity, world)
   entity.use = useSpawner
   entity.serverFlags = gwconstants.SVF_NOCLIENT
@@ -273,7 +335,11 @@ function spawnSpawner(entity, world)
   return entity
 end function
 
-// Use blaster.
+/// Use blaster.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useBlaster(entity, other, activator, world)
   world.callbacks.fireBlaster(entity, entity.moveDirection, entity.damage,
     entity.speed)
@@ -281,7 +347,9 @@ function useBlaster(entity, other, activator, world)
   return true
 end function
 
-// Spawn blaster.
+/// Spawn blaster.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnBlaster(entity, world)
   entity.use = useBlaster
   entity.moveDirection = gwvector.movedir(entity.angles)
@@ -292,21 +360,29 @@ function spawnBlaster(entity, world)
   return entity
 end function
 
-// Use cross level trigger.
+/// Use cross level trigger.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useCrossLevelTrigger(entity, other, activator, world)
   world.serverFlags = world.serverFlags | entity.spawnFlags
   gwcore.freeEntity(world, entity)
   return true
 end function
 
-// Spawn cross level trigger.
+/// Spawn cross level trigger.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnCrossLevelTrigger(entity, world)
   entity.serverFlags = gwconstants.SVF_NOCLIENT
   entity.use = useCrossLevelTrigger
   return entity
 end function
 
-// Compute level target think.
+/// Compute level target think.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function crossLevelTargetThink(entity, world)
   if entity.spawnFlags == (world.serverFlags & gwconstants.SFL_CROSS_TRIGGER_MASK & entity.spawnFlags) then
     gwcore.useTargets(world, entity, entity)
@@ -318,7 +394,9 @@ function crossLevelTargetThink(entity, world)
   return true
 end function
 
-// Spawn cross level target.
+/// Spawn cross level target.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnCrossLevelTarget(entity, world)
   if entity.delay == 0.0 then entity.delay = 1.0 end if
   entity.serverFlags = gwconstants.SVF_NOCLIENT
@@ -327,16 +405,26 @@ function spawnCrossLevelTarget(entity, world)
   return entity
 end function
 
+/// Defines the laser start on constant used by the miniquake2 game world targets module.
 const LASER_START_ON = 1
+/// Defines the laser red constant used by the miniquake2 game world targets module.
 const LASER_RED = 2
+/// Defines the laser green constant used by the miniquake2 game world targets module.
 const LASER_GREEN = 4
+/// Defines the laser blue constant used by the miniquake2 game world targets module.
 const LASER_BLUE = 8
+/// Defines the laser yellow constant used by the miniquake2 game world targets module.
 const LASER_YELLOW = 16
+/// Defines the laser orange constant used by the miniquake2 game world targets module.
 const LASER_ORANGE = 32
+/// Defines the laser fat constant used by the miniquake2 game world targets module.
 const LASER_FAT = 64
+/// Defines the laser direction changed constant used by the miniquake2 game world targets module.
 const LASER_DIRECTION_CHANGED = 0x80000000
 
-// Run laser.
+/// Run laser.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function laserThink(entity, world)
   sparkCount = 4
   if (entity.spawnFlags & LASER_DIRECTION_CHANGED) != 0 then sparkCount = 8 end if
@@ -391,7 +479,9 @@ function laserThink(entity, world)
   return true
 end function
 
-// Report whether laser on.
+/// Report whether laser on.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function laserOn(entity, world)
   if entity.activator is void then entity.activator = entity end if
   entity.spawnFlags = entity.spawnFlags | LASER_DIRECTION_CHANGED | LASER_START_ON
@@ -400,7 +490,9 @@ function laserOn(entity, world)
   return true
 end function
 
-// Report whether laser off.
+/// Report whether laser off.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function laserOff(entity, world)
   entity.spawnFlags = entity.spawnFlags & ~LASER_START_ON
   entity.serverFlags = entity.serverFlags | gwconstants.SVF_NOCLIENT
@@ -408,7 +500,11 @@ function laserOff(entity, world)
   return true
 end function
 
-// Use laser.
+/// Use laser.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function laserUse(entity, other, activator, world)
   entity.activator = activator
   if (entity.spawnFlags & LASER_START_ON) != 0 then laserOff(entity, world)
@@ -418,7 +514,9 @@ function laserUse(entity, other, activator, world)
   return true
 end function
 
-// Start laser.
+/// Start laser.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function laserStart(entity, world)
   entity.moveType = gwconstants.MOVETYPE_NONE
   entity.solid = gwconstants.SOLID_NOT
@@ -454,7 +552,9 @@ function laserStart(entity, world)
   return true
 end function
 
-// Spawn laser.
+/// Spawn laser.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnLaser(entity, world)
   // The original defers initialization so every possible target has spawned.
   entity.think = laserStart
@@ -462,7 +562,9 @@ function spawnLaser(entity, world)
   return entity
 end function
 
-// Run earthquake.
+/// Run earthquake.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function earthquakeThink(entity, world)
   playSound = false
   if entity.pauseTime < world.time then
@@ -480,7 +582,11 @@ function earthquakeThink(entity, world)
   return true
 end function
 
-// Use earthquake.
+/// Use earthquake.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function earthquakeUse(entity, other, activator, world)
   // Re-triggering extends/restarts the stock effect; it is not rejected while
   // an earlier activation is still running.
@@ -491,7 +597,9 @@ function earthquakeUse(entity, other, activator, world)
   return true
 end function
 
-// Spawn earthquake.
+/// Spawn earthquake.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function spawnEarthquake(entity, world)
   if entity.targetName == "" then gwcore.log(world, "untargeted target_earthquake") end if
   if entity.count == 0 then entity.count = 5 end if
@@ -503,9 +611,10 @@ function spawnEarthquake(entity, world)
   return entity
 end function
 
-// -------------------------------------------------------------------------
-// target_lightramp from g_target.c. Configstring mutation is an explicit
-// engine callback so this state machine stays deterministic and headless.
+/// target_lightramp from g_target.c. Configstring mutation is an explicit
+/// engine callback so this state machine stays deterministic and headless.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 
 function targetLightRampThink(entity, world)
   elapsedFrames = (world.time - entity.timestamp) / world.frameTime
@@ -526,7 +635,11 @@ function targetLightRampThink(entity, world)
   return true
 end function
 
-// Use target light ramp.
+/// Use target light ramp.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function targetLightRampUse(entity, other, activator, world)
   light = entity.targetEntity
   if light is void or typeof(light) != "struct" or light.inUse == false then
@@ -550,7 +663,10 @@ function targetLightRampUse(entity, other, activator, world)
   return targetLightRampThink(entity, world)
 end function
 
-// Spawn target light ramp.
+/// Spawn target light ramp.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param deathmatch deathmatch value consumed by this operation.
 function spawnTargetLightRamp(entity, world, deathmatch)
   ramp = bytes(entity.message)
   badRamp = len(ramp) != 2
@@ -584,67 +700,99 @@ function spawnTargetLightRamp(entity, world, deathmatch)
   return entity
 end function
 
-// Spawn target temp entity.
+/// Spawn target temp entity.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_temp_entity(entity, world)
   return spawnTempEntity(entity, world)
 end function
-// Spawn target speaker.
+/// Spawn target speaker.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_speaker(entity, world)
   return spawnSpeaker(entity, world)
 end function
-// Spawn target help.
+/// Spawn target help.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_help(entity, world)
   return spawnHelp(entity, world)
 end function
-// Spawn target secret.
+/// Spawn target secret.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_secret(entity, world)
   return spawnSecret(entity, world)
 end function
-// Spawn target goal.
+/// Spawn target goal.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_goal(entity, world)
   return spawnGoal(entity, world)
 end function
-// Spawn target explosion.
+/// Spawn target explosion.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_explosion(entity, world)
   return spawnExplosion(entity, world)
 end function
-// Spawn target changelevel.
+/// Spawn target changelevel.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_changelevel(entity, world)
   return spawnChangeLevel(entity, world)
 end function
-// Spawn target splash.
+/// Spawn target splash.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_splash(entity, world)
   return spawnSplash(entity, world)
 end function
-// Spawn target spawner.
+/// Spawn target spawner.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_spawner(entity, world)
   return spawnSpawner(entity, world)
 end function
-// Spawn target blaster.
+/// Spawn target blaster.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_blaster(entity, world)
   return spawnBlaster(entity, world)
 end function
-// Spawn target crosslevel trigger.
+/// Spawn target crosslevel trigger.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_crosslevel_trigger(entity, world)
   return spawnCrossLevelTrigger(entity, world)
 end function
-// Spawn target crosslevel target.
+/// Spawn target crosslevel target.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_crosslevel_target(entity, world)
   return spawnCrossLevelTarget(entity, world)
 end function
-// Spawn target laser.
+/// Spawn target laser.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_laser(entity, world)
   return spawnLaser(entity, world)
 end function
-// Spawn target earthquake.
+/// Spawn target earthquake.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_earthquake(entity, world)
   return spawnEarthquake(entity, world)
 end function
-// Spawn target actor.
+/// Spawn target actor.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_actor(entity, world)
   return spawnTargetActor(entity, world)
 end function
-// Spawn target lightramp.
+/// Spawn target lightramp.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function SP_target_lightramp(entity, world)
   return spawnTargetLightRamp(entity, world, false)
 end function

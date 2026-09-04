@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player commands facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,7 +15,9 @@ import miniquake2.game.player.constants as gpcplayerconstants
 import miniquake2.game.player.rules as gpcplayerrules
 import miniquake2.game.constants as gpcgameconstants
 
-// Return the owned weapon value.
+/// Return the owned weapon value.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
 function ownedWeapon(player, item)
   return item is not void and item.use is not void and
     (item.flags & gpcconstants.IT_WEAPON) != 0 and
@@ -21,7 +25,10 @@ function ownedWeapon(player, item)
     player.gameplay.inventory.counts[item.index] > 0
 end function
 
-// Use weapon.
+/// Use weapon.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
 function useWeapon(player, registry, pickupName)
   item = gpcitems.findByPickupName(registry, pickupName)
   if not ownedWeapon(player, item) then return false end if
@@ -29,9 +36,13 @@ function useWeapon(player, registry, pickupName)
   return result.success
 end function
 
-// g_cmds.c SelectNextItem/SelectPrevItem/ValidateSelectedItem.  The managed
-// inventory and persistent selected-item fields are kept together because the
-// HUD consumes the former while save/respawn state retains the latter.
+/// g_cmds.c SelectNextItem/SelectPrevItem/ValidateSelectedItem.  The managed
+/// inventory and persistent selected-item fields are kept together because the
+/// HUD consumes the former while save/respawn state retains the latter.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param step step value consumed by this operation.
+/// @param itemFlags itemFlags value consumed by this operation.
 function selectItem(player, registry, step, itemFlags)
   if step != -1 and step != 1 then
     return error(9701, "inventory selection step must be -1 or 1")
@@ -67,17 +78,25 @@ function selectItem(player, registry, step, itemFlags)
   return false
 end function
 
-// Select next item.
+/// Select next item.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param itemFlags itemFlags value consumed by this operation.
 function selectNextItem(player, registry, itemFlags)
   return selectItem(player, registry, 1, itemFlags)
 end function
 
-// Select previous item.
+/// Select previous item.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param itemFlags itemFlags value consumed by this operation.
 function selectPreviousItem(player, registry, itemFlags)
   return selectItem(player, registry, -1, itemFlags)
 end function
 
-// Validate selected item.
+/// Validate selected item.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function validateSelectedItem(player, registry)
   index = player.gameplay.inventory.selectedItem
   if index >= 0 and index < len(player.gameplay.inventory.counts) and
@@ -85,8 +104,11 @@ function validateSelectedItem(player, registry)
   return selectNextItem(player, registry, -1)
 end function
 
-// Cmd_Use_f is not weapon-only. Power armor and carried powerups use the
-// existing g_items.c adapters and synchronize their public PlayerData fields.
+/// Cmd_Use_f is not weapon-only. Power armor and carried powerups use the
+/// existing g_items.c adapters and synchronize their public PlayerData fields.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param pickupName pickupName value consumed by this operation.
 function useItem(player, context, pickupName)
   item = gpcitems.findByPickupName(context.registry, pickupName)
   if item is void or item.use is void or item.index <= 0 or
@@ -124,7 +146,9 @@ function useItem(player, context, pickupName)
   return result.success
 end function
 
-// Use selected item.
+/// Use selected item.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function useSelectedItem(player, context)
   if not validateSelectedItem(player, context.registry) then return false end if
   item = gpcitems.getByIndex(context.registry,
@@ -133,9 +157,13 @@ function useSelectedItem(player, context)
   return useItem(player, context, item.pickupName)
 end function
 
-// Cmd_Drop_f/Cmd_InvDrop_f share this dispatch after their command-specific
-// diagnostics.  Grenades are both IT_AMMO and IT_WEAPON, so ammo must win the
-// arity decision exactly as its gitem_t drop pointer does in stock BaseQ2.
+/// Cmd_Drop_f/Cmd_InvDrop_f share this dispatch after their command-specific
+/// diagnostics.  Grenades are both IT_AMMO and IT_WEAPON, so ammo must win the
+/// arity decision exactly as its gitem_t drop pointer does in stock BaseQ2.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param item item value consumed by this operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
 function dropDefinition(player, context, item, worldEntityNumber)
   if item is void or item.drop is void or item.index <= 0 or
       item.index >= len(player.gameplay.inventory.counts) or
@@ -174,14 +202,21 @@ function dropDefinition(player, context, item, worldEntityNumber)
   return result
 end function
 
-// Drop item.
+/// Drop item.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param pickupName pickupName value consumed by this operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
 function dropItem(player, context, pickupName, worldEntityNumber)
   item = gpcitems.findByPickupName(context.registry, pickupName)
   if item is void then return gpctypes.itemAction(false, "unknown item", 0) end if
   return dropDefinition(player, context, item, worldEntityNumber)
 end function
 
-// Drop selected item.
+/// Drop selected item.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
 function dropSelectedItem(player, context, worldEntityNumber)
   if not validateSelectedItem(player, context.registry) then
     return gpctypes.itemAction(false, "no selected item", 0)
@@ -191,7 +226,8 @@ function dropSelectedItem(player, context, worldEntityNumber)
   return dropDefinition(player, context, item, worldEntityNumber)
 end function
 
-// Toggle inventory.
+/// Toggle inventory.
+/// @param player player value consumed by this operation.
 function toggleInventory(player)
   player.showScores = false
   player.showHelp = false
@@ -199,7 +235,9 @@ function toggleInventory(player)
   return player.showInventory
 end function
 
-// Toggle score.
+/// Toggle score.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function toggleScore(player, context)
   player.showInventory = false
   player.showHelp = false
@@ -208,7 +246,9 @@ function toggleScore(player, context)
   return player.showScores
 end function
 
-// Toggle help.
+/// Toggle help.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function toggleHelp(player, context)
   if context.deathmatch then return toggleScore(player, context) end if
   player.showInventory = false
@@ -225,7 +265,8 @@ function toggleHelp(player, context)
   return player.showHelp
 end function
 
-// Write away.
+/// Write away.
+/// @param player player value consumed by this operation.
 function putAway(player)
   player.showScores = false
   player.showHelp = false
@@ -233,7 +274,9 @@ function putAway(player)
   return true
 end function
 
-// Kill player.
+/// Kill player.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function killPlayer(player, context)
   if context.time - player.respawnTime < 5.0 then return false end if
   player.flags = player.flags & ~gpcconstants.FL_GODMODE
@@ -245,7 +288,9 @@ function killPlayer(player, context)
   return true
 end function
 
-// Return the wave value.
+/// Return the wave value.
+/// @param player player value consumed by this operation.
+/// @param choice choice value consumed by this operation.
 function wave(player, choice)
   if (player.edict.client.playerState.pmove.flags &
       gpcgameconstants.PMF_DUCKED) != 0 then return "" end if
@@ -276,9 +321,12 @@ function wave(player, choice)
   return "point"
 end function
 
-// g_cmds.c intentionally traverses the item table in opposite directions for
-// WeapPrev and WeapNext.  Keep that externally visible order, while stopping
-// at the first owned weapon whose ammo policy accepts the selection.
+/// g_cmds.c intentionally traverses the item table in opposite directions for
+/// WeapPrev and WeapNext.  Keep that externally visible order, while stopping
+/// at the first owned weapon whose ammo policy accepts the selection.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param step step value consumed by this operation.
 function cycleWeapon(player, registry, step)
   if step != -1 and step != 1 then return error(9700, "weapon cycle step must be -1 or 1") end if
   current = player.gameplay.currentWeapon
@@ -303,17 +351,23 @@ function cycleWeapon(player, registry, step)
   return false
 end function
 
-// Return the weapon previous value.
+/// Return the weapon previous value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function weaponPrevious(player, registry)
   return cycleWeapon(player, registry, 1)
 end function
 
-// Return the weapon next value.
+/// Return the weapon next value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function weaponNext(player, registry)
   return cycleWeapon(player, registry, -1)
 end function
 
-// Return the weapon last value.
+/// Return the weapon last value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function weaponLast(player, registry)
   item = player.gameplay.lastWeapon
   if not ownedWeapon(player, item) then return false end if

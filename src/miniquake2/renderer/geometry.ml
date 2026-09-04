@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer geometry facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,34 +11,49 @@ import std.math as rgeometrymath
 import miniquake2.format.types as ft
 import miniquake2.qcommon.directions as rgeometrydirections
 
-// Store mesh vertex data.
+/// Store mesh vertex data.
 struct MeshVertex
+  /// Stores the position value associated with mesh vertex.
   position
+  /// Stores the s value associated with mesh vertex.
   s
+  /// Stores the t value associated with mesh vertex.
   t
 end struct
 
-// Store triangle mesh data.
+/// Store triangle mesh data.
 struct TriangleMesh
+  /// Stores the name value associated with triangle mesh.
   name
+  /// Stores the vertices value associated with triangle mesh.
   vertices
+  /// Stores the triangle count value associated with triangle mesh.
   triangleCount
 end struct
 
-// Store mesh bounds data.
+/// Store mesh bounds data.
 struct MeshBounds
+  /// Stores the mins value associated with mesh bounds.
   mins
+  /// Stores the maxs value associated with mesh bounds.
   maxs
+  /// Stores the radius value associated with mesh bounds.
   radius
 end struct
 
-// Return the mesh vertex value.
+/// Return the mesh vertex value.
+/// @param position position value consumed by this operation.
+/// @param s s value consumed by this operation.
+/// @param t t value consumed by this operation.
 function meshVertex(position, s, t)
   copiedPosition = ft.Vec3(position.x, position.y, position.z)
   return MeshVertex(copiedPosition, s, t)
 end function
 
-// Return the face vertex value.
+/// Return the face vertex value.
+/// @param map map value consumed by this operation.
+/// @param face face value consumed by this operation.
+/// @param edgeOffset edgeOffset value consumed by this operation.
 function faceVertex(map, face, edgeOffset)
   surfaceEdgeIndex = face.firstEdge + edgeOffset
   if surfaceEdgeIndex < 0 or surfaceEdgeIndex >= len(map.surfaceEdges) then return error(9630, "BSP face surface-edge range outside table") end if
@@ -55,7 +72,9 @@ function faceVertex(map, face, edgeOffset)
   return meshVertex(position, s, t)
 end function
 
-// Return the bsp model mesh value.
+/// Return the bsp model mesh value.
+/// @param map map value consumed by this operation.
+/// @param modelIndex Zero-based index of model.
 function bspModelMesh(map, modelIndex)
   if modelIndex < 0 or modelIndex >= len(map.models) then return error(9633, "BSP model index outside table") end if
   model = map.models[modelIndex]
@@ -97,7 +116,9 @@ function bspModelMesh(map, modelIndex)
   return TriangleMesh(map.name + "#" + modelIndex, vertices, triangleCount)
 end function
 
-// Return the md 2 position.
+/// Return the md 2 position.
+/// @param frame frame value consumed by this operation.
+/// @param vertexIndex Zero-based index of vertex.
 function md2Position(frame, vertexIndex)
   if vertexIndex < 0 or vertexIndex >= len(frame.vertices) then return error(9636, "MD2 vertex outside frame") end if
   packed = frame.vertices[vertexIndex]
@@ -108,7 +129,10 @@ function md2Position(frame, vertexIndex)
   )
 end function
 
-// Interpolate state.
+/// Interpolate state.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param backLerp backLerp value consumed by this operation.
 function interpolate(first, second, backLerp)
   frontLerp = 1.0 - backLerp
   return ft.Vec3(
@@ -118,7 +142,11 @@ function interpolate(first, second, backLerp)
   )
 end function
 
-// Return the md 2 frame bounds.
+/// Return the md 2 frame bounds.
+/// @param model model value consumed by this operation.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
+/// @param backLerp backLerp value consumed by this operation.
 function md2FrameBounds(model, frameIndex, oldFrameIndex, backLerp)
   if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or oldFrameIndex >= len(model.frames) then
     return error(9640, "MD2 bounds frame outside table")
@@ -152,7 +180,11 @@ function md2FrameBounds(model, frameIndex, oldFrameIndex, backLerp)
   return MeshBounds(mins, maxs, radius)
 end function
 
-// Return the md 2 frame mesh value.
+/// Return the md 2 frame mesh value.
+/// @param model model value consumed by this operation.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
+/// @param backLerp backLerp value consumed by this operation.
 function md2FrameMesh(model, frameIndex, oldFrameIndex, backLerp)
   if frameIndex < 0 or frameIndex >= len(model.frames) or oldFrameIndex < 0 or oldFrameIndex >= len(model.frames) then
     return error(9637, "MD2 animation frame outside table")
@@ -185,10 +217,15 @@ function md2FrameMesh(model, frameIndex, oldFrameIndex, backLerp)
   return TriangleMesh(model.name + "#" + frameIndex, vertices, len(model.triangles))
 end function
 
-// Render-only MD2 expansion. The inspection API above intentionally retains
-// MeshVertex structs; the live renderer needs only interleaved ST/XYZ scalars.
-// Building those scalars directly avoids a full temporary object graph and a
-// second traversal for every visible alias model on every frame.
+/// Render-only MD2 expansion. The inspection API above intentionally retains
+/// MeshVertex structs; the live renderer needs only interleaved ST/XYZ scalars.
+/// Building those scalars directly avoids a full temporary object graph and a
+/// second traversal for every visible alias model on every frame.
+/// @param model model value consumed by this operation.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
+/// @param backLerp backLerp value consumed by this operation.
+/// @param normalOffset normalOffset value consumed by this operation.
 function md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
     backLerp, normalOffset)
   // Keep md 2 frame scalars with normal offset phases explicit: validate inputs, update owned state, then publish the result.
@@ -250,13 +287,21 @@ function md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
   return scalars
 end function
 
-// Return the md 2 frame scalars value.
+/// Return the md 2 frame scalars value.
+/// @param model model value consumed by this operation.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
+/// @param backLerp backLerp value consumed by this operation.
 function md2FrameScalars(model, frameIndex, oldFrameIndex, backLerp)
   return md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,
     backLerp, 0.0)
 end function
 
-// Return the md 2 power shell frame scalars value.
+/// Return the md 2 power shell frame scalars value.
+/// @param model model value consumed by this operation.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
+/// @param backLerp backLerp value consumed by this operation.
 function md2PowerShellFrameScalars(model, frameIndex, oldFrameIndex, backLerp)
   // POWERSUIT_SCALE from ref_gl/gl_mesh.c.
   return md2FrameScalarsWithNormalOffset(model, frameIndex, oldFrameIndex,

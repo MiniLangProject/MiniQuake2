@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon text facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -5,7 +7,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 /* ASCII helpers used by command, cvar and filesystem paths. */
 package miniquake2.qcommon.text
 
-// Return the lower value.
+/// Return the lower value.
+/// @param value Value consumed or transformed by the operation.
 function lower(value)
   if typeof(value) != "string" then return error(3260, "lower requires text") end if
   qtextLowerValueHolder = value
@@ -22,7 +25,9 @@ function lower(value)
   return decode(qtextLowerOutputHolder)
 end function
 
-// Report whether equal insensitive.
+/// Report whether equal insensitive.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function equalInsensitive(first, second)
   if typeof(first) != "string" or typeof(second) != "string" then return error(3261, "equalInsensitive requires text") end if
   // Use MiniLang's allocation-free native ASCII comparison. The former
@@ -32,7 +37,10 @@ function equalInsensitive(first, second)
   return stringEqualsIgnoreCaseAscii(first, second)
 end function
 
-// Return the fixed string value.
+/// Return the fixed string value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param capacity capacity value consumed by this operation.
 function fixedString(data, offset, capacity)
   if typeof(data) != "bytes" or typeof(offset) != "int" or typeof(capacity) != "int" then
     return error(3262, "fixedString requires bytes and integer bounds")
@@ -53,7 +61,9 @@ function fixedString(data, offset, capacity)
   return qtextFixedValueHolder
 end function
 
-// Return the starts with value.
+/// Return the starts with value.
+/// @param value Value consumed or transformed by the operation.
+/// @param prefix prefix value consumed by this operation.
 function startsWith(value, prefix)
   if typeof(value) != "string" or typeof(prefix) != "string" then return error(3263, "startsWith requires text") end if
   qtextStartsValueHolder = value

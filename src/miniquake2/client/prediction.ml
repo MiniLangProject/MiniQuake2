@@ -1,3 +1,5 @@
+//! Provides miniquake2 client prediction facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -15,32 +17,43 @@ import miniquake2.protocol.types as cppt
 import miniquake2.physics.pmove as cppmove
 import miniquake2.physics.types as cplocal
 
-// Store movement prediction data.
+/// Store movement prediction data.
 struct MovementPrediction
+  /// Stores the state value associated with movement prediction.
   state
+  /// Stores the view angles value associated with movement prediction.
   viewAngles
+  /// Stores the commands replayed value associated with movement prediction.
   commandsReplayed
+  /// Stores the previous origin value associated with movement prediction.
   previousOrigin
 end struct
 
-// Product prediction replays the same bounded command ring every render
-// frame. Keep the Pmove graph, touch array, private slide scratch and result
-// storage owned by the client session instead of rebuilding them at 125 Hz.
-// A predictInto result remains valid until the next call on its workspace.
+/// Product prediction replays the same bounded command ring every render
+/// frame. Keep the Pmove graph, touch array, private slide scratch and result
+/// storage owned by the client session instead of rebuilding them at 125 Hz.
+/// A predictInto result remains valid until the next call on its workspace.
 struct PredictionWorkspace
+  /// Stores the pmove value associated with prediction workspace.
   pmove
+  /// Stores the local state value associated with prediction workspace.
   localState
+  /// Stores the result value associated with prediction workspace.
   result
 end struct
 
-// Create workspace.
+/// Create workspace.
+/// @param traceCallback traceCallback value consumed by this operation.
+/// @param pointContentsCallback pointContentsCallback value consumed by this operation.
 function createWorkspace(traceCallback, pointContentsCallback)
   pmove = cppmove.create(traceCallback, pointContentsCallback)
   result = MovementPrediction(pmove.state, pmove.viewAngles, 0, [0, 0, 0])
   return PredictionWorkspace(pmove, cplocal.createLocal(), result)
 end function
 
-// Populate the copy pmove state destination.
+/// Populate the copy pmove state destination.
+/// @param output Output collection or buffer populated by the operation.
+/// @param input input value consumed by this operation.
 function copyPmoveStateInto(output, input)
   if typeof(input) != "struct" or typeof(input.origin) != "array" or
       len(input.origin) != 3 or typeof(input.velocity) != "array" or
@@ -62,7 +75,9 @@ function copyPmoveStateInto(output, input)
   return output
 end function
 
-// Populate the copy user cmd destination.
+/// Populate the copy user cmd destination.
+/// @param output Output collection or buffer populated by the operation.
+/// @param input input value consumed by this operation.
 function copyUserCmdInto(output, input)
   if typeof(input) != "struct" or typeof(input.angles) != "array" or
       len(input.angles) != 3 then
@@ -81,7 +96,12 @@ function copyUserCmdInto(output, input)
   return output
 end function
 
-// Populate the predict destination.
+/// Populate the predict destination.
+/// @param workspace workspace value consumed by this operation.
+/// @param playerState playerState value consumed by this operation.
+/// @param commands commands value consumed by this operation.
+/// @param commandCount Number of command to process.
+/// @param airAcceleration airAcceleration value consumed by this operation.
 function predictInto(workspace, playerState, commands, commandCount,
     airAcceleration)
   if typeof(workspace) != "struct" or typeof(playerState) != "struct" then
@@ -119,13 +139,15 @@ function predictInto(workspace, playerState, commands, commandCount,
   return workspace.result
 end function
 
-// Return the short to angle value.
+/// Performs the shortToAngle operation for the miniquake2 client prediction module.
+/// @param value Value consumed or transformed by the operation.
 function inline shortToAngle(value)
   return value * (360.0 / 65536.0)
 end function
 
-// cl.viewangles contains the command-space angles; pmove.delta_angles rotates
-// them into the server-selected spawn/intermission space.
+/// cl.viewangles contains the command-space angles; pmove.delta_angles rotates
+/// them into the server-selected spawn/intermission space.
+/// @param playerState playerState value consumed by this operation.
 function localInputAngles(playerState)
   return [
     playerState.viewAngles[0] - shortToAngle(playerState.pmove.deltaAngles[0]),
@@ -133,7 +155,8 @@ function localInputAngles(playerState)
     playerState.viewAngles[2] - shortToAngle(playerState.pmove.deltaAngles[2])]
 end function
 
-// Return the signed short value.
+/// Return the signed short value.
+/// @param value Value consumed or transformed by the operation.
 function inline signedShort(value)
   while value > 32767
     value = value - 65536
@@ -144,9 +167,11 @@ function inline signedShort(value)
   return value
 end function
 
-// The PMF_NO_PREDICTION branch still updates view angles from the current
-// command; only origin replay is disabled. This is the managed equivalent of
-// cl.viewangles + SHORT2ANGLE(delta_angles) in CL_PredictMovement.
+/// The PMF_NO_PREDICTION branch still updates view angles from the current
+/// command; only origin replay is disabled. This is the managed equivalent of
+/// cl.viewangles + SHORT2ANGLE(delta_angles) in CL_PredictMovement.
+/// @param playerState playerState value consumed by this operation.
+/// @param command command value consumed by this operation.
 function commandViewAngles(playerState, command)
   if command is void then
     return cpqt.vec3(playerState.viewAngles[0], playerState.viewAngles[1],
@@ -165,7 +190,12 @@ function commandViewAngles(playerState, command)
       playerState.pmove.deltaAngles[2])))
 end function
 
-// Return the predict value.
+/// Return the predict value.
+/// @param playerState playerState value consumed by this operation.
+/// @param commands commands value consumed by this operation.
+/// @param traceCallback traceCallback value consumed by this operation.
+/// @param pointContentsCallback pointContentsCallback value consumed by this operation.
+/// @param airAcceleration airAcceleration value consumed by this operation.
 function predict(playerState, commands, traceCallback, pointContentsCallback,
     airAcceleration)
   if typeof(playerState) != "struct" then return error(7650, "prediction requires player state") end if
@@ -195,7 +225,8 @@ function predict(playerState, commands, traceCallback, pointContentsCallback,
     len(commands), previousOrigin)
 end function
 
-// Report whether prediction enabled.
+/// Report whether prediction enabled.
+/// @param playerState playerState value consumed by this operation.
 function predictionEnabled(playerState)
   return (playerState.pmove.flags & cpqc.PMF_NO_PREDICTION) == 0
 end function

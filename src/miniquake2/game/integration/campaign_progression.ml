@@ -1,3 +1,5 @@
+//! Provides miniquake2 game integration campaign progression facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,18 +10,26 @@ package miniquake2.game.integration.campaign_progression
 import miniquake2.game.integration.baseq2 as campaignbaseq2
 import miniquake2.game.world.core as campaignworld
 
-// Store campaign progress result data.
+/// Store campaign progress result data.
 struct CampaignProgressResult
+  /// Stores the reached value associated with campaign progress result.
   reached
+  /// Stores the requested map value associated with campaign progress result.
   requestedMap
+  /// Stores the selected map spec value associated with campaign progress result.
   selectedMapSpec
+  /// Stores the actions value associated with campaign progress result.
   actions
+  /// Stores the keys value associated with campaign progress result.
   keys
+  /// Stores the monsters value associated with campaign progress result.
   monsters
+  /// Stores the direct fallback value associated with campaign progress result.
   directFallback
 end struct
 
-// Map normalized name.
+/// Map normalized name.
+/// @param mapSpec mapSpec value consumed by this operation.
 function normalizedMapName(mapSpec)
   if typeof(mapSpec) != "string" or mapSpec == "" then return "" end if
   campaignMapStart = 0
@@ -44,7 +54,9 @@ function normalizedMapName(mapSpec)
   return campaignMapResult
 end function
 
-// Return the campaign visited value.
+/// Return the campaign visited value.
+/// @param visited visited value consumed by this operation.
+/// @param number number value consumed by this operation.
 function campaignVisited(visited, number)
   for each campaignVisitedNumber in visited
     if campaignVisitedNumber == number then return true end if
@@ -52,7 +64,8 @@ function campaignVisited(visited, number)
   return false
 end function
 
-// Return the campaign player value.
+/// Return the campaign player value.
+/// @param playerContext playerContext value consumed by this operation.
 function campaignPlayer(playerContext)
   if playerContext is void then return void end if
   for each campaignCandidatePlayer in playerContext.players
@@ -63,7 +76,11 @@ function campaignPlayer(playerContext)
   return void
 end function
 
-// Pick up campaign key.
+/// Pick up campaign key.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param itemClassName itemClassName value consumed by this operation.
 function campaignPickupKey(runtime, playerContext, player, itemClassName)
   if itemClassName == "" then return false end if
   campaignKeyEntity = campaignbaseq2.findItemByClass(runtime, itemClassName)
@@ -72,7 +89,11 @@ function campaignPickupKey(runtime, playerContext, player, itemClassName)
   return campaignKeyAction.success
 end function
 
-// Activate campaign world.
+/// Activate campaign world.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function campaignActivateWorld(runtime, playerContext, player, entity)
   if entity is void or not entity.inUse then return [false, 0] end if
   campaignKeyCount = 0
@@ -111,7 +132,9 @@ function campaignActivateWorld(runtime, playerContext, player, entity)
   return [campaignActivated, campaignKeyCount]
 end function
 
-// Kill campaign monster.
+/// Kill campaign monster.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
 function campaignKillMonster(runtime, actor)
   campaignMonsterIndex = 0
   while campaignMonsterIndex < len(runtime.monsters)
@@ -124,7 +147,13 @@ function campaignKillMonster(runtime, actor)
   return false
 end function
 
-// Return the campaign drive target value.
+/// Return the campaign drive target value.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param targetName targetName value consumed by this operation.
+/// @param visited visited value consumed by this operation.
+/// @param depth depth value consumed by this operation.
 function campaignDriveTarget(runtime, playerContext, player, targetName, visited, depth)
   // Keep campaign drive target phases explicit: validate inputs, update owned state, then publish the result.
   if targetName == "" or depth > 32 then return [false, 0, 0, visited] end if
@@ -180,7 +209,10 @@ function campaignDriveTarget(runtime, playerContext, player, targetName, visited
   return [campaignTargetActivated, campaignTargetKeys, campaignTargetMonsters, visited]
 end function
 
-// Map drive to.
+/// Map drive to.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param requestedMap requestedMap value consumed by this operation.
 function driveToMap(runtime, playerContext, requestedMap)
   // Keep drive to map phases explicit: validate inputs, update owned state, then publish the result.
   if runtime is void or playerContext is void or typeof(requestedMap) != "string" or requestedMap == "" then

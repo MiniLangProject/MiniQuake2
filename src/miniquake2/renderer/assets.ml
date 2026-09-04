@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer assets facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,45 +16,67 @@ import miniquake2.format.wal as fwal
 import miniquake2.renderer.geometry as rgeom
 import miniquake2.renderer.types as rt
 
-// Store model asset data.
+/// Store model asset data.
 struct ModelAsset
+  /// Stores the handle value associated with model asset.
   handle
+  /// Stores the kind value associated with model asset.
   kind
+  /// Stores the model index value associated with model asset.
   modelIndex
+  /// Stores the source value associated with model asset.
   source
+  /// Stores the mesh value associated with model asset.
   mesh
+  /// Stores the skins value associated with model asset.
   skins
+  /// Stores the frame bounds value associated with model asset.
   frameBounds
 end struct
 
-// Store picture asset data.
+/// Store picture asset data.
 struct PictureAsset
+  /// Stores the handle value associated with picture asset.
   handle
+  /// Stores the kind value associated with picture asset.
   kind
+  /// Stores the source value associated with picture asset.
   source
+  /// Stores the width value associated with picture asset.
   width
+  /// Stores the height value associated with picture asset.
   height
+  /// Stores the texture id value associated with picture asset.
   textureId
+  /// Stores the usage value associated with picture asset.
   usage
 end struct
 
-// Store asset registry data.
+/// Store asset registry data.
 struct AssetRegistry
+  /// Stores the generation value associated with asset registry.
   generation
+  /// Stores the next id value associated with asset registry.
   nextId
+  /// Stores the models value associated with asset registry.
   models
+  /// Stores the pictures value associated with asset registry.
   pictures
+  /// Stores the resources by id value associated with asset registry.
   resourcesById
 end struct
 
+/// Defines the max registered resources constant used by the miniquake2 renderer assets module.
 const MAX_REGISTERED_RESOURCES = 4096
 
-// Create state.
+/// Creates create for the miniquake2 renderer assets module.
 function create()
   return AssetRegistry(1, 1, [], [], array(MAX_REGISTERED_RESOURCES))
 end function
 
-// Return the ends with value.
+/// Return the ends with value.
+/// @param value Value consumed or transformed by the operation.
+/// @param suffix suffix value consumed by this operation.
 function endsWith(value, suffix)
   left = bytes(qtext.lower(value))
   right = bytes(qtext.lower(suffix))
@@ -66,14 +90,19 @@ function endsWith(value, suffix)
   return true
 end function
 
-// Handle next.
+/// Handle next.
+/// @param registry registry value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param name Name of the affected item.
 function nextHandle(registry, kind, name)
   handle = rt.ResourceHandle(kind, registry.nextId, name, registry.generation)
   registry.nextId = registry.nextId + 1
   return handle
 end function
 
-// Find model.
+/// Find model.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
 function findModel(registry, name)
   for each asset in registry.models
     if qtext.equalInsensitive(asset.handle.name, name) then return asset end if
@@ -81,7 +110,9 @@ function findModel(registry, name)
   return void
 end function
 
-// Find picture.
+/// Find picture.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
 function findPicture(registry, name)
   for each asset in registry.pictures
     if qtext.equalInsensitive(asset.handle.name, name) then return asset end if
@@ -89,7 +120,9 @@ function findPicture(registry, name)
   return void
 end function
 
-// Return the store resource value.
+/// Return the store resource value.
+/// @param registry registry value consumed by this operation.
+/// @param asset asset value consumed by this operation.
 function storeResource(registry, asset)
   id = asset.handle.id
   if id <= 0 or id >= len(registry.resourcesById) then
@@ -99,7 +132,9 @@ function storeResource(registry, asset)
   return asset
 end function
 
-// Find model by handle.
+/// Find model by handle.
+/// @param registry registry value consumed by this operation.
+/// @param handle Native or runtime handle used by the operation.
 function inline findModelByHandle(registry, handle)
   if typeof(handle) != "struct" or handle.kind != "model" or handle.generation != registry.generation then return void end if
   if handle.id <= 0 or handle.id >= len(registry.resourcesById) then return void end if
@@ -109,14 +144,18 @@ function inline findModelByHandle(registry, handle)
   return asset
 end function
 
-// Handle model for.
+/// Handle model for.
+/// @param registry registry value consumed by this operation.
+/// @param handle Native or runtime handle used by the operation.
 function modelForHandle(registry, handle)
   asset = findModelByHandle(registry, handle)
   if asset is void then return error(9653, "renderer model handle is stale or unknown") end if
   return asset
 end function
 
-// Find picture by handle.
+/// Find picture by handle.
+/// @param registry registry value consumed by this operation.
+/// @param handle Native or runtime handle used by the operation.
 function inline findPictureByHandle(registry, handle)
   if typeof(handle) != "struct" or handle.kind != "pic" or handle.generation != registry.generation then return void end if
   if handle.id <= 0 or handle.id >= len(registry.resourcesById) then return void end if
@@ -126,14 +165,19 @@ function inline findPictureByHandle(registry, handle)
   return asset
 end function
 
-// Handle picture for.
+/// Handle picture for.
+/// @param registry registry value consumed by this operation.
+/// @param handle Native or runtime handle used by the operation.
 function pictureForHandle(registry, handle)
   asset = findPictureByHandle(registry, handle)
   if asset is void then return error(9654, "renderer picture handle is stale or unknown") end if
   return asset
 end function
 
-// Register md 2 skins.
+/// Register md 2 skins.
+/// @param registry registry value consumed by this operation.
+/// @param imports imports value consumed by this operation.
+/// @param model model value consumed by this operation.
 function registerMd2Skins(registry, imports, model)
   skins = array(len(model.skins))
   skinIndex = 0
@@ -147,7 +191,10 @@ function registerMd2Skins(registry, imports, model)
   return skins
 end function
 
-// Register sprite frames.
+/// Register sprite frames.
+/// @param registry registry value consumed by this operation.
+/// @param imports imports value consumed by this operation.
+/// @param model model value consumed by this operation.
 function registerSpriteFrames(registry, imports, model)
   frames = array(len(model.frames))
   frameIndex = 0
@@ -162,7 +209,8 @@ function registerSpriteFrames(registry, imports, model)
   return frames
 end function
 
-// Return the md 2 frame bounds.
+/// Return the md 2 frame bounds.
+/// @param model model value consumed by this operation.
 function md2FrameBounds(model)
   bounds = array(len(model.frames))
   frameIndex = 0
@@ -173,7 +221,10 @@ function md2FrameBounds(model)
   return bounds
 end function
 
-// Return the adopt bsp model value.
+/// Return the adopt bsp model value.
+/// @param registry registry value consumed by this operation.
+/// @param map map value consumed by this operation.
+/// @param name Name of the affected item.
 function adoptBspModel(registry, map, name)
   existing = findModel(registry, name)
   if existing is not void then
@@ -190,23 +241,29 @@ function adoptBspModel(registry, map, name)
   return asset
 end function
 
-// Load bytes.
+/// Load bytes.
+/// @param imports imports value consumed by this operation.
+/// @param name Name of the affected item.
 function loadBytes(imports, name)
   data = imports.fsLoadFile(name)
   if typeof(data) != "bytes" then return error(9650, "renderer file not found: " + name) end if
   return data
 end function
 
-// The public Renderer API uses extension-less picture names (for example
-// `i_health` and `m_main_logo`).  Files on disk retain the classic
-// `pics/<name>.pcx` layout.  Model skins and WAL materials already arrive as
-// complete qpaths and must remain unchanged.
+/// The public Renderer API uses extension-less picture names (for example
+/// `i_health` and `m_main_logo`).  Files on disk retain the classic
+/// `pics/<name>.pcx` layout.  Model skins and WAL materials already arrive as
+/// complete qpaths and must remain unchanged.
+/// @param name Name of the affected item.
 function pictureFileName(name)
   if endsWith(name, ".pcx") or endsWith(name, ".wal") then return name end if
   return "pics/" + name + ".pcx"
 end function
 
-// Register model.
+/// Register model.
+/// @param registry registry value consumed by this operation.
+/// @param imports imports value consumed by this operation.
+/// @param name Name of the affected item.
 function registerModel(registry, imports, name)
   // Keep register model phases explicit: validate inputs, update owned state, then publish the result.
   existing = findModel(registry, name)
@@ -250,7 +307,10 @@ function registerModel(registry, imports, name)
   return asset
 end function
 
-// Register picture.
+/// Register picture.
+/// @param registry registry value consumed by this operation.
+/// @param imports imports value consumed by this operation.
+/// @param name Name of the affected item.
 function registerPicture(registry, imports, name)
   existing = findPicture(registry, name)
   if existing is not void then return existing end if
@@ -269,7 +329,8 @@ function registerPicture(registry, imports, name)
   return asset
 end function
 
-// Begin registration.
+/// Begin registration.
+/// @param registry registry value consumed by this operation.
 function beginRegistration(registry)
   registry.generation = registry.generation + 1
   registry.nextId = 1

@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime lifecycle facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,19 +14,27 @@ import miniquake2.network.constants as nrlifecyclenc
 import miniquake2.network.runtime.messages as nrlifecyclemessages
 import miniquake2.network.runtime.types as nrlifecyclertypes
 
-// Store server level plan data.
+/// Store server level plan data.
 struct ServerLevelPlan
+  /// Stores the ready value associated with server level plan.
   ready
+  /// Stores the deferred value associated with server level plan.
   deferred
+  /// Stores the spawn count value associated with server level plan.
   spawnCount
+  /// Stores the level name value associated with server level plan.
   levelName
+  /// Stores the server info value associated with server level plan.
   serverInfo
+  /// Stores the payload value associated with server level plan.
   payload
+  /// Stores the slots value associated with server level plan.
   slots
+  /// Stores the reason value associated with server level plan.
   reason
 end struct
 
-// Return the transition payload value.
+/// Return the transition payload value.
 function transitionPayload()
   buffer = nrlifecycleqsz.alloc(64)
   nrlifecyclemessages.writeStuffText(buffer, "changing\n")
@@ -32,7 +42,9 @@ function transitionPayload()
   return nrlifecycleqsz.dataSlice(buffer)
 end function
 
-// Prepare server level.
+/// Prepare server level.
+/// @param runtime runtime value consumed by this operation.
+/// @param levelName levelName value consumed by this operation.
 function prepareServerLevel(runtime, levelName)
   if typeof(levelName) != "string" or levelName == "" or
       len(bytes(levelName)) >= nrlifecycleqc.MAX_QPATH then
@@ -72,7 +84,9 @@ function prepareServerLevel(runtime, levelName)
     payload, slots, "ready")
 end function
 
-// Commit server level.
+/// Commit server level.
+/// @param runtime runtime value consumed by this operation.
+/// @param plan plan value consumed by this operation.
 function commitServerLevel(runtime, plan)
   if typeof(plan) != "struct" or not plan.ready or plan.deferred then
     return error(7293, "map transition plan is not committable")
@@ -116,7 +130,8 @@ function commitServerLevel(runtime, plan)
   return true
 end function
 
-// Reset client level.
+/// Reset client level.
+/// @param runtime runtime value consumed by this operation.
 function resetClientLevel(runtime)
   runtime.configStrings = array(nrlifecycleqc.MAX_CONFIGSTRINGS, "")
   runtime.baselines = nrlifecyclertypes.makeBaselines()

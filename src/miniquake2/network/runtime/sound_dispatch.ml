@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime sound dispatch facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,21 +15,28 @@ import miniquake2.network.constants as nrtsoundnc
 import miniquake2.network.runtime.pump as nrtsoundpump
 import miniquake2.server.sound_events as nrtsoundevents
 
-// Store sound dispatch result data.
+/// Store sound dispatch result data.
 struct SoundDispatchResult
+  /// Stores the sent value associated with sound dispatch result.
   sent
+  /// Stores the delivered value associated with sound dispatch result.
   delivered
+  /// Stores the deferred value associated with sound dispatch result.
   deferred
 end struct
 
-// Store sound client plan data.
+/// Store sound client plan data.
 struct SoundClientPlan
+  /// Stores the slot value associated with sound client plan.
   slot
+  /// Stores the unreliable packets value associated with sound client plan.
   unreliablePackets
+  /// Stores the reliable fragments value associated with sound client plan.
   reliableFragments
 end struct
 
-// Return the payload capacity value.
+/// Performs the payloadCapacity operation for the miniquake2 network runtime sound dispatch module.
+/// @param client client value consumed by this operation.
 function payloadCapacity(client)
   if client.channel is void then return 0 end if
   reliable = client.channel.reliableLength
@@ -37,10 +46,13 @@ function payloadCapacity(client)
   return capacity
 end function
 
-// Build every datagram/staging mutation before touching a Netchan. Stock
-// SV_StartSound routes each fragment independently: CHAN_RELIABLE enters the
-// Netchan message, while ordinary weapon and movement sounds remain transient
-// client datagrams even when they occur later in the same server frame.
+/// Build every datagram/staging mutation before touching a Netchan. Stock
+/// SV_StartSound routes each fragment independently: CHAN_RELIABLE enters the
+/// Netchan message, while ordinary weapon and movement sounds remain transient
+/// client datagrams even when they occur later in the same server frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param events events value consumed by this operation.
 function buildPlan(runtime, slot, events)
   if typeof(events) != "array" then return error(7276, "routed sound list must be an array") end if
   if len(events) == 0 then return void end if
@@ -97,9 +109,14 @@ function buildPlan(runtime, slot, events)
   return SoundClientPlan(slot, unreliablePackets, reliableFragments)
 end function
 
-// routedEvents has one ordered event list per server slot.  The original
-// events list is separately supplied so zero-recipient sounds are still
-// validated and consumed as one atomic bridge queue.
+/// routedEvents has one ordered event list per server slot.  The original
+/// events list is separately supplied so zero-recipient sounds are still
+/// validated and consumed as one atomic bridge queue.
+/// @param runtime runtime value consumed by this operation.
+/// @param socket socket value consumed by this operation.
+/// @param events events value consumed by this operation.
+/// @param routedEvents routedEvents value consumed by this operation.
+/// @param now now value consumed by this operation.
 function dispatchRouted(runtime, socket, events, routedEvents, now)
   if typeof(events) != "array" or typeof(routedEvents) != "array" or
       len(routedEvents) != runtime.server.maxClients then
@@ -154,8 +171,12 @@ function dispatchRouted(runtime, socket, events, routedEvents, now)
   return SoundDispatchResult(sent, true, 0)
 end function
 
-// Compatibility broadcast entry point retained for callers which do not own
-// collision/PHS state.  ServerSession uses dispatchRouted instead.
+/// Compatibility broadcast entry point retained for callers which do not own
+/// collision/PHS state.  ServerSession uses dispatchRouted instead.
+/// @param runtime runtime value consumed by this operation.
+/// @param socket socket value consumed by this operation.
+/// @param events events value consumed by this operation.
+/// @param now now value consumed by this operation.
 function dispatch(runtime, socket, events, now)
   routed = array(runtime.server.maxClients, void)
   slot = 0

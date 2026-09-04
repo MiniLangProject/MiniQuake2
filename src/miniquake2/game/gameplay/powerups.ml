@@ -1,3 +1,5 @@
+//! Provides miniquake2 game gameplay powerups facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,13 +12,17 @@ import miniquake2.game.gameplay.item_rules as gprules
 import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.byteio as qbyteio
 
-// Return the metadata value.
+/// Return the metadata value.
+/// @param item item value consumed by this operation.
+/// @param expectedKind expectedKind value consumed by this operation.
 function metadata(item, expectedKind)
   if item.ruleData is void or item.ruleData.kind != expectedKind then return error(9420, item.className + ": expected " + expectedKind + " metadata") end if
   return item.ruleData
 end function
 
-// Return the armor item value.
+/// Return the armor item value.
+/// @param registry registry value consumed by this operation.
+/// @param tag tag value consumed by this operation.
 function armorItem(registry, tag)
   for each item in registry.items
     if item.ruleData is not void and item.ruleData.kind == "armor" and item.tag == tag then return item end if
@@ -24,7 +30,9 @@ function armorItem(registry, tag)
   return void
 end function
 
-// Return the armor index.
+/// Return the armor index.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function ArmorIndex(player, registry)
   jacket = armorItem(registry, gpconstants.ARMOR_JACKET)
   combat = armorItem(registry, gpconstants.ARMOR_COMBAT)
@@ -35,14 +43,20 @@ function ArmorIndex(player, registry)
   return 0
 end function
 
-// Return the armor by index.
+/// Return the armor by index.
+/// @param registry registry value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function armorByIndex(registry, index)
   item = gprules.getByIndex(registry, index)
   if item is void or item.ruleData is void or item.ruleData.kind != "armor" then return void end if
   return item
 end function
 
-// Pick up armor.
+/// Pick up armor.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Armor(itemEntity, player, context, registry)
   // Keep pickup armor phases explicit: validate inputs, update owned state, then publish the result.
   if context.deathmatch and (context.dmFlags & miniquake2.game.constants.DF_NO_ARMOR) != 0 then return gptypes.itemAction(false, "armor disabled", 0) end if
@@ -90,7 +104,9 @@ function Pickup_Armor(itemEntity, player, context, registry)
   return action
 end function
 
-// Return the power armor type value.
+/// Return the power armor type value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function PowerArmorType(player, registry)
   if (player.flags & gpconstants.FL_POWER_ARMOR) == 0 then return gpconstants.POWER_ARMOR_NONE end if
   shield = gprules.findByPickupName(registry, "Power Shield")
@@ -100,8 +116,13 @@ function PowerArmorType(player, registry)
   return gpconstants.POWER_ARMOR_NONE
 end function
 
-// Cell consumption half of g_combat.c::CheckPowerArmor. The screen-facing
-// test is supplied by the caller because this package does not own view axes.
+/// Cell consumption half of g_combat.c::CheckPowerArmor. The screen-facing
+/// test is supplied by the caller because this package does not own view axes.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param damageFlags damageFlags value consumed by this operation.
+/// @param inFront inFront value consumed by this operation.
 function CheckPowerArmor(player, registry, damage, damageFlags, inFront)
   armorType = PowerArmorType(player, registry)
   if damage <= 0 or (damageFlags & gpconstants.DAMAGE_NO_ARMOR) != 0 or armorType == gpconstants.POWER_ARMOR_NONE then return gptypes.PowerArmorResult(0, 0, armorType) end if
@@ -126,7 +147,11 @@ function CheckPowerArmor(player, registry, damage, damageFlags, inFront)
   return gptypes.PowerArmorResult(saved, cellsUsed, armorType)
 end function
 
-// Use power armor.
+/// Use power armor.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Use_PowerArmor(player, item, context, registry)
   if (player.flags & gpconstants.FL_POWER_ARMOR) != 0 then
     player.flags = player.flags & ~gpconstants.FL_POWER_ARMOR
@@ -138,7 +163,11 @@ function Use_PowerArmor(player, item, context, registry)
   return gptypes.itemAction(true, "power armor enabled", 0)
 end function
 
-// Pick up power armor.
+/// Pick up power armor.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_PowerArmor(itemEntity, player, context, registry)
   if context.deathmatch and (context.dmFlags & miniquake2.game.constants.DF_NO_ARMOR) != 0 then return gptypes.itemAction(false, "armor disabled", 0) end if
   item = itemEntity.item
@@ -152,7 +181,11 @@ function Pickup_PowerArmor(itemEntity, player, context, registry)
   return action
 end function
 
-// Drop general.
+/// Drop general.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
 function Drop_General(player, item, registry, worldEntityNumber)
   if player.inventory.counts[item.index] <= 0 then return gptypes.itemAction(false, "item not owned", 0) end if
   dropped = gptypes.createItemEntity(worldEntityNumber, item)
@@ -164,7 +197,11 @@ function Drop_General(player, item, registry, worldEntityNumber)
   return action
 end function
 
-// Drop power armor.
+/// Drop power armor.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
 function Drop_PowerArmor(player, item, registry, worldEntityNumber)
   if (player.flags & gpconstants.FL_POWER_ARMOR) != 0 and player.inventory.counts[item.index] == 1 then
     temporary = gptypes.pickupContext(false, false, 0, 0.0)
@@ -173,7 +210,9 @@ function Drop_PowerArmor(player, item, registry, worldEntityNumber)
   return Drop_General(player, item, registry, worldEntityNumber)
 end function
 
-// Consume powerup.
+/// Consume powerup.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
 function consumePowerup(player, item)
   if player.inventory.counts[item.index] <= 0 then return false end if
   player.inventory.counts[item.index] = player.inventory.counts[item.index] - 1
@@ -181,13 +220,20 @@ function consumePowerup(player, item)
   return true
 end function
 
-// Return the extend frame value.
+/// Return the extend frame value.
+/// @param existing existing value consumed by this operation.
+/// @param current current value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function extendFrame(existing, current, duration)
   if existing > current then return existing + duration end if
   return current + duration
 end function
 
-// Use quad.
+/// Use quad.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Use_Quad(player, item, context, registry)
   if consumePowerup(player, item) != true then return gptypes.itemAction(false, "quad not owned", 0) end if
   duration = 300
@@ -196,35 +242,55 @@ function Use_Quad(player, item, context, registry)
   return gptypes.itemAction(true, "", duration)
 end function
 
-// Use invulnerability.
+/// Use invulnerability.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Use_Invulnerability(player, item, context, registry)
   if consumePowerup(player, item) != true then return gptypes.itemAction(false, "invulnerability not owned", 0) end if
   player.invincibleFrame = extendFrame(player.invincibleFrame, context.frameNumber, 300)
   return gptypes.itemAction(true, "", 300)
 end function
 
-// Use breather.
+/// Use breather.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Use_Breather(player, item, context, registry)
   if consumePowerup(player, item) != true then return gptypes.itemAction(false, "rebreather not owned", 0) end if
   player.breatherFrame = extendFrame(player.breatherFrame, context.frameNumber, 300)
   return gptypes.itemAction(true, "", 300)
 end function
 
-// Use envirosuit.
+/// Use envirosuit.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Use_Envirosuit(player, item, context, registry)
   if consumePowerup(player, item) != true then return gptypes.itemAction(false, "environment suit not owned", 0) end if
   player.enviroFrame = extendFrame(player.enviroFrame, context.frameNumber, 300)
   return gptypes.itemAction(true, "", 300)
 end function
 
-// Use silencer.
+/// Use silencer.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Use_Silencer(player, item, context, registry)
   if consumePowerup(player, item) != true then return gptypes.itemAction(false, "silencer not owned", 0) end if
   player.silencerShots = player.silencerShots + 30
   return gptypes.itemAction(true, "", 30)
 end function
 
-// Pick up powerup.
+/// Pick up powerup.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Powerup(itemEntity, player, context, registry)
   if context.deathmatch and (context.dmFlags & miniquake2.game.constants.DF_NO_ITEMS) != 0 then return gptypes.itemAction(false, "items disabled", 0) end if
   item = itemEntity.item
@@ -245,7 +311,11 @@ function Pickup_Powerup(itemEntity, player, context, registry)
   return action
 end function
 
-// Pick up adrenaline.
+/// Pick up adrenaline.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Adrenaline(itemEntity, player, context, registry)
   if context.deathmatch != true then player.maxHealth = player.maxHealth + 1 end if
   if player.health < player.maxHealth then player.health = player.maxHealth end if
@@ -254,7 +324,11 @@ function Pickup_Adrenaline(itemEntity, player, context, registry)
   return action
 end function
 
-// Pick up ancient head.
+/// Pick up ancient head.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_AncientHead(itemEntity, player, context, registry)
   player.maxHealth = player.maxHealth + 2
   action = gptypes.itemAction(true, "", 2)
@@ -262,14 +336,21 @@ function Pickup_AncientHead(itemEntity, player, context, registry)
   return action
 end function
 
-// Return the grant ammo value.
+/// Return the grant ammo value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
 function grantAmmo(player, registry, name)
   item = gprules.findByPickupName(registry, name)
   if item is not void then gprules.Add_Ammo(player, item, item.quantity) end if
   return true
 end function
 
-// Pick up bandolier.
+/// Pick up bandolier.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Bandolier(itemEntity, player, context, registry)
   if player.inventory.maxBullets < 250 then player.inventory.maxBullets = 250 end if
   if player.inventory.maxShells < 150 then player.inventory.maxShells = 150 end if
@@ -282,7 +363,11 @@ function Pickup_Bandolier(itemEntity, player, context, registry)
   return action
 end function
 
-// Pick up pack.
+/// Pick up pack.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Pack(itemEntity, player, context, registry)
   if player.inventory.maxBullets < 300 then player.inventory.maxBullets = 300 end if
   if player.inventory.maxShells < 200 then player.inventory.maxShells = 200 end if
@@ -301,7 +386,11 @@ function Pickup_Pack(itemEntity, player, context, registry)
   return action
 end function
 
-// Pick up key.
+/// Pick up key.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Key(itemEntity, player, context, registry)
   item = itemEntity.item
   if context.cooperative then
@@ -319,7 +408,11 @@ function Pickup_Key(itemEntity, player, context, registry)
   return gptypes.itemAction(true, "", 1)
 end function
 
-// Pick up health.
+/// Pick up health.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Health(itemEntity, player, context, registry)
   if context.deathmatch and (context.dmFlags & miniquake2.game.constants.DF_NO_HEALTH) != 0 then return gptypes.itemAction(false, "health disabled", 0) end if
   info = metadata(itemEntity.item, "health")
@@ -345,7 +438,9 @@ function Pickup_Health(itemEntity, player, context, registry)
   return action
 end function
 
-// Run mega health.
+/// Run mega health.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MegaHealthThink(itemEntity, context)
   if itemEntity.decaying != true or itemEntity.owner is void then return false end if
   if context.time < itemEntity.nextThink then return false end if
@@ -363,7 +458,9 @@ function MegaHealthThink(itemEntity, context)
   return true
 end function
 
-// Synchronize from player data.
+/// Synchronize from player data.
+/// @param gameplayPlayer gameplayPlayer value consumed by this operation.
+/// @param playerData playerData value consumed by this operation.
 function SyncFromPlayerData(gameplayPlayer, playerData)
   gameplayPlayer.health = playerData.health
   gameplayPlayer.maxHealth = playerData.maxHealth
@@ -376,7 +473,9 @@ function SyncFromPlayerData(gameplayPlayer, playerData)
   return true
 end function
 
-// Synchronize to player data.
+/// Synchronize to player data.
+/// @param gameplayPlayer gameplayPlayer value consumed by this operation.
+/// @param playerData playerData value consumed by this operation.
 function SyncToPlayerData(gameplayPlayer, playerData)
   playerData.health = gameplayPlayer.health
   playerData.maxHealth = gameplayPlayer.maxHealth
@@ -391,7 +490,10 @@ function SyncToPlayerData(gameplayPlayer, playerData)
   return true
 end function
 
-// Synchronize armor to combatant.
+/// Synchronize armor to combatant.
+/// @param player player value consumed by this operation.
+/// @param combatant combatant value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function SyncArmorToCombatant(player, combatant, registry)
   index = ArmorIndex(player, registry)
   item = armorByIndex(registry, index)
@@ -404,13 +506,19 @@ function SyncArmorToCombatant(player, combatant, registry)
   return true
 end function
 
-// Synchronize armor from combatant.
+/// Synchronize armor from combatant.
+/// @param player player value consumed by this operation.
+/// @param combatant combatant value consumed by this operation.
 function SyncArmorFromCombatant(player, combatant)
   if player.armorIndex > 0 then player.inventory.counts[player.armorIndex] = combatant.armor end if
   return true
 end function
 
-// Pick up for player data at skill.
+/// Pick up for player data at skill.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param playerData playerData value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function PickupForPlayerDataAtSkill(itemEntity, playerData, playerContext, skill)
   // g_items.c::Touch_Item rejects dead clients before invoking any pickup
   // callback, so inventory and one-shot items remain untouched by corpses.
@@ -470,7 +578,10 @@ function PickupForPlayerDataAtSkill(itemEntity, playerData, playerContext, skill
   return action
 end function
 
-// Pick up for player data.
+/// Pick up for player data.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param playerData playerData value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function PickupForPlayerData(itemEntity, playerData, playerContext)
   return PickupForPlayerDataAtSkill(itemEntity, playerData, playerContext, 1)
 end function

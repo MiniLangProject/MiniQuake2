@@ -1,3 +1,5 @@
+//! Provides miniquake2 server administration facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -12,38 +14,55 @@ import miniquake2.qcommon.types as adminqtypes
 import miniquake2.qcommon.text as admintext
 import miniquake2.network.constants as adminnc
 
+/// Defines the max ip filters constant used by the miniquake2 server administration module.
 const MAX_IP_FILTERS = 1024
+/// Defines the max rcon password bytes constant used by the miniquake2 server administration module.
 const MAX_RCON_PASSWORD_BYTES = 128
+/// Defines the min rcon password bytes constant used by the miniquake2 server administration module.
 const MIN_RCON_PASSWORD_BYTES = 8
+/// Defines the default master port constant used by the miniquake2 server administration module.
 const DEFAULT_MASTER_PORT = 27900
 
+/// Stores module-wide active administration state for the miniquake2 server administration module.
 activeAdministration = void
 
-// Store ip filter data.
+/// Store ip filter data.
 struct IpFilter
+  /// Stores the mask value associated with ip filter.
   mask
+  /// Stores the compare value associated with ip filter.
   compare
 end struct
 
-// Store administration data.
+/// Store administration data.
 struct Administration
+  /// Stores the filters value associated with administration.
   filters
+  /// Stores the filter ban value associated with administration.
   filterBan
+  /// Stores the rcon password value associated with administration.
   rconPassword
+  /// Stores the masters value associated with administration.
   masters
+  /// Stores the master ping pending value associated with administration.
   masterPingPending
+  /// Stores the write path value associated with administration.
   writePath
+  /// Stores the last output value associated with administration.
   lastOutput
+  /// Stores the rcon accepted value associated with administration.
   rconAccepted
+  /// Stores the rcon rejected value associated with administration.
   rconRejected
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 server administration module.
 function create()
   return Administration([], true, "", [], false, "", "", 0, 0)
 end function
 
-// Activate state.
+/// Performs the activate operation for the miniquake2 server administration module.
+/// @param state Mutable state inspected or updated by the operation.
 function activate(state)
   global activeAdministration
   if typeof(state) != "struct" then return error(7606, "invalid administration state") end if
@@ -51,14 +70,17 @@ function activate(state)
   return state
 end function
 
-// Report whether active.
+/// Report whether active.
 function active()
   global activeAdministration
   if activeAdministration is void then activeAdministration = create() end if
   return activeAdministration
 end function
 
-// Return the decimal octet value.
+/// Return the decimal octet value.
+/// @param source source value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param endIndex Zero-based index of end.
 function decimalOctet(source, start, endIndex)
   if start >= endIndex or endIndex - start > 3 then
     return error(7600, "bad filter address")
@@ -77,8 +99,9 @@ function decimalOctet(source, start, endIndex)
   return value
 end function
 
-// StringToFilter intentionally retains the original zero-octet wildcard
-// rule.  Consequently "192.0" describes 192.*.*.*, exactly as baseq2 3.19.
+/// StringToFilter intentionally retains the original zero-octet wildcard
+/// rule.  Consequently "192.0" describes 192.*.*.*, exactly as baseq2 3.19.
+/// @param value Value consumed or transformed by the operation.
 function parseFilter(value)
   if typeof(value) != "string" or value == "" then
     return error(7600, "bad filter address")
@@ -107,7 +130,9 @@ function parseFilter(value)
   return IpFilter(mask, compare)
 end function
 
-// Filter same.
+/// Filter same.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function sameFilter(first, second)
   index = 0
   while index < 4
@@ -118,13 +143,16 @@ function sameFilter(first, second)
   return true
 end function
 
-// Filter text.
+/// Filter text.
+/// @param filter filter value consumed by this operation.
 function filterText(filter)
   return filter.compare[0] + "." + filter.compare[1] + "." +
     filter.compare[2] + "." + filter.compare[3]
 end function
 
-// Add ip.
+/// Add ip.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function addIp(state, value)
   filter = try(parseFilter(value))
   if filter is error then return "Bad filter address: " + value + "\n" end if
@@ -133,7 +161,9 @@ function addIp(state, value)
   return ""
 end function
 
-// Remove ip.
+/// Remove ip.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function removeIp(state, value)
   filter = try(parseFilter(value))
   if filter is error then return "Bad filter address: " + value + "\n" end if
@@ -158,7 +188,8 @@ function removeIp(state, value)
   return "Removed.\n"
 end function
 
-// Return the list ip value.
+/// Return the list ip value.
+/// @param state Mutable state inspected or updated by the operation.
 function listIp(state)
   output = "Filter list:\n"
   for each filter in state.filters
@@ -167,7 +198,8 @@ function listIp(state)
   return output
 end function
 
-// Return the config text value.
+/// Return the config text value.
+/// @param state Mutable state inspected or updated by the operation.
 function configText(state)
   value = 0
   if state.filterBan then value = 1 end if
@@ -178,15 +210,18 @@ function configText(state)
   return output
 end function
 
-// Set write path.
+/// Set write path.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param path Path of the file or directory used by the operation.
 function setWritePath(state, path)
   if typeof(path) != "string" then return error(7601, "listip path must be text") end if
   state.writePath = path
   return path
 end function
 
-// Use an adjacent verified temporary file so a failed write never truncates
-// the active access-control policy.
+/// Use an adjacent verified temporary file so a failed write never truncates
+/// the active access-control policy.
+/// @param state Mutable state inspected or updated by the operation.
 function writeIp(state)
   if state.writePath == "" then return "Couldn't open listip.cfg\n" end if
   value = configText(state)
@@ -206,7 +241,9 @@ function writeIp(state)
   return "Writing " + state.writePath + ".\n"
 end function
 
-// Return the matches value.
+/// Return the matches value.
+/// @param filter filter value consumed by this operation.
+/// @param address address value consumed by this operation.
 function matches(filter, address)
   if address is void or address.type != adminnc.NA_IP or len(address.ip) != 4 then
     return false
@@ -221,7 +258,9 @@ function matches(filter, address)
   return true
 end function
 
-// True means the connect must be rejected, mirroring SV_FilterPacket.
+/// True means the connect must be rejected, mirroring SV_FilterPacket.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param address address value consumed by this operation.
 function filterPacket(state, address)
   if address is void or address.type == adminnc.NA_LOOPBACK then return false end if
   matched = false
@@ -232,14 +271,17 @@ function filterPacket(state, address)
   return not state.filterBan
 end function
 
-// Set filter ban.
+/// Set filter ban.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function setFilterBan(state, value)
   if value == "0" then state.filterBan = false; return true end if
   if value == "1" then state.filterBan = true; return true end if
   return error(7602, "filterban must be 0 or 1")
 end function
 
-// Return the printable password value.
+/// Return the printable password value.
+/// @param value Value consumed or transformed by the operation.
 function printablePassword(value)
   data = bytes(value)
   index = 0
@@ -250,8 +292,10 @@ function printablePassword(value)
   return true
 end function
 
-// Empty disables RCON like 3.19. Non-empty secrets get a modern minimum and
-// must remain one printable command token; this avoids ambiguous wire parsing.
+/// Empty disables RCON like 3.19. Non-empty secrets get a modern minimum and
+/// must remain one printable command token; this avoids ambiguous wire parsing.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function setRconPassword(state, value)
   if typeof(value) != "string" then return error(7603, "rcon password must be text") end if
   count = len(bytes(value))
@@ -264,7 +308,9 @@ function setRconPassword(state, value)
   return true
 end function
 
-// Report whether constant time equal.
+/// Report whether constant time equal.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function constantTimeEqual(first, second)
   firstData = bytes(first)
   secondData = bytes(second)
@@ -283,13 +329,16 @@ function constantTimeEqual(first, second)
   return difference == 0
 end function
 
-// Report whether rcon valid.
+/// Report whether rcon valid.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param supplied supplied value consumed by this operation.
 function rconValid(state, supplied)
   if state.rconPassword == "" then return false end if
   return constantTimeEqual(state.rconPassword, supplied)
 end function
 
-// Parse endpoint.
+/// Parse endpoint.
+/// @param value Value consumed or transformed by the operation.
 function parseEndpoint(value)
   if typeof(value) != "string" or value == "" then return error(7605, "bad master address") end if
   source = bytes(value)
@@ -334,7 +383,10 @@ function parseEndpoint(value)
   return adminqtypes.NetAddress(adminnc.NA_IP, compare, array(10, 0), port)
 end function
 
-// Configure masters.
+/// Configure masters.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param arguments arguments value consumed by this operation.
+/// @param startIndex Zero-based index of start.
 function configureMasters(state, arguments, startIndex)
   masters = []
   index = startIndex
@@ -354,14 +406,17 @@ function configureMasters(state, arguments, startIndex)
   return output
 end function
 
-// Consume master ping.
+/// Consume master ping.
+/// @param state Mutable state inspected or updated by the operation.
 function takeMasterPing(state)
   if not state.masterPingPending then return false end if
   state.masterPingPending = false
   return true
 end function
 
-// Return the server command value.
+/// Return the server command value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param arguments arguments value consumed by this operation.
 function serverCommand(state, arguments)
   if len(arguments) < 2 then
     state.lastOutput = "Unknown server command \"\"\n"

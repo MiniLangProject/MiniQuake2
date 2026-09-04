@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai props facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,12 +11,16 @@ import miniquake2.game.ai.constants as aipropconstants
 import miniquake2.game.constants as aipropgameconstants
 import miniquake2.qcommon.types as aipropqtypes
 
-// Report whether is prop.
+/// Report whether is prop.
+/// @param actor actor value consumed by this operation.
 function isProp(actor)
   return actor.className == "monster_boss3_stand" or actor.className == "monster_commander_body"
 end function
 
-// Return the prop sound value.
+/// Return the prop sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param soundName soundName value consumed by this operation.
 function propSound(actor, context, soundName)
   if typeof(context.playSound) == "function" then
     context.playSound(actor, soundName, aipropgameconstants.CHAN_BODY, aipropgameconstants.ATTN_NORM)
@@ -22,7 +28,9 @@ function propSound(actor, context, soundName)
   return soundName
 end function
 
-// Configure boss 3 stand.
+/// Configure boss 3 stand.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function configureBoss3Stand(actor, context)
   actor.mins = [-32.0, -32.0, 0.0]; actor.maxs = [32.0, 32.0, 90.0]
   actor.edict.mins = aipropqtypes.Vec3(-32.0, -32.0, 0.0); actor.edict.maxs = aipropqtypes.Vec3(32.0, 32.0, 90.0)
@@ -46,7 +54,9 @@ function configureBoss3Stand(actor, context)
   return actor
 end function
 
-// Configure commander body.
+/// Configure commander body.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function configureCommanderBody(actor, context)
   actor.mins = [-32.0, -32.0, 0.0]; actor.maxs = [32.0, 32.0, 48.0]
   actor.edict.mins = aipropqtypes.Vec3(-32.0, -32.0, 0.0); actor.edict.maxs = aipropqtypes.Vec3(32.0, 32.0, 48.0)
@@ -64,24 +74,32 @@ function configureCommanderBody(actor, context)
   return actor
 end function
 
-// Configure state.
+/// Performs the configure operation for the miniquake2 game ai props module.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function configure(actor, context)
   if actor.className == "monster_boss3_stand" then return configureBoss3Stand(actor, context) end if
   if actor.className == "monster_commander_body" then return configureCommanderBody(actor, context) end if
   return error(9635, "unsupported scripted AI prop " + actor.className)
 end function
 
-// Start state.
+/// Starts start for the miniquake2 game ai props workflow.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function Start(actor, context)
   return configure(actor, context)
 end function
 
-// Start go.
+/// Start go.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StartGo(actor, context)
   return isProp(actor)
 end function
 
-// Run boss 3.
+/// Run boss 3.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function boss3Think(actor, context)
   if actor.edict.inUse != true then return false end if
   if actor.edict.state.frame == 473 then actor.edict.state.frame = 414
@@ -92,7 +110,11 @@ function boss3Think(actor, context)
   return true
 end function
 
-// Use boss 3.
+/// Use boss 3.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function boss3Use(actor, other, activator, context)
   if actor.edict.inUse != true then return false end if
   if typeof(context.tempEntity) == "function" then context.tempEntity(actor, aipropconstants.TE_BOSSTPORT) end if
@@ -103,7 +125,9 @@ function boss3Use(actor, other, activator, context)
   return true
 end function
 
-// Drop commander.
+/// Drop commander.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function commanderDrop(actor, context)
   aipropOriginHolder = actor.edict.state.origin
   actor.edict.state.origin = aipropqtypes.Vec3(aipropOriginHolder.x, aipropOriginHolder.y, aipropOriginHolder.z + 2.0)
@@ -114,7 +138,9 @@ function commanderDrop(actor, context)
   return true
 end function
 
-// Run commander.
+/// Run commander.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function commanderThink(actor, context)
   actor.edict.state.frame = actor.edict.state.frame + 1
   if actor.edict.state.frame == 22 then propSound(actor, context, "tank/thud.wav") end if
@@ -130,7 +156,11 @@ function commanderThink(actor, context)
   return true
 end function
 
-// Use commander.
+/// Use commander.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function commanderUse(actor, other, activator, context)
   if actor.edict.inUse != true then return false end if
   actor.activity = "commander-animate"
@@ -140,7 +170,9 @@ function commanderUse(actor, other, activator, context)
   return true
 end function
 
-// Run state.
+/// Performs the Think operation for the miniquake2 game ai props module.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function Think(actor, context)
   if actor.className == "monster_boss3_stand" then return boss3Think(actor, context) end if
   if actor.className == "monster_commander_body" then
@@ -151,14 +183,19 @@ function Think(actor, context)
   return error(9636, "scripted AI prop think on unsupported class")
 end function
 
-// Use state.
+/// Use state.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function Use(actor, other, activator, context)
   if actor.className == "monster_boss3_stand" then return boss3Use(actor, other, activator, context) end if
   if actor.className == "monster_commander_body" then return commanderUse(actor, other, activator, context) end if
   return error(9637, "scripted AI prop use on unsupported class")
 end function
 
-// Restore phase.
+/// Restore phase.
+/// @param actor actor value consumed by this operation.
 function restorePhase(actor)
   actor.info.currentMove = void
   if actor.className == "monster_boss3_stand" then

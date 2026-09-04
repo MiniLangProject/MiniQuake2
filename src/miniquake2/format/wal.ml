@@ -1,3 +1,5 @@
+//! Provides miniquake2 format wal facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,7 +11,8 @@ import miniquake2.format.constants as fc
 import miniquake2.format.types as ft
 import miniquake2.format.binary as fbio
 
-// Parse state.
+/// Parses parse for the miniquake2 format wal workflow.
+/// @param data Input data consumed by the operation.
 function parse(data)
   if len(data) < 100 then return error(2500, "WAL header is truncated") end if
   name = fbio.fixedString(data, 0, 32)

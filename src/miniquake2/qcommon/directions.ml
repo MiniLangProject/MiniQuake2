@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon directions facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,6 +10,7 @@ package miniquake2.qcommon.directions
 import miniquake2.qcommon.message as qmsg
 import miniquake2.qcommon.types as qt
 
+/// Stores module-wide normals state for the miniquake2 qcommon directions module.
 normals = [
   [-0.525731, 0.000000, 0.850651],
   [-0.442863, 0.238856, 0.864188],
@@ -173,7 +176,8 @@ normals = [
   [-0.688191, -0.587785, -0.425325],
 ]
 
-// Encode direction.
+/// Encode direction.
+/// @param direction direction value consumed by this operation.
 function encodeDirection(direction)
   bestIndex = 0
   bestDot = 0.0
@@ -190,32 +194,39 @@ function encodeDirection(direction)
   return bestIndex
 end function
 
-// Decode direction.
+/// Decode direction.
+/// @param index Zero-based index of the affected item.
 function decodeDirection(index)
   if typeof(index) != "int" or index < 0 or index >= len(normals) then return error(2340, "MSG_ReadDir: direction index out of range") end if
   normal = normals[index]
   return qt.Vec3(normal[0], normal[1], normal[2])
 end function
 
-// Write direction.
+/// Write direction.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param direction direction value consumed by this operation.
 function writeDirection(buffer, direction)
   qmsg.writeByte(buffer, encodeDirection(direction))
   return buffer
 end function
 
-// Read direction.
+/// Read direction.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readDirection(buffer)
   index = qmsg.readByte(buffer)
   if index < 0 then return error(2341, "MSG_ReadDir: truncated direction") end if
   return decodeDirection(index)
 end function
 
-// Write msg dir.
+/// Write msg dir.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param direction direction value consumed by this operation.
 function MSG_WriteDir(buffer, direction)
   return writeDirection(buffer, direction)
 end function
 
-// Read msg dir.
+/// Read msg dir.
+/// @param buffer Buffer that receives or supplies the operation data.
 function MSG_ReadDir(buffer)
   return readDirection(buffer)
 end function

@@ -1,3 +1,5 @@
+//! Provides miniquake2 client runtime handoff facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,15 +12,18 @@ import miniquake2.protocol.types as pt
 import miniquake2.client.effects.types as cetypes
 import miniquake2.client.runtime.types as crtypes
 
+/// Defines the max frame handoffs constant used by the miniquake2 client runtime handoff module.
 const MAX_FRAME_HANDOFFS = 8
 
-// Copy vec data.
+/// Copy vec data.
+/// @param value Value consumed or transformed by the operation.
 function copyVec(value)
   if value is void then return void end if
   return qt.Vec3(value.x, value.y, value.z)
 end function
 
-// Copy values data.
+/// Copy values data.
+/// @param values values value consumed by this operation.
 function copyValues(values)
   output = array(len(values))
   index = 0
@@ -29,7 +34,8 @@ function copyValues(values)
   return output
 end function
 
-// Copy snapshot data.
+/// Copy snapshot data.
+/// @param value Value consumed or transformed by the operation.
 function copySnapshot(value)
   if value is void then return void end if
   output = crtypes.Snapshot(value.number, value.deltaNumber, value.suppressCount,
@@ -46,7 +52,8 @@ function copySnapshot(value)
   return output
 end function
 
-// Copy lights data.
+/// Copy lights data.
+/// @param values values value consumed by this operation.
 function copyLights(values)
   output = array(len(values))
   index = 0
@@ -61,7 +68,9 @@ function copyLights(values)
   return output
 end function
 
-// Copy particles data.
+/// Copy particles data.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function copyParticles(values, count)
   output = array(count)
   index = 0
@@ -77,7 +86,8 @@ function copyParticles(values, count)
   return output
 end function
 
-// Copy beams data.
+/// Copy beams data.
+/// @param values values value consumed by this operation.
 function copyBeams(values)
   output = array(len(values))
   index = 0
@@ -94,7 +104,8 @@ function copyBeams(values)
   return output
 end function
 
-// Copy lasers data.
+/// Copy lasers data.
+/// @param values values value consumed by this operation.
 function copyLasers(values)
   output = array(len(values))
   index = 0
@@ -109,7 +120,8 @@ function copyLasers(values)
   return output
 end function
 
-// Copy explosions data.
+/// Copy explosions data.
+/// @param values values value consumed by this operation.
 function copyExplosions(values)
   output = array(len(values))
   index = 0
@@ -127,7 +139,8 @@ function copyExplosions(values)
   return output
 end function
 
-// Copy sustains data.
+/// Copy sustains data.
+/// @param values values value consumed by this operation.
 function copySustains(values)
   output = array(len(values))
   index = 0
@@ -143,7 +156,8 @@ function copySustains(values)
   return output
 end function
 
-// Copy sounds data.
+/// Copy sounds data.
+/// @param values values value consumed by this operation.
 function copySounds(values)
   output = array(len(values))
   index = 0
@@ -158,7 +172,8 @@ function copySounds(values)
   return output
 end function
 
-// Copy prints data.
+/// Copy prints data.
+/// @param values values value consumed by this operation.
 function copyPrints(values)
   output = array(len(values))
   index = 0
@@ -170,7 +185,8 @@ function copyPrints(values)
   return output
 end function
 
-// Copy centers data.
+/// Copy centers data.
+/// @param values values value consumed by this operation.
 function copyCenters(values)
   output = array(len(values))
   index = 0
@@ -182,7 +198,8 @@ function copyCenters(values)
   return output
 end function
 
-// Copy layouts data.
+/// Copy layouts data.
+/// @param values values value consumed by this operation.
 function copyLayouts(values)
   output = array(len(values))
   index = 0
@@ -194,7 +211,8 @@ function copyLayouts(values)
   return output
 end function
 
-// Copy inventories data.
+/// Copy inventories data.
+/// @param values values value consumed by this operation.
 function copyInventories(values)
   output = array(len(values))
   index = 0
@@ -208,7 +226,9 @@ function copyInventories(values)
   return output
 end function
 
-// Append bounded.
+/// Append bounded.
+/// @param values values value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function appendBounded(values, value)
   start = 0
   if len(values) >= MAX_FRAME_HANDOFFS then start = len(values) - MAX_FRAME_HANDOFFS + 1 end if
@@ -224,10 +244,12 @@ function appendBounded(values, value)
   return output
 end function
 
-// Append two small transient event collections. Persistent render state is
-// read directly from the latest immutable client snapshot; only one-shot UI
-// and audio events need ordered aggregation when several packets arrive in a
-// single product pump.
+/// Append two small transient event collections. Persistent render state is
+/// read directly from the latest immutable client snapshot; only one-shot UI
+/// and audio events need ordered aggregation when several packets arrive in a
+/// single product pump.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function appendEvents(first, second)
   if len(first) == 0 then return second end if
   if len(second) == 0 then return first end if
@@ -245,7 +267,9 @@ function appendEvents(first, second)
   return output
 end function
 
-// Commit state.
+/// Commit state.
+/// @param runtime runtime value consumed by this operation.
+/// @param now now value consumed by this operation.
 function commit(runtime, now)
   if typeof(now) != "int" then return error(8380, "frame handoff time must be integer milliseconds") end if
   current = runtime.client.current
@@ -301,7 +325,8 @@ function commit(runtime, now)
   return value
 end function
 
-// Consume state.
+/// Consume state.
+/// @param runtime runtime value consumed by this operation.
 function take(runtime)
   if len(runtime.frameHandoffs) == 0 then return void end if
   value = runtime.frameHandoffs[0]
@@ -315,7 +340,8 @@ function take(runtime)
   return value
 end function
 
-// Consume latest.
+/// Consume latest.
+/// @param runtime runtime value consumed by this operation.
 function takeLatest(runtime)
   if len(runtime.frameHandoffs) == 0 then return void end if
   value = runtime.frameHandoffs[len(runtime.frameHandoffs) - 1]
@@ -336,7 +362,8 @@ function takeLatest(runtime)
   return value
 end function
 
-// Report whether pending.
+/// Report whether pending.
+/// @param runtime runtime value consumed by this operation.
 function pending(runtime)
   return len(runtime.frameHandoffs)
 end function

@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon byteio facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -8,7 +10,10 @@ The IEEE-754 conversion is deliberately pure MiniLang.
 */
 package miniquake2.qcommon.byteio
 
-// Require range.
+/// Require range.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
 function requireRange(data, offset, count)
   if typeof(data) != "bytes" then return error(2100, "byte buffer required") end if
   if typeof(offset) != "int" or typeof(count) != "int" then
@@ -20,33 +25,43 @@ function requireRange(data, offset, count)
   return true
 end function
 
-// Return the u 8 value.
+/// Return the u 8 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline u8(data, offset)
   requireRange(data, offset, 1)
   return data[offset]
 end function
 
-// Return the i 8 value.
+/// Return the i 8 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline i8(data, offset)
   value = u8(data, offset)
   if value >= 128 then return value - 256 end if
   return value
 end function
 
-// Return the u 16 value.
+/// Return the u 16 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline u16(data, offset)
   requireRange(data, offset, 2)
   return data[offset] | (data[offset + 1] << 8)
 end function
 
-// Return the i 16 value.
+/// Return the i 16 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline i16(data, offset)
   value = u16(data, offset)
   if value >= 0x8000 then return value - 0x10000 end if
   return value
 end function
 
-// Return the u 32 value.
+/// Return the u 32 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function u32(data, offset)
   requireRange(data, offset, 4)
   return data[offset] |
@@ -55,14 +70,19 @@ function u32(data, offset)
     (data[offset + 3] << 24)
 end function
 
-// Return the i 32 value.
+/// Return the i 32 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function i32(data, offset)
   value = u32(data, offset)
   if value >= 0x80000000 then return value - 0x100000000 end if
   return value
 end function
 
-// Write u 8.
+/// Write u 8.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline putU8(data, offset, value)
   requireRange(data, offset, 1)
   if typeof(value) != "int" then return error(2103, "byte value must be an integer") end if
@@ -70,12 +90,18 @@ function inline putU8(data, offset, value)
   return offset + 1
 end function
 
-// Write i 8.
+/// Write i 8.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline putI8(data, offset, value)
   return putU8(data, offset, value)
 end function
 
-// Write u 16.
+/// Write u 16.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline putU16(data, offset, value)
   requireRange(data, offset, 2)
   if typeof(value) != "int" then return error(2104, "short value must be an integer") end if
@@ -84,12 +110,18 @@ function inline putU16(data, offset, value)
   return offset + 2
 end function
 
-// Write i 16.
+/// Write i 16.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline putI16(data, offset, value)
   return putU16(data, offset, value)
 end function
 
-// Write u 32.
+/// Write u 32.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function putU32(data, offset, value)
   requireRange(data, offset, 4)
   if typeof(value) != "int" then return error(2105, "long value must be an integer") end if
@@ -100,12 +132,20 @@ function putU32(data, offset, value)
   return offset + 4
 end function
 
-// Write i 32.
+/// Write i 32.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline putI32(data, offset, value)
   return putU32(data, offset, value)
 end function
 
-// Populate the copy destination.
+/// Populate the copy destination.
+/// @param destination destination value consumed by this operation.
+/// @param destinationOffset destinationOffset value consumed by this operation.
+/// @param source source value consumed by this operation.
+/// @param sourceOffset sourceOffset value consumed by this operation.
+/// @param count Number of items or units to process.
 function copyInto(destination, destinationOffset, source, sourceOffset, count)
   requireRange(destination, destinationOffset, count)
   requireRange(source, sourceOffset, count)
@@ -117,8 +157,9 @@ function copyInto(destination, destinationOffset, source, sourceOffset, count)
   return destinationOffset + count
 end function
 
-// Convert an integer or finite MiniLang float to a C-style truncating int.
-// Constructing the result bit by bit avoids a native float-to-int helper.
+/// Convert an integer or finite MiniLang float to a C-style truncating int.
+/// Constructing the result bit by bit avoids a native float-to-int helper.
+/// @param value Value consumed or transformed by the operation.
 function truncInt(value)
   if typeof(value) == "int" then return value end if
   if typeof(value) != "float" then return error(2106, "numeric value required") end if
@@ -145,14 +186,17 @@ function truncInt(value)
   return result
 end function
 
-// Round a binary fractional tail to nearest, ties to even.
+/// Round a binary fractional tail to nearest, ties to even.
+/// @param remainder remainder value consumed by this operation.
+/// @param leastBit leastBit value consumed by this operation.
 function shouldRoundUp(remainder, leastBit)
   if remainder > 0.5 then return true end if
   if remainder == 0.5 and (leastBit & 1) != 0 then return true end if
   return false
 end function
 
-// Emit 23 fraction bits from a value in [0, 1), returning [bits, tail].
+/// Emit 23 fraction bits from a value in [0, 1), returning [bits, tail].
+/// @param fraction fraction value consumed by this operation.
 function fractionBits23(fraction)
   bits = 0
   bit = 22
@@ -167,7 +211,8 @@ function fractionBits23(fraction)
   return [bits, fraction]
 end function
 
-// Return the power of two value.
+/// Return the power of two value.
+/// @param exponent exponent value consumed by this operation.
 function powerOfTwo(exponent)
   value = 1.0
   while exponent > 0
@@ -181,8 +226,9 @@ function powerOfTwo(exponent)
   return value
 end function
 
-// Encode IEEE-754 binary32 using round-to-nearest-even. Negative zero is
-// normalized to positive zero because MiniLang has no signbit primitive.
+/// Encode IEEE-754 binary32 using round-to-nearest-even. Negative zero is
+/// normalized to positive zero because MiniLang has no signbit primitive.
+/// @param value Value consumed or transformed by the operation.
 function float32Bits(value)
   magnitude = 0.0
   if typeof(value) == "int" then
@@ -236,7 +282,8 @@ function float32Bits(value)
   return sign | ((exponent + 127) << 23) | mantissa
 end function
 
-// Return the float 32 from bits.
+/// Return the float 32 from bits.
+/// @param bits bits value consumed by this operation.
 function float32FromBits(bits)
   if typeof(bits) != "int" then return error(2110, "float32 bits must be an integer") end if
   sign = 1.0
@@ -266,24 +313,31 @@ function float32FromBits(bits)
   return sign * value
 end function
 
-// Return the f 32 value.
+/// Return the f 32 value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
 function inline f32(data, offset)
   return float32FromBits(u32(data, offset))
 end function
 
-// Write f 32.
+/// Write f 32.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline putF32(data, offset, value)
   return putU32(data, offset, float32Bits(value))
 end function
 
-// Swap short.
+/// Swap short.
+/// @param value Value consumed or transformed by the operation.
 function shortSwap(value)
   swapped = ((value & 255) << 8) | ((value >> 8) & 255)
   if swapped >= 0x8000 then return swapped - 0x10000 end if
   return swapped
 end function
 
-// Swap long.
+/// Swap long.
+/// @param value Value consumed or transformed by the operation.
 function longSwap(value)
   swapped = ((value & 255) << 24) |
     (((value >> 8) & 255) << 16) |
@@ -293,26 +347,30 @@ function longSwap(value)
   return swapped
 end function
 
-// The supported MiniQuake2 release platform is little-endian Windows x64.
+/// The supported MiniQuake2 release platform is little-endian Windows x64.
+/// @param value Value consumed or transformed by the operation.
 function inline littleShort(value)
   narrowed = value & 0xffff
   if narrowed >= 0x8000 then return narrowed - 0x10000 end if
   return narrowed
 end function
 
-// Return the little long value.
+/// Return the little long value.
+/// @param value Value consumed or transformed by the operation.
 function inline littleLong(value)
   narrowed = value & 0xffffffff
   if narrowed >= 0x80000000 then return narrowed - 0x100000000 end if
   return narrowed
 end function
 
-// Return the big short value.
+/// Return the big short value.
+/// @param value Value consumed or transformed by the operation.
 function bigShort(value)
   return shortSwap(value)
 end function
 
-// Return the big long value.
+/// Return the big long value.
+/// @param value Value consumed or transformed by the operation.
 function bigLong(value)
   return longSwap(value)
 end function

@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime multiplayer session facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,33 +17,51 @@ import miniquake2.game.integration.baseq2 as mpsbaseq2
 import miniquake2.qcommon.byteio as mpsbyteio
 import miniquake2.runtime.media_sequence as mpsmediasequence
 
+/// Defines the mode deathmatch constant used by the miniquake2 runtime multiplayer session module.
 const MODE_DEATHMATCH = "deathmatch"
+/// Defines the mode coop constant used by the miniquake2 runtime multiplayer session module.
 const MODE_COOP = "coop"
+/// Defines the min client count constant used by the miniquake2 runtime multiplayer session module.
 const MIN_CLIENT_COUNT = 2
+/// Defines the max client count constant used by the miniquake2 runtime multiplayer session module.
 const MAX_CLIENT_COUNT = 8
 
-// Store multiplayer step result data.
+/// Store multiplayer step result data.
 struct MultiplayerStepResult
+  /// Stores the client states value associated with multiplayer step result.
   clientStates
+  /// Stores the server states value associated with multiplayer step result.
   serverStates
+  /// Stores the active clients value associated with multiplayer step result.
   activeClients
+  /// Stores the server frame value associated with multiplayer step result.
   serverFrame
+  /// Stores the packets received value associated with multiplayer step result.
   packetsReceived
+  /// Stores the packets sent value associated with multiplayer step result.
   packetsSent
+  /// Stores the packets rejected value associated with multiplayer step result.
   packetsRejected
 end struct
 
-// Store multiplayer session data.
+/// Store multiplayer session data.
 struct MultiplayerSession
+  /// Stores the mode value associated with multiplayer session.
   mode
+  /// Stores the server value associated with multiplayer session.
   server
+  /// Stores the clients value associated with multiplayer session.
   clients
+  /// Stores the user infos value associated with multiplayer session.
   userInfos
+  /// Stores the steps value associated with multiplayer session.
   steps
+  /// Stores the closed value associated with multiplayer session.
   closed
 end struct
 
-// Validate mode.
+/// Validate mode.
+/// @param mode Mode selecting the requested behavior.
 function validateMode(mode)
   if mode != MODE_DEATHMATCH and mode != MODE_COOP then
     return error(8400, "multiplayer mode must be deathmatch or coop")
@@ -49,7 +69,8 @@ function validateMode(mode)
   return true
 end function
 
-// Validate user infos.
+/// Validate user infos.
+/// @param userInfos userInfos value consumed by this operation.
 function validateUserInfos(userInfos)
   if typeof(userInfos) != "array" or len(userInfos) < MIN_CLIENT_COUNT or
       len(userInfos) > MAX_CLIENT_COUNT then
@@ -65,7 +86,10 @@ function validateUserInfos(userInfos)
   return true
 end function
 
-// Wrap state.
+/// Wrap state.
+/// @param mode Mode selecting the requested behavior.
+/// @param server server value consumed by this operation.
+/// @param userInfos userInfos value consumed by this operation.
 function wrap(mode, server, userInfos)
   validateMode(mode)
   validateUserInfos(userInfos)
@@ -86,12 +110,23 @@ function wrap(mode, server, userInfos)
     mpsWrappedUserInfos, 0, false)
 end function
 
-// Create core.
+/// Creates core for the miniquake2 runtime multiplayer session module.
+/// @param mode Mode selecting the requested behavior.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param userInfos userInfos value consumed by this operation.
 function createCore(mode, mapName, entityText, collision, userInfos)
   return createCoreAtSkill(mode, mapName, entityText, collision, userInfos, 1)
 end function
 
-// Create core at skill.
+/// Creates core at skill for the miniquake2 runtime multiplayer session module.
+/// @param mode Mode selecting the requested behavior.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param userInfos userInfos value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createCoreAtSkill(mode, mapName, entityText, collision, userInfos, skill)
   validateMode(mode)
   validateUserInfos(userInfos)
@@ -103,12 +138,21 @@ function createCoreAtSkill(mode, mapName, entityText, collision, userInfos, skil
   return wrap(mode, mpsCreatedServer, userInfos)
 end function
 
-// Create retail.
+/// Creates retail for the miniquake2 runtime multiplayer session module.
+/// @param mode Mode selecting the requested behavior.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param userInfos userInfos value consumed by this operation.
 function createRetail(mode, baseDirectory, mapName, userInfos)
   return createRetailAtSkill(mode, baseDirectory, mapName, userInfos, 1)
 end function
 
-// Create retail at skill.
+/// Creates retail at skill for the miniquake2 runtime multiplayer session module.
+/// @param mode Mode selecting the requested behavior.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param userInfos userInfos value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function createRetailAtSkill(mode, baseDirectory, mapName, userInfos, skill)
   validateMode(mode)
   validateUserInfos(userInfos)
@@ -120,7 +164,10 @@ function createRetailAtSkill(mode, baseDirectory, mapName, userInfos, skill)
   return wrap(mode, mpsRetailServer, userInfos)
 end function
 
-// Return the checked client index.
+/// Return the checked client index.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
+/// @param operation operation value consumed by this operation.
 function checkedClientIndex(session, clientIndex, operation)
   if session.closed then return error(8404, operation + ": multiplayer session is closed") end if
   if typeof(clientIndex) != "int" or clientIndex < 0 or clientIndex >= len(session.clients) then
@@ -129,7 +176,9 @@ function checkedClientIndex(session, clientIndex, operation)
   return clientIndex
 end function
 
-// Return the server slot value.
+/// Return the server slot value.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
 function serverSlot(session, clientIndex)
   checkedClientIndex(session, clientIndex, "serverSlot")
   mpsSlotClient = session.clients[clientIndex]
@@ -140,14 +189,17 @@ function serverSlot(session, clientIndex)
   return mpsPlayerNumber
 end function
 
-// Return the player value.
+/// Return the player value.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
 function player(session, clientIndex)
   mpsPlayerSlot = serverSlot(session, clientIndex)
   if mpsPlayerSlot < 0 then return void end if
   return mpsgameapi.findPlayer(mpsPlayerSlot + 1)
 end function
 
-// Synchronize scores.
+/// Synchronize scores.
+/// @param session session value consumed by this operation.
 function synchronizeScores(session)
   mpsScoreIndex = 0
   while mpsScoreIndex < len(session.clients)
@@ -163,7 +215,8 @@ function synchronizeScores(session)
   return true
 end function
 
-// Report whether active clients.
+/// Report whether active clients.
+/// @param session session value consumed by this operation.
 function activeClients(session)
   if session.closed then return 0 end if
   mpsActiveCount = 0
@@ -183,12 +236,14 @@ function activeClients(session)
   return mpsActiveCount
 end function
 
-// Return the signon complete value.
+/// Return the signon complete value.
+/// @param session session value consumed by this operation.
 function signonComplete(session)
   return activeClients(session) == len(session.clients)
 end function
 
-// Return the result value.
+/// Performs the result operation for the miniquake2 runtime multiplayer session module.
+/// @param session session value consumed by this operation.
 function result(session)
   mpsClientStates = array(len(session.clients), mpsnetworkconstants.CA_DISCONNECTED)
   mpsServerStates = array(len(session.clients), mpsnetworkconstants.CS_FREE)
@@ -215,7 +270,8 @@ function result(session)
     mpsResultReceived, mpsResultSent, mpsResultRejected)
 end function
 
-// Advance state.
+/// Performs the step operation for the miniquake2 runtime multiplayer session module.
+/// @param session session value consumed by this operation.
 function step(session)
   if session.closed then return error(8404, "step: multiplayer session is closed") end if
   mpsStepIndex = 0
@@ -236,7 +292,9 @@ function step(session)
   return result(session)
 end function
 
-// Report whether run until active.
+/// Report whether run until active.
+/// @param session session value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function runUntilActive(session, maximumSteps)
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
     return error(8406, "multiplayer signon step limit must be positive")
@@ -252,7 +310,10 @@ function runUntilActive(session, maximumSteps)
   return mpsActivationResult
 end function
 
-// Queue user cmd.
+/// Queue user cmd.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
+/// @param command command value consumed by this operation.
 function queueUserCmd(session, clientIndex, command)
   checkedClientIndex(session, clientIndex, "queueUserCmd")
   mpsCommandClient = session.clients[clientIndex]
@@ -260,7 +321,10 @@ function queueUserCmd(session, clientIndex, command)
   return mpsclientsession.queueUserCmd(mpsCommandClient, command)
 end function
 
-// Set user info.
+/// Set user info.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
+/// @param userInfo userInfo value consumed by this operation.
 function setUserInfo(session, clientIndex, userInfo)
   checkedClientIndex(session, clientIndex, "setUserInfo")
   if typeof(userInfo) != "string" or userInfo == "" then
@@ -280,14 +344,20 @@ function setUserInfo(session, clientIndex, userInfo)
   return mpsUserInfoSent
 end function
 
-// Report whether take queued map.
+/// Report whether take queued map.
+/// @param session session value consumed by this operation.
 function takeQueuedMap(session)
   if session.closed then return error(8404, "takeQueuedMap: multiplayer session is closed") end if
   return mpsmediasequence.takeQueuedGameMap(
     session.server.bridgeRuntime.commands)
 end function
 
-// Map change core.
+/// Performs the changeMapCore operation for the miniquake2 runtime multiplayer session module.
+/// @param session session value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function changeMapCore(session, mapName, entityText, collision, maximumSteps)
   if session.closed then return error(8404, "changeMapCore: multiplayer session is closed") end if
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
@@ -311,7 +381,11 @@ function changeMapCore(session, mapName, entityText, collision, maximumSteps)
   return error(8418, "multiplayer core map change remained deferred")
 end function
 
-// Map change retail.
+/// Performs the changeMapRetail operation for the miniquake2 runtime multiplayer session module.
+/// @param session session value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function changeMapRetail(session, baseDirectory, mapName, maximumSteps)
   if session.closed then return error(8404, "changeMapRetail: multiplayer session is closed") end if
   if typeof(maximumSteps) != "int" or maximumSteps < 1 then
@@ -335,7 +409,10 @@ function changeMapRetail(session, baseDirectory, mapName, maximumSteps)
   return error(8421, "multiplayer retail map change remained deferred")
 end function
 
-// Report whether snapshot has entity.
+/// Report whether snapshot has entity.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
+/// @param entityNumber entityNumber value consumed by this operation.
 function snapshotHasEntity(session, clientIndex, entityNumber)
   checkedClientIndex(session, clientIndex, "snapshotHasEntity")
   mpsSnapshotClient = session.clients[clientIndex]
@@ -346,9 +423,13 @@ function snapshotHasEntity(session, clientIndex, entityNumber)
   return false
 end function
 
-// Test/product harness helper only establishes a deterministic unobstructed
-// duel.  It never invokes combat/death code: damage must arrive through the
-// normal client UserCmd -> WeaponThink -> weapon trace/projectile callbacks.
+/// Test/product harness helper only establishes a deterministic unobstructed
+/// duel.  It never invokes combat/death code: damage must arrive through the
+/// normal client UserCmd -> WeaponThink -> weapon trace/projectile callbacks.
+/// @param session session value consumed by this operation.
+/// @param attackerIndex Zero-based index of attacker.
+/// @param victimIndex Zero-based index of victim.
+/// @param distance distance value consumed by this operation.
 function prepareCombatPair(session, attackerIndex, victimIndex, distance)
   if typeof(distance) != "int" or distance < 32 or distance > 512 then
     return error(8411, "duel distance is invalid")
@@ -391,19 +472,30 @@ function prepareCombatPair(session, attackerIndex, victimIndex, distance)
   return true
 end function
 
-// Prepare duel.
+/// Prepare duel.
+/// @param session session value consumed by this operation.
+/// @param attackerIndex Zero-based index of attacker.
+/// @param victimIndex Zero-based index of victim.
+/// @param distance distance value consumed by this operation.
 function prepareDuel(session, attackerIndex, victimIndex, distance)
   if session.mode != MODE_DEATHMATCH then return error(8409, "duel helper requires deathmatch mode") end if
   return prepareCombatPair(session, attackerIndex, victimIndex, distance)
 end function
 
-// Prepare coop pair.
+/// Prepare coop pair.
+/// @param session session value consumed by this operation.
+/// @param attackerIndex Zero-based index of attacker.
+/// @param victimIndex Zero-based index of victim.
+/// @param distance distance value consumed by this operation.
 function prepareCoopPair(session, attackerIndex, victimIndex, distance)
   if session.mode != MODE_COOP then return error(8423, "coop combat helper requires cooperative mode") end if
   return prepareCombatPair(session, attackerIndex, victimIndex, distance)
 end function
 
-// Handle item.
+/// Handle item.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
+/// @param className className value consumed by this operation.
 function touchItem(session, clientIndex, className)
   if session.mode != MODE_COOP then return error(8412, "coop item helper requires coop mode") end if
   if typeof(className) != "string" or className == "" then return error(8413, "coop item classname is missing") end if
@@ -416,7 +508,9 @@ function touchItem(session, clientIndex, className)
     mpsItemPlayer, mpsgameapi.playerContext())
 end function
 
-// Return the disconnect client value.
+/// Return the disconnect client value.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
 function disconnectClient(session, clientIndex)
   checkedClientIndex(session, clientIndex, "disconnectClient")
   mpsDisconnectClient = session.clients[clientIndex]
@@ -446,7 +540,10 @@ function disconnectClient(session, clientIndex)
   return mpsDisconnected
 end function
 
-// Return the reconnect client value.
+/// Return the reconnect client value.
+/// @param session session value consumed by this operation.
+/// @param clientIndex Zero-based index of client.
+/// @param userInfo userInfo value consumed by this operation.
 function reconnectClient(session, clientIndex, userInfo)
   checkedClientIndex(session, clientIndex, "reconnectClient")
   mpsReconnectPrevious = session.clients[clientIndex]
@@ -460,7 +557,8 @@ function reconnectClient(session, clientIndex, userInfo)
   return mpsReconnectClient
 end function
 
-// Shut down state.
+/// Performs the shutdown operation for the miniquake2 runtime multiplayer session module.
+/// @param session session value consumed by this operation.
 function shutdown(session)
   if session.closed then return false end if
   mpsShutdownIndex = 0

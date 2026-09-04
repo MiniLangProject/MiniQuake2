@@ -1,3 +1,5 @@
+//! Provides miniquake2 server game bridge facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -24,16 +26,20 @@ import miniquake2.server.game_messages as sgmessages
 import miniquake2.physics.pmove as phmove
 import miniquake2.physics.vector as sgbvector
 
+/// Stores module-wide game bridge active runtime state for the miniquake2 server game bridge module.
 gameBridgeActiveRuntime = void
+/// Defines the max game bridge logs constant used by the miniquake2 server game bridge module.
 const MAX_GAME_BRIDGE_LOGS = 1024
 
-// Return the optional active bridge for Game API-only lifecycle adapters.
+/// Return the optional active bridge for Game API-only lifecycle adapters.
 function activeRuntime()
   global gameBridgeActiveRuntime
   return gameBridgeActiveRuntime
 end function
 
-// Append game bridge log.
+/// Append game bridge log.
+/// @param context Context that carries state for the operation.
+/// @param value Value consumed or transformed by the operation.
 function gameBridgeAppendLog(context, value)
   if len(context.logs) < MAX_GAME_BRIDGE_LOGS then
     context.logs = context.logs + [value]
@@ -50,16 +56,18 @@ function gameBridgeAppendLog(context, value)
   return true
 end function
 
-// Report whether require active.
+/// Report whether require active.
+/// @param operation operation value consumed by this operation.
 function requireActive(operation)
   global gameBridgeActiveRuntime
   if gameBridgeActiveRuntime is void then return error(3900, operation + ": server bridge is not installed") end if
   return gameBridgeActiveRuntime
 end function
 
-// Listen-client prediction shares the exact live collision bridge with the
-// authoritative server. Explicit activation prevents a second test/listen
-// session from leaving the module-global callback context on the wrong map.
+/// Listen-client prediction shares the exact live collision bridge with the
+/// authoritative server. Explicit activation prevents a second test/listen
+/// session from leaving the module-global callback context on the wrong map.
+/// @param context Context that carries state for the operation.
 function activateRuntime(context)
   global gameBridgeActiveRuntime
   if typeof(context) != "struct" then return error(3900, "invalid server bridge runtime") end if
@@ -67,23 +75,30 @@ function activateRuntime(context)
   return context
 end function
 
-// Append log.
+/// Append log.
+/// @param level level value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function appendLog(level, value)
   context = requireActive("print")
   return gameBridgeAppendLog(context, [level, value])
 end function
 
-// Return the bprintf value.
+/// Return the bprintf value.
+/// @param value Value consumed or transformed by the operation.
 function bprintf(value)
   return appendLog("broadcast", value)
 end function
 
-// Return the dprintf value.
+/// Return the dprintf value.
+/// @param value Value consumed or transformed by the operation.
 function dprintf(value)
   return appendLog("debug", value)
 end function
 
-// Return the cprintf value.
+/// Return the cprintf value.
+/// @param entity entity value consumed by this operation.
+/// @param level level value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function cprintf(entity, level, value)
   if typeof(level) != "int" or level < qc.PRINT_LOW or level > qc.PRINT_CHAT then
     return error(3956, "client print level outside Protocol-34 range")
@@ -102,7 +117,9 @@ function cprintf(entity, level, value)
   return event
 end function
 
-// Return the centerprintf value.
+/// Return the centerprintf value.
+/// @param entity entity value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function centerprintf(entity, value)
   context = requireActive("centerprintf")
   targetNumber = try(sgmessages.unicastEntityNumber(context, entity))
@@ -119,7 +136,13 @@ function centerprintf(entity, value)
   return event
 end function
 
-// Return the sound value.
+/// Return the sound value.
+/// @param entity entity value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param soundIndex Zero-based index of sound.
+/// @param volume volume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param timeOffset timeOffset value consumed by this operation.
 function sound(entity, channel, soundIndex, volume, attenuation, timeOffset)
   context = requireActive("sound")
   soundPosition = void
@@ -152,7 +175,14 @@ function sound(entity, channel, soundIndex, volume, attenuation, timeOffset)
   return event
 end function
 
-// Return the positioned sound value.
+/// Return the positioned sound value.
+/// @param origin origin value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param soundIndex Zero-based index of sound.
+/// @param volume volume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param timeOffset timeOffset value consumed by this operation.
 function positionedSound(origin, entity, channel, soundIndex, volume, attenuation, timeOffset)
   context = requireActive("positioned-sound")
   event = ssoundevents.enqueue(context, origin, origin, entity, channel,
@@ -161,7 +191,9 @@ function positionedSound(origin, entity, channel, soundIndex, volume, attenuatio
   return event
 end function
 
-// Return the config string value.
+/// Return the config string value.
+/// @param index Zero-based index of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function configString(index, value)
   context = requireActive("configstring")
   if index < 0 or index >= len(context.configStrings) then return error(3901, "configstring index outside table") end if
@@ -172,12 +204,16 @@ function configString(index, value)
   return true
 end function
 
-// Return the fail value.
+/// Return the fail value.
+/// @param value Value consumed or transformed by the operation.
 function fail(value)
   return error(3902, value)
 end function
 
-// Find index.
+/// Find index.
+/// @param values values value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param create create value consumed by this operation.
 function findIndex(values, name, create)
   if name == "" then return 0 end if
   i = 1
@@ -194,7 +230,8 @@ function findIndex(values, name, create)
   return error(3903, "config index table is full")
 end function
 
-// Return the bridge model index.
+/// Return the bridge model index.
+/// @param name Name of the affected item.
 function bridgeModelIndex(name)
   context = requireActive("modelindex")
   index = findIndex(context.modelNames, name, true)
@@ -202,7 +239,8 @@ function bridgeModelIndex(name)
   return index
 end function
 
-// Return the bridge sound index.
+/// Return the bridge sound index.
+/// @param name Name of the affected item.
 function bridgeSoundIndex(name)
   context = requireActive("soundindex")
   index = findIndex(context.soundNames, name, true)
@@ -210,7 +248,8 @@ function bridgeSoundIndex(name)
   return index
 end function
 
-// Return the bridge image index.
+/// Return the bridge image index.
+/// @param name Name of the affected item.
 function bridgeImageIndex(name)
   context = requireActive("imageindex")
   index = findIndex(context.imageNames, name, true)
@@ -218,7 +257,8 @@ function bridgeImageIndex(name)
   return index
 end function
 
-// Return the inline model number.
+/// Return the inline model number.
+/// @param name Name of the affected item.
 function inlineModelNumber(name)
   source = bytes(name)
   if len(source) < 2 or source[0] != 42 then return -1 end if
@@ -232,7 +272,9 @@ function inlineModelNumber(name)
   return value
 end function
 
-// Set model.
+/// Set model.
+/// @param entity entity value consumed by this operation.
+/// @param name Name of the affected item.
 function setModel(entity, name)
   sgbSetModelContextHolder = requireActive("setmodel")
   sgbSetModelEntityHolder = entity
@@ -293,7 +335,10 @@ function setModel(entity, name)
   return true
 end function
 
-// Trace adapt collision with entity.
+/// Trace adapt collision with entity.
+/// @param context Context that carries state for the operation.
+/// @param result Result object populated or inspected by the operation.
+/// @param hitEntity hitEntity value consumed by this operation.
 function adaptCollisionTraceWithEntity(context, result, hitEntity)
   signBits = 0
   if result.plane.normal.x < 0.0 then signBits = signBits | 1 end if
@@ -305,7 +350,9 @@ function adaptCollisionTraceWithEntity(context, result, hitEntity)
     plane, surface, result.contents, hitEntity)
 end function
 
-// Trace adapt collision.
+/// Trace adapt collision.
+/// @param context Context that carries state for the operation.
+/// @param result Result object populated or inspected by the operation.
 function adaptCollisionTrace(context, result)
   hitEntity = void
   if (result.fraction < 1.0 or result.startSolid or result.allSolid) and context.game is not void and context.game.numEdicts > 0 then
@@ -314,18 +361,25 @@ function adaptCollisionTrace(context, result)
   return adaptCollisionTraceWithEntity(context, result, hitEntity)
 end function
 
-// Trace dot.
+/// Trace dot.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function traceDot(first, second)
   return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
-// Trace to model.
+/// Trace to model.
+/// @param point point value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param basis basis value consumed by this operation.
 function traceToModel(point, origin, basis)
   relative = qt.Vec3(point.x - origin.x, point.y - origin.y, point.z - origin.z)
   return qt.Vec3(traceDot(relative, basis[0]), -traceDot(relative, basis[1]), traceDot(relative, basis[2]))
 end function
 
-// Trace normal to world.
+/// Trace normal to world.
+/// @param normal normal value consumed by this operation.
+/// @param basis basis value consumed by this operation.
 function traceNormalToWorld(normal, basis)
   return qt.Vec3(
     basis[0].x * normal.x - basis[1].x * normal.y + basis[2].x * normal.z,
@@ -334,13 +388,18 @@ function traceNormalToWorld(normal, basis)
   )
 end function
 
-// Trace same entity.
+/// Trace same entity.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function sameTraceEntity(first, second)
   if first is void or second is void then return false end if
   return first.state.number == second.state.number
 end function
 
-// Trace entity excluded.
+/// Trace entity excluded.
+/// @param entity entity value consumed by this operation.
+/// @param passEntity passEntity value consumed by this operation.
+/// @param contentMask contentMask value consumed by this operation.
 function traceEntityExcluded(entity, passEntity, contentMask)
   if sameTraceEntity(entity, passEntity) then return true end if
   if passEntity is not void then
@@ -354,7 +413,8 @@ function traceEntityExcluded(entity, passEntity, contentMask)
   return false
 end function
 
-// Report whether empty bridge trace.
+/// Report whether empty bridge trace.
+/// @param finish finish value consumed by this operation.
 function emptyBridgeTrace(finish)
   return qt.Trace(false, false, 1.0,
     qt.Vec3(finish.x, finish.y, finish.z),
@@ -362,10 +422,15 @@ function emptyBridgeTrace(finish)
     qt.CollisionSurface("", 0, 0), 0, void)
 end function
 
-// CM_HeadnodeForBox + CM_TransformedBoxTrace for a linked SOLID_BBOX. The
-// original collision model implements this as a temporary BSP hull; scalar
-// Minkowski slabs are identical and avoid rebuilding or allocating that hull
-// in every authoritative Pmove trace.
+/// CM_HeadnodeForBox + CM_TransformedBoxTrace for a linked SOLID_BBOX. The
+/// original collision model implements this as a temporary BSP hull; scalar
+/// Minkowski slabs are identical and avoid rebuilding or allocating that hull
+/// in every authoritative Pmove trace.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function solidBoxTrace(start, mins, maxs, finish, entity)
   entityOrigin = entity.state.origin
   minimumX = entityOrigin.x + entity.mins.x - maxs.x
@@ -487,7 +552,13 @@ function solidBoxTrace(start, mins, maxs, finish, entity)
   return output
 end function
 
-// Trace state.
+/// Trace state.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param passEntity passEntity value consumed by this operation.
+/// @param contentMask contentMask value consumed by this operation.
 function trace(start, mins, maxs, finish, passEntity, contentMask)
   context = requireActive("trace")
   worldEntity = void
@@ -594,7 +665,8 @@ function trace(start, mins, maxs, finish, passEntity, contentMask)
   return best
 end function
 
-// Return the point contents value.
+/// Performs the pointContents operation for the miniquake2 server game bridge module.
+/// @param point point value consumed by this operation.
 function pointContents(point)
   context = requireActive("pointcontents")
   if context.collision is void then return 0 end if
@@ -620,7 +692,9 @@ function pointContents(point)
   return contents
 end function
 
-// Return the in pvs value.
+/// Return the in pvs value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inPVS(first, second)
   context = requireActive("inPVS")
   if context.collision is void then return true end if
@@ -634,7 +708,9 @@ function inPVS(first, second)
   return visible and collision.areasConnected(context.collision, context.collision.map.leafs[firstLeaf].area, context.collision.map.leafs[secondLeaf].area)
 end function
 
-// Return the in phs value.
+/// Return the in phs value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inPHS(first, second)
   context = requireActive("inPHS")
   if context.collision is void then return true end if
@@ -647,27 +723,32 @@ function inPHS(first, second)
   return (row[secondCluster >> 3] & (1 << (secondCluster & 7))) != 0
 end function
 
-// Set area portal state.
+/// Set area portal state.
+/// @param portalNumber portalNumber value consumed by this operation.
+/// @param isOpen isOpen value consumed by this operation.
 function setAreaPortalState(portalNumber, isOpen)
   context = requireActive("SetAreaPortalState")
   if context.collision is void then return error(3904, "no collision map loaded") end if
   return collision.setAreaPortalState(context.collision, portalNumber, isOpen)
 end function
 
-// Report whether areas connected.
+/// Report whether areas connected.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function areasConnected(first, second)
   context = requireActive("AreasConnected")
   if context.collision is void then return true end if
   return collision.areasConnected(context.collision, first, second)
 end function
 
-// Report whether collision world ready.
+/// Report whether collision world ready.
 function collisionWorldReady()
   context = requireActive("collisionWorldReady")
   return context.collision is not void
 end function
 
-// Return the transformed entity bounds.
+/// Return the transformed entity bounds.
+/// @param entity entity value consumed by this operation.
 function transformedEntityBounds(entity)
   // Keep transformed entity bounds phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(entity) != "struct" then return error(3930, "transformed bounds require an Edict") end if
@@ -713,7 +794,9 @@ function transformedEntityBounds(entity)
   return [sgbBoundsResultMinsHolder, sgbBoundsResultMaxsHolder]
 end function
 
-// Cache inline brush index.
+/// Cache inline brush index.
+/// @param context Context that carries state for the operation.
+/// @param entity entity value consumed by this operation.
 function inlineBrushCacheIndex(context, entity)
   number = entity.state.number
   if number < 0 or number >= len(context.inlineBrushPositions) then return -1 end if
@@ -723,9 +806,12 @@ function inlineBrushCacheIndex(context, entity)
   return -1
 end function
 
-// SV_ClipMoveToEntities previously scanned every allocated edict for every
-// Pmove trace. Maintain the tiny linked inline-brush set instead; retail maps
-// typically reduce this hot loop from hundreds of entries to a few doors.
+/// SV_ClipMoveToEntities previously scanned every allocated edict for every
+/// Pmove trace. Maintain the tiny linked inline-brush set instead; retail maps
+/// typically reduce this hot loop from hundreds of entries to a few doors.
+/// @param context Context that carries state for the operation.
+/// @param entity entity value consumed by this operation.
+/// @param linked linked value consumed by this operation.
 function updateInlineBrushCache(context, entity, linked)
   existing = inlineBrushCacheIndex(context, entity)
   modelName = ""
@@ -762,7 +848,9 @@ function updateInlineBrushCache(context, entity, linked)
   return true
 end function
 
-// Cache trigger index.
+/// Cache trigger index.
+/// @param context Context that carries state for the operation.
+/// @param entity entity value consumed by this operation.
 function triggerCacheIndex(context, entity)
   number = entity.state.number
   if number < 0 or number >= len(context.triggerPositions) then return -1 end if
@@ -772,9 +860,12 @@ function triggerCacheIndex(context, entity)
   return -1
 end function
 
-// AREA_TRIGGERS is a linked spatial set in the original server. Keep an
-// allocation-free indexed set here as well so each walking monster does not
-// rescan every retail-map edict merely to touch nearby triggers.
+/// AREA_TRIGGERS is a linked spatial set in the original server. Keep an
+/// allocation-free indexed set here as well so each walking monster does not
+/// rescan every retail-map edict merely to touch nearby triggers.
+/// @param context Context that carries state for the operation.
+/// @param entity entity value consumed by this operation.
+/// @param linked linked value consumed by this operation.
 function updateTriggerCache(context, entity, linked)
   existing = triggerCacheIndex(context, entity)
   eligible = linked and entity.inUse and entity.state.number > 0 and
@@ -803,7 +894,9 @@ function updateTriggerCache(context, entity, linked)
   return true
 end function
 
-// Cache solid box index.
+/// Cache solid box index.
+/// @param context Context that carries state for the operation.
+/// @param entity entity value consumed by this operation.
 function solidBoxCacheIndex(context, entity)
   number = entity.state.number
   if number < 0 or number >= len(context.solidBoxPositions) then return -1 end if
@@ -813,9 +906,12 @@ function solidBoxCacheIndex(context, entity)
   return -1
 end function
 
-// AREA_SOLID is a spatial linked list in BaseQ2. Keep the dynamic BBOX subset
-// as an allocation-free indexed set so the authoritative PMove hot path visits
-// only currently linked players, monsters and other box solids.
+/// AREA_SOLID is a spatial linked list in BaseQ2. Keep the dynamic BBOX subset
+/// as an allocation-free indexed set so the authoritative PMove hot path visits
+/// only currently linked players, monsters and other box solids.
+/// @param context Context that carries state for the operation.
+/// @param entity entity value consumed by this operation.
+/// @param linked linked value consumed by this operation.
 function updateSolidBoxCache(context, entity, linked)
   existing = solidBoxCacheIndex(context, entity)
   eligible = linked and entity.inUse and entity.state.number > 0 and
@@ -844,9 +940,10 @@ function updateSolidBoxCache(context, entity, linked)
   return true
 end function
 
-// Discard every level-owned spatial index in one atomic replacement. Counts
-// alone are insufficient: the reverse-position tables would make a reused
-// edict number appear to be an old map's brush, trigger or box entity.
+/// Discard every level-owned spatial index in one atomic replacement. Counts
+/// alone are insufficient: the reverse-position tables would make a reused
+/// edict number appear to be an old map's brush, trigger or box entity.
+/// @param context Context that carries state for the operation.
 function clearSpatialCaches(context)
   context.inlineBrushes = array(qc.MAX_EDICTS, void)
   context.inlineBrushModelNumbers = array(qc.MAX_EDICTS, -1)
@@ -861,9 +958,12 @@ function clearSpatialCaches(context)
   return true
 end function
 
-// Rebuild the compact spatial sets from the authoritative exported edicts.
-// Save restore replaces that whole array, so retaining any previous references
-// would create phantom collisions or touches after the load.
+/// Rebuild the compact spatial sets from the authoritative exported edicts.
+/// Save restore replaces that whole array, so retaining any previous references
+/// would create phantom collisions or touches after the load.
+/// @param context Context that carries state for the operation.
+/// @param edicts edicts value consumed by this operation.
+/// @param count Number of items or units to process.
 function rebuildSpatialCaches(context, edicts, count)
   if typeof(edicts) != "array" or typeof(count) != "int" or count < 0 or
       count > len(edicts) then return error(3940, "invalid spatial cache rebuild image") end if
@@ -881,13 +981,18 @@ function rebuildSpatialCaches(context, edicts, count)
   return true
 end function
 
-// SV_LinkEdict records every distinct PVS cluster touched by the complete
-// linked bounds, not merely the leaf containing s.origin.  Inline BSP origins
-// commonly lie in solid or on the far side of an area boundary, so a point
-// lookup makes doors, plats and buttons disappear even while their geometry is
-// visible.  Fold cluster collection into the existing allocation-free BSP
-// traversal.  MAX_ENT_CLUSTERS overflow retains Quake II's -1 sentinel; the
-// per-client snapshot path then tests all leaves covered by the cached bounds.
+/// SV_LinkEdict records every distinct PVS cluster touched by the complete
+/// linked bounds, not merely the leaf containing s.origin.  Inline BSP origins
+/// commonly lie in solid or on the far side of an area boundary, so a point
+/// lookup makes doors, plats and buttons disappear even while their geometry is
+/// visible.  Fold cluster collection into the existing allocation-free BSP
+/// traversal.  MAX_ENT_CLUSTERS overflow retains Quake II's -1 sentinel; the
+/// per-client snapshot path then tests all leaves covered by the cached bounds.
+/// @param context Context that carries state for the operation.
+/// @param nodeNumber nodeNumber value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function collectLinkedEntityVisibility(context, nodeNumber, mins, maxs, entity)
   // Keep collect linked entity visibility phases explicit: validate inputs, update owned state, then publish the result.
   if nodeNumber < 0 then
@@ -938,7 +1043,8 @@ function collectLinkedEntityVisibility(context, nodeNumber, mins, maxs, entity)
   return true
 end function
 
-// Link entity.
+/// Link entity.
+/// @param entity entity value consumed by this operation.
 function linkEntity(entity)
   sgbLinkContextHolder = requireActive("linkentity")
   if typeof(entity) != "struct" then return error(3930, "transformed bounds require an Edict") end if
@@ -1015,7 +1121,8 @@ function linkEntity(entity)
   return true
 end function
 
-// Return the unlink entity value.
+/// Return the unlink entity value.
+/// @param entity entity value consumed by this operation.
 function unlinkEntity(entity)
   context = requireActive("unlinkentity")
   updateInlineBrushCache(context, entity, false)
@@ -1026,7 +1133,10 @@ function unlinkEntity(entity)
   return true
 end function
 
-// Return the box edicts value.
+/// Return the box edicts value.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param areaType areaType value consumed by this operation.
 function boxEdicts(mins, maxs, areaType)
   context = requireActive("BoxEdicts")
   if context.game is void then return [] end if
@@ -1066,12 +1176,15 @@ function boxEdicts(mins, maxs, areaType)
   return output
 end function
 
-// Return the pmove value.
+/// Return the pmove value.
+/// @param value Value consumed or transformed by the operation.
 function pmove(value)
   return phmove.move(value)
 end function
 
-// Return the multicast value.
+/// Return the multicast value.
+/// @param origin origin value consumed by this operation.
+/// @param destination destination value consumed by this operation.
 function multicast(origin, destination)
   context = requireActive("multicast")
   payload = sizebuf.dataSlice(context.multicastBuffer)
@@ -1081,7 +1194,9 @@ function multicast(origin, destination)
   return true
 end function
 
-// Return the unicast value.
+/// Return the unicast value.
+/// @param entity entity value consumed by this operation.
+/// @param reliable reliable value consumed by this operation.
 function unicast(entity, reliable)
   context = requireActive("unicast")
   payload = sizebuf.dataSlice(context.multicastBuffer)
@@ -1091,110 +1206,135 @@ function unicast(entity, reliable)
   return true
 end function
 
-// Write char.
+/// Write char.
+/// @param value Value consumed or transformed by the operation.
 function writeChar(value)
   return message.writeChar(requireActive("WriteChar").multicastBuffer, value)
 end function
 
-// Write byte.
+/// Write byte.
+/// @param value Value consumed or transformed by the operation.
 function writeByte(value)
   return message.writeByte(requireActive("WriteByte").multicastBuffer, value)
 end function
 
-// Write short.
+/// Write short.
+/// @param value Value consumed or transformed by the operation.
 function writeShort(value)
   return message.writeShort(requireActive("WriteShort").multicastBuffer, value)
 end function
 
-// Write long.
+/// Write long.
+/// @param value Value consumed or transformed by the operation.
 function writeLong(value)
   return message.writeLong(requireActive("WriteLong").multicastBuffer, value)
 end function
 
-// Write float.
+/// Write float.
+/// @param value Value consumed or transformed by the operation.
 function writeFloat(value)
   return message.writeFloat(requireActive("WriteFloat").multicastBuffer, value)
 end function
 
-// Write string.
+/// Write string.
+/// @param value Value consumed or transformed by the operation.
 function writeString(value)
   return message.writeString(requireActive("WriteString").multicastBuffer, value)
 end function
 
-// Write position.
+/// Write position.
+/// @param value Value consumed or transformed by the operation.
 function writePosition(value)
   return message.writePos(requireActive("WritePosition").multicastBuffer, value)
 end function
 
-// Write direction.
+/// Write direction.
+/// @param value Value consumed or transformed by the operation.
 function writeDirection(value)
   return qdir.writeDirection(requireActive("WriteDir").multicastBuffer, value)
 end function
 
-// Write angle.
+/// Write angle.
+/// @param value Value consumed or transformed by the operation.
 function writeAngle(value)
   return message.writeAngle(requireActive("WriteAngle").multicastBuffer, value)
 end function
 
-// Return the tag malloc value.
+/// Return the tag malloc value.
+/// @param size Size in the units required by the operation.
+/// @param tag tag value consumed by this operation.
 function tagMalloc(size, tag)
   if size < 0 then return error(3907, "negative TagMalloc size") end if
   return bytes(size)
 end function
 
-// Release tag.
+/// Release tag.
+/// @param value Value consumed or transformed by the operation.
 function tagFree(value)
   return true
 end function
 
-// Release tags.
+/// Release tags.
+/// @param tag tag value consumed by this operation.
 function freeTags(tag)
   return true
 end function
 
-// Return the game cvar value.
+/// Return the game cvar value.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
+/// @param flags Bit flags controlling the operation.
 function gameCvar(name, value, flags)
   return cvars.get(requireActive("cvar").cvars, name, value, flags)
 end function
 
-// Set game cvar.
+/// Set game cvar.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function gameCvarSet(name, value)
   return cvars.set(requireActive("cvar_set").cvars, name, value)
 end function
 
-// Set game cvar force.
+/// Set game cvar force.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function gameCvarForceSet(name, value)
   return cvars.forceSet(requireActive("cvar_forceset").cvars, name, value)
 end function
 
-// Return the argc value.
+/// Return the argc value.
 function argc()
   return len(requireActive("argc").commands.arguments)
 end function
 
-// Return the argv value.
+/// Return the argv value.
+/// @param index Zero-based index of the affected item.
 function argv(index)
   context = requireActive("argv")
   if index < 0 or index >= len(context.commands.arguments) then return "" end if
   return context.commands.arguments[index]
 end function
 
-// Return the args value.
+/// Return the args value.
 function args()
   return requireActive("args").commands.argumentTail
 end function
 
-// Add command string.
+/// Add command string.
+/// @param value Value consumed or transformed by the operation.
 function addCommandString(value)
   return commands.addText(requireActive("AddCommandString").commands, value)
 end function
 
-// Return the debug graph value.
+/// Return the debug graph value.
+/// @param value Value consumed or transformed by the operation.
+/// @param color color value consumed by this operation.
 function debugGraph(value, color)
   return true
 end function
 
-// Create runtime.
+/// Create runtime.
+/// @param maxClients maxClients value consumed by this operation.
 function createRuntime(maxClients)
   if maxClients <= 0 or maxClients > qc.MAX_CLIENTS then return error(3908, "maxclients outside range") end if
   registry = cvars.createRegistry()
@@ -1220,7 +1360,8 @@ function createRuntime(maxClients)
     array(qc.MAX_EDICTS, void), array(qc.MAX_EDICTS, 0), 0)
 end function
 
-// Create imports.
+/// Create imports.
+/// @param context Context that carries state for the operation.
 function makeImports(context)
   activateRuntime(context)
   return gt.GameImport(

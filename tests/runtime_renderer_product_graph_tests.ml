@@ -11,6 +11,7 @@ import miniquake2.client.state as productclientstate
 import miniquake2.protocol.types as productprotocoltypes
 import miniquake2.server.snapshot as productsnapshot
 import miniquake2.qcommon.types as productqtypes
+import miniquake2.renderer.types as productrendertypes
 import std.fs as productfs
 
 // Assert the true test condition.
@@ -111,6 +112,41 @@ function main(args)
       "translating elevator was corrected twice during interpolation")
     phaseIndex = phaseIndex + 1
   end while
+
+  // Linear vertical lifts are the case most sensitive to a residual camera
+  // bob. Their translation belongs exclusively to prediction-error easing;
+  // the pusher correction must remain exactly zero at every render phase.
+  verticalClient = productclientstate.create()
+  verticalPrevious = pusherEntity(8, 0.0, 0.0)
+  verticalCurrent = pusherEntity(8, 0.0, 0.0)
+  verticalPrevious.origin[2] = 0.0
+  verticalCurrent.origin[2] = 12.0
+  productclientstate.acceptSnapshot(verticalClient, productsnapshot.SnapshotFrame(
+    40, -1, 0, bytes([]), pusherPlayer, [verticalPrevious]))
+  productclientstate.acceptSnapshot(verticalClient, productsnapshot.SnapshotFrame(
+    41, 40, 0, bytes([]), pusherPlayer, [verticalCurrent]))
+  verticalResidual = productapplication.applicationPusherPredictionOffset(
+    verticalClient, 8, 0.5, productqtypes.vec3(0.0, 0.0, 32.0))
+  assertTrue(verticalResidual.x == 0.0 and verticalResidual.y == 0.0 and
+    verticalResidual.z == 0.0,
+    "vertical lift does not retain a floating-point pusher residual")
+
+  // A lost or delayed snapshot holds the already completed interpolation
+  // phase. Resetting that phase from the unrelated usercmd timer would make
+  // a static console image and an elevator camera jump back one snapshot.
+  assertTrue(productapplication.applicationPresentationFraction(850, 800) ==
+      0.5 and productapplication.applicationPresentationFraction(1050, 800) ==
+      1.0 and productapplication.applicationPresentationFraction(1150, 800) ==
+      1.0, "late snapshots hold the final presentation phase")
+  cachedPresentation = productrendertypes.defaultRefDef(640, 480)
+  rebuiltPresentation = productrendertypes.defaultRefDef(800, 600)
+  frozenPresentation = productapplication.applicationResolvePresentationFrame(
+    true, cachedPresentation, rebuiltPresentation)
+  resumedPresentation = productapplication.applicationResolvePresentationFrame(
+    false, cachedPresentation, rebuiltPresentation)
+  assertTrue(nativeRawValue(frozenPresentation) == nativeRawValue(cachedPresentation) and
+    nativeRawValue(resumedPresentation) == nativeRawValue(rebuiltPresentation),
+    "console presentation uses one cached refdef until gameplay resumes")
 
   rotatingClient = productclientstate.create()
   productclientstate.acceptSnapshot(rotatingClient, productsnapshot.SnapshotFrame(

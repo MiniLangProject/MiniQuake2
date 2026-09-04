@@ -1,3 +1,5 @@
+//! Provides miniquake2 game gameplay weapons facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,7 +12,9 @@ import miniquake2.game.gameplay.constants as gpconstants
 import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.text as qtext
 
-// Find by pickup name.
+/// Finds by pickup name used by the miniquake2 game gameplay weapons module.
+/// @param registry registry value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
 function findByPickupName(registry, pickupName)
   if typeof(pickupName) != "string" then return error(9390, "weapon pickup name is not text") end if
   for each item in registry.items
@@ -21,12 +25,17 @@ function findByPickupName(registry, pickupName)
   return void
 end function
 
-// Return the owned value.
+/// Return the owned value.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
 function owned(player, item)
   return item is not void and player.inventory.counts[item.index] > 0
 end function
 
-// Report whether ammo available.
+/// Report whether ammo available.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function ammoAvailable(player, item, registry)
   if item is void then return false end if
   if item.ammo == "" then return true end if
@@ -35,13 +44,16 @@ function ammoAvailable(player, item, registry)
   return player.inventory.counts[ammo.index] >= item.quantity
 end function
 
-// Return the mirror gun frame value.
+/// Return the mirror gun frame value.
+/// @param player player value consumed by this operation.
 function mirrorGunFrame(player)
   if player.edict.client is not void then player.edict.client.playerState.gunFrame = player.gunFrame end if
   return player.gunFrame
 end function
 
-// Return the change weapon value.
+/// Return the change weapon value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function ChangeWeapon(player, registry)
   player.lastWeapon = player.currentWeapon
   player.currentWeapon = player.newWeapon
@@ -70,7 +82,9 @@ function ChangeWeapon(player, registry)
   return true
 end function
 
-// Report whether no ammo weapon change.
+/// Report whether no ammo weapon change.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function NoAmmoWeaponChange(player, registry)
   slugs = findByPickupName(registry, "Slugs")
   railgun = findByPickupName(registry, "Railgun")
@@ -92,7 +106,9 @@ function NoAmmoWeaponChange(player, registry)
   return player.newWeapon
 end function
 
-// Report whether has frame.
+/// Report whether has frame.
+/// @param frames frames value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function hasFrame(frames, value)
   for each frame in frames
     if frame == value then return true end if
@@ -100,8 +116,10 @@ function hasFrame(frames, value)
   return false
 end function
 
-// Basic fire callback used until weapon-specific projectile/hitscan code lands.
-// It preserves the important contract: weapon callbacks own fire-frame advance.
+/// Basic fire callback used until weapon-specific projectile/hitscan code lands.
+/// It preserves the important contract: weapon callbacks own fire-frame advance.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function FireCurrentWeapon(player, registry)
   if player.currentWeapon is void then return error(9350, "FireCurrentWeapon: no current weapon") end if
   if player.ammoIndex != 0 then
@@ -115,7 +133,12 @@ function FireCurrentWeapon(player, registry)
   return true
 end function
 
-// Return the weapon generic value.
+/// Return the weapon generic value.
+/// @param player player value consumed by this operation.
+/// @param frames frames value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param fireCallback fireCallback value consumed by this operation.
+/// @param pauseRoll pauseRoll value consumed by this operation.
 function Weapon_Generic(player, frames, registry, fireCallback, pauseRoll)
   if typeof(fireCallback) != "function" then return error(9351, "Weapon_Generic: fire callback required") end if
   if typeof(pauseRoll) != "int" or pauseRoll < 0 or pauseRoll > 15 then return error(9352, "Weapon_Generic: pause roll must be 0..15") end if
@@ -201,14 +224,20 @@ function Weapon_Generic(player, frames, registry, fireCallback, pauseRoll)
   return gptypes.WeaponStep(fired, changed, noAmmo, player.weaponState, player.gunFrame)
 end function
 
-// Run current weapon.
+/// Run current weapon.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param pauseRoll pauseRoll value consumed by this operation.
 function Think_CurrentWeapon(player, item, registry, pauseRoll)
   if player.currentWeapon is void or player.currentWeapon.index != item.index then return error(9354, "weapon think called for inactive weapon") end if
   if item.weaponFrames is void then return error(9355, "weapon has no frame contract") end if
   return Weapon_Generic(player, item.weaponFrames, registry, FireCurrentWeapon, pauseRoll)
 end function
 
-// Fire bfg.
+/// Performs the FireBfg operation for the miniquake2 game gameplay weapons module.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function FireBfg(player, registry)
   // p_weapon.c frame 9 is wind-up only; frame 17 emits and consumes 50 cells.
   if player.gunFrame == 9 then
@@ -219,7 +248,11 @@ function FireBfg(player, registry)
   return FireCurrentWeapon(player, registry)
 end function
 
-// Run bfg.
+/// Run bfg.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param pauseRoll pauseRoll value consumed by this operation.
 function Think_Bfg(player, item, registry, pauseRoll)
   if player.currentWeapon is void or player.currentWeapon.index != item.index then return error(9354, "weapon think called for inactive BFG") end if
   return Weapon_Generic(player, item.weaponFrames, registry, FireBfg, pauseRoll)

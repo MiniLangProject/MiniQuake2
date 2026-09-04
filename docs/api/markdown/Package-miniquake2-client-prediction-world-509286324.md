@@ -1,0 +1,32 @@
+# Package `miniquake2.client.prediction_world`
+
+[Home](README.md) · [Packages](Packages.md)
+
+## Files
+
+- [src/miniquake2/client/prediction_world.ml](File-src-miniquake2-client-prediction-world-ml-1403186180.md)
+
+## Symbols
+
+- [`miniquake2.client.prediction_world.activePredictionWorld`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#global-global-miniquake2-client-prediction-world-activepredictionworld-activepredictionworld-src-miniquake2-client-prediction-world-ml-969831668) — global
+- [`miniquake2.client.prediction_world.BOX_EPSILON`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#constant-constant-miniquake2-client-prediction-world-box-epsilon-const-box-epsilon-3-125e-002-src-miniquake2-client-prediction-world-ml-791772202) — constant
+- [`miniquake2.client.prediction_world.boxEntityTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-boxentitytrace-function-boxentitytrace-start-mins-maxs-finish-entity-src-miniquake2-client-prediction-world-ml-1575806984) — function
+- [`miniquake2.client.prediction_world.collisionTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-collisiontrace-function-collisiontrace-result-entity-src-miniquake2-client-prediction-world-ml-344773500) — function
+- [`miniquake2.client.prediction_world.createPredictionWorkspace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-createpredictionworkspace-function-createpredictionworkspace-src-miniquake2-client-prediction-world-ml-650425826) — function
+- [`miniquake2.client.prediction_world.createWorld`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-createworld-function-createworld-src-miniquake2-client-prediction-world-ml-536047926) — function
+- [`miniquake2.client.prediction_world.dot`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-dot-inline-function-dot-first-second-src-miniquake2-client-prediction-world-ml-1033246601) — function
+- [`miniquake2.client.prediction_world.emptyTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-emptytrace-function-emptytrace-finish-src-miniquake2-client-prediction-world-ml-524487303) — function
+- [`miniquake2.client.prediction_world.inlineModelNumber`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-inlinemodelnumber-function-inlinemodelnumber-world-modelindex-src-miniquake2-client-prediction-world-ml-1166840089) — function
+- [`miniquake2.client.prediction_world.mergeTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-mergetrace-function-mergetrace-best-candidate-src-miniquake2-client-prediction-world-ml-110673651) — function
+- [`miniquake2.client.prediction_world.normalToWorld`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-normaltoworld-function-normaltoworld-normal-basis-src-miniquake2-client-prediction-world-ml-836807047) — function
+- [`miniquake2.client.prediction_world.pointContents`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-pointcontents-function-pointcontents-world-point-src-miniquake2-client-prediction-world-ml-140695380) — function
+- [`miniquake2.client.prediction_world.predict`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-predict-function-predict-playerstate-commands-collision-configstrings-snapshot-localentitynumber-airacceleration-src-miniquake2-client-prediction-world-ml-2036894813) — function
+- [`miniquake2.client.prediction_world.predictInto`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-predictinto-function-predictinto-world-workspace-playerstate-commands-commandcount-collision-configstrings-snapshot-localentitynumber-airacceleration-src-miniquake2-client-prediction-world-ml-290445368) — function
+- [`miniquake2.client.prediction_world.predictionPointContents`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-predictionpointcontents-function-predictionpointcontents-point-src-miniquake2-client-prediction-world-ml-1858497006) — function
+- [`miniquake2.client.prediction_world.predictionTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-predictiontrace-function-predictiontrace-start-mins-maxs-finish-src-miniquake2-client-prediction-world-ml-2137821033) — function
+- [`miniquake2.client.prediction_world.PredictionWorld`](Type-miniquake2-client-prediction-world-predictionworld-2113261129.md) — struct
+- [`miniquake2.client.prediction_world.textSlice`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-textslice-function-textslice-value-start-count-src-miniquake2-client-prediction-world-ml-481973414) — function
+- [`miniquake2.client.prediction_world.toModel`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-tomodel-function-tomodel-point-origin-basis-src-miniquake2-client-prediction-world-ml-1771436568) — function
+- [`miniquake2.client.prediction_world.trace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-trace-function-trace-world-start-mins-maxs-finish-src-miniquake2-client-prediction-world-ml-398647139) — function
+- [`miniquake2.client.prediction_world.traceEntities`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-traceentities-function-traceentities-world-start-mins-maxs-finish-best-src-miniquake2-client-prediction-world-ml-1251533895) — function
+- [`miniquake2.client.prediction_world.vec`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-vec-inline-function-vec-values-src-miniquake2-client-prediction-world-ml-2041901195) — function

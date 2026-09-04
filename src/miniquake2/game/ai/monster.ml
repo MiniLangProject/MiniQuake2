@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai monster facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -19,13 +21,19 @@ import miniquake2.qcommon.constants as qconstants
 import miniquake2.qcommon.types as gaiqtypes
 import std.math as gaimath
 
-// Move current name.
+/// Move current name.
+/// @param actor actor value consumed by this operation.
 function CurrentMoveName(actor)
   if actor.info.currentMove is void then return "" end if
   return actor.info.currentMove.name
 end function
 
-// Emit stock sound.
+/// Emit stock sound.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param soundName soundName value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
 function EmitStockSound(actor, context, soundName, channel, attenuation)
   if soundName != "" and typeof(context.playSound) == "function" then
     context.playSound(actor, soundName, channel, attenuation)
@@ -33,19 +41,24 @@ function EmitStockSound(actor, context, soundName, channel, attenuation)
   return soundName
 end function
 
-// Return the next stock random unit value.
+/// Return the next stock random unit value.
+/// @param context Context that carries state for the operation.
+/// @param fallback Value returned when no explicit result is available.
 function NextStockRandomUnit(context, fallback)
   if typeof(context.nextRandomUnit) == "function" then return context.nextRandomUnit() end if
   return fallback
 end function
 
-// Return the next stock random integer value.
+/// Return the next stock random integer value.
+/// @param context Context that carries state for the operation.
+/// @param fallback Value returned when no explicit result is available.
 function NextStockRandomInteger(context, fallback)
   if typeof(context.nextRandomInteger) == "function" then return context.nextRandomInteger() end if
   return fallback
 end function
 
-// Return the stock idle sound name.
+/// Return the stock idle sound name.
+/// @param className className value consumed by this operation.
 function StockIdleSoundName(className)
   if className == "monster_berserk" then return "berserk/beridle1.wav" end if
   if className == "monster_gladiator" then return "gladiator/gldidle1.wav" end if
@@ -64,7 +77,9 @@ function StockIdleSoundName(className)
   return ""
 end function
 
-// Return the stock fidget frame sound value.
+/// Return the stock fidget frame sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockFidgetFrameSound(actor, context)
   soundName = StockIdleSoundName(actor.className)
   channel = gconstants.CHAN_VOICE
@@ -78,26 +93,34 @@ function StockFidgetFrameSound(actor, context)
   return EmitStockSound(actor, context, soundName, channel, gconstants.ATTN_IDLE)
 end function
 
-// Return the stock scratch sound value.
+/// Return the stock scratch sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockScratchSound(actor, context)
   return EmitStockSound(actor, context, "parasite/paridle2.wav",
     gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
 end function
 
-// Return the stock soldier cock sound value.
+/// Return the stock soldier cock sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockSoldierCockSound(actor, context)
   return EmitStockSound(actor, context, "infantry/infatck3.wav",
     gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
 end function
 
-// Return the stock soldier idle frame sound value.
+/// Return the stock soldier idle frame sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockSoldierIdleFrameSound(actor, context)
   if NextStockRandomUnit(context, context.randomIdle) <= 0.8 then return "" end if
   return EmitStockSound(actor, context, "soldier/solidle1.wav",
     gconstants.CHAN_VOICE, gconstants.ATTN_IDLE)
 end function
 
-// Return the stock soldier walk cycle value.
+/// Return the stock soldier walk cycle value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockSoldierWalkCycle(actor, context)
   if NextStockRandomUnit(context, context.randomIdle) > 0.1 then
     actor.info.nextFrame = 215
@@ -105,7 +128,9 @@ function StockSoldierWalkCycle(actor, context)
   return true
 end function
 
-// Return the stock medic idle frame value.
+/// Return the stock medic idle frame value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockMedicIdleFrame(actor, context)
   EmitStockSound(actor, context, "medic/idle.wav",
     gconstants.CHAN_VOICE, gconstants.ATTN_IDLE)
@@ -113,31 +138,41 @@ function StockMedicIdleFrame(actor, context)
   return true
 end function
 
-// Return the stock parasite tap sound value.
+/// Return the stock parasite tap sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockParasiteTapSound(actor, context)
   return EmitStockSound(actor, context, "parasite/paridle1.wav",
     gconstants.CHAN_WEAPON, gconstants.ATTN_IDLE)
 end function
 
-// Return the stock jorg idle sound value.
+/// Return the stock jorg idle sound value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockJorgIdleSound(actor, context)
   return EmitStockSound(actor, context, "boss3/bs3idle1.wav",
     gconstants.CHAN_VOICE, gconstants.ATTN_NORM)
 end function
 
-// Advance stock jorg left.
+/// Advance stock jorg left.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockJorgStepLeft(actor, context)
   return EmitStockSound(actor, context, "boss3/step1.wav",
     gconstants.CHAN_BODY, gconstants.ATTN_NORM)
 end function
 
-// Advance stock jorg right.
+/// Advance stock jorg right.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockJorgStepRight(actor, context)
   return EmitStockSound(actor, context, "boss3/step2.wav",
     gconstants.CHAN_BODY, gconstants.ATTN_NORM)
 end function
 
-// Advance stock sound.
+/// Advance stock sound.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockStepSound(actor, context)
   soundName = ""
   channel = gconstants.CHAN_BODY
@@ -159,7 +194,9 @@ function StockStepSound(actor, context)
   return EmitStockSound(actor, context, soundName, channel, gconstants.ATTN_NORM)
 end function
 
-// Configure stock move callbacks.
+/// Configure stock move callbacks.
+/// @param actor actor value consumed by this operation.
+/// @param move move value consumed by this operation.
 function ConfigureStockMoveCallbacks(actor, move)
   // Keep configure stock move callbacks phases explicit: validate inputs, update owned state, then publish the result.
   if move is void then return move end if
@@ -212,7 +249,10 @@ function ConfigureStockMoveCallbacks(actor, move)
   return move
 end function
 
-// Set stock move.
+/// Set stock move.
+/// @param actor actor value consumed by this operation.
+/// @param moveKind moveKind value consumed by this operation.
+/// @param endFunction endFunction value consumed by this operation.
 function SetStockMove(actor, moveKind, endFunction)
   move = gailocomotion.stockMove(actor.className, moveKind, endFunction)
   if move is void then return error(9655, "missing stock locomotion move " + actor.className + "/" + moveKind) end if
@@ -221,7 +261,9 @@ function SetStockMove(actor, moveKind, endFunction)
   return move
 end function
 
-// Return the stock stand fidget probe value.
+/// Return the stock stand fidget probe value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockStandFidgetProbe(actor, context)
   if (actor.info.aiFlags & gaiconstants.AI_STAND_GROUND) != 0 then return false end if
   threshold = -1.0
@@ -236,7 +278,9 @@ function StockStandFidgetProbe(actor, context)
   return true
 end function
 
-// Return the stock mutant idle loop value.
+/// Return the stock mutant idle loop value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StockMutantIdleLoop(actor, context)
   if NextStockRandomUnit(context, context.randomIdle) < 0.75 then
     actor.info.nextFrame = 116
@@ -244,7 +288,11 @@ function StockMutantIdleLoop(actor, context)
   return true
 end function
 
-// Return the claim medic patient value.
+/// Return the claim medic patient value.
+/// @param actor actor value consumed by this operation.
+/// @param patient patient value consumed by this operation.
+/// @param preserveEnemy preserveEnemy value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ClaimMedicPatient(actor, patient, preserveEnemy, context)
   if patient is void then return false end if
   if preserveEnemy then actor.oldEnemy = actor.enemy end if
@@ -255,37 +303,50 @@ function ClaimMedicPatient(actor, patient, preserveEnemy, context)
   return true
 end function
 
-// Find medic patient.
+/// Find medic patient.
+/// @param actor actor value consumed by this operation.
+/// @param preserveEnemy preserveEnemy value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FindMedicPatient(actor, preserveEnemy, context)
   if typeof(context.findDeadMonster) != "function" then return false end if
   return ClaimMedicPatient(actor, context.findDeadMonster(actor), preserveEnemy, context)
 end function
 
-// Finish walk start.
+/// Finish walk start.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FinishWalkStart(actor, context)
   actor.activity = "walk"
   return SetStockMove(actor, "walk", void)
 end function
 
-// Finish run start.
+/// Finish run start.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FinishRunStart(actor, context)
   actor.activity = "run"
   return SetStockMove(actor, "run", void)
 end function
 
-// Finish flipper run transition.
+/// Finish flipper run transition.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FinishFlipperRunTransition(actor, context)
   actor.activity = "run"
   return SetStockMove(actor, "run-start", FinishRunStart)
 end function
 
-// Finish parasite fidget start.
+/// Finish parasite fidget start.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FinishParasiteFidgetStart(actor, context)
   actor.activity = "idle"
   return SetStockMove(actor, "fidget-loop", FinishParasiteFidgetLoop)
 end function
 
-// Finish parasite fidget loop.
+/// Finish parasite fidget loop.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FinishParasiteFidgetLoop(actor, context)
   actor.activity = "idle"
   if NextStockRandomUnit(context, context.randomIdle) <= 0.8 then
@@ -294,7 +355,9 @@ function FinishParasiteFidgetLoop(actor, context)
   return SetStockMove(actor, "fidget-end", StateStand)
 end function
 
-// Return the state stand value.
+/// Return the state stand value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateStand(actor, context)
   actor.activity = "stand"
   if not gailocomotion.hasStockMoves(actor.className) then return true end if
@@ -314,7 +377,9 @@ function StateStand(actor, context)
   return SetStockMove(actor, "stand", void)
 end function
 
-// Return the state idle value.
+/// Return the state idle value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateIdle(actor, context)
   actor.activity = "idle"
   if actor.className == "monster_infantry" or actor.className == "monster_brain" or
@@ -332,7 +397,9 @@ function StateIdle(actor, context)
   return true
 end function
 
-// Return the state search value.
+/// Return the state search value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateSearch(actor, context)
   actor.activity = "search"
   searchRoll = 0.0
@@ -348,7 +415,9 @@ function StateSearch(actor, context)
   return true
 end function
 
-// Return the state walk value.
+/// Return the state walk value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateWalk(actor, context)
   actor.activity = "walk"
   if not gailocomotion.hasStockMoves(actor.className) then return true end if
@@ -363,7 +432,9 @@ function StateWalk(actor, context)
   return SetStockMove(actor, "walk", void)
 end function
 
-// Run state.
+/// Performs the StateRun operation for the miniquake2 game ai monster module.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateRun(actor, context)
   // medic_run opportunistically scans whenever it is not already committed to
   // a patient. FoundTarget re-enters this callback with AI_MEDIC set, so the
@@ -400,21 +471,28 @@ function StateRun(actor, context)
   return SetStockMove(actor, "run", void)
 end function
 
-// Run state.
+/// Performs the StateAttack operation for the miniquake2 game ai monster module.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateAttack(actor, context)
   actor.activity = "attack"
   actor.attackCount = actor.attackCount + 1
   return true
 end function
 
-// Return the state melee value.
+/// Return the state melee value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateMelee(actor, context)
   actor.activity = "melee"
   actor.meleeCount = actor.meleeCount + 1
   return true
 end function
 
-// Return the state sight value.
+/// Return the state sight value.
+/// @param actor actor value consumed by this operation.
+/// @param enemy enemy value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateSight(actor, enemy, context)
   actor.activity = "sight"
   sightRoll = 0.0
@@ -439,14 +517,22 @@ function StateSight(actor, enemy, context)
   return true
 end function
 
-// Handle state.
+/// Handle state.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StatePain(actor, attacker, damage, context)
   actor.activity = "pain"
   actor.painCount = actor.painCount + 1
   return true
 end function
 
-// Handle state.
+/// Handle state.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StateDie(actor, attacker, damage, context)
   if actor.className == "monster_medic" and actor.enemy is not void and
       actor.enemy.owner is not void and
@@ -465,12 +551,18 @@ function StateDie(actor, attacker, damage, context)
   return true
 end function
 
-// Validate default attack.
+/// Validate default attack.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param enemyRange enemyRange value consumed by this operation.
 function DefaultCheckAttack(actor, context, enemyRange)
   return gaicore.M_CheckAttack(actor, context, enemyRange)
 end function
 
-// Validate medic attack.
+/// Validate medic attack.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param enemyRange enemyRange value consumed by this operation.
 function MedicCheckAttack(actor, context, enemyRange)
   if (actor.info.aiFlags & gaiconstants.AI_MEDIC) != 0 then
     StateAttack(actor, context)
@@ -480,7 +572,10 @@ function MedicCheckAttack(actor, context, enemyRange)
   return DefaultCheckAttack(actor, context, enemyRange)
 end function
 
-// Validate mutant attack.
+/// Validate mutant attack.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param enemyRange enemyRange value consumed by this operation.
 function MutantCheckAttack(actor, context, enemyRange)
   if actor.enemy is void or actor.enemy.edict.inUse != true or actor.enemy.health <= 0 then return false end if
   if enemyRange == gaiconstants.RANGE_MELEE then
@@ -502,7 +597,10 @@ function MutantCheckAttack(actor, context, enemyRange)
   return true
 end function
 
-// Install default callbacks.
+/// Install default callbacks.
+/// @param actor actor value consumed by this operation.
+/// @param hasAttack hasAttack value consumed by this operation.
+/// @param hasMelee hasMelee value consumed by this operation.
 function installDefaultCallbacks(actor, hasAttack, hasMelee)
   actor.info.stand = StateStand
   actor.info.idle = void
@@ -529,7 +627,9 @@ function installDefaultCallbacks(actor, hasAttack, hasMelee)
   return actor
 end function
 
-// Report whether m flies off.
+/// Report whether m flies off.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_FliesOff(actor, context)
   actor.edict.state.effects = actor.edict.state.effects & ~gconstants.EF_FLIES
   actor.edict.state.sound = 0
@@ -538,7 +638,9 @@ function M_FliesOff(actor, context)
   return true
 end function
 
-// Report whether m flies on.
+/// Report whether m flies on.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_FliesOn(actor, context)
   actor.thinkKind = "none"
   actor.nextThink = 0.0
@@ -552,7 +654,9 @@ function M_FliesOn(actor, context)
   return true
 end function
 
-// Validate m fly.
+/// Validate m fly.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_FlyCheck(actor, context)
   if actor.waterLevel != 0 then return false end if
   if NextStockRandomUnit(context, context.randomIdle) > 0.5 then return false end if
@@ -562,7 +666,12 @@ function M_FlyCheck(actor, context)
   return true
 end function
 
-// Apply world damage.
+/// Apply world damage.
+/// @param actor actor value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param damageFlags damageFlags value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ApplyWorldDamage(actor, amount, damageFlags, meansOfDeath, context)
   if typeof(context.damage) == "function" then
     return context.damage(actor, amount, damageFlags, meansOfDeath)
@@ -573,7 +682,9 @@ function ApplyWorldDamage(actor, amount, damageFlags, meansOfDeath, context)
   return amount
 end function
 
-// Return the m world effects value.
+/// Return the m world effects value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_WorldEffects(actor, context)
   // Keep m world effects phases explicit: validate inputs, update owned state, then publish the result.
   if actor.health > 0 then
@@ -646,7 +757,9 @@ function M_WorldEffects(actor, context)
   return true
 end function
 
-// Set m effects.
+/// Set m effects.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_SetEffects(actor, context)
   actor.edict.state.effects = actor.edict.state.effects & ~(gconstants.EF_COLOR_SHELL | gconstants.EF_POWERSCREEN)
   actor.edict.state.renderFx = actor.edict.state.renderFx & ~(gconstants.RF_SHELL_RED | gconstants.RF_SHELL_GREEN | gconstants.RF_SHELL_BLUE)
@@ -666,7 +779,9 @@ function M_SetEffects(actor, context)
   return true
 end function
 
-// Move m frame.
+/// Move m frame.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_MoveFrame(actor, context)
   move = actor.info.currentMove
   if move is void then return error(9650, "M_MoveFrame: monster has no current move") end if
@@ -700,7 +815,9 @@ function M_MoveFrame(actor, context)
   return true
 end function
 
-// Return the continue boss death value.
+/// Return the continue boss death value.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ContinueBossDeath(actor, context)
   if actor.bossPhase != "jorg-death" or actor.successorSpawned then return false end if
   if context.time < actor.successorDueTime then
@@ -721,7 +838,11 @@ function ContinueBossDeath(actor, context)
   return true
 end function
 
-// Run reaction frame callbacks.
+/// Run reaction frame callbacks.
+/// @param actor actor value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function RunReactionFrameCallbacks(actor, plan, timelineOffset, context)
   gaiReactionFrameRoll = 0.0
   if gaireactions.frameSoundUsesRandom(plan, timelineOffset) then
@@ -741,7 +862,10 @@ function RunReactionFrameCallbacks(actor, plan, timelineOffset, context)
   return true
 end function
 
-// Start reaction.
+/// Start reaction.
+/// @param actor actor value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StartReaction(actor, plan, context)
   gaireactions.validatePlan(plan)
   actor.activity = plan.name
@@ -770,7 +894,10 @@ function StartReaction(actor, plan, context)
   return true
 end function
 
-// Finish reaction.
+/// Finish reaction.
+/// @param actor actor value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FinishReaction(actor, plan, context)
   // Keep finish reaction phases explicit: validate inputs, update owned state, then publish the result.
   actor.info.nextFrame = 0
@@ -820,7 +947,9 @@ function FinishReaction(actor, plan, context)
   return true
 end function
 
-// Advance boss explosion.
+/// Advance boss explosion.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function AdvanceBossExplosion(actor, context)
   stage = actor.info.nextFrame
   if stage < 0 then stage = 0 end if
@@ -843,7 +972,9 @@ function AdvanceBossExplosion(actor, context)
   return true
 end function
 
-// Begin boss explosion.
+/// Begin boss explosion.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function BeginBossExplosion(actor, context)
   actor.activity = "boss-explode"
   actor.bossPhase = "supertank-explode"
@@ -853,7 +984,10 @@ function BeginBossExplosion(actor, context)
   return AdvanceBossExplosion(actor, context)
 end function
 
-// Advance reaction.
+/// Advance reaction.
+/// @param actor actor value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function AdvanceReaction(actor, plan, context)
   if context.time + 0.00001 < actor.info.pauseTime then return false end if
   timelineOffset = actor.info.nextFrame
@@ -885,13 +1019,15 @@ function AdvanceReaction(actor, plan, context)
   return true
 end function
 
-// Report whether is locomotion activity.
+/// Report whether is locomotion activity.
+/// @param activity activity value consumed by this operation.
 function inline IsLocomotionActivity(activity)
   return activity == "started" or activity == "stand" or activity == "idle" or
     activity == "search" or activity == "walk" or activity == "run" or activity == "sight"
 end function
 
-// Report whether is actor move activity.
+/// Report whether is actor move activity.
+/// @param activity activity value consumed by this operation.
 function inline IsActorMoveActivity(activity)
   return activity == "actor-stand" or activity == "actor-walk" or
     activity == "actor-run" or activity == "actor-pain1" or
@@ -900,7 +1036,9 @@ function inline IsActorMoveActivity(activity)
     activity == "actor-death1" or activity == "actor-death2"
 end function
 
-// End m frame.
+/// End m frame.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_EndFrame(actor, context)
   if actor.edict.linkCount != actor.info.linkCount then
     actor.info.linkCount = actor.edict.linkCount
@@ -914,7 +1052,9 @@ function M_EndFrame(actor, context)
   return true
 end function
 
-// Run monster.
+/// Run monster.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterThink(actor, context)
   if actor.thinkKind == "triggered-spawn" then
     return MonsterTriggeredSpawn(actor, context)
@@ -946,7 +1086,11 @@ function MonsterThink(actor, context)
   return true
 end function
 
-// Use monster.
+/// Use monster.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterUse(actor, other, activator, context)
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.Use(actor, other, activator, context) end if
   if actor.enemy is not void or actor.health <= 0 then return false end if
@@ -957,7 +1101,9 @@ function MonsterUse(actor, other, activator, context)
   return true
 end function
 
-// Use monster death.
+/// Use monster death.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterDeathUse(actor, context)
   if actor.className == "misc_insane" and (actor.spawnFlags & gaiconstants.INSANE_CRUCIFIED) != 0 then
     actor.flags = (actor.flags & ~gaiconstants.FL_SWIM) | gaiconstants.FL_FLY
@@ -976,7 +1122,9 @@ function MonsterDeathUse(actor, context)
   return true
 end function
 
-// Start monster.
+/// Start monster.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterStart(actor, context)
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.Start(actor, context) end if
   if context.deathmatch then actor.edict.inUse = false; actor.activity = "inhibited-deathmatch"; return false end if
@@ -1006,7 +1154,9 @@ function MonsterStart(actor, context)
   return true
 end function
 
-// Normalize combat target.
+/// Normalize combat target.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function NormalizeCombatTarget(actor, context)
   if actor.target != "" and typeof(context.findTargets) == "function" then
     targets = context.findTargets(actor.target)
@@ -1035,7 +1185,9 @@ function NormalizeCombatTarget(actor, context)
   return true
 end function
 
-// Start monster go.
+/// Start monster go.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterStartGo(actor, context)
   if gaimonsterprops.isProp(actor) then return gaimonsterprops.StartGo(actor, context) end if
   if actor.health <= 0 then return false end if
@@ -1075,7 +1227,9 @@ function MonsterStartGo(actor, context)
   return true
 end function
 
-// Start monster triggered.
+/// Start monster triggered.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterTriggeredStart(actor, context)
   actor.edict.solid = gconstants.SOLID_NOT
   actor.moveType = gaiconstants.MOVETYPE_NONE
@@ -1085,7 +1239,11 @@ function MonsterTriggeredStart(actor, context)
   return true
 end function
 
-// Spawn monster triggered use.
+/// Spawn monster triggered use.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterTriggeredSpawnUse(actor, other, activator, context)
   actor.thinkKind = "triggered-spawn"
   actor.nextThink = context.time + gaiconstants.FRAMETIME
@@ -1093,7 +1251,9 @@ function MonsterTriggeredSpawnUse(actor, other, activator, context)
   return true
 end function
 
-// Spawn monster triggered.
+/// Spawn monster triggered.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterTriggeredSpawn(actor, context)
   actor.edict.state.origin.z = actor.edict.state.origin.z + 1.0
   if typeof(context.killBox) == "function" then
@@ -1114,7 +1274,11 @@ function MonsterTriggeredSpawn(actor, context)
   return true
 end function
 
-// Use monster target.
+/// Use monster target.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MonsterTargetUse(actor, other, activator, context)
   if actor.className == "misc_actor" then
     return gaiactor.actorUse(actor, other, activator, context)
@@ -1125,7 +1289,9 @@ function MonsterTargetUse(actor, other, activator, context)
   return MonsterUse(actor, other, activator, context)
 end function
 
-// Start walk monster.
+/// Start walk monster.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function WalkMonsterStart(actor, context)
   if not MonsterStart(actor, context) then return false end if
   if actor.yawSpeed == 0.0 then actor.yawSpeed = 20.0 end if
@@ -1137,7 +1303,9 @@ function WalkMonsterStart(actor, context)
   return result
 end function
 
-// Start fly monster.
+/// Start fly monster.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function FlyMonsterStart(actor, context)
   actor.flags = actor.flags | gaiconstants.FL_FLY
   if not MonsterStart(actor, context) then return false end if
@@ -1150,7 +1318,9 @@ function FlyMonsterStart(actor, context)
   return result
 end function
 
-// Start swim monster.
+/// Start swim monster.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function SwimMonsterStart(actor, context)
   actor.flags = actor.flags | gaiconstants.FL_SWIM
   if not MonsterStart(actor, context) then return false end if
@@ -1163,7 +1333,11 @@ function SwimMonsterStart(actor, context)
   return result
 end function
 
-// Dispatch pain.
+/// Dispatch pain.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function DispatchPain(actor, attacker, damage, context)
   if gaimonsterprops.isProp(actor) then actor.health = actor.maxHealth; return false end if
   if actor.className == "misc_actor" then
@@ -1185,7 +1359,11 @@ function DispatchPain(actor, attacker, damage, context)
   return result
 end function
 
-// Dispatch die.
+/// Dispatch die.
+/// @param actor actor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function DispatchDie(actor, attacker, damage, context)
   if gaimonsterprops.isProp(actor) then actor.health = actor.maxHealth; return false end if
   if typeof(actor.die) != "function" then return false end if

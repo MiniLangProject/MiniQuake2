@@ -1,0 +1,31 @@
+# Package `miniquake2.runtime.product_host`
+
+[Home](README.md) · [Packages](Packages.md)
+
+## Files
+
+- [src/miniquake2/runtime/product_host.ml](File-src-miniquake2-runtime-product-host-ml-2075620437.md)
+
+## Symbols
+
+- [`miniquake2.runtime.product_host.applyProductGamma`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-applyproductgamma-function-applyproductgamma-host-gamma-active-src-miniquake2-runtime-product-host-ml-327814707) — function
+- [`miniquake2.runtime.product_host.closeProductHost`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-closeproducthost-function-closeproducthost-host-src-miniquake2-runtime-product-host-ml-937519402) — function
+- [`miniquake2.runtime.product_host.openProductHost`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-openproducthost-function-openproducthost-title-videomode-fullscreen-rendererimports-src-miniquake2-runtime-product-host-ml-370399110) — function
+- [`miniquake2.runtime.product_host.openProductHostWith`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-openproducthostwith-function-openproducthostwith-callbacks-title-videomode-fullscreen-rendererimports-src-miniquake2-runtime-product-host-ml-95614056) — function
+- [`miniquake2.runtime.product_host.ProductHost`](Type-miniquake2-runtime-product-host-producthost-1357894128.md) — struct
+- [`miniquake2.runtime.product_host.ProductHostCallbacks`](Type-miniquake2-runtime-product-host-producthostcallbacks-740488232.md) — struct
+- [`miniquake2.runtime.product_host.productHostCreateRenderer`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostcreaterenderer-function-producthostcreaterenderer-imports-contextactive-src-miniquake2-runtime-product-host-ml-482734947) — function
+- [`miniquake2.runtime.product_host.productHostCreateWindow`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostcreatewindow-function-producthostcreatewindow-title-width-height-fullscreen-src-miniquake2-runtime-product-host-ml-358647950) — function
+- [`miniquake2.runtime.product_host.productHostDefaultCallbacks`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostdefaultcallbacks-function-producthostdefaultcallbacks-src-miniquake2-runtime-product-host-ml-1595920952) — function
+- [`miniquake2.runtime.product_host.productHostDestroyWindow`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostdestroywindow-function-producthostdestroywindow-window-src-miniquake2-runtime-product-host-ml-2097738256) — function
+- [`miniquake2.runtime.product_host.productHostDimensions`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostdimensions-function-producthostdimensions-videomode-src-miniquake2-runtime-product-host-ml-26187954) — function
+- [`miniquake2.runtime.product_host.productHostDrawText`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostdrawtext-function-producthostdrawtext-exports-x-y-text-src-miniquake2-runtime-product-host-ml-1179940897) — function
+- [`miniquake2.runtime.product_host.productHostInitRenderer`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostinitrenderer-function-producthostinitrenderer-renderer-src-miniquake2-runtime-product-host-ml-237106747) — function
+- [`miniquake2.runtime.product_host.productHostReconfigureWindow`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostreconfigurewindow-function-producthostreconfigurewindow-window-width-height-fullscreen-src-miniquake2-runtime-product-host-ml-1927404824) — function
+- [`miniquake2.runtime.product_host.productHostRequireCallbacks`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostrequirecallbacks-function-producthostrequirecallbacks-callbacks-src-miniquake2-runtime-product-host-ml-844631066) — function
+- [`miniquake2.runtime.product_host.productHostRestartError`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostrestarterror-function-producthostrestarterror-host-title-rendererimports-oldvideomode-oldfullscreen-gamma-restartfailure-src-miniquake2-runtime-product-host-ml-982161430) — function
+- [`miniquake2.runtime.product_host.productHostShutdownRenderer`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-producthostshutdownrenderer-function-producthostshutdownrenderer-renderer-src-miniquake2-runtime-product-host-ml-1814062011) — function
+- [`miniquake2.runtime.product_host.resetProductRenderer`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-resetproductrenderer-function-resetproductrenderer-host-rendererimports-src-miniquake2-runtime-product-host-ml-1543779587) — function
+- [`miniquake2.runtime.product_host.restartProductHost`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-restartproducthost-function-restartproducthost-host-title-videomode-fullscreen-rendererimports-src-miniquake2-runtime-product-host-ml-608637194) — function
+- [`miniquake2.runtime.product_host.restoreProductHost`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-restoreproducthost-function-restoreproducthost-host-title-videomode-fullscreen-rendererimports-gamma-src-miniquake2-runtime-product-host-ml-2070029673) — function
+- [`miniquake2.runtime.product_host.showProductLoading`](File-src-miniquake2-runtime-product-host-ml-2075620437.md#function-function-miniquake2-runtime-product-host-showproductloading-function-showproductloading-host-label-src-miniquake2-runtime-product-host-ml-1522722598) — function

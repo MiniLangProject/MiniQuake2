@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer opengl facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -33,239 +35,392 @@ import miniquake2.renderer.classic.lightmaps as rclassiclightmaps
 import miniquake2.renderer.classic.point_lighting as rclassicpointlighting
 import miniquake2.renderer.classic.sprites as rclassicsprites
 
+/// Defines the gl points constant used by the miniquake2 renderer opengl module.
 const GL_POINTS = 0x0000
+/// Defines the gl lines constant used by the miniquake2 renderer opengl module.
 const GL_LINES = 0x0001
+/// Defines the gl triangles constant used by the miniquake2 renderer opengl module.
 const GL_TRIANGLES = 0x0004
+/// Defines the gl triangle strip constant used by the miniquake2 renderer opengl module.
 const GL_TRIANGLE_STRIP = 0x0005
+/// Defines the gl triangle fan constant used by the miniquake2 renderer opengl module.
 const GL_TRIANGLE_FAN = 0x0006
+/// Defines the gl quads constant used by the miniquake2 renderer opengl module.
 const GL_QUADS = 0x0007
+/// Defines the gl depth buffer bit constant used by the miniquake2 renderer opengl module.
 const GL_DEPTH_BUFFER_BIT = 0x00000100
+/// Defines the gl color buffer bit constant used by the miniquake2 renderer opengl module.
 const GL_COLOR_BUFFER_BIT = 0x00004000
+/// Defines the gl less constant used by the miniquake2 renderer opengl module.
 const GL_LESS = 0x0201
+/// Defines the gl equal constant used by the miniquake2 renderer opengl module.
 const GL_EQUAL = 0x0202
+/// Defines the gl greater constant used by the miniquake2 renderer opengl module.
 const GL_GREATER = 0x0204
+/// Defines the gl lequal constant used by the miniquake2 renderer opengl module.
 const GL_LEQUAL = 0x0203
+/// Defines the gl zero constant used by the miniquake2 renderer opengl module.
 const GL_ZERO = 0x0000
+/// Defines the gl one constant used by the miniquake2 renderer opengl module.
 const GL_ONE = 0x0001
+/// Defines the gl src color constant used by the miniquake2 renderer opengl module.
 const GL_SRC_COLOR = 0x0300
+/// Defines the gl src alpha constant used by the miniquake2 renderer opengl module.
 const GL_SRC_ALPHA = 0x0302
+/// Defines the gl dst color constant used by the miniquake2 renderer opengl module.
 const GL_DST_COLOR = 0x0306
+/// Defines the gl one minus src alpha constant used by the miniquake2 renderer opengl module.
 const GL_ONE_MINUS_SRC_ALPHA = 0x0303
+/// Defines the gl blend constant used by the miniquake2 renderer opengl module.
 const GL_BLEND = 0x0BE2
+/// Defines the gl alpha test constant used by the miniquake2 renderer opengl module.
 const GL_ALPHA_TEST = 0x0BC0
+/// Defines the gl cull face constant used by the miniquake2 renderer opengl module.
 const GL_CULL_FACE = 0x0B44
+/// Defines the gl depth test constant used by the miniquake2 renderer opengl module.
 const GL_DEPTH_TEST = 0x0B71
+/// Defines the gl texture 2 d constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_2D = 0x0DE1
+/// Defines the gl modelview constant used by the miniquake2 renderer opengl module.
 const GL_MODELVIEW = 0x1700
+/// Defines the gl projection constant used by the miniquake2 renderer opengl module.
 const GL_PROJECTION = 0x1701
+/// Defines the gl rgba constant used by the miniquake2 renderer opengl module.
 const GL_RGBA = 0x1908
+/// Defines the gl unsigned byte constant used by the miniquake2 renderer opengl module.
 const GL_UNSIGNED_BYTE = 0x1401
+/// Defines the gl texture mag filter constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_MAG_FILTER = 0x2800
+/// Defines the gl texture min filter constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_MIN_FILTER = 0x2801
+/// Defines the gl texture wrap s constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_WRAP_S = 0x2802
+/// Defines the gl texture wrap t constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_WRAP_T = 0x2803
+/// Defines the gl texture env constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_ENV = 0x2300
+/// Defines the gl texture env mode constant used by the miniquake2 renderer opengl module.
 const GL_TEXTURE_ENV_MODE = 0x2200
+/// Defines the gl linear constant used by the miniquake2 renderer opengl module.
 const GL_LINEAR = 0x2601
+/// Defines the gl linear mipmap nearest constant used by the miniquake2 renderer opengl module.
 const GL_LINEAR_MIPMAP_NEAREST = 0x2701
+/// Defines the gl front constant used by the miniquake2 renderer opengl module.
 const GL_FRONT = 0x0404
+/// Defines the gl back constant used by the miniquake2 renderer opengl module.
 const GL_BACK = 0x0405
+/// Defines the gl modulate constant used by the miniquake2 renderer opengl module.
 const GL_MODULATE = 0x2100
+/// Defines the gl clamp constant used by the miniquake2 renderer opengl module.
 const GL_CLAMP = 0x2900
+/// Defines the gl repeat constant used by the miniquake2 renderer opengl module.
 const GL_REPEAT = 0x2901
+/// Defines the gl vendor constant used by the miniquake2 renderer opengl module.
 const GL_VENDOR = 0x1F00
+/// Defines the gl renderer constant used by the miniquake2 renderer opengl module.
 const GL_RENDERER = 0x1F01
+/// Defines the gl version constant used by the miniquake2 renderer opengl module.
 const GL_VERSION = 0x1F02
+/// Defines the deg to rad constant used by the miniquake2 renderer opengl module.
 const DEG_TO_RAD = 0.017453292519943295
-// Native renderer texture identifiers occupy 14 bits. Keep a dense retained
-// table so registration never grows the array through repeated concatenation.
+/// Native renderer texture identifiers occupy 14 bits. Keep a dense retained
 const OPEN_GL_MAX_TEXTURE_ID = 16383
-// ref_gl accepts at most 66 source vertices. Each of the six clip planes can
-// add at most one vertex, so recursive scratch buffers require 72 entries.
+/// ref_gl accepts at most 66 source vertices. Each of the six clip planes can
 const OPEN_GL_SKY_SOURCE_CAPACITY = 66
+/// Defines the open gl sky clip capacity constant used by the miniquake2 renderer opengl module.
 const OPEN_GL_SKY_CLIP_CAPACITY = 72
 
-// Store open gl state data.
+/// Store open gl state data.
 struct OpenGlState
+  /// Stores the core value associated with open gl state.
   core
+  /// Stores the imports value associated with open gl state.
   imports
+  /// Stores the assets value associated with open gl state.
   assets
+  /// Stores the context active value associated with open gl state.
   contextActive
+  /// Stores the vendor value associated with open gl state.
   vendor
+  /// Stores the renderer value associated with open gl state.
   renderer
+  /// Stores the version value associated with open gl state.
   version
+  /// Stores the submitted frames value associated with open gl state.
   submittedFrames
+  /// Stores the submitted entities value associated with open gl state.
   submittedEntities
+  /// Stores the submitted particles value associated with open gl state.
   submittedParticles
+  /// Stores the submitted shadows value associated with open gl state.
   submittedShadows
+  /// Stores the last shadow entities value associated with open gl state.
   lastShadowEntities
+  /// Stores the next texture id value associated with open gl state.
   nextTextureId
+  /// Stores the texture records value associated with open gl state.
   textureRecords
+  /// Stores the game palette value associated with open gl state.
   gamePalette
+  /// Stores the particle texture id value associated with open gl state.
   particleTextureId
+  /// Stores the raw texture id value associated with open gl state.
   rawTextureId
+  /// Stores the raw pixels value associated with open gl state.
   rawPixels
+  /// Stores the batch records value associated with open gl state.
   batchRecords
+  /// Stores the batch draws value associated with open gl state.
   batchDraws
+  /// Stores the batch animation frame value associated with open gl state.
   batchAnimationFrame
+  /// Stores the md2 shade rows value associated with open gl state.
   md2ShadeRows
+  /// Stores the md2 normal vectors value associated with open gl state.
   md2NormalVectors
+  /// Stores the md2 light cache value associated with open gl state.
   md2LightCache
+  /// Stores the md2 light style signature value associated with open gl state.
   md2LightStyleSignature
+  /// Stores the md2 light style epoch value associated with open gl state.
   md2LightStyleEpoch
+  /// Stores the md2 shadow spot z value associated with open gl state.
   md2ShadowSpotZ
+  /// Stores the md2 shadow valid value associated with open gl state.
   md2ShadowValid
+  /// Stores the md2 light spot z value associated with open gl state.
   md2LightSpotZ
+  /// Stores the md2 light spot valid value associated with open gl state.
   md2LightSpotValid
+  /// Stores the shadows value associated with open gl state.
   shadows
+  /// Stores the brightness value associated with open gl state.
   brightness
+  /// Stores the handedness value associated with open gl state.
   handedness
+  /// Stores the active world value associated with open gl state.
   activeWorld
+  /// Stores the light level value associated with open gl state.
   lightLevel
 end struct
 
-// The native bridge creates OpenGL 1.1 names on first bind.  Keeping every
-// allocation here makes generation ownership and release observable. Uploaded
-// names are physically deleted through the shared OpenGL bridge; headless
-// records follow the same logical lifecycle without a native call.
+/// The native bridge creates OpenGL 1.1 names on first bind.  Keeping every
+/// allocation here makes generation ownership and release observable. Uploaded
+/// names are physically deleted through the shared OpenGL bridge; headless
+/// records follow the same logical lifecycle without a native call.
 struct GlTextureRecord
+  /// Stores the id value associated with gl texture record.
   id
+  /// Stores the name value associated with gl texture record.
   name
+  /// Stores the role value associated with gl texture record.
   role
+  /// Stores the generation value associated with gl texture record.
   generation
+  /// Stores the width value associated with gl texture record.
   width
+  /// Stores the height value associated with gl texture record.
   height
+  /// Stores the uploaded value associated with gl texture record.
   uploaded
+  /// Stores the released value associated with gl texture record.
   released
 end struct
 
-// The v3 renderer API selects one backend at a time.  These renderer-specific
-// names avoid the self-hosted linker's full-program collisions with the
-// recording backend's own makeExports/state closure symbols.
+/// The v3 renderer API selects one backend at a time.  These renderer-specific
+/// names avoid the self-hosted linker's full-program collisions with the
+/// recording backend's own makeExports/state closure symbols.
 struct OpenGlBackendSlot
+  /// Stores the backend value associated with open gl backend slot.
   backend
 end struct
 
-// World alpha must be emitted after aliases and particles even though the
-// MiniLang product submits BSP geometry through a separate API call. Retain
-// only the current frame's tail passes; BeginFrame clears stale work.
+/// World alpha must be emitted after aliases and particles even though the
+/// MiniLang product submits BSP geometry through a separate API call. Retain
+/// only the current frame's tail passes; BeginFrame clears stale work.
 struct OpenGlPendingClassicPasses
+  /// Stores the binding value associated with open gl pending classic passes.
   binding
+  /// Stores the transparent draws value associated with open gl pending classic passes.
   transparentDraws
+  /// Stores the transparent count value associated with open gl pending classic passes.
   transparentCount
+  /// Stores the frame value associated with open gl pending classic passes.
   frame
+  /// Stores the active value associated with open gl pending classic passes.
   active
+  /// Stores the stats value associated with open gl pending classic passes.
   stats
 end struct
 
-// Fixed six-stage ClipSkyPolygon workspace. Every vertex object is retained
-// and mutated in place so sky portals do not build a managed graph per frame.
+/// Fixed six-stage ClipSkyPolygon workspace. Every vertex object is retained
+/// and mutated in place so sky portals do not build a managed graph per frame.
 struct OpenGlSkyClipScratch
+  /// Stores the bounds value associated with open gl sky clip scratch.
   bounds
+  /// Stores the distances value associated with open gl sky clip scratch.
   distances
+  /// Stores the sides value associated with open gl sky clip scratch.
   sides
+  /// Stores the front buffers value associated with open gl sky clip scratch.
   frontBuffers
+  /// Stores the back buffers value associated with open gl sky clip scratch.
   backBuffers
+  /// Stores the translated value associated with open gl sky clip scratch.
   translated
 end struct
 
-// Package-owned holder for the lazily initialized sky clipping workspace.
+/// Package-owned holder for the lazily initialized sky clipping workspace.
 struct OpenGlSkyScratchSlot
+  /// Stores the scratch value associated with open gl sky scratch slot.
   scratch
 end struct
 
-// Store open gl frame slot data.
+/// Store open gl frame slot data.
 struct OpenGlFrameSlot
+  /// Stores the two dimensional value associated with open gl frame slot.
   twoDimensional
 end struct
 
-// Store open gl file imports data.
+/// Store open gl file imports data.
 struct OpenGlFileImports
+  /// Stores the fs load file value associated with open gl file imports.
   fsLoadFile
 end struct
 
-// Store md 2 entity plan data.
+/// Store md 2 entity plan data.
 struct Md2EntityPlan
+  /// Stores the model asset value associated with md2 entity plan.
   modelAsset
+  /// Stores the skin asset value associated with md2 entity plan.
   skinAsset
+  /// Stores the mesh value associated with md2 entity plan.
   mesh
+  /// Stores the gl vertices value associated with md2 entity plan.
   glVertices
+  /// Stores the bounds value associated with md2 entity plan.
   bounds
+  /// Stores the frame value associated with md2 entity plan.
   frame
+  /// Stores the old frame value associated with md2 entity plan.
   oldFrame
+  /// Stores the back lerp value associated with md2 entity plan.
   backLerp
 end struct
 
-// Store md 2 submit stats data.
+/// Store md 2 submit stats data.
 struct Md2SubmitStats
+  /// Stores the submitted value associated with md2 submit stats.
   submitted
+  /// Stores the triangles value associated with md2 submit stats.
   triangles
+  /// Stores the vertices value associated with md2 submit stats.
   vertices
+  /// Stores the texture id value associated with md2 submit stats.
   textureId
+  /// Stores the bounds value associated with md2 submit stats.
   bounds
 end struct
 
-// Store md 2 draw state data.
+/// Store md 2 draw state data.
 struct Md2DrawState
+  /// Stores the texture id value associated with md2 draw state.
   textureId
+  /// Stores the translucent value associated with md2 draw state.
   translucent
+  /// Stores the depth hack value associated with md2 draw state.
   depthHack
+  /// Stores the shell value associated with md2 draw state.
   shell
+  /// Stores the mirrored value associated with md2 draw state.
   mirrored
+  /// Stores the shade red value associated with md2 draw state.
   shadeRed
+  /// Stores the shade green value associated with md2 draw state.
   shadeGreen
+  /// Stores the shade blue value associated with md2 draw state.
   shadeBlue
+  /// Stores the alpha value associated with md2 draw state.
   alpha
 end struct
 
-// One static BSP light sample retained for an entity slot. Dynamic lights are
-// deliberately excluded and composed at draw time so moving flashes remain
-// exact without repeating RecursiveLightPoint on every presentation frame.
+/// One static BSP light sample retained for an entity slot. Dynamic lights are
+/// deliberately excluded and composed at draw time so moving flashes remain
+/// exact without repeating RecursiveLightPoint on every presentation frame.
 struct Md2LightCacheEntry
+  /// Stores the world generation value associated with md2 light cache entry.
   worldGeneration
+  /// Stores the style epoch value associated with md2 light cache entry.
   styleEpoch
+  /// Stores the origin x value associated with md2 light cache entry.
   originX
+  /// Stores the origin y value associated with md2 light cache entry.
   originY
+  /// Stores the origin z value associated with md2 light cache entry.
   originZ
+  /// Stores the sample value associated with md2 light cache entry.
   sample
 end struct
 
-// Store open gl view axes data.
+/// Store open gl view axes data.
 struct OpenGlViewAxes
+  /// Stores the forward x value associated with open gl view axes.
   forwardX
+  /// Stores the forward y value associated with open gl view axes.
   forwardY
+  /// Stores the forward z value associated with open gl view axes.
   forwardZ
+  /// Stores the right x value associated with open gl view axes.
   rightX
+  /// Stores the right y value associated with open gl view axes.
   rightY
+  /// Stores the right z value associated with open gl view axes.
   rightZ
+  /// Stores the up x value associated with open gl view axes.
   upX
+  /// Stores the up y value associated with open gl view axes.
   upY
+  /// Stores the up z value associated with open gl view axes.
   upZ
 end struct
 
-// Store open gl raw frame data.
+/// Store open gl raw frame data.
 struct OpenGlRawFrame
+  /// Stores the rgba value associated with open gl raw frame.
   rgba
+  /// Stores the texture t value associated with open gl raw frame.
   textureT
 end struct
 
-// Mutating a package-owned holder is reliable across the self-hosted full
-// graph; rebinding a package global from a function is not.
+/// Mutating a package-owned holder is reliable across the self-hosted full
 openGlBackendSlot = OpenGlBackendSlot(void)
+/// Stores module-wide open gl frame slot state for the miniquake2 renderer opengl module.
 openGlFrameSlot = OpenGlFrameSlot(false)
+/// Stores module-wide open gl pending classic passes state for the miniquake2 renderer opengl module.
 openGlPendingClassicPasses = OpenGlPendingClassicPasses(void, [], 0, void,
   false, void)
+/// Stores module-wide open gl sky scratch slot state for the miniquake2 renderer opengl module.
 openGlSkyScratchSlot = OpenGlSkyScratchSlot(void)
+/// Stores module-wide open gl particle records state for the miniquake2 renderer opengl module.
 openGlParticleRecords = bytes(rc.MAX_PARTICLES * 16)
+/// Stores module-wide open gl classic texture coordinate scratch state for the miniquake2 renderer opengl module.
 openGlClassicTextureCoordinateScratch = array(2, 0.0)
+/// Stores module-wide open gl brush submission scratch state for the miniquake2 renderer opengl module.
 openGlBrushSubmissionScratch = array(rc.MAX_ENTITIES)
 
-// Return the bits value.
+/// Return the bits value.
+/// @param value Value consumed or transformed by the operation.
 function inline bits(value)
   return native.floatBits(value)
 end function
 
-// Allocate texture record.
+/// Allocate texture record.
+/// @param backend backend value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param role role value consumed by this operation.
+/// @param generation generation value consumed by this operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
 function allocateTextureRecord(backend, name, role, generation, width, height)
   if backend.nextTextureId < 1 or
       backend.nextTextureId > OPEN_GL_MAX_TEXTURE_ID then
@@ -277,14 +432,18 @@ function allocateTextureRecord(backend, name, role, generation, width, height)
   return record
 end function
 
-// Find texture record.
+/// Find texture record.
+/// @param backend backend value consumed by this operation.
+/// @param id Stable identifier of the affected item.
 function findTextureRecord(backend, id)
   if id < 1 or id >= backend.nextTextureId or
       id > OPEN_GL_MAX_TEXTURE_ID then return void end if
   return backend.textureRecords[id - 1]
 end function
 
-// Release open gl texture record.
+/// Release open gl texture record.
+/// @param backend backend value consumed by this operation.
+/// @param record record value consumed by this operation.
 function releaseOpenGlTextureRecord(backend, record)
   if record is void or record.released then return false end if
   if backend.contextActive and record.uploaded then
@@ -300,7 +459,8 @@ function releaseOpenGlTextureRecord(backend, record)
   return true
 end function
 
-// Release open gl texture records.
+/// Release open gl texture records.
+/// @param backend backend value consumed by this operation.
 function releaseOpenGlTextureRecords(backend)
   released = 0
   recordIndex = 0
@@ -315,12 +475,16 @@ function releaseOpenGlTextureRecords(backend)
   return released
 end function
 
-// Return the color byte value.
+/// Return the color byte value.
+/// @param value Value consumed or transformed by the operation.
+/// @param shift shift value consumed by this operation.
 function inline colorByte(value, shift)
   return (value >> shift) & 255
 end function
 
-// Open gl palette color.
+/// Open gl palette color.
+/// @param palette palette value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function inline openGlPaletteColor(palette, index)
   color = index & 255
   if typeof(palette) == "bytes" and len(palette) == 768 then
@@ -329,7 +493,8 @@ function inline openGlPaletteColor(palette, index)
   return (color & 0xE0) | (((color & 0x1C) << 3) << 8) | (((color & 0x03) << 6) << 16)
 end function
 
-// Open gl load game palette.
+/// Open gl load game palette.
+/// @param backend backend value consumed by this operation.
 function openGlLoadGamePalette(backend)
   if backend.imports is void then backend.gamePalette = bytes(0); return backend.gamePalette end if
   data = try(backend.imports.fsLoadFile("pics/colormap.pcx"))
@@ -340,7 +505,8 @@ function openGlLoadGamePalette(backend)
   return backend.gamePalette
 end function
 
-// Open gl view axes.
+/// Open gl view axes.
+/// @param viewAngles viewAngles value consumed by this operation.
 function openGlViewAxes(viewAngles)
   pitch = viewAngles.x * DEG_TO_RAD
   yaw = viewAngles.y * DEG_TO_RAD
@@ -358,7 +524,7 @@ function openGlViewAxes(viewAngles)
     rollCosine * pitchCosine)
 end function
 
-// Open gl particle pixels.
+/// Open gl particle pixels.
 function openGlParticlePixels()
   size = 16
   rgba = bytes(size * size * 4)
@@ -380,7 +546,12 @@ function openGlParticlePixels()
   return rgba
 end function
 
-// Prepare open gl raw frame.
+/// Prepare open gl raw frame.
+/// @param columns columns value consumed by this operation.
+/// @param rows rows value consumed by this operation.
+/// @param data Input data consumed by the operation.
+/// @param palette palette value consumed by this operation.
+/// @param reusable reusable value consumed by this operation.
 function prepareOpenGlRawFrame(columns, rows, data, palette, reusable)
   if columns <= 0 or rows <= 0 then return error(9630, "raw frame dimensions must be positive") end if
   rgba = reusable
@@ -414,7 +585,8 @@ function prepareOpenGlRawFrame(columns, rows, data, palette, reusable)
   return OpenGlRawFrame(rgba, textureT)
 end function
 
-// Ensure open gl particle texture.
+/// Ensure open gl particle texture.
+/// @param backend backend value consumed by this operation.
 function ensureOpenGlParticleTexture(backend)
   record = void
   if backend.particleTextureId != 0 then record = findTextureRecord(backend, backend.particleTextureId) end if
@@ -437,7 +609,8 @@ function ensureOpenGlParticleTexture(backend)
   return record.id
 end function
 
-// Ensure open gl raw texture.
+/// Ensure open gl raw texture.
+/// @param backend backend value consumed by this operation.
 function ensureOpenGlRawTexture(backend)
   record = void
   if backend.rawTextureId != 0 then record = findTextureRecord(backend, backend.rawTextureId) end if
@@ -450,7 +623,8 @@ function ensureOpenGlRawTexture(backend)
   return record
 end function
 
-// Return the setup 3 d value.
+/// Return the setup 3 d value.
+/// @param frame frame value consumed by this operation.
 function setup3d(frame)
   viewportX = frame.x; viewportY = frame.y; viewportWidth = frame.width; viewportHeight = frame.height
   fovX = frame.fovX; fovY = frame.fovY
@@ -482,7 +656,8 @@ function setup3d(frame)
   native.glTranslate(bits(-originX), bits(-originY), bits(-originZ))
 end function
 
-// Draw open gl null entity.
+/// Draw open gl null entity.
+/// @param entity entity value consumed by this operation.
 function drawOpenGlNullEntity(entity)
   origin = entity.origin; angles = entity.angles
   native.glPushMatrix()
@@ -517,7 +692,8 @@ function drawOpenGlNullEntity(entity)
   native.glPopMatrix()
 end function
 
-// Open gl beam scalars.
+/// Open gl beam scalars.
+/// @param entity entity value consumed by this operation.
 function openGlBeamScalars(entity)
   origin = entity.origin; finish = entity.oldOrigin
   directionX = finish.x - origin.x; directionY = finish.y - origin.y; directionZ = finish.z - origin.z
@@ -564,7 +740,9 @@ function openGlBeamScalars(entity)
   return scalars
 end function
 
-// Draw open gl beam.
+/// Draw open gl beam.
+/// @param backend backend value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function drawOpenGlBeam(backend, entity)
   scalars = openGlBeamScalars(entity)
   if len(scalars) == 0 then return false end if
@@ -591,7 +769,11 @@ function drawOpenGlBeam(backend, entity)
   return true
 end function
 
-// Draw open gl sprite entity.
+/// Draw open gl sprite entity.
+/// @param backend backend value consumed by this operation.
+/// @param modelAsset modelAsset value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param axes axes value consumed by this operation.
 function drawOpenGlSpriteEntity(backend, modelAsset, entity, axes)
   // Keep draw open gl sprite entity phases explicit: validate inputs, update owned state, then publish the result.
   if len(modelAsset.skins) == 0 then return error(9631, "SP2 entity has no registered PCX frames") end if
@@ -631,7 +813,12 @@ function drawOpenGlSpriteEntity(backend, modelAsset, entity, axes)
   return true
 end function
 
-// Write open gl particle record.
+/// Write open gl particle record.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param index Zero-based index of the affected item.
+/// @param packed packed value consumed by this operation.
+/// @param alpha alpha value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function writeOpenGlParticleRecord(buffer, index, packed, alpha, origin)
   offset = index * 16
   buffer[offset] = colorByte(packed, 0)
@@ -654,7 +841,10 @@ function writeOpenGlParticleRecord(buffer, index, packed, alpha, origin)
   return offset + 16
 end function
 
-// Draw particles.
+/// Draw particles.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param axes axes value consumed by this operation.
 function drawParticles(backend, frame, axes)
   if frame.numParticles <= 0 then return void end if
   textureId = try(ensureOpenGlParticleTexture(backend))
@@ -733,7 +923,7 @@ function drawParticles(backend, frame, axes)
   native.glColor4ub(255, 255, 255, 255)
 end function
 
-// Return the setup 2 d value.
+/// Return the setup 2 d value.
 function setup2d()
   frameState = openGlFrameSlot
   if frameState.twoDimensional then return void end if
@@ -751,7 +941,13 @@ function setup2d()
   frameState.twoDimensional = true
 end function
 
-// Draw solid rect.
+/// Draw solid rect.
+/// @param backend backend value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param color color value consumed by this operation.
 function drawSolidRect(backend, x, y, width, height, color)
   setup2d()
   packed = openGlPaletteColor(backend.gamePalette, color)
@@ -768,7 +964,8 @@ function drawSolidRect(backend, x, y, width, height, color)
   native.glEnable(GL_TEXTURE_2D)
 end function
 
-// Return the picture pixels value.
+/// Return the picture pixels value.
+/// @param asset asset value consumed by this operation.
 function picturePixels(asset)
   pixels = asset.source.pixels
   if asset.kind == "wal" then pixels = asset.source.mipPixels[0] end if
@@ -796,7 +993,8 @@ function picturePixels(asset)
   return rgba
 end function
 
-// Return the picture upload pixels value.
+/// Return the picture upload pixels value.
+/// @param asset asset value consumed by this operation.
 function pictureUploadPixels(asset)
   rgba = picturePixels(asset)
   if asset.usage != "skin" then return rgba end if
@@ -816,7 +1014,9 @@ function pictureUploadPixels(asset)
   return rgba
 end function
 
-// Ensure open gl picture texture.
+/// Ensure open gl picture texture.
+/// @param backend backend value consumed by this operation.
+/// @param asset asset value consumed by this operation.
 function ensureOpenGlPictureTexture(backend, asset)
   record = void
   if asset.textureId != 0 then record = findTextureRecord(backend, asset.textureId) end if
@@ -830,8 +1030,11 @@ function ensureOpenGlPictureTexture(backend, asset)
   return record
 end function
 
-// Upload a complete RGBA mip chain during registration. Keeping mip generation
-// inside this renderer helper restores stock sampling without gameplay heap use.
+/// Upload a complete RGBA mip chain during registration. Keeping mip generation
+/// inside this renderer helper restores stock sampling without gameplay heap use.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param rgba rgba value consumed by this operation.
 function uploadOpenGlMipChain(width, height, rgba)
   // Validate the base level, upload each level, then downsample into the next
   // registration-owned temporary buffer until the 1x1 terminal level.
@@ -873,7 +1076,9 @@ function uploadOpenGlMipChain(width, height, rgba)
   end while
 end function
 
-// Return the upload picture value.
+/// Return the upload picture value.
+/// @param backend backend value consumed by this operation.
+/// @param asset asset value consumed by this operation.
 function uploadPicture(backend, asset)
   record = try(ensureOpenGlPictureTexture(backend, asset))
   if record is error then return record end if
@@ -899,7 +1104,13 @@ function uploadPicture(backend, asset)
   return textureId
 end function
 
-// Draw textured rect.
+/// Draw textured rect.
+/// @param backend backend value consumed by this operation.
+/// @param asset asset value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
 function drawTexturedRect(backend, asset, x, y, width, height)
   setup2d()
   native.glEnable(GL_TEXTURE_2D)
@@ -916,7 +1127,17 @@ function drawTexturedRect(backend, asset, x, y, width, height)
   native.glDisable(GL_BLEND)
 end function
 
-// Draw textured sub rect.
+/// Draw textured sub rect.
+/// @param backend backend value consumed by this operation.
+/// @param asset asset value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param left left value consumed by this operation.
+/// @param top top value consumed by this operation.
+/// @param right right value consumed by this operation.
+/// @param bottom bottom value consumed by this operation.
 function drawTexturedSubRect(backend, asset, x, y, width, height,
     left, top, right, bottom)
   setup2d()
@@ -934,7 +1155,13 @@ function drawTexturedSubRect(backend, asset, x, y, width, height,
   native.glDisable(GL_BLEND)
 end function
 
-// Draw tiled rect.
+/// Draw tiled rect.
+/// @param backend backend value consumed by this operation.
+/// @param asset asset value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
 function drawTiledRect(backend, asset, x, y, width, height)
   setup2d()
   native.glEnable(GL_TEXTURE_2D)
@@ -951,7 +1178,7 @@ function drawTiledRect(backend, asset, x, y, width, height)
   native.glEnd()
 end function
 
-// Draw fade rect.
+/// Draw fade rect.
 function drawFadeRect()
   setup2d()
   width = native.winClientWidth(); height = native.winClientHeight()
@@ -970,7 +1197,10 @@ function drawFadeRect()
   native.glEnable(GL_TEXTURE_2D)
 end function
 
-// Resolve open gl md 2 skin.
+/// Resolve open gl md 2 skin.
+/// @param backend backend value consumed by this operation.
+/// @param modelAsset modelAsset value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function resolveOpenGlMd2Skin(backend, modelAsset, entity)
   if entity.skin is not void then return rassets.pictureForHandle(backend.assets, entity.skin) end if
   if len(modelAsset.skins) == 0 then return error(9627, "MD2 entity has no registered PCX skin") end if
@@ -979,7 +1209,9 @@ function resolveOpenGlMd2Skin(backend, modelAsset, entity)
   return modelAsset.skins[skinIndex]
 end function
 
-// Prepare open gl md 2 entity.
+/// Prepare open gl md 2 entity.
+/// @param backend backend value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function prepareOpenGlMd2Entity(backend, entity)
   modelAsset = rassets.modelForHandle(backend.assets, entity.model)
   if modelAsset.kind != "md2" then return error(9628, "entity model is not MD2") end if
@@ -1019,7 +1251,8 @@ function prepareOpenGlMd2Entity(backend, entity)
     openGlMd2FrameIndex, openGlMd2OldFrameIndex, entity.backLerp)
 end function
 
-// Open gl shade byte.
+/// Open gl shade byte.
+/// @param component component value consumed by this operation.
 function inline openGlShadeByte(component)
   value = ropenglbyteio.truncInt(component * 255.0 + 0.5)
   if value < 0 then return 0 end if
@@ -1027,9 +1260,10 @@ function inline openGlShadeByte(component)
   return value
 end function
 
-// ref_gl copies RefDef.blend into v_blend and overlays it after the complete
-// 3-D scene.  This carries damage flashes, underwater tint and powerup color
-// shifts; retaining the field without drawing it leaves all three invisible.
+/// ref_gl copies RefDef.blend into v_blend and overlays it after the complete
+/// 3-D scene.  This carries damage flashes, underwater tint and powerup color
+/// shifts; retaining the field without drawing it leaves all three invisible.
+/// @param blend blend value consumed by this operation.
 function openGlPolyBlendColor(blend)
   if typeof(blend) != "array" or len(blend) != 4 then
     return error(9633, "polyblend requires four RGBA components")
@@ -1047,7 +1281,8 @@ function openGlPolyBlendColor(blend)
   return color
 end function
 
-// Draw open gl poly blend.
+/// Draw open gl poly blend.
+/// @param frame frame value consumed by this operation.
 function drawOpenGlPolyBlend(frame)
   color = openGlPolyBlendColor(frame.blend)
   if color[3] == 0 then return false end if
@@ -1071,7 +1306,11 @@ function drawOpenGlPolyBlend(frame)
   return true
 end function
 
-// Open gl md 2 shade components.
+/// Open gl md 2 shade components.
+/// @param entity entity value consumed by this operation.
+/// @param time time value consumed by this operation.
+/// @param rdFlags rdFlags value consumed by this operation.
+/// @param baseColor baseColor value consumed by this operation.
 function openGlMd2ShadeComponents(entity, time, rdFlags, baseColor)
   // Keep open gl md 2 shade components phases explicit: validate inputs, update owned state, then publish the result.
   flags = entity.flags
@@ -1116,27 +1355,36 @@ function openGlMd2ShadeComponents(entity, time, rdFlags, baseColor)
     red, green, blue, 0.0, 0.0, 0.0, false)
 end function
 
-// Open gl pack md 2 shade.
+/// Open gl pack md 2 shade.
+/// @param color color value consumed by this operation.
 function inline openGlPackMd2Shade(color)
   return openGlShadeByte(color.red) | (openGlShadeByte(color.green) << 8) |
     (openGlShadeByte(color.blue) << 16)
 end function
 
-// Open gl md 2 shade color.
+/// Open gl md 2 shade color.
+/// @param entity entity value consumed by this operation.
+/// @param time time value consumed by this operation.
+/// @param rdFlags rdFlags value consumed by this operation.
+/// @param baseColor baseColor value consumed by this operation.
 function openGlMd2ShadeColor(entity, time, rdFlags, baseColor)
   return openGlPackMd2Shade(
     openGlMd2ShadeComponents(entity, time, rdFlags, baseColor))
 end function
 
-// Open gl md 2 shade.
+/// Open gl md 2 shade.
+/// @param entity entity value consumed by this operation.
+/// @param time time value consumed by this operation.
 function openGlMd2Shade(entity, time)
   return openGlMd2ShadeColor(entity, time, 0,
     rclassictypes.ClassicPointLight(1.0, 1.0, 1.0, 0.0, 0.0, 0.0, false))
 end function
 
-// Advance the renderer-owned light-style epoch only when RGB content changes.
-// The client mutates its fixed style table at 10 Hz, so array identity alone
-// cannot invalidate cached static point samples.
+/// Advance the renderer-owned light-style epoch only when RGB content changes.
+/// The client mutates its fixed style table at 10 Hz, so array identity alone
+/// cannot invalidate cached static point samples.
+/// @param backend backend value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
 function updateOpenGlMd2LightStyleEpoch(backend, lightStyles)
   signature = 5381
   styleIndex = 0
@@ -1154,7 +1402,11 @@ function updateOpenGlMd2LightStyleEpoch(backend, lightStyles)
   return backend.md2LightStyleEpoch
 end function
 
-// Return a cached static BSP sample for one live RefDef entity slot.
+/// Return a cached static BSP sample for one live RefDef entity slot.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param entityIndex Zero-based index of entity.
 function openGlMd2StaticLightSample(backend, frame, entity, entityIndex)
   world = backend.activeWorld
   if entityIndex < 0 or entityIndex >= rc.MAX_ENTITIES or world is void then
@@ -1176,7 +1428,11 @@ function openGlMd2StaticLightSample(backend, frame, entity, entityIndex)
   return sample
 end function
 
-// Open gl md 2 frame shade components.
+/// Open gl md 2 frame shade components.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param entityIndex Zero-based index of entity.
 function openGlMd2FrameShadeComponentsAt(backend, frame, entity, entityIndex)
   shellMask = rc.RF_SHELL_RED | rc.RF_SHELL_GREEN | rc.RF_SHELL_BLUE |
     rc.RF_SHELL_DOUBLE | rc.RF_SHELL_HALF_DAM
@@ -1200,26 +1456,34 @@ function openGlMd2FrameShadeComponentsAt(backend, frame, entity, entityIndex)
   return openGlMd2ShadeComponents(entity, frame.time, frame.rdFlags, baseColor)
 end function
 
-// Open gl md 2 frame shade components for diagnostic callers without a stable
-// live RefDef slot.
+/// Open gl md 2 frame shade components for diagnostic callers without a stable
+/// live RefDef slot.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function openGlMd2FrameShadeComponents(backend, frame, entity)
   return openGlMd2FrameShadeComponentsAt(backend, frame, entity, -1)
 end function
 
-// Open gl md 2 frame shade.
+/// Open gl md 2 frame shade.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function openGlMd2FrameShade(backend, frame, entity)
   return openGlPackMd2Shade(
     openGlMd2FrameShadeComponents(backend, frame, entity))
 end function
 
-// Open gl md 2 shade row index.
+/// Open gl md 2 shade row index.
+/// @param yaw yaw value consumed by this operation.
 function inline openGlMd2ShadeRowIndex(yaw)
   return ropenglbyteio.truncInt(yaw * (16.0 / 360.0)) & 15
 end function
 
-// anormtab.h is generated from Quake II's 162 bytedirs. Keep the compact
-// source normals as the single truth and lazily materialize only the sixteen
-// 648-byte rows. Values are rounded to the original table's hundredths.
+/// anormtab.h is generated from Quake II's 162 bytedirs. Keep the compact
+/// source normals as the single truth and lazily materialize only the sixteen
+/// 648-byte rows. Values are rounded to the original table's hundredths.
+/// @param rowIndex Zero-based index of row.
 function buildOpenGlMd2ShadeRow(rowIndex)
   normals = ropengldirections.normals
   result = bytes(len(normals) * 4)
@@ -1240,7 +1504,9 @@ function buildOpenGlMd2ShadeRow(rowIndex)
   return result
 end function
 
-// Open gl md 2 shade row.
+/// Open gl md 2 shade row.
+/// @param backend backend value consumed by this operation.
+/// @param yaw yaw value consumed by this operation.
 function openGlMd2ShadeRow(backend, yaw)
   rowIndex = openGlMd2ShadeRowIndex(yaw)
   result = backend.md2ShadeRows[rowIndex]
@@ -1251,7 +1517,8 @@ function openGlMd2ShadeRow(backend, yaw)
   return result
 end function
 
-// Open gl md 2 normal vectors.
+/// Open gl md 2 normal vectors.
+/// @param backend backend value consumed by this operation.
 function openGlMd2NormalVectors(backend)
   normals = ropengldirections.normals
   expected = len(normals) * 12
@@ -1272,14 +1539,20 @@ function openGlMd2NormalVectors(backend)
   return result
 end function
 
-// R_DrawAliasModel negates PITCH before calling R_RotateForEntity (the
-// original source's "sigh" workaround). R_RotateForEntity negates it again,
-// so alias models use a positive pitch rotation while brush models do not.
+/// R_DrawAliasModel negates PITCH before calling R_RotateForEntity (the
+/// original source's "sigh" workaround). R_RotateForEntity negates it again,
+/// so alias models use a positive pitch rotation while brush models do not.
+/// @param angle angle value consumed by this operation.
 function inline openGlMd2ModelPitch(angle)
   return angle
 end function
 
-// Begin open gl md 2 draw.
+/// Begin open gl md 2 draw.
+/// @param backend backend value consumed by this operation.
+/// @param skinAsset skinAsset value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entityIndex Zero-based index of entity.
 function beginOpenGlMd2Draw(backend, skinAsset, entity, frame, entityIndex)
   // Keep begin open gl md 2 draw phases explicit: validate inputs, update owned state, then publish the result.
   entityFlags = entity.flags; entityAlpha = entity.alpha
@@ -1335,7 +1608,8 @@ function beginOpenGlMd2Draw(backend, skinAsset, entity, frame, entityIndex)
     shadeColor.red, shadeColor.green, shadeColor.blue, alpha)
 end function
 
-// Emit open gl md 2 scalars.
+/// Emit open gl md 2 scalars.
+/// @param glVertices glVertices value consumed by this operation.
 function emitOpenGlMd2Scalars(glVertices)
   vertexScalarCount = len(glVertices)
   scalarIndex = 0
@@ -1351,7 +1625,8 @@ function emitOpenGlMd2Scalars(glVertices)
   end while
 end function
 
-// End open gl md 2 draw.
+/// End open gl md 2 draw.
+/// @param drawState drawState value consumed by this operation.
 function endOpenGlMd2Draw(drawState)
   native.glPopMatrix()
   if drawState.mirrored then
@@ -1370,11 +1645,12 @@ function endOpenGlMd2Draw(drawState)
   native.glColor4ub(255, 255, 255, 255)
 end function
 
-// Apply a compositor-safe brightness fallback to the completed framebuffer.
-// Modern Windows can accept SetDeviceGammaRamp while silently ignoring it in
-// windowed/HDR composition. This exposure approximation keeps black anchored
-// when brightening and uses an ordinary black blend when darkening, so the
-// video-menu control always has an immediate visible runtime effect.
+/// Apply a compositor-safe brightness fallback to the completed framebuffer.
+/// Modern Windows can accept SetDeviceGammaRamp while silently ignoring it in
+/// windowed/HDR composition. This exposure approximation keeps black anchored
+/// when brightening and uses an ordinary black blend when darkening, so the
+/// video-menu control always has an immediate visible runtime effect.
+/// @param backend backend value consumed by this operation.
 function drawOpenGlBrightness(backend)
   gamma = backend.brightness
   if gamma == 1.0 or gamma == 1 then return false end if
@@ -1408,14 +1684,19 @@ function drawOpenGlBrightness(backend)
   return true
 end function
 
-// Report whether open gl md 2 entity visible.
+/// Report whether open gl md 2 entity visible.
+/// @param backend backend value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function inline openGlMd2EntityVisible(backend, entity)
   return (entity.flags & rc.RF_WEAPONMODEL) == 0 or backend.handedness != 2
 end function
 
-// Conservatively cull alias models with the union radius of the current and
-// previous poses. Weapon models deliberately bypass the world frustum, as in
-// the original R_CullAliasModel call site.
+/// Conservatively cull alias models with the union radius of the current and
+/// previous poses. Weapon models deliberately bypass the world frustum, as in
+/// the original R_CullAliasModel call site.
+/// @param modelAsset modelAsset value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function inline openGlMd2EntityInFrustum(modelAsset, entity, frame)
   if (entity.flags & rc.RF_WEAPONMODEL) != 0 then return true end if
   frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
@@ -1429,19 +1710,32 @@ function inline openGlMd2EntityInFrustum(modelAsset, entity, frame)
     entity.origin, radius, frame)
 end function
 
-// Return the immutable GPU cache state for one MD2 frame pair.
+/// Return the immutable GPU cache state for one MD2 frame pair.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
 function inline openGlMd2GeometryState(frameIndex, oldFrameIndex)
   return frameIndex * 512 + oldFrameIndex
 end function
 
-// Power-shell vertices depend on backLerp and therefore cannot reuse the
-// immutable native frame-pair cache used by ordinary MD2 geometry.
+/// Power-shell vertices depend on backLerp and therefore cannot reuse the
+/// immutable native frame-pair cache used by ordinary MD2 geometry.
+/// @param frameIndex Zero-based index of frame.
+/// @param oldFrameIndex Zero-based index of old frame.
+/// @param shell shell value consumed by this operation.
 function inline openGlMd2StaticGeometryPass(frameIndex, oldFrameIndex, shell)
   if shell then return -1 end if
   return openGlMd2GeometryState(frameIndex, oldFrameIndex)
 end function
 
-// Draw open gl md 2 scalars.
+/// Draw open gl md 2 scalars.
+/// @param backend backend value consumed by this operation.
+/// @param skinAsset skinAsset value consumed by this operation.
+/// @param glVertices glVertices value consumed by this operation.
+/// @param triangleCount Number of triangle to process.
+/// @param vertexCount Number of vertex to process.
+/// @param resultBounds resultBounds value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
     vertexCount, resultBounds, entity, frame)
   // Root every managed value before the first native call. The live path uses
@@ -1455,13 +1749,21 @@ function drawOpenGlMd2Scalars(backend, skinAsset, glVertices, triangleCount,
     drawState.textureId, resultBounds)
 end function
 
-// Draw open gl md 2 plan.
+/// Draw open gl md 2 plan.
+/// @param backend backend value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function drawOpenGlMd2Plan(backend, plan, entity)
   return drawOpenGlMd2Scalars(backend, plan.skinAsset, plan.glVertices,
     plan.mesh.triangleCount, len(plan.mesh.vertices), plan.bounds, entity, void)
 end function
 
-// Draw open gl md 2 entity fast.
+/// Draw open gl md 2 entity fast.
+/// @param backend backend value consumed by this operation.
+/// @param modelAsset modelAsset value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entityIndex Zero-based index of entity.
 function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex)
   frameIndex = entity.frame; oldFrameIndex = entity.oldFrame
   frameCount = len(modelAsset.source.frames)
@@ -1533,7 +1835,9 @@ function drawOpenGlMd2EntityFast(backend, modelAsset, entity, frame, entityIndex
     drawState.textureId, bounds)
 end function
 
-// Submit open gl ref def md 2 entities.
+/// Submit open gl ref def md 2 entities.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function submitOpenGlRefDefMd2Entities(backend, frame)
   submitted = 0
   entityIndex = 0
@@ -1552,7 +1856,11 @@ function submitOpenGlRefDefMd2Entities(backend, frame)
   return submitted
 end function
 
-// Draw open gl entity pass.
+/// Draw open gl entity pass.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param axes axes value consumed by this operation.
+/// @param translucentPass translucentPass value consumed by this operation.
 function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
   submitted = 0
   if translucentPass then native.glDepthMask(0) end if
@@ -1590,7 +1898,9 @@ function drawOpenGlEntityPass(backend, frame, axes, translucentPass)
   return submitted
 end function
 
-// Open gl md 2 shadow eligible.
+/// Open gl md 2 shadow eligible.
+/// @param backend backend value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function inline openGlMd2ShadowEligible(backend, entity)
   return backend.shadows and
     // Fullbright aliases are transient flashes, explosions and beam segments.
@@ -1600,23 +1910,29 @@ function inline openGlMd2ShadowEligible(backend, entity)
       rc.RF_FULLBRIGHT)) == 0
 end function
 
-// Open gl md 2 shadow vector x.
+/// Open gl md 2 shadow vector x.
+/// @param yaw yaw value consumed by this operation.
 function inline openGlMd2ShadowVectorX(yaw)
   return rmath.cos(-yaw * DEG_TO_RAD) / rmath.sqrt(2.0)
 end function
 
-// Open gl md 2 shadow vector y.
+/// Open gl md 2 shadow vector y.
+/// @param yaw yaw value consumed by this operation.
 function inline openGlMd2ShadowVectorY(yaw)
   return rmath.sin(-yaw * DEG_TO_RAD) / rmath.sqrt(2.0)
 end function
 
-// Open gl md 2 shadow light height.
+/// Open gl md 2 shadow light height.
+/// @param entity entity value consumed by this operation.
+/// @param spotZ spotZ value consumed by this operation.
 function inline openGlMd2ShadowLightHeight(entity, spotZ)
   return entity.origin.z - spotZ
 end function
 
-// Keep alias lighting in one shader run, then submit the original optional
-// GL_DrawAliasShadow behavior as a separate blended pass over cached MD2 VBOs.
+/// Keep alias lighting in one shader run, then submit the original optional
+/// GL_DrawAliasShadow behavior as a separate blended pass over cached MD2 VBOs.
+/// @param backend backend value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function drawOpenGlMd2ShadowPass(backend, frame)
   // Keep draw open gl md 2 shadow pass phases explicit: validate inputs, update owned state, then publish the result.
   if not backend.shadows then return 0 end if
@@ -1681,9 +1997,10 @@ function drawOpenGlMd2ShadowPass(backend, frame)
   return submitted
 end function
 
-// Draw the alias shadows only after the current frame's alias lighting pass has
-// populated md2ShadowSpotZ. This removes the historical one-frame stale spot
-// introduced by MiniQuake2's split world/entity submission API.
+/// Draw the alias shadows only after the current frame's alias lighting pass has
+/// populated md2ShadowSpotZ. This removes the historical one-frame stale spot
+/// introduced by MiniQuake2's split world/entity submission API.
+/// @param backend backend value consumed by this operation.
 function drawOpenGlPendingClassicShadows(backend)
   pending = openGlPendingClassicPasses
   if not pending.active then return 0 end if
@@ -1693,8 +2010,8 @@ function drawOpenGlPendingClassicShadows(backend)
   return submitted
 end function
 
-// Finish stock's tail ordering after entities and particles. The actual alpha
-// draw routine is declared later with the other ClassicWorld helpers.
+/// Finish stock's tail ordering after entities and particles. The actual alpha
+/// draw routine is declared later with the other ClassicWorld helpers.
 function flushOpenGlPendingClassicAlpha()
   pending = openGlPendingClassicPasses
   if not pending.active then return 0 end if
@@ -1708,19 +2025,23 @@ function flushOpenGlPendingClassicAlpha()
   return uploaded
 end function
 
-// Add uploads completed after submitClassicWorld returned to its retained
-// mutable diagnostic record.
+/// Add uploads completed after submitClassicWorld returned to its retained
+/// mutable diagnostic record.
+/// @param stats stats value consumed by this operation.
+/// @param uploaded uploaded value consumed by this operation.
 function recordClassicDeferredUploads(stats, uploaded)
   if stats is void then return 0 end if
   stats.uploadedTextures = stats.uploadedTextures + uploaded
   return stats.uploadedTextures
 end function
 
-// The full product graph is large enough to expose a closure-layout bug in the
-// current self-hosted compiler. The production renderer therefore publishes
-// capture-free top-level callbacks and resolves its one active backend through
-// the package-owned slot. This also keeps the deterministic command recorder
-// out of the real-time path.
+/// The full product graph is large enough to expose a closure-layout bug in the
+/// current self-hosted compiler. The production renderer therefore publishes
+/// capture-free top-level callbacks and resolves its one active backend through
+/// the package-owned slot. This also keeps the deterministic command recorder
+/// out of the real-time path.
+/// @param backend backend value consumed by this operation.
+/// @param operation operation value consumed by this operation.
 function openGlRequireInitialized(backend, operation)
   if not backend.core.state.initialized then
     return error(9600, operation + " called before renderer Init")
@@ -1728,7 +2049,9 @@ function openGlRequireInitialized(backend, operation)
   return true
 end function
 
-// Open gl renderer init.
+/// Open gl renderer init.
+/// @param hinstance hinstance value consumed by this operation.
+/// @param wndproc wndproc value consumed by this operation.
 function openGlRendererInit(hinstance, wndproc)
   backend = openGlBackendSlot.backend
   if backend.core.state.initialized then return true end if
@@ -1742,7 +2065,7 @@ function openGlRendererInit(hinstance, wndproc)
   return true
 end function
 
-// Open gl renderer shutdown.
+/// Open gl renderer shutdown.
 function openGlRendererShutdown()
   backend = openGlBackendSlot.backend
   if not backend.core.state.initialized then return void end if
@@ -1756,7 +2079,8 @@ function openGlRendererShutdown()
   backend.core.state.initialized = false
 end function
 
-// Open gl begin registration.
+/// Open gl begin registration.
+/// @param mapName mapName value consumed by this operation.
 function openGlBeginRegistration(mapName)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "BeginRegistration")
@@ -1773,7 +2097,8 @@ function openGlBeginRegistration(mapName)
   openGlLoadGamePalette(backend)
 end function
 
-// Open gl register model.
+/// Open gl register model.
+/// @param name Name of the affected item.
 function openGlRegisterModel(name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "RegisterModel")
@@ -1792,7 +2117,8 @@ function openGlRegisterModel(name)
   return modelAsset.handle
 end function
 
-// Open gl register skin.
+/// Open gl register skin.
+/// @param name Name of the affected item.
 function openGlRegisterSkin(name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "RegisterSkin")
@@ -1807,7 +2133,8 @@ function openGlRegisterSkin(name)
   return asset.handle
 end function
 
-// Open gl register pic.
+/// Open gl register pic.
+/// @param name Name of the affected item.
 function openGlRegisterPic(name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "RegisterPic")
@@ -1822,7 +2149,10 @@ function openGlRegisterPic(name)
   return asset.handle
 end function
 
-// Open gl set sky.
+/// Open gl set sky.
+/// @param name Name of the affected item.
+/// @param rotate rotate value consumed by this operation.
+/// @param axis axis value consumed by this operation.
 function openGlSetSky(name, rotate, axis)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "SetSky")
@@ -1833,7 +2163,7 @@ function openGlSetSky(name, rotate, axis)
   backend.core.state.skyAxis = axis
 end function
 
-// Open gl end registration.
+/// Open gl end registration.
 function openGlEndRegistration()
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "EndRegistration")
@@ -1865,9 +2195,10 @@ function openGlEndRegistration()
   backend.core.state.registrationOpen = false
 end function
 
-// Normalize the mutable effect handoff counts and validate its constant-time
-// product contract. A zero client viewport is a normal minimized-window state,
-// not a fatal renderer error.
+/// Normalize the mutable effect handoff counts and validate its constant-time
+/// product contract. A zero client viewport is a normal minimized-window state,
+/// not a fatal renderer error.
+/// @param frame frame value consumed by this operation.
 function prepareProductRefDef(frame)
   if frame is void or typeof(frame) != "struct" then
     return error(9604, "product refdef is missing")
@@ -1904,7 +2235,8 @@ function prepareProductRefDef(frame)
   return true
 end function
 
-// Open gl render frame.
+/// Open gl render frame.
+/// @param frame frame value consumed by this operation.
 function openGlRenderFrame(frame)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "RenderFrame")
@@ -1953,7 +2285,8 @@ function openGlRenderFrame(frame)
   backend.submittedFrames = backend.submittedFrames + 1
 end function
 
-// Open gl draw get pic size.
+/// Open gl draw get pic size.
+/// @param name Name of the affected item.
 function openGlDrawGetPicSize(name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawGetPicSize")
@@ -1963,7 +2296,10 @@ function openGlDrawGetPicSize(name)
   return rt.PicSize(asset.width, asset.height)
 end function
 
-// Open gl draw pic.
+/// Open gl draw pic.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param name Name of the affected item.
 function openGlDrawPic(x, y, name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawPic")
@@ -1974,7 +2310,12 @@ function openGlDrawPic(x, y, name)
   end if
 end function
 
-// Open gl draw stretch pic.
+/// Open gl draw stretch pic.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param name Name of the affected item.
 function openGlDrawStretchPic(x, y, width, height, name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawStretchPic")
@@ -1986,7 +2327,10 @@ function openGlDrawStretchPic(x, y, width, height, name)
   end if
 end function
 
-// Open gl draw char.
+/// Open gl draw char.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param character character value consumed by this operation.
 function openGlDrawChar(x, y, character)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawChar")
@@ -2002,7 +2346,12 @@ function openGlDrawChar(x, y, character)
     left, top, left + 0.0625, top + 0.0625)
 end function
 
-// Open gl draw tile clear.
+/// Open gl draw tile clear.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param name Name of the affected item.
 function openGlDrawTileClear(x, y, width, height, name)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawTileClear")
@@ -2014,7 +2363,12 @@ function openGlDrawTileClear(x, y, width, height, name)
   end if
 end function
 
-// Open gl draw fill.
+/// Open gl draw fill.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param color color value consumed by this operation.
 function openGlDrawFill(x, y, width, height, color)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawFill")
@@ -2023,14 +2377,21 @@ function openGlDrawFill(x, y, width, height, color)
   if backend.contextActive then drawSolidRect(backend, x, y, width, height, color) end if
 end function
 
-// Open gl draw fade screen.
+/// Open gl draw fade screen.
 function openGlDrawFadeScreen()
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawFadeScreen")
   if backend.contextActive then drawFadeRect() end if
 end function
 
-// Open gl draw stretch raw.
+/// Open gl draw stretch raw.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param columns columns value consumed by this operation.
+/// @param rows rows value consumed by this operation.
+/// @param data Input data consumed by the operation.
 function openGlDrawStretchRaw(x, y, width, height, columns, rows, data)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "DrawStretchRaw")
@@ -2067,7 +2428,8 @@ function openGlDrawStretchRaw(x, y, width, height, columns, rows, data)
   native.glEnd()
 end function
 
-// Open gl cinematic set palette.
+/// Open gl cinematic set palette.
+/// @param palette palette value consumed by this operation.
 function openGlCinematicSetPalette(palette)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "CinematicSetPalette")
@@ -2077,7 +2439,8 @@ function openGlCinematicSetPalette(palette)
   backend.core.state.palette = palette
 end function
 
-// Open gl begin frame.
+/// Open gl begin frame.
+/// @param cameraSeparation cameraSeparation value consumed by this operation.
 function openGlBeginFrame(cameraSeparation)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "BeginFrame")
@@ -2094,7 +2457,7 @@ function openGlBeginFrame(cameraSeparation)
   end if
 end function
 
-// Open gl end frame.
+/// Open gl end frame.
 function openGlEndFrame()
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "EndFrame")
@@ -2112,14 +2475,15 @@ function openGlEndFrame()
   end if
 end function
 
-// Open gl app activate.
+/// Open gl app activate.
+/// @param activate activate value consumed by this operation.
 function openGlAppActivate(activate)
   backend = openGlBackendSlot.backend
   openGlRequireInitialized(backend, "AppActivate")
   backend.core.state.appActive = activate
 end function
 
-// Open gl make exports.
+/// Open gl make exports.
 function openGlMakeExports()
   return rt.RefExport(
     rc.API_VERSION, openGlRendererInit, openGlRendererShutdown,
@@ -2133,7 +2497,8 @@ function openGlMakeExports()
   )
 end function
 
-// Create open gl renderer.
+/// Create open gl renderer.
+/// @param contextActive contextActive value consumed by this operation.
 function createOpenGlRenderer(contextActive)
   coreBinding = rt.RendererBinding(recording.createState("null", void), void)
   glState = OpenGlState(coreBinding, void, rassets.create(), contextActive, "", "", "", 0, 0, 0, 0, 0, 1, array(OPEN_GL_MAX_TEXTURE_ID), bytes(0), 0, 0, bytes(0), bytes(0), [], -1, array(16), bytes(0), array(rc.MAX_ENTITIES), -1, 0, array(rc.MAX_ENTITIES, 0.0), bytes(rc.MAX_ENTITIES), 0.0, false, false, 1.0, 0, void, 0)
@@ -2144,7 +2509,9 @@ function createOpenGlRenderer(contextActive)
   return rt.RendererBinding(glState, exports)
 end function
 
-// Return ref api.
+/// Return ref api.
+/// @param imports imports value consumed by this operation.
+/// @param contextActive contextActive value consumed by this operation.
 function getRefAPI(imports, contextActive)
   checked = validation.validateRefImport(imports)
   if not checked.valid then return error(9614, checked.code + ": " + checked.message) end if
@@ -2155,7 +2522,9 @@ function getRefAPI(imports, contextActive)
   return rt.RendererBinding(glState, openGlMakeExports())
 end function
 
-// Report whether set context active.
+/// Report whether set context active.
+/// @param binding binding value consumed by this operation.
+/// @param active active value consumed by this operation.
 function setContextActive(binding, active)
   if not active then
     recordIndex = 0
@@ -2173,7 +2542,9 @@ function setContextActive(binding, active)
   end if
 end function
 
-// Set handedness.
+/// Set handedness.
+/// @param binding binding value consumed by this operation.
+/// @param hand hand value consumed by this operation.
 function setHandedness(binding, hand)
   if typeof(hand) != "int" or hand < 0 or hand > 2 then
     return error(9637, "renderer handedness must be 0, 1 or 2")
@@ -2182,12 +2553,15 @@ function setHandedness(binding, hand)
   return hand
 end function
 
-// Return the handedness value.
+/// Return the handedness value.
+/// @param binding binding value consumed by this operation.
 function handedness(binding)
   return binding.state.handedness
 end function
 
-// Set shadows.
+/// Set shadows.
+/// @param binding binding value consumed by this operation.
+/// @param enabled enabled value consumed by this operation.
 function setShadows(binding, enabled)
   if typeof(enabled) != "bool" then
     return error(9638, "renderer shadows setting must be bool")
@@ -2196,62 +2570,85 @@ function setShadows(binding, enabled)
   return enabled
 end function
 
-// Return the shadows value.
+/// Return the shadows value.
+/// @param binding binding value consumed by this operation.
 function shadows(binding)
   return binding.state.shadows
 end function
 
-// Return the last shadow entities value.
+/// Return the last shadow entities value.
+/// @param binding binding value consumed by this operation.
 function lastShadowEntities(binding)
   return binding.state.lastShadowEntities
 end function
 
-// Return the md 2 shadow eligible value.
+/// Return the md 2 shadow eligible value.
+/// @param binding binding value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function md2ShadowEligible(binding, entity)
   return openGlMd2ShadowEligible(binding.state, entity)
 end function
 
-// Return the md 2 shadow vector x value.
+/// Return the md 2 shadow vector x value.
+/// @param yaw yaw value consumed by this operation.
 function md2ShadowVectorX(yaw)
   return openGlMd2ShadowVectorX(yaw)
 end function
 
-// Return the md 2 shadow vector y value.
+/// Return the md 2 shadow vector y value.
+/// @param yaw yaw value consumed by this operation.
 function md2ShadowVectorY(yaw)
   return openGlMd2ShadowVectorY(yaw)
 end function
 
-// Return the md 2 shadow light height value.
+/// Return the md 2 shadow light height value.
+/// @param entity entity value consumed by this operation.
+/// @param spotZ spotZ value consumed by this operation.
 function md2ShadowLightHeight(entity, spotZ)
   return openGlMd2ShadowLightHeight(entity, spotZ)
 end function
 
-// Return the light level value.
+/// Return the light level value.
+/// @param binding binding value consumed by this operation.
 function lightLevel(binding)
   return binding.state.lightLevel
 end function
 
-// Return the md 2 entity shade value.
+/// Return the md 2 entity shade value.
+/// @param binding binding value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function md2EntityShade(binding, frame, entity)
   return openGlMd2FrameShade(binding.state, frame, entity)
 end function
 
-// Return the md 2 shade row value.
+/// Return the md 2 shade row value.
+/// @param binding binding value consumed by this operation.
+/// @param yaw yaw value consumed by this operation.
 function md2ShadeRow(binding, yaw)
   return openGlMd2ShadeRow(binding.state, yaw)
 end function
 
-// Report whether md 2 entity visible.
+/// Report whether md 2 entity visible.
+/// @param binding binding value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function md2EntityVisible(binding, entity)
   return openGlMd2EntityVisible(binding.state, entity)
 end function
 
-// Return the md 2 model pitch value.
+/// Return the md 2 model pitch value.
+/// @param angle angle value consumed by this operation.
 function md2ModelPitch(angle)
   return openGlMd2ModelPitch(angle)
 end function
 
-// Prepare classic world.
+/// Prepare classic world.
+/// @param binding binding value consumed by this operation.
+/// @param map map value consumed by this operation.
+/// @param loadFile loadFile value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param entityFrame entityFrame value consumed by this operation.
+/// @param modulate modulate value consumed by this operation.
 function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, modulate)
   world = rclassicworld.build(map, loadFile, lightStyles, entityFrame, modulate, binding.state.assets.generation)
   skyName = binding.state.core.state.skyName
@@ -2293,7 +2690,9 @@ function prepareClassicWorld(binding, map, loadFile, lightStyles, entityFrame, m
   return world
 end function
 
-// Set the post-composition brightness/gamma value.
+/// Set the post-composition brightness/gamma value.
+/// @param binding binding value consumed by this operation.
+/// @param brightness brightness value consumed by this operation.
 function setBrightness(binding, brightness)
   if (typeof(brightness) != "int" and typeof(brightness) != "float") or
       brightness != brightness or brightness < 0.5 or brightness > 2.0 then
@@ -2303,12 +2702,14 @@ function setBrightness(binding, brightness)
   return binding.state.brightness
 end function
 
-// Return the post-composition brightness value.
+/// Return the post-composition brightness value.
+/// @param binding binding value consumed by this operation.
 function brightness(binding)
   return binding.state.brightness
 end function
 
-// Return the CPU-side registration graph retained across a video mode change.
+/// Return the CPU-side registration graph retained across a video mode change.
+/// @param binding binding value consumed by this operation.
 function classicRegistrationAssets(binding)
   if binding is void or typeof(binding.state) != "struct" then
     return error(9637, "classic registration renderer is invalid")
@@ -2316,9 +2717,12 @@ function classicRegistrationAssets(binding)
   return binding.state.assets
 end function
 
-// Rebind an intact CPU-side world and asset graph to a replacement OpenGL
-// context. Resolution/fullscreen changes invalidate native texture names, but
-// do not require reparsing the BSP, WAL, PCX, MD2, SP2 or WAV resources.
+/// Rebind an intact CPU-side world and asset graph to a replacement OpenGL
+/// context. Resolution/fullscreen changes invalidate native texture names, but
+/// do not require reparsing the BSP, WAL, PCX, MD2, SP2 or WAV resources.
+/// @param binding binding value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param registrationAssets registrationAssets value consumed by this operation.
 function restoreClassicRegistration(binding, world, registrationAssets)
   // Validate the retained CPU graph, transfer registry ownership, recreate
   // native textures/geometry, then publish the rebound world atomically.
@@ -2377,7 +2781,9 @@ function restoreClassicRegistration(binding, world, registrationAssets)
   return world
 end function
 
-// Return the upload classic texture value.
+/// Return the upload classic texture value.
+/// @param binding binding value consumed by this operation.
+/// @param texture texture value consumed by this operation.
 function uploadClassicTexture(binding, texture)
   if texture.released then return error(9623, "classic texture handle is not active") end if
   // Texture objects mirror the native record's upload bit. Checking the local
@@ -2412,7 +2818,11 @@ function uploadClassicTexture(binding, texture)
   return true
 end function
 
-// Emit classic vertex.
+/// Emit classic vertex.
+/// @param draw draw value consumed by this operation.
+/// @param vertex vertex value consumed by this operation.
+/// @param lightmap lightmap value consumed by this operation.
+/// @param time time value consumed by this operation.
 function emitClassicVertex(draw, vertex, lightmap, time)
   position = vertex.position
   positionX = position.x; positionY = position.y; positionZ = position.z
@@ -2429,7 +2839,10 @@ function emitClassicVertex(draw, vertex, lightmap, time)
   native.glVertex3(bits(positionX), bits(positionY), bits(positionZ))
 end function
 
-// Emit classic draw.
+/// Emit classic draw.
+/// @param draw draw value consumed by this operation.
+/// @param lightmap lightmap value consumed by this operation.
+/// @param time time value consumed by this operation.
 function emitClassicDraw(draw, lightmap, time)
   vertexIndex = 0
   while vertexIndex < len(draw.vertices)
@@ -2438,14 +2851,18 @@ function emitClassicDraw(draw, lightmap, time)
   end while
 end function
 
-// Report whether classic draw can cache.
+/// Report whether classic draw can cache.
+/// @param draw draw value consumed by this operation.
 function inline classicDrawCanCache(draw)
   flags = draw.surface.texInfo.flags
   return (flags & (ropenglformatconstants.SURF_WARP |
     ropenglformatconstants.SURF_FLOWING)) == 0
 end function
 
-// Prepare open gl classic draw.
+/// Prepare open gl classic draw.
+/// @param draw draw value consumed by this operation.
+/// @param pass pass value consumed by this operation.
+/// @param lightmap lightmap value consumed by this operation.
 function prepareOpenGlClassicDraw(draw, pass, lightmap)
   if not classicDrawCanCache(draw) then return false end if
   prepared = native.glStaticGeometryPrepare(nativeRawValue(draw), pass)
@@ -2458,7 +2875,8 @@ function prepareOpenGlClassicDraw(draw, pass, lightmap)
   return true
 end function
 
-// Prepare open gl classic multitexture draw.
+/// Prepare open gl classic multitexture draw.
+/// @param draw draw value consumed by this operation.
 function prepareOpenGlClassicMultitextureDraw(draw)
   if not classicDrawCanCache(draw) then return false end if
   prepared = native.glStaticGeometryPrepare(nativeRawValue(draw), 2)
@@ -2478,7 +2896,8 @@ function prepareOpenGlClassicMultitextureDraw(draw)
   return true
 end function
 
-// Open precache gl classic geometry.
+/// Open precache gl classic geometry.
+/// @param world world value consumed by this operation.
 function precacheOpenGlClassicGeometry(world)
   preparedCount = 0
   for each draw in world.draws
@@ -2498,7 +2917,10 @@ function precacheOpenGlClassicGeometry(world)
   return preparedCount
 end function
 
-// Write open gl batch u 32.
+/// Write open gl batch u 32.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param offset Zero-based offset at which processing starts.
+/// @param value Value consumed or transformed by the operation.
 function inline writeOpenGlBatchU32(buffer, offset, value)
   buffer[offset] = value & 255
   buffer[offset + 1] = (value >> 8) & 255
@@ -2506,7 +2928,9 @@ function inline writeOpenGlBatchU32(buffer, offset, value)
   buffer[offset + 3] = (value >> 24) & 255
 end function
 
-// Report whether open gl batch draws equal.
+/// Report whether open gl batch draws equal.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inline openGlBatchDrawsEqual(first, second)
   if nativeRawValue(first) == nativeRawValue(second) then return true end if
   if len(first) != len(second) then return false end if
@@ -2518,7 +2942,12 @@ function inline openGlBatchDrawsEqual(first, second)
   return true
 end function
 
-// Write open gl multitexture record.
+/// Write open gl multitexture record.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param index Zero-based index of the affected item.
+/// @param draw draw value consumed by this operation.
+/// @param baseTextureId Identifier of base texture.
+/// @param lightmapTextureId Identifier of lightmap texture.
 function inline writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId,
     lightmapTextureId)
   offset = index * 16
@@ -2530,7 +2959,11 @@ function inline writeOpenGlMultitextureRecord(buffer, index, draw, baseTextureId
   return offset + 16
 end function
 
-// Submit open gl classic multitexture.
+/// Submit open gl classic multitexture.
+/// @param binding binding value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param time time value consumed by this operation.
 function submitOpenGlClassicMultitexture(binding, draws, drawCount, time)
   // Keep submit open gl classic multitexture phases explicit: validate inputs, update owned state, then publish the result.
   if drawCount == 0 or native.glMultitextureAvailable() == 0 then return [false, 0] end if
@@ -2578,7 +3011,10 @@ function submitOpenGlClassicMultitexture(binding, draws, drawCount, time)
   return [submitted == drawCount, uploaded]
 end function
 
-// Submit open gl classic draw.
+/// Submit open gl classic draw.
+/// @param draw draw value consumed by this operation.
+/// @param lightmap lightmap value consumed by this operation.
+/// @param time time value consumed by this operation.
 function submitOpenGlClassicDraw(draw, lightmap, time)
   pass = 0
   if lightmap then pass = 1 end if
@@ -2592,13 +3028,16 @@ function submitOpenGlClassicDraw(draw, lightmap, time)
   return false
 end function
 
-// Create open gl sky bounds.
+/// Create open gl sky bounds.
 function createOpenGlSkyBounds()
   return rclassictypes.ClassicSkyBounds(array(6, 9999.0),
     array(6, 9999.0), array(6, -9999.0), array(6, -9999.0))
 end function
 
-// Compare an exact retained batch with a capacity-sized visible prefix.
+/// Compare an exact retained batch with a capacity-sized visible prefix.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param count Number of items or units to process.
 function inline openGlBatchDrawsEqualPrefix(first, second, count)
   if len(first) != count then return false end if
   index = 0
@@ -2609,7 +3048,7 @@ function inline openGlBatchDrawsEqualPrefix(first, second, count)
   return true
 end function
 
-// Create one fixed-capacity sky vertex buffer.
+/// Create one fixed-capacity sky vertex buffer.
 function createOpenGlSkyVertexBuffer()
   result = array(OPEN_GL_SKY_CLIP_CAPACITY)
   index = 0
@@ -2620,8 +3059,8 @@ function createOpenGlSkyVertexBuffer()
   return result
 end function
 
-// Lazily create the retained clipping workspace. Product registration calls
-// this before gameplay whenever a map owns sky surfaces.
+/// Lazily create the retained clipping workspace. Product registration calls
+/// this before gameplay whenever a map owns sky surfaces.
 function ensureOpenGlSkyClipScratch()
   slot = openGlSkyScratchSlot
   if slot.scratch is not void then return slot.scratch end if
@@ -2640,14 +3079,20 @@ function ensureOpenGlSkyClipScratch()
   return slot.scratch
 end function
 
-// Copy coordinates into one retained vertex object.
+/// Copy coordinates into one retained vertex object.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param index Zero-based index of the affected item.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
 function inline setOpenGlSkyScratchVertex(buffer, index, x, y, z)
   target = buffer[index]
   target.x = x; target.y = y; target.z = z
   return target
 end function
 
-// Reset the persistent sky bounds for a new view.
+/// Reset the persistent sky bounds for a new view.
+/// @param bounds bounds value consumed by this operation.
 function resetOpenGlSkyBounds(bounds)
   axis = 0
   while axis < 6
@@ -2658,7 +3103,9 @@ function resetOpenGlSkyBounds(bounds)
   return bounds
 end function
 
-// Open gl sky clip distance.
+/// Open gl sky clip distance.
+/// @param value Value consumed or transformed by the operation.
+/// @param stage stage value consumed by this operation.
 function openGlSkyClipDistance(value, stage)
   if stage == 0 then return value.x + value.y end if
   if stage == 1 then return value.x - value.y end if
@@ -2668,7 +3115,10 @@ function openGlSkyClipDistance(value, stage)
   return -value.x + value.z
 end function
 
-// Project open gl sky polygon.
+/// Project open gl sky polygon.
+/// @param bounds bounds value consumed by this operation.
+/// @param vertices vertices value consumed by this operation.
+/// @param count Number of items or units to process.
 function projectOpenGlSkyPolygon(bounds, vertices, count)
   // Keep project open gl sky polygon phases explicit: validate inputs, update owned state, then publish the result.
   sumX = 0.0; sumY = 0.0; sumZ = 0.0
@@ -2709,8 +3159,13 @@ function projectOpenGlSkyPolygon(bounds, vertices, count)
   return true
 end function
 
-// Exact managed port of ref_gl's six-plane ClipSkyPolygon. Sky surfaces are
-// already triangle lists, so even the worst split remains well below 64 verts.
+/// Exact managed port of ref_gl's six-plane ClipSkyPolygon. Sky surfaces are
+/// already triangle lists, so even the worst split remains well below 64 verts.
+/// @param bounds bounds value consumed by this operation.
+/// @param vertices vertices value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param stage stage value consumed by this operation.
+/// @param scratch scratch value consumed by this operation.
 function clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage, scratch)
   // Keep clip open gl sky polygon phases explicit: validate inputs, update owned state, then publish the result.
   if count < 3 then return false end if
@@ -2776,13 +3231,20 @@ function clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage, scratch)
   return true
 end function
 
-// Compatibility wrapper used by focused geometry tests.
+/// Compatibility wrapper used by focused geometry tests.
+/// @param bounds bounds value consumed by this operation.
+/// @param vertices vertices value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param stage stage value consumed by this operation.
 function clipOpenGlSkyPolygon(bounds, vertices, count, stage)
   return clipOpenGlSkyPolygonScratch(bounds, vertices, count, stage,
     ensureOpenGlSkyClipScratch())
 end function
 
-// Open gl sky bounds.
+/// Open gl sky bounds.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function openGlSkyBoundsPrefix(draws, drawCount, viewOrigin)
   scratch = ensureOpenGlSkyClipScratch()
   bounds = resetOpenGlSkyBounds(scratch.bounds)
@@ -2809,12 +3271,18 @@ function openGlSkyBoundsPrefix(draws, drawCount, viewOrigin)
   return bounds
 end function
 
-// Compatibility wrapper for exact diagnostic arrays.
+/// Compatibility wrapper for exact diagnostic arrays.
+/// @param draws draws value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function openGlSkyBounds(draws, viewOrigin)
   return openGlSkyBoundsPrefix(draws, len(draws), viewOrigin)
 end function
 
-// Emit open gl sky vertex.
+/// Emit open gl sky vertex.
+/// @param s s value consumed by this operation.
+/// @param t t value consumed by this operation.
+/// @param axis axis value consumed by this operation.
+/// @param texture texture value consumed by this operation.
 function emitOpenGlSkyVertex(s, t, axis, texture)
   x = 0.0; y = 0.0; z = 0.0
   scaledS = s * 2300.0; scaledT = t * 2300.0
@@ -2836,7 +3304,12 @@ function emitOpenGlSkyVertex(s, t, axis, texture)
   native.glVertex3(bits(x), bits(y), bits(z))
 end function
 
-// Draw open gl sky box.
+/// Draw open gl sky box.
+/// @param binding binding value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
 function drawOpenGlSkyBox(binding, world, frame, draws, drawCount)
   // Keep draw open gl sky box phases explicit: validate inputs, update owned state, then publish the result.
   if not world.skyBox.active then return 0 end if
@@ -2878,7 +3351,8 @@ function drawOpenGlSkyBox(binding, world, frame, draws, drawCount)
   return uploaded
 end function
 
-// Return the classic inline model index.
+/// Return the classic inline model index.
+/// @param modelAsset modelAsset value consumed by this operation.
 function classicInlineModelIndex(modelAsset)
   nameBytes = bytes(modelAsset.handle.name)
   if len(nameBytes) < 2 or nameBytes[0] != 42 then return error(9632, "inline BSP asset has invalid *n name") end if
@@ -2890,14 +3364,18 @@ function classicInlineModelIndex(modelAsset)
   return modelIndex
 end function
 
-// Return the classic brush distance squared value.
+/// Return the classic brush distance squared value.
+/// @param submission submission value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function inline classicBrushDistanceSquared(submission, viewOrigin)
   origin = submission.entity.origin
   deltaX = origin.x - viewOrigin.x; deltaY = origin.y - viewOrigin.y; deltaZ = origin.z - viewOrigin.z
   return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
 end function
 
-// Sort classic brush submissions.
+/// Sort classic brush submissions.
+/// @param submissions submissions value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function sortClassicBrushSubmissions(submissions, viewOrigin)
   sorted = array(len(submissions))
   count = 0
@@ -2914,7 +3392,10 @@ function sortClassicBrushSubmissions(submissions, viewOrigin)
   return sorted
 end function
 
-// Sort classic brush submission prefix.
+/// Sort classic brush submission prefix.
+/// @param submissions submissions value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function sortClassicBrushSubmissionPrefix(submissions, count, viewOrigin)
   index = 1
   while index < count
@@ -2932,7 +3413,9 @@ function sortClassicBrushSubmissionPrefix(submissions, count, viewOrigin)
   return submissions
 end function
 
-// Return the classic brush local lights value.
+/// Return the classic brush local lights value.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicBrushLocalLights(entity, frame)
   localLights = array(frame.numDLights)
   lightIndex = 0
@@ -2945,8 +3428,11 @@ function classicBrushLocalLights(entity, frame)
   return localLights
 end function
 
-// Transform dynamic lights into one mover's local space using retained
-// capacity storage. Only frame.numDLights entries form the active prefix.
+/// Transform dynamic lights into one mover's local space using retained
+/// capacity storage. Only frame.numDLights entries form the active prefix.
+/// @param entity entity value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param brushModel brushModel value consumed by this operation.
 function classicBrushLocalLightsInto(entity, frame, brushModel)
   localLights = brushModel.localLightScratch
   lightIndex = 0
@@ -2971,8 +3457,12 @@ function classicBrushLocalLightsInto(entity, frame, brushModel)
   return localLights
 end function
 
-// Rebuild one lightmap only when a style changed, a dynamic light affects the
-// plane, or last frame's dynamic contribution must be removed.
+/// Rebuild one lightmap only when a style changed, a dynamic light affects the
+/// plane, or last frame's dynamic contribution must be removed.
+/// @param world world value consumed by this operation.
+/// @param draw draw value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
 function classicDynamicLightmapForDraw(world, draw, lightStyles, dLights)
   surface = draw.surface
   previousBits = surface.dlightBits
@@ -2988,8 +3478,14 @@ function classicDynamicLightmapForDraw(world, draw, lightStyles, dLights)
   return rclassictypes.ClassicBrushLightmap(draw, rgbaPixels, true)
 end function
 
-// Rebuild one mover lightmap into a retained wrapper while observing only the
-// active local-light prefix.
+/// Rebuild one mover lightmap into a retained wrapper while observing only the
+/// active local-light prefix.
+/// @param world world value consumed by this operation.
+/// @param draw draw value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param dLightCount Number of d light to process.
+/// @param retained retained value consumed by this operation.
 function classicDynamicLightmapForDrawInto(world, draw, lightStyles, dLights,
     dLightCount, retained)
   surface = draw.surface
@@ -3012,9 +3508,14 @@ function classicDynamicLightmapForDrawInto(world, draw, lightStyles, dLights,
   return retained
 end function
 
-// Populate retained per-submission light and lightmap prefixes for the live
-// OpenGL path. This removes the periodic array/wrapper graph produced by each
-// visible door and lift while preserving exact headless diagnostics below.
+/// Populate retained per-submission light and lightmap prefixes for the live
+/// OpenGL path. This removes the periodic array/wrapper graph produced by each
+/// visible door and lift while preserving exact headless diagnostics below.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param brushModel brushModel value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicBrushDynamicLightmapsInto(world, entity, brushModel, plan,
     frame)
   localLights = brushModel.localLightScratch
@@ -3035,7 +3536,11 @@ function classicBrushDynamicLightmapsInto(world, entity, brushModel, plan,
   return dirtyCount
 end function
 
-// Return the classic brush dynamic lightmaps value.
+/// Return the classic brush dynamic lightmaps value.
+/// @param world world value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function classicBrushDynamicLightmaps(world, entity, plan, frame)
   localLights = []
   if frame.numDLights > 0 then localLights = classicBrushLocalLights(entity, frame) end if
@@ -3053,8 +3558,11 @@ function classicBrushDynamicLightmaps(world, entity, plan, frame)
   return [lightmaps, dirtyCount]
 end function
 
-// Product-graph-facing CPU plan. It consumes the same model handles emitted by
-// client asset registration, but never reparses or expands the adopted BSP.
+/// Product-graph-facing CPU plan. It consumes the same model handles emitted by
+/// client asset registration, but never reparses or expands the adopted BSP.
+/// @param binding binding value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function prepareClassicBrushFrame(binding, world, frame)
   // Keep prepare classic brush frame phases explicit: validate inputs, update owned state, then publish the result.
   submissions = array(frame.numEntities)
@@ -3152,7 +3660,8 @@ function prepareClassicBrushFrame(binding, world, frame)
     culledEntities, surfaces, triangles, dirtyLightmaps)
 end function
 
-// Return the classic brush frame signature value.
+/// Return the classic brush frame signature value.
+/// @param brushFrame brushFrame value consumed by this operation.
 function classicBrushFrameSignature(brushFrame)
   result = brushFrame.submissionCount + ":" + brushFrame.culledEntities + ":" + brushFrame.surfaces + ":" + brushFrame.triangles
   submissionIndex = 0
@@ -3165,7 +3674,13 @@ function classicBrushFrameSignature(brushFrame)
   return result
 end function
 
-// Draw open gl classic draws.
+/// Draw open gl classic draws.
+/// @param binding binding value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param time time value consumed by this operation.
+/// @param lightmap lightmap value consumed by this operation.
+/// @param entityFrame entityFrame value consumed by this operation.
 function drawOpenGlClassicDraws(binding, draws, drawCount, time, lightmap,
     entityFrame)
   uploaded = 0
@@ -3187,14 +3702,19 @@ function drawOpenGlClassicDraws(binding, draws, drawCount, time, lightmap,
   return uploaded
 end function
 
-// Return the upload classic brush lightmap value.
+/// Return the upload classic brush lightmap value.
+/// @param binding binding value consumed by this operation.
+/// @param brushLightmap brushLightmap value consumed by this operation.
 function uploadClassicBrushLightmap(binding, brushLightmap)
   if not brushLightmap.dirty then return false end if
   return uploadClassicLightmapPixels(binding, brushLightmap.draw,
     brushLightmap.rgbaPixels)
 end function
 
-// Upload one dirty lightmap rectangle without requiring a per-frame wrapper.
+/// Upload one dirty lightmap rectangle without requiring a per-frame wrapper.
+/// @param binding binding value consumed by this operation.
+/// @param draw draw value consumed by this operation.
+/// @param rgbaPixels rgbaPixels value consumed by this operation.
 function uploadClassicLightmapPixels(binding, draw, rgbaPixels)
   texture = draw.lightmapTexture
   // Atlas objects remain resident. Update only this surface's rectangle and
@@ -3215,8 +3735,13 @@ function uploadClassicLightmapPixels(binding, draw, rgbaPixels)
   return true
 end function
 
-// Refresh visible world lightmap rectangles before their opaque base/lightmap
-// pass. Dynamic lights are already in world space, unlike inline brush lights.
+/// Refresh visible world lightmap rectangles before their opaque base/lightmap
+/// pass. Dynamic lights are already in world space, unlike inline brush lights.
+/// @param binding binding value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param frame frame value consumed by this operation.
 function updateClassicWorldLightmaps(binding, world, draws, drawCount, frame)
   uploaded = 0
   drawIndex = 0
@@ -3240,7 +3765,10 @@ function updateClassicWorldLightmaps(binding, world, draws, drawCount, frame)
   return uploaded
 end function
 
-// Draw open gl classic brush lightmaps.
+/// Draw open gl classic brush lightmaps.
+/// @param binding binding value consumed by this operation.
+/// @param submission submission value consumed by this operation.
+/// @param time time value consumed by this operation.
 function drawOpenGlClassicBrushLightmaps(binding, submission, time)
   uploaded = 0
   lastTexture = -1
@@ -3256,7 +3784,8 @@ function drawOpenGlClassicBrushLightmaps(binding, submission, time)
   return uploaded
 end function
 
-// Open push gl classic brush.
+/// Open push gl classic brush.
+/// @param entity entity value consumed by this operation.
 function pushOpenGlClassicBrush(entity)
   origin = entity.origin; angles = entity.angles
   originX = origin.x; originY = origin.y; originZ = origin.z
@@ -3270,7 +3799,10 @@ function pushOpenGlClassicBrush(entity)
   native.glRotate(bits(roll), bits(1.0), bits(0.0), bits(0.0))
 end function
 
-// Draw open gl classic brush opaque.
+/// Draw open gl classic brush opaque.
+/// @param binding binding value consumed by this operation.
+/// @param submission submission value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   entityFlags = submission.entity.flags
   if (entityFlags & rc.RF_TRANSLUCENT) != 0 then return 0 end if
@@ -3301,7 +3833,10 @@ function drawOpenGlClassicBrushOpaque(binding, submission, frame)
   return uploaded
 end function
 
-// Return the classic transparent distance value.
+/// Return the classic transparent distance value.
+/// @param draw draw value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function inline classicTransparentDistance(draw, entity, viewOrigin)
   centerX = (draw.mins.x + draw.maxs.x) * 0.5
   centerY = (draw.mins.y + draw.maxs.y) * 0.5
@@ -3315,7 +3850,15 @@ function inline classicTransparentDistance(draw, entity, viewOrigin)
   return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
 end function
 
-// Append classic transparent draws.
+/// Append classic transparent draws.
+/// @param output Output collection or buffer populated by the operation.
+/// @param count Number of items or units to process.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param entity entity value consumed by this operation.
+/// @param entityAlpha entityAlpha value consumed by this operation.
+/// @param useSurfaceAlpha useSurfaceAlpha value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
 function appendClassicTransparentDraws(output, count, draws, drawCount, entity,
     entityAlpha, useSurfaceAlpha, viewOrigin)
   drawIndex = 0
@@ -3341,7 +3884,8 @@ function appendClassicTransparentDraws(output, count, draws, drawCount, entity,
   return count
 end function
 
-// Sort classic transparent draws.
+/// Sort classic transparent draws.
+/// @param draws draws value consumed by this operation.
 function sortClassicTransparentDraws(draws)
   sorted = array(len(draws))
   count = 0
@@ -3357,7 +3901,9 @@ function sortClassicTransparentDraws(draws)
   return sorted
 end function
 
-// Sort classic transparent draws in place.
+/// Sort classic transparent draws in place.
+/// @param draws draws value consumed by this operation.
+/// @param count Number of items or units to process.
 function sortClassicTransparentDrawsInPlace(draws, count)
   index = 1
   while index < count
@@ -3374,7 +3920,10 @@ function sortClassicTransparentDrawsInPlace(draws, count)
   return draws
 end function
 
-// Prepare classic transparent frame.
+/// Prepare classic transparent frame.
+/// @param worldPlan worldPlan value consumed by this operation.
+/// @param brushFrame brushFrame value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function prepareClassicTransparentFramePrefix(worldPlan, brushFrame, frame)
   capacity = worldPlan.transparentCount
   submissionIndex = 0
@@ -3428,7 +3977,10 @@ function prepareClassicTransparentFramePrefix(worldPlan, brushFrame, frame)
   return count
 end function
 
-// Compatibility wrapper returning an exact diagnostic array.
+/// Compatibility wrapper returning an exact diagnostic array.
+/// @param worldPlan worldPlan value consumed by this operation.
+/// @param brushFrame brushFrame value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
   count = prepareClassicTransparentFramePrefix(worldPlan, brushFrame, frame)
   output = array(count)
@@ -3440,7 +3992,8 @@ function prepareClassicTransparentFrame(worldPlan, brushFrame, frame)
   return output
 end function
 
-// Return the classic transparent frame signature value.
+/// Return the classic transparent frame signature value.
+/// @param draws draws value consumed by this operation.
 function classicTransparentFrameSignature(draws)
   result = ""
   for each transparentDraw in draws
@@ -3451,7 +4004,11 @@ function classicTransparentFrameSignature(draws)
   return result
 end function
 
-// Draw open gl classic transparent frame.
+/// Draw open gl classic transparent frame.
+/// @param binding binding value consumed by this operation.
+/// @param draws draws value consumed by this operation.
+/// @param drawCount Number of draw to process.
+/// @param frame frame value consumed by this operation.
 function drawOpenGlClassicTransparentFrame(binding, draws, drawCount, frame)
   // Establish the shared alpha state, submit the retained prefix in stock
   // order with optional brush transforms, then restore opaque render state.
@@ -3493,9 +4050,12 @@ function drawOpenGlClassicTransparentFrame(binding, draws, drawCount, frame)
   return uploaded
 end function
 
-// Product BSP handoff. Geometry debug remains independent via
-// submitTriangleMesh. This path follows the classic order: lit opaque base,
-// multiplicative lightmaps, turbulent water, sky portals, then sorted alpha.
+/// Product BSP handoff. Geometry debug remains independent via
+/// submitTriangleMesh. This path follows the classic order: lit opaque base,
+/// multiplicative lightmaps, turbulent water, sky portals, then sorted alpha.
+/// @param binding binding value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function submitClassicWorld(binding, world, frame)
   if world.released then return error(9625, "classic world was released") end if
   if world.generation != binding.state.assets.generation then return error(9626, "classic world belongs to a stale registration generation") end if
@@ -3680,7 +4240,9 @@ function submitClassicWorld(binding, world, frame)
   return stats
 end function
 
-// Release classic world.
+/// Release classic world.
+/// @param binding binding value consumed by this operation.
+/// @param world world value consumed by this operation.
 function releaseClassicWorld(binding, world)
   if world.released then return 0 end if
   released = 0
@@ -3704,14 +4266,18 @@ function releaseClassicWorld(binding, world)
   return released
 end function
 
-// Return the backend description value.
+/// Return the backend description value.
+/// @param binding binding value consumed by this operation.
 function backendDescription(binding)
   if not binding.state.contextActive then return "OpenGL 1.1 (headless contract mode)" end if
   return binding.state.vendor + " / " + binding.state.renderer + " / " + binding.state.version
 end function
 
-// Callback-backed registration for createOpenGlRenderer(), whose refimport is
-// intentionally void. getRefAPI() users can use exports.RegisterModel.
+/// Callback-backed registration for createOpenGlRenderer(), whose refimport is
+/// intentionally void. getRefAPI() users can use exports.RegisterModel.
+/// @param binding binding value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param loadFile loadFile value consumed by this operation.
 function registerMd2Model(binding, name, loadFile)
   imports = OpenGlFileImports(loadFile)
   modelAsset = rassets.registerModel(binding.state.assets, imports, name)
@@ -3724,12 +4290,18 @@ function registerMd2Model(binding, name, loadFile)
   return modelAsset.handle
 end function
 
-// Map adopt classic model.
+/// Map adopt classic model.
+/// @param binding binding value consumed by this operation.
+/// @param map map value consumed by this operation.
+/// @param path Path of the file or directory used by the operation.
 function adoptClassicMapModel(binding, map, path)
   return rassets.adoptBspModel(binding.state.assets, map, path).handle
 end function
 
-// Return the md 2 model frame bounds.
+/// Return the md 2 model frame bounds.
+/// @param binding binding value consumed by this operation.
+/// @param modelHandle modelHandle value consumed by this operation.
+/// @param frameIndex Zero-based index of frame.
 function md2ModelFrameBounds(binding, modelHandle, frameIndex)
   modelAsset = rassets.modelForHandle(binding.state.assets, modelHandle)
   if modelAsset.kind != "md2" then return error(9630, "model bounds requested for non-MD2 handle") end if
@@ -3737,13 +4309,17 @@ function md2ModelFrameBounds(binding, modelHandle, frameIndex)
   return modelAsset.frameBounds[frameIndex]
 end function
 
-// Prepare md 2 entity.
+/// Prepare md 2 entity.
+/// @param binding binding value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function prepareMd2Entity(binding, entity)
   return prepareOpenGlMd2Entity(binding.state, entity)
 end function
 
-// Explicit handoff for tools. Product RefDef entities are submitted
-// automatically by RenderFrame when entity.model is a current MD2 handle.
+/// Explicit handoff for tools. Product RefDef entities are submitted
+/// automatically by RenderFrame when entity.model is a current MD2 handle.
+/// @param binding binding value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function submitMd2Entity(binding, entity)
   plan = prepareOpenGlMd2Entity(binding.state, entity)
   if not openGlMd2EntityVisible(binding.state, entity) then
@@ -3755,8 +4331,16 @@ function submitMd2Entity(binding, entity)
   return drawOpenGlMd2Plan(binding.state, plan, entity)
 end function
 
-// Independent wireframe/geometry-debug path for BSP38 fan geometry and
-// interpolated MD2 meshes produced by renderer.geometry.
+/// Independent wireframe/geometry-debug path for BSP38 fan geometry and
+/// interpolated MD2 meshes produced by renderer.geometry.
+/// @param binding binding value consumed by this operation.
+/// @param mesh mesh value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
+/// @param red red value consumed by this operation.
+/// @param green green value consumed by this operation.
+/// @param blue blue value consumed by this operation.
+/// @param alpha alpha value consumed by this operation.
 function submitTriangleMesh(binding, mesh, origin, angles, red, green, blue, alpha)
   if not binding.state.contextActive then return 0 end if
   if typeof(mesh.vertices) != "array" or len(mesh.vertices) % 3 != 0 then return error(9621, "triangle mesh vertex count must be divisible by three") end if

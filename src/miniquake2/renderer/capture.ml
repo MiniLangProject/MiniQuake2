@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer capture facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,31 +13,48 @@ package miniquake2.renderer.capture
 import std.fs as rendercapturefs
 import miniquake2.native as rendercapturenative
 
+/// Defines the rendercapture gl dither constant used by the miniquake2 renderer capture module.
 const RENDERCAPTURE_GL_DITHER = 0x0BD0
+/// Defines the rendercapture gl rgba constant used by the miniquake2 renderer capture module.
 const RENDERCAPTURE_GL_RGBA = 0x1908
+/// Defines the rendercapture gl unsigned byte constant used by the miniquake2 renderer capture module.
 const RENDERCAPTURE_GL_UNSIGNED_BYTE = 0x1401
 
-// Store capture image data.
+/// Store capture image data.
 struct CaptureImage
+  /// Stores the width value associated with capture image.
   width
+  /// Stores the height value associated with capture image.
   height
+  /// Stores the rgba value associated with capture image.
   rgba
 end struct
 
-// Store pixel diff data.
+/// Store pixel diff data.
 struct PixelDiff
+  /// Stores the width value associated with pixel diff.
   width
+  /// Stores the height value associated with pixel diff.
   height
+  /// Stores the total pixels value associated with pixel diff.
   totalPixels
+  /// Stores the compared channels value associated with pixel diff.
   comparedChannels
+  /// Stores the differing pixels value associated with pixel diff.
   differingPixels
+  /// Stores the differing channels value associated with pixel diff.
   differingChannels
+  /// Stores the max channel delta value associated with pixel diff.
   maxChannelDelta
+  /// Stores the absolute error value associated with pixel diff.
   absoluteError
+  /// Stores the exact value associated with pixel diff.
   exact
 end struct
 
-// Validate capture dimensions.
+/// Validate capture dimensions.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
 function validateCaptureDimensions(width, height)
   if typeof(width) != "int" or typeof(height) != "int" then
     return error(9690, "capture dimensions must be integers")
@@ -46,7 +65,10 @@ function validateCaptureDimensions(width, height)
   return width * height * 4
 end function
 
-// Return the image value.
+/// Return the image value.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param rgba rgba value consumed by this operation.
 function image(width, height, rgba)
   expected = validateCaptureDimensions(width, height)
   if typeof(rgba) != "bytes" or len(rgba) != expected then
@@ -55,7 +77,10 @@ function image(width, height, rgba)
   return CaptureImage(width, height, rgba)
 end function
 
-// Convert GL's bottom-left RGBA rows to the one canonical top-left layout.
+/// Convert GL's bottom-left RGBA rows to the one canonical top-left layout.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param pixels pixels value consumed by this operation.
 function canonicalizeOpenGlRgba(width, height, pixels)
   expected = validateCaptureDimensions(width, height)
   if typeof(pixels) != "bytes" or len(pixels) != expected then
@@ -77,8 +102,10 @@ function canonicalizeOpenGlRgba(width, height, pixels)
   return CaptureImage(width, height, canonical)
 end function
 
-// Read the current back buffer before EndFrame swaps it. Dithering is disabled
-// so repeated captures on one GL implementation do not depend on pixel phase.
+/// Read the current back buffer before EndFrame swaps it. Dithering is disabled
+/// so repeated captures on one GL implementation do not depend on pixel phase.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
 function readOpenGlFrame(width, height)
   expected = validateCaptureDimensions(width, height)
   pixels = bytes(expected)
@@ -89,8 +116,9 @@ function readOpenGlFrame(width, height)
   return canonicalizeOpenGlRgba(width, height, pixels)
 end function
 
-// Uncompressed true-colour TGA, top-left origin, 8 alpha bits. This stays
-// compatible with original ref_gl screenshots while preserving alpha exactly.
+/// Uncompressed true-colour TGA, top-left origin, 8 alpha bits. This stays
+/// compatible with original ref_gl screenshots while preserving alpha exactly.
+/// @param captureImage captureImage value consumed by this operation.
 function encodeTga(captureImage)
   if typeof(captureImage) != "struct" then return error(9694, "CaptureImage required") end if
   width = captureImage.width; height = captureImage.height; rgba = captureImage.rgba
@@ -117,13 +145,16 @@ function encodeTga(captureImage)
   return encoded
 end function
 
-// Write tga.
+/// Write tga.
+/// @param path Path of the file or directory used by the operation.
+/// @param captureImage captureImage value consumed by this operation.
 function writeTga(path, captureImage)
   if typeof(path) != "string" or path == "" then return error(9695, "capture output path required") end if
   return rendercapturefs.writeAllBytes(path, encodeTga(captureImage))
 end function
 
-// Return the rgba checksum value.
+/// Return the rgba checksum value.
+/// @param captureImage captureImage value consumed by this operation.
 function rgbaChecksum(captureImage)
   if typeof(captureImage) != "struct" or typeof(captureImage.rgba) != "bytes" then
     return error(9694, "CaptureImage required")
@@ -138,8 +169,12 @@ function rgbaChecksum(captureImage)
   return hash
 end function
 
-// Exact counts plus an explicit per-channel tolerance form a driver-robust,
-// machine-consumable metric without hiding large localized errors in one mean.
+/// Exact counts plus an explicit per-channel tolerance form a driver-robust,
+/// machine-consumable metric without hiding large localized errors in one mean.
+/// @param expectedImage expectedImage value consumed by this operation.
+/// @param actualImage actualImage value consumed by this operation.
+/// @param channelTolerance channelTolerance value consumed by this operation.
+/// @param includeAlpha includeAlpha value consumed by this operation.
 function compare(expectedImage, actualImage, channelTolerance, includeAlpha)
   // Keep compare phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(expectedImage) != "struct" or typeof(actualImage) != "struct" then

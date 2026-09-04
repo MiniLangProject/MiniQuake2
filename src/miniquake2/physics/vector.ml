@@ -1,3 +1,5 @@
+//! Provides miniquake2 physics vector facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,9 +10,11 @@ package miniquake2.physics.vector
 import std.math as smath
 import miniquake2.qcommon.types as qt
 
-// Validate dynamic Vec3-shaped values without materializing a temporary
-// three-element array. Pmove calls dot/length/multiplyAdd hundreds of times
-// per prediction frame, so the former component array dominated its GC rate.
+/// Validate dynamic Vec3-shaped values without materializing a temporary
+/// three-element array. Pmove calls dot/length/multiplyAdd hundreds of times
+/// per prediction frame, so the former component array dominated its GC rate.
+/// @param value Value consumed or transformed by the operation.
+/// @param operation operation value consumed by this operation.
 function inline validatePhysicsVector(value, operation)
   if typeof(value) != "struct" then
     return error(2840, operation + ": Vec3-shaped value required")
@@ -27,14 +31,17 @@ function inline validatePhysicsVector(value, operation)
   return true
 end function
 
-// Return the physics vector components value.
+/// Return the physics vector components value.
+/// @param value Value consumed or transformed by the operation.
+/// @param operation operation value consumed by this operation.
 function physicsVectorComponents(value, operation)
   valid = try(validatePhysicsVector(value, operation))
   if valid is error then return valid end if
   return [value.x, value.y, value.z]
 end function
 
-// Copy state.
+/// Performs the copy operation for the miniquake2 physics vector module.
+/// @param value Value consumed or transformed by the operation.
 function copy(value)
   valid = try(validatePhysicsVector(value, "physics vector copy"))
   if valid is error then return valid end if
@@ -42,7 +49,9 @@ function copy(value)
   return result
 end function
 
-// Add state.
+/// Adds add to the state managed by the miniquake2 physics vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function add(first, second)
   valid = try(validatePhysicsVector(first, "physics vector add first operand"))
   if valid is error then return valid end if
@@ -52,7 +61,9 @@ function add(first, second)
   return result
 end function
 
-// Subtract state.
+/// Performs the subtract operation for the miniquake2 physics vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function subtract(first, second)
   valid = try(validatePhysicsVector(first, "physics vector subtract first operand"))
   if valid is error then return valid end if
@@ -62,7 +73,9 @@ function subtract(first, second)
   return result
 end function
 
-// Scale state.
+/// Performs the scale operation for the miniquake2 physics vector module.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
 function scale(value, amount)
   valid = try(validatePhysicsVector(value, "physics vector scale"))
   if valid is error then return valid end if
@@ -70,7 +83,10 @@ function scale(value, amount)
   return result
 end function
 
-// Add multiply.
+/// Performs the multiplyAdd operation for the miniquake2 physics vector module.
+/// @param value Value consumed or transformed by the operation.
+/// @param amount amount value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function multiplyAdd(value, amount, direction)
   valid = try(validatePhysicsVector(value, "physics vector multiplyAdd value"))
   if valid is error then return valid end if
@@ -85,7 +101,9 @@ function multiplyAdd(value, amount, direction)
   return result
 end function
 
-// Compute state.
+/// Performs the dot operation for the miniquake2 physics vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function dot(first, second)
   valid = try(validatePhysicsVector(first, "physics vector dot first operand"))
   if valid is error then return valid end if
@@ -94,7 +112,9 @@ function dot(first, second)
   return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
-// Compute state.
+/// Performs the cross operation for the miniquake2 physics vector module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function cross(first, second)
   valid = try(validatePhysicsVector(first, "physics vector cross first operand"))
   if valid is error then return valid end if
@@ -108,7 +128,8 @@ function cross(first, second)
   return result
 end function
 
-// Return the length.
+/// Performs the length operation for the miniquake2 physics vector module.
+/// @param value Value consumed or transformed by the operation.
 function length(value)
   valid = try(validatePhysicsVector(value, "physics vector length"))
   if valid is error then return valid end if
@@ -125,8 +146,9 @@ function length(value)
   return magnitude
 end function
 
-// Return [normalized vector, original length], matching VectorNormalize's
-// useful result without relying on reference parameters.
+/// Return [normalized vector, original length], matching VectorNormalize's
+/// useful result without relying on reference parameters.
+/// @param value Value consumed or transformed by the operation.
 function normalized(value)
   valid = try(validatePhysicsVector(value, "physics vector normalized"))
   if valid is error then return valid end if
@@ -155,7 +177,9 @@ function normalized(value)
   return result
 end function
 
-// Return the component value.
+/// Return the component value.
+/// @param value Value consumed or transformed by the operation.
+/// @param axis axis value consumed by this operation.
 function component(value, axis)
   valid = try(validatePhysicsVector(value, "physics vector component"))
   if valid is error then return valid end if
@@ -164,7 +188,10 @@ function component(value, axis)
   return value.z
 end function
 
-// Set component.
+/// Set component.
+/// @param value Value consumed or transformed by the operation.
+/// @param axis axis value consumed by this operation.
+/// @param componentValue componentValue value consumed by this operation.
 function setComponent(value, axis, componentValue)
   // This operation intentionally mutates its input. Validate and extract in
   // this frame so no helper allocation separates the store from the parameter.
@@ -183,7 +210,8 @@ function setComponent(value, axis, componentValue)
   return rootedValue
 end function
 
-// Return the angle vectors value.
+/// Return the angle vectors value.
+/// @param angles angles value consumed by this operation.
 function angleVectors(angles)
   valid = try(validatePhysicsVector(angles, "physics angleVectors"))
   if valid is error then return valid end if

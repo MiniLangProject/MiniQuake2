@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime client session facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -32,45 +34,76 @@ import miniquake2.client.downloads as csdownloads
 import miniquake2.platform.system as cssystem
 import miniquake2.platform.udp as csudp
 
-// Store client session data.
+/// Store client session data.
 struct ClientSession
+  /// Stores the integrated value associated with client session.
   integrated
+  /// Stores the socket value associated with client session.
   socket
+  /// Stores the clock value associated with client session.
   clock
+  /// Stores the signon spawn count value associated with client session.
   signonSpawnCount
+  /// Stores the command index value associated with client session.
   commandIndex
+  /// Stores the previous command value associated with client session.
   previousCommand
+  /// Stores the last command value associated with client session.
   lastCommand
+  /// Stores the pending commands value associated with client session.
   pendingCommands
+  /// Stores the pending command head value associated with client session.
   pendingCommandHead
+  /// Stores the pending command count value associated with client session.
   pendingCommandCount
+  /// Stores the command history value associated with client session.
   commandHistory
+  /// Stores the command sequences value associated with client session.
   commandSequences
+  /// Stores the predicted origins value associated with client session.
   predictedOrigins
+  /// Stores the predicted sequences value associated with client session.
   predictedSequences
+  /// Stores the last prediction ack value associated with client session.
   lastPredictionAck
+  /// Stores the packets received value associated with client session.
   packetsReceived
+  /// Stores the packets sent value associated with client session.
   packetsSent
+  /// Stores the packets rejected value associated with client session.
   packetsRejected
+  /// Stores the closed value associated with client session.
   closed
+  /// Stores the prediction command scratch value associated with client session.
   predictionCommandScratch
+  /// Stores the prediction world value associated with client session.
   predictionWorld
+  /// Stores the prediction workspace value associated with client session.
   predictionWorkspace
+  /// Stores the idle command value associated with client session.
   idleCommand
+  /// Stores the move buffer value associated with client session.
   moveBuffer
 end struct
 
+/// Defines the max pending usercmds constant used by the miniquake2 runtime client session module.
 const MAX_PENDING_USERCMDS = 64
+/// Defines the cmd backup constant used by the miniquake2 runtime client session module.
 const CMD_BACKUP = 64
+/// Defines the cmd mask constant used by the miniquake2 runtime client session module.
 const CMD_MASK = 63
+/// Defines the client command msec constant used by the miniquake2 runtime client session module.
 const CLIENT_COMMAND_MSEC = 11
 
-// Return the movement due value.
+/// Return the movement due value.
+/// @param previousTime previousTime value consumed by this operation.
+/// @param now now value consumed by this operation.
 function movementDue(previousTime, now)
   return now - previousTime >= CLIENT_COMMAND_MSEC
 end function
 
-// Create user cmd scratch.
+/// Create user cmd scratch.
+/// @param count Number of items or units to process.
 function makeUserCmdScratch(count)
   values = array(count, void)
   index = 0
@@ -81,7 +114,8 @@ function makeUserCmdScratch(count)
   return values
 end function
 
-// Create origin scratch.
+/// Create origin scratch.
+/// @param count Number of items or units to process.
 function makeOriginScratch(count)
   values = array(count, void)
   index = 0
@@ -92,7 +126,11 @@ function makeOriginScratch(count)
   return values
 end function
 
-// Create state.
+/// Creates create for the miniquake2 runtime client session module.
+/// @param serverAddress serverAddress value consumed by this operation.
+/// @param serverPort serverPort value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
+/// @param localPort localPort value consumed by this operation.
 function create(serverAddress, serverPort, userInfo, localPort)
   socket = csudp.open("0.0.0.0", localPort)
   address = cstransport.fromUdp(serverAddress, serverPort)
@@ -111,7 +149,8 @@ function create(serverAddress, serverPort, userInfo, localPort)
     csqsz.alloc(256))
 end function
 
-// Return the validated movement value.
+/// Return the validated movement value.
+/// @param value Value consumed or transformed by the operation.
 function validatedMovement(value)
   if typeof(value) != "int" and typeof(value) != "float" then
     return error(9997, "client usercmd movement must be numeric")
@@ -123,7 +162,9 @@ function validatedMovement(value)
   return encoded
 end function
 
-// Populate the copy user cmd destination.
+/// Populate the copy user cmd destination.
+/// @param output Output collection or buffer populated by the operation.
+/// @param command command value consumed by this operation.
 function copyUserCmdInto(output, command)
   output.msec = command.msec
   output.buttons = command.buttons
@@ -138,7 +179,9 @@ function copyUserCmdInto(output, command)
   return output
 end function
 
-// Reset user cmd.
+/// Reset user cmd.
+/// @param output Output collection or buffer populated by the operation.
+/// @param msec msec value consumed by this operation.
 function resetUserCmd(output, msec)
   output.msec = msec; output.buttons = 0
   output.angles[0] = 0; output.angles[1] = 0; output.angles[2] = 0
@@ -147,7 +190,9 @@ function resetUserCmd(output, msec)
   return output
 end function
 
-// Populate the validate user cmd destination.
+/// Populate the validate user cmd destination.
+/// @param output Output collection or buffer populated by the operation.
+/// @param command command value consumed by this operation.
 function validateUserCmdInto(output, command)
   if typeof(command) != "struct" then return error(9992, "client usercmd must be a struct") end if
   if typeof(command.msec) != "int" or command.msec < 0 or command.msec > 255 then
@@ -179,13 +224,16 @@ function validateUserCmdInto(output, command)
   return output
 end function
 
-// Validate user cmd.
+/// Validate user cmd.
+/// @param command command value consumed by this operation.
 function validateUserCmd(command)
   return validateUserCmdInto(csqtypes.zeroUserCmd(), command)
 end function
 
-// Queue preserves every input sample. The bounded backlog prevents a paused
-// UI producer from causing unbounded latency when networking resumes.
+/// Queue preserves every input sample. The bounded backlog prevents a paused
+/// UI producer from causing unbounded latency when networking resumes.
+/// @param session session value consumed by this operation.
+/// @param command command value consumed by this operation.
 function queueUserCmd(session, command)
   if session.closed then return error(9998, "client session is closed") end if
   if session.pendingCommandCount >= MAX_PENDING_USERCMDS then return error(9999, "client usercmd queue is full") end if
@@ -196,8 +244,10 @@ function queueUserCmd(session, command)
   return session.pendingCommandCount
 end function
 
-// Replace pending samples with the newest command, useful for frame-driven UI
-// where old unsent mouse deltas must not be replayed later.
+/// Replace pending samples with the newest command, useful for frame-driven UI
+/// where old unsent mouse deltas must not be replayed later.
+/// @param session session value consumed by this operation.
+/// @param command command value consumed by this operation.
 function setUserCmd(session, command)
   if session.closed then return error(9998, "client session is closed") end if
   validated = try(validateUserCmdInto(session.pendingCommands[0], command))
@@ -207,12 +257,14 @@ function setUserCmd(session, command)
   return true
 end function
 
-// Report whether pending user cmds.
+/// Report whether pending user cmds.
+/// @param session session value consumed by this operation.
 function pendingUserCmds(session)
   return session.pendingCommandCount
 end function
 
-// Return the next user cmd value.
+/// Return the next user cmd value.
+/// @param session session value consumed by this operation.
 function nextUserCmd(session)
   if session.pendingCommandCount == 0 then
     return resetUserCmd(session.idleCommand, 100)
@@ -223,19 +275,24 @@ function nextUserCmd(session)
   return command
 end function
 
-// Return the sequence distance value.
+/// Return the sequence distance value.
+/// @param candidate candidate value consumed by this operation.
+/// @param base base value consumed by this operation.
 function inline sequenceDistance(candidate, base)
   return (candidate - base) & cspc.SEQUENCE_MASK
 end function
 
-// Create prediction command scratch.
+/// Create prediction command scratch.
 function createPredictionCommandScratch()
   return array(CMD_BACKUP + 1, void)
 end function
 
-// Allocation-stable form used by the product render loop. History entries are
-// session-owned immutable copies; the preview is consumed synchronously by
-// prediction, which copies each command into its reusable Pmove command.
+/// Allocation-stable form used by the product render loop. History entries are
+/// session-owned immutable copies; the preview is consumed synchronously by
+/// prediction, which copies each command into its reusable Pmove command.
+/// @param session session value consumed by this operation.
+/// @param previewCommand previewCommand value consumed by this operation.
+/// @param output Output collection or buffer populated by the operation.
 function fillPredictionCommands(session, previewCommand, output)
   if typeof(output) != "array" or len(output) < CMD_BACKUP + 1 then
     return error(9995, "prediction command scratch is too small")
@@ -263,8 +320,10 @@ function fillPredictionCommands(session, previewCommand, output)
   return outputIndex
 end function
 
-// Return exactly the unacknowledged cmd ring followed by the current render
-// preview. Missing pre-active/sign-on sequences are intentionally skipped.
+/// Return exactly the unacknowledged cmd ring followed by the current render
+/// preview. Missing pre-active/sign-on sequences are intentionally skipped.
+/// @param session session value consumed by this operation.
+/// @param previewCommand previewCommand value consumed by this operation.
 function predictionCommands(session, previewCommand)
   network = session.integrated.network
   if network.client.channel is void then return [] end if
@@ -296,14 +355,18 @@ function predictionCommands(session, previewCommand)
   return output
 end function
 
-// Return the prediction sequence value.
+/// Return the prediction sequence value.
+/// @param session session value consumed by this operation.
 function predictionSequence(session)
   channel = session.integrated.network.client.channel
   if channel is void then return -1 end if
   return channel.outgoingSequence
 end function
 
-// Return the store predicted origin.
+/// Return the store predicted origin.
+/// @param session session value consumed by this operation.
+/// @param sequence sequence value consumed by this operation.
+/// @param fixedOrigin fixedOrigin value consumed by this operation.
 function storePredictedOrigin(session, sequence, fixedOrigin)
   if sequence < 0 then return false end if
   slot = sequence & CMD_MASK
@@ -314,7 +377,8 @@ function storePredictedOrigin(session, sequence, fixedOrigin)
   return true
 end function
 
-// Reconcile prediction.
+/// Reconcile prediction.
+/// @param session session value consumed by this operation.
 function reconcilePrediction(session)
   networkClient = session.integrated.network.client
   if networkClient.channel is void or session.integrated.client.current is void then return false end if
@@ -328,9 +392,12 @@ function reconcilePrediction(session)
   return true
 end function
 
-// CL_PredictMovement for a real remote client: replay the unacknowledged
-// command ring against the locally loaded BSP plus the current packet-entity
-// solids. Listen play may keep using its authoritative Game-API bridge.
+/// CL_PredictMovement for a real remote client: replay the unacknowledged
+/// command ring against the locally loaded BSP plus the current packet-entity
+/// solids. Listen play may keep using its authoritative Game-API bridge.
+/// @param session session value consumed by this operation.
+/// @param previewCommand previewCommand value consumed by this operation.
+/// @param collision collision value consumed by this operation.
 function predictRemote(session, previewCommand, collision)
   clientState = session.integrated.client
   if session.closed or clientState.current is void then return false end if
@@ -368,7 +435,10 @@ function predictRemote(session, previewCommand, collision)
   return result
 end function
 
-// Send string command.
+/// Send string command.
+/// @param session session value consumed by this operation.
+/// @param command command value consumed by this operation.
+/// @param now now value consumed by this operation.
 function sendStringCommand(session, command, now)
   network = session.integrated.network
   if network.client.state < csnc.CA_CONNECTED or network.client.channel is void then return false end if
@@ -383,7 +453,10 @@ function sendStringCommand(session, command, now)
   return true
 end function
 
-// Send user info.
+/// Send user info.
+/// @param session session value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
+/// @param now now value consumed by this operation.
 function sendUserInfo(session, userInfo, now)
   network = session.integrated.network
   if network.client.state < csnc.CA_CONNECTED or network.client.channel is void then return false end if
@@ -399,12 +472,15 @@ function sendUserInfo(session, userInfo, now)
   return true
 end function
 
-// Configure downloads.
+/// Configure downloads.
+/// @param session session value consumed by this operation.
+/// @param manager manager value consumed by this operation.
 function configureDownloads(session, manager)
   return csdispatcher.setDownloadManager(session.integrated, manager)
 end function
 
-// Return the signon command value.
+/// Return the signon command value.
+/// @param text Text consumed by the operation.
 function signonCommand(text)
   arguments = csqcmd.tokenize(text)
   if len(arguments) == 0 then return "" end if
@@ -417,7 +493,8 @@ function signonCommand(text)
   return ""
 end function
 
-// Reset map input.
+/// Reset map input.
+/// @param session session value consumed by this operation.
 function resetMapInput(session)
   resetUserCmd(session.previousCommand, 0)
   resetUserCmd(session.lastCommand, 0)
@@ -438,7 +515,8 @@ function resetMapInput(session)
   return true
 end function
 
-// Synchronize spawn count.
+/// Synchronize spawn count.
+/// @param session session value consumed by this operation.
 function synchronizeSpawnCount(session)
   current = session.integrated.network.spawnCount
   if current == session.signonSpawnCount then return false end if
@@ -448,7 +526,9 @@ function synchronizeSpawnCount(session)
   return true
 end function
 
-// Process signon.
+/// Process signon.
+/// @param session session value consumed by this operation.
+/// @param now now value consumed by this operation.
 function processSignon(session, now)
   synchronizeSpawnCount(session)
   commands = session.integrated.network.stuffedTexts
@@ -490,7 +570,9 @@ function processSignon(session, now)
   return count
 end function
 
-// Process downloads.
+/// Process downloads.
+/// @param session session value consumed by this operation.
+/// @param now now value consumed by this operation.
 function processDownloads(session, now)
   manager = session.integrated.downloads
   if manager is void then return 0 end if
@@ -504,7 +586,9 @@ function processDownloads(session, now)
   return sent
 end function
 
-// Send move.
+/// Send move.
+/// @param session session value consumed by this operation.
+/// @param now now value consumed by this operation.
 function sendMove(session, now)
   network = session.integrated.network
   if network.client.state != csnc.CA_ACTIVE or network.client.channel is void then return false end if
@@ -527,7 +611,9 @@ function sendMove(session, now)
   return true
 end function
 
-// Pump state.
+/// Pump state.
+/// @param session session value consumed by this operation.
+/// @param sendMovement sendMovement value consumed by this operation.
 function pump(session, sendMovement)
   if session.closed then return error(9990, "client session is closed") end if
   now = csqbyteio.truncInt(cssystem.milliseconds(session.clock))
@@ -546,18 +632,22 @@ function pump(session, sendMovement)
   return session.integrated.network.client.state
 end function
 
-// Advance state.
+/// Performs the step operation for the miniquake2 runtime client session module.
+/// @param session session value consumed by this operation.
 function step(session)
   return pump(session, true)
 end function
 
-// Receive/ACK/signon half of a listen-server tick without synthesizing a
-// second usercmd for the same UI frame.
+/// Receive/ACK/signon half of a listen-server tick without synthesizing a
+/// second usercmd for the same UI frame.
+/// @param session session value consumed by this operation.
 function poll(session)
   return pump(session, false)
 end function
 
-// Run state.
+/// Runs run for the miniquake2 runtime client session workflow.
+/// @param session session value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function run(session, frameLimit)
   if typeof(frameLimit) != "int" or frameLimit < 1 then return error(9991, "client frame limit must be positive") end if
   frames = 0
@@ -572,7 +662,8 @@ function run(session, frameLimit)
   return frames
 end function
 
-// Shut down state.
+/// Performs the shutdown operation for the miniquake2 runtime client session module.
+/// @param session session value consumed by this operation.
 function shutdown(session)
   if session.closed then return false end if
   now = csqbyteio.truncInt(cssystem.milliseconds(session.clock))

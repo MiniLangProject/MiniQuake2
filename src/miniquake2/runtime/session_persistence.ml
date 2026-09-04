@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime session persistence facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,40 +15,59 @@ import miniquake2.runtime.play_session as savegateplaysession
 import miniquake2.runtime.multiplayer_session as savegatemultiplayer
 import miniquake2.client.runtime.dispatcher as savegatedispatcher
 
-// Store session checkpoint data.
+/// Store session checkpoint data.
 struct SessionCheckpoint
+  /// Stores the game path value associated with session checkpoint.
   gamePath
+  /// Stores the level path value associated with session checkpoint.
   levelPath
+  /// Stores the map name value associated with session checkpoint.
   mapName
+  /// Stores the spawn count value associated with session checkpoint.
   spawnCount
+  /// Stores the game frame value associated with session checkpoint.
   gameFrame
+  /// Stores the server frame value associated with session checkpoint.
   serverFrame
 end struct
 
-// Store session restore result data.
+/// Store session restore result data.
 struct SessionRestoreResult
+  /// Stores the restored value associated with session restore result.
   restored
+  /// Stores the re signon value associated with session restore result.
   reSignon
+  /// Stores the map name value associated with session restore result.
   mapName
+  /// Stores the spawn count value associated with session restore result.
   spawnCount
+  /// Stores the game frame value associated with session restore result.
   gameFrame
+  /// Stores the server frame value associated with session restore result.
   serverFrame
+  /// Stores the channel preserved value associated with session restore result.
   channelPreserved
 end struct
 
-// Store core map source data.
+/// Store core map source data.
 struct CoreMapSource
+  /// Stores the entity text value associated with core map source.
   entityText
+  /// Stores the collision value associated with core map source.
   collision
 end struct
 
-// Map core source.
+/// Map core source.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
 function coreMapSource(entityText, collision)
   if typeof(entityText) != "string" then return error(8455, "core map resolver returned invalid entity text") end if
   return CoreMapSource(entityText, collision)
 end function
 
-// Validate paths.
+/// Validate paths.
+/// @param gamePath Path associated with game.
+/// @param levelPath Path associated with level.
 function validatePaths(gamePath, levelPath)
   if typeof(gamePath) != "string" or gamePath == "" or
       typeof(levelPath) != "string" or levelPath == "" then
@@ -56,7 +77,11 @@ function validatePaths(gamePath, levelPath)
   return true
 end function
 
-// Read checkpoint images.
+/// Read checkpoint images.
+/// @param server server value consumed by this operation.
+/// @param gamePath Path associated with game.
+/// @param levelPath Path associated with level.
+/// @param expectedMap expectedMap value consumed by this operation.
 function readCheckpointImages(server, gamePath, levelPath, expectedMap)
   savegateGameImage = savegategamepersistence.readFile(gamePath, server.gameExport.maxEdicts)
   savegateLevelImage = savegategamepersistence.readFile(levelPath, server.gameExport.maxEdicts)
@@ -72,7 +97,8 @@ function readCheckpointImages(server, gamePath, levelPath, expectedMap)
   return [savegateGameImage, savegateLevelImage]
 end function
 
-// Synchronize restored server.
+/// Synchronize restored server.
+/// @param server server value consumed by this operation.
 function synchronizeRestoredServer(server)
   savegateserversession.synchronizeServerState(server)
   savegateRestoredContext = savegategameapi.playerContext()
@@ -86,7 +112,10 @@ function synchronizeRestoredServer(server)
   return true
 end function
 
-// Save server session.
+/// Save server session.
+/// @param server server value consumed by this operation.
+/// @param gamePath Path associated with game.
+/// @param levelPath Path associated with level.
 function saveServerSession(server, gamePath, levelPath)
   validatePaths(gamePath, levelPath)
   if server is void or server.closed then return error(8445, "cannot save a closed server session") end if
@@ -100,7 +129,10 @@ function saveServerSession(server, gamePath, levelPath)
     server.networkRuntime.spawnCount, savegateImage.frameNumber, server.frameNumber)
 end function
 
-// Save play session.
+/// Save play session.
+/// @param session session value consumed by this operation.
+/// @param gamePath Path associated with game.
+/// @param levelPath Path associated with level.
 function savePlaySession(session, gamePath, levelPath)
   if session is void or session.closed or not savegateplaysession.signonComplete(session) then
     return error(8446, "play session must be active before save")
@@ -108,7 +140,10 @@ function savePlaySession(session, gamePath, levelPath)
   return saveServerSession(session.server, gamePath, levelPath)
 end function
 
-// Save multiplayer session.
+/// Save multiplayer session.
+/// @param session session value consumed by this operation.
+/// @param gamePath Path associated with game.
+/// @param levelPath Path associated with level.
 function saveMultiplayerSession(session, gamePath, levelPath)
   if session is void or session.closed or not savegatemultiplayer.signonComplete(session) then
     return error(8480, "multiplayer session must be active before save")
@@ -116,9 +151,12 @@ function saveMultiplayerSession(session, gamePath, levelPath)
   return saveServerSession(session.server, gamePath, levelPath)
 end function
 
-// Reconstruct durable slot metadata after a process restart. Spawn/server
-// epochs are intentionally unknown (-1/0); restorePlaySessionRetail therefore
-// performs a legal re-signon before applying the images.
+/// Reconstruct durable slot metadata after a process restart. Spawn/server
+/// epochs are intentionally unknown (-1/0); restorePlaySessionRetail therefore
+/// performs a legal re-signon before applying the images.
+/// @param gamePath Path associated with game.
+/// @param levelPath Path associated with level.
+/// @param maxEdicts maxEdicts value consumed by this operation.
 function loadSessionCheckpoint(gamePath, levelPath, maxEdicts)
   validatePaths(gamePath, levelPath)
   if typeof(maxEdicts) != "int" or maxEdicts < 1 then
@@ -139,7 +177,10 @@ function loadSessionCheckpoint(gamePath, levelPath, maxEdicts)
     -1, savegatePersistentGame.frameNumber, 0)
 end function
 
-// Return the rollback server session value.
+/// Return the rollback server session value.
+/// @param server server value consumed by this operation.
+/// @param rollbackGamePath Path associated with rollback game.
+/// @param rollbackLevelPath Path associated with rollback level.
 function rollbackServerSession(server, rollbackGamePath, rollbackLevelPath)
   savegateRollbackGame = try(server.gameExport.readGame(rollbackGamePath))
   if savegateRollbackGame is error then return savegateRollbackGame end if
@@ -148,7 +189,11 @@ function rollbackServerSession(server, rollbackGamePath, rollbackLevelPath)
   return synchronizeRestoredServer(server)
 end function
 
-// Restore failure.
+/// Restore failure.
+/// @param server server value consumed by this operation.
+/// @param rollbackGamePath Path associated with rollback game.
+/// @param rollbackLevelPath Path associated with rollback level.
+/// @param failure failure value consumed by this operation.
 function restoreFailure(server, rollbackGamePath, rollbackLevelPath, failure)
   savegateRollbackResult = try(rollbackServerSession(server, rollbackGamePath, rollbackLevelPath))
   if savegateRollbackResult is error then
@@ -157,7 +202,10 @@ function restoreFailure(server, rollbackGamePath, rollbackLevelPath, failure)
   return error(8448, "session restore rejected atomically: " + failure.message)
 end function
 
-// Restore server session at current epoch.
+/// Restore server session at current epoch.
+/// @param server server value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
+/// @param requireSavedSpawn requireSavedSpawn value consumed by this operation.
 function restoreServerSessionAtCurrentEpoch(server, checkpoint, requireSavedSpawn)
   if server is void or server.closed then return error(8449, "cannot restore a closed server session") end if
   if typeof(checkpoint) != "struct" then return error(8450, "session checkpoint is missing") end if
@@ -215,12 +263,16 @@ function restoreServerSessionAtCurrentEpoch(server, checkpoint, requireSavedSpaw
     server.frameNumber, savegateChannelPreserved)
 end function
 
-// Restore server session.
+/// Restore server session.
+/// @param server server value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
 function restoreServerSession(server, checkpoint)
   return restoreServerSessionAtCurrentEpoch(server, checkpoint, true)
 end function
 
-// Restore play session.
+/// Restore play session.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
 function restorePlaySession(session, checkpoint)
   if session is void or session.closed or not savegateplaysession.signonComplete(session) then
     return error(8453, "play session must be active before restore")
@@ -240,7 +292,9 @@ function restorePlaySession(session, checkpoint)
   return savegatePlayResult
 end function
 
-// Restore multiplayer session.
+/// Restore multiplayer session.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
 function restoreMultiplayerSession(session, checkpoint)
   // Keep restore multiplayer session phases explicit: validate inputs, update owned state, then publish the result.
   if session is void or session.closed or not savegatemultiplayer.signonComplete(session) then
@@ -292,7 +346,9 @@ function restoreMultiplayerSession(session, checkpoint)
   return savegateMultiplayerResult
 end function
 
-// Save cross map rollback.
+/// Save cross map rollback.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
 function saveCrossMapRollback(session, checkpoint)
   savegateCrossRollbackGamePath = checkpoint.gamePath + ".crossmap.rollback"
   savegateCrossRollbackLevelPath = checkpoint.levelPath + ".crossmap.rollback"
@@ -301,7 +357,12 @@ function saveCrossMapRollback(session, checkpoint)
   return savegateCrossRollback
 end function
 
-// Return the change core until committed value.
+/// Return the change core until committed value.
+/// @param session session value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function changeCoreUntilCommitted(session, mapName, entityText, collision, maximumSteps)
   savegateChangeAttempt = 0
   while savegateChangeAttempt < maximumSteps
@@ -314,7 +375,11 @@ function changeCoreUntilCommitted(session, mapName, entityText, collision, maxim
   return error(8457, "core map change remained backpressured")
 end function
 
-// Return the change retail until committed value.
+/// Return the change retail until committed value.
+/// @param session session value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function changeRetailUntilCommitted(session, baseDirectory, mapName, maximumSteps)
   savegateRetailChangeAttempt = 0
   while savegateRetailChangeAttempt < maximumSteps
@@ -330,7 +395,12 @@ function changeRetailUntilCommitted(session, baseDirectory, mapName, maximumStep
   return error(8464, "retail target map change remained backpressured")
 end function
 
-// Compute rollback map.
+/// Compute rollback map.
+/// @param session session value consumed by this operation.
+/// @param rollbackCheckpoint rollbackCheckpoint value consumed by this operation.
+/// @param entityText entityText value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function rollbackCrossMap(session, rollbackCheckpoint, entityText, collision, maximumSteps)
   savegateRollbackMapChange = try(changeCoreUntilCommitted(session,
     rollbackCheckpoint.mapName, entityText, collision, maximumSteps))
@@ -340,7 +410,13 @@ function rollbackCrossMap(session, rollbackCheckpoint, entityText, collision, ma
   return restoreServerSessionAtCurrentEpoch(session.server, rollbackCheckpoint, false)
 end function
 
-// Compute map failure.
+/// Compute map failure.
+/// @param session session value consumed by this operation.
+/// @param rollbackCheckpoint rollbackCheckpoint value consumed by this operation.
+/// @param rollbackEntityText rollbackEntityText value consumed by this operation.
+/// @param rollbackCollision rollbackCollision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
+/// @param failure failure value consumed by this operation.
 function crossMapFailure(session, rollbackCheckpoint, rollbackEntityText, rollbackCollision, maximumSteps, failure)
   savegateCrossRollbackResult = try(rollbackCrossMap(session, rollbackCheckpoint,
     rollbackEntityText, rollbackCollision, maximumSteps))
@@ -351,7 +427,13 @@ function crossMapFailure(session, rollbackCheckpoint, rollbackEntityText, rollba
   return error(8459, "cross-map restore failed; source map restored on a new signon epoch: " + failure.message)
 end function
 
-// Map target failure.
+/// Map target failure.
+/// @param session session value consumed by this operation.
+/// @param rollbackCheckpoint rollbackCheckpoint value consumed by this operation.
+/// @param rollbackEntityText rollbackEntityText value consumed by this operation.
+/// @param rollbackCollision rollbackCollision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
+/// @param failure failure value consumed by this operation.
 function targetMapFailure(session, rollbackCheckpoint, rollbackEntityText, rollbackCollision, maximumSteps, failure)
   // Parser/loader failures normally leave changeMap* on the source map. Any
   // deferred retry steps may still have advanced gameplay, so restore its
@@ -369,7 +451,13 @@ function targetMapFailure(session, rollbackCheckpoint, rollbackEntityText, rollb
     rollbackCollision, maximumSteps, failure)
 end function
 
-// Finish cross map restore.
+/// Finish cross map restore.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
+/// @param rollbackCheckpoint rollbackCheckpoint value consumed by this operation.
+/// @param rollbackEntityText rollbackEntityText value consumed by this operation.
+/// @param rollbackCollision rollbackCollision value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function finishCrossMapRestore(session, checkpoint, rollbackCheckpoint,
     rollbackEntityText, rollbackCollision, maximumSteps)
   savegateTargetSignon = try(savegateplaysession.runUntilActive(session, maximumSteps))
@@ -388,7 +476,10 @@ function finishCrossMapRestore(session, checkpoint, rollbackCheckpoint,
     session.server.frameNumber, savegateTargetRestore.channelPreserved)
 end function
 
-// Validate cross map play.
+/// Validate cross map play.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function validateCrossMapPlay(session, checkpoint, maximumSteps)
   if session is void or session.closed or not savegateplaysession.signonComplete(session) then
     return error(8453, "play session must be active before restore")
@@ -406,7 +497,11 @@ function validateCrossMapPlay(session, checkpoint, maximumSteps)
   return true
 end function
 
-// Restore play session core.
+/// Restore play session core.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
+/// @param resolver resolver value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function restorePlaySessionCore(session, checkpoint, resolver, maximumSteps)
   validateCrossMapPlay(session, checkpoint, maximumSteps)
   if typeof(resolver) != "function" then return error(8462, "core map resolver is missing") end if
@@ -435,7 +530,11 @@ function restorePlaySessionCore(session, checkpoint, resolver, maximumSteps)
     savegateSourceEntityText, savegateSourceCollision, maximumSteps)
 end function
 
-// Restore play session retail.
+/// Restore play session retail.
+/// @param session session value consumed by this operation.
+/// @param checkpoint checkpoint value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function restorePlaySessionRetail(session, checkpoint, baseDirectory, maximumSteps)
   validateCrossMapPlay(session, checkpoint, maximumSteps)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then

@@ -1,3 +1,5 @@
+//! Provides miniquake2 client effects parser facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -19,34 +21,57 @@ import miniquake2.client.effects.audio as ceaudio
 import miniquake2.client.effects.state as cestate
 import miniquake2.qcommon.monster_flash_offsets as ceflash
 
+/// Defines the sound flag mask constant used by the miniquake2 client effects parser module.
 const SOUND_FLAG_MASK = 31
 
-// Read position.
+/// Read position.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readPosition(buffer, operation)
   return qt.Vec3(pchecked.readCoord(buffer, operation + " x"),
     pchecked.readCoord(buffer, operation + " y"), pchecked.readCoord(buffer, operation + " z"))
 end function
 
-// Read direction.
+/// Read direction.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param operation operation value consumed by this operation.
 function readDirection(buffer, operation)
   return qdirections.decodeDirection(pchecked.readByte(buffer, operation))
 end function
 
-// Return the named sound value.
+/// Return the named sound value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param position position value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param volume volume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
 function namedSound(state, position, entity, channel, name, volume, attenuation, offset)
   event = cetypes.SoundEvent(position, entity, channel, -1, name, volume, attenuation, offset)
   ceaudio.emit(state, event)
   return event
 end function
 
-// Return the indexed sound value.
+/// Return the indexed sound value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param position position value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param volume volume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
 function indexedSound(state, position, entity, channel, index, volume, attenuation, offset)
   event = cetypes.SoundEvent(position, entity, channel, index, "", volume, attenuation, offset)
   ceaudio.emit(state, event)
   return event
 end function
 
-// Parse sound.
+/// Parse sound.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function parseSound(state, buffer)
   flags = pchecked.readByte(buffer, "sound flags")
   if (flags & ~SOUND_FLAG_MASK) != 0 then return error(7330, "sound packet contains reserved flags") end if
@@ -70,19 +95,22 @@ function parseSound(state, buffer)
   return indexedSound(state, position, entity, channel, soundIndex, volume, attenuation, timeOffset)
 end function
 
-// Return the entity origin.
+/// Return the entity origin.
+/// @param entityState entityState value consumed by this operation.
 function entityOrigin(entityState)
   if entityState is void or typeof(entityState) != "struct" or len(entityState.origin) != 3 then return error(7332, "muzzleflash entity state is unavailable") end if
   return cestate.vecFromArray(entityState.origin)
 end function
 
-// Return the entity angles.
+/// Return the entity angles.
+/// @param entityState entityState value consumed by this operation.
 function entityAngles(entityState)
   if entityState is void or typeof(entityState) != "struct" or len(entityState.angles) != 3 then return error(7333, "muzzleflash entity angles are unavailable") end if
   return qt.Vec3(entityState.angles[0], entityState.angles[1], entityState.angles[2])
 end function
 
-// Return the player muzzle sound value.
+/// Return the player muzzle sound value.
+/// @param weapon weapon value consumed by this operation.
 function playerMuzzleSound(weapon)
   if weapon == ceconstants.MZ_BLASTER or weapon == ceconstants.MZ_BLASTER2 then return "weapons/blastf1a.wav" end if
   if weapon == ceconstants.MZ_SHOTGUN then return "weapons/shotgf1b.wav" end if
@@ -100,7 +128,8 @@ function playerMuzzleSound(weapon)
   return ""
 end function
 
-// Return the player muzzle color value.
+/// Return the player muzzle color value.
+/// @param weapon weapon value consumed by this operation.
 function playerMuzzleColor(weapon)
   if weapon == ceconstants.MZ_CHAINGUN1 then return [1.0, 0.25, 0.0] end if
   if weapon == ceconstants.MZ_CHAINGUN2 then return [1.0, 0.5, 0.0] end if
@@ -124,7 +153,8 @@ function playerMuzzleColor(weapon)
   return [0.0, 0.0, 0.0]
 end function
 
-// Return the machine gun sound value.
+/// Return the machine gun sound value.
+/// @param state Mutable state inspected or updated by the operation.
 function machineGunSound(state)
   variant = cestate.random(state) % 5
   if variant == 1 then return "weapons/machgf2b.wav" end if
@@ -134,7 +164,11 @@ function machineGunSound(state)
   return "weapons/machgf1b.wav"
 end function
 
-// Emit player muzzle sounds.
+/// Emit player muzzle sounds.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param weapon weapon value consumed by this operation.
+/// @param volume volume value consumed by this operation.
 function emitPlayerMuzzleSounds(state, entityNumber, weapon, volume)
   if weapon == ceconstants.MZ_MACHINEGUN or weapon == ceconstants.MZ_CHAINGUN1 or
       weapon == ceconstants.MZ_CHAINGUN2 or weapon == ceconstants.MZ_CHAINGUN3 then
@@ -164,7 +198,10 @@ function emitPlayerMuzzleSounds(state, entityNumber, weapon, volume)
   return name != ""
 end function
 
-// Parse muzzle flash.
+/// Parse muzzle flash.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param entityResolver entityResolver value consumed by this operation.
 function parseMuzzleFlash(state, buffer, entityResolver)
   entityNumber = pchecked.readShort(buffer, "muzzleflash entity")
   if entityNumber < 1 or entityNumber >= pc.MAX_EDICTS then return error(7334, "muzzleflash entity outside protocol range") end if
@@ -204,22 +241,26 @@ function parseMuzzleFlash(state, buffer, entityResolver)
   return light
 end function
 
-// Return the soldier machine gun value.
+/// Return the soldier machine gun value.
+/// @param flash flash value consumed by this operation.
 function inline soldierMachineGun(flash)
   return flash == 43 or flash == 44 or (flash >= 85 and flash <= 100 and (flash - 85) % 3 == 0)
 end function
 
-// Return the soldier shotgun value.
+/// Return the soldier shotgun value.
+/// @param flash flash value consumed by this operation.
 function inline soldierShotgun(flash)
   return flash == 41 or flash == 42 or (flash >= 84 and flash <= 99 and (flash - 84) % 3 == 0)
 end function
 
-// Return the soldier blaster value.
+/// Return the soldier blaster value.
+/// @param flash flash value consumed by this operation.
 function inline soldierBlaster(flash)
   return flash == 39 or flash == 40 or (flash >= 83 and flash <= 98 and (flash - 83) % 3 == 0)
 end function
 
-// Return the monster machine gun value.
+/// Return the monster machine gun value.
+/// @param flash flash value consumed by this operation.
 function inline monsterMachineGun(flash)
   return (flash >= 4 and flash <= 22) or (flash >= 26 and flash <= 38) or
     soldierMachineGun(flash) or (flash >= 45 and flash <= 52) or flash == 63 or
@@ -228,29 +269,34 @@ function inline monsterMachineGun(flash)
     flash == 141 or flash == 152 or flash == 153
 end function
 
-// Return the monster rocket value.
+/// Return the monster rocket value.
+/// @param flash flash value consumed by this operation.
 function inline monsterRocket(flash)
   return (flash >= 23 and flash <= 25) or flash == 57 or
     (flash >= 70 and flash <= 72) or (flash >= 78 and flash <= 81) or
     flash == 142 or flash == 191
 end function
 
-// Return the monster rail value.
+/// Return the monster rail value.
+/// @param flash flash value consumed by this operation.
 function inline monsterRail(flash)
   return flash == 61 or flash == 147 or flash == 150
 end function
 
-// Return the monster green blaster value.
+/// Return the monster green blaster value.
+/// @param flash flash value consumed by this operation.
 function inline monsterGreenBlaster(flash)
   return (flash >= 144 and flash <= 146) or flash == 149 or (flash >= 156 and flash <= 190)
 end function
 
-// Return the monster plasma beam value.
+/// Return the monster plasma beam value.
+/// @param flash flash value consumed by this operation.
 function inline monsterPlasmaBeam(flash)
   return flash == 151 or (flash >= 195 and flash <= 210)
 end function
 
-// Return the monster muzzle color value.
+/// Return the monster muzzle color value.
+/// @param flash flash value consumed by this operation.
 function monsterMuzzleColor(flash)
   if monsterRocket(flash) then return [1.0, 0.5, 0.2] end if
   if flash >= 53 and flash <= 56 or flash == 140 then return [1.0, 0.5, 0.0] end if
@@ -265,7 +311,8 @@ function monsterMuzzleColor(flash)
   return [0.0, 0.0, 0.0]
 end function
 
-// Return the tank machine gun sound value.
+/// Return the tank machine gun sound value.
+/// @param state Mutable state inspected or updated by the operation.
 function tankMachineGunSound(state)
   variant = cestate.random(state) % 5
   if variant == 1 then return "tank/tnkatk2b.wav" end if
@@ -275,7 +322,9 @@ function tankMachineGunSound(state)
   return "tank/tnkatk2a.wav"
 end function
 
-// Return the monster muzzle sound value.
+/// Return the monster muzzle sound value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param flash flash value consumed by this operation.
 function monsterMuzzleSound(state, flash)
   if flash >= 1 and flash <= 3 then return "tank/tnkatck3.wav" end if
   if flash >= 4 and flash <= 22 then return tankMachineGunSound(state) end if
@@ -301,7 +350,10 @@ function monsterMuzzleSound(state, flash)
   return ""
 end function
 
-// Parse muzzle flash 2.
+/// Parse muzzle flash 2.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param entityResolver entityResolver value consumed by this operation.
 function parseMuzzleFlash2(state, buffer, entityResolver)
   entityNumber = pchecked.readShort(buffer, "monster muzzleflash entity")
   if entityNumber < 1 or entityNumber >= pc.MAX_EDICTS then return error(7335, "monster muzzleflash entity outside protocol range") end if
@@ -331,7 +383,9 @@ function parseMuzzleFlash2(state, buffer, entityResolver)
   return light
 end function
 
-// Return the smoke and flash value.
+/// Return the smoke and flash value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param position position value consumed by this operation.
 function smokeAndFlash(state, position)
   // The C client stores `serverTime - 100`, while its interpolated `cl.time`
   // normally renders at that same epoch. `state.time` is already the product
@@ -345,7 +399,8 @@ function smokeAndFlash(state, position)
     0, rc.RF_FULLBRIGHT, 1.0, 0)
 end function
 
-// Return the impact angles.
+/// Return the impact angles.
+/// @param direction direction value consumed by this operation.
 function impactAngles(direction)
   horizontal = cemath.sqrt(direction.x * direction.x + direction.y * direction.y)
   pitch = cemath.atan2(horizontal, direction.z) * 57.29577951308232
@@ -360,7 +415,11 @@ function impactAngles(direction)
   return qt.Vec3(pitch, yaw, 0.0)
 end function
 
-// Return the blaster explosion value.
+/// Return the blaster explosion value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param type type value consumed by this operation.
+/// @param position position value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function blasterExplosion(state, type, position, direction)
   color = [1.0, 1.0, 0.0]; skinNum = 0
   if type == ceconstants.TE_BLASTER2 then color = [0.0, 1.0, 0.0]; skinNum = 1 end if
@@ -372,7 +431,10 @@ function blasterExplosion(state, type, position, direction)
   return value
 end function
 
-// Return the poly explosion value.
+/// Return the poly explosion value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param type type value consumed by this operation.
+/// @param position position value consumed by this operation.
 function polyExplosion(state, type, position)
   angles = qt.Vec3(0.0, (cestate.random(state) % 360) * 1.0, 0.0)
   frames = 15; baseFrame = 0; model = "models/objects/r_explode/tris.md2"
@@ -397,7 +459,12 @@ function polyExplosion(state, type, position)
   return value
 end function
 
-// Parse normal beam.
+/// Parse normal beam.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param modelName modelName value consumed by this operation.
+/// @param withOffset withOffset value consumed by this operation.
+/// @param playerLinked playerLinked value consumed by this operation.
 function parseBeam(state, buffer, modelName, withOffset, playerLinked)
   entity = pchecked.readShort(buffer, "beam entity")
   start = readPosition(buffer, "beam start")
@@ -409,8 +476,12 @@ function parseBeam(state, buffer, modelName, withOffset, playerLinked)
     playerLinked, 200)
 end function
 
-// Parse Rogue heat/player beam. The dedicated player-beam pool is selected for
-// every source entity, while only the local entity is anchored to the camera.
+/// Parse Rogue heat/player beam. The dedicated player-beam pool is selected for
+/// every source entity, while only the local entity is anchored to the camera.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param modelName modelName value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
 function parsePlayerBeam(state, buffer, modelName, localEntityNumber)
   entity = pchecked.readShort(buffer, "player beam entity")
   start = readPosition(buffer, "player beam start")
@@ -424,7 +495,9 @@ function parsePlayerBeam(state, buffer, modelName, localEntityNumber)
     entity == localEntityNumber, 100)
 end function
 
-// Parse lightning.
+/// Parse lightning.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function parseLightning(state, buffer)
   source = pchecked.readShort(buffer, "lightning source entity")
   destination = pchecked.readShort(buffer, "lightning destination entity")
@@ -435,7 +508,8 @@ function parseLightning(state, buffer)
   return beam
 end function
 
-// Return the splash color value.
+/// Return the splash color value.
+/// @param splash splash value consumed by this operation.
 function inline splashColor(splash)
   if splash == 1 then return 0xe0 end if
   if splash == 2 then return 0xb0 end if
@@ -446,7 +520,9 @@ function inline splashColor(splash)
   return 0
 end function
 
-// Parse steam.
+/// Parse steam.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function parseSteam(state, buffer)
   id = pchecked.readShort(buffer, "steam id")
   count = pchecked.readByte(buffer, "steam count")
@@ -462,9 +538,12 @@ function parseSteam(state, buffer)
   return sustain
 end function
 
-// Decode one svc_temp_entity payload and immediately publish its bounded
-// client-side representation. Each branch consumes exactly the bytes defined
-// by the original CL_ParseTEnt switch so the next server command stays aligned.
+/// Decode one svc_temp_entity payload and immediately publish its bounded
+/// client-side representation. Each branch consumes exactly the bytes defined
+/// by the original CL_ParseTEnt switch so the next server command stays aligned.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
 function parseTempEntityForPlayer(state, buffer, localEntityNumber)
   type = pchecked.readByte(buffer, "temp entity type")
   if type < 0 or type > ceconstants.TE_FLECHETTE or type == ceconstants.TE_FLAME then return error(7336, "unsupported temp entity type " + type) end if
@@ -663,12 +742,16 @@ function parseTempEntityForPlayer(state, buffer, localEntityNumber)
   return polyExplosion(state, type, position)
 end function
 
-// Compatibility entry point for parser unit tests without a connected client.
+/// Compatibility entry point for parser unit tests without a connected client.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
 function parseTempEntity(state, buffer)
   return parseTempEntityForPlayer(state, buffer, 0)
 end function
 
-// Handle entity event.
+/// Handle entity event.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param entityState entityState value consumed by this operation.
 function handleEntityEvent(state, entityState)
   if entityState is void or entityState.number < 1 or entityState.number >= pc.MAX_EDICTS then return error(7337, "entity event source outside protocol range") end if
   event = entityState.event
@@ -695,7 +778,12 @@ function handleEntityEvent(state, entityState)
   return false
 end function
 
-// Parse service command.
+/// Parse service command.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param opcode opcode value consumed by this operation.
+/// @param entityResolver entityResolver value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
 function parseServiceCommand(state, buffer, opcode, entityResolver, localEntityNumber)
   if opcode == qc.SVC_SOUND then return parseSound(state, buffer) end if
   if opcode == qc.SVC_MUZZLEFLASH then return parseMuzzleFlash(state, buffer, entityResolver) end if

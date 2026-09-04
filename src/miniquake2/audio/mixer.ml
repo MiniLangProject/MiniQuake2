@@ -1,3 +1,5 @@
+//! Provides miniquake2 audio mixer facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,70 +13,121 @@ import miniquake2.qcommon.byteio as ambio
 import miniquake2.qcommon.filesystem as amfilesystem
 import miniquake2.native as amnative
 
+/// Defines the max channels constant used by the miniquake2 audio mixer module.
 const MAX_CHANNELS = 32
+/// Defines the max playsounds constant used by the miniquake2 audio mixer module.
 const MAX_PLAYSOUNDS = 128
+/// Defines the music decode frames constant used by the miniquake2 audio mixer module.
 const MUSIC_DECODE_FRAMES = 4096
+/// Defines the mix frac bits constant used by the miniquake2 audio mixer module.
 const MIX_FRAC_BITS = 16
+/// Defines the mix frac one constant used by the miniquake2 audio mixer module.
 const MIX_FRAC_ONE = 65536
+/// Defines the mix volume bits constant used by the miniquake2 audio mixer module.
 const MIX_VOLUME_BITS = 16
+/// Defines the mix volume one constant used by the miniquake2 audio mixer module.
 const MIX_VOLUME_ONE = 65536
 
-// Store channel data.
+/// Store channel data.
 struct Channel
+  /// Stores the sound value associated with channel.
   sound
+  /// Stores the entity number value associated with channel.
   entityNumber
+  /// Stores the entity channel value associated with channel.
   entityChannel
+  /// Stores the source frame value associated with channel.
   sourceFrame
+  /// Stores the source step value associated with channel.
   sourceStep
+  /// Stores the start frame value associated with channel.
   startFrame
+  /// Stores the left volume value associated with channel.
   leftVolume
+  /// Stores the right volume value associated with channel.
   rightVolume
+  /// Stores the active value associated with channel.
   active
+  /// Stores the looping value associated with channel.
   looping
+  /// Stores the auto sound value associated with channel.
   autoSound
+  /// Stores the spatialized value associated with channel.
   spatialized
+  /// Stores the master volume value associated with channel.
   masterVolume
+  /// Stores the distance multiplier value associated with channel.
   distanceMultiplier
+  /// Stores the fixed origin value associated with channel.
   fixedOrigin
+  /// Stores the origin value associated with channel.
   origin
 end struct
 
-// Store music track data.
+/// Store music track data.
 struct MusicTrack
+  /// Stores the number value associated with music track.
   number
+  /// Stores the source value associated with music track.
   source
+  /// Stores the samples value associated with music track.
   samples
+  /// Stores the rate value associated with music track.
   rate
+  /// Stores the channels value associated with music track.
   channels
+  /// Stores the frames value associated with music track.
   frames
+  /// Stores the position value associated with music track.
   position
+  /// Stores the source step value associated with music track.
   sourceStep
+  /// Stores the looping value associated with music track.
   looping
+  /// Stores the playing value associated with music track.
   playing
+  /// Stores the paused value associated with music track.
   paused
+  /// Stores the sample base value associated with music track.
   sampleBase
+  /// Stores the sample frames value associated with music track.
   sampleFrames
 end struct
 
-// Store mixer data.
+/// Store mixer data.
 struct Mixer
+  /// Stores the sample rate value associated with mixer.
   sampleRate
+  /// Stores the channels value associated with mixer.
   channels
+  /// Stores the pending sounds value associated with mixer.
   pendingSounds
+  /// Stores the pending sound queue value associated with mixer.
   pendingSoundQueue
+  /// Stores the pending sound count value associated with mixer.
   pendingSoundCount
+  /// Stores the retain pending view value associated with mixer.
   retainPendingView
+  /// Stores the painted frames value associated with mixer.
   paintedFrames
+  /// Stores the master volume value associated with mixer.
   masterVolume
+  /// Stores the master volume fixed value associated with mixer.
   masterVolumeFixed
+  /// Stores the listener entity number value associated with mixer.
   listenerEntityNumber
+  /// Stores the music value associated with mixer.
   music
+  /// Stores the music volume value associated with mixer.
   musicVolume
+  /// Stores the music volume fixed value associated with mixer.
   musicVolumeFixed
+  /// Stores the output scratch value associated with mixer.
   outputScratch
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 audio mixer module.
+/// @param sampleRate sampleRate value consumed by this operation.
 function create(sampleRate)
   if sampleRate < 8000 or sampleRate > 192000 then return error(2955, "mixer sample rate outside range") end if
   return Mixer(sampleRate, [], [], array(MAX_PLAYSOUNDS, void), 0, true,
@@ -82,9 +135,10 @@ function create(sampleRate)
     void, 0.5, MIX_VOLUME_ONE / 2, bytes())
 end function
 
-// Disable the compact compatibility view in latency-sensitive product paths.
-// The fixed queue remains authoritative and avoids copying every future sound
-// whenever a new playsound is inserted or issued.
+/// Disable the compact compatibility view in latency-sensitive product paths.
+/// The fixed queue remains authoritative and avoids copying every future sound
+/// whenever a new playsound is inserted or issued.
+/// @param mixer mixer value consumed by this operation.
 function enableOptimizedStorage(mixer)
   if mixer is void then return false end if
   mixer.retainPendingView = false
@@ -92,21 +146,25 @@ function enableOptimizedStorage(mixer)
   return true
 end function
 
-// Return the number of pending sounds without exposing queue capacity.
+/// Return the number of pending sounds without exposing queue capacity.
+/// @param mixer mixer value consumed by this operation.
 function pendingCount(mixer)
   if mixer is void then return 0 end if
   return mixer.pendingSoundCount
 end function
 
-// Return one pending sound from the authoritative fixed queue.
+/// Return one pending sound from the authoritative fixed queue.
+/// @param mixer mixer value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function pendingAt(mixer, index)
   if mixer is void or typeof(index) != "int" or index < 0 or
       index >= mixer.pendingSoundCount then return void end if
   return mixer.pendingSoundQueue[index]
 end function
 
-// Rebuild the legacy compact view only for component tests and API clients
-// that explicitly retain it. Product mixers disable this allocation path.
+/// Rebuild the legacy compact view only for component tests and API clients
+/// that explicitly retain it. Product mixers disable this allocation path.
+/// @param mixer mixer value consumed by this operation.
 function refreshPendingView(mixer)
   if not mixer.retainPendingView then return false end if
   view = array(mixer.pendingSoundCount)
@@ -119,7 +177,9 @@ function refreshPendingView(mixer)
   return true
 end function
 
-// Set music volume.
+/// Set music volume.
+/// @param mixer mixer value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function setMusicVolume(mixer, value)
   if mixer is void or (typeof(value) != "int" and typeof(value) != "float") or
       value != value or value < 0.0 or value > 1.0 then
@@ -130,7 +190,8 @@ function setMusicVolume(mixer, value)
   return mixer.musicVolume
 end function
 
-// Stop music.
+/// Stop music.
+/// @param mixer mixer value consumed by this operation.
 function stopMusic(mixer)
   if mixer is void then return false end if
   if mixer.music is not void then amnative.oggClose() end if
@@ -138,21 +199,27 @@ function stopMusic(mixer)
   return true
 end function
 
-// Pause music.
+/// Pause music.
+/// @param mixer mixer value consumed by this operation.
 function pauseMusic(mixer)
   if mixer is void or mixer.music is void or not mixer.music.playing then return false end if
   mixer.music.paused = true
   return true
 end function
 
-// Resume music.
+/// Resume music.
+/// @param mixer mixer value consumed by this operation.
 function resumeMusic(mixer)
   if mixer is void or mixer.music is void or not mixer.music.playing then return false end if
   mixer.music.paused = false
   return true
 end function
 
-// Play music.
+/// Play music.
+/// @param mixer mixer value consumed by this operation.
+/// @param filesystem filesystem value consumed by this operation.
+/// @param track track value consumed by this operation.
+/// @param looping looping value consumed by this operation.
 function playMusic(mixer, filesystem, track, looping)
   // Keep play music phases explicit: validate inputs, update owned state, then publish the result.
   if mixer is void or filesystem is void then return error(2961, "music mixer/filesystem unavailable") end if
@@ -200,7 +267,9 @@ function playMusic(mixer, filesystem, track, looping)
   return true
 end function
 
-// Decode music chunk.
+/// Decode music chunk.
+/// @param track track value consumed by this operation.
+/// @param restart restart value consumed by this operation.
 function decodeMusicChunk(track, restart)
   if restart then
     if amnative.oggSeekStart() == 0 then return false end if
@@ -218,7 +287,10 @@ function decodeMusicChunk(track, restart)
   return true
 end function
 
-// Synchronize music track.
+/// Synchronize music track.
+/// @param mixer mixer value consumed by this operation.
+/// @param filesystem filesystem value consumed by this operation.
+/// @param configValue configValue value consumed by this operation.
 function synchronizeMusicTrack(mixer, filesystem, configValue)
   if typeof(configValue) != "string" then return false end if
   parsed = try(toNumber(configValue))
@@ -231,7 +303,9 @@ function synchronizeMusicTrack(mixer, filesystem, configValue)
   return playMusic(mixer, filesystem, track, true)
 end function
 
-// Set listener entity.
+/// Set listener entity.
+/// @param mixer mixer value consumed by this operation.
+/// @param number number value consumed by this operation.
 function setListenerEntity(mixer, number)
   if mixer is void or typeof(number) != "int" or number < 1 then
     return error(2959, "mixer listener entity must be positive")
@@ -240,7 +314,9 @@ function setListenerEntity(mixer, number)
   return number
 end function
 
-// Set master volume.
+/// Set master volume.
+/// @param mixer mixer value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function setMasterVolume(mixer, value)
   if mixer is void or (typeof(value) != "int" and typeof(value) != "float") or
       value != value or value < 0.0 or value > 1.0 then
@@ -251,14 +327,18 @@ function setMasterVolume(mixer, value)
   return mixer.masterVolume
 end function
 
-// Clamp 16.
+/// Clamp 16.
+/// @param value Value consumed or transformed by the operation.
 function inline clamp16(value)
   if value > 32767 then return 32767 end if
   if value < -32768 then return -32768 end if
   return value
 end function
 
-// Sample at.
+/// Sample at.
+/// @param sound sound value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param channel channel value consumed by this operation.
 function inline sampleAt(sound, frame, channel)
   if sound.channels == 1 then channel = 0 end if
   sampleIndex = frame * sound.channels + channel
@@ -269,14 +349,17 @@ function inline sampleAt(sound, frame, channel)
   return value
 end function
 
-// Divide 255 positive.
+/// Divide 255 positive.
+/// @param value Value consumed or transformed by the operation.
 function inline divide255Positive(value)
   // Exact for every magnitude reachable from a signed-16 sample, an 8-bit
   // channel volume and the Q16 remainder expansion below.
   return (value * 8421505) >> 31
 end function
 
-// Scale channel sample fixed.
+/// Scale channel sample fixed.
+/// @param sample sample value consumed by this operation.
+/// @param volume volume value consumed by this operation.
 function inline scaleChannelSampleFixed(sample, volume)
   // Preserve /255 channel fractions in Q16. The old floating mixer summed
   // these fractions across channels and rounded only the final PCM sample;
@@ -293,7 +376,9 @@ function inline scaleChannelSampleFixed(sample, volume)
   return fixed
 end function
 
-// Return the channel life left value.
+/// Return the channel life left value.
+/// @param mixer mixer value consumed by this operation.
+/// @param channel channel value consumed by this operation.
 function inline channelLifeLeft(mixer, channel)
   waiting = channel.startFrame - mixer.paintedFrames
   if waiting < 0 then waiting = 0 end if
@@ -304,9 +389,12 @@ function inline channelLifeLeft(mixer, channel)
     (channel.sound.sampleRate * 1.0))
 end function
 
-// S_PickChannel: explicit entity channels override themselves; otherwise the
-// shortest-lived channel is replaced. A non-player sound may never evict a
-// live channel owned by the view entity.
+/// S_PickChannel: explicit entity channels override themselves; otherwise the
+/// shortest-lived channel is replaced. A non-player sound may never evict a
+/// live channel owned by the view entity.
+/// @param mixer mixer value consumed by this operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param entityChannel entityChannel value consumed by this operation.
 function pickChannelSlot(mixer, entityNumber, entityChannel)
   if entityChannel != 0 then
     index = 0
@@ -343,7 +431,13 @@ function pickChannelSlot(mixer, entityNumber, entityChannel)
   return selected
 end function
 
-// Start sound.
+/// Start sound.
+/// @param mixer mixer value consumed by this operation.
+/// @param sound sound value consumed by this operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param entityChannel entityChannel value consumed by this operation.
+/// @param leftVolume leftVolume value consumed by this operation.
+/// @param rightVolume rightVolume value consumed by this operation.
 function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, rightVolume)
   if leftVolume < 0 or leftVolume > 255 or rightVolume < 0 or rightVolume > 255 then return error(2956, "channel volume outside [0,255]") end if
   slot = pickChannelSlot(mixer, entityNumber, entityChannel)
@@ -363,7 +457,14 @@ function startSound(mixer, sound, entityNumber, entityChannel, leftVolume, right
   return channel
 end function
 
-// Start sound at.
+/// Start sound at.
+/// @param mixer mixer value consumed by this operation.
+/// @param sound sound value consumed by this operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param entityChannel entityChannel value consumed by this operation.
+/// @param leftVolume leftVolume value consumed by this operation.
+/// @param rightVolume rightVolume value consumed by this operation.
+/// @param startFrame startFrame value consumed by this operation.
 function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
     rightVolume, startFrame)
   if startFrame <= mixer.paintedFrames then
@@ -400,7 +501,9 @@ function startSoundAt(mixer, sound, entityNumber, entityChannel, leftVolume,
   return channel
 end function
 
-// Report whether issue pending.
+/// Report whether issue pending.
+/// @param mixer mixer value consumed by this operation.
+/// @param absoluteFrame absoluteFrame value consumed by this operation.
 function issuePending(mixer, absoluteFrame)
   // startSoundAt keeps this queue ordered by startFrame.  Looking only at the
   // head avoids scanning every future sound for every painted sample.
@@ -440,7 +543,13 @@ function issuePending(mixer, absoluteFrame)
   return issued
 end function
 
-// Populate the spatial volumes destination.
+/// Populate the spatial volumes destination.
+/// @param output Output collection or buffer populated by the operation.
+/// @param listenerOrigin listenerOrigin value consumed by this operation.
+/// @param listenerRight listenerRight value consumed by this operation.
+/// @param sourceOrigin sourceOrigin value consumed by this operation.
+/// @param masterVolume masterVolume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
 function spatialVolumesInto(output, listenerOrigin, listenerRight, sourceOrigin,
     masterVolume, attenuation)
   dx = sourceOrigin.x - listenerOrigin.x
@@ -474,16 +583,24 @@ function spatialVolumesInto(output, listenerOrigin, listenerRight, sourceOrigin,
   return output
 end function
 
-// Return the spatial volumes value.
+/// Return the spatial volumes value.
+/// @param listenerOrigin listenerOrigin value consumed by this operation.
+/// @param listenerRight listenerRight value consumed by this operation.
+/// @param sourceOrigin sourceOrigin value consumed by this operation.
+/// @param masterVolume masterVolume value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
 function spatialVolumes(listenerOrigin, listenerRight, sourceOrigin,
     masterVolume, attenuation)
   return spatialVolumesInto(array(2, 0), listenerOrigin, listenerRight,
     sourceOrigin, masterVolume, attenuation)
 end function
 
-// Paint exactly frameCount interleaved signed-16 stereo frames into caller-
-// owned storage. Pending sounds are issued in timestamp order and every active
-// channel advances once, preserving deterministic mixer time across reuse.
+/// Paint exactly frameCount interleaved signed-16 stereo frames into caller-
+/// owned storage. Pending sounds are issued in timestamp order and every active
+/// channel advances once, preserving deterministic mixer time across reuse.
+/// @param mixer mixer value consumed by this operation.
+/// @param output Output collection or buffer populated by the operation.
+/// @param frameCount Number of frame to process.
 function mixInto(mixer, output, frameCount)
   if frameCount < 0 then return error(2957, "negative mix frame count") end if
   if typeof(output) != "bytes" or len(output) != frameCount * 4 then
@@ -608,15 +725,19 @@ function mixInto(mixer, output, frameCount)
   return output
 end function
 
-// Mix state.
+/// Mix state.
+/// @param mixer mixer value consumed by this operation.
+/// @param frameCount Number of frame to process.
 function mix(mixer, frameCount)
   if frameCount < 0 then return error(2957, "negative mix frame count") end if
   return mixInto(mixer, bytes(frameCount * 4), frameCount)
 end function
 
-// The waveOut bridge copies submitted PCM into its own ring.  The real-time
-// product can therefore reuse one mixer-owned block and avoid a fresh bytes
-// allocation (and later GC scan) for every audio submission.
+/// The waveOut bridge copies submitted PCM into its own ring.  The real-time
+/// product can therefore reuse one mixer-owned block and avoid a fresh bytes
+/// allocation (and later GC scan) for every audio submission.
+/// @param mixer mixer value consumed by this operation.
+/// @param frameCount Number of frame to process.
 function mixReusable(mixer, frameCount)
   if frameCount < 0 then return error(2957, "negative mix frame count") end if
   size = frameCount * 4
@@ -624,10 +745,11 @@ function mixReusable(mixer, frameCount)
   return mixInto(mixer, mixer.outputScratch, frameCount)
 end function
 
-// EntityState.sound values are Quake "autosounds": they are rebuilt from the
-// current snapshot every client frame and loop even when the WAV has no cue
-// chunk.  Their phase follows painted time so a refreshed channel does not
-// restart at sample zero on every rendered frame.
+/// EntityState.sound values are Quake "autosounds": they are rebuilt from the
+/// current snapshot every client frame and loop even when the WAV has no cue
+/// chunk.  Their phase follows painted time so a refreshed channel does not
+/// restart at sample zero on every rendered frame.
+/// @param mixer mixer value consumed by this operation.
 function clearAutoSounds(mixer)
   for each channel in mixer.channels
     if channel.autoSound then channel.active = false end if
@@ -635,7 +757,11 @@ function clearAutoSounds(mixer)
   return true
 end function
 
-// Start auto sound.
+/// Start auto sound.
+/// @param mixer mixer value consumed by this operation.
+/// @param sound sound value consumed by this operation.
+/// @param leftVolume leftVolume value consumed by this operation.
+/// @param rightVolume rightVolume value consumed by this operation.
 function startAutoSound(mixer, sound, leftVolume, rightVolume)
   // S_AddLoopSounds rebuilds the logical autosound set every render frame.
   // Reuse one of the autosound Channel records disabled by clearAutoSounds;
@@ -678,7 +804,8 @@ function startAutoSound(mixer, sound, leftVolume, rightVolume)
   return channel
 end function
 
-// Stop all.
+/// Stop all.
+/// @param mixer mixer value consumed by this operation.
 function stopAll(mixer)
   for each channel in mixer.channels
     channel.active = false

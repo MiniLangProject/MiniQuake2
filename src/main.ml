@@ -1,3 +1,5 @@
+//! Provides main facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,12 +14,16 @@ import miniquake2.qcommon.byteio as mainByteio
 import miniquake2.runtime.product_startup as productStartup
 import miniquake2.runtime.crash_report as crashReport
 
+/// Defines the miniquake2 version constant used by the main module.
 const MINIQUAKE2_VERSION = "0.5.0-foundation"
+/// Defines the quake2 reference version constant used by the main module.
 const QUAKE2_REFERENCE_VERSION = "3.19"
+/// Defines the quake2 protocol version constant used by the main module.
 const QUAKE2_PROTOCOL_VERSION = 34
+/// Defines the port stage constant used by the main module.
 const PORT_STAGE = "integrated-runtime-foundation"
 
-// Print the small bootstrap command surface.
+/// Print the small bootstrap command surface.
 function printUsage()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
   print "usage: MiniQuake2.exe [--data-root ROOT|--product-smoke ROOT [FRAMES]|--remote-product-smoke ROOT IPV4 [PORT] [FRAMES]|--help|--version|--diagnostics|--capabilities|--asset-smoke ROOT [MAP]|--media-audit ROOT|--campaign-session-smoke ROOT [MAPS]|--changelevel-smoke ROOT [MAP] [NEXT] [FRAMES]|--play-input-smoke ROOT [MAP] [STEPS]|--projectile-visual-smoke ROOT [MAP] [FRAMES]|--weapon-wheel-smoke ROOT [MAP] [FRAMES]|--map-preview ROOT MAP [FRAMES]|--play ROOT MAP [FRAMES]|--cinematic ROOT NAME [FRAMES] [LOOP]|--demo ROOT NAME [FRAMES]|--media-sequence ROOT SPEC [FRAMES]|--video-restart-smoke ROOT [MAP] [MODE]|--dedicated ROOT MAP [PORT] [FRAMES]|--listen ROOT MAP [FRAMES]|--connect IPV4 [PORT] [FRAMES]|--cli-smoke [TOKEN]]"
@@ -48,7 +54,8 @@ function printUsage()
   print "  --help                print this help"
 end function
 
-// Run default product.
+/// Run default product.
+/// @param root root value consumed by this operation.
 function runDefaultProduct(root)
   result = runtimeApplication.runProduct(root, 0)
   print "MiniQuake2 product: PASS"
@@ -57,20 +64,22 @@ function runDefaultProduct(root)
   return 0
 end function
 
-// Discover default product root.
+/// Discover default product root.
 function discoverDefaultProductRoot()
   return productStartup.discoverRetailRoot("miniquake2_data_root.txt",
     productStartup.standardRetailCandidates())
 end function
 
-// Run data root.
+/// Run data root.
+/// @param args Command-line or caller-supplied arguments.
 function runDataRoot(args)
   if len(args) != 2 then return error(9967, "--data-root expects one Quake II install root") end if
   productStartup.persistSelectedRoot("miniquake2_data_root.txt", args[1])
   return runDefaultProduct(args[1])
 end function
 
-// Run product smoke.
+/// Run product smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runProductSmoke(args)
   if len(args) < 2 or len(args) > 3 then return error(9968, "--product-smoke expects install root and optional frames") end if
   productFrames = 2
@@ -84,7 +93,8 @@ function runProductSmoke(args)
   return 0
 end function
 
-// Run remote product smoke.
+/// Run remote product smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runRemoteProductSmoke(args)
   if len(args) < 3 or len(args) > 5 then return error(9977, "--remote-product-smoke expects root, IPv4, optional port and frames") end if
   remotePort = 27910
@@ -99,7 +109,7 @@ function runRemoteProductSmoke(args)
   return 0
 end function
 
-// Print stable build and compatibility identifiers for scripts and humans.
+/// Print stable build and compatibility identifiers for scripts and humans.
 function printVersion()
   print "MiniQuake2 " + MINIQUAKE2_VERSION
   print "Quake II reference: " + QUAKE2_REFERENCE_VERSION
@@ -107,7 +117,7 @@ function printVersion()
   print "Language: MiniLang"
 end function
 
-// Report capabilities that must remain usable without proprietary assets.
+/// Report capabilities that must remain usable without proprietary assets.
 function printDiagnostics()
   if not runtimeDiagnostics.verifyLinkClosure() then return error(9901, "MiniQuake2 runtime linker closure failed") end if
   print "MiniQuake2 diagnostics"
@@ -120,7 +130,7 @@ function printDiagnostics()
   print "MiniQuake2 diagnostics: PASS"
 end function
 
-// Print capabilities.
+/// Print capabilities.
 function printCapabilities()
   for each line in runtimeDiagnostics.capabilityLines()
     print line
@@ -128,7 +138,8 @@ function printCapabilities()
   print "MiniQuake2 capabilities: PASS"
 end function
 
-// Run asset smoke.
+/// Run asset smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runAssetSmoke(args)
   if len(args) < 2 or len(args) > 3 then return error(9902, "--asset-smoke expects install root and optional map") end if
   mapName = "base1"
@@ -141,7 +152,8 @@ function runAssetSmoke(args)
   return 0
 end function
 
-// Run map preview.
+/// Run map preview.
+/// @param args Command-line or caller-supplied arguments.
 function runMapPreview(args)
   if len(args) < 3 or len(args) > 4 then return error(9903, "--map-preview expects install root, map and optional frames") end if
   frameLimit = 600
@@ -151,7 +163,8 @@ function runMapPreview(args)
   return 0
 end function
 
-// Run campaign session smoke.
+/// Run campaign session smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runCampaignSessionSmoke(args)
   if len(args) < 2 or len(args) > 3 then return error(9908, "--campaign-session-smoke expects install root and optional map count") end if
   maximumMaps = len(runtimeApplication.campaignMapNames())
@@ -163,7 +176,8 @@ function runCampaignSessionSmoke(args)
   return 0
 end function
 
-// Run change level smoke.
+/// Run change level smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runChangeLevelSmoke(args)
   if len(args) < 2 or len(args) > 5 then
     return error(9956, "--changelevel-smoke expects root, optional map, next map and frames")
@@ -186,7 +200,8 @@ function runChangeLevelSmoke(args)
   return 0
 end function
 
-// Run play input smoke.
+/// Run play input smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runPlayInputSmoke(args)
   if len(args) < 2 or len(args) > 4 then return error(9927, "--play-input-smoke expects install root, optional map and optional steps") end if
   playInputMap = "base1"
@@ -205,7 +220,8 @@ function runPlayInputSmoke(args)
   return 0
 end function
 
-// Run play.
+/// Run play.
+/// @param args Command-line or caller-supplied arguments.
 function runPlay(args)
   // Keep run play phases explicit: validate inputs, update owned state, then publish the result.
   if len(args) < 3 or len(args) > 4 then return error(9907, "--play expects install root, map and optional frames") end if
@@ -257,7 +273,8 @@ function runPlay(args)
   return 0
 end function
 
-// Run projectile visual smoke.
+/// Run projectile visual smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runProjectileVisualSmoke(args)
   if len(args) < 2 or len(args) > 4 then
     return error(9930, "--projectile-visual-smoke expects install root, optional map and optional frames")
@@ -285,7 +302,8 @@ function runProjectileVisualSmoke(args)
   return 0
 end function
 
-// Run weapon wheel smoke.
+/// Run weapon wheel smoke.
+/// @param args Command-line or caller-supplied arguments.
 function runWeaponWheelSmoke(args)
   if len(args) < 2 or len(args) > 4 then
     return error(9947, "--weapon-wheel-smoke expects install root, optional map and optional frames")
@@ -311,7 +329,8 @@ function runWeaponWheelSmoke(args)
   return 0
 end function
 
-// Run cinematic.
+/// Run cinematic.
+/// @param args Command-line or caller-supplied arguments.
 function runCinematic(args)
   if len(args) < 3 or len(args) > 5 then return error(9909, "--cinematic expects install root, name, optional frames and optional loop flag") end if
   frames = 0
@@ -326,7 +345,8 @@ function runCinematic(args)
   return 0
 end function
 
-// Run media sequence.
+/// Run media sequence.
+/// @param args Command-line or caller-supplied arguments.
 function runMediaSequence(args)
   if len(args) < 3 or len(args) > 4 then return error(9910, "--media-sequence expects install root, level specification and optional frames") end if
   frames = 0
@@ -340,7 +360,8 @@ function runMediaSequence(args)
   return 0
 end function
 
-// Run demo.
+/// Run demo.
+/// @param args Command-line or caller-supplied arguments.
 function runDemo(args)
   if len(args) < 3 or len(args) > 4 then
     return error(9912, "--demo expects install root, name and optional frames")
@@ -362,7 +383,8 @@ function runDemo(args)
   return 0
 end function
 
-// Run media audit.
+/// Run media audit.
+/// @param args Command-line or caller-supplied arguments.
 function runMediaAudit(args)
   if len(args) != 2 then
     return error(9953, "--media-audit expects one Quake II install root")
@@ -388,7 +410,8 @@ function runMediaAudit(args)
   return 0
 end function
 
-// Run video restart smoke command.
+/// Run video restart smoke command.
+/// @param args Command-line or caller-supplied arguments.
 function runVideoRestartSmokeCommand(args)
   if len(args) < 2 or len(args) > 4 then
     return error(9911, "--video-restart-smoke expects install root, optional map and mode")
@@ -420,7 +443,8 @@ function runVideoRestartSmokeCommand(args)
   return 0
 end function
 
-// Run dedicated.
+/// Runs dedicated for the main workflow.
+/// @param args Command-line or caller-supplied arguments.
 function runDedicated(args)
   if len(args) < 3 or len(args) > 5 then return error(9904, "--dedicated expects install root, map, optional port and optional frames") end if
   port = 27910
@@ -433,7 +457,8 @@ function runDedicated(args)
   return 0
 end function
 
-// Run headless client.
+/// Run headless client.
+/// @param args Command-line or caller-supplied arguments.
 function runHeadlessClient(args)
   if len(args) < 2 or len(args) > 4 then return error(9905, "--connect expects numeric IPv4, optional port and optional frames") end if
   port = 27910
@@ -447,7 +472,8 @@ function runHeadlessClient(args)
   return 0
 end function
 
-// Run listen.
+/// Run listen.
+/// @param args Command-line or caller-supplied arguments.
 function runListen(args)
   if len(args) < 3 or len(args) > 4 then return error(9906, "--listen expects install root, map and optional frames") end if
   frames = 600
@@ -458,7 +484,8 @@ function runListen(args)
   return 0
 end function
 
-// Exercise argv transport with an optional caller-provided token.
+/// Exercise argv transport with an optional caller-provided token.
+/// @param args Command-line or caller-supplied arguments.
 function runCliSmoke(args)
   token = "ready"
   if len(args) == 2 then token = args[1] end if
@@ -473,7 +500,8 @@ function runCliSmoke(args)
   return 0
 end function
 
-// Dispatch the asset-free bootstrap commands.
+/// Dispatch the asset-free bootstrap commands.
+/// @param args Command-line or caller-supplied arguments.
 function dispatchMain(args)
   // Keep main phases explicit: validate inputs, update owned state, then publish the result.
   if len(args) == 0 then
@@ -517,9 +545,10 @@ function dispatchMain(args)
   return 2
 end function
 
-// Catch every propagated MiniLang error at the process boundary. Keeping the
-// original error value preserves its source file, line and function for the
-// persistent report and the copyable Windows crash dialog.
+/// Catch every propagated MiniLang error at the process boundary. Keeping the
+/// original error value preserves its source file, line and function for the
+/// persistent report and the copyable Windows crash dialog.
+/// @param args Command-line or caller-supplied arguments.
 function main(args)
   result = try(dispatchMain(args))
   if result is error then return crashReport.handle(result, MINIQUAKE2_VERSION) end if

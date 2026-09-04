@@ -1,3 +1,5 @@
+//! Provides miniquake2 client demo facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,35 +10,47 @@ package miniquake2.client.demo
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.byteio as demobio
 
-// Store demo data.
+/// Store demo data.
 struct Demo
+  /// Stores the packets value associated with demo.
   packets
+  /// Stores the waiting for full frame value associated with demo.
   waitingForFullFrame
+  /// Stores the streaming value associated with demo.
   streaming
+  /// Stores the stream head value associated with demo.
   streamHead
+  /// Stores the stream tail value associated with demo.
   streamTail
+  /// Stores the stream count value associated with demo.
   streamCount
 end struct
 
-// Store demo packet node data.
+/// Store demo packet node data.
 struct DemoPacketNode
+  /// Stores the packet value associated with demo packet node.
   packet
+  /// Stores the next value associated with demo packet node.
   next
 end struct
 
-// Store demo player data.
+/// Store demo player data.
 struct DemoPlayer
+  /// Stores the demo value associated with demo player.
   demo
+  /// Stores the index value associated with demo player.
   index
+  /// Stores the finished value associated with demo player.
   finished
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 client demo module.
 function create()
   return Demo([], false, false, void, void, 0)
 end function
 
-// Begin live recording.
+/// Begin live recording.
+/// @param demo demo value consumed by this operation.
 function beginLiveRecording(demo)
   if demo is void then return error(7706, "demo recorder is missing") end if
   demo.waitingForFullFrame = true
@@ -44,7 +58,9 @@ function beginLiveRecording(demo)
   return true
 end function
 
-// Append streaming.
+/// Append streaming.
+/// @param demo demo value consumed by this operation.
+/// @param packet packet value consumed by this operation.
 function appendStreaming(demo, packet)
   if typeof(packet) != "bytes" or len(packet) <= 0 or len(packet) > qc.MAX_MSGLEN then
     return error(7700, "demo packet outside protocol message limit")
@@ -58,15 +74,20 @@ function appendStreaming(demo, packet)
   return true
 end function
 
-// Return the packet count.
+/// Return the packet count.
+/// @param demo demo value consumed by this operation.
 function packetCount(demo)
   if demo is void then return 0 end if
   return len(demo.packets) + demo.streamCount
 end function
 
-// CL_Record_f writes setup state immediately, then waits for a non-delta
-// snapshot so the first recorded gameplay frame never references history from
-// before recording began. Pure config/sound messages remain safe meanwhile.
+/// CL_Record_f writes setup state immediately, then waits for a non-delta
+/// snapshot so the first recorded gameplay frame never references history from
+/// before recording began. Pure config/sound messages remain safe meanwhile.
+/// @param demo demo value consumed by this operation.
+/// @param packet packet value consumed by this operation.
+/// @param frameCount Number of frame to process.
+/// @param deltaNumber deltaNumber value consumed by this operation.
 function appendLive(demo, packet, frameCount, deltaNumber)
   if not demo.waitingForFullFrame then
     if demo.streaming then return appendStreaming(demo, packet) end if
@@ -80,13 +101,16 @@ function appendLive(demo, packet, frameCount, deltaNumber)
   return false
 end function
 
-// Append state.
+/// Append state.
+/// @param demo demo value consumed by this operation.
+/// @param packet packet value consumed by this operation.
 function append(demo, packet)
   if typeof(packet) != "bytes" or len(packet) <= 0 or len(packet) > qc.MAX_MSGLEN then return error(7700, "demo packet outside protocol message limit") end if
   demo.packets = demo.packets + [bytes(packet)]
 end function
 
-// Encode demo.
+/// Encode demo.
+/// @param demo demo value consumed by this operation.
 function encodeDemo(demo)
   total = 4
   for each packet in demo.packets
@@ -114,7 +138,8 @@ function encodeDemo(demo)
   return output
 end function
 
-// Decode demo.
+/// Decode demo.
+/// @param data Input data consumed by the operation.
 function decodeDemo(data)
   if typeof(data) != "bytes" or len(data) < 4 then return error(7701, "demo stream truncated") end if
   demo = create()
@@ -133,7 +158,8 @@ function decodeDemo(data)
   return demo
 end function
 
-// Materialize state.
+/// Materialize state.
+/// @param demo demo value consumed by this operation.
 function materialize(demo)
   if demo.streamCount == 0 then return demo.packets end if
   output = array(packetCount(demo), void)
@@ -156,13 +182,15 @@ function materialize(demo)
   return output
 end function
 
-// Return the player value.
+/// Return the player value.
+/// @param demo demo value consumed by this operation.
 function player(demo)
   materialize(demo)
   return DemoPlayer(demo, 0, len(demo.packets) == 0)
 end function
 
-// Return the next packet value.
+/// Return the next packet value.
+/// @param player player value consumed by this operation.
 function nextPacket(player)
   if player.index >= len(player.demo.packets) then player.finished = true; return void end if
   packet = player.demo.packets[player.index]

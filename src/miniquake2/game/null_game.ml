@@ -1,3 +1,5 @@
+//! Provides miniquake2 game null game facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -41,12 +43,12 @@ import miniquake2.server.game_bridge as nggamebridge
 import std.string as ngstring
 import std.math as ngmath
 
-// Original BaseQ2 layout programs. Keeping each program in one immutable
-// literal avoids the repeated string concatenation used by the C source while
-// preserving the wire-visible CS_STATUSBAR contract.
+/// Original BaseQ2 layout programs. Keeping each program in one immutable
 const SINGLE_STATUSBAR = "yb -24 xv 0 hnum xv 50 pic 0 if 2 xv 100 anum xv 150 pic 2 endif if 4 xv 200 rnum xv 250 pic 4 endif if 6 xv 296 pic 6 endif yb -50 if 7 xv 0 pic 7 xv 26 yb -42 stat_string 8 yb -50 endif if 9 xv 262 num 2 10 xv 296 pic 9 endif if 11 xv 148 pic 11 endif"
+/// Defines the deathmatch statusbar constant used by the miniquake2 game null game module.
 const DEATHMATCH_STATUSBAR = "yb -24 xv 0 hnum xv 50 pic 0 if 2 xv 100 anum xv 150 pic 2 endif if 4 xv 200 rnum xv 250 pic 4 endif if 6 xv 296 pic 6 endif yb -50 if 7 xv 0 pic 7 xv 26 yb -42 stat_string 8 yb -50 endif if 9 xv 246 num 2 10 xv 296 pic 9 endif if 11 xv 148 pic 11 endif xr -50 yt 2 num 3 14 if 17 xv 0 yb -58 string2 \"SPECTATOR MODE\" endif if 16 xv 0 yb -68 string \"Chasing\" xv 64 stat_string 16 endif"
 
+/// Stores module-wide stock light styles state for the miniquake2 game null game module.
 stockLightStyles = [
   "m", "mmnmmommommnonmmonqnmmo",
   "abcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba",
@@ -58,32 +60,54 @@ stockLightStyles = [
   "abcdefghijklmnopqrrqponmlkjihgfedcba"
 ]
 
+/// Stores module-wide active imports state for the miniquake2 game null game module.
 activeImports = void
-// G_RunFrame snapshots every edict origin before gameplay. Keep both the value
-// and owning edict identity so a slot freed and reused later in the same frame
-// cannot inherit the previous occupant's interpolation origin.
+/// G_RunFrame snapshots every edict origin before gameplay. Keep both the value
 runFrameEdictScratch = array(qc.MAX_EDICTS, void)
+/// Stores module-wide run frame origin scratch state for the miniquake2 game null game module.
 runFrameOriginScratch = array(qc.MAX_EDICTS, void)
+/// Stores module-wide active export state for the miniquake2 game null game module.
 activeExport = void
+/// Stores module-wide initialized state for the miniquake2 game null game module.
 initialized = false
+/// Stores module-wide map loaded state for the miniquake2 game null game module.
 mapLoaded = false
+/// Stores module-wide current map state for the miniquake2 game null game module.
 currentMap = ""
+/// Stores module-wide current spawn point state for the miniquake2 game null game module.
 currentSpawnPoint = ""
+/// Stores module-wide current entity string state for the miniquake2 game null game module.
 currentEntityString = ""
+/// Stores module-wide frame number state for the miniquake2 game null game module.
 frameNumber = 0
+/// Stores module-wide last user info state for the miniquake2 game null game module.
 lastUserInfo = ""
+/// Stores module-wide client command count state for the miniquake2 game null game module.
 clientCommandCount = 0
+/// Stores module-wide server command count state for the miniquake2 game null game module.
 serverCommandCount = 0
+/// Stores module-wide spawned base edicts state for the miniquake2 game null game module.
 spawnedBaseEdicts = []
+/// Stores module-wide last spawn result state for the miniquake2 game null game module.
 lastSpawnResult = void
+/// Stores module-wide active base runtime state for the miniquake2 game null game module.
 activeBaseRuntime = void
+/// Stores module-wide active player context state for the miniquake2 game null game module.
 activePlayerContext = void
+/// Stores module-wide active max clients state for the miniquake2 game null game module.
 activeMaxClients = 4
+/// Stores module-wide active skill state for the miniquake2 game null game module.
 activeSkill = 1
+/// Stores module-wide active pmove pass entity state for the miniquake2 game null game module.
 activePmovePassEntity = void
+/// Stores module-wide active pmove content mask state for the miniquake2 game null game module.
 activePmoveContentMask = qc.MASK_PLAYERSOLID
 
-// Trace player pmove.
+/// Trace player pmove.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
 function playerPmoveTrace(start, mins, maxs, finish)
   global activeImports, activePmovePassEntity, activePmoveContentMask
   // p_client.c assigns pm_passent before gi.Pmove. Once the server clips
@@ -93,20 +117,24 @@ function playerPmoveTrace(start, mins, maxs, finish)
     activePmovePassEntity, activePmoveContentMask)
 end function
 
-// Return the runtime edict value.
+/// Return the runtime edict value.
+/// @param number number value consumed by this operation.
 function runtimeEdict(number)
   global activeExport
   if activeExport is void or number < 0 or number >= activeExport.maxEdicts then return void end if
   return activeExport.edicts[number]
 end function
 
-// Return the base world log value.
+/// Return the base world log value.
+/// @param message Human-readable message associated with the operation.
 function baseWorldLog(message)
   global activeImports
   return activeImports.dprintf("MiniQuake2 BaseQ2 world: " + message)
 end function
 
-// Return the base world center value.
+/// Return the base world center value.
+/// @param entity entity value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function baseWorldCenter(entity, message)
   global activeImports
   target = runtimeEdict(entity.number)
@@ -114,7 +142,9 @@ function baseWorldCenter(entity, message)
   return activeImports.centerprintf(target, message)
 end function
 
-// Return the base world sound value.
+/// Return the base world sound value.
+/// @param entity entity value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
 function baseWorldSound(entity, soundName)
   global activeImports
   target = runtimeEdict(entity.number)
@@ -138,13 +168,16 @@ function baseWorldSound(entity, soundName)
     gc.ATTN_NORM, 0.0)
 end function
 
-// Return the base world area portal value.
+/// Return the base world area portal value.
+/// @param style style value consumed by this operation.
+/// @param isOpen isOpen value consumed by this operation.
 function baseWorldAreaPortal(style, isOpen)
   global activeImports
   return activeImports.setAreaPortalState(style, isOpen)
 end function
 
-// Return the base world target explosion value.
+/// Return the base world target explosion value.
+/// @param origin origin value consumed by this operation.
 function baseWorldTargetExplosion(origin)
   global activeImports
   activeImports.writeByte(qc.SVC_TEMP_ENTITY)
@@ -153,7 +186,11 @@ function baseWorldTargetExplosion(origin)
   return activeImports.multicast(origin, gc.MULTICAST_PHS)
 end function
 
-// Return the base world target splash value.
+/// Return the base world target splash value.
+/// @param origin origin value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param sounds sounds value consumed by this operation.
 function baseWorldTargetSplash(origin, direction, count, sounds)
   global activeImports
   activeImports.writeByte(qc.SVC_TEMP_ENTITY)
@@ -165,7 +202,9 @@ function baseWorldTargetSplash(origin, direction, count, sounds)
   return activeImports.multicast(origin, gc.MULTICAST_PVS)
 end function
 
-// Begin base world intermission.
+/// Begin base world intermission.
+/// @param entity entity value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function baseWorldBeginIntermission(entity, mapName)
   global activePlayerContext, currentMap
   if activePlayerContext is void or typeof(mapName) != "string" or mapName == "" then return false end if
@@ -230,7 +269,11 @@ function baseWorldBeginIntermission(entity, mapName)
   return true
 end function
 
-// Return the base world change level value.
+/// Return the base world change level value.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function baseWorldChangeLevel(entity, other, activator, mapName)
   global activePlayerContext, activeImports
   if activePlayerContext is void then return false end if
@@ -270,7 +313,8 @@ function baseWorldChangeLevel(entity, other, activator, mapName)
   return baseWorldBeginIntermission(entity, mapName)
 end function
 
-// Link base world.
+/// Link base world.
+/// @param entity entity value consumed by this operation.
 function baseWorldLink(entity)
   global activeImports, activeExport
   if activeExport is void or entity.number < 0 or
@@ -320,7 +364,9 @@ function baseWorldLink(entity)
   return ngLinkResultHolder
 end function
 
-// Report whether ai trace visible.
+/// Report whether ai trace visible.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
 function aiTraceVisible(actor, other)
   global activeImports
   zeroBounds = ngqtypes.Vec3(0.0, 0.0, 0.0)
@@ -329,19 +375,24 @@ function aiTraceVisible(actor, other)
   return result.entity is not void and result.entity.state.number == other.edict.state.number
 end function
 
-// Return the ai in phs value.
+/// Return the ai in phs value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function aiInPHS(first, second)
   global activeImports
   return activeImports.inPHS(first, second)
 end function
 
-// Report whether ai areas connected.
+/// Report whether ai areas connected.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function aiAreasConnected(first, second)
   global activeImports
   return activeImports.areasConnected(first, second)
 end function
 
-// Handle player triggers.
+/// Handle player triggers.
+/// @param player player value consumed by this operation.
 function playerTouchTriggers(player)
   global activeBaseRuntime, activePlayerContext, activeImports
   if activeBaseRuntime is void then return 0 end if
@@ -357,14 +408,21 @@ function playerTouchTriggers(player)
   return touched
 end function
 
-// Handle player entity.
+/// Handle player entity.
+/// @param entity entity value consumed by this operation.
+/// @param player player value consumed by this operation.
 function playerTouchEntity(entity, player)
   global activeBaseRuntime, activePlayerContext
   if activeBaseRuntime is void then return false end if
   return ngbaseq2.touchEdict(activeBaseRuntime, entity, player, activePlayerContext)
 end function
 
-// Return the player damage value.
+/// Return the player damage value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param damageFlags damageFlags value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function playerDamage(context, player, amount, damageFlags, meansOfDeath)
   global activeSkill
   combatant = nggtypes.createCombatant(player.edict.state.number, player.health)
@@ -403,14 +461,17 @@ function playerDamage(context, player, amount, damageFlags, meansOfDeath)
   return result.taken
 end function
 
-// Copy the dead client into BaseQ2's fixed eight-entry body queue.
+/// Copy the dead client into BaseQ2's fixed eight-entry body queue.
+/// @param player player value consumed by this operation.
 function playerCopyBody(player)
   global activeBaseRuntime
   if activeBaseRuntime is void then return false end if
   return ngbaseq2.copyPlayerBody(activeBaseRuntime, player)
 end function
 
-// Configure integrated runtime.
+/// Configure integrated runtime.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function configureIntegratedRuntime(runtime, playerContext)
   runtime.world.callbacks.log = baseWorldLog
   runtime.world.callbacks.centerPrint = baseWorldCenter
@@ -438,7 +499,7 @@ function configureIntegratedRuntime(runtime, playerContext)
   return true
 end function
 
-// Link managed edicts.
+/// Link managed edicts.
 function linkManagedEdicts()
   global activeExport, activeImports
   exportTable = activeExport
@@ -460,8 +521,9 @@ function linkManagedEdicts()
   return true
 end function
 
-// Capture the stock `s.old_origin = s.origin` value-copy contract before any
-// player, mover, monster or projectile mutates the exported state.
+/// Capture the stock `s.old_origin = s.origin` value-copy contract before any
+/// player, mover, monster or projectile mutates the exported state.
+/// @param exportTable exportTable value consumed by this operation.
 function captureRunFrameOrigins(exportTable)
   global runFrameEdictScratch, runFrameOriginScratch
   index = 0
@@ -477,9 +539,11 @@ function captureRunFrameOrigins(exportTable)
   return exportTable.numEdicts
 end function
 
-// Reapply captured origins after managed world synchronization. Internal world
-// records may use their own historical positions, but Protocol EntityState
-// must always expose the value captured at the start of this server frame.
+/// Reapply captured origins after managed world synchronization. Internal world
+/// records may use their own historical positions, but Protocol EntityState
+/// must always expose the value captured at the start of this server frame.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param capturedCount Number of captured to process.
 function publishRunFrameOrigins(exportTable, capturedCount)
   global runFrameEdictScratch, runFrameOriginScratch
   index = 0
@@ -497,7 +561,8 @@ function publishRunFrameOrigins(exportTable, capturedCount)
   return true
 end function
 
-// Find player.
+/// Find player.
+/// @param index Zero-based index of the affected item.
 function findPlayer(index)
   global activePlayerContext
   if activePlayerContext is void then return void end if
@@ -507,7 +572,10 @@ function findPlayer(index)
   return void
 end function
 
-// Return the player for edict value.
+/// Return the player for edict value.
+/// @param slot slot value consumed by this operation.
+/// @param operation operation value consumed by this operation.
+/// @param createIfMissing createIfMissing value consumed by this operation.
 function playerForEdict(slot, operation, createIfMissing)
   global activePlayerContext, activeMaxClients
   index = slot.state.number
@@ -525,7 +593,9 @@ function playerForEdict(slot, operation, createIfMissing)
   return player
 end function
 
-// Require function.
+/// Require function.
+/// @param value Value consumed or transformed by the operation.
+/// @param name Name of the affected item.
 function requireFunction(value, name)
   if typeof(value) != "function" then
     return error(3800, "GetGameApi: missing game import callback " + name)
@@ -533,7 +603,8 @@ function requireFunction(value, name)
   return true
 end function
 
-// Validate game import.
+/// Validate game import.
+/// @param imports imports value consumed by this operation.
 function validateGameImport(imports)
   if typeof(imports) != "struct" then return error(3801, "GetGameApi: game import table is not a struct") end if
   requireFunction(imports.bprintf, "bprintf")
@@ -584,14 +655,16 @@ function validateGameImport(imports)
   return true
 end function
 
-// Require installed.
+/// Require installed.
+/// @param operation operation value consumed by this operation.
 function requireInstalled(operation)
   global activeExport
   if activeExport is void then return error(3802, operation + ": game API is not installed") end if
   return true
 end function
 
-// Require initialized.
+/// Require initialized.
+/// @param operation operation value consumed by this operation.
 function requireInitialized(operation)
   global initialized
   requireInstalled(operation)
@@ -599,7 +672,8 @@ function requireInitialized(operation)
   return true
 end function
 
-// Create edicts.
+/// Create edicts.
+/// @param count Number of items or units to process.
 function makeEdicts(count)
   ngEdictArrayHolder = array(count)
   ngEdictArrayIndex = 0
@@ -619,7 +693,7 @@ function makeEdicts(count)
   return ngEdictArrayHolder
 end function
 
-// Initialize state.
+/// Performs the Init operation for the miniquake2 game null game module.
 function Init()
   global initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activeMaxClients
   requireInstalled("Init")
@@ -654,7 +728,7 @@ function Init()
   return true
 end function
 
-// Shut down state.
+/// Performs the Shutdown operation for the miniquake2 game null game module.
 function Shutdown()
   global initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activePmovePassEntity
   requireInitialized("Shutdown")
@@ -677,7 +751,10 @@ function Shutdown()
   return true
 end function
 
-// Spawn entities.
+/// Spawn entities.
+/// @param mapName mapName value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
 function SpawnEntities(mapName, entityString, spawnPoint)
   global mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, spawnedBaseEdicts, lastSpawnResult, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill
   requireInitialized("SpawnEntities")
@@ -829,7 +906,9 @@ function SpawnEntities(mapName, entityString, spawnPoint)
   return true
 end function
 
-// Write game.
+/// Write game.
+/// @param filename filename value consumed by this operation.
+/// @param autosave autosave value consumed by this operation.
 function WriteGame(filename, autosave)
   if typeof(autosave) != "bool" then return error(3810, "WriteGame: autosave must be bool") end if
   requireInitialized("WriteGame")
@@ -837,7 +916,8 @@ function WriteGame(filename, autosave)
   return gpersist.writeFileWithPrivate(activeExport, "game", currentMap, frameNumber, privateData, filename)
 end function
 
-// Restore managed image.
+/// Restore managed image.
+/// @param image image value consumed by this operation.
 function restoreManagedImage(image)
   global currentMap, currentSpawnPoint, currentEntityString, frameNumber, mapLoaded, activeBaseRuntime, activePlayerContext, spawnedBaseEdicts, lastSpawnResult, activeMaxClients, activeImports, activeExport, activeSkill
   exportTable = activeExport
@@ -894,7 +974,8 @@ function restoreManagedImage(image)
   return true
 end function
 
-// Read game.
+/// Read game.
+/// @param filename filename value consumed by this operation.
 function ReadGame(filename)
   requireInitialized("ReadGame")
   image = gpersist.readFile(filename, activeExport.maxEdicts)
@@ -902,14 +983,16 @@ function ReadGame(filename)
   return restoreManagedImage(image)
 end function
 
-// Write level.
+/// Write level.
+/// @param filename filename value consumed by this operation.
 function WriteLevel(filename)
   requireInitialized("WriteLevel")
   privateData = ngprivatesave.encode(activeBaseRuntime, activePlayerContext, currentEntityString, currentSpawnPoint)
   return gpersist.writeFileWithPrivate(activeExport, "level", currentMap, frameNumber, privateData, filename)
 end function
 
-// Read level.
+/// Read level.
+/// @param filename filename value consumed by this operation.
 function ReadLevel(filename)
   requireInitialized("ReadLevel")
   image = gpersist.readFile(filename, activeExport.maxEdicts)
@@ -917,7 +1000,9 @@ function ReadLevel(filename)
   return restoreManagedImage(image)
 end function
 
-// Return the checked client edict value.
+/// Return the checked client edict value.
+/// @param entity entity value consumed by this operation.
+/// @param operation operation value consumed by this operation.
 function checkedClientEdict(entity, operation)
   global activeExport
   requireInitialized(operation)
@@ -929,7 +1014,9 @@ function checkedClientEdict(entity, operation)
   return activeExport.edicts[index]
 end function
 
-// Connect client.
+/// Performs the ClientConnect operation for the miniquake2 game null game module.
+/// @param entity entity value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function ClientConnect(entity, userInfo)
   global activeExport, lastUserInfo
   slot = checkedClientEdict(entity, "ClientConnect")
@@ -946,7 +1033,8 @@ function ClientConnect(entity, userInfo)
   return result.accepted
 end function
 
-// Begin client.
+/// Begin client.
+/// @param entity entity value consumed by this operation.
 function ClientBegin(entity)
   global activeMaxClients
   slot = checkedClientEdict(entity, "ClientBegin")
@@ -967,7 +1055,9 @@ function ClientBegin(entity)
   return true
 end function
 
-// Return the client userinfo changed value.
+/// Return the client userinfo changed value.
+/// @param entity entity value consumed by this operation.
+/// @param userInfo userInfo value consumed by this operation.
 function ClientUserinfoChanged(entity, userInfo)
   global activeExport, lastUserInfo
   slot = checkedClientEdict(entity, "ClientUserinfoChanged")
@@ -980,7 +1070,8 @@ function ClientUserinfoChanged(entity, userInfo)
   return true
 end function
 
-// Return the client disconnect value.
+/// Return the client disconnect value.
+/// @param entity entity value consumed by this operation.
 function ClientDisconnect(entity)
   global activeExport
   slot = checkedClientEdict(entity, "ClientDisconnect")
@@ -992,7 +1083,9 @@ function ClientDisconnect(entity)
   return true
 end function
 
-// Send inventory.
+/// Send inventory.
+/// @param slot slot value consumed by this operation.
+/// @param player player value consumed by this operation.
 function sendInventory(slot, player)
   global activeImports
   activeImports.writeByte(qc.SVC_INVENTORY)
@@ -1008,8 +1101,9 @@ function sendInventory(slot, player)
   return activeImports.unicast(slot, true)
 end function
 
-// p_hud.c DeathmatchScoreboardMessage, retaining its score order, 12-client
-// display bound and Protocol-34 "client" layout command.
+/// p_hud.c DeathmatchScoreboardMessage, retaining its score order, 12-client
+/// display bound and Protocol-34 "client" layout command.
+/// @param context Context that carries state for the operation.
 function scoreboardLayout(context)
   // Keep scoreboard layout phases explicit: validate inputs, update owned state, then publish the result.
   sorted = array(len(context.players), -1)
@@ -1057,7 +1151,9 @@ function scoreboardLayout(context)
   return layout
 end function
 
-// Send layout.
+/// Send layout.
+/// @param slot slot value consumed by this operation.
+/// @param layout layout value consumed by this operation.
 function sendLayout(slot, layout)
   global activeImports
   activeImports.writeByte(qc.SVC_LAYOUT)
@@ -1065,12 +1161,15 @@ function sendLayout(slot, layout)
   return activeImports.unicast(slot, true)
 end function
 
-// Send scoreboard.
+/// Send scoreboard.
+/// @param slot slot value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function sendScoreboard(slot, context)
   return sendLayout(slot, scoreboardLayout(context))
 end function
 
-// Return the help layout value.
+/// Return the help layout value.
+/// @param context Context that carries state for the operation.
 function helpLayout(context)
   global activeBaseRuntime, activeSkill, currentMap
   skillName = "hard+"
@@ -1099,7 +1198,8 @@ function helpLayout(context)
     " " + foundSecrets + "/" + totalSecrets + "\" "
 end function
 
-// Return the players text value.
+/// Return the players text value.
+/// @param context Context that carries state for the operation.
 function playersText(context)
   sorted = array(len(context.players), void)
   count = 0
@@ -1135,7 +1235,8 @@ function playersText(context)
   return text + "\n" + count + " players\n"
 end function
 
-// Return the player list text value.
+/// Return the player list text value.
+/// @param context Context that carries state for the operation.
 function playerListText(context)
   text = ""
   for each listedPlayer in context.players
@@ -1162,7 +1263,9 @@ function playerListText(context)
   return text
 end function
 
-// Return the chat team name.
+/// Return the chat team name.
+/// @param player player value consumed by this operation.
+/// @param dmFlags dmFlags value consumed by this operation.
 function chatTeamName(player, dmFlags)
   skin = nginfo.valueForKey(player.persistent.userInfo, "skin")
   data = bytes(skin)
@@ -1179,13 +1282,19 @@ function chatTeamName(player, dmFlags)
   return decode(slice(data, slash + 1, len(data) - slash - 1))
 end function
 
-// Report whether on same chat team.
+/// Report whether on same chat team.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param dmFlags dmFlags value consumed by this operation.
 function onSameChatTeam(first, second, dmFlags)
   if (dmFlags & (gc.DF_MODELTEAMS | gc.DF_SKINTEAMS)) == 0 then return false end if
   return chatTeamName(first, dmFlags) == chatTeamName(second, dmFlags)
 end function
 
-// Return the chat flood allowed value.
+/// Return the chat flood allowed value.
+/// @param slot slot value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function chatFloodAllowed(slot, player, context)
   global activeImports
   floodMessages = ngbyteio.truncInt(activeImports.cvar(
@@ -1219,7 +1328,10 @@ function chatFloodAllowed(slot, player, context)
   return true
 end function
 
-// Return the normalized chat body value.
+/// Return the normalized chat body value.
+/// @param command command value consumed by this operation.
+/// @param arguments arguments value consumed by this operation.
+/// @param includeCommand includeCommand value consumed by this operation.
 function normalizedChatBody(command, arguments, includeCommand)
   body = arguments
   if includeCommand then
@@ -1233,7 +1345,13 @@ function normalizedChatBody(command, arguments, includeCommand)
   return body
 end function
 
-// Send chat.
+/// Send chat.
+/// @param slot slot value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param team team value consumed by this operation.
+/// @param includeCommand includeCommand value consumed by this operation.
+/// @param command command value consumed by this operation.
 function sendChat(slot, player, context, team, includeCommand, command)
   global activeImports
   if not includeCommand and activeImports.argc() < 2 then return false end if
@@ -1257,7 +1375,9 @@ function sendChat(slot, player, context, team, includeCommand, command)
   return true
 end function
 
-// Return the cheats allowed value.
+/// Return the cheats allowed value.
+/// @param slot slot value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function cheatsAllowed(slot, context)
   global activeImports
   if not context.deathmatch or
@@ -1268,7 +1388,10 @@ function cheatsAllowed(slot, context)
   return false
 end function
 
-// Return the give items value.
+/// Return the give items value.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param arguments arguments value consumed by this operation.
 function giveItems(player, context, arguments)
   // Keep give items phases explicit: validate inputs, update owned state, then publish the result.
   global activeImports
@@ -1351,7 +1474,11 @@ function giveItems(player, context, arguments)
   return action.success
 end function
 
-// Execute item drop.
+/// Execute item drop.
+/// @param slot slot value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param item item value consumed by this operation.
 function executeItemDrop(slot, player, context, item)
   global activeBaseRuntime, activeImports
   action = ngbaseq2.dropPlayerItem(activeBaseRuntime, player, context, item)
@@ -1364,8 +1491,9 @@ function executeItemDrop(slot, player, context, item)
   return action.success
 end function
 
-// Dispatch the complete stock baseq2 client-command surface. Intermission and
-// cheat gates are checked here so individual command helpers cannot bypass them.
+/// Dispatch the complete stock baseq2 client-command surface. Intermission and
+/// cheat gates are checked here so individual command helpers cannot bypass them.
+/// @param entity entity value consumed by this operation.
 function ClientCommand(entity)
   global activeImports, activeExport, activePlayerContext, clientCommandCount
   slot = checkedClientEdict(entity, "ClientCommand")
@@ -1575,7 +1703,9 @@ function ClientCommand(entity)
   return true
 end function
 
-// Run client.
+/// Run client.
+/// @param entity entity value consumed by this operation.
+/// @param command command value consumed by this operation.
 function ClientThink(entity, command)
   global activeExport, activePmovePassEntity, activePmoveContentMask
   slot = checkedClientEdict(entity, "ClientThink")
@@ -1600,7 +1730,7 @@ function ClientThink(entity, command)
   return true
 end function
 
-// Run frame.
+/// Run frame.
 function RunFrame()
   global frameNumber, activeBaseRuntime, activePlayerContext
   requireInitialized("RunFrame")
@@ -1669,7 +1799,7 @@ function RunFrame()
   return true
 end function
 
-// Return the server command value.
+/// Return the server command value.
 function ServerCommand()
   global activeImports, serverCommandCount
   requireInitialized("ServerCommand")
@@ -1690,7 +1820,8 @@ function ServerCommand()
   return true
 end function
 
-// Return game api.
+/// Return game api.
+/// @param imports imports value consumed by this operation.
 function GetGameApi(imports)
   global activeImports, activeExport, initialized, mapLoaded, currentMap, currentSpawnPoint, currentEntityString, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount, activeBaseRuntime, activePlayerContext, activeMaxClients, activeSkill, activePmovePassEntity
   validateGameImport(imports)
@@ -1721,7 +1852,8 @@ function GetGameApi(imports)
   return activeExport
 end function
 
-// Configure max clients.
+/// Configure max clients.
+/// @param count Number of items or units to process.
 function configureMaxClients(count)
   global activeMaxClients, initialized
   requireInstalled("configureMaxClients")
@@ -1731,7 +1863,8 @@ function configureMaxClients(count)
   return true
 end function
 
-// Configure skill.
+/// Configure skill.
+/// @param skill skill value consumed by this operation.
 function configureSkill(skill)
   global activeSkill, initialized
   requireInstalled("configureSkill")
@@ -1743,13 +1876,14 @@ function configureSkill(skill)
   return true
 end function
 
-// Return the configured game skill value.
+/// Return the configured game skill value.
 function configuredGameSkill()
   global activeSkill
   return activeSkill
 end function
 
-// Return the edict for the requested position.
+/// Return the edict for the requested position.
+/// @param index Zero-based index of the affected item.
 function edictAt(index)
   global activeExport
   requireInitialized("edictAt")
@@ -1757,7 +1891,8 @@ function edictAt(index)
   return activeExport.edicts[index]
 end function
 
-// Return the edict index.
+/// Return the edict index.
+/// @param entity entity value consumed by this operation.
 function edictIndex(entity)
   global activeExport
   requireInitialized("edictIndex")
@@ -1768,7 +1903,8 @@ function edictIndex(entity)
   return index
 end function
 
-// Return the edict offset.
+/// Return the edict offset.
+/// @param index Zero-based index of the affected item.
 function edictOffset(index)
   global activeExport
   requireInitialized("edictOffset")
@@ -1776,37 +1912,37 @@ function edictOffset(index)
   return index * activeExport.edictSize
 end function
 
-// Return the lifecycle snapshot value.
+/// Return the lifecycle snapshot value.
 function lifecycleSnapshot()
   global initialized, mapLoaded, currentMap, currentSpawnPoint, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount
   return [initialized, mapLoaded, currentMap, currentSpawnPoint, frameNumber, lastUserInfo, clientCommandCount, serverCommandCount]
 end function
 
-// Return the base edicts value.
+/// Return the base edicts value.
 function baseEdicts()
   global spawnedBaseEdicts
   return spawnedBaseEdicts
 end function
 
-// Spawn result.
+/// Spawn result.
 function spawnResult()
   global lastSpawnResult
   return lastSpawnResult
 end function
 
-// Return the base runtime value.
+/// Return the base runtime value.
 function baseRuntime()
   global activeBaseRuntime
   return activeBaseRuntime
 end function
 
-// Return the player context value.
+/// Return the player context value.
 function playerContext()
   global activePlayerContext
   return activePlayerContext
 end function
 
-// Return the api installed value.
+/// Return the api installed value.
 function apiInstalled()
   global activeExport
   return activeExport is not void

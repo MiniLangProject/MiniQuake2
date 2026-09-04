@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui commands facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -17,56 +19,101 @@ import miniquake2.qcommon.info as cuicmdinfo
 import miniquake2.game.constants as cuicmdgameconstants
 import miniquake2.runtime.product_startup as cuicmdstartup
 
-// Store command state data.
+/// Store command state data.
 struct CommandState
+  /// Stores the quit requested value associated with command state.
   quitRequested
+  /// Stores the video restart requested value associated with command state.
   videoRestartRequested
+  /// Stores the video mode value associated with command state.
   videoMode
+  /// Stores the full screen value associated with command state.
   fullScreen
+  /// Stores the brightness value associated with command state.
   brightness
+  /// Stores the max fps value associated with command state.
   maxFps
+  /// Stores the swap interval value associated with command state.
   swapInterval
+  /// Stores the save slot value associated with command state.
   saveSlot
+  /// Stores the load slot value associated with command state.
   loadSlot
+  /// Stores the executed value associated with command state.
   executed
+  /// Stores the rejected value associated with command state.
   rejected
+  /// Stores the forwarded value associated with command state.
   forwarded
+  /// Stores the new game skill value associated with command state.
   newGameSkill
+  /// Stores the config dirty value associated with command state.
   configDirty
+  /// Stores the player name value associated with command state.
   playerName
+  /// Stores the player model value associated with command state.
   playerModel
+  /// Stores the player skin value associated with command state.
   playerSkin
+  /// Stores the player password value associated with command state.
   playerPassword
+  /// Stores the player spectator value associated with command state.
   playerSpectator
+  /// Stores the player fov value associated with command state.
   playerFov
+  /// Stores the player dirty value associated with command state.
   playerDirty
+  /// Stores the connect address value associated with command state.
   connectAddress
+  /// Stores the refresh servers value associated with command state.
   refreshServers
+  /// Stores the start server requested value associated with command state.
   startServerRequested
+  /// Stores the disconnect requested value associated with command state.
   disconnectRequested
+  /// Stores the server map value associated with command state.
   serverMap
+  /// Stores the server hostname value associated with command state.
   serverHostname
+  /// Stores the server rules value associated with command state.
   serverRules
+  /// Stores the server max clients value associated with command state.
   serverMaxClients
+  /// Stores the server time limit value associated with command state.
   serverTimeLimit
+  /// Stores the server frag limit value associated with command state.
   serverFragLimit
+  /// Stores the dm flags value associated with command state.
   dmFlags
+  /// Stores the allow download value associated with command state.
   allowDownload
+  /// Stores the allow download maps value associated with command state.
   allowDownloadMaps
+  /// Stores the allow download models value associated with command state.
   allowDownloadModels
+  /// Stores the allow download players value associated with command state.
   allowDownloadPlayers
+  /// Stores the allow download sounds value associated with command state.
   allowDownloadSounds
+  /// Stores the record name value associated with command state.
   recordName
+  /// Stores the stop recording requested value associated with command state.
   stopRecordingRequested
+  /// Stores the screenshot requested value associated with command state.
   screenshotRequested
+  /// Stores the joystick enabled value associated with command state.
   joystickEnabled
+  /// Stores the reconnect requested value associated with command state.
   reconnectRequested
+  /// Stores the rcon password value associated with command state.
   rconPassword
+  /// Stores the rcon address value associated with command state.
   rconAddress
+  /// Stores the rcon commands value associated with command state.
   rconCommands
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 client ui commands module.
 function create()
   return CommandState(false, false, 0, false, 1.0, 90, true, -1, -1, 0, 0, [], -1, false,
     "MiniQuake2", "male", "grunt", "", false, 90, false, "", false, false, false,
@@ -74,7 +121,9 @@ function create()
     "", false, false, true, false, "", "", [])
 end function
 
-// Return the numeric argument value.
+/// Return the numeric argument value.
+/// @param arguments arguments value consumed by this operation.
+/// @param name Name of the affected item.
 function numericArgument(arguments, name)
   if len(arguments) != 2 then return error(8280, name + " expects one numeric value") end if
   cuicmdNumberResult = try(toNumber(arguments[1]))
@@ -86,7 +135,11 @@ function numericArgument(arguments, name)
   return cuicmdNumberResult
 end function
 
-// Return the integer argument value.
+/// Return the integer argument value.
+/// @param arguments arguments value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
 function integerArgument(arguments, name, minimum, maximum)
   cuicmdIntegerValue = numericArgument(arguments, name)
   cuicmdInteger = cuicmdbyteio.truncInt(cuicmdIntegerValue)
@@ -97,13 +150,16 @@ function integerArgument(arguments, name, minimum, maximum)
   return cuicmdInteger
 end function
 
-// Return the boolean argument value.
+/// Return the boolean argument value.
+/// @param arguments arguments value consumed by this operation.
+/// @param name Name of the affected item.
 function booleanArgument(arguments, name)
   cuicmdBoolean = integerArgument(arguments, name, 0, 1)
   return cuicmdBoolean != 0
 end function
 
-// Return the player model name.
+/// Return the player model name.
+/// @param index Zero-based index of the affected item.
 function playerModelName(index)
   if index == 0 then return "male" end if
   if index == 1 then return "female" end if
@@ -111,23 +167,32 @@ function playerModelName(index)
   return error(8283, "model index outside retail player models")
 end function
 
-// Return the player skin name.
+/// Return the player skin name.
+/// @param model model value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function playerSkinName(model, index)
   cuicmdSkinChoices = cuicmdmenu.playerSkinChoices(model)
   if index < 0 or index >= len(cuicmdSkinChoices) then return error(8283, "skin index outside selected model") end if
   return cuicmdSkinChoices[index]
 end function
 
-// Set dm flag.
+/// Set dm flag.
+/// @param commandState commandState value consumed by this operation.
+/// @param bit bit value consumed by this operation.
+/// @param enabled enabled value consumed by this operation.
 function setDmFlag(commandState, bit, enabled)
   if enabled then commandState.dmFlags = commandState.dmFlags | bit
   else commandState.dmFlags = commandState.dmFlags & ~bit end if
   return true
 end function
 
-// `exec default.cfg` in the stock Options menu resets controls and the values
-// displayed by that menu. Keep the operation local and typed so it cannot run
-// arbitrary config text, while applying every setting our Options page owns.
+/// `exec default.cfg` in the stock Options menu resets controls and the values
+/// displayed by that menu. Keep the operation local and typed so it cannot run
+/// arbitrary config text, while applying every setting our Options page owns.
+/// @param commandState commandState value consumed by this operation.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
 function resetOptionDefaults(commandState, input, screen, mixer)
   input.config = cuicmdkeys.defaultConfig()
   input.bindings = []
@@ -160,9 +225,14 @@ function resetOptionDefaults(commandState, input, screen, mixer)
   return true
 end function
 
-// Apply commands owned by the client UI and return false only for text that
-// must cross the Game API boundary. Parsing and validation happen before any
-// persistent setting is mutated.
+/// Apply commands owned by the client UI and return false only for text that
+/// must cross the Game API boundary. Parsing and validation happen before any
+/// persistent setting is mutated.
+/// @param commandState commandState value consumed by this operation.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
+/// @param command command value consumed by this operation.
 function localAction(commandState, input, screen, mixer, command)
   if typeof(command) != "string" then return error(8281, "UI command must be text") end if
   cuicmdArguments = cuicmdq.tokenize(command)
@@ -556,7 +626,12 @@ function localAction(commandState, input, screen, mixer, command)
   return false
 end function
 
-// Execute state.
+/// Execute state.
+/// @param commandState commandState value consumed by this operation.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
+/// @param command command value consumed by this operation.
 function execute(commandState, input, screen, mixer, command)
   cuicmdHandled = try(localAction(commandState, input, screen, mixer, command))
   commandState.executed = commandState.executed + 1
@@ -568,7 +643,11 @@ function execute(commandState, input, screen, mixer, command)
   return cuicmdHandled
 end function
 
-// Drain state.
+/// Drain state.
+/// @param commandState commandState value consumed by this operation.
+/// @param input input value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
 function drain(commandState, input, screen, mixer)
   cuicmdProcessed = 0
   cuicmdKeyPending = cuicmdkeys.drainCommands(input)
@@ -594,7 +673,8 @@ function drain(commandState, input, screen, mixer)
   return cuicmdProcessed
 end function
 
-// Consume forwarded.
+/// Consume forwarded.
+/// @param commandState commandState value consumed by this operation.
 function inline takeForwarded(commandState)
   // Most frames do not forward a console command. Avoid manufacturing a new
   // empty array on every probe while retaining move-style ownership for work.
@@ -604,42 +684,49 @@ function inline takeForwarded(commandState)
   return cuicmdForwarded
 end function
 
-// Consume save slot.
+/// Consume save slot.
+/// @param commandState commandState value consumed by this operation.
 function takeSaveSlot(commandState)
   cuicmdSaveSlot = commandState.saveSlot
   commandState.saveSlot = -1
   return cuicmdSaveSlot
 end function
 
-// Consume load slot.
+/// Consume load slot.
+/// @param commandState commandState value consumed by this operation.
 function takeLoadSlot(commandState)
   cuicmdLoadSlot = commandState.loadSlot
   commandState.loadSlot = -1
   return cuicmdLoadSlot
 end function
 
-// Consume new game skill.
+/// Consume new game skill.
+/// @param commandState commandState value consumed by this operation.
 function takeNewGameSkill(commandState)
   cuicmdNewGameSkill = commandState.newGameSkill
   commandState.newGameSkill = -1
   return cuicmdNewGameSkill
 end function
 
-// Report whether take config dirty.
+/// Report whether take config dirty.
+/// @param commandState commandState value consumed by this operation.
 function takeConfigDirty(commandState)
   cuicmdConfigDirty = commandState.configDirty
   commandState.configDirty = false
   return cuicmdConfigDirty
 end function
 
-// Report whether take player dirty.
+/// Report whether take player dirty.
+/// @param commandState commandState value consumed by this operation.
 function takePlayerDirty(commandState)
   cuicmdPlayerDirty = commandState.playerDirty
   commandState.playerDirty = false
   return cuicmdPlayerDirty
 end function
 
-// Return the player profile value.
+/// Return the player profile value.
+/// @param commandState commandState value consumed by this operation.
+/// @param input input value consumed by this operation.
 function playerProfile(commandState, input)
   return cuicmdstartup.PlayerProfile(commandState.playerName,
     commandState.playerModel, commandState.playerSkin, input.config.hand, 25000,
@@ -647,49 +734,56 @@ function playerProfile(commandState, input)
     commandState.playerFov)
 end function
 
-// Consume connect address.
+/// Consume connect address.
+/// @param commandState commandState value consumed by this operation.
 function takeConnectAddress(commandState)
   cuicmdConnectAddress = commandState.connectAddress
   commandState.connectAddress = ""
   return cuicmdConnectAddress
 end function
 
-// Consume refresh servers.
+/// Consume refresh servers.
+/// @param commandState commandState value consumed by this operation.
 function takeRefreshServers(commandState)
   cuicmdRefresh = commandState.refreshServers
   commandState.refreshServers = false
   return cuicmdRefresh
 end function
 
-// Consume start server.
+/// Consume start server.
+/// @param commandState commandState value consumed by this operation.
 function takeStartServer(commandState)
   cuicmdStart = commandState.startServerRequested
   commandState.startServerRequested = false
   return cuicmdStart
 end function
 
-// Consume disconnect.
+/// Consume disconnect.
+/// @param commandState commandState value consumed by this operation.
 function takeDisconnect(commandState)
   cuicmdDisconnect = commandState.disconnectRequested
   commandState.disconnectRequested = false
   return cuicmdDisconnect
 end function
 
-// Consume reconnect request.
+/// Consume reconnect request.
+/// @param commandState commandState value consumed by this operation.
 function takeReconnect(commandState)
   cuicmdReconnect = commandState.reconnectRequested
   commandState.reconnectRequested = false
   return cuicmdReconnect
 end function
 
-// Consume pending remote-console commands.
+/// Consume pending remote-console commands.
+/// @param commandState commandState value consumed by this operation.
 function takeRconCommands(commandState)
   cuicmdRconCommands = commandState.rconCommands
   commandState.rconCommands = []
   return cuicmdRconCommands
 end function
 
-// Return the server options value.
+/// Return the server options value.
+/// @param commandState commandState value consumed by this operation.
 function serverOptions(commandState)
   return cuicmdstartup.ServerOptions(commandState.serverMap,
     commandState.serverHostname, commandState.serverRules == 1,
@@ -698,28 +792,32 @@ function serverOptions(commandState)
     commandState.dmFlags)
 end function
 
-// Return the download policy value.
+/// Return the download policy value.
+/// @param commandState commandState value consumed by this operation.
 function downloadPolicy(commandState)
   return cuicmdstartup.DownloadPolicy(commandState.allowDownload,
     commandState.allowDownloadMaps, commandState.allowDownloadModels,
     commandState.allowDownloadPlayers, commandState.allowDownloadSounds)
 end function
 
-// Consume record name.
+/// Consume record name.
+/// @param commandState commandState value consumed by this operation.
 function takeRecordName(commandState)
   cuicmdRecordName = commandState.recordName
   commandState.recordName = ""
   return cuicmdRecordName
 end function
 
-// Consume stop recording.
+/// Consume stop recording.
+/// @param commandState commandState value consumed by this operation.
 function takeStopRecording(commandState)
   cuicmdStopRecording = commandState.stopRecordingRequested
   commandState.stopRecordingRequested = false
   return cuicmdStopRecording
 end function
 
-// Consume screenshot.
+/// Consume screenshot.
+/// @param commandState commandState value consumed by this operation.
 function takeScreenshot(commandState)
   cuicmdScreenshot = commandState.screenshotRequested
   commandState.screenshotRequested = false

@@ -1,3 +1,5 @@
+//! Provides miniquake2 game base entity parser facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -12,18 +14,23 @@ import miniquake2.game.base.types as btypes
 import miniquake2.qcommon.byteio as qbyteio
 import miniquake2.qcommon.text as qtext
 
-// Return the parser error value.
+/// Return the parser error value.
+/// @param code code value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param message Human-readable message associated with the operation.
 function parserError(code, offset, message)
   return error(code, "baseq2 entity text at byte " + offset + ": " + message)
 end function
 
-// Report whether is whitespace.
+/// Report whether is whitespace.
+/// @param value Value consumed or transformed by the operation.
 function isWhitespace(value)
   return value <= 32
 end function
 
-// Exact ED_NewString behavior: \n becomes a newline; every other backslash
-// pair becomes one literal backslash and discards the second byte.
+/// Exact ED_NewString behavior: \n becomes a newline; every other backslash
+/// pair becomes one literal backslash and discards the second byte.
+/// @param value Value consumed or transformed by the operation.
 function ED_NewString(value)
   if typeof(value) != "string" then return error(9000, "ED_NewString: text required") end if
   source = bytes(value)
@@ -45,7 +52,8 @@ function ED_NewString(value)
   return decode(outputPrefix)
 end function
 
-// Create scanner.
+/// Create scanner.
+/// @param value Value consumed or transformed by the operation.
 function createScanner(value)
   if typeof(value) != "string" then return error(9001, "entity text must be a string") end if
   data = bytes(value)
@@ -61,7 +69,8 @@ function createScanner(value)
   return btypes.EntityScanner(effectiveData, 0)
 end function
 
-// Return the skip trivia value.
+/// Return the skip trivia value.
+/// @param scanner scanner value consumed by this operation.
 function skipTrivia(scanner)
   data = scanner.data
   while scanner.offset <= len(data)
@@ -80,7 +89,8 @@ function skipTrivia(scanner)
   return scanner.offset
 end function
 
-// Return the next token value.
+/// Return the next token value.
+/// @param scanner scanner value consumed by this operation.
 function nextToken(scanner)
   skipTrivia(scanner)
   data = scanner.data
@@ -113,7 +123,9 @@ function nextToken(scanner)
   return btypes.EntityToken("word", tokenText, start)
 end function
 
-// Finish prefix.
+/// Finish prefix.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function finishPrefix(values, count)
   if count == 0 then return [] end if
   result = array(count)
@@ -125,7 +137,8 @@ function finishPrefix(values, count)
   return result
 end function
 
-// Parse entities.
+/// Parse entities.
+/// @param value Value consumed or transformed by the operation.
 function parseEntities(value)
   scanner = createScanner(value)
   parsed = array(16)
@@ -180,11 +193,12 @@ function parseEntities(value)
   return finishPrefix(parsed, parsedCount)
 end function
 
-// Production spawn ingestion deliberately does not retain EntityPair token
-// strings.  Each field is consumed while both scanner tokens and the target
-// BaseEntity are live locals, so a long sequence of retail level loads cannot
-// expose an old pair through a later allocation/collection boundary.  The
-// ParsedEntity API above remains available for syntax/contract inspection.
+/// Production spawn ingestion deliberately does not retain EntityPair token
+/// strings.  Each field is consumed while both scanner tokens and the target
+/// BaseEntity are live locals, so a long sequence of retail level loads cannot
+/// expose an old pair through a later allocation/collection boundary.  The
+/// ParsedEntity API above remains available for syntax/contract inspection.
+/// @param value Value consumed or transformed by the operation.
 function parseMaterializedEntities(value)
   scanner = createScanner(value)
   materialized = array(16)
@@ -222,7 +236,9 @@ function parseMaterializedEntities(value)
   return finishPrefix(materialized, materializedCount)
 end function
 
-// Parse number.
+/// Parse number.
+/// @param value Value consumed or transformed by the operation.
+/// @param fieldName fieldName value consumed by this operation.
 function parseNumber(value, fieldName)
   if typeof(value) != "string" or len(bytes(value)) == 0 then return error(9012, fieldName + ": numeric text required") end if
   source = bytes(value)
@@ -276,13 +292,17 @@ function parseNumber(value, fieldName)
   return converted
 end function
 
-// Parse integer.
+/// Parse integer.
+/// @param value Value consumed or transformed by the operation.
+/// @param fieldName fieldName value consumed by this operation.
 function parseInteger(value, fieldName)
   converted = parseNumber(value, fieldName)
   return qbyteio.truncInt(converted)
 end function
 
-// Parse vector.
+/// Parse vector.
+/// @param value Value consumed or transformed by the operation.
+/// @param fieldName fieldName value consumed by this operation.
 function parseVector(value, fieldName)
   source = bytes(value)
   result = [0.0, 0.0, 0.0]
@@ -306,14 +326,19 @@ function parseVector(value, fieldName)
   return result
 end function
 
-// Append unknown.
+/// Append unknown.
+/// @param entity entity value consumed by this operation.
+/// @param key key value consumed by this operation.
 function appendUnknown(entity, key)
   entity.unknownFields = entity.unknownFields + [key]
   return false
 end function
 
-// Returns true for a recognized field and false for the original diagnostic
-// path ("... is not a field"). Utility keys beginning with _ are ignored.
+/// Returns true for a recognized field and false for the original diagnostic
+/// path ("... is not a field"). Utility keys beginning with _ are ignored.
+/// @param entity entity value consumed by this operation.
+/// @param key key value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function ED_ParseField(entity, key, value)
   // Keep ed parse field phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(entity) != "struct" then return error(9016, "ED_ParseField: BaseEntity required") end if
@@ -375,7 +400,8 @@ function ED_ParseField(entity, key, value)
   return true
 end function
 
-// Materialize state.
+/// Materialize state.
+/// @param parsed parsed value consumed by this operation.
 function materialize(parsed)
   entity = btypes.zeroBaseEntity()
   for each pair in parsed.pairs

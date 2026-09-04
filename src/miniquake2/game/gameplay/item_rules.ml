@@ -1,3 +1,5 @@
+//! Provides miniquake2 game gameplay item rules facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,7 +12,9 @@ import miniquake2.game.gameplay.constants as gpconstants
 import miniquake2.game.gameplay.types as gptypes
 import miniquake2.qcommon.text as qtext
 
-// Find by pickup name.
+/// Finds by pickup name used by the miniquake2 game gameplay item rules module.
+/// @param registry registry value consumed by this operation.
+/// @param pickupName pickupName value consumed by this operation.
 function findByPickupName(registry, pickupName)
   if typeof(pickupName) != "string" then return error(9392, "item pickup name is not text") end if
   for each item in registry.items
@@ -21,7 +25,9 @@ function findByPickupName(registry, pickupName)
   return void
 end function
 
-// Find by class name.
+/// Find by class name.
+/// @param registry registry value consumed by this operation.
+/// @param className className value consumed by this operation.
 function findByClassName(registry, className)
   if typeof(className) != "string" then return error(9394, "item classname is not text") end if
   for each item in registry.items
@@ -32,7 +38,9 @@ function findByClassName(registry, className)
   return void
 end function
 
-// Return by index.
+/// Return by index.
+/// @param registry registry value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function getByIndex(registry, index)
   // Stock itemlist indices are dense and match their array position. Weapon
   // cycling calls this once for every candidate slot, so use the direct path
@@ -48,14 +56,18 @@ function getByIndex(registry, index)
   return void
 end function
 
-// Return the inventory count.
+/// Return the inventory count.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
 function inventoryCount(player, item)
   if item is void then return 0 end if
   if item.index <= 0 or item.index >= len(player.inventory.counts) then return error(9300, "item index outside inventory") end if
   return player.inventory.counts[item.index]
 end function
 
-// Return the ammo maximum value.
+/// Return the ammo maximum value.
+/// @param inventory inventory value consumed by this operation.
+/// @param tag tag value consumed by this operation.
 function ammoMaximum(inventory, tag)
   if tag == gpconstants.AMMO_BULLETS then return inventory.maxBullets end if
   if tag == gpconstants.AMMO_SHELLS then return inventory.maxShells end if
@@ -66,7 +78,10 @@ function ammoMaximum(inventory, tag)
   return error(9301, "unknown ammo tag " + tag)
 end function
 
-// Add ammo.
+/// Add ammo.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param count Number of items or units to process.
 function Add_Ammo(player, item, count)
   if typeof(player) != "struct" or typeof(item) != "struct" then return error(9302, "Add_Ammo: player and item required") end if
   if (item.flags & gpconstants.IT_AMMO) == 0 then return error(9303, "Add_Ammo: item is not ammo") end if
@@ -80,7 +95,10 @@ function Add_Ammo(player, item, count)
   return true
 end function
 
-// Set respawn.
+/// Set respawn.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param delay delay value consumed by this operation.
+/// @param time time value consumed by this operation.
 function SetRespawn(itemEntity, delay, time)
   if delay < 0.0 then return error(9305, "SetRespawn: negative delay") end if
   itemEntity.flags = itemEntity.flags | gpconstants.FL_RESPAWN
@@ -92,7 +110,9 @@ function SetRespawn(itemEntity, delay, time)
   return true
 end function
 
-// Return the do respawn value.
+/// Return the do respawn value.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param time time value consumed by this operation.
 function DoRespawn(itemEntity, time)
   if itemEntity.hidden != true then return error(9306, "DoRespawn: item is not waiting for respawn") end if
   if time < itemEntity.respawnAt then return false end if
@@ -104,7 +124,11 @@ function DoRespawn(itemEntity, time)
   return true
 end function
 
-// Pick up ammo.
+/// Pick up ammo.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Ammo(itemEntity, player, context, registry)
   item = itemEntity.item
   count = item.quantity
@@ -124,7 +148,11 @@ function Pickup_Ammo(itemEntity, player, context, registry)
   return action
 end function
 
-// Pick up weapon.
+/// Pick up weapon.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Weapon(itemEntity, player, context, registry)
   item = itemEntity.item
   oldCount = inventoryCount(player, item)
@@ -156,13 +184,21 @@ function Pickup_Weapon(itemEntity, player, context, registry)
   return action
 end function
 
-// Pick up item.
+/// Pick up item.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param context Context that carries state for the operation.
+/// @param registry registry value consumed by this operation.
 function Pickup_Item(itemEntity, player, context, registry)
   if itemEntity.item.pickup is void then return gptypes.itemAction(false, "item cannot be picked up", 0) end if
   return itemEntity.item.pickup(itemEntity, player, context, registry)
 end function
 
-// Use weapon.
+/// Use weapon.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param selectEmpty selectEmpty value consumed by this operation.
 function Use_Weapon(player, item, registry, selectEmpty)
   if player.currentWeapon is not void and player.currentWeapon.index == item.index then return gptypes.itemAction(false, "already selected", 0) end if
   if item.ammo != "" and selectEmpty != true and (item.flags & gpconstants.IT_AMMO) == 0 then
@@ -175,7 +211,11 @@ function Use_Weapon(player, item, registry, selectEmpty)
   return gptypes.itemAction(true, "", 0)
 end function
 
-// Drop ammo.
+/// Drop ammo.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
 function Drop_Ammo(player, item, registry, worldEntityNumber)
   available = inventoryCount(player, item)
   if available <= 0 then return gptypes.itemAction(false, "no ammo to drop", 0) end if
@@ -194,7 +234,12 @@ function Drop_Ammo(player, item, registry, worldEntityNumber)
   return action
 end function
 
-// Drop weapon.
+/// Drop weapon.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param registry registry value consumed by this operation.
+/// @param worldEntityNumber worldEntityNumber value consumed by this operation.
+/// @param dmFlags dmFlags value consumed by this operation.
 function Drop_Weapon(player, item, registry, worldEntityNumber, dmFlags)
   if (dmFlags & gconstants.DF_WEAPONS_STAY) != 0 then return gptypes.itemAction(false, "weapons stay", 0) end if
   available = inventoryCount(player, item)

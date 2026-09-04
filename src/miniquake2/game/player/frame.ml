@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player frame facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,8 +12,9 @@ import miniquake2.game.player.constants as gplayerconstants
 import miniquake2.game.player.hud as gplayerhud
 import miniquake2.game.player.rules as gplayerrules
 
-// Begin the client portion of a server frame. Return false when the pending
-// intermission exit consumed the frame before any client or entity gameplay.
+/// Begin the client portion of a server frame. Return false when the pending
+/// intermission exit consumed the frame before any client or entity gameplay.
+/// @param context Context that carries state for the operation.
 function BeginPlayerFrame(context)
   context.frameNumber = context.frameNumber + 1
   context.time = context.frameNumber * gplayerconstants.FRAME_TIME
@@ -33,14 +36,16 @@ function BeginPlayerFrame(context)
   return true
 end function
 
-// Finish rules and player-state publication after all non-client edicts ran.
+/// Finish rules and player-state publication after all non-client edicts ran.
+/// @param context Context that carries state for the operation.
 function EndPlayerFrame(context)
   result = gplayerrules.CheckDMRules(context)
   gplayerhud.ClientEndServerFrames(context)
   return result
 end function
 
-// Run the standalone player-facing frame used by focused component tests.
+/// Run the standalone player-facing frame used by focused component tests.
+/// @param context Context that carries state for the operation.
 function RunPlayerFrame(context)
   if not BeginPlayerFrame(context) then
     return miniquake2.game.player.types.RuleResult(false, "level exited",

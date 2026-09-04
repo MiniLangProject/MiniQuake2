@@ -1,3 +1,5 @@
+//! Provides miniquake2 server snapshot facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -16,24 +18,34 @@ import miniquake2.protocol.types as pt
 import miniquake2.protocol.entity_delta as pedelta
 import miniquake2.protocol.player_delta as ppdelta
 
-// Store snapshot frame data.
+/// Store snapshot frame data.
 struct SnapshotFrame
+  /// Stores the number value associated with snapshot frame.
   number
+  /// Stores the delta number value associated with snapshot frame.
   deltaNumber
+  /// Stores the suppress count value associated with snapshot frame.
   suppressCount
+  /// Stores the area bits value associated with snapshot frame.
   areaBits
+  /// Stores the player state value associated with snapshot frame.
   playerState
+  /// Stores the entities value associated with snapshot frame.
   entities
 end struct
 
-// Store snapshot history data.
+/// Store snapshot history data.
 struct SnapshotHistory
+  /// Stores the frames value associated with snapshot history.
   frames
+  /// Stores the baselines value associated with snapshot history.
   baselines
+  /// Stores the max clients value associated with snapshot history.
   maxClients
 end struct
 
-// Copy entities data.
+/// Copy entities data.
+/// @param entities entities value consumed by this operation.
 function copyEntities(entities)
   output = array(len(entities))
   index = 0
@@ -44,7 +56,9 @@ function copyEntities(entities)
   return output
 end function
 
-// Validate entities.
+/// Validate entities.
+/// @param entities entities value consumed by this operation.
+/// @param operation operation value consumed by this operation.
 function validateEntities(entities, operation)
   if typeof(entities) != "array" then return error(7500, operation + ": entity list must be an array") end if
   lastNumber = 0
@@ -60,7 +74,8 @@ function validateEntities(entities, operation)
   return true
 end function
 
-// Create history.
+/// Create history.
+/// @param maxClients maxClients value consumed by this operation.
 function createHistory(maxClients)
   if maxClients < 1 or maxClients > qc.MAX_CLIENTS then return error(7502, "invalid snapshot maxClients") end if
   baselines = array(qc.MAX_EDICTS)
@@ -74,13 +89,20 @@ function createHistory(maxClients)
   return SnapshotHistory(array(qc.UPDATE_BACKUP, void), baselines, maxClients)
 end function
 
-// Set baseline.
+/// Set baseline.
+/// @param history history value consumed by this operation.
+/// @param state Mutable state inspected or updated by the operation.
 function setBaseline(history, state)
   if state.number <= 0 or state.number >= qc.MAX_EDICTS then return error(7503, "baseline entity outside range") end if
   history.baselines[state.number] = pt.copyEntityState(state)
 end function
 
-// Add frame.
+/// Add frame.
+/// @param history history value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param areaBits areaBits value consumed by this operation.
+/// @param playerState playerState value consumed by this operation.
+/// @param entities entities value consumed by this operation.
 function addFrame(history, number, areaBits, playerState, entities)
   if number < 0 then return error(7504, "negative server frame") end if
   if typeof(areaBits) != "bytes" or len(areaBits) > 255 then return error(7505, "area bits exceed protocol byte count") end if
@@ -93,7 +115,9 @@ function addFrame(history, number, areaBits, playerState, entities)
   return frame
 end function
 
-// Find frame.
+/// Find frame.
+/// @param history history value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findFrame(history, number)
   if number < 0 then return void end if
   frame = history.frames[number % qc.UPDATE_BACKUP]
@@ -101,14 +125,22 @@ function findFrame(history, number)
   return void
 end function
 
-// Choose delta frame.
+/// Choose delta frame.
+/// @param history history value consumed by this operation.
+/// @param current current value consumed by this operation.
+/// @param requestedNumber requestedNumber value consumed by this operation.
 function chooseDeltaFrame(history, current, requestedNumber)
   if requestedNumber <= 0 then return void end if
   if current.number - requestedNumber >= qc.UPDATE_BACKUP - 3 then return void end if
   return findFrame(history, requestedNumber)
 end function
 
-// Emit packet entities.
+/// Emit packet entities.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param previousEntities previousEntities value consumed by this operation.
+/// @param currentEntities currentEntities value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
 function emitPacketEntities(buffer, previousEntities, currentEntities, baselines, maxClients)
   validateEntities(previousEntities, "packet previous")
   validateEntities(currentEntities, "packet current")
@@ -135,7 +167,12 @@ function emitPacketEntities(buffer, previousEntities, currentEntities, baselines
   pedelta.writeEndMarker(buffer)
 end function
 
-// Write frame.
+/// Write frame.
+/// @param history history value consumed by this operation.
+/// @param current current value consumed by this operation.
+/// @param requestedDeltaNumber requestedDeltaNumber value consumed by this operation.
+/// @param suppressCount Number of suppress to process.
+/// @param buffer Buffer that receives or supplies the operation data.
 function writeFrame(history, current, requestedDeltaNumber, suppressCount, buffer)
   oldFrame = chooseDeltaFrame(history, current, requestedDeltaNumber)
   oldNumber = -1
@@ -159,7 +196,10 @@ function writeFrame(history, current, requestedDeltaNumber, suppressCount, buffe
   return qsz.dataSlice(buffer)
 end function
 
-// Apply packet entities.
+/// Apply packet entities.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param previousEntities previousEntities value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
 function applyPacketEntities(buffer, previousEntities, baselines)
   // Keep apply packet entities phases explicit: validate inputs, update owned state, then publish the result.
   validateEntities(previousEntities, "parse previous")
@@ -210,7 +250,10 @@ function applyPacketEntities(buffer, previousEntities, baselines)
   end while
 end function
 
-// Read frame.
+/// Reads frame for the miniquake2 server snapshot workflow.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param oldFrame oldFrame value consumed by this operation.
+/// @param baselines baselines value consumed by this operation.
 function readFrame(buffer, oldFrame, baselines)
   opcode = pchecked.readByte(buffer, "frame opcode")
   if opcode != qc.SVC_FRAME then return error(7509, "expected svc_frame") end if

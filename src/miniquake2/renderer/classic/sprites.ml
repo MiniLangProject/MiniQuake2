@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic sprites facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,12 +11,17 @@ import miniquake2.renderer.constants as rc
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.vector as rclassicvector
 
-// Return the sprite vertex value.
+/// Return the sprite vertex value.
+/// @param position position value consumed by this operation.
+/// @param s s value consumed by this operation.
+/// @param t t value consumed by this operation.
 function spriteVertex(position, s, t)
   return rclassictypes.SpriteVertex(rclassicvector.copy(position), s, t)
 end function
 
-// Return the frame index.
+/// Return the frame index.
+/// @param model model value consumed by this operation.
+/// @param requestedFrame requestedFrame value consumed by this operation.
 function frameIndex(model, requestedFrame)
   if len(model.frames) == 0 then return error(9730, "sprite has no frames") end if
   selected = requestedFrame % len(model.frames)
@@ -22,7 +29,11 @@ function frameIndex(model, requestedFrame)
   return selected
 end function
 
-// Prepare state.
+/// Prepare state.
+/// @param model model value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param cameraUp cameraUp value consumed by this operation.
+/// @param cameraRight cameraRight value consumed by this operation.
 function prepare(model, entity, cameraUp, cameraRight)
   selected = frameIndex(model, entity.frame)
   frame = model.frames[selected]

@@ -1,3 +1,5 @@
+//! Provides miniquake2 game integration baseq2 facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -56,56 +58,88 @@ import miniquake2.qcommon.monster_flash_offsets as ibflashoffsets
 import miniquake2.qcommon.text as ibqtext
 import std.math as ibmath
 
-// Store integrated base q 2 data.
+/// Store integrated base q 2 data.
 struct IntegratedBaseQ2
+  /// Stores the world value associated with integrated base q2.
   world
+  /// Stores the ai context value associated with integrated base q2.
   aiContext
+  /// Stores the monsters value associated with integrated base q2.
   monsters
+  /// Stores the items value associated with integrated base q2.
   items
+  /// Stores the ai players value associated with integrated base q2.
   aiPlayers
+  /// Stores the weapon context value associated with integrated base q2.
   weaponContext
+  /// Stores the player context value associated with integrated base q2.
   playerContext
+  /// Stores the export table value associated with integrated base q2.
   exportTable
+  /// Stores the random state value associated with integrated base q2.
   randomState
+  /// Stores the player trail value associated with integrated base q2.
   playerTrail
+  /// Stores the collision world ready value associated with integrated base q2.
   collisionWorldReady
+  /// Stores the pusher capture value associated with integrated base q2.
   pusherCapture
+  /// Stores the max clients value associated with integrated base q2.
   maxClients
+  /// Stores the body queue value associated with integrated base q2.
   bodyQueue
+  /// Stores the body queue index value associated with integrated base q2.
   bodyQueueIndex
+  /// Stores the edict free times value associated with integrated base q2.
   edictFreeTimes
+  /// Stores the edict use history value associated with integrated base q2.
   edictUseHistory
+  /// Stores the pusher trigger touch value associated with integrated base q2.
   pusherTriggerTouch
+  /// Stores the frame dispatch probe value associated with integrated base q2.
   frameDispatchProbe
 end struct
 
-// Store integrated dynamic clip data.
+/// Store integrated dynamic clip data.
 struct IntegratedDynamicClip
+  /// Stores the hit value associated with integrated dynamic clip.
   hit
+  /// Stores the fraction value associated with integrated dynamic clip.
   fraction
+  /// Stores the enter value associated with integrated dynamic clip.
   enter
+  /// Stores the exit value associated with integrated dynamic clip.
   exit
+  /// Stores the normal axis value associated with integrated dynamic clip.
   normalAxis
+  /// Stores the normal sign value associated with integrated dynamic clip.
   normalSign
+  /// Stores the start solid value associated with integrated dynamic clip.
   startSolid
+  /// Stores the all solid value associated with integrated dynamic clip.
   allSolid
 end struct
 
+/// Stores module-wide active integration runtime state for the miniquake2 game integration baseq2 module.
 activeIntegrationRuntime = void
+/// Stores module-wide integrated projectile link total state for the miniquake2 game integration baseq2 module.
 integratedProjectileLinkTotal = 0
+/// Stores module-wide integrated projectile free total state for the miniquake2 game integration baseq2 module.
 integratedProjectileFreeTotal = 0
 
-// Link projectile count.
+/// Link projectile count.
 function projectileLinkCount()
   return integratedProjectileLinkTotal
 end function
 
-// Release projectile count.
+/// Release projectile count.
 function projectileFreeCount()
   return integratedProjectileFreeTotal
 end function
 
-// Report whether a protocol slot still belongs to a live managed record.
+/// Report whether a protocol slot still belongs to a live managed record.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function managedEdictSlotActive(runtime, number)
   for each entity in runtime.world.entities
     if entity.number == number and entity.inUse and
@@ -130,7 +164,10 @@ function managedEdictSlotActive(runtime, number)
   return false
 end function
 
-// Initialize the level-owned allocator state used by every dynamic entity.
+/// Initialize the level-owned allocator state used by every dynamic entity.
+/// @param runtime runtime value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
 function initializeEdictAllocator(runtime, exportTable, maxClients)
   runtime.exportTable = exportTable
   runtime.maxClients = maxClients
@@ -146,7 +183,8 @@ function initializeEdictAllocator(runtime, exportTable, maxClients)
   return true
 end function
 
-// G_Spawn: reuse only eligible freed edicts, then extend globals.num_edicts.
+/// G_Spawn: reuse only eligible freed edicts, then extend globals.num_edicts.
+/// @param runtime runtime value consumed by this operation.
 function reserveEdict(runtime)
   if runtime.exportTable is void then
     number = runtime.world.nextEntityNumber
@@ -183,7 +221,9 @@ function reserveEdict(runtime)
   return candidate
 end function
 
-// G_FreeEdict: preserve client and body-queue reservations and timestamp frees.
+/// G_FreeEdict: preserve client and body-queue reservations and timestamp frees.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function releaseEdict(runtime, number)
   if runtime.exportTable is void or number < 0 or
       number >= runtime.exportTable.numEdicts then return false end if
@@ -200,7 +240,13 @@ function releaseEdict(runtime, number)
   return true
 end function
 
-// Handle damage to a corpse copied into the fixed body queue.
+/// Handle damage to a corpse copied into the fixed body queue.
+/// @param entity entity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 function bodyQueueDie(entity, inflictor, attacker, damage, point, world)
   global activeIntegrationRuntime
   if entity.health >= -40 then return false end if
@@ -236,7 +282,8 @@ function bodyQueueDie(entity, inflictor, attacker, damage, point, world)
   return true
 end function
 
-// Reserve the eight body edicts immediately after the client range.
+/// Reserve the eight body edicts immediately after the client range.
+/// @param runtime runtime value consumed by this operation.
 function initializeBodyQueue(runtime)
   bodyCount = ibplayerconstants.BODY_QUEUE_SIZE
   runtime.bodyQueue = array(bodyCount, void)
@@ -262,7 +309,8 @@ function initializeBodyQueue(runtime)
   return bodyCount
 end function
 
-// Rebind body-queue records decoded from a private level save.
+/// Rebind body-queue records decoded from a private level save.
+/// @param runtime runtime value consumed by this operation.
 function restoreBodyQueue(runtime)
   bodyCount = ibplayerconstants.BODY_QUEUE_SIZE
   runtime.bodyQueue = array(bodyCount, void)
@@ -290,7 +338,9 @@ function restoreBodyQueue(runtime)
   return bodyCount
 end function
 
-// CopyToBodyQue: snapshot the dead player into the next fixed corpse slot.
+/// CopyToBodyQue: snapshot the dead player into the next fixed corpse slot.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
 function copyPlayerBody(runtime, player)
   if len(runtime.bodyQueue) != ibplayerconstants.BODY_QUEUE_SIZE then
     return error(9714, "body queue is not initialized")
@@ -344,21 +394,21 @@ function copyPlayerBody(runtime, player)
   return body
 end function
 
-// Exact m_medic.c attack42-relative cable offsets. Package-rooted scalar
-// tables avoid rebuilding arrays in the live resurrection callback.
+/// Exact m_medic.c attack42-relative cable offsets. Package-rooted scalar
 medicCableOffsetX = [45.0, 48.4, 47.8, 47.3, 45.4, 41.9, 37.8, 34.3, 32.7, 32.7]
+/// Stores module-wide medic cable offset y state for the miniquake2 game integration baseq2 module.
 medicCableOffsetY = [-9.2, -9.7, -9.8, -9.3, -10.1, -12.7, -15.8, -18.4, -19.7, -19.7]
+/// Stores module-wide medic cable offset z state for the miniquake2 game integration baseq2 module.
 medicCableOffsetZ = [15.5, 15.2, 15.8, 14.3, 13.1, 12.0, 11.2, 10.7, 10.4, 10.4]
 
-// m_infantry.c's fixed death211..death222 spray. Scalar package tables avoid
-// constructing twelve nested angle vectors every time an Infantry dies.
+/// m_infantry.c's fixed death211..death222 spray. Scalar package tables avoid
 infantryDeathAimPitch = [0.0, 10.0, 20.0, 25.0, 30.0, 30.0,
   25.0, 20.0, 15.0, 40.0, 70.0, 90.0]
+/// Stores module-wide infantry death aim yaw state for the miniquake2 game integration baseq2 module.
 infantryDeathAimYaw = [5.0, 15.0, 25.0, 35.0, 40.0, 45.0,
   50.0, 40.0, 35.0, 35.0, 35.0, 35.0]
 
-// SP_worldspawn's unconditional player/environment inventory. These package
-// tables are allocated once and are consumed only during map precache.
+/// SP_worldspawn's unconditional player/environment inventory. These package
 stockWorldSounds = [
   "player/fry.wav", "player/lava1.wav", "player/lava2.wav",
   "misc/pc_up.wav", "misc/talk1.wav", "misc/udeath.wav",
@@ -373,12 +423,14 @@ stockWorldSounds = [
   "items/damage.wav", "items/protect.wav", "items/protect4.wav",
   "weapons/noammo.wav", "infantry/inflies1.wav"
 ]
+/// Stores module-wide stock world sexed models state for the miniquake2 game integration baseq2 module.
 stockWorldSexedModels = [
   "#w_blaster.md2", "#w_shotgun.md2", "#w_sshotgun.md2",
   "#w_machinegun.md2", "#w_chaingun.md2", "#a_grenades.md2",
   "#w_glauncher.md2", "#w_rlauncher.md2", "#w_hyperblaster.md2",
   "#w_railgun.md2", "#w_bfg.md2"
 ]
+/// Stores module-wide stock world gib models state for the miniquake2 game integration baseq2 module.
 stockWorldGibModels = [
   "models/objects/gibs/sm_meat/tris.md2",
   "models/objects/gibs/arm/tris.md2",
@@ -389,28 +441,35 @@ stockWorldGibModels = [
   "models/objects/gibs/head2/tris.md2"
 ]
 
-// The server game is single-threaded. Reuse the three immutable-by-callee
-// trace arguments instead of allocating eye/zero vectors for every monster
-// visibility and attack check in the hot frame path.
+/// The server game is single-threaded. Reuse the three immutable-by-callee
 aiTraceStartScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide ai trace end scratch state for the miniquake2 game integration baseq2 module.
 aiTraceEndScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide ai trace zero scratch state for the miniquake2 game integration baseq2 module.
 aiTraceZeroScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide ai trigger mins scratch state for the miniquake2 game integration baseq2 module.
 aiTriggerMinsScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide ai trigger maxs scratch state for the miniquake2 game integration baseq2 module.
 aiTriggerMaxsScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
 
-// target_laser is evaluated every server frame.  Reuse its clip and adapter
-// records so retail maps with large laser banks do not allocate a target array
-// (and one WeaponTarget per actor) for every beam trace.
+/// target_laser is evaluated every server frame.  Reuse its clip and adapter
 worldLaserClipScratch = IntegratedDynamicClip(false, 1.0, 0.0, 1.0, -1,
   0.0, false, false)
+/// Stores module-wide world laser end scratch state for the miniquake2 game integration baseq2 module.
 worldLaserEndScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide world laser normal scratch state for the miniquake2 game integration baseq2 module.
 worldLaserNormalScratch = ibqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide world laser trace scratch state for the miniquake2 game integration baseq2 module.
 worldLaserTraceScratch = ibwtypes.WorldTrace(false, worldLaserEndScratch,
   worldLaserNormalScratch, void)
+/// Stores module-wide world laser player proxy state for the miniquake2 game integration baseq2 module.
 worldLaserPlayerProxy = ibwtypes.createEntity(-1, "laser_player_proxy")
+/// Stores module-wide world laser block proxy state for the miniquake2 game integration baseq2 module.
 worldLaserBlockProxy = ibwtypes.createEntity(-1, "laser_block_proxy")
 
-// Return the compact integrated values value.
+/// Return the compact integrated values value.
+/// @param values values value consumed by this operation.
+/// @param count Number of items or units to process.
 function compactIntegratedValues(values, count)
   if count <= 0 then return [] end if
   if count == len(values) then return values end if
@@ -423,12 +482,14 @@ function compactIntegratedValues(values, count)
   return output
 end function
 
-// Copy vector data.
+/// Copy vector data.
+/// @param values values value consumed by this operation.
 function copyVector(values)
   return ibqtypes.Vec3(values[0], values[1], values[2])
 end function
 
-// Return the item world effects value.
+/// Return the item world effects value.
+/// @param item item value consumed by this operation.
 function itemWorldEffects(item)
   if (item.flags & ibgpconstants.IT_AMMO) != 0 then return 0 end if
   if item.ruleData is not void and item.ruleData.kind == "health" then return 0 end if
@@ -436,7 +497,8 @@ function itemWorldEffects(item)
   return ibgconstants.EF_ROTATE
 end function
 
-// Return the world entity value.
+/// Return the world entity value.
+/// @param baseEdict baseEdict value consumed by this operation.
 function worldEntity(baseEdict)
   source = baseEdict.component
   entity = ibwtypes.createEntity(baseEdict.number, source.className)
@@ -473,7 +535,8 @@ function worldEntity(baseEdict)
   return entity
 end function
 
-// Choose ai target.
+/// Choose ai target.
+/// @param targetName targetName value consumed by this operation.
 function aiPickTarget(targetName)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void then return void end if
@@ -494,7 +557,9 @@ function aiPickTarget(targetName)
   return target
 end function
 
-// Use ai targets.
+/// Use ai targets.
+/// @param actor actor value consumed by this operation.
+/// @param activator activator value consumed by this operation.
 function aiUseTargets(actor, activator)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or actor.target == "" then return false end if
@@ -529,7 +594,9 @@ function aiUseTargets(actor, activator)
   return used
 end function
 
-// Report whether ai visible.
+/// Report whether ai visible.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
 function aiVisible(actor, other)
   global activeIntegrationRuntime
   ibVisibleRuntimeHolder = activeIntegrationRuntime
@@ -550,7 +617,9 @@ function aiVisible(actor, other)
   return ibVisibleTraceHolder.fraction == 1.0
 end function
 
-// Clear ai shot.
+/// Clear ai shot.
+/// @param actor actor value consumed by this operation.
+/// @param other other value consumed by this operation.
 function aiClearShot(actor, other)
   global activeIntegrationRuntime
   ibClearRuntimeHolder = activeIntegrationRuntime
@@ -573,21 +642,26 @@ function aiClearShot(actor, other)
     ibClearTraceHolder.entity.number == other.edict.state.number
 end function
 
-// Return the ai in phs value.
+/// Return the ai in phs value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function aiInPHS(first, second)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return true end if
   return activeIntegrationRuntime.playerContext.imports.inPHS(first, second)
 end function
 
-// Report whether ai areas connected.
+/// Report whether ai areas connected.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function aiAreasConnected(first, second)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return true end if
   return activeIntegrationRuntime.playerContext.imports.areasConnected(first, second)
 end function
 
-// Choose ai trail first.
+/// Choose ai trail first.
+/// @param actor actor value consumed by this operation.
 function aiTrailPickFirst(actor)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -595,7 +669,8 @@ function aiTrailPickFirst(actor)
   return ibaitrail.PickFirst(runtime.playerTrail, actor, aiVisible)
 end function
 
-// Choose ai trail next.
+/// Choose ai trail next.
+/// @param actor actor value consumed by this operation.
 function aiTrailPickNext(actor)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -603,7 +678,13 @@ function aiTrailPickNext(actor)
   return ibaitrail.PickNext(runtime.playerTrail, actor)
 end function
 
-// Trace integrated ai.
+/// Trace integrated ai.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param ignore ignore value consumed by this operation.
+/// @param mask mask value consumed by this operation.
 function integratedAITrace(start, mins, maxs, finish, ignore, mask)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -624,7 +705,8 @@ function integratedAITrace(start, mins, maxs, finish, ignore, mask)
     passEdict, mask)
 end function
 
-// Return the integrated ai point contents value.
+/// Return the integrated ai point contents value.
+/// @param point point value consumed by this operation.
 function integratedAIPointContents(point)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then
@@ -633,7 +715,8 @@ function integratedAIPointContents(point)
   return activeIntegrationRuntime.playerContext.imports.pointContents(point)
 end function
 
-// Link integrated ai actor.
+/// Link integrated ai actor.
+/// @param actor actor value consumed by this operation.
 function integratedAILinkActor(actor)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -643,7 +726,8 @@ function integratedAILinkActor(actor)
   return true
 end function
 
-// Handle integrated ai triggers.
+/// Handle integrated ai triggers.
+/// @param actor actor value consumed by this operation.
 function integratedAITouchTriggers(actor)
   // Keep integrated ai touch triggers phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -709,7 +793,10 @@ function integratedAITouchTriggers(actor)
   return touched
 end function
 
-// Move integrated ai walk.
+/// Move integrated ai walk.
+/// @param actor actor value consumed by this operation.
+/// @param yaw yaw value consumed by this operation.
+/// @param distance distance value consumed by this operation.
 function integratedAIWalkMove(actor, yaw, distance)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void then return false end if
@@ -729,7 +816,9 @@ function integratedAIWalkMove(actor, yaw, distance)
     activeIntegrationRuntime.aiContext)
 end function
 
-// Move integrated ai to goal.
+/// Move integrated ai to goal.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
 function integratedAIMoveToGoal(actor, distance)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void then return false end if
@@ -745,7 +834,11 @@ function integratedAIMoveToGoal(actor, distance)
     activeIntegrationRuntime.aiContext)
 end function
 
-// Return the integrated ai sound value.
+/// Return the integrated ai sound value.
+/// @param actor actor value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param attenuation attenuation value consumed by this operation.
 function integratedAISound(actor, soundName, channel, attenuation)
   global activeIntegrationRuntime
   ibAISoundRuntimeHolder = activeIntegrationRuntime
@@ -755,7 +848,9 @@ function integratedAISound(actor, soundName, channel, attenuation)
     ibAISoundImportsHolder.soundIndex(soundName), 1.0, attenuation, 0.0)
 end function
 
-// Return the integrated ai temp entity value.
+/// Return the integrated ai temp entity value.
+/// @param actor actor value consumed by this operation.
+/// @param effectType effectType value consumed by this operation.
 function integratedAITempEntity(actor, effectType)
   global activeIntegrationRuntime
   ibAITempRuntimeHolder = activeIntegrationRuntime
@@ -768,7 +863,9 @@ function integratedAITempEntity(actor, effectType)
   return ibAITempImportsHolder.multicast(ibAITempOriginHolder, ibgconstants.MULTICAST_PVS)
 end function
 
-// Return the integrated ai death effect value.
+/// Return the integrated ai death effect value.
+/// @param actor actor value consumed by this operation.
+/// @param effect effect value consumed by this operation.
 function integratedAIDeathEffect(actor, effect)
   // Keep integrated ai death effect phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -848,14 +945,19 @@ function integratedAIDeathEffect(actor, effect)
   return true
 end function
 
-// Reuse a freed non-player edict before extending the protocol-visible table.
-// Short-lived debris can otherwise exhaust MAX_EDICTS after several barrels.
+/// Reuse a freed non-player edict before extending the protocol-visible table.
+/// Short-lived debris can otherwise exhaust MAX_EDICTS after several barrels.
+/// @param runtime runtime value consumed by this operation.
 function reserveWorldEffectEdict(runtime)
   return reserveEdict(runtime)
 end function
 
-// Match g_misc.c ThrowDebris: model-backed, non-solid bounce entities with a
-// five-to-ten-second lifetime. Unlike monster gibs they carry no EF_GIB trail.
+/// Match g_misc.c ThrowDebris: model-backed, non-solid bounce entities with a
+/// five-to-ten-second lifetime. Unlike monster gibs they carry no EF_GIB trail.
+/// @param kind kind value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param count Number of items or units to process.
 function integratedWorldDebris(kind, origin, speed, count)
   global activeIntegrationRuntime
   ibWorldDebrisRuntimeHolder = activeIntegrationRuntime
@@ -905,7 +1007,10 @@ function integratedWorldDebris(kind, origin, speed, count)
   return true
 end function
 
-// Spawn the four organic chunks emitted by p_client.c::body_die.
+/// Spawn the four organic chunks emitted by p_client.c::body_die.
+/// @param origin origin value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param count Number of items or units to process.
 function integratedBodyGibs(origin, damage, count)
   global activeIntegrationRuntime
   ibBodyGibRuntimeHolder = activeIntegrationRuntime
@@ -964,8 +1069,12 @@ function integratedBodyGibs(origin, damage, count)
   return true
 end function
 
-// World state machines use this callback for stock temp entities and visible
-// barrel debris. Permanent protocol edicts are allocated only for the chunks.
+/// World state machines use this callback for stock temp entities and visible
+/// barrel debris. Permanent protocol edicts are allocated only for the chunks.
+/// @param kind kind value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param style style value consumed by this operation.
+/// @param count Number of items or units to process.
 function integratedWorldEffect(kind, origin, style, count)
   global activeIntegrationRuntime
   ibWorldEffectRuntimeHolder = activeIntegrationRuntime
@@ -996,7 +1105,10 @@ function integratedWorldEffect(kind, origin, style, count)
     ibgconstants.MULTICAST_PVS)
 end function
 
-// Report whether integrated medic corpse visible.
+/// Report whether integrated medic corpse visible.
+/// @param runtime runtime value consumed by this operation.
+/// @param medic medic value consumed by this operation.
+/// @param patient patient value consumed by this operation.
 function integratedMedicCorpseVisible(runtime, medic, patient)
   if runtime.playerContext is void then return true end if
   ibMedicSightStartHolder = ibqtypes.Vec3(medic.edict.state.origin.x,
@@ -1009,7 +1121,8 @@ function integratedMedicCorpseVisible(runtime, medic, patient)
   return ibMedicSightTraceHolder.fraction == 1.0
 end function
 
-// Find integrated dead monster.
+/// Find integrated dead monster.
+/// @param medic medic value consumed by this operation.
 function integratedFindDeadMonster(medic)
   global activeIntegrationRuntime
   ibMedicFindRuntimeHolder = activeIntegrationRuntime
@@ -1052,7 +1165,10 @@ function integratedFindDeadMonster(medic)
   return ibMedicBestHolder
 end function
 
-// Fire integrated infantry death.
+/// Fire integrated infantry death.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function integratedInfantryDeathFire(runtime, actor, timelineOffset)
   ibInfantryDeathIndex = timelineOffset - 10
   if ibInfantryDeathIndex < 0 or ibInfantryDeathIndex >= 12 then return false end if
@@ -1073,7 +1189,10 @@ function integratedInfantryDeathFire(runtime, actor, timelineOffset)
   return true
 end function
 
-// Fire integrated soldier death.
+/// Fire integrated soldier death.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function integratedSoldierDeathFire(runtime, actor, timelineOffset)
   // Keep integrated soldier death fire phases explicit: validate inputs, update owned state, then publish the result.
   ibSoldierDeathShot = 0
@@ -1114,7 +1233,11 @@ function integratedSoldierDeathFire(runtime, actor, timelineOffset)
   return true
 end function
 
-// Return the integrated reaction frame event value.
+/// Return the integrated reaction frame event value.
+/// @param actor actor value consumed by this operation.
+/// @param plan plan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
+/// @param eventKind eventKind value consumed by this operation.
 function integratedReactionFrameEvent(actor, plan, timelineOffset, eventKind)
   global activeIntegrationRuntime
   ibReactionEventRuntimeHolder = activeIntegrationRuntime
@@ -1130,7 +1253,8 @@ function integratedReactionFrameEvent(actor, plan, timelineOffset, eventKind)
   return error(9712, "unsupported stock reaction frame event " + eventKind)
 end function
 
-// Configure ai.
+/// Configure ai.
+/// @param context Context that carries state for the operation.
 function configureAI(context)
   context.pickTarget = aiPickTarget
   context.useTargets = aiUseTargets
@@ -1163,14 +1287,19 @@ function configureAI(context)
   return context
 end function
 
-// Find integrated ai targets.
+/// Find integrated ai targets.
+/// @param targetName targetName value consumed by this operation.
 function integratedAIFindTargets(targetName)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or targetName == "" then return [] end if
   return ibworld.matchingTargets(activeIntegrationRuntime.world, targetName)
 end function
 
-// Return the integrated ai damage value.
+/// Return the integrated ai damage value.
+/// @param actor actor value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param damageFlags damageFlags value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function integratedAIDamage(actor, amount, damageFlags, meansOfDeath)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1183,7 +1312,8 @@ function integratedAIDamage(actor, amount, damageFlags, meansOfDeath)
   return result.taken
 end function
 
-// Kill integrated ai box.
+/// Kill integrated ai box.
+/// @param actor actor value consumed by this operation.
 function integratedAIKillBox(actor)
   if actor is void then return false end if
   proxy = ibwtypes.createEntity(actor.edict.state.number, actor.className)
@@ -1192,7 +1322,8 @@ function integratedAIKillBox(actor)
   return integratedWorldKillBox(proxy)
 end function
 
-// Return the integrated ai sound index.
+/// Return the integrated ai sound index.
+/// @param soundName soundName value consumed by this operation.
 function integratedAISoundIndex(soundName)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or
@@ -1200,14 +1331,19 @@ function integratedAISoundIndex(soundName)
   return activeIntegrationRuntime.playerContext.imports.soundIndex(soundName)
 end function
 
-// Return the integrated ai log value.
+/// Return the integrated ai log value.
+/// @param message Human-readable message associated with the operation.
 function integratedAILog(message)
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void then return false end if
   return ibworld.log(activeIntegrationRuntime.world, message)
 end function
 
-// Use integrated prop proxy.
+/// Use integrated prop proxy.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedPropProxyUse(entity, other, activator, world)
   ibPropActorHolder = integratedWorldActor(entity.number)
   if ibPropActorHolder is void then return false end if
@@ -1215,7 +1351,8 @@ function integratedPropProxyUse(entity, other, activator, world)
   return ibmonster.MonsterUse(ibPropActorHolder, other, activator, activeIntegrationRuntime.aiContext)
 end function
 
-// Install prop target proxies.
+/// Install prop target proxies.
+/// @param runtime runtime value consumed by this operation.
 function installPropTargetProxies(runtime)
   ibPropProxyCount = 0
   for each ibPropActorHolder in runtime.monsters
@@ -1231,7 +1368,8 @@ function installPropTargetProxies(runtime)
   return ibPropProxyCount
 end function
 
-// Return the integrated world ai activator value.
+/// Return the integrated world ai activator value.
+/// @param source source value consumed by this operation.
 function integratedWorldAIActivator(source)
   global activeIntegrationRuntime
   if source is void or activeIntegrationRuntime is void then return void end if
@@ -1251,7 +1389,11 @@ function integratedWorldAIActivator(source)
   return actor
 end function
 
-// Use integrated monster proxy.
+/// Use integrated monster proxy.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedMonsterProxyUse(entity, other, activator, world)
   global activeIntegrationRuntime
   actor = integratedWorldActor(entity.number)
@@ -1261,7 +1403,8 @@ function integratedMonsterProxyUse(entity, other, activator, world)
     activeIntegrationRuntime.aiContext)
 end function
 
-// Install monster target proxies.
+/// Install monster target proxies.
+/// @param runtime runtime value consumed by this operation.
 function installMonsterTargetProxies(runtime)
   count = 0
   for each actor in runtime.monsters
@@ -1280,7 +1423,9 @@ function installMonsterTargetProxies(runtime)
   return count
 end function
 
-// Spawn integrated monster.
+/// Spawn integrated monster.
+/// @param className className value consumed by this operation.
+/// @param parent parent value consumed by this operation.
 function integratedSpawnMonster(className, parent)
   // Keep integrated spawn monster phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -1340,13 +1485,16 @@ function integratedSpawnMonster(className, parent)
   return ibBossActorHolder
 end function
 
-// Return the weapon vector value.
+/// Return the weapon vector value.
+/// @param value Value consumed or transformed by the operation.
 function weaponVector(value)
   if typeof(value) == "struct" then return ibqtypes.Vec3(value.x, value.y, value.z) end if
   return ibqtypes.Vec3(value[0], value[1], value[2])
 end function
 
-// Return the integrated player by number.
+/// Return the integrated player by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function integratedPlayerByNumber(runtime, number)
   if runtime.playerContext is void then return void end if
   for each player in runtime.playerContext.players
@@ -1355,7 +1503,9 @@ function integratedPlayerByNumber(runtime, number)
   return void
 end function
 
-// Return the integrated monster by number.
+/// Return the integrated monster by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function integratedMonsterByNumber(runtime, number)
   for each actor in runtime.monsters
     if actor.edict.inUse and actor.edict.state.number == number then
@@ -1365,7 +1515,9 @@ function integratedMonsterByNumber(runtime, number)
   return void
 end function
 
-// Return the player weapon target value.
+/// Return the player weapon target value.
+/// @param player player value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function playerWeaponTarget(player, registry)
   target = ibwptypes.createTarget(player.edict.state.number, player.health)
   target.className = "player"
@@ -1388,7 +1540,8 @@ function playerWeaponTarget(player, registry)
   return target
 end function
 
-// Return the monster weapon target value.
+/// Return the monster weapon target value.
+/// @param actor actor value consumed by this operation.
 function monsterWeaponTarget(actor)
   target = ibwptypes.createTarget(actor.edict.state.number, actor.health)
   target.className = actor.className
@@ -1408,7 +1561,8 @@ function monsterWeaponTarget(actor)
   return target
 end function
 
-// Return the world weapon target value.
+/// Return the world weapon target value.
+/// @param entity entity value consumed by this operation.
 function worldWeaponTarget(entity)
   target = ibwptypes.createTarget(entity.number, entity.health)
   target.className = entity.className
@@ -1431,7 +1585,9 @@ function worldWeaponTarget(entity)
   return target
 end function
 
-// Return the weapon target by number.
+/// Return the weapon target by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function weaponTargetByNumber(runtime, number)
   player = integratedPlayerByNumber(runtime, number)
   if player is not void then return playerWeaponTarget(player, runtime.playerContext.registry) end if
@@ -1442,7 +1598,8 @@ function weaponTargetByNumber(runtime, number)
   return void
 end function
 
-// Return the integrated weapon targets value.
+/// Return the integrated weapon targets value.
+/// @param runtime runtime value consumed by this operation.
 function integratedWeaponTargets(runtime)
   capacity = len(runtime.monsters) + len(runtime.world.entities)
   if runtime.playerContext is not void then capacity = capacity + len(runtime.playerContext.players) end if
@@ -1469,7 +1626,13 @@ function integratedWeaponTargets(runtime)
   return compactIntegratedValues(targets, targetCount)
 end function
 
-// Clip weapon axis.
+/// Clip weapon axis.
+/// @param interval interval value consumed by this operation.
+/// @param startValue startValue value consumed by this operation.
+/// @param endValue endValue value consumed by this operation.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
+/// @param axis axis value consumed by this operation.
 function clipWeaponAxis(interval, startValue, endValue, minimum, maximum, axis)
   delta = endValue - startValue
   if delta == 0.0 then return startValue >= minimum and startValue <= maximum end if
@@ -1482,7 +1645,10 @@ function clipWeaponAxis(interval, startValue, endValue, minimum, maximum, axis)
   return interval[0] <= interval[1]
 end function
 
-// Return the segment weapon target value.
+/// Return the segment weapon target value.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param target target value consumed by this operation.
 function segmentWeaponTarget(start, finish, target)
   interval = [0.0, 1.0, 0, 0.0]
   minimum = ibqtypes.Vec3(target.origin.x + target.mins.x, target.origin.y + target.mins.y, target.origin.z + target.mins.z)
@@ -1499,7 +1665,13 @@ function segmentWeaponTarget(start, finish, target)
   return [true, interval[0], normal]
 end function
 
-// Trace integrated weapon.
+/// Trace integrated weapon.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param ignore ignore value consumed by this operation.
+/// @param mask mask value consumed by this operation.
 function integratedWeaponTrace(start, mins, maxs, finish, ignore, mask)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1537,7 +1709,8 @@ function integratedWeaponTrace(start, mins, maxs, finish, ignore, mask)
   return ibqtypes.Trace(false, false, closest, endPosition, plane, surface, ibqconstants.CONTENTS_MONSTER, hitTarget)
 end function
 
-// Return the integrated weapon contents value.
+/// Return the integrated weapon contents value.
+/// @param point point value consumed by this operation.
 function integratedWeaponContents(point)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1545,13 +1718,17 @@ function integratedWeaponContents(point)
   return runtime.playerContext.imports.pointContents(point)
 end function
 
-// Report whether integrated can damage.
+/// Report whether integrated can damage.
+/// @param target target value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function integratedCanDamage(target, origin)
   trace = integratedWeaponTrace(origin, ibqtypes.zeroVec3(), ibqtypes.zeroVec3(), target.origin, void, ibqconstants.MASK_SHOT)
   return trace.fraction == 1.0 or (trace.entity is not void and trace.entity.number == target.number)
 end function
 
-// Return the integrated radius targets value.
+/// Return the integrated radius targets value.
+/// @param origin origin value consumed by this operation.
+/// @param radius radius value consumed by this operation.
 function integratedRadiusTargets(origin, radius)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1567,7 +1744,9 @@ function integratedRadiusTargets(origin, radius)
   return compactIntegratedValues(result, resultCount)
 end function
 
-// Return the integrated weapon damage value.
+/// Return the integrated weapon damage value.
+/// @param combatant combatant value consumed by this operation.
+/// @param request request value consumed by this operation.
 function integratedWeaponDamage(combatant, request)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1707,7 +1886,8 @@ function integratedWeaponDamage(combatant, request)
   return result
 end function
 
-// Return the integrated world means value.
+/// Return the integrated world means value.
+/// @param means means value consumed by this operation.
 function integratedWorldMeans(means)
   if means == ibworldconstants.MOD_CRUSH then return ibplayerconstants.MOD_CRUSH end if
   if means == ibworldconstants.MOD_BARREL then return ibplayerconstants.MOD_BARREL end if
@@ -1719,7 +1899,8 @@ function integratedWorldMeans(means)
   return ibplayerconstants.MOD_EXPLOSIVE
 end function
 
-// Return the integrated source number.
+/// Return the integrated source number.
+/// @param source source value consumed by this operation.
 function integratedSourceNumber(source)
   if source is void then return -1 end if
   directNumber = try(source.number)
@@ -1731,7 +1912,12 @@ function integratedSourceNumber(source)
   return -1
 end function
 
-// Return the integrated world damage value.
+/// Return the integrated world damage value.
+/// @param targetEntity targetEntity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param means means value consumed by this operation.
 function integratedWorldDamage(targetEntity, inflictor, attacker, amount, means)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1753,10 +1939,12 @@ function integratedWorldDamage(targetEntity, inflictor, attacker, amount, means)
     ibqtypes.zeroVec3(), target.origin, amount, 1, damageFlags, integratedWorldMeans(means))
 end function
 
-// use_target_changelevel's no-exit punishment is ordinary T_Damage with a
-// large knockback and MOD_EXIT. Route it through the same live target adapter
-// as weapon and projectile damage so players, monsters and brush entities all
-// receive their normal pain/death synchronization.
+/// use_target_changelevel's no-exit punishment is ordinary T_Damage with a
+/// large knockback and MOD_EXIT. Route it through the same live target adapter
+/// as weapon and projectile damage so players, monsters and brush entities all
+/// receive their normal pain/death synchronization.
+/// @param targetEntity targetEntity value consumed by this operation.
+/// @param amount amount value consumed by this operation.
 function integratedExitDamage(targetEntity, amount)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1768,7 +1956,13 @@ function integratedExitDamage(targetEntity, amount)
     ibplayerconstants.MOD_EXIT)
 end function
 
-// Clip world laser axis.
+/// Clip world laser axis.
+/// @param clip clip value consumed by this operation.
+/// @param startValue startValue value consumed by this operation.
+/// @param endValue endValue value consumed by this operation.
+/// @param minimum minimum value consumed by this operation.
+/// @param maximum maximum value consumed by this operation.
+/// @param axis axis value consumed by this operation.
 function clipWorldLaserAxis(clip, startValue, endValue, minimum, maximum, axis)
   delta = endValue - startValue
   if delta == 0.0 then return startValue >= minimum and startValue <= maximum end if
@@ -1785,7 +1979,12 @@ function clipWorldLaserAxis(clip, startValue, endValue, minimum, maximum, axis)
   return clip.enter <= clip.exit
 end function
 
-// Clip world laser bounds.
+/// Clip world laser bounds.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
 function clipWorldLaserBounds(start, finish, origin, mins, maxs)
   global worldLaserClipScratch
   clip = worldLaserClipScratch
@@ -1804,8 +2003,11 @@ function clipWorldLaserBounds(start, finish, origin, mins, maxs)
   return clip.hit
 end function
 
-// Merge the engine world trace with managed player, monster and world bounds.
-// The nearest eligible hit wins; scratch records are reused on the server thread.
+/// Merge the engine world trace with managed player, monster and world bounds.
+/// The nearest eligible hit wins; scratch records are reused on the server thread.
+/// @param start start value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param ignore ignore value consumed by this operation.
 function integratedWorldLaserTrace(start, finish, ignore)
   // Keep integrated world laser trace phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime, worldLaserTraceScratch, worldLaserEndScratch
@@ -1957,7 +2159,11 @@ function integratedWorldLaserTrace(start, finish, ignore)
   return result
 end function
 
-// Return the integrated world laser sparks value.
+/// Return the integrated world laser sparks value.
+/// @param origin origin value consumed by this operation.
+/// @param normal normal value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param color color value consumed by this operation.
 function integratedWorldLaserSparks(origin, normal, count, color)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1972,7 +2178,10 @@ function integratedWorldLaserSparks(origin, normal, count, color)
   return imports.multicast(origin, ibgconstants.MULTICAST_PVS)
 end function
 
-// Return the integrated world earthquake value.
+/// Return the integrated world earthquake value.
+/// @param entity entity value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param playSound playSound value consumed by this operation.
 function integratedWorldEarthquake(entity, speed, playSound)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -1997,7 +2206,11 @@ function integratedWorldEarthquake(entity, speed, playSound)
   return affected
 end function
 
-// Fire integrated world blaster.
+/// Fire integrated world blaster.
+/// @param entity entity value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
 function integratedWorldFireBlaster(entity, direction, damage, speed)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2015,7 +2228,8 @@ function integratedWorldFireBlaster(entity, direction, damage, speed)
   return projectile
 end function
 
-// Kill integrated world box.
+/// Kill integrated world box.
+/// @param entity entity value consumed by this operation.
 function integratedWorldKillBox(entity)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2038,12 +2252,16 @@ function integratedWorldKillBox(entity)
   return true
 end function
 
-// Reserve spawner edict.
+/// Reserve spawner edict.
+/// @param runtime runtime value consumed by this operation.
 function reserveSpawnerEdict(runtime)
   return reserveEdict(runtime)
 end function
 
-// Emit the stock power-screen or power-shield impact feedback.
+/// Emit the stock power-screen or power-shield impact feedback.
+/// @param point point value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param armorType armorType value consumed by this operation.
 function integratedPowerArmorEffect(point, direction, armorType)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2060,14 +2278,20 @@ function integratedPowerArmorEffect(point, direction, armorType)
   return imports.multicast(point, ibgconstants.MULTICAST_PVS)
 end function
 
-// Release reserved edict.
+/// Release reserved edict.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function releaseReservedEdict(runtime, number)
   return releaseEdict(runtime, number)
 end function
 
-// Complete Drop_Item's engine-facing half after the item-specific callback
-// has changed inventory.  The managed item record retains toss velocity and
-// the two stock deadlines: owner immunity for one second and DM expiry at 30.
+/// Complete Drop_Item's engine-facing half after the item-specific callback
+/// has changed inventory.  The managed item record retains toss velocity and
+/// the two stock deadlines: owner immunity for one second and DM expiry at 30.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param itemEntity itemEntity value consumed by this operation.
 function installDroppedItem(runtime, player, playerContext, itemEntity)
   if itemEntity is void or runtime.exportTable is void then return false end if
   imports = playerContext.imports
@@ -2113,7 +2337,11 @@ function installDroppedItem(runtime, player, playerContext, itemEntity)
   return itemEntity
 end function
 
-// Drop player item.
+/// Drop player item.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param item item value consumed by this operation.
 function dropPlayerItem(runtime, player, playerContext, item)
   if runtime is void or player is void or item is void then
     return ibgtypes.itemAction(false, "item cannot be dropped", 0)
@@ -2129,11 +2357,17 @@ function dropPlayerItem(runtime, player, playerContext, item)
   return action
 end function
 
-// Create the two deathmatch-only drops from p_client.c:TossClientWeapon.
-// Unlike the normal Drop command this must not mutate inventory: player_die
-// clears it immediately after this callback, and the current weapon may be the
-// player's last copy. Both results still use installDroppedItem, so they own
-// real engine edicts, toss physics, models and pickup behavior.
+/// Create the two deathmatch-only drops from p_client.c:TossClientWeapon.
+/// Unlike the normal Drop command this must not mutate inventory: player_die
+/// clears it immediately after this callback, and the current weapon may be the
+/// player's last copy. Both results still use installDroppedItem, so they own
+/// real engine edicts, toss physics, models and pickup behavior.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param yawOffset yawOffset value consumed by this operation.
+/// @param spawnFlags spawnFlags value consumed by this operation.
 function tossClientDeathItem(runtime, player, playerContext, item, yawOffset,
     spawnFlags)
   number = reserveSpawnerEdict(runtime)
@@ -2149,11 +2383,13 @@ function tossClientDeathItem(runtime, player, playerContext, item, yawOffset,
   return installed
 end function
 
-// ChangeWeapon throws a cooked hand grenade when its owner dies. The stock
-// code sets grenade_time to level.time first, so the resulting hand grenade
-// has a zero timer and detonates through the ordinary projectile path at the
-// death muzzle. player_die invokes this only after marking the owner dead, so
-// the immediate radius damage cannot recursively re-enter first-death logic.
+/// ChangeWeapon throws a cooked hand grenade when its owner dies. The stock
+/// code sets grenade_time to level.time first, so the resulting hand grenade
+/// has a zero timer and detonates through the ordinary projectile path at the
+/// death muzzle. player_die invokes this only after marking the owner dead, so
+/// the immediate radius damage cannot recursively re-enter first-death logic.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param player player value consumed by this operation.
 function tossClientHeldGrenade(playerContext, player)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2178,7 +2414,9 @@ function tossClientHeldGrenade(playerContext, player)
   return projectile
 end function
 
-// Return the toss client death items value.
+/// Return the toss client death items value.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param player player value consumed by this operation.
 function tossClientDeathItems(playerContext, player)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2227,7 +2465,11 @@ function tossClientDeathItems(playerContext, player)
   return dropped
 end function
 
-// Spawn integrated world external.
+/// Spawn integrated world external.
+/// @param className className value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
+/// @param velocity velocity value consumed by this operation.
 function integratedWorldSpawnExternal(className, origin, angles, velocity)
   // Keep integrated world spawn external phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -2318,7 +2560,12 @@ function integratedWorldSpawnExternal(className, origin, angles, velocity)
   return false
 end function
 
-// Return the integrated world radius damage value.
+/// Return the integrated world radius damage value.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param means means value consumed by this operation.
 function integratedWorldRadiusDamage(inflictor, attacker, amount, radius, means)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2331,7 +2578,8 @@ function integratedWorldRadiusDamage(inflictor, attacker, amount, radius, means)
   return true
 end function
 
-// Resolve integrated key item.
+/// Resolve integrated key item.
+/// @param itemClassName itemClassName value consumed by this operation.
 function integratedResolveKeyItem(itemClassName)
   ibKeyRegistryHolder = ibitems.stockRegistry()
   ibKeyDefinitionHolder = ibitemrules.findByClassName(ibKeyRegistryHolder, itemClassName)
@@ -2339,7 +2587,8 @@ function integratedResolveKeyItem(itemClassName)
   return ibKeyDefinitionHolder.pickupName
 end function
 
-// Return the integrated world player value.
+/// Return the integrated world player value.
+/// @param activator activator value consumed by this operation.
 function integratedWorldPlayer(activator)
   global activeIntegrationRuntime
   ibKeyRuntimeHolder = activeIntegrationRuntime
@@ -2350,7 +2599,9 @@ function integratedWorldPlayer(activator)
   return void
 end function
 
-// Report whether integrated has key item.
+/// Report whether integrated has key item.
+/// @param activator activator value consumed by this operation.
+/// @param itemClassName itemClassName value consumed by this operation.
 function integratedHasKeyItem(activator, itemClassName)
   ibKeyPlayerHolder = integratedWorldPlayer(activator)
   if ibKeyPlayerHolder is void then return false end if
@@ -2361,7 +2612,9 @@ function integratedHasKeyItem(activator, itemClassName)
   return ibKeyPlayerHolder.gameplay.inventory.counts[ibKeyDefinitionHolder.index] > 0
 end function
 
-// Consume integrated key item.
+/// Consume integrated key item.
+/// @param activator activator value consumed by this operation.
+/// @param itemClassName itemClassName value consumed by this operation.
 function integratedConsumeKeyItem(activator, itemClassName)
   ibKeyPlayerHolder = integratedWorldPlayer(activator)
   if ibKeyPlayerHolder is void then return false end if
@@ -2410,7 +2663,8 @@ function integratedConsumeKeyItem(activator, itemClassName)
   return true
 end function
 
-// Return the integrated world actor value.
+/// Return the integrated world actor value.
+/// @param number number value consumed by this operation.
 function integratedWorldActor(number)
   global activeIntegrationRuntime
   ibWorldActorRuntimeHolder = activeIntegrationRuntime
@@ -2424,7 +2678,8 @@ function integratedWorldActor(number)
   return void
 end function
 
-// Return the integrated actor name.
+/// Return the integrated actor name.
+/// @param number number value consumed by this operation.
 function integratedActorName(number)
   nameIndex = number % 8
   if nameIndex < 0 then nameIndex = -nameIndex end if
@@ -2438,7 +2693,10 @@ function integratedActorName(number)
   return "Bitterman"
 end function
 
-// Return the integrated actor broadcast value.
+/// Return the integrated actor broadcast value.
+/// @param actorNumber actorNumber value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
+/// @param exclamation exclamation value consumed by this operation.
 function integratedActorBroadcast(actorNumber, message, exclamation)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2457,13 +2715,17 @@ function integratedActorBroadcast(actorNumber, message, exclamation)
   return sent
 end function
 
-// Return the integrated actor chat value.
+/// Return the integrated actor chat value.
+/// @param actor actor value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function integratedActorChat(actor, message)
   if actor is void then return false end if
   return integratedActorBroadcast(actor.edict.state.number, message, true)
 end function
 
-// Return the integrated actor message value.
+/// Return the integrated actor message value.
+/// @param actorEntity actorEntity value consumed by this operation.
+/// @param message Human-readable message associated with the operation.
 function integratedActorMessage(actorEntity, message)
   ibWorldActorHolder = integratedWorldActor(actorEntity.number)
   if ibWorldActorHolder is void then return false end if
@@ -2472,7 +2734,8 @@ function integratedActorMessage(actorEntity, message)
   return integratedActorBroadcast(actorEntity.number, message, false)
 end function
 
-// Return the integrated world ai target value.
+/// Return the integrated world ai target value.
+/// @param entity entity value consumed by this operation.
 function integratedWorldAITarget(entity)
   if entity is void then return void end if
   ibWorldTargetHolder = ibaitypes.createActor(entity.number, entity.className)
@@ -2485,7 +2748,14 @@ function integratedWorldAITarget(entity)
   return ibWorldTargetHolder
 end function
 
-// Return the integrated actor transition value.
+/// Return the integrated actor transition value.
+/// @param actorEntity actorEntity value consumed by this operation.
+/// @param waypoint waypoint value consumed by this operation.
+/// @param action action value consumed by this operation.
+/// @param actionTarget actionTarget value consumed by this operation.
+/// @param nextTarget nextTarget value consumed by this operation.
+/// @param wait wait value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
 function integratedActorTransition(actorEntity, waypoint, action, actionTarget, nextTarget, wait, flags)
   ibWorldActorHolder = integratedWorldActor(actorEntity.number)
   if ibWorldActorHolder is void then return false end if
@@ -2557,7 +2827,12 @@ function integratedActorTransition(actorEntity, waypoint, action, actionTarget, 
   return true
 end function
 
-// Return the integrated combat point transition value.
+/// Return the integrated combat point transition value.
+/// @param actorEntity actorEntity value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param nextTarget nextTarget value consumed by this operation.
+/// @param hold hold value consumed by this operation.
+/// @param clearCombatPoint clearCombatPoint value consumed by this operation.
 function integratedCombatPointTransition(actorEntity, point, nextTarget, hold, clearCombatPoint)
   ibCombatActorHolder = integratedWorldActor(actorEntity.number)
   if ibCombatActorHolder is void then return false end if
@@ -2569,14 +2844,16 @@ function integratedCombatPointTransition(actorEntity, point, nextTarget, hold, c
   return true
 end function
 
-// Return the integrated clock seconds value.
+/// Return the integrated clock seconds value.
 function integratedClockSeconds()
   global activeIntegrationRuntime
   if activeIntegrationRuntime is void or activeIntegrationRuntime.playerContext is void then return 0 end if
   return activeIntegrationRuntime.playerContext.time
 end function
 
-// Set integrated world model.
+/// Set integrated world model.
+/// @param entity entity value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
 function integratedWorldSetModel(entity, modelName)
   global activeIntegrationRuntime
   ibWorldModelRuntimeHolder = activeIntegrationRuntime
@@ -2590,7 +2867,9 @@ function integratedWorldSetModel(entity, modelName)
   return true
 end function
 
-// Return the integrated light style value.
+/// Return the integrated light style value.
+/// @param style style value consumed by this operation.
+/// @param pattern pattern value consumed by this operation.
 function integratedLightStyle(style, pattern)
   global activeIntegrationRuntime
   ibLightRuntimeHolder = activeIntegrationRuntime
@@ -2599,7 +2878,8 @@ function integratedLightStyle(style, pattern)
   return ibLightRuntimeHolder.playerContext.imports.configString(ibqconstants.CS_LIGHTS + style, pattern)
 end function
 
-// Return the integrated weapon effect value.
+/// Return the integrated weapon effect value.
+/// @param effect effect value consumed by this operation.
 function integratedWeaponEffect(effect)
   // Keep integrated weapon effect phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -2662,7 +2942,11 @@ function integratedWeaponEffect(effect)
     ibWeaponEffectDestination)
 end function
 
-// Return the integrated damage effect value.
+/// Return the integrated damage effect value.
+/// @param point point value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param blood blood value consumed by this operation.
+/// @param bullet bullet value consumed by this operation.
 function integratedDamageEffect(point, direction, blood, bullet)
   global activeIntegrationRuntime
   ibDamageEffectRuntimeHolder = activeIntegrationRuntime
@@ -2678,7 +2962,9 @@ function integratedDamageEffect(point, direction, blood, bullet)
   return ibDamageEffectImportsHolder.multicast(point, ibgconstants.MULTICAST_PVS)
 end function
 
-// Return the integrated weapon sound value.
+/// Return the integrated weapon sound value.
+/// @param entity entity value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
 function integratedWeaponSound(entity, soundName)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -2696,7 +2982,8 @@ function integratedWeaponSound(entity, soundName)
     imports.soundIndex(soundName), 1.0, ibgconstants.ATTN_NORM, 0.0)
 end function
 
-// Link integrated weapon.
+/// Link integrated weapon.
+/// @param entity entity value consumed by this operation.
 function integratedWeaponLink(entity)
   // Keep integrated weapon link phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime, integratedProjectileLinkTotal
@@ -2743,7 +3030,8 @@ function integratedWeaponLink(entity)
   return ibProjectileEngineNumber
 end function
 
-// Release integrated weapon.
+/// Release integrated weapon.
+/// @param entity entity value consumed by this operation.
 function integratedWeaponFree(entity)
   global activeIntegrationRuntime, integratedProjectileFreeTotal
   integratedProjectileFreeTotal = integratedProjectileFreeTotal + 1
@@ -2754,7 +3042,8 @@ function integratedWeaponFree(entity)
   return releaseEdict(ibProjectileFreeRuntimeHolder, entity.engineNumber)
 end function
 
-// Resolve either a WeaponTarget or GameplayPlayer to its engine edict number.
+/// Resolve either a WeaponTarget or GameplayPlayer to its engine edict number.
+/// @param owner owner value consumed by this operation.
 function integratedPlayerNoiseOwnerNumber(owner)
   if owner is void or typeof(owner) != "struct" then return -1 end if
   directNumber = try(owner.number)
@@ -2772,7 +3061,10 @@ function integratedPlayerNoiseOwnerNumber(owner)
   return stateNumber
 end function
 
-// Return the integrated player noise value.
+/// Return the integrated player noise value.
+/// @param owner owner value consumed by this operation.
+/// @param position position value consumed by this operation.
+/// @param noiseType noiseType value consumed by this operation.
 function integratedPlayerNoise(owner, position, noiseType)
   // Keep integrated player noise phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -2831,7 +3123,11 @@ function integratedPlayerNoise(owner, position, noiseType)
   return true
 end function
 
-// Return the integrated dodge value.
+/// Return the integrated dodge value.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param speed speed value consumed by this operation.
 function integratedDodge(owner, start, direction, speed)
   global activeIntegrationRuntime
   ibDodgeRuntimeHolder = activeIntegrationRuntime
@@ -2878,7 +3174,7 @@ function integratedDodge(owner, start, direction, speed)
   return ibmonster.StartReaction(ibDodgeActorHolder, ibDodgePlanHolder, ibDodgeRuntimeHolder.aiContext)
 end function
 
-// Return the integrated random signed value.
+/// Return the integrated random signed value.
 function integratedRandomSigned()
   global activeIntegrationRuntime
   ibRandomRuntimeHolder = activeIntegrationRuntime
@@ -2886,7 +3182,7 @@ function integratedRandomSigned()
   return ibrandom.signed(ibRandomRuntimeHolder.randomState)
 end function
 
-// Return the integrated random unit value.
+/// Return the integrated random unit value.
 function integratedRandomUnit()
   global activeIntegrationRuntime
   ibRandomUnitRuntimeHolder = activeIntegrationRuntime
@@ -2894,7 +3190,7 @@ function integratedRandomUnit()
   return ibrandom.unit(ibRandomUnitRuntimeHolder.randomState)
 end function
 
-// Return the integrated random integer value.
+/// Return the integrated random integer value.
 function integratedRandomInteger()
   global activeIntegrationRuntime
   ibRandomIntegerRuntimeHolder = activeIntegrationRuntime
@@ -2902,7 +3198,8 @@ function integratedRandomInteger()
   return ibrandom.nextInteger(ibRandomIntegerRuntimeHolder.randomState)
 end function
 
-// Return the integrated random index.
+/// Return the integrated random index.
+/// @param count Number of items or units to process.
 function integratedRandomIndex(count)
   if count <= 1 then return 0 end if
   index = ibmath.floor(integratedRandomUnit() * count)
@@ -2910,7 +3207,8 @@ function integratedRandomIndex(count)
   return index
 end function
 
-// Refresh ai random.
+/// Refresh ai random.
+/// @param runtime runtime value consumed by this operation.
 function refreshAiRandom(runtime)
   // Stock game AI shares the Win32 CRT rand() stream with weapons. Refresh
   // decision inputs only for an actual monster think, so idle server frames do
@@ -2922,7 +3220,9 @@ function refreshAiRandom(runtime)
   return true
 end function
 
-// Return the integrated turret acquire value.
+/// Return the integrated turret acquire value.
+/// @param driver driver value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretAcquire(driver, world)
   global activeIntegrationRuntime
   ibTurretRuntimeHolder = activeIntegrationRuntime
@@ -2939,7 +3239,10 @@ function integratedTurretAcquire(driver, world)
   return void
 end function
 
-// Report whether integrated turret visible.
+/// Report whether integrated turret visible.
+/// @param driver driver value consumed by this operation.
+/// @param enemy enemy value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretVisible(driver, enemy, world)
   global activeIntegrationRuntime
   ibTurretRuntimeHolder = activeIntegrationRuntime
@@ -2958,12 +3261,12 @@ function integratedTurretVisible(driver, enemy, world)
   return ibTurretTraceHolder.entity is not void and ibTurretTraceHolder.entity.state.number == enemy.number
 end function
 
-// Return the integrated turret random unit value.
+/// Return the integrated turret random unit value.
 function integratedTurretRandomUnit()
   return integratedRandomUnit()
 end function
 
-// Return the integrated turret skill value.
+/// Return the integrated turret skill value.
 function integratedTurretSkillValue()
   global activeIntegrationRuntime
   ibTurretSkillRuntimeHolder = activeIntegrationRuntime
@@ -2971,7 +3274,14 @@ function integratedTurretSkillValue()
   return ibTurretSkillRuntimeHolder.aiContext.skill
 end function
 
-// Fire integrated turret.
+/// Fire integrated turret.
+/// @param attacker attacker value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param splashRadius splashRadius value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretFire(attacker, start, direction, damage, speed, splashRadius, world)
   global activeIntegrationRuntime
   ibTurretRuntimeHolder = activeIntegrationRuntime
@@ -2983,7 +3293,11 @@ function integratedTurretFire(attacker, start, direction, damage, speed, splashR
   return true
 end function
 
-// Return the integrated turret positioned sound value.
+/// Return the integrated turret positioned sound value.
+/// @param origin origin value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretPositionedSound(origin, entity, soundName, world)
   global activeIntegrationRuntime
   ibTurretSoundRuntimeHolder = activeIntegrationRuntime
@@ -2997,7 +3311,14 @@ function integratedTurretPositionedSound(origin, entity, soundName, world)
     1.0, ibgconstants.ATTN_NORM, 0.0)
 end function
 
-// Return the integrated turret crush damage value.
+/// Return the integrated turret crush damage value.
+/// @param targetEntity targetEntity value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param amount amount value consumed by this operation.
+/// @param knockback knockback value consumed by this operation.
+/// @param means means value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretCrushDamage(targetEntity, inflictor, attacker, amount,
     knockback, means, world)
   global activeIntegrationRuntime
@@ -3023,17 +3344,29 @@ function integratedTurretCrushDamage(targetEntity, inflictor, attacker, amount,
     integratedWorldMeans(means))
 end function
 
-// Spawn integrated turret driver.
+/// Spawn integrated turret driver.
+/// @param driver driver value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretDriverSpawn(driver, world)
   return true
 end function
 
-// Use integrated turret driver.
+/// Use integrated turret driver.
+/// @param driver driver value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretDriverUse(driver, other, activator, world)
   return true
 end function
 
-// Handle integrated turret driver.
+/// Handle integrated turret driver.
+/// @param driver driver value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param world world value consumed by this operation.
 function integratedTurretDriverDie(driver, inflictor, attacker, damage, point, world)
   global activeIntegrationRuntime
   ibTurretDeathRuntimeHolder = activeIntegrationRuntime
@@ -3068,7 +3401,7 @@ function integratedTurretDriverDie(driver, inflictor, attacker, damage, point, w
   return true
 end function
 
-// Return the integrated turret control value.
+/// Return the integrated turret control value.
 function integratedTurretControl()
   ibTurretCallbacksHolder = ibturrettypes.defaultTurretCallbacks()
   ibTurretCallbacksHolder.acquireTarget = integratedTurretAcquire
@@ -3084,7 +3417,8 @@ function integratedTurretControl()
   return ibturrettypes.createTurretControl(ibTurretCallbacksHolder, 1.0)
 end function
 
-// Install turret rigs.
+/// Install turret rigs.
+/// @param runtime runtime value consumed by this operation.
 function installTurretRigs(runtime)
   ibTurretRigCount = 0
   for each ibTurretBreachHolder in runtime.world.entities
@@ -3114,7 +3448,7 @@ function installTurretRigs(runtime)
   return ibTurretRigCount
 end function
 
-// Return the integrated weapon callbacks value.
+/// Return the integrated weapon callbacks value.
 function integratedWeaponCallbacks()
   return ibwptypes.WeaponCallbacks(
     integratedWeaponTrace, integratedWeaponContents, integratedWeaponDamage,
@@ -3124,7 +3458,9 @@ function integratedWeaponCallbacks()
   )
 end function
 
-// Install world spawn.
+/// Install world spawn.
+/// @param entity entity value consumed by this operation.
+/// @param world world value consumed by this operation.
 function installWorldSpawn(entity, world)
   // Keep install world spawn phases explicit: validate inputs, update owned state, then publish the result.
   name = entity.className
@@ -3201,7 +3537,8 @@ function installWorldSpawn(entity, world)
   return entity
 end function
 
-// Prepare monster runtime state.
+/// Prepare monster runtime state.
+/// @param actor actor value consumed by this operation.
 function prepareMonsterRuntimeState(actor)
   if actor.pursuitGoal is void then
     pursuitGoal = ibaitypes.createActor(-2000 - actor.edict.state.number,
@@ -3218,8 +3555,9 @@ function prepareMonsterRuntimeState(actor)
   return actor
 end function
 
-// Construct every world, item and monster record before callbacks can observe
-// the runtime. Parsed edict numbers remain authoritative across proxy tables.
+/// Construct every world, item and monster record before callbacks can observe
+/// the runtime. Parsed edict numbers remain authoritative across proxy tables.
+/// @param spawnResult spawnResult value consumed by this operation.
 function create(spawnResult)
   global activeIntegrationRuntime, integratedProjectileLinkTotal, integratedProjectileFreeTotal
   integratedProjectileLinkTotal = 0
@@ -3365,7 +3703,9 @@ function create(spawnResult)
   return runtime
 end function
 
-// Report whether contains item index.
+/// Report whether contains item index.
+/// @param indexes indexes value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function containsItemIndex(indexes, value)
   for each index in indexes
     if index == value then return true end if
@@ -3373,16 +3713,19 @@ function containsItemIndex(indexes, value)
   return false
 end function
 
-// Return the monster secondary model name.
+/// Return the monster secondary model name.
+/// @param actor actor value consumed by this operation.
 function monsterSecondaryModelName(actor)
   // The rider is entity model 1 and the Jorg chassis is model 2 in m_boss31.c.
   if actor.className == "monster_jorg" then return "models/monsters/boss3/jorg/tris.md2" end if
   return ""
 end function
 
-// Keep map startup bounded to the definitions that can actually participate in
-// this level. The default Blaster/player model are the only unconditional
-// player assets; duplicate item and monster instances reuse engine indices.
+/// Keep map startup bounded to the definitions that can actually participate in
+/// this level. The default Blaster/player model are the only unconditional
+/// player assets; duplicate item and monster instances reuse engine indices.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function precacheSpawned(runtime, playerContext)
   runtime.playerContext = playerContext
   imports = playerContext.imports
@@ -3540,9 +3883,13 @@ function precacheSpawned(runtime, playerContext)
   return [len(itemIndexes), len(monsterModels), len(worldModels)]
 end function
 
-// Bind managed world components to their engine edicts through setmodel so
-// inline brush hull bounds/headnodes become authoritative for movement and
-// traces. This must run after configureIntegratedRuntime installed linkEntity.
+/// Bind managed world components to their engine edicts through setmodel so
+/// inline brush hull bounds/headnodes become authoritative for movement and
+/// traces. This must run after configureIntegratedRuntime installed linkEntity.
+/// @param runtime runtime value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param imports imports value consumed by this operation.
+/// @param refreshGeometry refreshGeometry value consumed by this operation.
 function bindEngineModelsWithMode(runtime, exportTable, imports, refreshGeometry)
   runtime.exportTable = exportTable
   bound = 0
@@ -3564,19 +3911,27 @@ function bindEngineModelsWithMode(runtime, exportTable, imports, refreshGeometry
   return bound
 end function
 
-// Bind engine models.
+/// Bind engine models.
+/// @param runtime runtime value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param imports imports value consumed by this operation.
 function bindEngineModels(runtime, exportTable, imports)
   return bindEngineModelsWithMode(runtime, exportTable, imports, true)
 end function
 
-// Bind restored engine models.
+/// Bind restored engine models.
+/// @param runtime runtime value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param imports imports value consumed by this operation.
 function bindRestoredEngineModels(runtime, exportTable, imports)
   return bindEngineModelsWithMode(runtime, exportTable, imports, false)
 end function
 
-// m_move/g_monster startup is delayed until the GameImport collision bridge
-// has the retail BSP and inline models linked. Restores re-establish transient
-// ground/water references without altering the persisted transform.
+/// m_move/g_monster startup is delayed until the GameImport collision bridge
+/// has the retail BSP and inline models linked. Restores re-establish transient
+/// ground/water references without altering the persisted transform.
+/// @param runtime runtime value consumed by this operation.
+/// @param restoring restoring value consumed by this operation.
 function initializeMonsterMovement(runtime, restoring)
   initializedCount = 0
   for each actor in runtime.monsters
@@ -3602,7 +3957,9 @@ function initializeMonsterMovement(runtime, restoring)
   return initializedCount
 end function
 
-// Find world by number.
+/// Find world by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findWorldByNumber(runtime, number)
   for each entity in runtime.world.entities
     if entity.inUse and entity.number == number and
@@ -3613,7 +3970,9 @@ function findWorldByNumber(runtime, number)
   return void
 end function
 
-// Find world by class.
+/// Find world by class.
+/// @param runtime runtime value consumed by this operation.
+/// @param className className value consumed by this operation.
 function findWorldByClass(runtime, className)
   for each entity in runtime.world.entities
     if entity.inUse and entity.className == className then return entity end if
@@ -3621,7 +3980,9 @@ function findWorldByClass(runtime, className)
   return void
 end function
 
-// Find item by number.
+/// Find item by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findItemByNumber(runtime, number)
   for each item in runtime.items
     if item.edict.inUse and item.edict.state.number == number then return item end if
@@ -3629,7 +3990,9 @@ function findItemByNumber(runtime, number)
   return void
 end function
 
-// Find item by class.
+/// Find item by class.
+/// @param runtime runtime value consumed by this operation.
+/// @param className className value consumed by this operation.
 function findItemByClass(runtime, className)
   for each item in runtime.items
     if item.item.className == className then return item end if
@@ -3637,7 +4000,11 @@ function findItemByClass(runtime, className)
   return void
 end function
 
-// Use triggered item.
+/// Use triggered item.
+/// @param entity entity value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param activator activator value consumed by this operation.
+/// @param world world value consumed by this operation.
 function useTriggeredItem(entity, other, activator, world)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -3657,7 +4024,8 @@ function useTriggeredItem(entity, other, activator, world)
   return true
 end function
 
-// Return the player world proxy value.
+/// Return the player world proxy value.
+/// @param player player value consumed by this operation.
 function playerWorldProxy(player)
   proxy = ibwtypes.createEntity(player.edict.state.number, "player")
   proxy.inUse = player.edict.inUse
@@ -3678,7 +4046,10 @@ function playerWorldProxy(player)
   return proxy
 end function
 
-// Handle world.
+/// Handle world.
+/// @param runtime runtime value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param player player value consumed by this operation.
 function touchWorld(runtime, entity, player)
   if entity is void then return false end if
   proxy = playerWorldProxy(player)
@@ -3693,17 +4064,27 @@ function touchWorld(runtime, entity, player)
   return touched
 end function
 
-// Handle world by number.
+/// Handle world by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param player player value consumed by this operation.
 function touchWorldByNumber(runtime, number, player)
   return touchWorld(runtime, findWorldByNumber(runtime, number), player)
 end function
 
-// Handle world by class.
+/// Handle world by class.
+/// @param runtime runtime value consumed by this operation.
+/// @param className className value consumed by this operation.
+/// @param player player value consumed by this operation.
 function touchWorldByClass(runtime, className, player)
   return touchWorld(runtime, findWorldByClass(runtime, className), player)
 end function
 
-// Handle item.
+/// Handle item.
+/// @param runtime runtime value consumed by this operation.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function touchItem(runtime, itemEntity, player, playerContext)
   // Keep touch item phases explicit: validate inputs, update owned state, then publish the result.
   if itemEntity is void or itemEntity.edict.inUse != true or itemEntity.hidden or
@@ -3755,12 +4136,18 @@ function touchItem(runtime, itemEntity, player, playerContext)
   return action
 end function
 
-// Handle item by number.
+/// Handle item by number.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function touchItemByNumber(runtime, number, player, playerContext)
   return touchItem(runtime, findItemByNumber(runtime, number), player, playerContext)
 end function
 
-// Return the bounds overlap value.
+/// Return the bounds overlap value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function boundsOverlap(first, second)
   firstMinX = first.state.origin.x + first.mins.x; firstMaxX = first.state.origin.x + first.maxs.x
   firstMinY = first.state.origin.y + first.mins.y; firstMaxY = first.state.origin.y + first.maxs.y
@@ -3771,7 +4158,10 @@ function boundsOverlap(first, second)
   return firstMaxX >= secondMinX and firstMinX <= secondMaxX and firstMaxY >= secondMinY and firstMinY <= secondMaxY and firstMaxZ >= secondMinZ and firstMinZ <= secondMaxZ
 end function
 
-// Handle nearby items.
+/// Handle nearby items.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function touchNearbyItems(runtime, player, playerContext)
   touched = 0
   for each item in runtime.items
@@ -3785,7 +4175,11 @@ function touchNearbyItems(runtime, player, playerContext)
   return touched
 end function
 
-// Handle edict.
+/// Handle edict.
+/// @param runtime runtime value consumed by this operation.
+/// @param edict edict value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function touchEdict(runtime, edict, player, playerContext)
   if edict is void then return false end if
   item = findItemByNumber(runtime, edict.state.number)
@@ -3796,7 +4190,9 @@ function touchEdict(runtime, edict, player, playerContext)
   return touchWorldByNumber(runtime, edict.state.number, player)
 end function
 
-// Find ai player.
+/// Find ai player.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findAIPlayer(runtime, number)
   for each actor in runtime.aiPlayers
     if actor.edict.state.number == number then return actor end if
@@ -3804,7 +4200,9 @@ function findAIPlayer(runtime, number)
   return void
 end function
 
-// Synchronize players.
+/// Synchronize players.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function syncPlayers(runtime, playerContext)
   runtime.playerContext = playerContext
   playerContext.helpChanged = runtime.world.helpChanged
@@ -3831,9 +4229,11 @@ function syncPlayers(runtime, playerContext)
   return len(runtime.aiPlayers)
 end function
 
-// Rotate the one client considered by FindTarget this frame exactly like
-// g_ai.c:AI_SetSightClient. Client slots, not the managed array order, define
-// the sequence and FL_NOTARGET clients do not consume another player's turn.
+/// Rotate the one client considered by FindTarget this frame exactly like
+/// g_ai.c:AI_SetSightClient. Client slots, not the managed array order, define
+/// the sequence and FL_NOTARGET clients do not consume another player's turn.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function selectSightClient(runtime, playerContext)
   start = 1
   if runtime.aiContext.sightClient is not void then
@@ -3860,7 +4260,9 @@ function selectSightClient(runtime, playerContext)
   return void
 end function
 
-// Update player trail.
+/// Update player trail.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function updatePlayerTrail(runtime, playerContext)
   if runtime.playerTrail.active != true then return 0 end if
   lastSpot = ibaitrail.LastSpot(runtime.playerTrail)
@@ -3879,7 +4281,9 @@ function updatePlayerTrail(runtime, playerContext)
   return added
 end function
 
-// Return the player for gameplay value.
+/// Return the player for gameplay value.
+/// @param runtime runtime value consumed by this operation.
+/// @param gameplayPlayer gameplayPlayer value consumed by this operation.
 function playerForGameplay(runtime, gameplayPlayer)
   if runtime.playerContext is void then return void end if
   for each player in runtime.playerContext.players
@@ -3888,14 +4292,21 @@ function playerForGameplay(runtime, gameplayPlayer)
   return void
 end function
 
-// Set player gameplay gun frame.
+/// Set player gameplay gun frame.
+/// @param gameplayPlayer gameplayPlayer value consumed by this operation.
+/// @param frame frame value consumed by this operation.
 function setPlayerGameplayGunFrame(gameplayPlayer, frame)
   gameplayPlayer.gunFrame = frame
   gameplayPlayer.edict.client.playerState.gunFrame = frame
   return frame
 end function
 
-// Return the player muzzle for angles.
+/// Return the player muzzle for angles.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param gunFrame gunFrame value consumed by this operation.
+/// @param shotIndex Zero-based index of shot.
+/// @param angles angles value consumed by this operation.
 function playerMuzzleForAngles(player, item, gunFrame, shotIndex, angles)
   ibPlayerMuzzleAnglesHolder = angles
   ibPlayerMuzzleBasisHolder = ibwpvector.angleVectors(ibPlayerMuzzleAnglesHolder)
@@ -3926,13 +4337,18 @@ function playerMuzzleForAngles(player, item, gunFrame, shotIndex, angles)
   return [ibPlayerMuzzleStartHolder, ibPlayerMuzzleForwardHolder, ibPlayerMuzzleRightHolder]
 end function
 
-// Return the player muzzle value.
+/// Return the player muzzle value.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param gunFrame gunFrame value consumed by this operation.
+/// @param shotIndex Zero-based index of shot.
 function playerMuzzle(player, item, gunFrame, shotIndex)
   ibPlayerMuzzleViewAnglesHolder = player.edict.client.playerState.viewAngles
   return playerMuzzleForAngles(player, item, gunFrame, shotIndex, ibPlayerMuzzleViewAnglesHolder)
 end function
 
-// Return the player chaingun muzzle value.
+/// Return the player chaingun muzzle value.
+/// @param player player value consumed by this operation.
 function playerChaingunMuzzle(player)
   ibChainMuzzleAnglesHolder = player.edict.client.playerState.viewAngles
   ibChainMuzzleBasisHolder = ibwpvector.angleVectors(ibChainMuzzleAnglesHolder)
@@ -3950,7 +4366,8 @@ function playerChaingunMuzzle(player)
   return [ibChainMuzzleStartHolder, ibChainMuzzleForwardHolder]
 end function
 
-// Begin player attack animation.
+/// Begin player attack animation.
+/// @param player player value consumed by this operation.
 function beginPlayerAttackAnimation(player)
   player.view.animPriority = ibplayerconstants.ANIM_ATTACK
   if (player.edict.client.playerState.pmove.flags & ibgconstants.PMF_DUCKED) != 0 then
@@ -3963,7 +4380,11 @@ function beginPlayerAttackAnimation(player)
   return true
 end function
 
-// Apply player weapon recoil.
+/// Apply player weapon recoil.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param direction direction value consumed by this operation.
 function applyPlayerWeaponRecoil(runtime, player, item, direction)
   ibPlayerRecoilOrigin = 0.0
   ibPlayerRecoilPitch = 0.0
@@ -4020,14 +4441,21 @@ function applyPlayerWeaponRecoil(runtime, player, item, direction)
   return true
 end function
 
-// Emit player weapon sound.
+/// Emit player weapon sound.
+/// @param runtime runtime value consumed by this operation.
+/// @param player player value consumed by this operation.
+/// @param channel channel value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param attenuation attenuation value consumed by this operation.
 function emitPlayerWeaponSound(runtime, player, channel, name, attenuation)
   ibPlayerWeaponSoundImportsHolder = runtime.playerContext.imports
   return ibPlayerWeaponSoundImportsHolder.sound(player.edict, channel,
     ibPlayerWeaponSoundImportsHolder.soundIndex(name), 1.0, attenuation, 0.0)
 end function
 
-// Return the player muzzle flash for item value.
+/// Return the player muzzle flash for item value.
+/// @param item item value consumed by this operation.
+/// @param shots shots value consumed by this operation.
 function playerMuzzleFlashForItem(item, shots)
   if item.className == "weapon_blaster" then return ibwpconstants.MZ_BLASTER end if
   if item.className == "weapon_shotgun" then return ibwpconstants.MZ_SHOTGUN end if
@@ -4042,7 +4470,12 @@ function playerMuzzleFlashForItem(item, shots)
   return error(9693, "unsupported player muzzleflash weapon " + item.className)
 end function
 
-// Return the integrated player muzzle flash value.
+/// Return the integrated player muzzle flash value.
+/// @param runtime runtime value consumed by this operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param shots shots value consumed by this operation.
+/// @param silenced silenced value consumed by this operation.
 function integratedPlayerMuzzleFlash(runtime, shooter, item, shots, silenced)
   if runtime.playerContext is void then return false end if
   encoded = playerMuzzleFlashForItem(item, shots)
@@ -4054,7 +4487,10 @@ function integratedPlayerMuzzleFlash(runtime, shooter, item, shots, silenced)
   return imports.multicast(shooter.origin, ibgconstants.MULTICAST_PVS)
 end function
 
-// Return the player weapon shot count.
+/// Return the player weapon shot count.
+/// @param gameplayPlayer gameplayPlayer value consumed by this operation.
+/// @param item item value consumed by this operation.
+/// @param effectiveFrame effectiveFrame value consumed by this operation.
 function playerWeaponShotCount(gameplayPlayer, item, effectiveFrame)
   if item.className != "weapon_chaingun" then return 1 end if
   shots = 1
@@ -4068,9 +4504,11 @@ function playerWeaponShotCount(gameplayPlayer, item, effectiveFrame)
   return shots
 end function
 
-// Bridge the stock p_weapon state machine to authoritative edicts, protocol
-// effects and damage while preserving the component-only fallback used by
-// isolated gameplay tests.
+/// Bridge the stock p_weapon state machine to authoritative edicts, protocol
+/// effects and damage while preserving the component-only fallback used by
+/// isolated gameplay tests.
+/// @param gameplayPlayer gameplayPlayer value consumed by this operation.
+/// @param registry registry value consumed by this operation.
 function integratedPlayerFire(gameplayPlayer, registry)
   // Keep integrated player fire phases explicit: validate inputs, update owned state, then publish the result.
   global activeIntegrationRuntime
@@ -4269,7 +4707,11 @@ function integratedPlayerFire(gameplayPlayer, registry)
   return true
 end function
 
-// Run player hand grenade.
+/// Run player hand grenade.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param runtime runtime value consumed by this operation.
+/// @param item item value consumed by this operation.
 function thinkPlayerHandGrenade(player, playerContext, runtime, item)
   // Keep think player hand grenade phases explicit: validate inputs, update owned state, then publish the result.
   ibHandGameplayHolder = player.gameplay
@@ -4329,7 +4771,9 @@ function thinkPlayerHandGrenade(player, playerContext, runtime, item)
   return true
 end function
 
-// Run player weapon.
+/// Run player weapon.
+/// @param player player value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function thinkPlayerWeapon(player, playerContext)
   global activeIntegrationRuntime
   runtime = activeIntegrationRuntime
@@ -4360,12 +4804,15 @@ function thinkPlayerWeapon(player, playerContext)
   return result
 end function
 
-// Report whether monster attack supported.
+/// Report whether monster attack supported.
+/// @param actor actor value consumed by this operation.
 function monsterAttackSupported(actor)
   return ibaicombat.stockProfile(actor.className) is not void
 end function
 
-// Start monster projected.
+/// Start monster projected.
+/// @param actor actor value consumed by this operation.
+/// @param offset Zero-based offset at which processing starts.
 function monsterProjectedStart(actor, offset)
   basis = ibwpvector.angleVectors(actor.edict.state.angles)
   origin = actor.edict.state.origin
@@ -4376,7 +4823,9 @@ function monsterProjectedStart(actor, offset)
   )
 end function
 
-// Start monster muzzle.
+/// Start monster muzzle.
+/// @param actor actor value consumed by this operation.
+/// @param muzzleFlash muzzleFlash value consumed by this operation.
 function monsterMuzzleStart(actor, muzzleFlash)
   if muzzleFlash <= 0 then
     fallback = weaponVector(actor.edict.state.origin)
@@ -4387,14 +4836,22 @@ function monsterMuzzleStart(actor, muzzleFlash)
   return monsterProjectedStart(actor, offset)
 end function
 
-// Return the monster enemy aim point value.
+/// Return the monster enemy aim point value.
+/// @param actor actor value consumed by this operation.
+/// @param enemy enemy value consumed by this operation.
 function monsterEnemyAimPoint(actor, enemy)
   height = actor.enemy.viewHeight
   destination = ibqtypes.Vec3(enemy.origin.x, enemy.origin.y, enemy.origin.z + height)
   return destination
 end function
 
-// Run monster direction.
+/// Run monster direction.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
+/// @param start start value consumed by this operation.
+/// @param destination destination value consumed by this operation.
+/// @param velocity velocity value consumed by this operation.
 function monsterAttackDirection(actor, attackPlan, eventIndex, start, destination, velocity)
   if attackPlan.name == "gunner-grenade" then
     // Preserve the documented 3.19 source quirk: all four grenades launch
@@ -4434,7 +4891,10 @@ function monsterAttackDirection(actor, attackPlan, eventIndex, start, destinatio
   return ibwpvector.normalized(aim)[0]
 end function
 
-// Run monster soldier direction.
+/// Run monster soldier direction.
+/// @param randomState randomState value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param destination destination value consumed by this operation.
 function monsterSoldierAttackDirection(randomState, start, destination)
   aim = ibwpvector.subtract(destination, start)
   basis = ibwpvector.angleVectors(ibwpvector.vectorToAngles(aim))
@@ -4447,7 +4907,12 @@ function monsterSoldierAttackDirection(randomState, start, destination)
   return ibwpvector.normalized(spread)[0]
 end function
 
-// Return the monster muzzle and direction value.
+/// Return the monster muzzle and direction value.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
+/// @param muzzleFlash muzzleFlash value consumed by this operation.
 function monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   sourceFlash = ibattackseq.eventSourceFlash(attackPlan, eventIndex)
   start = monsterMuzzleStart(actor, sourceFlash)
@@ -4493,7 +4958,9 @@ function monsterMuzzleAndDirection(runtime, actor, attackPlan, eventIndex, muzzl
   return [start, direction]
 end function
 
-// Drain parasite point ok.
+/// Drain parasite point ok.
+/// @param start start value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
 function parasiteDrainPointOk(start, endPosition)
   delta = ibwpvector.subtract(start, endPosition)
   distanceSquared = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z
@@ -4503,7 +4970,11 @@ function parasiteDrainPointOk(start, endPosition)
   return ibmath.abs(pitch) <= 30.0
 end function
 
-// Report whether parasite drain can damage.
+/// Report whether parasite drain can damage.
+/// @param runtime runtime value consumed by this operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param enemyTarget enemyTarget value consumed by this operation.
+/// @param start start value consumed by this operation.
 function parasiteDrainCanDamage(runtime, shooter, enemyTarget, start)
   endPosition = ibqtypes.Vec3(enemyTarget.origin.x, enemyTarget.origin.y, enemyTarget.origin.z)
   if parasiteDrainPointOk(start, endPosition) != true then
@@ -4522,7 +4993,10 @@ function parasiteDrainCanDamage(runtime, shooter, enemyTarget, start)
   return trace.entity is not void and trace.entity.number == enemyTarget.number
 end function
 
-// Return the monster melee aim value.
+/// Return the monster melee aim value.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
 function monsterMeleeAim(actor, attackPlan, eventIndex)
   side = 0.0
   height = 0.0
@@ -4548,7 +5022,10 @@ function monsterMeleeAim(actor, attackPlan, eventIndex)
   return ibqtypes.Vec3(80.0, side, height)
 end function
 
-// Run monster damage from state.
+/// Run monster damage from state.
+/// @param randomState randomState value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
 function monsterAttackDamageFromState(randomState, attackPlan, eventIndex)
   value = ibattackseq.eventDamage(attackPlan, eventIndex)
   modulus = 0
@@ -4572,12 +5049,17 @@ function monsterAttackDamageFromState(randomState, attackPlan, eventIndex)
   return value
 end function
 
-// Run monster damage.
+/// Run monster damage.
+/// @param runtime runtime value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
 function monsterAttackDamage(runtime, attackPlan, eventIndex)
   return monsterAttackDamageFromState(runtime.randomState, attackPlan, eventIndex)
 end function
 
-// Start mutant jump.
+/// Start mutant jump.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
 function startMutantJump(runtime, actor)
   basis = ibwpvector.angleVectors(actor.edict.state.angles)
   actor.edict.state.origin.z = actor.edict.state.origin.z + 1.0
@@ -4591,7 +5073,12 @@ function startMutantJump(runtime, actor)
   return true
 end function
 
-// Return the damage mutant jump target value.
+/// Return the damage mutant jump target value.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param target target value consumed by this operation.
+/// @param velocity velocity value consumed by this operation.
+/// @param impactPoint impactPoint value consumed by this operation.
 function damageMutantJumpTarget(runtime, actor, target, velocity, impactPoint)
   if target is void or target.combatant is void or target.combatant.takeDamage != true then return false end if
   speed = ibwpvector.length(velocity)
@@ -4604,7 +5091,9 @@ function damageMutantJumpTarget(runtime, actor, target, velocity, impactPoint)
     impactPoint, damage, damage, 0, ibgpconstants.MOD_UNKNOWN)
 end function
 
-// Advance mutant jump physics.
+/// Advance mutant jump physics.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
 function advanceMutantJumpPhysics(runtime, actor)
   if actor.activity != "mutant-jump" or actor.attackAimValid != true then return false end if
   start = ibqtypes.Vec3(actor.edict.state.origin.x, actor.edict.state.origin.y,
@@ -4632,7 +5121,15 @@ function advanceMutantJumpPhysics(runtime, actor)
   return true
 end function
 
-// Fire monster hit.
+/// Fire monster hit.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param enemyTarget enemyTarget value consumed by this operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
 function monsterFireHit(runtime, actor, enemyTarget, shooter, attackPlan, eventIndex,
     damage, kick)
   aim = monsterMeleeAim(actor, attackPlan, eventIndex)
@@ -4691,7 +5188,11 @@ function monsterFireHit(runtime, actor, enemyTarget, shooter, attackPlan, eventI
   return true
 end function
 
-// Return the integrated monster muzzle flash value.
+/// Return the integrated monster muzzle flash value.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param muzzleFlash muzzleFlash value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, origin)
   if muzzleFlash == 0 or runtime.playerContext is void then return false end if
   imports = runtime.playerContext.imports
@@ -4701,7 +5202,11 @@ function integratedMonsterMuzzleFlash(runtime, actor, muzzleFlash, origin)
   return imports.multicast(origin, ibgconstants.MULTICAST_PVS)
 end function
 
-// Drain integrated monster beam.
+/// Drain integrated monster beam.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
 function integratedMonsterDrainBeam(runtime, actor, start, endPosition)
   if runtime.playerContext is void then return false end if
   imports = runtime.playerContext.imports
@@ -4713,7 +5218,10 @@ function integratedMonsterDrainBeam(runtime, actor, start, endPosition)
   return imports.multicast(start, ibgconstants.MULTICAST_PVS)
 end function
 
-// Return the integrated resurrect monster value.
+/// Return the integrated resurrect monster value.
+/// @param runtime runtime value consumed by this operation.
+/// @param medic medic value consumed by this operation.
+/// @param patient patient value consumed by this operation.
 function integratedResurrectMonster(runtime, medic, patient)
   if patient is void or patient.edict.inUse != true then return false end if
   patient.spawnFlags = 0
@@ -4743,7 +5251,10 @@ function integratedResurrectMonster(runtime, medic, patient)
   return true
 end function
 
-// Return the integrated monster medic cable value.
+/// Return the integrated monster medic cable value.
+/// @param runtime runtime value consumed by this operation.
+/// @param medic medic value consumed by this operation.
+/// @param cableOffsetIndex Zero-based index of cable offset.
 function integratedMonsterMedicCable(runtime, medic, cableOffsetIndex)
   // Keep integrated monster medic cable phases explicit: validate inputs, update owned state, then publish the result.
   patient = medic.enemy
@@ -4799,7 +5310,10 @@ function integratedMonsterMedicCable(runtime, medic, cableOffsetIndex)
     medic.edict.state.origin, ibgconstants.MULTICAST_PVS)
 end function
 
-// Return the integrated medic cable event value.
+/// Return the integrated medic cable event value.
+/// @param runtime runtime value consumed by this operation.
+/// @param medic medic value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
 function integratedMedicCableEvent(runtime, medic, eventIndex)
   if eventIndex == 0 then
     return integratedAISound(medic, "medic/medatck2.wav", ibgconstants.CHAN_WEAPON,
@@ -4816,7 +5330,12 @@ function integratedMedicCableEvent(runtime, medic, eventIndex)
   return integratedMonsterMedicCable(runtime, medic, eventIndex)
 end function
 
-// Fire monster attack.
+/// Fire monster attack.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
+/// @param muzzleFlash muzzleFlash value consumed by this operation.
 function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   // Keep fire monster attack phases explicit: validate inputs, update owned state, then publish the result.
   if actor.enemy is void or attackPlan is void then return false end if
@@ -4878,13 +5397,15 @@ function fireMonsterAttack(runtime, actor, attackPlan, eventIndex, muzzleFlash)
   return true
 end function
 
-// Report whether active monster attack plan.
+/// Report whether active monster attack plan.
+/// @param actor actor value consumed by this operation.
 function activeMonsterAttackPlan(actor)
   return ibattackseq.planByNameCycles(actor.className, actor.activity,
     actor.edict.state.number, actor.attackCount, actor.attackCycles)
 end function
 
-// Return the monster refire decision offset.
+/// Return the monster refire decision offset.
+/// @param attackPlan attackPlan value consumed by this operation.
 function monsterRefireDecisionOffset(attackPlan)
   // Keep monster refire decision offset phases explicit: validate inputs, update owned state, then publish the result.
   if attackPlan.name == "soldier-run-shoot" then
@@ -4935,7 +5456,10 @@ function monsterRefireDecisionOffset(attackPlan)
   return -1
 end function
 
-// Report whether monster should refire.
+/// Report whether monster should refire.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
 function monsterShouldRefire(runtime, actor, attackPlan)
   // Keep monster should refire phases explicit: validate inputs, update owned state, then publish the result.
   if actor.enemy is void or actor.enemy.health <= 0 then return false end if
@@ -5007,7 +5531,10 @@ function monsterShouldRefire(runtime, actor, attackPlan)
   return false
 end function
 
-// Run monster timeline offset.
+/// Run monster timeline offset.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param now now value consumed by this operation.
 function monsterAttackTimelineOffset(actor, attackPlan, now)
   targetOffset = attackPlan.durationFrames - 1
   if attackPlan.name == "infantry-machinegun" and actor.info.nextFrame == -2 then
@@ -5030,14 +5557,21 @@ function monsterAttackTimelineOffset(actor, attackPlan, now)
   return timelineOffset
 end function
 
-// Project monster attack frame.
+/// Project monster attack frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
 function projectMonsterAttackFrame(runtime, actor, attackPlan)
   timelineOffset = monsterAttackTimelineOffset(actor, attackPlan, runtime.aiContext.time)
   actor.edict.state.frame = ibattackseq.modelFrameAt(attackPlan, timelineOffset)
   return timelineOffset
 end function
 
-// Apply monster attack movement.
+/// Apply monster attack movement.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function applyMonsterAttackMovement(actor, attackPlan, timelineOffset, context)
   movement = ibattackseq.movementDistanceAt(attackPlan, timelineOffset) * actor.info.scale
   movementAi = ibattackseq.movementAiAt(attackPlan, timelineOffset)
@@ -5050,7 +5584,10 @@ function applyMonsterAttackMovement(actor, attackPlan, timelineOffset, context)
   return true
 end function
 
-// Emit monster attack frame sound.
+/// Emit monster attack frame sound.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param timelineOffset timelineOffset value consumed by this operation.
 function emitMonsterAttackFrameSound(actor, attackPlan, timelineOffset)
   soundName = ibattackseq.frameSoundAt(attackPlan, timelineOffset)
   if soundName == "" then return false end if
@@ -5059,7 +5596,11 @@ function emitMonsterAttackFrameSound(actor, attackPlan, timelineOffset)
     ibattackseq.frameSoundAttenuationAt(attackPlan, timelineOffset))
 end function
 
-// Emit monster attack event sound.
+/// Emit monster attack event sound.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param eventIndex Zero-based index of event.
+/// @param eventFired eventFired value consumed by this operation.
 function emitMonsterAttackEventSound(actor, attackPlan, eventIndex, eventFired)
   soundName = ""
   soundActor = actor
@@ -5095,7 +5636,10 @@ function emitMonsterAttackEventSound(actor, attackPlan, eventIndex, eventFired)
   return integratedAISound(soundActor, soundName, channel, ibgconstants.ATTN_NORM)
 end function
 
-// Set soldier duck attack bounds.
+/// Set soldier duck attack bounds.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param lowered lowered value consumed by this operation.
 function setSoldierDuckAttackBounds(runtime, actor, lowered)
   currentlyLowered = (actor.info.aiFlags & ibaiconstants.AI_DUCKED) != 0
   if lowered == currentlyLowered then return false end if
@@ -5112,7 +5656,11 @@ function setSoldierDuckAttackBounds(runtime, actor, lowered)
   return true
 end function
 
-// Finish monster attack.
+/// Finish monster attack.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
+/// @param lastFrameOffset lastFrameOffset value consumed by this operation.
 function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   remaining = attackPlan.cooldown - lastFrameOffset * ibattackseq.FRAME_TIME
   if remaining < runtime.world.frameTime then remaining = runtime.world.frameTime end if
@@ -5133,9 +5681,12 @@ function finishMonsterAttack(runtime, actor, attackPlan, lastFrameOffset)
   return true
 end function
 
-// Advance exactly one 0.1-second attack-plan frame, including movement, frame
-// callbacks and refire decisions. nextFrame is persisted so save/restore does
-// not replay an already emitted projectile or sound.
+/// Advance exactly one 0.1-second attack-plan frame, including movement, frame
+/// callbacks and refire decisions. nextFrame is persisted so save/restore does
+/// not replay an already emitted projectile or sound.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
 function advanceMonsterAttack(runtime, actor, attackPlan)
   if actor.enemy is void or
       (actor.enemy.health <= 0 and attackPlan.name != "medic-cable" and
@@ -5261,7 +5812,10 @@ function advanceMonsterAttack(runtime, actor, attackPlan)
   return fired
 end function
 
-// Begin monster attack.
+/// Begin monster attack.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
+/// @param attackPlan attackPlan value consumed by this operation.
 function beginMonsterAttack(runtime, actor, attackPlan)
   ibattackseq.validatePlan(attackPlan)
   actor.activity = attackPlan.name
@@ -5306,9 +5860,11 @@ function beginMonsterAttack(runtime, actor, attackPlan)
   return advanceMonsterAttack(runtime, actor, attackPlan)
 end function
 
-// Select or continue the original class-specific combat sequence only after
-// reaction/death moves have had priority. The function returns true when it
-// owns this server frame and the generic AI path must not also advance it.
+/// Select or continue the original class-specific combat sequence only after
+/// reaction/death moves have had priority. The function returns true when it
+/// owns this server frame and the generic AI path must not also advance it.
+/// @param runtime runtime value consumed by this operation.
+/// @param actor actor value consumed by this operation.
 function runMonsterCombat(runtime, actor)
   if actor.health <= 0 or actor.enemy is void or monsterAttackSupported(actor) != true then return false end if
   if ibreactionseq.planByName(actor.className, actor.activity) is not void then return false end if
@@ -5414,7 +5970,9 @@ function runMonsterCombat(runtime, actor)
   return beginMonsterAttack(runtime, actor, attackPlan)
 end function
 
-// Return the integrated world collision proxy value.
+/// Return the integrated world collision proxy value.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function integratedWorldCollisionProxy(runtime, number)
   entity = findWorldByNumber(runtime, number)
   if entity is not void then return entity end if
@@ -5433,9 +5991,11 @@ function integratedWorldCollisionProxy(runtime, number)
   return void
 end function
 
-// Match g_phys.c ClipVelocity and the SV_Physics_Toss landing gate. Bounce
-// entities retain enough reflected vertical speed to leave the ground again;
-// ordinary toss entities settle on the first walkable floor impact.
+/// Match g_phys.c ClipVelocity and the SV_Physics_Toss landing gate. Bounce
+/// entities retain enough reflected vertical speed to leave the ground again;
+/// ordinary toss entities settle on the first walkable floor impact.
+/// @param entity entity value consumed by this operation.
+/// @param normal normal value consumed by this operation.
 function clipWorldTossVelocity(entity, normal)
   overbounce = 1.0
   if entity.moveType == ibworldconstants.MOVETYPE_BOUNCE then overbounce = 1.5 end if
@@ -5452,14 +6012,19 @@ function clipWorldTossVelocity(entity, normal)
     (entity.moveType != ibworldconstants.MOVETYPE_BOUNCE or entity.velocity.z < 60.0)
 end function
 
-// Return the integrated world point contents value.
+/// Return the integrated world point contents value.
+/// @param runtime runtime value consumed by this operation.
+/// @param point point value consumed by this operation.
 function integratedWorldPointContents(runtime, point)
   if runtime is void or runtime.playerContext is void then return 0 end if
   return runtime.playerContext.imports.pointContents(point)
 end function
 
-// SV_Physics_Toss samples only the entity origin. Entry is positioned at the
-// pre-move origin, while exit is positioned at the post-move origin.
+/// SV_Physics_Toss samples only the entity origin. Entry is positioned at the
+/// pre-move origin, while exit is positioned at the post-move origin.
+/// @param runtime runtime value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param oldOrigin oldOrigin value consumed by this operation.
 function updateWorldTossWater(runtime, entity, oldOrigin)
   wasInWater = (entity.waterType & ibqconstants.MASK_WATER) != 0
   entity.waterType = integratedWorldPointContents(runtime, entity.origin)
@@ -5479,9 +6044,11 @@ function updateWorldTossWater(runtime, entity, oldOrigin)
   return true
 end function
 
-// Match SV_PushEntity's post-link G_TouchTriggers pass for toss/bounce world
-// records. baseWorldLink mirrors the server-computed expanded abs bounds back
-// onto the managed entity before this query.
+/// Match SV_PushEntity's post-link G_TouchTriggers pass for toss/bounce world
+/// records. baseWorldLink mirrors the server-computed expanded abs bounds back
+/// onto the managed entity before this query.
+/// @param runtime runtime value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function touchWorldTossTriggers(runtime, entity)
   if runtime is void or runtime.playerContext is void or not entity.inUse then
     return 0
@@ -5503,9 +6070,11 @@ function touchWorldTossTriggers(runtime, entity)
   return touched
 end function
 
-// Adapt a managed projectile to the stock world-trigger callback surface after
-// SV_PushEntity linked its final pose. Trigger mutations are copied back to the
-// authoritative projectile record before the next physics frame.
+/// Adapt a managed projectile to the stock world-trigger callback surface after
+/// SV_PushEntity linked its final pose. Trigger mutations are copied back to the
+/// authoritative projectile record before the next physics frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param projectile projectile value consumed by this operation.
 function touchWeaponProjectileTriggers(runtime, projectile)
   if runtime is void or runtime.playerContext is void or
       runtime.exportTable is void or projectile is void or
@@ -5536,7 +6105,9 @@ function touchWeaponProjectileTriggers(runtime, projectile)
   return touched
 end function
 
-// Dispatch G_TouchTriggers for a dropped item's newly linked toss position.
+/// Dispatch G_TouchTriggers for a dropped item's newly linked toss position.
+/// @param runtime runtime value consumed by this operation.
+/// @param item item value consumed by this operation.
 function touchDroppedItemTriggers(runtime, item)
   if runtime is void or runtime.playerContext is void or item is void or
       not item.edict.inUse then return 0 end if
@@ -5560,9 +6131,12 @@ function touchDroppedItemTriggers(runtime, item)
   return touched
 end function
 
-// Dispatch the post-commit G_TouchTriggers pass for every pusher body kind.
-// PlayerData, Actor and WorldEntity retain different authoritative shapes, so
-// each branch reuses its normal trigger adapter instead of leaking snapshots.
+/// Dispatch the post-commit G_TouchTriggers pass for every pusher body kind.
+/// PlayerData, Actor and WorldEntity retain different authoritative shapes, so
+/// each branch reuses its normal trigger adapter instead of leaking snapshots.
+/// @param runtime runtime value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function touchPushedBody(runtime, kind, value)
   if runtime is void or value is void then return 0 end if
   if kind == "player" then
@@ -5579,7 +6153,9 @@ function touchPushedBody(runtime, kind, value)
   return 0
 end function
 
-// Advance world toss entities.
+/// Advance world toss entities.
+/// @param runtime runtime value consumed by this operation.
+/// @param requestedNumber requestedNumber value consumed by this operation.
 function advanceWorldTossEntitiesAtNumber(runtime, requestedNumber)
   // Keep advance world toss entities phases explicit: validate inputs, update owned state, then publish the result.
   if runtime.playerContext is void or runtime.exportTable is void then return 0 end if
@@ -5652,12 +6228,15 @@ function advanceWorldTossEntitiesAtNumber(runtime, requestedNumber)
   return moved
 end function
 
-// Advance every managed world toss entity (compatibility/test entry point).
+/// Advance every managed world toss entity (compatibility/test entry point).
+/// @param runtime runtime value consumed by this operation.
 function advanceWorldTossEntities(runtime)
   return advanceWorldTossEntitiesAtNumber(runtime, -1)
 end function
 
-// Advance weapon projectiles.
+/// Advance weapon projectiles.
+/// @param runtime runtime value consumed by this operation.
+/// @param requestedNumber requestedNumber value consumed by this operation.
 function advanceWeaponProjectileAtNumber(runtime, requestedNumber)
   context = runtime.weaponContext
   context.time = runtime.world.time
@@ -5687,7 +6266,8 @@ function advanceWeaponProjectileAtNumber(runtime, requestedNumber)
   return false
 end function
 
-// Remove projectile records released during the numeric edict pass.
+/// Remove projectile records released during the numeric edict pass.
+/// @param runtime runtime value consumed by this operation.
 function compactWeaponProjectiles(runtime)
   context = runtime.weaponContext
   activeProjectiles = array(len(context.projectiles))
@@ -5703,7 +6283,8 @@ function compactWeaponProjectiles(runtime)
   return activeProjectileCount
 end function
 
-// Advance weapon projectiles.
+/// Advance weapon projectiles.
+/// @param runtime runtime value consumed by this operation.
 function advanceWeaponProjectiles(runtime)
   context = runtime.weaponContext
   context.time = runtime.world.time
@@ -5724,7 +6305,9 @@ function advanceWeaponProjectiles(runtime)
   return true
 end function
 
-// Advance dropped items.
+/// Advance dropped items.
+/// @param runtime runtime value consumed by this operation.
+/// @param requestedNumber requestedNumber value consumed by this operation.
 function advanceDroppedItemsAtNumber(runtime, requestedNumber)
   // Keep advance dropped items phases explicit: validate inputs, update owned state, then publish the result.
   if runtime.playerContext is void then return 0 end if
@@ -5810,12 +6393,15 @@ function advanceDroppedItemsAtNumber(runtime, requestedNumber)
   return moved
 end function
 
-// Advance every dropped item (compatibility/test entry point).
+/// Advance every dropped item (compatibility/test entry point).
+/// @param runtime runtime value consumed by this operation.
 function advanceDroppedItems(runtime)
   return advanceDroppedItemsAtNumber(runtime, -1)
 end function
 
-// Return the deathmatch inhibits item value.
+/// Return the deathmatch inhibits item value.
+/// @param itemEntity itemEntity value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function deathmatchInhibitsItem(itemEntity, playerContext)
   if not playerContext.deathmatch then return false end if
   flags = playerContext.dmFlags
@@ -5836,7 +6422,8 @@ function deathmatchInhibitsItem(itemEntity, playerContext)
   return false
 end function
 
-// Return the item team master value.
+/// Return the item team master value.
+/// @param itemEntity itemEntity value consumed by this operation.
 function itemTeamMaster(itemEntity)
   if itemEntity.worldTarget is void or itemEntity.worldTarget.team == "" then
     return void
@@ -5846,7 +6433,9 @@ function itemTeamMaster(itemEntity)
   return master
 end function
 
-// Prepare spawned item.
+/// Prepare spawned item.
+/// @param runtime runtime value consumed by this operation.
+/// @param itemEntity itemEntity value consumed by this operation.
 function prepareSpawnedItem(runtime, itemEntity)
   // Keep prepare spawned item phases explicit: validate inputs, update owned state, then publish the result.
   if not itemEntity.spawnPending or runtime.playerContext is void then
@@ -5927,7 +6516,9 @@ function prepareSpawnedItem(runtime, itemEntity)
   return true
 end function
 
-// Return the respawn team item value.
+/// Return the respawn team item value.
+/// @param runtime runtime value consumed by this operation.
+/// @param itemEntity itemEntity value consumed by this operation.
 function respawnTeamItem(runtime, itemEntity)
   master = itemTeamMaster(itemEntity)
   if master is void then
@@ -5965,7 +6556,10 @@ function respawnTeamItem(runtime, itemEntity)
   return true
 end function
 
-// Record an optional scheduler probe without allocating in production frames.
+/// Record an optional scheduler probe without allocating in production frames.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param kind kind value consumed by this operation.
 function recordFrameDispatch(runtime, number, kind)
   probe = try(runtime.frameDispatchProbe)
   if typeof(probe) != "function" then return false end if
@@ -5974,7 +6568,9 @@ function recordFrameDispatch(runtime, number, kind)
   return true
 end function
 
-// Run one ordinary world think at its global edict slot.
+/// Run one ordinary world think at its global edict slot.
+/// @param runtime runtime value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function runWorldThinkAtNumber(runtime, entity)
   if entity is void or not entity.inUse or entity.think is void or
       entity.nextThink <= 0.0 or
@@ -5987,7 +6583,9 @@ function runWorldThinkAtNumber(runtime, entity)
   return true
 end function
 
-// Run one monster at its global edict slot.
+/// Run one monster at its global edict slot.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function runMonsterAtNumber(runtime, number)
   actor = integratedMonsterByNumber(runtime, number)
   if actor is void or not actor.edict.inUse then return false end if
@@ -6007,7 +6605,9 @@ function runMonsterAtNumber(runtime, number)
   return true
 end function
 
-// Run one managed item at its global edict slot.
+/// Run one managed item at its global edict slot.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function runItemAtNumber(runtime, number)
   item = findItemByNumber(runtime, number)
   if item is void or not item.edict.inUse then return false end if
@@ -6022,7 +6622,10 @@ function runItemAtNumber(runtime, number)
   return true
 end function
 
-// Run one world-owned edict, including an atomic pusher team at its captain.
+/// Run one world-owned edict, including an atomic pusher team at its captain.
+/// @param runtime runtime value consumed by this operation.
+/// @param captureState captureState value consumed by this operation.
+/// @param number number value consumed by this operation.
 function runWorldAtNumber(runtime, captureState, number)
   entity = ibworld.findByNumber(runtime.world, number)
   if entity is void or not entity.inUse then return false end if
@@ -6049,7 +6652,8 @@ function runWorldAtNumber(runtime, captureState, number)
   return true
 end function
 
-// Run all non-client edicts in the original global numeric slot order.
+/// Run all non-client edicts in the original global numeric slot order.
+/// @param runtime runtime value consumed by this operation.
 function runFrame(runtime)
   pusherState = ibpusher.capture(runtime)
   targetTime = runtime.world.time + runtime.world.frameTime
@@ -6102,7 +6706,9 @@ function runFrame(runtime)
   return true
 end function
 
-// Run player gameplay frame.
+/// Run player gameplay frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function runPlayerGameplayFrame(runtime, playerContext)
   pickupContext = ibgtypes.pickupContext(playerContext.deathmatch, playerContext.cooperative, playerContext.dmFlags, playerContext.time)
   pickupContext.skill = runtime.aiContext.skill
@@ -6122,7 +6728,11 @@ function runPlayerGameplayFrame(runtime, playerContext)
   return true
 end function
 
-// Return the damage monster value.
+/// Return the damage monster value.
+/// @param runtime runtime value consumed by this operation.
+/// @param monsterIndex Zero-based index of monster.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
 function damageMonster(runtime, monsterIndex, attacker, damage)
   if typeof(monsterIndex) != "int" or monsterIndex < 0 or monsterIndex >= len(runtime.monsters) then return error(9690, "damageMonster: monster index out of range") end if
   if typeof(damage) != "int" or damage < 0 then return error(9691, "damageMonster: non-negative integer damage required") end if
@@ -6133,7 +6743,11 @@ function damageMonster(runtime, monsterIndex, attacker, damage)
   return ibmonster.DispatchPain(actor, attacker, damage, runtime.aiContext)
 end function
 
-// Return the damage world entity value.
+/// Return the damage world entity value.
+/// @param runtime runtime value consumed by this operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param damage damage value consumed by this operation.
 function damageWorldEntity(runtime, entityNumber, attacker, damage)
   if typeof(entityNumber) != "int" or typeof(damage) != "int" or damage < 0 then return error(9692, "damageWorldEntity: invalid arguments") end if
   entity = ibworld.findByNumber(runtime.world, entityNumber)
@@ -6141,7 +6755,9 @@ function damageWorldEntity(runtime, entityNumber, attacker, damage)
   return integratedWorldDamage(entity, void, attacker, damage, ibworldconstants.MOD_EXPLOSIVE)
 end function
 
-// Synchronize game edicts.
+/// Synchronize game edicts.
+/// @param runtime runtime value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
 function syncGameEdicts(runtime, exportTable)
   if runtime.exportTable is void or
       len(runtime.edictUseHistory) != exportTable.maxEdicts then

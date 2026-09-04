@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player hud facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,13 +11,18 @@ import miniquake2.game.gameplay.item_rules as gprules
 import miniquake2.game.player.view as gplayerview
 import miniquake2.qcommon.byteio as qbyteio
 
-// Return the image index.
+/// Return the image index.
+/// @param context Context that carries state for the operation.
+/// @param name Name of the affected item.
 function imageIndex(context, name)
   if name == "" then return 0 end if
   return context.imports.imageIndex(name)
 end function
 
-// Return the timer stats value.
+/// Return the timer stats value.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
+/// @param stats stats value consumed by this operation.
 function timerStats(context, player, stats)
   if player.powerups.quadFrame > context.frameNumber then
     stats[miniquake2.game.constants.STAT_TIMER_ICON] = imageIndex(context, "p_quad")
@@ -35,7 +42,9 @@ function timerStats(context, player, stats)
   end if
 end function
 
-// Set g stats.
+/// Set g stats.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function G_SetStats(context, player)
   // Keep g set stats phases explicit: validate inputs, update owned state, then publish the result.
   stats = player.edict.client.playerState.stats
@@ -94,7 +103,9 @@ function G_SetStats(context, player)
   return stats
 end function
 
-// Copy stats data.
+/// Copy stats data.
+/// @param source source value consumed by this operation.
+/// @param target target value consumed by this operation.
 function copyStats(source, target)
   index = 0
   while index < miniquake2.game.constants.MAX_STATS
@@ -104,7 +115,9 @@ function copyStats(source, target)
   return target
 end function
 
-// Set g spectator stats.
+/// Set g spectator stats.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function G_SetSpectatorStats(context, player)
   if player.chaseTarget is void then G_SetStats(context, player)
   else copyStats(player.chaseTarget.edict.client.playerState.stats, player.edict.client.playerState.stats)
@@ -121,7 +134,9 @@ function G_SetSpectatorStats(context, player)
   return stats
 end function
 
-// Validate g chase stats.
+/// Validate g chase stats.
+/// @param context Context that carries state for the operation.
+/// @param target target value consumed by this operation.
 function G_CheckChaseStats(context, target)
   updated = 0
   for each player in context.players
@@ -134,7 +149,9 @@ function G_CheckChaseStats(context, target)
   return updated
 end function
 
-// End client server frame.
+/// End client server frame.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function ClientEndServerFrame(context, player)
   state = player.edict.client.playerState
   state.pmove.origin = [qbyteio.truncInt(player.edict.state.origin.x * 8.0), qbyteio.truncInt(player.edict.state.origin.y * 8.0), qbyteio.truncInt(player.edict.state.origin.z * 8.0)]
@@ -153,7 +170,8 @@ function ClientEndServerFrame(context, player)
   return state
 end function
 
-// End client server frames.
+/// End client server frames.
+/// @param context Context that carries state for the operation.
 function ClientEndServerFrames(context)
   count = 0
   for each player in context.players

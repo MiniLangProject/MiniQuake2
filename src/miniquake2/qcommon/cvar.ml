@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon cvar facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,19 +10,22 @@ package miniquake2.qcommon.cvar
 import miniquake2.qcommon.constants as qc
 import miniquake2.qcommon.types as qt
 
-// Return the numeric value.
+/// Performs the numericValue operation for the miniquake2 qcommon cvar module.
+/// @param text Text consumed by the operation.
 function numericValue(text)
   converted = try(toNumber(text))
   if converted is error then return 0.0 end if
   return converted
 end function
 
-// Create registry.
+/// Create registry.
 function createRegistry()
   return qt.CvarRegistry([], false)
 end function
 
-// Find state.
+/// Finds find used by the miniquake2 qcommon cvar module.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
 function find(registry, name)
   for each variable in registry.variables
     if variable.name == name then return variable end if
@@ -28,7 +33,8 @@ function find(registry, name)
   return void
 end function
 
-// Report whether info value valid.
+/// Report whether info value valid.
+/// @param value Value consumed or transformed by the operation.
 function infoValueValid(value)
   data = bytes(value)
   i = 0
@@ -39,7 +45,11 @@ function infoValueValid(value)
   return true
 end function
 
-// Return state.
+/// Return state.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param defaultValue defaultValue value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
 function get(registry, name, defaultValue, flags)
   if name == "" then return error(3210, "empty cvar name") end if
   variable = find(registry, name)
@@ -56,7 +66,11 @@ function get(registry, name, defaultValue, flags)
   return variable
 end function
 
-// Set 2.
+/// Set 2.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
+/// @param force force value consumed by this operation.
 function set2(registry, name, value, force)
   variable = find(registry, name)
   if variable is void then return get(registry, name, value, 0) end if
@@ -76,17 +90,27 @@ function set2(registry, name, value, force)
   return variable
 end function
 
-// Set state.
+/// Set state.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function set(registry, name, value)
   return set2(registry, name, value, false)
 end function
 
-// Set force.
+/// Set force.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function forceSet(registry, name, value)
   return set2(registry, name, value, true)
 end function
 
-// Set full.
+/// Set full.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param value Value consumed or transformed by the operation.
+/// @param flags Bit flags controlling the operation.
 function fullSet(registry, name, value, flags)
   if name == "" then return error(3210, "empty cvar name") end if
   if (flags & (qc.CVAR_USERINFO | qc.CVAR_SERVERINFO)) != 0 and
@@ -102,7 +126,8 @@ function fullSet(registry, name, value, flags)
   return variable
 end function
 
-// Apply latched.
+/// Apply latched.
+/// @param registry registry value consumed by this operation.
 function applyLatched(registry)
   count = 0
   for each variable in registry.variables
@@ -116,21 +141,27 @@ function applyLatched(registry)
   return count
 end function
 
-// Return the variable string value.
+/// Return the variable string value.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
 function variableString(registry, name)
   variable = find(registry, name)
   if variable is void then return "" end if
   return variable.string
 end function
 
-// Return the variable value.
+/// Return the variable value.
+/// @param registry registry value consumed by this operation.
+/// @param name Name of the affected item.
 function variableValue(registry, name)
   variable = find(registry, name)
   if variable is void then return 0.0 end if
   return variable.value
 end function
 
-// Return the bit info value.
+/// Return the bit info value.
+/// @param registry registry value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
 function bitInfo(registry, flags)
   result = ""
   for each variable in registry.variables
@@ -143,7 +174,9 @@ function bitInfo(registry, flags)
   return result
 end function
 
-// Return the command value.
+/// Return the command value.
+/// @param registry registry value consumed by this operation.
+/// @param arguments arguments value consumed by this operation.
 function command(registry, arguments)
   if len(arguments) == 0 then return [false, ""] end if
   variable = find(registry, arguments[0])
@@ -153,9 +186,11 @@ function command(registry, arguments)
   return [true, ""]
 end function
 
-// Apply the stock `set <name> <value> [u|s]` console command. Returning text
-// instead of printing keeps the qcommon service usable by client and server
-// consoles without a platform dependency.
+/// Apply the stock `set <name> <value> [u|s]` console command. Returning text
+/// instead of printing keeps the qcommon service usable by client and server
+/// consoles without a platform dependency.
+/// @param registry registry value consumed by this operation.
+/// @param arguments arguments value consumed by this operation.
 function setCommand(registry, arguments)
   if len(arguments) != 3 and len(arguments) != 4 then
     return "usage: set <variable> <value> [u / s]\n"
@@ -172,7 +207,8 @@ function setCommand(registry, arguments)
   return ""
 end function
 
-// Serialize the CVAR_ARCHIVE subset in an executable Quake II config form.
+/// Serialize the CVAR_ARCHIVE subset in an executable Quake II config form.
+/// @param registry registry value consumed by this operation.
 function archiveText(registry)
   output = ""
   for each variable in registry.variables
@@ -183,7 +219,8 @@ function archiveText(registry)
   return output
 end function
 
-// Return the stock cvarlist flags and values for a console frontend.
+/// Return the stock cvarlist flags and values for a console frontend.
+/// @param registry registry value consumed by this operation.
 function listText(registry)
   output = ""
   count = 0

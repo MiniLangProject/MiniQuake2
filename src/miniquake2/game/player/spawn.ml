@@ -1,3 +1,5 @@
+//! Provides miniquake2 game player spawn facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,7 +11,8 @@ import miniquake2.game.player.types as gplayertypes
 import miniquake2.qcommon.text as qtext
 import std.math as gplayermath
 
-// Return the spots from base edicts.
+/// Return the spots from base edicts.
+/// @param baseEdicts baseEdicts value consumed by this operation.
 function spotsFromBaseEdicts(baseEdicts)
   if typeof(baseEdicts) != "array" then return error(9712, "spawnpoint scan requires a BaseEdict array") end if
   spots = []
@@ -37,7 +40,8 @@ function spotsFromBaseEdicts(baseEdicts)
   return spots
 end function
 
-// Map stock coop fix.
+/// Map stock coop fix.
+/// @param mapName mapName value consumed by this operation.
 function stockCoopFixMap(mapName)
   return qtext.equalInsensitive(mapName, "jail2") or
     qtext.equalInsensitive(mapName, "jail4") or
@@ -55,10 +59,12 @@ function stockCoopFixMap(mapName)
     qtext.equalInsensitive(mapName, "strike")
 end function
 
-// Stock p_client.c applies these corrections one frame after entity spawn.
-// The managed layer extracts immutable spawn records before clients begin, so
-// applying the same map-specific data correction here is equivalent and keeps
-// the live BaseEdict graph untouched.
+/// Stock p_client.c applies these corrections one frame after entity spawn.
+/// The managed layer extracts immutable spawn records before clients begin, so
+/// applying the same map-specific data correction here is equivalent and keeps
+/// the live BaseEdict graph untouched.
+/// @param mapName mapName value consumed by this operation.
+/// @param spots spots value consumed by this operation.
 function ApplyStockCoopSpawnFixups(mapName, spots)
   if typeof(spots) != "array" then return error(9722,
     "cooperative spawn fixups require a SpawnSpot array") end if
@@ -90,7 +96,9 @@ function ApplyStockCoopSpawnFixups(mapName, spots)
   return spots
 end function
 
-// Return the distance value.
+/// Return the distance value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function distance(first, second)
   dx = first[0] - second[0]
   dy = first[1] - second[1]
@@ -98,7 +106,10 @@ function distance(first, second)
   return gplayermath.sqrt(dx * dx + dy * dy + dz * dz)
 end function
 
-// Return the nearest player distance value.
+/// Return the nearest player distance value.
+/// @param context Context that carries state for the operation.
+/// @param spot spot value consumed by this operation.
+/// @param spawningPlayer spawningPlayer value consumed by this operation.
 function nearestPlayerDistance(context, spot, spawningPlayer)
   nearest = 999999999.0
   found = false
@@ -114,7 +125,8 @@ function nearestPlayerDistance(context, spot, spawningPlayer)
   return nearest
 end function
 
-// Return the deathmatch spots value.
+/// Return the deathmatch spots value.
+/// @param context Context that carries state for the operation.
 function deathmatchSpots(context)
   result = []
   for each spot in context.spawnSpots
@@ -123,7 +135,9 @@ function deathmatchSpots(context)
   return result
 end function
 
-// Select farthest deathmatch spawn point.
+/// Select farthest deathmatch spawn point.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function SelectFarthestDeathmatchSpawnPoint(context, player)
   selected = void
   bestDistance = -1.0
@@ -134,7 +148,9 @@ function SelectFarthestDeathmatchSpawnPoint(context, player)
   return selected
 end function
 
-// Return the deterministic index.
+/// Return the deterministic index.
+/// @param context Context that carries state for the operation.
+/// @param count Number of items or units to process.
 function deterministicIndex(context, count)
   if count <= 0 then return 0 end if
   index = context.frameNumber % count
@@ -143,7 +159,8 @@ function deterministicIndex(context, count)
   return index
 end function
 
-// Select intermission point.
+/// Select intermission point.
+/// @param context Context that carries state for the operation.
 function SelectIntermissionPoint(context)
   intermissionSpots = []
   firstStart = void
@@ -166,7 +183,9 @@ function SelectIntermissionPoint(context)
   return firstDeathmatch
 end function
 
-// Select random deathmatch spawn point.
+/// Select random deathmatch spawn point.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function SelectRandomDeathmatchSpawnPoint(context, player)
   spots = deathmatchSpots(context)
   if len(spots) <= 2 then
@@ -198,13 +217,17 @@ function SelectRandomDeathmatchSpawnPoint(context, player)
   return eligible[deterministicIndex(context, len(eligible))]
 end function
 
-// Select deathmatch spawn point.
+/// Select deathmatch spawn point.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function SelectDeathmatchSpawnPoint(context, player)
   if (context.dmFlags & miniquake2.game.constants.DF_SPAWN_FARTHEST) != 0 then return SelectFarthestDeathmatchSpawnPoint(context, player) end if
   return SelectRandomDeathmatchSpawnPoint(context, player)
 end function
 
-// Select coop spawn point.
+/// Select coop spawn point.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function SelectCoopSpawnPoint(context, player)
   clientIndex = player.edict.state.number - 1
   if clientIndex <= 0 then return void end if
@@ -223,7 +246,8 @@ function SelectCoopSpawnPoint(context, player)
   return void
 end function
 
-// Select single player spawn point.
+/// Select single player spawn point.
+/// @param context Context that carries state for the operation.
 function SelectSinglePlayerSpawnPoint(context)
   fallback = void
   for each spot in context.spawnSpots
@@ -242,7 +266,9 @@ function SelectSinglePlayerSpawnPoint(context)
   return void
 end function
 
-// Select spawn point.
+/// Select spawn point.
+/// @param context Context that carries state for the operation.
+/// @param player player value consumed by this operation.
 function SelectSpawnPoint(context, player)
   spot = void
   if context.deathmatch then spot = SelectDeathmatchSpawnPoint(context, player)

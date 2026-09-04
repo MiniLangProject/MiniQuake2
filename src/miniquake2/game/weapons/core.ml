@@ -1,3 +1,5 @@
+//! Provides miniquake2 game weapons core facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -16,10 +18,14 @@ import miniquake2.game.weapons.types as wbtypes
 import miniquake2.game.weapons.vector as wbvector
 import miniquake2.qcommon.byteio as qbyteio
 
+/// Stores module-wide weapon core damage attacker number state for the miniquake2 game weapons core module.
 weaponCoreDamageAttackerNumber = 0
+/// Defines the max weapon event history constant used by the miniquake2 game weapons core module.
 const MAX_WEAPON_EVENT_HISTORY = 1024
 
-// Append weapon core event.
+/// Append weapon core event.
+/// @param context Context that carries state for the operation.
+/// @param value Value consumed or transformed by the operation.
 function weaponCoreAppendEvent(context, value)
   if len(context.events) < MAX_WEAPON_EVENT_HISTORY then
     context.events = context.events + [value]
@@ -36,64 +42,89 @@ function weaponCoreAppendEvent(context, value)
   return true
 end function
 
-// Return the damage attacker number.
+/// Return the damage attacker number.
 function damageAttackerNumber()
   global weaponCoreDamageAttackerNumber
   return weaponCoreDamageAttackerNumber
 end function
 
-// Clear trace.
+/// Clear trace.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param ignore ignore value consumed by this operation.
+/// @param mask mask value consumed by this operation.
 function clearTrace(start, mins, maxs, endPosition, ignore, mask)
   plane = qt.Plane(qt.Vec3(0.0, 0.0, 1.0), 0.0, 0, 0)
   surface = qt.CollisionSurface("", 0, 0)
   return qt.Trace(false, false, 1.0, wbvector.copy(endPosition), plane, surface, 0, void)
 end function
-// Report whether empty contents.
+/// Report whether empty contents.
+/// @param point point value consumed by this operation.
 function emptyContents(point)
   return 0
 end function
-// Return the combat damage value.
+/// Return the combat damage value.
+/// @param target target value consumed by this operation.
+/// @param request request value consumed by this operation.
 function combatDamage(target, request)
   return gpcombat.T_Damage(target, request)
 end function
-// Report whether always can damage.
+/// Report whether always can damage.
+/// @param target target value consumed by this operation.
+/// @param origin origin value consumed by this operation.
 function alwaysCanDamage(target, origin)
   return true
 end function
-// Report whether no radius targets.
+/// Report whether no radius targets.
+/// @param origin origin value consumed by this operation.
+/// @param radius radius value consumed by this operation.
 function noRadiusTargets(origin, radius)
   return []
 end function
-// Report whether no effect.
+/// Report whether no effect.
+/// @param effect effect value consumed by this operation.
 function noEffect(effect)
   return true
 end function
-// Report whether no sound.
+/// Report whether no sound.
+/// @param entity entity value consumed by this operation.
+/// @param soundName soundName value consumed by this operation.
 function noSound(entity, soundName)
   return true
 end function
-// Report whether no link.
+/// Report whether no link.
+/// @param entity entity value consumed by this operation.
 function noLink(entity)
   return true
 end function
-// Report whether no free.
+/// Report whether no free.
+/// @param entity entity value consumed by this operation.
 function noFree(entity)
   return true
 end function
-// Report whether no noise.
+/// Report whether no noise.
+/// @param owner owner value consumed by this operation.
+/// @param position position value consumed by this operation.
+/// @param noiseType noiseType value consumed by this operation.
 function noNoise(owner, position, noiseType)
   return true
 end function
-// Report whether no dodge.
+/// Report whether no dodge.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param speed speed value consumed by this operation.
 function noDodge(owner, start, direction, speed)
   return true
 end function
-// Return the zero random signed value.
+/// Return the zero random signed value.
 function zeroRandomSigned()
   return 0.0
 end function
 
-// Return the default callbacks value.
+/// Return the default callbacks value.
 function defaultCallbacks()
   return wbtypes.WeaponCallbacks(
     clearTrace, emptyContents, combatDamage, alwaysCanDamage, noRadiusTargets,
@@ -101,19 +132,23 @@ function defaultCallbacks()
   )
 end function
 
-// Create context.
+/// Create context.
+/// @param callbacks callbacks value consumed by this operation.
 function createContext(callbacks)
   if callbacks is void then callbacks = defaultCallbacks() end if
   return wbtypes.WeaponContext([], 0.0, wbconstants.FRAME_TIME, 1, callbacks, [], false)
 end function
 
-// Add target origin.
+/// Add target origin.
+/// @param target target value consumed by this operation.
 function addTargetOrigin(target)
   target.combatant.edict.state.origin = wbvector.toArray(target.origin)
   return target
 end function
 
-// Spawn projectile.
+/// Spawn projectile.
+/// @param context Context that carries state for the operation.
+/// @param className className value consumed by this operation.
 function spawnProjectile(context, className)
   projectile = wbtypes.createProjectile(context.nextProjectileNumber, className)
   context.nextProjectileNumber = context.nextProjectileNumber + 1
@@ -121,7 +156,9 @@ function spawnProjectile(context, className)
   return projectile
 end function
 
-// Release projectile.
+/// Release projectile.
+/// @param context Context that carries state for the operation.
+/// @param projectile projectile value consumed by this operation.
 function freeProjectile(context, projectile)
   if projectile is void or projectile.inUse == false then return false end if
   projectile.inUse = false
@@ -134,12 +171,21 @@ function freeProjectile(context, projectile)
   return true
 end function
 
-// Release think.
+/// Release think.
+/// @param projectile projectile value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function freeThink(projectile, context)
   return freeProjectile(context, projectile)
 end function
 
-// Emit effect.
+/// Emit effect.
+/// @param context Context that carries state for the operation.
+/// @param kind kind value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param endPosition endPosition value consumed by this operation.
+/// @param normal normal value consumed by this operation.
+/// @param style style value consumed by this operation.
+/// @param count Number of items or units to process.
 function emitEffect(context, kind, start, endPosition, normal, style, count)
   directionIndex = qdir.encodeDirection(normal)
   effect = wbtypes.WeaponEffect(kind, wbvector.copy(start), wbvector.copy(endPosition), wbvector.copy(normal), directionIndex, style, count)
@@ -148,7 +194,17 @@ function emitEffect(context, kind, start, endPosition, normal, style, count)
   return effect
 end function
 
-// Apply damage.
+/// Apply damage.
+/// @param context Context that carries state for the operation.
+/// @param target target value consumed by this operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param point point value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param knockback knockback value consumed by this operation.
+/// @param flags Bit flags controlling the operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function applyDamage(context, target, inflictor, attacker, direction, point, damage, knockback, flags, meansOfDeath)
   global weaponCoreDamageAttackerNumber
   if target is void or target.inUse == false or target.combatant is void or target.combatant.takeDamage == false then return false end if
@@ -163,7 +219,14 @@ function applyDamage(context, target, inflictor, attacker, direction, point, dam
   return result
 end function
 
-// Return the radius damage value.
+/// Return the radius damage value.
+/// @param context Context that carries state for the operation.
+/// @param inflictor inflictor value consumed by this operation.
+/// @param attacker attacker value consumed by this operation.
+/// @param baseDamage baseDamage value consumed by this operation.
+/// @param ignore ignore value consumed by this operation.
+/// @param radius radius value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function radiusDamage(context, inflictor, attacker, baseDamage, ignore, radius, meansOfDeath)
   results = []
   targets = context.callbacks.radiusTargets(inflictor.origin, radius)
@@ -186,13 +249,18 @@ function radiusDamage(context, inflictor, attacker, baseDamage, ignore, radius, 
   return results
 end function
 
-// Handle projectile.
+/// Handle projectile.
+/// @param context Context that carries state for the operation.
+/// @param projectile projectile value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param trace trace value consumed by this operation.
 function touchProjectile(context, projectile, other, trace)
   if projectile is void or projectile.inUse == false or projectile.touch is void then return false end if
   return projectile.touch(projectile, other, trace, context)
 end function
 
-// Run due thinks.
+/// Run due thinks.
+/// @param context Context that carries state for the operation.
 function runDueThinks(context)
   progressed = true
   guard = 0
@@ -210,7 +278,9 @@ function runDueThinks(context)
   return guard
 end function
 
-// Advance state.
+/// Performs the advance operation for the miniquake2 game weapons core module.
+/// @param context Context that carries state for the operation.
+/// @param seconds seconds value consumed by this operation.
 function advance(context, seconds)
   if seconds < 0.0 then return error(9750, "weapon time cannot run backwards") end if
   context.time = context.time + seconds
@@ -225,7 +295,8 @@ function advance(context, seconds)
   return context.time
 end function
 
-// Report whether surface is sky.
+/// Report whether surface is sky.
+/// @param trace trace value consumed by this operation.
 function surfaceIsSky(trace)
   return trace is not void and trace.surface is not void and (trace.surface.flags & qc.SURF_SKY) != 0
 end function

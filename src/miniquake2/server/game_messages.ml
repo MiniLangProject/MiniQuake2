@@ -1,3 +1,5 @@
+//! Provides miniquake2 server game messages facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,16 +12,22 @@ import miniquake2.protocol.constants as sgmpc
 import miniquake2.game.constants as sgmgc
 import miniquake2.server.types as sgmtypes
 
+/// Defines the max pending multicast events constant used by the miniquake2 server game messages module.
 const MAX_PENDING_MULTICAST_EVENTS = 256
+/// Defines the max pending multicast bytes constant used by the miniquake2 server game messages module.
 const MAX_PENDING_MULTICAST_BYTES = 88576
+/// Defines the max multicast fragment bytes constant used by the miniquake2 server game messages module.
 const MAX_MULTICAST_FRAGMENT_BYTES = 1392
+/// Defines the max pending unicast events constant used by the miniquake2 server game messages module.
 const MAX_PENDING_UNICAST_EVENTS = 256
+/// Defines the max pending unicast bytes constant used by the miniquake2 server game messages module.
 const MAX_PENDING_UNICAST_BYTES = 88576
 
-// Claim one ordering token shared by every GameImport message class. Stock
-// Quake II appends multicast, unicast and sound commands to client buffers at
-// the instant they are emitted; independent per-type counters lose that order
-// when the managed bridge drains its typed queues at the frame boundary.
+/// Claim one ordering token shared by every GameImport message class. Stock
+/// Quake II appends multicast, unicast and sound commands to client buffers at
+/// the instant they are emitted; independent per-type counters lose that order
+/// when the managed bridge drains its typed queues at the frame boundary.
+/// @param runtime runtime value consumed by this operation.
 function claimEmissionSerial(runtime)
   serial = runtime.nextMulticastSerial
   if runtime.nextUnicastSerial > serial then serial = runtime.nextUnicastSerial end if
@@ -31,12 +39,14 @@ function claimEmissionSerial(runtime)
   return serial
 end function
 
-// Return the numeric value.
+/// Performs the numeric operation for the miniquake2 server game messages module.
+/// @param value Value consumed or transformed by the operation.
 function numeric(value)
   return typeof(value) == "int" or typeof(value) == "float"
 end function
 
-// Return the copied origin.
+/// Return the copied origin.
+/// @param origin origin value consumed by this operation.
 function copiedOrigin(origin)
   if typeof(origin) != "struct" or not numeric(origin.x) or not numeric(origin.y) or not numeric(origin.z) then
     return error(3940, "multicast origin must be a Vec3")
@@ -47,13 +57,15 @@ function copiedOrigin(origin)
   return sgmqtypes.Vec3(origin.x * 1.0, origin.y * 1.0, origin.z * 1.0)
 end function
 
-// Return the reliable destination value.
+/// Return the reliable destination value.
+/// @param destination destination value consumed by this operation.
 function reliableDestination(destination)
   return destination == sgmgc.MULTICAST_ALL_R or destination == sgmgc.MULTICAST_PHS_R or
     destination == sgmgc.MULTICAST_PVS_R
 end function
 
-// Return the base destination value.
+/// Return the base destination value.
+/// @param destination destination value consumed by this operation.
 function baseDestination(destination)
   if destination == sgmgc.MULTICAST_ALL or destination == sgmgc.MULTICAST_ALL_R then
     return sgmgc.MULTICAST_ALL
@@ -67,7 +79,8 @@ function baseDestination(destination)
   return error(3942, "multicast destination outside Game API range")
 end function
 
-// Report whether queued bytes.
+/// Report whether queued bytes.
+/// @param events events value consumed by this operation.
 function queuedBytes(events)
   total = 0
   for each event in events
@@ -79,9 +92,10 @@ function queuedBytes(events)
   return total
 end function
 
-// Disable compatibility array views for the live server. Tests and component
-// callers can retain the compact public arrays, while the product uses the
-// fixed queues below and materializes one frame snapshot only when routing.
+/// Disable compatibility array views for the live server. Tests and component
+/// callers can retain the compact public arrays, while the product uses the
+/// fixed queues below and materializes one frame snapshot only when routing.
+/// @param runtime runtime value consumed by this operation.
 function enableOptimizedQueues(runtime)
   runtime.retainMessageViews = false
   runtime.pendingMulticasts = []
@@ -89,7 +103,8 @@ function enableOptimizedQueues(runtime)
   return runtime
 end function
 
-// Copy the active multicast prefix for one routing transaction.
+/// Copy the active multicast prefix for one routing transaction.
+/// @param runtime runtime value consumed by this operation.
 function pendingMulticastSnapshot(runtime)
   output = array(runtime.pendingMulticastCount)
   index = 0
@@ -100,7 +115,8 @@ function pendingMulticastSnapshot(runtime)
   return output
 end function
 
-// Clear multicast queue state while retaining its fixed storage.
+/// Clear multicast queue state while retaining its fixed storage.
+/// @param runtime runtime value consumed by this operation.
 function clearMulticasts(runtime)
   // The active prefix is governed by the count; stale references are
   // overwritten on enqueue and never observed by routing.
@@ -110,7 +126,9 @@ function clearMulticasts(runtime)
   return true
 end function
 
-// Restore multicast events after a failed atomic reliable routing attempt.
+/// Restore multicast events after a failed atomic reliable routing attempt.
+/// @param runtime runtime value consumed by this operation.
+/// @param events events value consumed by this operation.
 function restoreMulticasts(runtime, events)
   clearMulticasts(runtime)
   if typeof(events) != "array" then return error(3946, "pending multicast list must be an array") end if
@@ -124,7 +142,8 @@ function restoreMulticasts(runtime, events)
   return true
 end function
 
-// Validate event.
+/// Validate event.
+/// @param event event value consumed by this operation.
 function validateEvent(event)
   if typeof(event) != "struct" or typeof(event.serial) != "int" or event.serial < 0 then
     return error(3943, "pending multicast event is malformed")
@@ -138,7 +157,11 @@ function validateEvent(event)
   return true
 end function
 
-// Return the enqueue value.
+/// Return the enqueue value.
+/// @param runtime runtime value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param destination destination value consumed by this operation.
+/// @param payload payload value consumed by this operation.
 function enqueue(runtime, origin, destination, payload)
   baseDestination(destination)
   ownedOrigin = copiedOrigin(origin)
@@ -171,7 +194,8 @@ function enqueue(runtime, origin, destination, payload)
   return event
 end function
 
-// Validate all.
+/// Validate all.
+/// @param events events value consumed by this operation.
 function validateAll(events)
   if typeof(events) != "array" then return error(3946, "pending multicast list must be an array") end if
   previousSerial = -1
@@ -188,7 +212,9 @@ function validateAll(events)
   return true
 end function
 
-// Return the unicast entity number.
+/// Return the unicast entity number.
+/// @param runtime runtime value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function unicastEntityNumber(runtime, entity)
   if typeof(entity) != "struct" or typeof(entity.state) != "struct" or
       typeof(entity.state.number) != "int" or entity.state.number < 1 or
@@ -198,7 +224,8 @@ function unicastEntityNumber(runtime, entity)
   return entity.state.number
 end function
 
-// Report whether queued unicast bytes.
+/// Report whether queued unicast bytes.
+/// @param events events value consumed by this operation.
 function queuedUnicastBytes(events)
   total = 0
   for each event in events
@@ -210,7 +237,8 @@ function queuedUnicastBytes(events)
   return total
 end function
 
-// Copy the active unicast prefix for one routing transaction.
+/// Copy the active unicast prefix for one routing transaction.
+/// @param runtime runtime value consumed by this operation.
 function pendingUnicastSnapshot(runtime)
   output = array(runtime.pendingUnicastCount)
   index = 0
@@ -221,7 +249,8 @@ function pendingUnicastSnapshot(runtime)
   return output
 end function
 
-// Clear unicast queue state while retaining its fixed storage.
+/// Clear unicast queue state while retaining its fixed storage.
+/// @param runtime runtime value consumed by this operation.
 function clearUnicasts(runtime)
   // Retain storage and reset only the authoritative prefix counters.
   runtime.pendingUnicastCount = 0
@@ -230,7 +259,9 @@ function clearUnicasts(runtime)
   return true
 end function
 
-// Restore unicast events after a failed atomic reliable routing attempt.
+/// Restore unicast events after a failed atomic reliable routing attempt.
+/// @param runtime runtime value consumed by this operation.
+/// @param events events value consumed by this operation.
 function restoreUnicasts(runtime, events)
   clearUnicasts(runtime)
   if typeof(events) != "array" then return error(3954, "pending unicast list must be an array") end if
@@ -244,7 +275,8 @@ function restoreUnicasts(runtime, events)
   return true
 end function
 
-// Copy payload data.
+/// Copy payload data.
+/// @param payload payload value consumed by this operation.
 function copyPayload(payload)
   ownedPayload = bytes(len(payload))
   payloadIndex = 0
@@ -255,7 +287,11 @@ function copyPayload(payload)
   return ownedPayload
 end function
 
-// Return the enqueue unicast value.
+/// Return the enqueue unicast value.
+/// @param runtime runtime value consumed by this operation.
+/// @param entity entity value consumed by this operation.
+/// @param reliable reliable value consumed by this operation.
+/// @param payload payload value consumed by this operation.
 function enqueueUnicast(runtime, entity, reliable, payload)
   entityNumber = unicastEntityNumber(runtime, entity)
   if typeof(reliable) != "bool" then return error(3950, "unicast reliability must be boolean") end if
@@ -278,7 +314,8 @@ function enqueueUnicast(runtime, entity, reliable, payload)
   return event
 end function
 
-// Validate unicast event.
+/// Validate unicast event.
+/// @param event event value consumed by this operation.
 function validateUnicastEvent(event)
   if typeof(event) != "struct" or typeof(event.serial) != "int" or event.serial < 0 or
       typeof(event.entity) != "int" or event.entity < 1 or typeof(event.reliable) != "bool" or
@@ -289,7 +326,8 @@ function validateUnicastEvent(event)
   return true
 end function
 
-// Validate unicast all.
+/// Validate unicast all.
+/// @param events events value consumed by this operation.
 function validateUnicastAll(events)
   if typeof(events) != "array" then return error(3954, "pending unicast list must be an array") end if
   previousSerial = -1

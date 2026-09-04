@@ -1,3 +1,5 @@
+//! Provides miniquake2 game ai move facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -16,15 +18,25 @@ import miniquake2.qcommon.constants as aimoveqconstants
 import miniquake2.qcommon.types as aimoveqtypes
 import std.math as aimovemath
 
+/// Defines the step size constant used by the miniquake2 game ai move module.
 const STEP_SIZE = 18.0
+/// Defines the no direction constant used by the miniquake2 game ai move module.
 const NO_DIRECTION = -1.0
 
+/// Stores module-wide move trace start scratch state for the miniquake2 game ai move module.
 moveTraceStartScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide move trace end scratch state for the miniquake2 game ai move module.
 moveTraceEndScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide move point scratch state for the miniquake2 game ai move module.
 movePointScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
+/// Stores module-wide move zero scratch state for the miniquake2 game ai move module.
 moveZeroScratch = aimoveqtypes.Vec3(0.0, 0.0, 0.0)
 
-// Set origin.
+/// Set origin.
+/// @param actor actor value consumed by this operation.
+/// @param x Horizontal coordinate used by the operation.
+/// @param y Vertical coordinate used by the operation.
+/// @param z z value consumed by this operation.
 function inline setOrigin(actor, x, y, z)
   actor.edict.state.origin.x = x
   actor.edict.state.origin.y = y
@@ -32,7 +44,13 @@ function inline setOrigin(actor, x, y, z)
   return true
 end function
 
-// Trace move.
+/// Trace move.
+/// @param actor actor value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function inline traceMove(actor, start, mins, maxs, finish, context)
   if typeof(context.moveTrace) != "function" then
     return error(9720, "monster movement trace callback is not installed")
@@ -41,7 +59,9 @@ function inline traceMove(actor, start, mins, maxs, finish, context)
     aimoveqconstants.MASK_MONSTERSOLID)
 end function
 
-// Return the contents for the requested position.
+/// Return the contents for the requested position.
+/// @param point point value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function inline contentsAt(point, context)
   if typeof(context.pointContents) != "function" then
     return error(9721, "monster point-contents callback is not installed")
@@ -49,7 +69,9 @@ function inline contentsAt(point, context)
   return context.pointContents(point)
 end function
 
-// Link and touch.
+/// Link and touch.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function inline linkAndTouch(actor, context)
   if typeof(context.linkActor) == "function" then context.linkActor(actor) end if
   if typeof(context.touchActorTriggers) == "function" then
@@ -58,7 +80,8 @@ function inline linkAndTouch(actor, context)
   return true
 end function
 
-// Return the random integer value.
+/// Return the random integer value.
+/// @param context Context that carries state for the operation.
 function inline randomInteger(context)
   if typeof(context.nextRandomInteger) == "function" then
     return context.nextRandomInteger()
@@ -66,7 +89,9 @@ function inline randomInteger(context)
   return 0
 end function
 
-// Validate m bottom.
+/// Validate m bottom.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_CheckBottom(actor, context)
   origin = actor.edict.state.origin
   mins = actor.edict.mins
@@ -131,7 +156,9 @@ function M_CheckBottom(actor, context)
   return true
 end function
 
-// Validate m ground.
+/// Validate m ground.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_CheckGround(actor, context)
   if (actor.flags & (aimoveconstants.FL_SWIM | aimoveconstants.FL_FLY)) != 0 then
     return false
@@ -158,7 +185,9 @@ function M_CheckGround(actor, context)
   return false
 end function
 
-// Return the m categorize position.
+/// Return the m categorize position.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_CategorizePosition(actor, context)
   origin = actor.edict.state.origin
   point = movePointScratch
@@ -181,7 +210,9 @@ function M_CategorizePosition(actor, context)
   return actor.waterLevel
 end function
 
-// Drop m to floor.
+/// Drop m to floor.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function M_DropToFloor(actor, context)
   origin = actor.edict.state.origin
   origin.z = origin.z + 1.0
@@ -199,8 +230,14 @@ function M_DropToFloor(actor, context)
   return actor.groundEntity is not void
 end function
 
-// Apply one stock M_MoveStep attempt without publishing a partial transform.
-// Ground, fly/swim and water branches commit only after their trace checks pass.
+/// Apply one stock M_MoveStep attempt without publishing a partial transform.
+/// Ground, fly/swim and water branches commit only after their trace checks pass.
+/// @param actor actor value consumed by this operation.
+/// @param moveX moveX value consumed by this operation.
+/// @param moveY moveY value consumed by this operation.
+/// @param moveZ moveZ value consumed by this operation.
+/// @param relink relink value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MoveStep(actor, moveX, moveY, moveZ, relink, context)
   // Keep move step phases explicit: validate inputs, update owned state, then publish the result.
   origin = actor.edict.state.origin
@@ -312,7 +349,11 @@ function MoveStep(actor, moveX, moveY, moveZ, relink, context)
   return true
 end function
 
-// Advance direction.
+/// Advance direction.
+/// @param actor actor value consumed by this operation.
+/// @param yaw yaw value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function StepDirection(actor, yaw, distance, context)
   actor.idealYaw = yaw
   aimovecore.ChangeYaw(actor)
@@ -331,7 +372,11 @@ function StepDirection(actor, yaw, distance, context)
   return false
 end function
 
-// Return the new chase direction value.
+/// Return the new chase direction value.
+/// @param actor actor value consumed by this operation.
+/// @param goal goal value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function NewChaseDirection(actor, goal, distance, context)
   // Keep new chase direction phases explicit: validate inputs, update owned state, then publish the result.
   if goal is void then return false end if
@@ -396,7 +441,10 @@ function NewChaseDirection(actor, goal, distance, context)
   return false
 end function
 
-// Close enough.
+/// Close enough.
+/// @param actor actor value consumed by this operation.
+/// @param goal goal value consumed by this operation.
+/// @param distance distance value consumed by this operation.
 function CloseEnough(actor, goal, distance)
   actorOrigin = actor.edict.state.origin
   goalOrigin = goal.edict.state.origin
@@ -415,7 +463,10 @@ function CloseEnough(actor, goal, distance)
   return true
 end function
 
-// Move to goal.
+/// Move to goal.
+/// @param actor actor value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function MoveToGoal(actor, distance, context)
   if actor.groundEntity is void and
       (actor.flags & (aimoveconstants.FL_FLY | aimoveconstants.FL_SWIM)) == 0 then
@@ -433,7 +484,11 @@ function MoveToGoal(actor, distance, context)
   return true
 end function
 
-// Move walk.
+/// Move walk.
+/// @param actor actor value consumed by this operation.
+/// @param yaw yaw value consumed by this operation.
+/// @param distance distance value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function WalkMove(actor, yaw, distance, context)
   if actor.groundEntity is void and
       (actor.flags & (aimoveconstants.FL_FLY | aimoveconstants.FL_SWIM)) == 0 then
@@ -444,7 +499,9 @@ function WalkMove(actor, yaw, distance, context)
     aimovemath.sin(radians) * distance, 0.0, true, context)
 end function
 
-// Initialize actor.
+/// Initialize actor.
+/// @param actor actor value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function InitializeActor(actor, context)
   if actor.movementInitialized then return true end if
   actor.movementInitialized = true

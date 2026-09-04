@@ -1,3 +1,5 @@
+//! Provides miniquake2 client ui keys facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,20 +11,20 @@ import miniquake2.client.ui.constants as cuic
 import miniquake2.client.ui.types as cuitypes
 import miniquake2.platform.window as pwindow
 
-// Return the action names value.
+/// Return the action names value.
 function actionNames()
   return ["forward", "back", "moveleft", "moveright", "left", "right",
     "lookup", "lookdown", "moveup", "movedown", "attack", "use",
     "speed", "strafe", "klook", "mlook"]
 end function
 
-// Return the default config value.
+/// Return the default config value.
 function defaultConfig()
   return cuitypes.InputConfig(200.0, 200.0, 200.0, 140.0, 150.0, 1.5,
     false, 0, 3.0, 0.022, 0.022, 1.0, 1.0)
 end function
 
-// Create input state.
+/// Create input state.
 function createInputState()
   actions = []
   for each name in actionNames()
@@ -33,9 +35,10 @@ function createInputState()
     defaultConfig(), "", -1, 0.0, 0.0, 0, -1)
 end function
 
-// Product defaults retain the classic Quake II weapon keys and add the mouse
-// wheel convention expected by modern players.  Keeping these in the input
-// package makes the real product bindings independently regression-testable.
+/// Product defaults retain the classic Quake II weapon keys and add the mouse
+/// wheel convention expected by modern players.  Keeping these in the input
+/// package makes the real product bindings independently regression-testable.
+/// @param state Mutable state inspected or updated by the operation.
 function bindDefaultGame(state)
   bind(state, 119, "+forward")
   bind(state, 115, "+back")
@@ -62,14 +65,18 @@ function bindDefaultGame(state)
   return state
 end function
 
-// Set destination.
+/// Set destination.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param destination destination value consumed by this operation.
 function setDestination(state, destination)
   if destination < cuic.KEY_GAME or destination > cuic.KEY_MENU then return error(8200, "invalid key destination") end if
   state.destination = destination
   return destination
 end function
 
-// Find binding.
+/// Find binding.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
 function findBinding(state, key)
   for each binding in state.bindings
     if binding.key == key then return binding end if
@@ -77,7 +84,10 @@ function findBinding(state, key)
   return void
 end function
 
-// Bind state.
+/// Bind state.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
+/// @param command command value consumed by this operation.
 function bind(state, key, command)
   if key < 0 or key >= cuic.MAX_KEYS then return error(8201, "binding key outside table") end if
   if len(bytes(command)) == 0 then return unbind(state, key) end if
@@ -88,7 +98,9 @@ function bind(state, key, command)
   return true
 end function
 
-// Unbind state.
+/// Unbind state.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
 function unbind(state, key)
   output = []
   for each binding in state.bindings
@@ -98,14 +110,17 @@ function unbind(state, key)
   return true
 end function
 
-// Return the binding for the requested input.
+/// Return the binding for the requested input.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
 function bindingFor(state, key)
   binding = findBinding(state, key)
   if binding is void then return "" end if
   return binding.command
 end function
 
-// Return the compact key label used by the controls and inventory overlays.
+/// Return the compact key label used by the controls and inventory overlays.
+/// @param key key value consumed by this operation.
 function keyName(key)
   if key >= 33 and key <= 126 then return decode(bytes([key])) end if
   if key == cuic.K_SPACE then return "SPACE" end if
@@ -119,7 +134,9 @@ function keyName(key)
   return ""
 end function
 
-// Begin binding capture.
+/// Begin binding capture.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param command command value consumed by this operation.
 function beginBindingCapture(state, command)
   if typeof(command) != "string" or command == "" then
     return error(8203, "binding capture requires a command")
@@ -129,14 +146,17 @@ function beginBindingCapture(state, command)
   return true
 end function
 
-// Cancel binding capture.
+/// Cancel binding capture.
+/// @param state Mutable state inspected or updated by the operation.
 function cancelBindingCapture(state)
   state.captureCommand = ""
   state.capturedKey = -2
   return true
 end function
 
-// Unbind command.
+/// Unbind command.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param command command value consumed by this operation.
 function unbindCommand(state, command)
   cuikeysRemainingBindings = []
   for each cuikeysExistingBinding in state.bindings
@@ -148,7 +168,9 @@ function unbindCommand(state, command)
   return true
 end function
 
-// Capture binding event.
+/// Capture binding event.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
 function captureBindingEvent(state, key)
   if state.captureCommand == "" then return false end if
   if key == cuic.K_ESCAPE then return cancelBindingCapture(state) end if
@@ -168,7 +190,9 @@ function captureBindingEvent(state, key)
   return true
 end function
 
-// Find action.
+/// Find action.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function findAction(state, name)
   for each action in state.actions
     if action.name == name then return action end if
@@ -176,14 +200,21 @@ function findAction(state, name)
   return void
 end function
 
-// Set action.
+/// Set action.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
+/// @param down down value consumed by this operation.
 function setAction(state, name, down)
   cuikeysActionTime = state.commandTime
   if cuikeysActionTime < 0 then cuikeysActionTime = 0 end if
   return setActionAtTime(state, name, down, cuikeysActionTime)
 end function
 
-// Set action at an input timestamp for Quake II's time-weighted KeyState.
+/// Set action at an input timestamp for Quake II's time-weighted KeyState.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
+/// @param down down value consumed by this operation.
+/// @param time time value consumed by this operation.
 function setActionAtTime(state, name, down, time)
   action = findAction(state, name)
   if action is void then return false end if
@@ -197,14 +228,16 @@ function setActionAtTime(state, name, down, time)
   return true
 end function
 
-// Return the command action value.
+/// Return the command action value.
+/// @param command command value consumed by this operation.
 function commandAction(command)
   data = bytes(command)
   if len(data) < 2 or data[0] != 43 then return "" end if
   return decode(slice(data, 1, len(data) - 1))
 end function
 
-// Scan key.
+/// Scan key.
+/// @param scan scan value consumed by this operation.
 function scanKey(scan)
   if scan == 1 then return cuic.K_ESCAPE end if
   if scan >= 2 and scan <= 10 then return 47 + scan end if
@@ -239,7 +272,8 @@ function scanKey(scan)
   return 0
 end function
 
-// Return the event key value.
+/// Return the event key value.
+/// @param event event value consumed by this operation.
 function eventKey(event)
   if event.type == cuic.EVENT_SCAN_KEY then return scanKey(event.code) end if
   if event.type == cuic.EVENT_KEY then
@@ -256,7 +290,9 @@ function eventKey(event)
   return 0
 end function
 
-// Queue discrete command.
+/// Queue discrete command.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param command command value consumed by this operation.
 function inline queueDiscreteCommand(state, command)
   // A wheel can report several detents before the next rendered frame. The
   // game processes all of those commands against the same current weapon, so
@@ -276,7 +312,11 @@ function inline queueDiscreteCommand(state, command)
   return true
 end function
 
-// Queue binding.
+/// Queue binding.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param key key value consumed by this operation.
+/// @param down down value consumed by this operation.
+/// @param time time value consumed by this operation.
 function queueBinding(state, key, down, time)
   command = bindingFor(state, key)
   if command == "" then return false end if
@@ -291,7 +331,10 @@ function queueBinding(state, key, down, time)
   return true
 end function
 
-// Handle event.
+/// Handle event.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param event event value consumed by this operation.
+/// @param time time value consumed by this operation.
 function handleEvent(state, event, time)
   if state.commandTime < 0 then state.commandTime = time end if
   if event.type == cuic.EVENT_FOCUS then
@@ -320,7 +363,8 @@ function handleEvent(state, event, time)
   return true
 end function
 
-// Drain commands.
+/// Performs the drainCommands operation for the miniquake2 client ui keys module.
+/// @param state Mutable state inspected or updated by the operation.
 function inline drainCommands(state)
   // The idle product loop drains all command sources every rendered frame.
   // Retain the already allocated empty queue instead of replacing it with a

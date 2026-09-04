@@ -1,3 +1,5 @@
+//! Provides miniquake2 game integration pusher facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,46 +15,70 @@ import miniquake2.game.world.core as pushworldcore
 import miniquake2.game.world.constants as pushworldconstants
 import miniquake2.game.weapons.vector as pushvector
 
-// Store pusher snapshot data.
+/// Store pusher snapshot data.
 struct PusherSnapshot
+  /// Stores the entity value associated with pusher snapshot.
   entity
+  /// Stores the origin value associated with pusher snapshot.
   origin
+  /// Stores the angles value associated with pusher snapshot.
   angles
+  /// Stores the next think value associated with pusher snapshot.
   nextThink
+  /// Stores the think value associated with pusher snapshot.
   think
+  /// Stores the think due value associated with pusher snapshot.
   thinkDue
 end struct
 
-// Store body snapshot data.
+/// Store body snapshot data.
 struct BodySnapshot
+  /// Stores the kind value associated with body snapshot.
   kind
+  /// Stores the value value associated with body snapshot.
   value
+  /// Stores the edict value associated with body snapshot.
   edict
+  /// Stores the number value associated with body snapshot.
   number
+  /// Stores the origin value associated with body snapshot.
   origin
+  /// Stores the angles value associated with body snapshot.
   angles
+  /// Stores the mins value associated with body snapshot.
   mins
+  /// Stores the maxs value associated with body snapshot.
   maxs
+  /// Stores the solid value associated with body snapshot.
   solid
+  /// Stores the ground number value associated with body snapshot.
   groundNumber
+  /// Stores the clip mask value associated with body snapshot.
   clipMask
+  /// Stores the delta yaw value associated with body snapshot.
   deltaYaw
 end struct
 
-// Store pusher capture data.
+/// Store pusher capture data.
 struct PusherCapture
+  /// Stores the pushers value associated with pusher capture.
   pushers
+  /// Stores the bodies value associated with pusher capture.
   bodies
+  /// Stores the masters value associated with pusher capture.
   masters
 end struct
 
-// Copy push data.
+/// Copy push data.
+/// @param value Value consumed or transformed by the operation.
 function pushCopy(value)
   if typeof(value) != "struct" then return error(9694, "pusher Vec3 value required") end if
   return pushqtypes.Vec3(value.x, value.y, value.z)
 end function
 
-// Populate the push copy destination.
+/// Populate the push copy destination.
+/// @param output Output collection or buffer populated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function inline pushCopyInto(output, value)
   if typeof(output) != "struct" or typeof(value) != "struct" then
     return error(9694, "pusher Vec3 value required")
@@ -61,27 +87,31 @@ function inline pushCopyInto(output, value)
   return output
 end function
 
-// Report whether is pusher.
+/// Report whether is pusher.
+/// @param entity entity value consumed by this operation.
 function isPusher(entity)
   return entity.number > 0 and entity.inUse and
     (entity.moveType == pushworldconstants.MOVETYPE_PUSH or
      entity.moveType == pushworldconstants.MOVETYPE_STOP)
 end function
 
-// Report whether this mover has a linked brush volume that can contact bodies.
+/// Report whether this mover has a linked brush volume that can contact bodies.
+/// @param entity entity value consumed by this operation.
 function pusherCanContactBodies(entity)
   return entity.solid == pushworldconstants.SOLID_BSP and
     entity.maxs.x > entity.mins.x and entity.maxs.y > entity.mins.y and
     entity.maxs.z > entity.mins.z
 end function
 
-// Return the pusher master number.
+/// Return the pusher master number.
+/// @param entity entity value consumed by this operation.
 function pusherMasterNumber(entity)
   if entity.teamMaster is not void then return entity.teamMaster.number end if
   return entity.number
 end function
 
-// Assemble teams.
+/// Assemble teams.
+/// @param world world value consumed by this operation.
 function assembleTeams(world)
   for each entity in world.entities
     if entity.team != "" then entity.teamMaster = void; entity.teamChain = void; entity.flags = entity.flags & ~pushworldconstants.FL_TEAMSLAVE end if
@@ -108,7 +138,8 @@ function assembleTeams(world)
   return true
 end function
 
-// Return the body ground number.
+/// Return the body ground number.
+/// @param groundEntity groundEntity value consumed by this operation.
 function bodyGroundNumber(groundEntity)
   if groundEntity is void or typeof(groundEntity) != "struct" then return -1 end if
   directNumber = try(groundEntity.number)
@@ -118,7 +149,8 @@ function bodyGroundNumber(groundEntity)
   return -1
 end function
 
-// Return the player delta yaw.
+/// Return the player delta yaw.
+/// @param edict edict value consumed by this operation.
 function playerDeltaYaw(edict)
   if edict is void or edict.client is void then return 0 end if
   angles = edict.client.playerState.pmove.deltaAngles
@@ -126,7 +158,20 @@ function playerDeltaYaw(edict)
   return angles[1]
 end function
 
-// Populate the body snapshot destination.
+/// Populate the body snapshot destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param edict edict value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param solid Identifier of sol.
+/// @param groundNumber groundNumber value consumed by this operation.
+/// @param clipMask clipMask value consumed by this operation.
+/// @param deltaYaw deltaYaw value consumed by this operation.
 function bodySnapshotInto(snapshot, kind, value, edict, number, origin, angles,
     mins, maxs, solid, groundNumber, clipMask, deltaYaw)
   if snapshot is void then
@@ -143,14 +188,18 @@ function bodySnapshotInto(snapshot, kind, value, edict, number, origin, angles,
   return snapshot
 end function
 
-// Populate the world body destination.
+/// Populate the world body destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function worldBodyInto(snapshot, entity)
   return bodySnapshotInto(snapshot, "world", entity, void, entity.number,
     entity.origin, entity.angles, entity.mins, entity.maxs, entity.solid,
     bodyGroundNumber(entity.groundEntity), entity.clipMask, 0)
 end function
 
-// Populate the player body destination.
+/// Populate the player body destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param player player value consumed by this operation.
 function playerBodyInto(snapshot, player)
   playerEdict = player.edict
   playerState = playerEdict.state
@@ -170,7 +219,9 @@ function playerBodyInto(snapshot, player)
     playerEdict.clipMask, playerDeltaYaw(playerEdict))
 end function
 
-// Populate the monster body destination.
+/// Populate the monster body destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param actor actor value consumed by this operation.
 function monsterBodyInto(snapshot, actor)
   monsterEdict = actor.edict
   monsterState = monsterEdict.state
@@ -180,7 +231,10 @@ function monsterBodyInto(snapshot, actor)
     bodyGroundNumber(actor.groundEntity), monsterEdict.clipMask, 0)
 end function
 
-// Populate a MOVETYPE_FLYMISSILE/BOUNCE projectile body destination.
+/// Populate a MOVETYPE_FLYMISSILE/BOUNCE projectile body destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param runtime runtime value consumed by this operation.
+/// @param projectile projectile value consumed by this operation.
 function projectileBodyInto(snapshot, runtime, projectile)
   projectileEdict = void
   if runtime.exportTable is not void and projectile.engineNumber >= 0 and
@@ -193,7 +247,9 @@ function projectileBodyInto(snapshot, runtime, projectile)
     bodyGroundNumber(projectile.groundEntity), projectile.clipMask, 0)
 end function
 
-// Populate a dropped/static MOVETYPE_TOSS item body destination.
+/// Populate a dropped/static MOVETYPE_TOSS item body destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param item item value consumed by this operation.
 function itemBodyInto(snapshot, item)
   itemEdict = item.edict
   itemState = itemEdict.state
@@ -203,7 +259,9 @@ function itemBodyInto(snapshot, item)
     itemEdict.clipMask, 0)
 end function
 
-// Populate the pusher snapshot destination.
+/// Populate the pusher snapshot destination.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function pusherSnapshotInto(snapshot, entity)
   if snapshot is void then
     snapshot = PusherSnapshot(entity, pushqtypes.zeroVec3(),
@@ -218,17 +276,19 @@ function pusherSnapshotInto(snapshot, entity)
   return snapshot
 end function
 
-// g_phys.c excludes MOVETYPE_NONE/PUSH/STOP/NOCLIP entities before testing a
-// pusher overlap. Managed world bodies that can actually be displaced use one
-// of these three locomotion modes; static bbox/BSP helpers must never jam a
-// door merely because their authored bounds intersect its swept volume.
+/// g_phys.c excludes MOVETYPE_NONE/PUSH/STOP/NOCLIP entities before testing a
+/// pusher overlap. Managed world bodies that can actually be displaced use one
+/// of these three locomotion modes; static bbox/BSP helpers must never jam a
+/// door merely because their authored bounds intersect its swept volume.
+/// @param entity entity value consumed by this operation.
 function worldBodyCanBePushed(entity)
   return entity.moveType == pushworldconstants.MOVETYPE_STEP or
     entity.moveType == pushworldconstants.MOVETYPE_TOSS or
     entity.moveType == pushworldconstants.MOVETYPE_BOUNCE
 end function
 
-// Capture state.
+/// Capture state.
+/// @param runtime runtime value consumed by this operation.
 function capture(runtime)
   // Keep capture phases explicit: validate inputs, update owned state, then publish the result.
   pusherCount = 0
@@ -332,7 +392,9 @@ function capture(runtime)
   return captureState
 end function
 
-// Defer due mover thinks until the enclosing SV_Push transaction succeeds.
+/// Defer due mover thinks until the enclosing SV_Push transaction succeeds.
+/// @param captureState captureState value consumed by this operation.
+/// @param targetTime targetTime value consumed by this operation.
 function deferDueThinks(captureState, targetTime)
   deferred = 0
   for each snapshot in captureState.pushers
@@ -351,21 +413,25 @@ function deferDueThinks(captureState, targetTime)
   return deferred
 end function
 
-// Report whether moved.
+/// Report whether moved.
+/// @param snapshot snapshot value consumed by this operation.
 function moved(snapshot)
   entity = snapshot.entity
   return entity.origin.x != snapshot.origin.x or entity.origin.y != snapshot.origin.y or entity.origin.z != snapshot.origin.z or
     entity.angles.x != snapshot.angles.x or entity.angles.y != snapshot.angles.y or entity.angles.z != snapshot.angles.z
 end function
 
-// Move snapped pusher.
+/// Move snapped pusher.
+/// @param value Value consumed or transformed by the operation.
 function inline snappedPusherMove(value)
   scaled = value * 8.0
   if scaled > 0.0 then scaled = scaled + 0.5 else scaled = scaled - 0.5 end if
   return pushqbyteio.truncInt(scaled) * 0.125
 end function
 
-// Publish pusher move.
+/// Publish pusher move.
+/// @param runtime runtime value consumed by this operation.
+/// @param snapshot snapshot value consumed by this operation.
 function publishPusherMove(runtime, snapshot)
   entity = snapshot.entity
   // SV_Push clamps translations to 1/8 unit before moving and immediately
@@ -378,7 +444,11 @@ function publishPusherMove(runtime, snapshot)
   return true
 end function
 
-// Return the rotated bounds.
+/// Return the rotated bounds.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
 function rotatedBounds(origin, angles, mins, maxs)
   if typeof(origin) != "struct" or typeof(angles) != "struct" or
       typeof(mins) != "struct" or typeof(maxs) != "struct" then
@@ -414,7 +484,8 @@ function rotatedBounds(origin, angles, mins, maxs)
   return [low, high]
 end function
 
-// Return the current origin.
+/// Return the current origin.
+/// @param body body value consumed by this operation.
 function currentOrigin(body)
   if body.kind == "world" or body.kind == "projectile" then
     return body.value.origin
@@ -422,7 +493,8 @@ function currentOrigin(body)
   return body.edict.state.origin
 end function
 
-// Return the current angles.
+/// Return the current angles.
+/// @param body body value consumed by this operation.
 function currentAngles(body)
   if body.kind == "world" or body.kind == "projectile" then
     return body.value.angles
@@ -430,17 +502,23 @@ function currentAngles(body)
   return body.edict.state.angles
 end function
 
-// Return the body bounds for the requested position.
+/// Return the body bounds for the requested position.
+/// @param body body value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
 function bodyBoundsAt(body, origin, angles)
   return rotatedBounds(origin, angles, body.mins, body.maxs)
 end function
 
-// Return the strict overlap value.
+/// Return the strict overlap value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function strictOverlap(first, second)
   return first[1].x > second[0].x and first[0].x < second[1].x and first[1].y > second[0].y and first[0].y < second[1].y and first[1].z > second[0].z and first[0].z < second[1].z
 end function
 
-// Report whether body can be pushed.
+/// Report whether body can be pushed.
+/// @param body body value consumed by this operation.
 function bodyCanBePushed(body)
   if body.kind == "player" or body.kind == "monster" or
       body.kind == "projectile" or body.kind == "item" then return true end if
@@ -448,12 +526,17 @@ function bodyCanBePushed(body)
   return worldBodyCanBePushed(body.value)
 end function
 
-// Report whether standing on.
+/// Report whether standing on.
+/// @param body body value consumed by this operation.
+/// @param pusherSnapshot pusherSnapshot value consumed by this operation.
 function standingOn(body, pusherSnapshot)
   return body.groundNumber == pusherSnapshot.entity.number
 end function
 
-// Set body.
+/// Set body.
+/// @param body body value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
 function setBody(body, origin, angles)
   newOrigin = pushCopy(origin)
   newAngles = pushCopy(angles)
@@ -464,7 +547,8 @@ function setBody(body, origin, angles)
   return true
 end function
 
-// Report whether body moved.
+/// Report whether body moved.
+/// @param body body value consumed by this operation.
 function bodyMoved(body)
   liveOrigin = currentOrigin(body)
   liveAngles = currentAngles(body)
@@ -473,7 +557,9 @@ function bodyMoved(body)
     liveAngles.y != body.angles.y or liveAngles.z != body.angles.z
 end function
 
-// Link body.
+/// Link body.
+/// @param runtime runtime value consumed by this operation.
+/// @param body body value consumed by this operation.
 function linkBody(runtime, body)
   if runtime.playerContext is void or runtime.exportTable is void then return true end if
   if body.kind == "world" then
@@ -486,7 +572,9 @@ function linkBody(runtime, body)
   return true
 end function
 
-// Return the body pass entity value.
+/// Return the body pass entity value.
+/// @param runtime runtime value consumed by this operation.
+/// @param body body value consumed by this operation.
 function bodyPassEntity(runtime, body)
   if body.kind != "world" then return body.edict end if
   if runtime.exportTable is void or body.number < 0 or
@@ -494,7 +582,10 @@ function bodyPassEntity(runtime, body)
   return runtime.exportTable.edicts[body.number]
 end function
 
-// Report whether body position blocked.
+/// Report whether body position blocked.
+/// @param runtime runtime value consumed by this operation.
+/// @param body body value consumed by this operation.
+/// @param position position value consumed by this operation.
 function bodyPositionBlocked(runtime, body, position)
   if runtime.playerContext is void or runtime.exportTable is void then return false end if
   mask = body.clipMask
@@ -506,13 +597,17 @@ function bodyPositionBlocked(runtime, body, position)
   return trace.startSolid
 end function
 
-// Return the body intersects final pusher value.
+/// Return the body intersects final pusher value.
+/// @param runtime runtime value consumed by this operation.
+/// @param body body value consumed by this operation.
 function bodyIntersectsFinalPusher(runtime, body)
   if runtime.playerContext is void or runtime.exportTable is void then return true end if
   return bodyPositionBlocked(runtime, body, currentOrigin(body))
 end function
 
-// Return the translated fallback value.
+/// Return the translated fallback value.
+/// @param destination destination value consumed by this operation.
+/// @param pusherSnapshot pusherSnapshot value consumed by this operation.
 function translatedFallback(destination, pusherSnapshot)
   return pushqtypes.Vec3(
     destination.x - (pusherSnapshot.entity.origin.x - pusherSnapshot.origin.x),
@@ -520,7 +615,9 @@ function translatedFallback(destination, pusherSnapshot)
     destination.z - (pusherSnapshot.entity.origin.z - pusherSnapshot.origin.z))
 end function
 
-// Add player delta yaw.
+/// Add player delta yaw.
+/// @param body body value consumed by this operation.
+/// @param amount amount value consumed by this operation.
 function addPlayerDeltaYaw(body, amount)
   if body.kind != "player" or body.edict is void or body.edict.client is void then return false end if
   angles = body.edict.client.playerState.pmove.deltaAngles
@@ -529,7 +626,8 @@ function addPlayerDeltaYaw(body, amount)
   return true
 end function
 
-// Restore player delta yaw.
+/// Restore player delta yaw.
+/// @param body body value consumed by this operation.
 function restorePlayerDeltaYaw(body)
   if body.kind != "player" or body.edict is void or body.edict.client is void then return false end if
   angles = body.edict.client.playerState.pmove.deltaAngles
@@ -538,7 +636,9 @@ function restorePlayerDeltaYaw(body)
   return true
 end function
 
-// Clear ground unless riding.
+/// Clear ground unless riding.
+/// @param body body value consumed by this operation.
+/// @param pusherSnapshot pusherSnapshot value consumed by this operation.
 function clearGroundUnlessRiding(body, pusherSnapshot)
   if body.groundNumber == pusherSnapshot.entity.number then return false end if
   if body.kind == "world" or body.kind == "projectile" or
@@ -549,7 +649,9 @@ function clearGroundUnlessRiding(body, pusherSnapshot)
   return true
 end function
 
-// Return the carry origin.
+/// Return the carry origin.
+/// @param body body value consumed by this operation.
+/// @param pusherSnapshot pusherSnapshot value consumed by this operation.
 function carryOrigin(body, pusherSnapshot)
   // A team can contain several moving brush parts. Use the live position so a
   // body contacted by a later team member continues from its already-carried
@@ -573,10 +675,13 @@ function carryOrigin(body, pusherSnapshot)
   return pushvector.add(currentPusherOrigin, rotated)
 end function
 
-// BaseQ2 SV_Push first moves a contacted bbox with a MOVETYPE_PUSH brush and
-// reports a block only when the carried position is obstructed. Treating the
-// first overlap as a block leaves the player embedded at the reversal point;
-// the door then toggles direction and applies crush damage every server frame.
+/// BaseQ2 SV_Push first moves a contacted bbox with a MOVETYPE_PUSH brush and
+/// reports a block only when the carried position is obstructed. Treating the
+/// first overlap as a block leaves the player embedded at the reversal point;
+/// the door then toggles direction and applies crush damage every server frame.
+/// @param runtime runtime value consumed by this operation.
+/// @param body body value consumed by this operation.
+/// @param pusherSnapshot pusherSnapshot value consumed by this operation.
 function pushBody(runtime, body, pusherSnapshot)
   if pusherSnapshot.entity.moveType != pushworldconstants.MOVETYPE_PUSH or
       bodyCanBePushed(body) == false then return false end if
@@ -596,7 +701,9 @@ function pushBody(runtime, body, pusherSnapshot)
   return true
 end function
 
-// Report whether team has.
+/// Report whether team has.
+/// @param team team value consumed by this operation.
+/// @param number number value consumed by this operation.
 function teamHas(team, number)
   for each snapshot in team
     if snapshot.entity.number == number then return true end if
@@ -604,7 +711,8 @@ function teamHas(team, number)
   return false
 end function
 
-// Return the proxy for the requested input.
+/// Return the proxy for the requested input.
+/// @param body body value consumed by this operation.
 function proxyFor(body)
   if body.kind == "world" then return body.value end if
   proxy = pushworldtypes.createEntity(body.number, body.kind)
@@ -659,7 +767,10 @@ function proxyFor(body)
   return proxy
 end function
 
-// Finish a pusher team's deferred thinks with g_phys.c ordering.
+/// Finish a pusher team's deferred thinks with g_phys.c ordering.
+/// @param runtime runtime value consumed by this operation.
+/// @param team team value consumed by this operation.
+/// @param blocked blocked value consumed by this operation.
 function finishTeamThinks(runtime, team, blocked)
   if blocked then
     for each snapshot in team
@@ -682,9 +793,12 @@ function finishTeamThinks(runtime, team, blocked)
   return true
 end function
 
-// Run trigger passes only after the complete pusher team commits.
-// g_phys.c defers G_TouchTriggers until SV_Push succeeds, so a rolled-back
-// rider must never activate a trigger at its temporary carried position.
+/// Run trigger passes only after the complete pusher team commits.
+/// g_phys.c defers G_TouchTriggers until SV_Push succeeds, so a rolled-back
+/// rider must never activate a trigger at its temporary carried position.
+/// @param runtime runtime value consumed by this operation.
+/// @param bodies bodies value consumed by this operation.
+/// @param movedBodies movedBodies value consumed by this operation.
 function touchCommittedBodies(runtime, bodies, movedBodies)
   touched = 0
   bodyTouchProbe = try(runtime.pusherTriggerTouch)
@@ -706,9 +820,11 @@ function touchCommittedBodies(runtime, bodies, movedBodies)
   return touched
 end function
 
-// Dispatch one stock SV_Push trigger pass. The shared pushed stack is walked
-// in reverse after every successful team part; later team failure rolls back
-// transforms but deliberately cannot roll back trigger side effects.
+/// Dispatch one stock SV_Push trigger pass. The shared pushed stack is walked
+/// in reverse after every successful team part; later team failure rolls back
+/// transforms but deliberately cannot roll back trigger side effects.
+/// @param runtime runtime value consumed by this operation.
+/// @param entries entries value consumed by this operation.
 function touchPushedEntries(runtime, entries)
   touched = 0
   bodyTouchProbe = try(runtime.pusherTriggerTouch)
@@ -729,7 +845,10 @@ function touchPushedEntries(runtime, entries)
   return touched
 end function
 
-// Resolve team.
+/// Resolve team.
+/// @param runtime runtime value consumed by this operation.
+/// @param captureState captureState value consumed by this operation.
+/// @param masterNumber masterNumber value consumed by this operation.
 function resolveTeam(runtime, captureState, masterNumber)
   teamCount = 0
   anyMoved = false
@@ -836,7 +955,10 @@ function resolveTeam(runtime, captureState, masterNumber)
   return false
 end function
 
-// Integrate one pusher team for the frame before its atomic SV_Push pass.
+/// Integrate one pusher team for the frame before its atomic SV_Push pass.
+/// @param captureState captureState value consumed by this operation.
+/// @param masterNumber masterNumber value consumed by this operation.
+/// @param duration duration value consumed by this operation.
 function advanceTeam(captureState, masterNumber, duration)
   advanced = 0
   for each snapshot in captureState.pushers
@@ -854,7 +976,9 @@ function advanceTeam(captureState, masterNumber, duration)
   return advanced
 end function
 
-// Resolve state.
+/// Resolve state.
+/// @param runtime runtime value consumed by this operation.
+/// @param captureState captureState value consumed by this operation.
 function resolve(runtime, captureState)
   masters = captureState.masters
   masterCount = 0

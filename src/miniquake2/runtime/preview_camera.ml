@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime preview camera facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,13 +10,17 @@ package miniquake2.runtime.preview_camera
 import miniquake2.qcommon.types as pctypes
 import miniquake2.physics.vector as pcvector
 
-// Store preview camera data.
+/// Store preview camera data.
 struct PreviewCamera
+  /// Stores the origin value associated with preview camera.
   origin
+  /// Stores the angles value associated with preview camera.
   angles
 end struct
 
-// Create state.
+/// Creates create for the miniquake2 runtime preview camera module.
+/// @param origin origin value consumed by this operation.
+/// @param angles angles value consumed by this operation.
 function create(origin, angles)
   return PreviewCamera(
     pctypes.Vec3(origin.x, origin.y, origin.z),
@@ -22,7 +28,11 @@ function create(origin, angles)
   )
 end function
 
-// Apply user cmd.
+/// Apply user cmd.
+/// @param camera camera value consumed by this operation.
+/// @param command command value consumed by this operation.
+/// @param viewAngles viewAngles value consumed by this operation.
+/// @param frameMsec frameMsec value consumed by this operation.
 function applyUserCmd(camera, command, viewAngles, frameMsec)
   if frameMsec < 1 then frameMsec = 1 end if
   if frameMsec > 200 then frameMsec = 200 end if

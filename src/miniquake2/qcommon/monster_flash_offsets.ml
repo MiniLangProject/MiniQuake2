@@ -1,3 +1,5 @@
+//! Provides miniquake2 qcommon monster flash offsets facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,6 +9,7 @@ package miniquake2.qcommon.monster_flash_offsets
 
 import miniquake2.qcommon.types as qt
 
+/// Stores module-wide offsets state for the miniquake2 qcommon monster flash offsets module.
 offsets = [
     [0.0, 0.0, 0.0],
     [20.7, -18.5, 28.7],
@@ -258,12 +261,13 @@ offsets = [
     [0.0, 0.0, 0.0]
 ]
 
-// Return the count.
+/// Return the count.
 function count()
   return len(offsets)
 end function
 
-// Return state.
+/// Return state.
+/// @param index Zero-based index of the affected item.
 function get(index)
   if typeof(index) != "int" or index < 1 or index >= len(offsets) then return error(7320, "monster muzzle flash index outside table") end if
   value = offsets[index]

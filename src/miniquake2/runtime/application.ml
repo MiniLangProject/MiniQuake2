@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime application facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -82,124 +84,241 @@ import miniquake2.runtime.pause_policy as apppause
 import miniquake2.runtime.save_metadata as appsavemetadata
 import miniquake2.native as appnative
 
+/// Invokes the native CreateDirectoryW entry point used by the miniquake2 runtime application module.
+/// @param path Path of the file or directory used by the operation.
+/// @param security security value consumed by this operation.
+/// @returns Native bool result produced by the call.
 extern function CreateDirectoryW(path as wstr, security as ptr) from "kernel32.dll" returns bool
 
-// Store asset smoke result data.
+/// Store asset smoke result data.
 struct AssetSmokeResult
+  /// Stores the map path value associated with asset smoke result.
   mapPath
+  /// Stores the map faces value associated with asset smoke result.
   mapFaces
+  /// Stores the map leafs value associated with asset smoke result.
   mapLeafs
+  /// Stores the parsed edicts value associated with asset smoke result.
   parsedEdicts
+  /// Stores the skipped edicts value associated with asset smoke result.
   skippedEdicts
+  /// Stores the player frames value associated with asset smoke result.
   playerFrames
+  /// Stores the sound samples value associated with asset smoke result.
   soundSamples
+  /// Stores the pak count value associated with asset smoke result.
   pakCount
 end struct
 
-// Store retail media audit data.
+/// Store retail media audit data.
 struct RetailMediaAudit
+  /// Stores the attract sequence value associated with retail media audit.
   attractSequence
+  /// Stores the new game specification value associated with retail media audit.
   newGameSpecification
+  /// Stores the idlog value associated with retail media audit.
   idlog
+  /// Stores the intro value associated with retail media audit.
   intro
+  /// Stores the demo1 value associated with retail media audit.
   demo1
+  /// Stores the demo2 value associated with retail media audit.
   demo2
+  /// Stores the level track value associated with retail media audit.
   levelTrack
+  /// Stores the music path value associated with retail media audit.
   musicPath
+  /// Stores the music rate value associated with retail media audit.
   musicRate
+  /// Stores the music channels value associated with retail media audit.
   musicChannels
+  /// Stores the music frames value associated with retail media audit.
   musicFrames
 end struct
 
-// Store product menu selection data.
+/// Store product menu selection data.
 struct ProductMenuSelection
+  /// Stores the action value associated with product menu selection.
   action
+  /// Stores the map name value associated with product menu selection.
   mapName
+  /// Stores the skill value associated with product menu selection.
   skill
+  /// Stores the endpoint value associated with product menu selection.
   endpoint
+  /// Stores the server options value associated with product menu selection.
   serverOptions
+  /// Stores the player profile value associated with product menu selection.
   playerProfile
+  /// Stores the download policy value associated with product menu selection.
   downloadPolicy
+  /// Stores the frames value associated with product menu selection.
   frames
+  /// Stores the product config value associated with product menu selection.
   productConfig
 end struct
 
-// Store the process-wide read-only retail filesystem and decoded sound cache.
-// A product session visits many media and map states, but all of them address
-// the same immutable PAK data. Keeping one index avoids re-reading every PAK
-// and retains commonly shared WAV decodes across map and video transitions.
+/// Store the process-wide read-only retail filesystem and decoded sound cache.
+/// A product session visits many media and map states, but all of them address
+/// the same immutable PAK data. Keeping one index avoids re-reading every PAK
+/// and retains commonly shared WAV decodes across map and video transitions.
 struct ApplicationResourceCache
+  /// Stores the root value associated with application resource cache.
   root
+  /// Stores the filesystem value associated with application resource cache.
   filesystem
+  /// Stores the sound names value associated with application resource cache.
   soundNames
+  /// Stores the sounds value associated with application resource cache.
   sounds
+  /// Stores the sound count value associated with application resource cache.
   soundCount
 end struct
 
-// Retain the managed pusher paired with the engine Edict held by Player.
-// Player.groundEntity deliberately follows game.h and is an Edict, while the
-// mover interpolation data lives on its WorldEntity counterpart.
+/// Retain the managed pusher paired with the engine Edict held by Player.
+/// Player.groundEntity deliberately follows game.h and is an Edict, while the
+/// mover interpolation data lives on its WorldEntity counterpart.
 struct ApplicationGroundPusherCache
+  /// Stores the runtime value associated with application ground pusher cache.
   runtime
+  /// Stores the ground edict value associated with application ground pusher cache.
   groundEdict
+  /// Stores the number value associated with application ground pusher cache.
   number
+  /// Stores the pusher value associated with application ground pusher cache.
   pusher
 end struct
 
+/// Defines the application sound cache capacity constant used by the miniquake2 runtime application module.
 const APPLICATION_SOUND_CACHE_CAPACITY = 512
 
+/// Stores module-wide preview file system state for the miniquake2 runtime application module.
 previewFileSystem = void
+/// Stores module-wide play asset state state for the miniquake2 runtime application module.
 playAssetState = void
+/// Stores module-wide play asset bindings state for the miniquake2 runtime application module.
 playAssetBindings = void
+/// Stores module-wide play client runtime state for the miniquake2 runtime application module.
 playClientRuntime = void
+/// Stores module-wide play effect state state for the miniquake2 runtime application module.
 playEffectState = void
+/// Stores module-wide application remote registration session state for the miniquake2 runtime application module.
 applicationRemoteRegistrationSession = void
+/// Stores module-wide application remote registration file system state for the miniquake2 runtime application module.
 applicationRemoteRegistrationFileSystem = void
+/// Stores module-wide application remote registration renderer state for the miniquake2 runtime application module.
 applicationRemoteRegistrationRenderer = void
+/// Stores module-wide application remote registration world state for the miniquake2 runtime application module.
 applicationRemoteRegistrationWorld = void
+/// Stores module-wide application remote registration map state for the miniquake2 runtime application module.
 applicationRemoteRegistrationMap = void
+/// Stores module-wide application remote registration collision state for the miniquake2 runtime application module.
 applicationRemoteRegistrationCollision = void
+/// Stores module-wide application remote registration map path state for the miniquake2 runtime application module.
 applicationRemoteRegistrationMapPath = ""
+/// Stores module-wide application remote registration assets state for the miniquake2 runtime application module.
 applicationRemoteRegistrationAssets = void
+/// Stores module-wide application automated projectile attack state for the miniquake2 runtime application module.
 applicationAutomatedProjectileAttack = false
+/// Stores module-wide application automated weapon wheel state for the miniquake2 runtime application module.
 applicationAutomatedWeaponWheel = false
+/// Stores module-wide application automated change level state for the miniquake2 runtime application module.
 applicationAutomatedChangeLevel = false
+/// Stores module-wide application automated change level triggered state for the miniquake2 runtime application module.
 applicationAutomatedChangeLevelTriggered = false
+/// Stores module-wide application automated change level reached state for the miniquake2 runtime application module.
 applicationAutomatedChangeLevelReached = false
+/// Stores module-wide application automated change level target state for the miniquake2 runtime application module.
 applicationAutomatedChangeLevelTarget = ""
+/// Stores module-wide application weapon wheel commands state for the miniquake2 runtime application module.
 applicationWeaponWheelCommands = 0
+/// Stores module-wide application weapon wheel transitions state for the miniquake2 runtime application module.
 applicationWeaponWheelTransitions = 0
+/// Stores module-wide application weapon wheel last gun index state for the miniquake2 runtime application module.
 applicationWeaponWheelLastGunIndex = -1
+/// Stores module-wide application weapon wheel stage state for the miniquake2 runtime application module.
 applicationWeaponWheelStage = 0
+/// Stores module-wide application projectile snapshot maximum state for the miniquake2 runtime application module.
 applicationProjectileSnapshotMaximum = 0
+/// Stores module-wide application projectile render maximum state for the miniquake2 runtime application module.
 applicationProjectileRenderMaximum = 0
+/// Stores module-wide application projectile particle maximum state for the miniquake2 runtime application module.
 applicationProjectileParticleMaximum = 0
+/// Stores module-wide application projectile weapon sound maximum state for the miniquake2 runtime application module.
 applicationProjectileWeaponSoundMaximum = 0
+/// Stores module-wide application projectile server maximum state for the miniquake2 runtime application module.
 applicationProjectileServerMaximum = 0
+/// Stores module-wide application projectile attack commands state for the miniquake2 runtime application module.
 applicationProjectileAttackCommands = 0
+/// Stores module-wide application projectile export maximum state for the miniquake2 runtime application module.
 applicationProjectileExportMaximum = 0
+/// Stores module-wide application projectile visible maximum state for the miniquake2 runtime application module.
 applicationProjectileVisibleMaximum = 0
+/// Stores module-wide application projectile visibility diagnostic state for the miniquake2 runtime application module.
 applicationProjectileVisibilityDiagnostic = "unavailable"
+/// Stores module-wide application projectile last engine number state for the miniquake2 runtime application module.
 applicationProjectileLastEngineNumber = -1
+/// Stores module-wide application level capture path state for the miniquake2 runtime application module.
 applicationLevelCapturePath = ""
+/// Stores module-wide application level capture checksum state for the miniquake2 runtime application module.
 applicationLevelCaptureChecksum = 0
+/// Stores module-wide application level capture error state for the miniquake2 runtime application module.
 applicationLevelCaptureError = void
+/// Stores module-wide application persist product config state for the miniquake2 runtime application module.
 applicationPersistProductConfig = true
+/// Stores module-wide application gamemap autosave requested state for the miniquake2 runtime application module.
 applicationGamemapAutosaveRequested = false
+/// Stores module-wide application gamemap end of unit state for the miniquake2 runtime application module.
 applicationGamemapEndOfUnit = false
+/// Stores module-wide application media cooperative state for the miniquake2 runtime application module.
 applicationMediaCooperative = false
+/// Stores module-wide application ground pusher cache state for the miniquake2 runtime application module.
 applicationGroundPusherCache = ApplicationGroundPusherCache(void, void, -1,
   void)
+/// Stores module-wide application resource cache state for the miniquake2 runtime application module.
 applicationResourceCache = ApplicationResourceCache("", void,
   array(APPLICATION_SOUND_CACHE_CAPACITY, ""),
   array(APPLICATION_SOUND_CACHE_CAPACITY), 0)
+/// Stores module-wide application pusher offset value state for the miniquake2 runtime application module.
 applicationPusherOffsetValue = appqtypes.zeroVec3()
+/// Stores module-wide application pusher prediction offset value state for the miniquake2 runtime application module.
 applicationPusherPredictionOffsetValue = appqtypes.zeroVec3()
+/// Stores module-wide application frozen presentation frame state for the miniquake2 runtime application module.
+applicationFrozenPresentationFrame = void
 
-// Return the camera-space correction produced by rendering one ridden pusher
-// between two adjacent snapshots.  Deriving the correction from the snapshot
-// transforms keeps the rider and brush on the same clock even when Move_Done
-// has already cleared the live gameplay velocity.
+/// Derive the renderer interpolation phase from when a new authoritative
+/// snapshot actually arrived, rather than from the independent usercmd clock.
+/// If a packet is late, holding at one is stable; restarting at zero would
+/// replay the old 100-ms interval and make the view visibly jump backward.
+/// @param now now value consumed by this operation.
+/// @param snapshotTime snapshotTime value consumed by this operation.
+function applicationPresentationFraction(now, snapshotTime)
+  fraction = (now - snapshotTime) / 100.0
+  if fraction < 0.0 then return 0.0 end if
+  if fraction > 1.0 then return 1.0 end if
+  return fraction
+end function
+
+/// Keep the last complete gameplay refdef while the local single-player
+/// console pauses simulation. The console is an overlay, so rebuilding a
+/// predicted refdef behind it can otherwise alternate between packet and local
+/// command clocks even though the visible game is meant to be stationary.
+/// @param frozen frozen value consumed by this operation.
+/// @param cachedFrame cachedFrame value consumed by this operation.
+/// @param newFrame newFrame value consumed by this operation.
+function applicationResolvePresentationFrame(frozen, cachedFrame, newFrame)
+  if frozen and cachedFrame is not void then return cachedFrame end if
+  return newFrame
+end function
+
+/// Return the camera-space correction produced by rendering one ridden pusher
+/// between two adjacent snapshots.  Deriving the correction from the snapshot
+/// transforms keeps the rider and brush on the same clock even when Move_Done
+/// has already cleared the live gameplay velocity.
+/// @param client client value consumed by this operation.
+/// @param groundNumber groundNumber value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param riderOrigin riderOrigin value consumed by this operation.
 function applicationPusherSnapshotOffset(client, groundNumber, fraction,
     riderOrigin)
   global applicationPusherOffsetValue
@@ -243,17 +362,36 @@ function applicationPusherSnapshotOffset(client, groundNumber, fraction,
   return offset
 end function
 
-// Return only the pusher correction not already supplied by Quake II's normal
-// prediction-error interpolation. A carried player produces the complete
-// endpoint displacement as a prediction error, so adding the raw snapshot
-// offset again would ease the same 100-ms translation twice. The residual is
-// zero for a translating lift and retains only the curved-path correction for
-// a rotating pusher.
+/// Return only the pusher correction not already supplied by Quake II's normal
+/// prediction-error interpolation. A carried player produces the complete
+/// endpoint displacement as a prediction error, so adding the raw snapshot
+/// offset again would ease the same 100-ms translation twice. The residual is
+/// zero for a translating lift and retains only the curved-path correction for
+/// a rotating pusher.
+/// @param client client value consumed by this operation.
+/// @param groundNumber groundNumber value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+/// @param riderOrigin riderOrigin value consumed by this operation.
 function applicationPusherPredictionOffset(client, groundNumber, fraction,
     riderOrigin)
   global applicationPusherPredictionOffsetValue
   correction = applicationPusherPredictionOffsetValue
   correction.x = 0.0; correction.y = 0.0; correction.z = 0.0
+  // The normal prediction-error path already supplies the complete linear
+  // displacement of a translated lift. Fast-path the common non-rotating
+  // case, both avoiding duplicate vector work and eliminating tiny floating
+  // point residuals that can make a vertical rider appear to bob.
+  if client is void or client.current is void or client.previous is void or
+      client.previous.number != client.current.number - 1 then return correction end if
+  currentPusher = appclientstate.currentEntity(client, groundNumber)
+  previousPusher = appclientstate.findEntity(client.previous.entities,
+    groundNumber)
+  if currentPusher is void or previousPusher is void then return correction end if
+  if currentPusher.angles[0] == previousPusher.angles[0] and
+      currentPusher.angles[1] == previousPusher.angles[1] and
+      currentPusher.angles[2] == previousPusher.angles[2] then
+    return correction
+  end if
   initialOffset = applicationPusherSnapshotOffset(client, groundNumber, 0.0,
     riderOrigin)
   initialX = initialOffset.x; initialY = initialOffset.y
@@ -267,25 +405,24 @@ function applicationPusherPredictionOffset(client, groundNumber, fraction,
   return correction
 end function
 
-// Return the residual interpolation offset for a locally ridden
-// MOVETYPE_PUSH/STOP brush. Translation is already covered by the stock
-// prediction-error path; rotating pushers still need their nonlinear arc.
-function applicationLocalPusherOffset(session, fraction)
-  global applicationPusherPredictionOffsetValue
-  offset = applicationPusherPredictionOffsetValue
-  offset.x = 0.0; offset.y = 0.0; offset.z = 0.0
+/// Return the managed pusher currently supporting the local player. The game
+/// keeps the ground contact as an Edict, whereas renderer interpolation needs
+/// the corresponding WorldEntity. Cache this identity-paired lookup because
+/// ordinary presentation frames commonly revisit the same floor or lift.
+/// @param session session value consumed by this operation.
+function applicationLocalPusher(session)
   runtime = appgame.baseRuntime()
   playerContext = appgame.playerContext()
-  if runtime is void or playerContext is void or session is void then return offset end if
+  if runtime is void or playerContext is void or session is void then return void end if
   playerNumber = session.client.integrated.network.playerNumber
-  if playerNumber < 0 or playerNumber >= len(playerContext.players) then return offset end if
+  if playerNumber < 0 or playerNumber >= len(playerContext.players) then return void end if
   player = playerContext.players[playerNumber]
-  if player.groundEntity is void then return offset end if
+  if player.groundEntity is void then return void end if
   groundEdict = player.groundEntity
   groundNumber = groundEdict.state.number
   // Worldspawn is the overwhelmingly common ground entity and cannot move.
   // Avoid scanning the managed world array on every ordinary floor frame.
-  if groundNumber <= 0 then return offset end if
+  if groundNumber <= 0 then return void end if
   cache = applicationGroundPusherCache
   pusher = cache.pusher
   cacheValid = cache.runtime == runtime and cache.groundEdict == groundEdict and
@@ -300,15 +437,50 @@ function applicationLocalPusherOffset(session, fraction)
     cache.number = groundNumber; cache.pusher = pusher
   end if
   if pusher is void or (pusher.moveType != appworldconstants.MOVETYPE_PUSH and
-      pusher.moveType != appworldconstants.MOVETYPE_STOP) then return offset end if
+      pusher.moveType != appworldconstants.MOVETYPE_STOP) then return void end if
+  return pusher
+end function
+
+/// Return whether local prediction is currently riding a moving brush. This
+/// feeds the client stair smoother before prediction replays the usercmd ring.
+/// @param session session value consumed by this operation.
+function applicationLocalPusherRider(session)
+  pusher = applicationLocalPusher(session)
+  if pusher is void then return false end if
+  return pusher.velocity.x != 0.0 or pusher.velocity.y != 0.0 or
+    pusher.velocity.z != 0.0 or pusher.angularVelocity.x != 0.0 or
+    pusher.angularVelocity.y != 0.0 or pusher.angularVelocity.z != 0.0
+end function
+
+/// Return the residual interpolation offset for a locally ridden
+/// MOVETYPE_PUSH/STOP brush. Translation is already covered by the stock
+/// prediction-error path; rotating pushers still need their nonlinear arc.
+/// @param session session value consumed by this operation.
+/// @param fraction fraction value consumed by this operation.
+function applicationLocalPusherOffset(session, fraction)
+  global applicationPusherPredictionOffsetValue
+  offset = applicationPusherPredictionOffsetValue
+  offset.x = 0.0; offset.y = 0.0; offset.z = 0.0
+  pusher = applicationLocalPusher(session)
+  if pusher is void then return offset end if
+  playerContext = appgame.playerContext()
+  playerNumber = session.client.integrated.network.playerNumber
+  if playerContext is void or playerNumber < 0 or
+      playerNumber >= len(playerContext.players) then return offset end if
+  player = playerContext.players[playerNumber]
+  if player.groundEntity is void then return offset end if
+  groundNumber = player.groundEntity.state.number
   return applicationPusherPredictionOffset(session.client.integrated.client,
     groundNumber, fraction, player.edict.state.origin)
 end function
 
-// Wait until the next presentation deadline and return the following one.
-// Quake II's cl_maxfps gate is independent of the renderer swap interval: a
-// blocking swap can satisfy the deadline, while windowed drivers that ignore
-// WGL_EXT_swap_control still receive stable high-resolution pacing here.
+/// Wait until the next presentation deadline and return the following one.
+/// Quake II's cl_maxfps gate is independent of the renderer swap interval: a
+/// blocking swap can satisfy the deadline, while windowed drivers that ignore
+/// WGL_EXT_swap_control still receive stable high-resolution pacing here.
+/// @param clock clock value consumed by this operation.
+/// @param deadline deadline value consumed by this operation.
+/// @param maxFps maxFps value consumed by this operation.
 function applicationPaceFrame(clock, deadline, maxFps)
   if typeof(maxFps) != "int" or maxFps < 30 or maxFps > 1000 then
     return error(9994, "cl_maxfps outside [30,1000]")
@@ -331,7 +503,8 @@ function applicationPaceFrame(clock, deadline, maxFps)
   return nextDeadline
 end function
 
-// Return the shared read-only filesystem for one retail data root.
+/// Return the shared read-only filesystem for one retail data root.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function applicationSharedFileSystem(baseDirectory)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9912, "retail filesystem root is required")
@@ -349,7 +522,8 @@ function applicationSharedFileSystem(baseDirectory)
   return cache.filesystem
 end function
 
-// Reset decoded sounds when a direct tool path selects a different data root.
+/// Reset decoded sounds when a direct tool path selects a different data root.
+/// @param filesystem filesystem value consumed by this operation.
 function applicationSynchronizeSoundCache(filesystem)
   cache = applicationResourceCache
   if not apptext.equalInsensitive(cache.root, filesystem.baseDirectory) then
@@ -362,54 +536,66 @@ function applicationSynchronizeSoundCache(filesystem)
   return cache
 end function
 
-// Load preview file.
+/// Load preview file.
+/// @param path Path of the file or directory used by the operation.
 function loadPreviewFile(path)
   global previewFileSystem
   if previewFileSystem is void then return error(9912, "preview filesystem is not active") end if
   return appfs.readFile(previewFileSystem, path)
 end function
 
-// Report whether application renderer no result 0.
+/// Report whether application renderer no result 0.
 function applicationRendererNoResult0()
   return true
 end function
 
-// Report whether application renderer no result 1.
+/// Report whether application renderer no result 1.
+/// @param value Value consumed or transformed by the operation.
 function applicationRendererNoResult1(value)
   return true
 end function
 
-// Report whether application renderer no result 2.
+/// Report whether application renderer no result 2.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function applicationRendererNoResult2(first, second)
   return true
 end function
 
-// Report whether application renderer no result 3.
+/// Report whether application renderer no result 3.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param third third value consumed by this operation.
 function applicationRendererNoResult3(first, second, third)
   return true
 end function
 
-// Return the application renderer zero 0 value.
+/// Return the application renderer zero 0 value.
 function applicationRendererZero0()
   return 0
 end function
 
-// Report whether application renderer empty 1.
+/// Report whether application renderer empty 1.
+/// @param value Value consumed or transformed by the operation.
 function applicationRendererEmpty1(value)
   return ""
 end function
 
-// Return the application renderer void 3 value.
+/// Return the application renderer void 3 value.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
+/// @param third third value consumed by this operation.
 function applicationRendererVoid3(first, second, third)
   return void
 end function
 
-// Return the application renderer mode value.
+/// Return the application renderer mode value.
+/// @param mode Mode selecting the requested behavior.
 function applicationRendererMode(mode)
   return apprtypes.VideoModeInfo(false, 0, 0)
 end function
 
-// Return the application renderer imports value.
+/// Return the application renderer imports value.
 function applicationRendererImports()
   return apprtypes.RefImport(
     applicationRendererNoResult2, applicationRendererNoResult2,
@@ -423,7 +609,8 @@ function applicationRendererImports()
   )
 end function
 
-// Load play sound.
+/// Load play sound.
+/// @param name Name of the affected item.
 function loadPlaySound(name)
   // Normalize the virtual name, probe the root-scoped decode cache, then read,
   // validate and publish a bounded cached WAV only on a miss.
@@ -465,19 +652,23 @@ function loadPlaySound(name)
   return applicationPlaySoundResultHolder
 end function
 
-// Report whether note missing play asset.
+/// Report whether note missing play asset.
+/// @param value Value consumed or transformed by the operation.
 function noteMissingPlayAsset(value)
   return true
 end function
 
-// Return the application remote file exists value.
+/// Return the application remote file exists value.
+/// @param name Name of the affected item.
 function applicationRemoteFileExists(name)
   global previewFileSystem
   if previewFileSystem is void then return false end if
   return appfs.fileExists(previewFileSystem, name)
 end function
 
-// Register application remote download.
+/// Register application remote download.
+/// @param kind kind value consumed by this operation.
+/// @param name Name of the affected item.
 function applicationRemoteRegisterDownload(kind, name)
   // Never send `begin` until the fully downloaded precache generation has
   // successfully entered the renderer/collision registry.
@@ -485,7 +676,8 @@ function applicationRemoteRegisterDownload(kind, name)
   return true
 end function
 
-// Play user info.
+/// Play user info.
+/// @param hand hand value consumed by this operation.
 function playUserInfo(hand)
   if typeof(hand) != "int" or hand < 0 or hand > 2 then
     return error(9954, "play handedness must be 0, 1 or 2")
@@ -493,13 +685,15 @@ function playUserInfo(hand)
   return "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000\\hand\\" + hand
 end function
 
-// Play profile user info.
+/// Play profile user info.
+/// @param profile profile value consumed by this operation.
 function playProfileUserInfo(profile)
   if profile is void then return playUserInfo(0) end if
   return appstartup.playerUserInfo(profile)
 end function
 
-// Report whether missing play asset summary.
+/// Report whether missing play asset summary.
+/// @param state Mutable state inspected or updated by the operation.
 function missingPlayAssetSummary(state)
   output = ""
   for each missing in appclientassets.missingAssets(state)
@@ -509,28 +703,31 @@ function missingPlayAssetSummary(state)
   return output
 end function
 
-// Resolve play model index.
+/// Resolve play model index.
+/// @param index Zero-based index of the affected item.
 function resolvePlayModelIndex(index)
   global playAssetState
   if playAssetState is void then return void end if
   return appassetregistry.resolveModelIndex(playAssetState, index)
 end function
 
-// Resolve play effect model.
+/// Resolve play effect model.
+/// @param name Name of the affected item.
 function resolvePlayEffectModel(name)
   global playAssetState
   if playAssetState is void then return void end if
   return appassetregistry.resolveModelName(playAssetState, name)
 end function
 
-// Play random client effect.
+/// Play random client effect.
 function randomPlayClientEffect()
   global playEffectState
   if playEffectState is void then return 0 end if
   return appeffectstate.random(playEffectState)
 end function
 
-// Resolve play entity position.
+/// Resolve play entity position.
+/// @param number number value consumed by this operation.
 function resolvePlayEntityPosition(number)
   global playClientRuntime
   if playClientRuntime is void or playClientRuntime.current is void then return void end if
@@ -539,7 +736,8 @@ function resolvePlayEntityPosition(number)
   return appqtypes.vec3(entity.origin[0], entity.origin[1], entity.origin[2])
 end function
 
-// Pump play audio.
+/// Pump play audio.
+/// @param queuedBlocks queuedBlocks value consumed by this operation.
 function inline applicationAudioRefillBudget(queuedBlocks)
   if queuedBlocks < 0 then queuedBlocks = 0 end if
   missing = 8 - queuedBlocks
@@ -551,7 +749,9 @@ function inline applicationAudioRefillBudget(queuedBlocks)
   return missing
 end function
 
-// Pump play audio.
+/// Pump play audio.
+/// @param device device value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
 function pumpPlayAudio(device, mixer)
   if device is void or mixer is void then return 0 end if
   submitted = 0
@@ -564,7 +764,9 @@ function pumpPlayAudio(device, mixer)
   return submitted
 end function
 
-// Close play audio.
+/// Close play audio.
+/// @param device device value consumed by this operation.
+/// @param mixer mixer value consumed by this operation.
 function closePlayAudio(device, mixer)
   if mixer is not void then
     appaudiomixer.stopMusic(mixer)
@@ -575,7 +777,8 @@ function closePlayAudio(device, mixer)
   return void
 end function
 
-// Report whether count available assets.
+/// Report whether count available assets.
+/// @param entries entries value consumed by this operation.
 function countAvailableAssets(entries)
   count = 0
   for each entry in entries
@@ -584,7 +787,9 @@ function countAvailableAssets(entries)
   return count
 end function
 
-// Apply play handoff.
+/// Apply play handoff.
+/// @param screen screen value consumed by this operation.
+/// @param handoff handoff value consumed by this operation.
 function applyPlayHandoff(screen, handoff)
   if handoff is void then return false end if
   for each value in handoff.prints
@@ -608,7 +813,9 @@ function applyPlayHandoff(screen, handoff)
   return true
 end function
 
-// Play save paths.
+/// Play save paths.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function playSavePaths(baseDirectory, slot)
   if typeof(slot) != "int" or slot < 0 or slot > 14 then return error(9925, "play save slot outside [0,14]") end if
   applicationSaveDirectory = productSettingsDirectory(baseDirectory)
@@ -618,7 +825,9 @@ function playSavePaths(baseDirectory, slot)
     appnativefs.joinPath(applicationSaveDirectory, applicationSaveStem + "_level.sav")]
 end function
 
-// Report whether product path inside.
+/// Report whether product path inside.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param parentDirectory parentDirectory value consumed by this operation.
 function productPathInside(baseDirectory, parentDirectory)
   if typeof(baseDirectory) != "string" or typeof(parentDirectory) != "string" or
       parentDirectory == "" then return false end if
@@ -629,9 +838,13 @@ function productPathInside(baseDirectory, parentDirectory)
       applicationProductParentLower + "\\")
 end function
 
-// Keep portable installs self-contained, but never try to persist settings
-// below a protected Program Files/Steam data root.  This mirrors modern
-// Windows game behavior while leaving the retail assets read-only.
+/// Keep portable installs self-contained, but never try to persist settings
+/// below a protected Program Files/Steam data root.  This mirrors modern
+/// Windows game behavior while leaving the retail assets read-only.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param localAppData localAppData value consumed by this operation.
+/// @param programFiles programFiles value consumed by this operation.
+/// @param programFilesX86 programFilesX86 value consumed by this operation.
 function productSettingsDirectoryFrom(baseDirectory, localAppData,
     programFiles, programFilesX86)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
@@ -646,7 +859,8 @@ function productSettingsDirectoryFrom(baseDirectory, localAppData,
   return appnativefs.joinPath(baseDirectory, appfs.BASE_DIRECTORY_NAME)
 end function
 
-// Return the product settings directory value.
+/// Return the product settings directory value.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function productSettingsDirectory(baseDirectory)
   applicationLocalAppData = appprocess.environment("LOCALAPPDATA")
   applicationProgramFiles = appprocess.environment("ProgramFiles")
@@ -668,14 +882,16 @@ function productSettingsDirectory(baseDirectory)
   return applicationSettingsDirectory
 end function
 
-// Play config path.
+/// Play config path.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function playConfigPath(baseDirectory)
   applicationSettingsDirectory = productSettingsDirectory(baseDirectory)
   if applicationSettingsDirectory is error then return applicationSettingsDirectory end if
   return appnativefs.joinPath(applicationSettingsDirectory, "miniquake2.cfg")
 end function
 
-// Play preferences path.
+/// Play preferences path.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function playPreferencesPath(baseDirectory)
   applicationSettingsDirectory = productSettingsDirectory(baseDirectory)
   if applicationSettingsDirectory is error then return applicationSettingsDirectory end if
@@ -683,28 +899,34 @@ function playPreferencesPath(baseDirectory)
     "miniquake2_multiplayer.cfg")
 end function
 
-// Play save metadata path.
+/// Play save metadata path.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function playSaveMetadataPath(baseDirectory, slot)
   applicationSaveMetadataPaths = playSavePaths(baseDirectory, slot)
   if applicationSaveMetadataPaths is error then return applicationSaveMetadataPaths end if
   return applicationSaveMetadataPaths[0] + ".meta"
 end function
 
-// Play screenshot directory.
+/// Play screenshot directory.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function playScreenshotDirectory(baseDirectory)
   applicationScreenshotRoot = productSettingsDirectory(baseDirectory)
   if applicationScreenshotRoot is error then return applicationScreenshotRoot end if
   return appnativefs.joinPath(applicationScreenshotRoot, "screenshots")
 end function
 
-// Play demo directory.
+/// Play demo directory.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function playDemoDirectory(baseDirectory)
   applicationDemoRoot = productSettingsDirectory(baseDirectory)
   if applicationDemoRoot is error then return applicationDemoRoot end if
   return appnativefs.joinPath(applicationDemoRoot, "demos")
 end function
 
-// Return the ends with value.
+/// Return the ends with value.
+/// @param value Value consumed or transformed by the operation.
+/// @param suffix suffix value consumed by this operation.
 function endsWith(value, suffix)
   if typeof(value) != "string" or typeof(suffix) != "string" then return error(9916, "endsWith requires text") end if
   applicationEndsValueLowerHolder = apptext.lower(value)
@@ -723,7 +945,8 @@ function endsWith(value, suffix)
   return true
 end function
 
-// Map path.
+/// Map path.
+/// @param name Name of the affected item.
 function mapPath(name)
   if typeof(name) != "string" or name == "" then return error(9917, "mapPath requires a map name") end if
   applicationMapPathValueHolder = name
@@ -737,7 +960,8 @@ function mapPath(name)
   return applicationMapPathValueHolder
 end function
 
-// Return the cinematic path.
+/// Return the cinematic path.
+/// @param name Name of the affected item.
 function cinematicPath(name)
   if typeof(name) != "string" or name == "" then return error(9921, "cinematicPath requires a cinematic name") end if
   applicationCinematicPathHolder = name
@@ -751,7 +975,8 @@ function cinematicPath(name)
   return applicationCinematicPathHolder
 end function
 
-// Return the picture path.
+/// Return the picture path.
+/// @param name Name of the affected item.
 function picturePath(name)
   if typeof(name) != "string" or name == "" then return error(9926, "picturePath requires a picture name") end if
   applicationPicturePathHolder = name
@@ -765,7 +990,8 @@ function picturePath(name)
   return applicationPicturePathHolder
 end function
 
-// Return the demo path.
+/// Return the demo path.
+/// @param name Name of the affected item.
 function demoPath(name)
   if typeof(name) != "string" or name == "" then return error(9948, "demoPath requires a demo name") end if
   applicationDemoPathHolder = name
@@ -779,10 +1005,16 @@ function demoPath(name)
   return applicationDemoPathHolder
 end function
 
-// Product CIN lifecycle: retail FS -> Huffman frames/palette -> OpenGL raw
-// stretch, with the CIN PCM stream feeding the same managed mixer/device used
-// by gameplay. Escape opens/closes the existing menu and pauses/resumes both
-// video time and its mixer channel without losing the current frame.
+/// Product CIN lifecycle: retail FS -> Huffman frames/palette -> OpenGL raw
+/// stretch, with the CIN PCM stream feeding the same managed mixer/device used
+/// by gameplay. Escape opens/closes the existing menu and pauses/resumes both
+/// video time and its mixer channel without losing the current frame.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param looping looping value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param attractLoop attractLoop value consumed by this operation.
 function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping,
     productHost, attractLoop)
   global previewFileSystem
@@ -902,7 +1134,11 @@ function runRetailCinematicOnHost(baseDirectory, name, frameLimit, looping,
     applicationCinematicCommandStateHolder.quitRequested]
 end function
 
-// Run retail cinematic.
+/// Run retail cinematic.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param looping looping value consumed by this operation.
 function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   applicationCinematicProductHost = appproducthost.openProductHost(
     "MiniQuake2 Cinematic - " + name, 0, false, applicationRendererImports())
@@ -913,8 +1149,12 @@ function runRetailCinematic(baseDirectory, name, frameLimit, looping)
   return applicationCinematicProductResult
 end function
 
-// Static intermission counterpart to runCinematic. Space/Enter emits the
-// classic nextserver intent; Escape opens the same menu/quit lifecycle.
+/// Static intermission counterpart to runCinematic. Space/Enter emits the
+/// classic nextserver intent; Escape opens the same menu/quit lifecycle.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
 function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
   // Keep run retail picture on host phases explicit: validate inputs, update owned state, then publish the result.
   global previewFileSystem
@@ -994,7 +1234,10 @@ function runRetailPictureOnHost(baseDirectory, name, frameLimit, productHost)
     applicationPictureWidth, applicationPictureHeight, applicationPictureAdvanced]
 end function
 
-// Run retail picture.
+/// Run retail picture.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runRetailPicture(baseDirectory, name, frameLimit)
   applicationPictureProductHost = appproducthost.openProductHost(
     "MiniQuake2 Picture - " + name, 0, false, applicationRendererImports())
@@ -1005,7 +1248,15 @@ function runRetailPicture(baseDirectory, name, frameLimit)
   return applicationPictureProductResult
 end function
 
-// Submit application demo frame.
+/// Submit application demo frame.
+/// @param renderer renderer value consumed by this operation.
+/// @param world world value consumed by this operation.
+/// @param frame frame value consumed by this operation.
+/// @param screen screen value consumed by this operation.
+/// @param now now value consumed by this operation.
+/// @param window window value consumed by this operation.
+/// @param stats stats value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
 function applicationSubmitDemoFrame(renderer, world, frame, screen, now,
     window, stats, configStrings)
   applicationDemoSubmitStats = appgl.submitClassicWorld(renderer, world, frame)
@@ -1015,10 +1266,15 @@ function applicationSubmitDemoFrame(renderer, world, frame, screen, now,
   return applicationDemoSubmitStats
 end function
 
-// Product DM2 lifecycle. Release demos are Protocol 26 streams; DemoSession
-// owns that isolated compatibility mode while all live networking remains 34.
-// Configstrings drive the same BSP/model/sound registration and frame/effect
-// handoff used by a connected game.
+/// Product DM2 lifecycle. Release demos are Protocol 26 streams; DemoSession
+/// owns that isolated compatibility mode while all live networking remains 34.
+/// Configstrings drive the same BSP/model/sound registration and frame/effect
+/// handoff used by a connected game.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param attractLoop attractLoop value consumed by this operation.
 function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
     attractLoop)
   global previewFileSystem, playAssetState, playAssetBindings, playClientRuntime, playEffectState
@@ -1292,7 +1548,10 @@ function runRetailDemoOnHost(baseDirectory, name, frameLimit, productHost,
     applicationDemoTimedemoMetrics.framesPerSecond]
 end function
 
-// Run retail demo.
+/// Run retail demo.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runRetailDemo(baseDirectory, name, frameLimit)
   applicationDemoProductHost = appproducthost.openProductHost(
     "MiniQuake2 Demo - " + name, 3, false, applicationRendererImports())
@@ -1303,9 +1562,11 @@ function runRetailDemo(baseDirectory, name, frameLimit)
   return applicationDemoProductResult
 end function
 
-// Qcommon_Init executes the stock d1 alias when no explicit +command was
-// supplied. Keep the four-entry alias cycle data-driven so any input can hand
-// control back to the persistent product menu without opening another host.
+/// Qcommon_Init executes the stock d1 alias when no explicit +command was
+/// supplied. Keep the four-entry alias cycle data-driven so any input can hand
+/// control back to the persistent product menu without opening another host.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
 function runStockAttractLoopOnHost(baseDirectory, productHost)
   // Keep run stock attract loop on host phases explicit: validate inputs, update owned state, then publish the result.
   applicationAttractIndex = 0
@@ -1348,11 +1609,19 @@ function runStockAttractLoopOnHost(baseDirectory, productHost)
   return [applicationAttractCompleted, "closed", applicationAttractIndex]
 end function
 
-// Execute the exact classic `map first+nextserver` media chain. A positive
-// frame limit is a deterministic preview gate per step; zero retains normal
-// interactive behavior (CIN to completion, PCX until Space/Enter, map until
-// window close). DM2 uses the isolated release-demo Protocol-26 compatibility
-// path and renders through the same Protocol-34 client state and product host.
+/// Execute the exact classic `map first+nextserver` media chain. A positive
+/// frame limit is a deterministic preview gate per step; zero retains normal
+/// interactive behavior (CIN to completion, PCX until Space/Enter, map until
+/// window close). DM2 uses the isolated release-demo Protocol-26 compatibility
+/// path and renders through the same Protocol-34 client state and product host.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param specification specification value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param initialConfig initialConfig value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
+/// @param initialGameplayHandover initialGameplayHandover value consumed by this operation.
 function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
     frameLimit, productHost, skill, initialConfig, playerProfile,
     initialGameplayHandover)
@@ -1522,21 +1791,36 @@ function runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
     applicationMediaPlayerProfile, applicationMediaGameplayHandover]
 end function
 
-// Report whether run retail media sequence on host with settings.
+/// Report whether run retail media sequence on host with settings.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param specification specification value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param initialConfig initialConfig value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
 function runRetailMediaSequenceOnHostWithSettings(baseDirectory, specification,
     frameLimit, productHost, skill, initialConfig, playerProfile)
   return runRetailMediaSequenceOnHostWithState(baseDirectory, specification,
     frameLimit, productHost, skill, initialConfig, playerProfile, void)
 end function
 
-// Report whether run retail media sequence on host.
+/// Report whether run retail media sequence on host.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param specification specification value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function runRetailMediaSequenceOnHost(baseDirectory, specification, frameLimit,
     productHost, skill)
   return runRetailMediaSequenceOnHostWithSettings(baseDirectory, specification,
     frameLimit, productHost, skill, void, appstartup.defaultPlayerProfile())
 end function
 
-// Run retail media sequence.
+/// Run retail media sequence.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param specification specification value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runRetailMediaSequence(baseDirectory, specification, frameLimit)
   applicationMediaProductHost = appproducthost.openProductHost("MiniQuake2", 3, false,
     applicationRendererImports())
@@ -1555,7 +1839,9 @@ function runRetailMediaSequence(baseDirectory, specification, frameLimit)
     applicationMediaProductResult[6], applicationMediaProductResult[7]]
 end function
 
-// Return the asset smoke value.
+/// Return the asset smoke value.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function assetSmoke(baseDirectory, mapName)
   if baseDirectory == "" then return error(9910, "asset smoke requires the Quake II install root containing baseq2") end if
   if mapName == "" then mapName = "base1" end if
@@ -1586,7 +1872,9 @@ function assetSmoke(baseDirectory, mapName)
   return AssetSmokeResult(path, len(map.faces), len(map.leafs), parsed, spawnResult.skippedEntityCount, len(player.frames), menuSound.sampleCount, pakCount)
 end function
 
-// Return the audit retail cinematic value.
+/// Return the audit retail cinematic value.
+/// @param filesystem filesystem value consumed by this operation.
+/// @param name Name of the affected item.
 function auditRetailCinematic(filesystem, name)
   applicationAuditCinematicData = appfs.readFile(filesystem,
     cinematicPath(name))
@@ -1608,7 +1896,10 @@ function auditRetailCinematic(filesystem, name)
     len(applicationAuditCinematicFrame.pixels)]
 end function
 
-// Return the audit retail demo value.
+/// Return the audit retail demo value.
+/// @param filesystem filesystem value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param randomSeed randomSeed value consumed by this operation.
 function auditRetailDemo(filesystem, name, randomSeed)
   applicationAuditDemo = appdemosession.create(appfs.readFile(filesystem,
     demoPath(name)), randomSeed)
@@ -1628,11 +1919,12 @@ function auditRetailDemo(filesystem, name, randomSeed)
   return applicationAuditDemoResult
 end function
 
-// Deterministic, headless retail gate for the media paths that otherwise need
-// interactive windows. It decodes one real frame from both stock CIN files,
-// replays both release DM2 streams through their Protocol-26 compatibility
-// dispatcher, publishes base1's worldspawn CD track through Game API v3, and
-// opens the matching OGG through the production Vorbis bridge.
+/// Deterministic, headless retail gate for the media paths that otherwise need
+/// interactive windows. It decodes one real frame from both stock CIN files,
+/// replays both release DM2 streams through their Protocol-26 compatibility
+/// dispatcher, publishes base1's worldspawn CD track through Game API v3, and
+/// opens the matching OGG through the production Vorbis bridge.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function runRetailMediaAudit(baseDirectory)
   if not appstartup.retailRootValid(baseDirectory) then
     return error(9953, "retail media audit requires a Quake II root")
@@ -1699,7 +1991,8 @@ function runRetailMediaAudit(baseDirectory)
     applicationAuditMusicFrames)
 end function
 
-// Return the result lines value.
+/// Return the result lines value.
+/// @param result Result object populated or inspected by the operation.
 function resultLines(result)
   return [
     "map=" + result.mapPath,
@@ -1713,9 +2006,9 @@ function resultLines(result)
   ]
 end function
 
-// Canonical classic baseq2 single-player BSP set.  The read-only Python gate
-// discovers every PAK map dynamically; this stable order is the product-level
-// repeated-session stress matrix and deliberately excludes q2dm maps.
+/// Canonical classic baseq2 single-player BSP set.  The read-only Python gate
+/// discovers every PAK map dynamically; this stable order is the product-level
+/// repeated-session stress matrix and deliberately excludes q2dm maps.
 function campaignMapNames()
   return [
     "base1", "base2", "base3", "biggun", "boss1", "boss2", "bunk1",
@@ -1727,7 +2020,9 @@ function campaignMapNames()
   ]
 end function
 
-// Return the settle campaign session value.
+/// Return the settle campaign session value.
+/// @param session session value consumed by this operation.
+/// @param maximumSteps maximumSteps value consumed by this operation.
 function settleCampaignSession(session, maximumSteps)
   campaignReliableSettleStepCount = 0
   client = session.server.networkRuntime.server.clients[0]
@@ -1747,7 +2042,9 @@ function settleCampaignSession(session, maximumSteps)
   return error(9915, "campaign session reliable channel did not settle")
 end function
 
-// Return the campaign signon error value.
+/// Return the campaign signon error value.
+/// @param session session value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function campaignSignonError(session, mapName)
   serverClient = session.server.networkRuntime.server.clients[0]
   clientNetwork = session.client.integrated.network.client
@@ -1810,9 +2107,11 @@ function campaignSignonError(session, mapName)
     " rejected=" + (session.client.packetsRejected + session.server.packetsRejected))
 end function
 
-// Reuse one real UDP client/server session across multiple user-owned retail
-// maps.  This is intentionally headless: renderer registration is separately
-// covered by --play, while this gate isolates level lifetime and re-signon.
+/// Reuse one real UDP client/server session across multiple user-owned retail
+/// maps.  This is intentionally headless: renderer registration is separately
+/// covered by --play, while this gate isolates level lifetime and re-signon.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param maximumMaps maximumMaps value consumed by this operation.
 function runCampaignSessionSmoke(baseDirectory, maximumMaps)
   maps = campaignMapNames()
   if baseDirectory == "" then return error(9916, "campaign session requires the Quake II install root") end if
@@ -1845,7 +2144,10 @@ function runCampaignSessionSmoke(baseDirectory, maximumMaps)
   return [completed, changes, state, spawnCount, steps, packets]
 end function
 
-// Run play input smoke.
+/// Run play input smoke.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param commandSteps commandSteps value consumed by this operation.
 function runPlayInputSmoke(baseDirectory, mapName, commandSteps)
   if typeof(baseDirectory) != "string" or baseDirectory == "" then
     return error(9921, "play input smoke requires the Quake II install root")
@@ -1874,7 +2176,10 @@ function runPlayInputSmoke(baseDirectory, mapName, commandSteps)
   return appPhysicalInputReport
 end function
 
-// Map preview.
+/// Map preview.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function previewMap(baseDirectory, mapName, frameLimit)
   // Keep preview map phases explicit: validate inputs, update owned state, then publish the result.
   global previewFileSystem
@@ -1949,10 +2254,13 @@ function previewMap(baseDirectory, mapName, frameLimit)
   return frames
 end function
 
-// Native product acceptance for the same mode-apply path used by the live
-// Video menu. The network/game session deliberately does not participate:
-// the gate isolates the Win32 mode change and verifies that the registered
-// BSP remains usable on the same renderer generation.
+/// Native product acceptance for the same mode-apply path used by the live
+/// Video menu. The network/game session deliberately does not participate:
+/// the gate isolates the Win32 mode change and verifies that the registered
+/// BSP remains usable on the same renderer generation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param targetVideoMode targetVideoMode value consumed by this operation.
 function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
     targetVideoMode)
   global previewFileSystem
@@ -2092,13 +2400,15 @@ function runRetailVideoRestartSmokeForMode(baseDirectory, mapName,
     applicationVideoSmokeRendererGeneration]
 end function
 
-// Return the stock autosave/manual slot label.
+/// Return the stock autosave/manual slot label.
+/// @param slot slot value consumed by this operation.
 function playSaveSlotLabel(slot)
   if slot == 0 then return "autosave" end if
   return "slot " + slot
 end function
 
-// Private `current` archive used between maps within one Quake II unit.
+/// Private `current` archive used between maps within one Quake II unit.
+/// @param baseDirectory baseDirectory value consumed by this operation.
 function playCurrentArchivePaths(baseDirectory)
   applicationCurrentSaveDirectory = productSettingsDirectory(baseDirectory)
   if applicationCurrentSaveDirectory is error then return applicationCurrentSaveDirectory end if
@@ -2108,12 +2418,15 @@ function playCurrentArchivePaths(baseDirectory)
     "miniquake2_current_level.sav")]
 end function
 
-// Run retail video restart smoke.
+/// Run retail video restart smoke.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function runRetailVideoRestartSmoke(baseDirectory, mapName)
   return runRetailVideoRestartSmokeForMode(baseDirectory, mapName, 5)
 end function
 
-// Return the product address book value.
+/// Return the product address book value.
+/// @param menu menu value consumed by this operation.
 function productAddressBook(menu)
   applicationProductAddresses = []
   applicationProductAddressIndex = 0
@@ -2130,7 +2443,9 @@ function productAddressBook(menu)
   return applicationProductAddresses
 end function
 
-// Update product browser menu.
+/// Update product browser menu.
+/// @param menu menu value consumed by this operation.
+/// @param browser browser value consumed by this operation.
 function updateProductBrowserMenu(menu, browser)
   applicationProductBrowserCount = appstartup.browserEntryCount(browser)
   applicationProductBrowserIndex = 0
@@ -2157,9 +2472,13 @@ function updateProductBrowserMenu(menu, browser)
   return applicationProductBrowserCount
 end function
 
-// Own the menu-only product state until one typed transition is selected.
-// Config, preferences, audio and renderer resources are finalized here so a
-// subsequent local/remote session starts without retaining menu temporaries.
+/// Own the menu-only product state until one typed transition is selected.
+/// Config, preferences, audio and renderer resources are finalized here so a
+/// subsequent local/remote session starts without retaining menu temporaries.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param initialProfile initialProfile value consumed by this operation.
 function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     initialProfile)
   global previewFileSystem
@@ -2506,10 +2825,13 @@ function runProductMenuOnHost(baseDirectory, productHost, frameLimit,
     applicationProductFrames, applicationProductFinalConfig)
 end function
 
-// Consume a multiplayer request made from an active local game's menu. The
-// caller tears the current listen session down before the product loop starts
-// the selected replacement, so no single-player Game API state leaks into the
-// new server or remote connection.
+/// Consume a multiplayer request made from an active local game's menu. The
+/// caller tears the current listen session down before the product loop starts
+/// the selected replacement, so no single-player Game API state leaks into the
+/// new server or remote connection.
+/// @param commandState commandState value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
+/// @param productConfig productConfig value consumed by this operation.
 function takeActiveProductSelection(commandState, playerProfile, productConfig)
   if appuicommands.takeStartServer(commandState) then
     applicationActiveServerOptions = appuicommands.serverOptions(commandState)
@@ -2526,9 +2848,20 @@ function takeActiveProductSelection(commandState, playerProfile, productConfig)
   return void
 end function
 
-// Construct and drive one authoritative local/listen session inside an
-// existing product host. Loading, signon and renderer warm-up finish before
-// audio starts; every exit path returns a complete transition/diagnostic value.
+/// Construct and drive one authoritative local/listen session inside an
+/// existing product host. Loading, signon and renderer warm-up finish before
+/// audio starts; every exit path returns a complete transition/diagnostic value.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param menuAtStart menuAtStart value consumed by this operation.
+/// @param serverOptions serverOptions value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
+/// @param initialConfig initialConfig value consumed by this operation.
+/// @param initialGameplayHandover initialGameplayHandover value consumed by this operation.
 function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     frameLimit, productHost, skill, menuAtStart, serverOptions, playerProfile,
     initialConfig, initialGameplayHandover)
@@ -2833,10 +3166,12 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
   end if
   appwindow.setMouseCapture(input.destination == appuiconstants.KEY_GAME)
   clock = appsystem.createClock()
-  networkTime = appsystem.milliseconds(clock)
-  inputTime = networkTime
+  commandTime = appsystem.milliseconds(clock)
+  presentationTime = commandTime
+  inputTime = commandTime
+  applicationFrozenPresentationFrame = void
   frames = 0
-  applicationFpsWindowStart = networkTime
+  applicationFpsWindowStart = commandTime
   applicationFpsFrameCount = 0
   applicationPerfClient = 0
   applicationPerfWorld = 0
@@ -3020,6 +3355,13 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
       session.server.networkRuntime.server.maxClients, true,
       input.destination)
     appsession.setPaused(session.server, applicationSinglePlayerPaused)
+    // A pusher's continuous rise is not a stair. Set this before either the
+    // fixed-rate command replay or the per-frame preview below so both paths
+    // use the same camera policy while standing on an elevator.
+    appclientstate.setPredictionStepSuppressed(session.client.integrated.client,
+      applicationLocalPusherRider(session))
+    applicationConsolePresentationFrozen = applicationSinglePlayerPaused and
+      input.destination == appuiconstants.KEY_CONSOLE
     if applicationSinglePlayerPaused or not applicationWindowActive then
       appaudiomixer.pauseMusic(audioMixer)
     else
@@ -3250,16 +3592,25 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         "Video mode applied: " + window.width + "x" + window.height,
         appbyteio.truncInt(started))
     end if
-    networkMsec = started - networkTime
+    // Usercmd creation stays on its regular 10-Hz clock. Presentation uses a
+    // separate epoch updated only after an accepted snapshot, so late packets
+    // cannot restart interpolation over an already rendered interval.
+    networkMsec = started - commandTime
     if networkMsec >= 100 then
       if networkMsec > 200 then networkMsec = 200 end if
+      applicationSnapshotBeforeStep = -1
+      if session.client.integrated.client.current is not void then
+        applicationSnapshotBeforeStep = session.client.integrated.client.current.number
+      end if
       command = appuiinput.createSampledUserCmd(input,
         appbyteio.truncInt(networkMsec))
       if applicationAutomatedProjectileAttack and
           (command.buttons & appuiconstants.BUTTON_ATTACK) != 0 then
         applicationProjectileAttackCommands = applicationProjectileAttackCommands + 1
       end if
-      appplay.predictLocal(session, command)
+      if input.destination == appuiconstants.KEY_GAME then
+        appplay.predictLocal(session, command)
+      end if
       appplay.setUserCmd(session, command)
       stepResult = appplay.step(session)
       if applicationAutomatedProjectileAttack then
@@ -3394,7 +3745,12 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         applicationPendingMediaSpecification = appmediaseq.takeQueuedGameMap(
           session.server.bridgeRuntime.commands)
       end if
-      networkTime = started
+      if session.client.integrated.client.current is not void and
+          session.client.integrated.client.current.number !=
+            applicationSnapshotBeforeStep then
+        presentationTime = started
+      end if
+      commandTime = started
     end if
 
     applicationNextMusicTrackValue = session.client.integrated.network.configStrings[
@@ -3421,22 +3777,43 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
           applicationHeapAfterInput - applicationHeapFrameStart
       end if
     end if
-    fraction = (started - networkTime) / 100.0
-    if fraction < 0.0 then fraction = 0.0 end if
-    if fraction > 1.0 then fraction = 1.0 end if
-    applicationPredictionMsec = started - networkTime
-    if applicationPredictionMsec > 0 then
-      if applicationPredictionMsec > 200 then applicationPredictionMsec = 200 end if
-      applicationPreviewCommand = appuiinput.previewUserCmd(input,
-        appbyteio.truncInt(applicationPredictionMsec))
-      appplay.predictLocal(session, applicationPreviewCommand)
+    // Declare the refdef outside the pause branch because the renderer below
+    // consumes either the cached console frame or a newly constructed one.
+    frame = applicationFrozenPresentationFrame
+    if applicationConsolePresentationFrozen and
+        applicationFrozenPresentationFrame is not void then
+      frame = applicationResolvePresentationFrame(true,
+        applicationFrozenPresentationFrame, void)
+    else
+      fraction = applicationPresentationFraction(started, presentationTime)
+      applicationPredictionMsec = started - commandTime
+      if input.destination == appuiconstants.KEY_GAME and
+          applicationPredictionMsec > 0 then
+        if applicationPredictionMsec > 200 then applicationPredictionMsec = 200 end if
+        applicationPreviewCommand = appuiinput.previewUserCmd(input,
+          appbyteio.truncInt(applicationPredictionMsec))
+        appplay.predictLocal(session, applicationPreviewCommand)
+      end if
+      applicationPusherOffset = applicationLocalPusherOffset(session, fraction)
+      frame = appclientstate.buildPredictedRefDefWithOffset(
+        session.client.integrated.client, fraction,
+        window.width, window.height, playAssetBindings,
+        session.client.integrated.network.playerNumber + 1,
+        randomPlayClientEffect, applicationPusherOffset)
+      // Effects are timestamped by the ClientSession clock while packets are
+      // dispatched.  Keep advances on that same monotonic epoch; the render
+      // clock above intentionally starts only after signon has completed.
+      effectNow = appbyteio.truncInt(appsystem.milliseconds(session.client.clock))
+      appentityeffects.emit(session.client.integrated.effects,
+        session.client.integrated.client.current,
+        session.client.integrated.client.previous, fraction, effectNow,
+        session.client.integrated.network.playerNumber + 1, frame)
+      appeffecthandoff.applyPrepared(session.client.integrated.effects, frame,
+        effectNow, resolvePlayEffectModel)
+      // Retain the post-effect refdef, so the first console frame shows the
+      // same complete image that was visible immediately before it opened.
+      applicationFrozenPresentationFrame = frame
     end if
-    applicationPusherOffset = applicationLocalPusherOffset(session, fraction)
-    frame = appclientstate.buildPredictedRefDefWithOffset(
-      session.client.integrated.client, fraction,
-      window.width, window.height, playAssetBindings,
-      session.client.integrated.network.playerNumber + 1,
-      randomPlayClientEffect, applicationPusherOffset)
     if audioDevice is not void then
       viewAxes = appphysicsvector.angleVectors(frame.viewAngles)
       appclientassets.attachMixer(assetState, session.client.integrated.effects,
@@ -3447,16 +3824,6 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
         session.client.integrated.client.current,
         applicationSinglePlayerPaused)
     end if
-    // Effects are timestamped by the ClientSession clock while packets are
-    // dispatched.  Keep advances on that same monotonic epoch; the render
-    // clock above intentionally starts only after signon has completed.
-    effectNow = appbyteio.truncInt(appsystem.milliseconds(session.client.clock))
-    appentityeffects.emit(session.client.integrated.effects,
-      session.client.integrated.client.current,
-      session.client.integrated.client.previous, fraction, effectNow,
-      session.client.integrated.network.playerNumber + 1, frame)
-    appeffecthandoff.applyPrepared(session.client.integrated.effects, frame,
-      effectNow, resolvePlayEffectModel)
     if applicationAutomatedProjectileAttack then
       applicationProjectileSnapshots = 0
       for each applicationProjectileState in session.client.integrated.client.current.entities
@@ -3778,7 +4145,17 @@ function runPlayAtOnHostConfiguredWithState(baseDirectory, mapName, spawnPoint,
     applicationFinalGameplayHandover, applicationNextProductSelection]
 end function
 
-// Report whether run play at on host configured with config.
+/// Report whether run play at on host configured with config.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param menuAtStart menuAtStart value consumed by this operation.
+/// @param serverOptions serverOptions value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
+/// @param initialConfig initialConfig value consumed by this operation.
 function runPlayAtOnHostConfiguredWithConfig(baseDirectory, mapName, spawnPoint,
     frameLimit, productHost, skill, menuAtStart, serverOptions, playerProfile,
     initialConfig)
@@ -3787,7 +4164,16 @@ function runPlayAtOnHostConfiguredWithConfig(baseDirectory, mapName, spawnPoint,
     initialConfig, void)
 end function
 
-// Report whether run play at on host configured.
+/// Report whether run play at on host configured.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
+/// @param menuAtStart menuAtStart value consumed by this operation.
+/// @param serverOptions serverOptions value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
 function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
     productHost, skill, menuAtStart, serverOptions, playerProfile)
   return runPlayAtOnHostConfiguredWithConfig(baseDirectory, mapName, spawnPoint,
@@ -3795,14 +4181,24 @@ function runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimi
     void)
 end function
 
-// Report whether run play at on host.
+/// Report whether run play at on host.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param skill skill value consumed by this operation.
 function runPlayAtOnHost(baseDirectory, mapName, spawnPoint, frameLimit,
     productHost, skill)
   return runPlayAtOnHostConfigured(baseDirectory, mapName, spawnPoint, frameLimit,
     productHost, skill, true, void, appstartup.defaultPlayerProfile())
 end function
 
-// Run play at.
+/// Run play at.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   applicationPlayProductHost = appproducthost.openProductHost("MiniQuake2 - " + mapName,
     3, false, applicationRendererImports())
@@ -3837,13 +4233,20 @@ function runPlayAt(baseDirectory, mapName, spawnPoint, frameLimit)
   return applicationPlayProductResult
 end function
 
-// Run play.
+/// Run play.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runPlay(baseDirectory, mapName, frameLimit)
   return runPlayAt(baseDirectory, mapName, "", frameLimit)
 end function
 
-// Render one deterministic 1920x1080 product frame at an authored campaign
-// spawn without reading or overwriting the player's persistent configuration.
+/// Render one deterministic 1920x1080 product frame at an authored campaign
+/// spawn without reading or overwriting the player's persistent configuration.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param outputPath Path associated with output.
+/// @param frameLimit frameLimit value consumed by this operation.
 function captureLevelStart(baseDirectory, mapName, outputPath, frameLimit)
   global applicationLevelCapturePath, applicationLevelCaptureChecksum
   global applicationLevelCaptureError, applicationPersistProductConfig
@@ -3886,7 +4289,11 @@ function captureLevelStart(baseDirectory, mapName, outputPath, frameLimit)
     1920, 1080, applicationLevelCaptureResult[5]]
 end function
 
-// Run change level smoke.
+/// Run change level smoke.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param nextMap nextMap value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runChangeLevelSmoke(baseDirectory, mapName, nextMap, frameLimit)
   // Keep run change level smoke phases explicit: validate inputs, update owned state, then publish the result.
   global applicationAutomatedChangeLevel, applicationAutomatedChangeLevelTriggered
@@ -3966,7 +4373,10 @@ function runChangeLevelSmoke(baseDirectory, mapName, nextMap, frameLimit)
     applicationChangeLevelSmokeResult[27]]
 end function
 
-// Run projectile visual smoke.
+/// Run projectile visual smoke.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
   global applicationAutomatedProjectileAttack, applicationProjectileSnapshotMaximum, applicationProjectileRenderMaximum, applicationProjectileParticleMaximum, applicationProjectileWeaponSoundMaximum, applicationProjectileServerMaximum, applicationProjectileAttackCommands, applicationProjectileExportMaximum, applicationProjectileVisibleMaximum, applicationProjectileVisibilityDiagnostic, applicationProjectileLastEngineNumber
   if frameLimit < 240 then frameLimit = 240 end if
@@ -3994,7 +4404,10 @@ function runProjectileVisualSmoke(baseDirectory, mapName, frameLimit)
     applicationProjectileWeaponSoundMaximum]
 end function
 
-// Run weapon wheel smoke.
+/// Run weapon wheel smoke.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runWeaponWheelSmoke(baseDirectory, mapName, frameLimit)
   global applicationAutomatedWeaponWheel, applicationWeaponWheelCommands
   global applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex
@@ -4012,7 +4425,8 @@ function runWeaponWheelSmoke(baseDirectory, mapName, frameLimit)
     applicationWeaponWheelTransitions, applicationWeaponWheelLastGunIndex]
 end function
 
-// Map remote model path.
+/// Map remote model path.
+/// @param session session value consumed by this operation.
 function remoteMapModelPath(session)
   applicationRemoteMapIndex = appqconstants.CS_MODELS + 1
   applicationRemoteConfigStrings = session.integrated.network.configStrings
@@ -4026,7 +4440,7 @@ function remoteMapModelPath(session)
   return applicationRemoteMapName
 end function
 
-// Register application remote world.
+/// Register application remote world.
 function applicationRegisterRemoteWorld()
   global previewFileSystem, playAssetState, playAssetBindings
   global applicationRemoteRegistrationSession
@@ -4082,9 +4496,15 @@ function applicationRegisterRemoteWorld()
   return true
 end function
 
-// Drive a remote Protocol-34 client with independent render, UserCmd and
-// snapshot clocks. Registration is committed only after downloads, checksum
-// validation and all client assets complete successfully.
+/// Drive a remote Protocol-34 client with independent render, UserCmd and
+/// snapshot clocks. Registration is committed only after downloads, checksum
+/// validation and all client assets complete successfully.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param endpoint endpoint value consumed by this operation.
+/// @param productHost productHost value consumed by this operation.
+/// @param playerProfile playerProfile value consumed by this operation.
+/// @param downloadPolicy downloadPolicy value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     playerProfile, downloadPolicy, frameLimit)
   // Keep run remote product on host phases explicit: validate inputs, update owned state, then publish the result.
@@ -4580,7 +5000,10 @@ function runRemoteProductOnHost(baseDirectory, endpoint, productHost,
     applicationRemoteCommands.quitRequested, applicationRemoteMapPath]
 end function
 
-// Run remote product smoke.
+/// Run remote product smoke.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param endpoint endpoint value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runRemoteProductSmoke(baseDirectory, endpoint, frameLimit)
   applicationRemoteSmokeHost = appproducthost.openProductHost(
     "MiniQuake2 Remote Smoke", 3, false, applicationRendererImports())
@@ -4592,7 +5015,9 @@ function runRemoteProductSmoke(baseDirectory, endpoint, frameLimit)
   return applicationRemoteSmokeResult
 end function
 
-// Run product.
+/// Run product.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runProduct(baseDirectory, frameLimit)
   global applicationGamemapAutosaveRequested, applicationGamemapEndOfUnit
   if not appstartup.retailRootValid(baseDirectory) then
@@ -4766,7 +5191,10 @@ function runProduct(baseDirectory, frameLimit)
     applicationPersistentGameplayFrames]
 end function
 
-// Run dedicated.
+/// Performs the executeDedicatedCommand operation for the miniquake2 runtime application module.
+/// @param session session value consumed by this operation.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param text Text consumed by the operation.
 function executeDedicatedCommand(session, baseDirectory, text)
   arguments = appqcmd.tokenize(text)
   if len(arguments) == 0 then return [true, ""] end if
@@ -4786,7 +5214,11 @@ function executeDedicatedCommand(session, baseDirectory, text)
   return [true, appservercommands.executeOperator(session.networkRuntime, text)]
 end function
 
-// Run dedicated.
+/// Runs dedicated for the miniquake2 runtime application workflow.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runDedicated(baseDirectory, mapName, port, frameLimit)
   session = appsession.createRetail(baseDirectory, mapName, "0.0.0.0", port, 4, true)
   print "MiniQuake2 dedicated server listening: " + session.socket.address + ":" + session.socket.port
@@ -4814,7 +5246,10 @@ function runDedicated(baseDirectory, mapName, port, frameLimit)
   return [frames, session.packetsReceived, session.packetsSent, session.packetsRejected]
 end function
 
-// Run headless client.
+/// Run headless client.
+/// @param address address value consumed by this operation.
+/// @param port port value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runHeadlessClient(address, port, frameLimit)
   session = appclientsession.create(address, port, "\\name\\MiniQuake2\\skin\\male/grunt\\rate\\25000", 0)
   print "MiniQuake2 Protocol-34 client connecting: " + address + ":" + port
@@ -4825,7 +5260,10 @@ function runHeadlessClient(address, port, frameLimit)
   return [frames, state, parsed, session.packetsReceived, session.packetsSent, session.packetsRejected]
 end function
 
-// Run listen.
+/// Run listen.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param frameLimit frameLimit value consumed by this operation.
 function runListen(baseDirectory, mapName, frameLimit)
   server = appsession.createRetail(baseDirectory, mapName, "127.0.0.1", 0, 1, false)
   client = appclientsession.create("127.0.0.1", server.socket.port,

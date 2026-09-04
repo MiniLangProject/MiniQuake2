@@ -1,3 +1,5 @@
+//! Provides miniquake2 platform gamma facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,15 +11,20 @@ import std.math as videogammamath
 import miniquake2.qcommon.byteio as videogammabyteio
 import miniquake2.native as videogammanative
 
-// Store gamma state data.
+/// Store gamma state data.
 struct GammaState
+  /// Stores the original ramp value associated with gamma state.
   originalRamp
+  /// Stores the supported value associated with gamma state.
   supported
+  /// Stores the applied value associated with gamma state.
   applied
+  /// Stores the value value associated with gamma state.
   value
 end struct
 
-// Build ramp.
+/// Build ramp.
+/// @param gamma gamma value consumed by this operation.
 function buildRamp(gamma)
   if (typeof(gamma) != "int" and typeof(gamma) != "float") or gamma != gamma or
       gamma < 0.5 or gamma > 2.0 then
@@ -43,9 +50,9 @@ function buildRamp(gamma)
   return ramp
 end function
 
-// GetDeviceGammaRamp may be unavailable under Remote Desktop, HDR compositing
-// or a restrictive driver. Keep that a supported fallback state rather than a
-// product-start failure, matching the original renderer's software table path.
+/// GetDeviceGammaRamp may be unavailable under Remote Desktop, HDR compositing
+/// or a restrictive driver. Keep that a supported fallback state rather than a
+/// product-start failure, matching the original renderer's software table path.
 function create()
   original = bytes(1536)
   supported = videogammanative.winGetGammaRamp(original, len(original)) != 0
@@ -53,7 +60,10 @@ function create()
   return GammaState(original, supported, false, 1.0)
 end function
 
-// Apply state.
+/// Apply state.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param gamma gamma value consumed by this operation.
+/// @param active active value consumed by this operation.
 function apply(state, gamma, active)
   ramp = try(buildRamp(gamma))
   if ramp is error then return ramp end if
@@ -71,7 +81,8 @@ function apply(state, gamma, active)
   return applied
 end function
 
-// Restore state.
+/// Restore state.
+/// @param state Mutable state inspected or updated by the operation.
 function restore(state)
   if state is void or not state.supported or len(state.originalRamp) != 1536 then
     return false
@@ -82,7 +93,10 @@ function restore(state)
   return restored
 end function
 
-// Update state.
+/// Update state.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param gamma gamma value consumed by this operation.
+/// @param active active value consumed by this operation.
 function update(state, gamma, active)
   if state is void then return false end if
   wantedApplied = active and gamma != 1.0 and gamma != 1

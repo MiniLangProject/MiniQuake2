@@ -1,3 +1,5 @@
+//! Provides miniquake2 network runtime commands facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -26,9 +28,13 @@ import miniquake2.network.server as nserver
 import miniquake2.network.runtime.types as nrtypes
 import miniquake2.server.administration as nsadmin
 
+/// Defines the max network command log constant used by the miniquake2 network runtime commands module.
 const MAX_NETWORK_COMMAND_LOG = 1024
 
-// Append network command log.
+/// Append network command log.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
 function networkCommandAppendLog(runtime, slot, value)
   entry = [slot, value]
   if len(runtime.commandLog) < MAX_NETWORK_COMMAND_LOG then
@@ -48,19 +54,25 @@ end function
 import miniquake2.network.runtime.messages as rmessages
 import miniquake2.network.runtime.checksum as rchecksum
 
+/// Defines the max string commands constant used by the miniquake2 network runtime commands module.
 const MAX_STRING_COMMANDS = 8
+/// Defines the download chunk constant used by the miniquake2 network runtime commands module.
 const DOWNLOAD_CHUNK = 1024
+/// Defines the max deferred reliable work constant used by the miniquake2 network runtime commands module.
 const MAX_DEFERRED_RELIABLE_WORK = 16
+/// Defines the reliable work configstrings constant used by the miniquake2 network runtime commands module.
 const RELIABLE_WORK_CONFIGSTRINGS = 1
+/// Defines the reliable work baselines constant used by the miniquake2 network runtime commands module.
 const RELIABLE_WORK_BASELINES = 2
+/// Defines the reliable work download constant used by the miniquake2 network runtime commands module.
 const RELIABLE_WORK_DOWNLOAD = 3
 
-// MSG_Write/ReadDeltaUsercmd never mutates its base command. Keep the stock
-// null command once instead of rebuilding its struct and angle array for every
-// 90-Hz client packet in both directions.
+/// MSG_Write/ReadDeltaUsercmd never mutates its base command. Keep the stock
 networkRuntimeZeroUserCmd = qt.zeroUserCmd()
 
-// Write user info.
+/// Write user info.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param userInfo userInfo value consumed by this operation.
 function writeUserInfo(buffer, userInfo)
   if not qinfo.validate(userInfo) then return error(7250, "invalid clc_userinfo string") end if
   qmsg.writeByte(buffer, qc.CLC_USERINFO)
@@ -68,7 +80,9 @@ function writeUserInfo(buffer, userInfo)
   return buffer
 end function
 
-// Write string command.
+/// Write string command.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param command command value consumed by this operation.
 function writeStringCommand(buffer, command)
   if typeof(command) != "string" or len(bytes(command)) >= qc.MAX_STRING_CHARS then return error(7251, "invalid clc_stringcmd") end if
   qmsg.writeByte(buffer, qc.CLC_STRINGCMD)
@@ -76,7 +90,13 @@ function writeStringCommand(buffer, command)
   return buffer
 end function
 
-// Write move.
+/// Write move.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param sequence sequence value consumed by this operation.
+/// @param lastFrame lastFrame value consumed by this operation.
+/// @param oldest oldest value consumed by this operation.
+/// @param oldCommand oldCommand value consumed by this operation.
+/// @param newCommand newCommand value consumed by this operation.
 function writeMove(buffer, sequence, lastFrame, oldest, oldCommand, newCommand)
   if typeof(sequence) != "int" or sequence < 0 then return error(7252, "move sequence must be non-negative") end if
   qmsg.writeByte(buffer, qc.CLC_MOVE)
@@ -91,7 +111,8 @@ function writeMove(buffer, sequence, lastFrame, oldest, oldCommand, newCommand)
   return buffer
 end function
 
-// Report whether contains traversal.
+/// Report whether contains traversal.
+/// @param name Name of the affected item.
 function containsTraversal(name)
   value = bytes(name)
   index = 0
@@ -102,7 +123,8 @@ function containsTraversal(name)
   return false
 end function
 
-// Report whether has subdirectory.
+/// Report whether has subdirectory.
+/// @param name Name of the affected item.
 function hasSubdirectory(name)
   value = bytes(name)
   for each character in value
@@ -111,7 +133,8 @@ function hasSubdirectory(name)
   return false
 end function
 
-// Return the safe download name.
+/// Return the safe download name.
+/// @param name Name of the affected item.
 function safeDownloadName(name)
   if typeof(name) != "string" or name == "" or len(bytes(name)) >= qc.MAX_QPATH then return false end if
   value = bytes(name)
@@ -119,7 +142,10 @@ function safeDownloadName(name)
   return not containsTraversal(name) and hasSubdirectory(name)
 end function
 
-// Register download.
+/// Register download.
+/// @param runtime runtime value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param data Input data consumed by the operation.
 function registerDownload(runtime, name, data)
   if not safeDownloadName(name) or typeof(data) != "bytes" then return error(7253, "invalid runtime download") end if
   index = 0
@@ -131,7 +157,9 @@ function registerDownload(runtime, name, data)
   return true
 end function
 
-// Find download.
+/// Find download.
+/// @param runtime runtime value consumed by this operation.
+/// @param name Name of the affected item.
 function findDownload(runtime, name)
   for each entry in runtime.downloads
     if entry.name == name then return entry.data end if
@@ -139,7 +167,9 @@ function findDownload(runtime, name)
   return void
 end function
 
-// Return the server data fragments value.
+/// Return the server data fragments value.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function serverDataFragments(runtime, slot)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeServerData(buffer, runtime.spawnCount,
@@ -148,35 +178,45 @@ function serverDataFragments(runtime, slot)
   return [qsz.dataSlice(buffer)]
 end function
 
-// Return the config string fragment value.
+/// Return the config string fragment value.
+/// @param index Zero-based index of the affected item.
+/// @param value Value consumed or transformed by the operation.
 function configStringFragment(index, value)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeConfigString(buffer, index, value)
   return qsz.dataSlice(buffer)
 end function
 
-// Return the stuff text fragment value.
+/// Return the stuff text fragment value.
+/// @param text Text consumed by the operation.
 function stuffTextFragment(text)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeStuffText(buffer, text)
   return qsz.dataSlice(buffer)
 end function
 
-// Return the baseline fragment value.
+/// Return the baseline fragment value.
+/// @param baseline baseline value consumed by this operation.
 function baselineFragment(baseline)
   buffer = qsz.alloc(256)
   rmessages.writeSpawnBaseline(buffer, baseline)
   return qsz.dataSlice(buffer)
 end function
 
-// Return the download fragment value.
+/// Return the download fragment value.
+/// @param data Input data consumed by the operation.
+/// @param offset Zero-based offset at which processing starts.
+/// @param count Number of items or units to process.
+/// @param percent percent value consumed by this operation.
 function downloadFragment(data, offset, count, percent)
   buffer = qsz.alloc(pc.RELIABLE_BUFFER_SIZE)
   rmessages.writeDownload(buffer, data, offset, count, percent)
   return qsz.dataSlice(buffer)
 end function
 
-// Queue server data.
+/// Queue server data.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function queueServerData(runtime, slot)
   client = runtime.server.clients[slot]
   if client.state != nc.CS_CONNECTED then return false end if
@@ -187,7 +227,11 @@ function queueServerData(runtime, slot)
   return true
 end function
 
-// Queue config strings.
+/// Queue config strings.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param requestedSpawn requestedSpawn value consumed by this operation.
+/// @param start start value consumed by this operation.
 function queueConfigStrings(runtime, slot, requestedSpawn, start)
   client = runtime.server.clients[slot]
   if client.state != nc.CS_CONNECTED then return false end if
@@ -214,7 +258,11 @@ function queueConfigStrings(runtime, slot, requestedSpawn, start)
   return start
 end function
 
-// Queue baselines.
+/// Queue baselines.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param requestedSpawn requestedSpawn value consumed by this operation.
+/// @param start start value consumed by this operation.
 function queueBaselines(runtime, slot, requestedSpawn, start)
   client = runtime.server.clients[slot]
   if client.state != nc.CS_CONNECTED then return false end if
@@ -241,7 +289,9 @@ function queueBaselines(runtime, slot, requestedSpawn, start)
   return start
 end function
 
-// Queue download chunk.
+/// Queue download chunk.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function queueDownloadChunk(runtime, slot)
   transfer = runtime.transfers[slot]
   if transfer is void or transfer.offset < 0 then return false end if
@@ -261,7 +311,12 @@ function queueDownloadChunk(runtime, slot)
   return count
 end function
 
-// Return the defer reliable work value.
+/// Return the defer reliable work value.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param kind kind value consumed by this operation.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function deferReliableWork(runtime, slot, kind, first, second)
   if slot < 0 or slot >= runtime.server.maxClients then
     return error(7262, "deferred reliable work slot outside range")
@@ -275,9 +330,11 @@ function deferReliableWork(runtime, slot, kind, first, second)
   return true
 end function
 
-// Client string commands are themselves reliably acknowledged before their
-// server response necessarily fits.  Retain a bounded typed retry record so
-// backpressure cannot consume config/baseline/download requests.
+/// Client string commands are themselves reliably acknowledged before their
+/// server response necessarily fits.  Retain a bounded typed retry record so
+/// backpressure cannot consume config/baseline/download requests.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function retryDeferredReliable(runtime, slot)
   if slot < 0 or slot >= runtime.server.maxClients then
     return error(7262, "deferred reliable work slot outside range")
@@ -306,7 +363,8 @@ function retryDeferredReliable(runtime, slot)
   return true
 end function
 
-// Return the replenish command msec value.
+/// Return the replenish command msec value.
+/// @param runtime runtime value consumed by this operation.
 function replenishCommandMsec(runtime)
   index = 0
   while index < runtime.server.maxClients
@@ -316,7 +374,11 @@ function replenishCommandMsec(runtime)
   return true
 end function
 
-// Begin download.
+/// Begin download.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param offset Zero-based offset at which processing starts.
 function beginDownload(runtime, slot, name, offset)
   if not safeDownloadName(name) then
     pnetchan.queueReliableFragments(runtime.server.clients[slot].channel,
@@ -336,15 +398,18 @@ function beginDownload(runtime, slot, name, offset)
   return true
 end function
 
-// Return the integer argument value.
+/// Return the integer argument value.
+/// @param arguments arguments value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function integerArgument(arguments, index)
   if index >= len(arguments) then return 0 end if
   return nconnectionless.parseDecimal(arguments[index])
 end function
 
-// CL_Disconnect in the 3.19 client transmits strlen(final), deliberately
-// omitting the strcpy terminator. Accept only that one exact terminal command;
-// every other clc_stringcmd still requires regular NUL framing.
+/// CL_Disconnect in the 3.19 client transmits strlen(final), deliberately
+/// omitting the strcpy terminator. Accept only that one exact terminal command;
+/// every other clc_stringcmd still requires regular NUL framing.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readClientStringCommand(buffer)
   index = buffer.readCount
   while index < buffer.curSize
@@ -367,7 +432,10 @@ function readClientStringCommand(buffer)
   return "disconnect"
 end function
 
-// Execute string.
+/// Execute string.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param text Text consumed by the operation.
 function executeString(runtime, slot, text)
   // Keep execute string phases explicit: validate inputs, update owned state, then publish the result.
   arguments = qcmd.tokenize(text)
@@ -425,14 +493,23 @@ function executeString(runtime, slot, text)
   return runtime.callbacks.clientCommand(slot, text)
 end function
 
-// Apply think.
+/// Apply think.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param command command value consumed by this operation.
 function applyThink(runtime, slot, command)
   runtime.commandMsec[slot] = runtime.commandMsec[slot] - command.msec
   if runtime.commandMsec[slot] < 0 then return false end if
   return runtime.callbacks.clientThink(slot, command)
 end function
 
-// Parse client payload.
+/// Parse client payload.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
+/// @param payload payload value consumed by this operation.
+/// @param sequence sequence value consumed by this operation.
+/// @param dropped dropped value consumed by this operation.
+/// @param paused paused value consumed by this operation.
 function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
   if slot < 0 or slot >= runtime.server.maxClients then return error(7256, "client payload slot outside range") end if
   buffer = rmessages.readingBuffer(payload)
@@ -490,7 +567,9 @@ function parseClientPayload(runtime, slot, payload, sequence, dropped, paused)
   return true
 end function
 
-// Return the joined arguments value.
+/// Return the joined arguments value.
+/// @param arguments arguments value consumed by this operation.
+/// @param startIndex Zero-based index of start.
 function joinedArguments(arguments, startIndex)
   output = ""
   index = startIndex
@@ -502,14 +581,17 @@ function joinedArguments(arguments, startIndex)
   return output
 end function
 
-// Return the operator status value.
+/// Return the operator status value.
+/// @param runtime runtime value consumed by this operation.
 function operatorStatus(runtime)
   return "map              : " + runtime.server.mapName + "\n" +
     nserver.statusString(runtime.server)
 end function
 
-// Resolve an operator client selector by numeric slot or case-insensitive
-// player name. Numeric slots use Quake II's human-facing zero-based values.
+/// Resolve an operator client selector by numeric slot or case-insensitive
+/// player name. Numeric slots use Quake II's human-facing zero-based values.
+/// @param runtime runtime value consumed by this operation.
+/// @param selector selector value consumed by this operation.
 function operatorClientSlot(runtime, selector)
   numeric = try(toNumber(selector))
   if numeric is not error and numeric is not void then
@@ -527,15 +609,19 @@ function operatorClientSlot(runtime, selector)
   return -1
 end function
 
-// Return the stock dumpuser-style information for one connected client.
+/// Return the stock dumpuser-style information for one connected client.
+/// @param runtime runtime value consumed by this operation.
+/// @param slot slot value consumed by this operation.
 function operatorDumpUser(runtime, slot)
   client = runtime.server.clients[slot]
   return "userinfo\n--------\n" + client.userInfo + "\n"
 end function
 
-// A deliberately bounded operator surface.  These are the stock commands
-// needed to administer the Protocol-34 endpoint; it never delegates RCON text
-// to the host shell or filesystem command parser.
+/// A deliberately bounded operator surface.  These are the stock commands
+/// needed to administer the Protocol-34 endpoint; it never delegates RCON text
+/// to the host shell or filesystem command parser.
+/// @param runtime runtime value consumed by this operation.
+/// @param text Text consumed by the operation.
 function executeOperator(runtime, text)
   // Keep execute operator phases explicit: validate inputs, update owned state, then publish the result.
   arguments = qcmd.tokenize(text)
@@ -611,7 +697,10 @@ function executeOperator(runtime, text)
   return "Unknown command \"" + command + "\"\n"
 end function
 
-// Handle rcon.
+/// Handle rcon.
+/// @param runtime runtime value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param request request value consumed by this operation.
 function handleRcon(runtime, address, request)
   supplied = ""
   if len(request.arguments) >= 2 then supplied = request.arguments[1] end if
@@ -634,7 +723,11 @@ function handleRcon(runtime, address, request)
   return nt.result(true, -1, [action], "rcon", void)
 end function
 
-// Handle connectionless.
+/// Handles connectionless for the miniquake2 network runtime commands workflow.
+/// @param runtime runtime value consumed by this operation.
+/// @param address address value consumed by this operation.
+/// @param datagram datagram value consumed by this operation.
+/// @param now now value consumed by this operation.
 function handleConnectionless(runtime, address, datagram, now)
   request = nconnectionless.parsePacket(datagram)
   runtime.server.realTime = now

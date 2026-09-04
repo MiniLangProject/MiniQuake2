@@ -1,3 +1,5 @@
+//! Provides miniquake2 client cinematic picture facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,14 +9,18 @@ package miniquake2.client.cinematic.picture
 
 import miniquake2.format.pcx as cinpicturepcx
 
-// Store picture playback data.
+/// Store picture playback data.
 struct PicturePlayback
+  /// Stores the image value associated with picture playback.
   image
+  /// Stores the status value associated with picture playback.
   status
+  /// Stores the palette active value associated with picture playback.
   paletteActive
 end struct
 
-// Start state.
+/// Starts start for the miniquake2 client cinematic picture workflow.
+/// @param data Input data consumed by the operation.
 function start(data)
   if typeof(data) != "bytes" then return error(8360, "picture source must be bytes") end if
   cinpictureImage = cinpicturepcx.parse(data)
@@ -24,7 +30,11 @@ function start(data)
   return PicturePlayback(cinpictureImage, "playing", false)
 end function
 
-// Draw state.
+/// Draws draw through the miniquake2 client cinematic picture rendering path.
+/// @param playback playback value consumed by this operation.
+/// @param screenWidth screenWidth value consumed by this operation.
+/// @param screenHeight screenHeight value consumed by this operation.
+/// @param exports exports value consumed by this operation.
 function draw(playback, screenWidth, screenHeight, exports)
   if screenWidth <= 0 or screenHeight <= 0 then
     return error(8362, "picture draw dimensions must be positive")
@@ -45,7 +55,8 @@ function draw(playback, screenWidth, screenHeight, exports)
   return true
 end function
 
-// Stop state.
+/// Stops stop for the miniquake2 client cinematic picture workflow.
+/// @param playback playback value consumed by this operation.
 function stop(playback)
   if playback.status == "stopped" then return false end if
   playback.status = "stopped"

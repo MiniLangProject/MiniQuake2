@@ -1,3 +1,5 @@
+//! Provides miniquake2 game private save facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -28,67 +30,107 @@ import miniquake2.game.weapons.types as privatesaveweapontypes
 import miniquake2.game.weapons.core as privatesaveweaponcore
 import miniquake2.game.weapons.projectiles as privatesaveprojectiles
 
+/// Defines the private magic constant used by the miniquake2 game private save module.
 const PRIVATE_MAGIC = "MQ2BASEQ2"
+/// Defines the private version constant used by the miniquake2 game private save module.
 const PRIVATE_VERSION = 21
 
-// Store private restore data.
+/// Store private restore data.
 struct PrivateRestore
+  /// Stores the runtime value associated with private restore.
   runtime
+  /// Stores the spawn result value associated with private restore.
   spawnResult
+  /// Stores the entity string value associated with private restore.
   entityString
+  /// Stores the spawn point value associated with private restore.
   spawnPoint
+  /// Stores the skill value associated with private restore.
   skill
 end struct
 
-// Store private monster reference data.
+/// Store private monster reference data.
 struct PrivateMonsterReference
+  /// Stores the actor value associated with private monster reference.
   actor
+  /// Stores the enemy number value associated with private monster reference.
   enemyNumber
+  /// Stores the old enemy number value associated with private monster reference.
   oldEnemyNumber
+  /// Stores the owner number value associated with private monster reference.
   ownerNumber
+  /// Stores the goal entity number value associated with private monster reference.
   goalEntityNumber
+  /// Stores the move target number value associated with private monster reference.
   moveTargetNumber
 end struct
 
-// Store private world reference data.
+/// Store private world reference data.
 struct PrivateWorldReference
+  /// Stores the entity value associated with private world reference.
   entity
+  /// Stores the activator number value associated with private world reference.
   activatorNumber
+  /// Stores the owner number value associated with private world reference.
   ownerNumber
+  /// Stores the team master number value associated with private world reference.
   teamMasterNumber
+  /// Stores the team chain number value associated with private world reference.
   teamChainNumber
+  /// Stores the target entity number value associated with private world reference.
   targetEntityNumber
+  /// Stores the enemy number value associated with private world reference.
   enemyNumber
+  /// Stores the old enemy number value associated with private world reference.
   oldEnemyNumber
+  /// Stores the ground entity number value associated with private world reference.
   groundEntityNumber
 end struct
 
-// Store deferred projectile ownership and collision references.
+/// Store deferred projectile ownership and collision references.
 struct PrivateProjectileReference
+  /// Stores the projectile value associated with private projectile reference.
   projectile
+  /// Stores the owner number value associated with private projectile reference.
   ownerNumber
+  /// Stores the enemy number value associated with private projectile reference.
   enemyNumber
+  /// Stores the ground number value associated with private projectile reference.
   groundNumber
+  /// Stores the last touch kind value associated with private projectile reference.
   lastTouchKind
+  /// Stores the last think kind value associated with private projectile reference.
   lastThinkKind
 end struct
 
-// Store a player's two persistent AI noise markers during deferred restore.
+/// Store a player's two persistent AI noise markers during deferred restore.
 struct PrivateNoiseReference
+  /// Stores the owner number value associated with private noise reference.
   ownerNumber
+  /// Stores the primary present value associated with private noise reference.
   primaryPresent
+  /// Stores the primary origin value associated with private noise reference.
   primaryOrigin
+  /// Stores the primary teleport time value associated with private noise reference.
   primaryTeleportTime
+  /// Stores the primary area number value associated with private noise reference.
   primaryAreaNumber
+  /// Stores the primary in use value associated with private noise reference.
   primaryInUse
+  /// Stores the secondary present value associated with private noise reference.
   secondaryPresent
+  /// Stores the secondary origin value associated with private noise reference.
   secondaryOrigin
+  /// Stores the secondary teleport time value associated with private noise reference.
   secondaryTeleportTime
+  /// Stores the secondary area number value associated with private noise reference.
   secondaryAreaNumber
+  /// Stores the secondary in use value associated with private noise reference.
   secondaryInUse
 end struct
 
-// Return the private reference number.
+/// Return the private reference number.
+/// @param value Value consumed or transformed by the operation.
 function privateReferenceNumber(value)
   if value is void then return -1 end if
   privateDirectNumber = try(value.number)
@@ -100,44 +142,57 @@ function privateReferenceNumber(value)
   return -1
 end function
 
-// Write private vec.
+/// Write private vec.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function privateWriteVec(buffer, value)
   privateWriteVectorHolder = privateworldtypes.vec3FromValue(value, "private save vector")
   privatemessage.writeFloat(buffer, privateWriteVectorHolder.x); privatemessage.writeFloat(buffer, privateWriteVectorHolder.y); privatemessage.writeFloat(buffer, privateWriteVectorHolder.z)
 end function
 
-// Read private float.
+/// Read private float.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param label label value consumed by this operation.
 function privateReadFloat(buffer, label)
   privatechecked.require(buffer, 4, label)
   return privatemessage.readFloat(buffer)
 end function
 
-// Read private vec.
+/// Read private vec.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param label label value consumed by this operation.
 function privateReadVec(buffer, label)
   return miniquake2.qcommon.types.Vec3(privateReadFloat(buffer, label + " x"), privateReadFloat(buffer, label + " y"), privateReadFloat(buffer, label + " z"))
 end function
 
-// Write private bool.
+/// Write private bool.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param value Value consumed or transformed by the operation.
 function privateWriteBool(buffer, value)
   marker = 0
   if value then marker = 1 end if
   privatemessage.writeByte(buffer, marker)
 end function
 
-// Read private bool.
+/// Read private bool.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param label label value consumed by this operation.
 function privateReadBool(buffer, label)
   marker = privatechecked.readByte(buffer, label)
   if marker != 0 and marker != 1 then return error(3870, label + ": invalid boolean marker") end if
   return marker == 1
 end function
 
-// Return the item index.
+/// Return the item index.
+/// @param item item value consumed by this operation.
 function itemIndex(item)
   if item is void then return 0 end if
   return item.index
 end function
 
-// Return the item by index.
+/// Return the item by index.
+/// @param registry registry value consumed by this operation.
+/// @param index Zero-based index of the affected item.
 function itemByIndex(registry, index)
   if index == 0 then return void end if
   for each item in registry.items
@@ -146,7 +201,9 @@ function itemByIndex(registry, index)
   return void
 end function
 
-// Write a complete pmove state without relying on the engine save envelope.
+/// Write a complete pmove state without relying on the engine save envelope.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param state Mutable state inspected or updated by the operation.
 function privateWritePmove(buffer, state)
   privatemessage.writeLong(buffer, state.moveType)
   index = 0
@@ -160,7 +217,9 @@ function privateWritePmove(buffer, state)
   privatemessage.writeLong(buffer, state.gravity)
 end function
 
-// Read a complete pmove state.
+/// Read a complete pmove state.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param label label value consumed by this operation.
 function privateReadPmove(buffer, label)
   state = privatesavegametypes.zeroPmoveState()
   state.moveType = privatechecked.readLong(buffer, label + " type")
@@ -177,7 +236,8 @@ function privateReadPmove(buffer, label)
   return state
 end function
 
-// Return the reconstructible projectile touch callback identity.
+/// Return the reconstructible projectile touch callback identity.
+/// @param projectile projectile value consumed by this operation.
 function privateProjectileTouchKind(projectile)
   if projectile.touch is void then return "" end if
   if projectile.className == "bolt" then return "blaster" end if
@@ -187,7 +247,8 @@ function privateProjectileTouchKind(projectile)
   return error(3893, "private projectile has unsupported touch callback")
 end function
 
-// Return the reconstructible projectile think callback identity.
+/// Return the reconstructible projectile think callback identity.
+/// @param projectile projectile value consumed by this operation.
 function privateProjectileThinkKind(projectile)
   if projectile.think is void then return "" end if
   if projectile.className == "grenade" or projectile.className == "hgrenade" then return "grenade-explode" end if
@@ -199,8 +260,12 @@ function privateProjectileThinkKind(projectile)
   return "free"
 end function
 
-// Encode the pointer-free private payload in one fixed field order. New fields
-// are append-only within their versioned record so older readers stay explicit.
+/// Encode the pointer-free private payload in one fixed field order. New fields
+/// are append-only within their versioned record so older readers stay explicit.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param entityString entityString value consumed by this operation.
+/// @param spawnPoint spawnPoint value consumed by this operation.
 function encode(runtime, playerContext, entityString, spawnPoint)
   if runtime is void then return bytes(0) end if
   playerCount = 0
@@ -525,7 +590,9 @@ function encode(runtime, playerContext, entityString, spawnPoint)
   return privatesizebuf.dataSlice(buffer)
 end function
 
-// Find monster.
+/// Find monster.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
 function findMonster(runtime, number)
   for each actor in runtime.monsters
     if actor.edict.inUse and actor.edict.state.number == number then return actor end if
@@ -533,7 +600,10 @@ function findMonster(runtime, number)
   return void
 end function
 
-// Find private world.
+/// Find private world.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param className className value consumed by this operation.
 function privateFindWorld(runtime, number, className)
   for each entity in runtime.world.entities
     if entity.inUse and entity.number == number and
@@ -545,7 +615,11 @@ function privateFindWorld(runtime, number, className)
   return void
 end function
 
-// Resolve private world reference.
+/// Resolve private world reference.
+/// @param runtime runtime value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param label label value consumed by this operation.
 function privateResolveWorldReference(runtime, playerContext, number, label)
   if number < 0 then return void end if
   // Resolve the current slot owner in stock edict order: reserved client,
@@ -591,7 +665,11 @@ function privateResolveWorldReference(runtime, playerContext, number, label)
   return error(3890, "private world " + label + " is unavailable: " + number)
 end function
 
-// Restore private enemy.
+/// Restore private enemy.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
 function privateRestoreEnemy(runtime, number, maxClients, exportTable)
   if number < 0 then return void end if
   privateSavedEnemyHolder = findMonster(runtime, number)
@@ -605,7 +683,11 @@ function privateRestoreEnemy(runtime, number, maxClients, exportTable)
   return error(3886, "private monster enemy is unavailable")
 end function
 
-// Restore private ai reference.
+/// Restore private ai reference.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
 function privateRestoreAIReference(runtime, number, maxClients, exportTable)
   if number < 0 then return void end if
   privateAIActorHolder = findMonster(runtime, number)
@@ -629,7 +711,11 @@ function privateRestoreAIReference(runtime, number, maxClients, exportTable)
   return privateAIGoalHolder
 end function
 
-// Resolve an AI level-global reference, including synthetic player-noise slots.
+/// Resolve an AI level-global reference, including synthetic player-noise slots.
+/// @param runtime runtime value consumed by this operation.
+/// @param number number value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
 function privateRestoreLevelAIReference(runtime, number, maxClients, exportTable)
   if number == -1 then return void end if
   for each privateLevelAIPlayer in runtime.aiPlayers
@@ -648,9 +734,14 @@ function privateRestoreLevelAIReference(runtime, number, maxClients, exportTable
   return privateRestoreAIReference(runtime, number, maxClients, exportTable)
 end function
 
-// Restore the versioned, pointer-free MiniQuake2 payload in two phases: first
-// allocate stable entity/AI slots, then resolve saved numeric relationships.
-// This prevents partially decoded references from escaping on malformed input.
+/// Restore the versioned, pointer-free MiniQuake2 payload in two phases: first
+/// allocate stable entity/AI slots, then resolve saved numeric relationships.
+/// This prevents partially decoded references from escaping on malformed input.
+/// @param data Input data consumed by the operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param maxClients maxClients value consumed by this operation.
+/// @param exportTable exportTable value consumed by this operation.
+/// @param playerContext playerContext value consumed by this operation.
 function restore(data, mapName, maxClients, exportTable, playerContext)
   if typeof(data) != "bytes" or len(data) == 0 then return error(3871, "private BaseQ2 save payload missing") end if
   buffer = privatesizebuf.alloc(len(data)); privatesizebuf.writeBytes(buffer, data); privatemessage.beginReading(buffer)

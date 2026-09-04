@@ -1,3 +1,5 @@
+//! Provides miniquake2 client effects mixer adapter facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -11,36 +13,56 @@ import miniquake2.qcommon.types as qtypes
 import miniquake2.audio.mixer as amixer
 import miniquake2.client.effects.audio as ceaudio
 
+/// Stores module-wide active mixer state for the miniquake2 client effects mixer adapter module.
 activeMixer = void
+/// Stores module-wide index resolver state for the miniquake2 client effects mixer adapter module.
 indexResolver = void
+/// Stores module-wide name resolver state for the miniquake2 client effects mixer adapter module.
 nameResolver = void
+/// Stores module-wide entity sound resolver state for the miniquake2 client effects mixer adapter module.
 entitySoundResolver = void
+/// Stores module-wide entity position resolver state for the miniquake2 client effects mixer adapter module.
 entityPositionResolver = void
+/// Stores module-wide listener origin state for the miniquake2 client effects mixer adapter module.
 listenerOrigin = void
+/// Stores module-wide listener right state for the miniquake2 client effects mixer adapter module.
 listenerRight = void
+/// Stores module-wide listener entity number state for the miniquake2 client effects mixer adapter module.
 listenerEntityNumber = -1
+/// Stores module-wide mixer spatial scratch state for the miniquake2 client effects mixer adapter module.
 mixerSpatialScratch = array(2, 0)
+/// Stores module-wide loop sound epoch state for the miniquake2 client effects mixer adapter module.
 loopSoundEpoch = 0
+/// Stores module-wide loop sound seen state for the miniquake2 client effects mixer adapter module.
 loopSoundSeen = array(qconstants.MAX_SOUNDS, 0)
+/// Stores module-wide loop sound indices state for the miniquake2 client effects mixer adapter module.
 loopSoundIndices = array(qconstants.MAX_SOUNDS, 0)
+/// Stores module-wide loop sound left state for the miniquake2 client effects mixer adapter module.
 loopSoundLeft = array(qconstants.MAX_SOUNDS, 0)
+/// Stores module-wide loop sound right state for the miniquake2 client effects mixer adapter module.
 loopSoundRight = array(qconstants.MAX_SOUNDS, 0)
+/// Stores module-wide loop sound resolved state for the miniquake2 client effects mixer adapter module.
 loopSoundResolved = array(qconstants.MAX_SOUNDS, void)
+/// Stores module-wide loop sound available state for the miniquake2 client effects mixer adapter module.
 loopSoundAvailable = array(qconstants.MAX_SOUNDS, false)
 
-// Resolve index.
+/// Resolve index.
+/// @param index Zero-based index of the affected item.
 function resolveIndex(index)
   global indexResolver
   return indexResolver(index)
 end function
 
-// Resolve name.
+/// Resolve name.
+/// @param name Name of the affected item.
 function resolveName(name)
   global nameResolver
   return nameResolver(name)
 end function
 
-// Play state.
+/// Play state.
+/// @param event event value consumed by this operation.
+/// @param sound sound value consumed by this operation.
 function play(event, sound)
   global activeMixer, entitySoundResolver, entityPositionResolver, listenerOrigin, listenerRight, listenerEntityNumber
   if activeMixer is void then return error(7340, "effect mixer adapter is not installed") end if
@@ -82,7 +104,12 @@ function play(event, sound)
   return channel
 end function
 
-// Return the respatialize dynamic value.
+/// Return the respatialize dynamic value.
+/// @param mixer mixer value consumed by this operation.
+/// @param entityPositionCallback entityPositionCallback value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param right right value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
 function respatializeDynamic(mixer, entityPositionCallback, origin, right,
     localEntityNumber)
   if mixer is void or typeof(entityPositionCallback) != "function" or
@@ -145,7 +172,8 @@ function respatializeDynamic(mixer, entityPositionCallback, origin, right,
   return updated
 end function
 
-// Set listener entity.
+/// Set listener entity.
+/// @param number number value consumed by this operation.
 function setListenerEntity(number)
   global activeMixer, listenerEntityNumber
   if typeof(number) != "int" or number < 1 then
@@ -156,10 +184,13 @@ function setListenerEntity(number)
   return number
 end function
 
-// Reproduce S_AddLoopSounds for EntityState.sound. Identical sound indexes
-// are merged into one autosound channel and their spatial contributions are
-// summed, exactly as the stock client does for doors, plats, ambients and
-// projectile flight loops.
+/// Reproduce S_AddLoopSounds for EntityState.sound. Identical sound indexes
+/// are merged into one autosound channel and their spatial contributions are
+/// summed, exactly as the stock client does for doors, plats, ambients and
+/// projectile flight loops.
+/// @param mixer mixer value consumed by this operation.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param paused paused value consumed by this operation.
 function syncEntityLoopsPaused(mixer, snapshot, paused)
   global indexResolver, listenerOrigin, listenerRight, loopSoundEpoch
   if mixer is void then return error(7343, "loop sound sync requires a mixer") end if
@@ -225,13 +256,22 @@ function syncEntityLoopsPaused(mixer, snapshot, paused)
   return started
 end function
 
-// Backwards-compatible active-game entry point. Runtime owners that implement
-// cl_paused should call syncEntityLoopsPaused with their pause state.
+/// Backwards-compatible active-game entry point. Runtime owners that implement
+/// cl_paused should call syncEntityLoopsPaused with their pause state.
+/// @param mixer mixer value consumed by this operation.
+/// @param snapshot snapshot value consumed by this operation.
 function syncEntityLoops(mixer, snapshot)
   return syncEntityLoopsPaused(mixer, snapshot, false)
 end function
 
-// Install state.
+/// Install state.
+/// @param mixer mixer value consumed by this operation.
+/// @param resolveIndexCallback resolveIndexCallback value consumed by this operation.
+/// @param resolveNameCallback resolveNameCallback value consumed by this operation.
+/// @param resolveEntitySoundCallback resolveEntitySoundCallback value consumed by this operation.
+/// @param entityPositionCallback entityPositionCallback value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param right right value consumed by this operation.
 function install(mixer, resolveIndexCallback, resolveNameCallback, resolveEntitySoundCallback, entityPositionCallback, origin, right)
   global activeMixer, indexResolver, nameResolver, entitySoundResolver, entityPositionResolver, listenerOrigin, listenerRight
   if typeof(resolveIndexCallback) != "function" or typeof(resolveNameCallback) != "function" or
@@ -253,7 +293,7 @@ function install(mixer, resolveIndexCallback, resolveNameCallback, resolveEntity
   return ceaudio.callbacks(resolveIndex, resolveName, play)
 end function
 
-// Release state.
+/// Release state.
 function release()
   global activeMixer, indexResolver, nameResolver, entitySoundResolver, entityPositionResolver, listenerOrigin, listenerRight, listenerEntityNumber
   activeMixer = void

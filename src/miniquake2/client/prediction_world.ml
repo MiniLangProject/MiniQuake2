@@ -1,3 +1,5 @@
+//! Provides miniquake2 client prediction world facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -15,35 +17,43 @@ import miniquake2.collision.model as pwcollision
 import miniquake2.physics.vector as pwvector
 import miniquake2.client.prediction as pwprediction
 
+/// Defines the box epsilon constant used by the miniquake2 client prediction world module.
 const BOX_EPSILON = 0.03125
 
-// Store prediction world data.
+/// Store prediction world data.
 struct PredictionWorld
+  /// Stores the collision value associated with prediction world.
   collision
+  /// Stores the config strings value associated with prediction world.
   configStrings
+  /// Stores the snapshot value associated with prediction world.
   snapshot
+  /// Stores the local entity number value associated with prediction world.
   localEntityNumber
 end struct
 
+/// Stores module-wide active prediction world state for the miniquake2 client prediction world module.
 activePredictionWorld = void
 
-// Create world.
+/// Create world.
 function createWorld()
   return PredictionWorld(void, [], void, -1)
 end function
 
-// Create prediction workspace.
+/// Create prediction workspace.
 function createPredictionWorkspace()
   return pwprediction.createWorkspace(predictionTrace,
     predictionPointContents)
 end function
 
-// Return the vec value.
+/// Return the vec value.
+/// @param values values value consumed by this operation.
 function inline vec(values)
   return pwqt.Vec3(values[0], values[1], values[2])
 end function
 
-// Report whether empty trace.
+/// Report whether empty trace.
+/// @param finish finish value consumed by this operation.
 function emptyTrace(finish)
   return pwqt.Trace(false, false, 1.0,
     pwqt.Vec3(finish.x, finish.y, finish.z),
@@ -51,7 +61,9 @@ function emptyTrace(finish)
     pwqt.CollisionSurface("", 0, 0), 0, void)
 end function
 
-// Trace collision.
+/// Trace collision.
+/// @param result Result object populated or inspected by the operation.
+/// @param entity entity value consumed by this operation.
 function collisionTrace(result, entity)
   normal = pwqt.Vec3(result.plane.normal.x, result.plane.normal.y,
     result.plane.normal.z)
@@ -66,10 +78,15 @@ function collisionTrace(result, entity)
       result.surface.value), result.contents, entity)
 end function
 
-// CM_HeadnodeForBox + CM_TransformedBoxTrace, expressed directly as a swept
-// point against the Minkowski-expanded encoded entity bounds. Keep the three
-// slab axes scalar: Pmove calls this for every solid entity and temporary
-// arrays/structs here measurably dominate remote-client prediction.
+/// CM_HeadnodeForBox + CM_TransformedBoxTrace, expressed directly as a swept
+/// point against the Minkowski-expanded encoded entity bounds. Keep the three
+/// slab axes scalar: Pmove calls this for every solid entity and temporary
+/// arrays/structs here measurably dominate remote-client prediction.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function boxEntityTrace(start, mins, maxs, finish, entity)
   // Keep box entity trace phases explicit: validate inputs, update owned state, then publish the result.
   horizontal = 8 * (entity.solid & 31)
@@ -169,13 +186,18 @@ function boxEntityTrace(start, mins, maxs, finish, entity)
   return output
 end function
 
-// Slice text.
+/// Performs the textSlice operation for the miniquake2 client prediction world module.
+/// @param value Value consumed or transformed by the operation.
+/// @param start start value consumed by this operation.
+/// @param count Number of items or units to process.
 function textSlice(value, start, count)
   if count <= 0 then return "" end if
   return decode(slice(bytes(value), start, count))
 end function
 
-// Return the inline model number.
+/// Return the inline model number.
+/// @param world world value consumed by this operation.
+/// @param modelIndex Zero-based index of model.
 function inlineModelNumber(world, modelIndex)
   configIndex = pwqc.CS_MODELS + modelIndex
   if modelIndex <= 0 or configIndex < 0 or
@@ -191,12 +213,17 @@ function inlineModelNumber(world, modelIndex)
   return parsed
 end function
 
-// Compute state.
+/// Performs the dot operation for the miniquake2 client prediction world module.
+/// @param first first value consumed by this operation.
+/// @param second second value consumed by this operation.
 function inline dot(first, second)
   return first.x * second.x + first.y * second.y + first.z * second.z
 end function
 
-// Return the to model value.
+/// Return the to model value.
+/// @param point point value consumed by this operation.
+/// @param origin origin value consumed by this operation.
+/// @param basis basis value consumed by this operation.
 function toModel(point, origin, basis)
   relative = pwqt.Vec3(point.x - origin.x, point.y - origin.y,
     point.z - origin.z)
@@ -204,7 +231,9 @@ function toModel(point, origin, basis)
     dot(relative, basis[2]))
 end function
 
-// Return the normal to world value.
+/// Return the normal to world value.
+/// @param normal normal value consumed by this operation.
+/// @param basis basis value consumed by this operation.
 function normalToWorld(normal, basis)
   return pwqt.Vec3(
     basis[0].x * normal.x - basis[1].x * normal.y + basis[2].x * normal.z,
@@ -212,7 +241,9 @@ function normalToWorld(normal, basis)
     basis[0].z * normal.x - basis[1].z * normal.y + basis[2].z * normal.z)
 end function
 
-// Merge trace.
+/// Merge trace.
+/// @param best best value consumed by this operation.
+/// @param candidate candidate value consumed by this operation.
 function mergeTrace(best, candidate)
   if candidate.allSolid or candidate.startSolid or
       candidate.fraction < best.fraction then
@@ -223,7 +254,13 @@ function mergeTrace(best, candidate)
   return best
 end function
 
-// Trace entities.
+/// Trace entities.
+/// @param world world value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
+/// @param best best value consumed by this operation.
 function traceEntities(world, start, mins, maxs, finish, best)
   if world.snapshot is void then return best end if
   for each entity in world.snapshot.entities
@@ -260,7 +297,12 @@ function traceEntities(world, start, mins, maxs, finish, best)
   return best
 end function
 
-// Trace state.
+/// Trace state.
+/// @param world world value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
 function trace(world, start, mins, maxs, finish)
   best = emptyTrace(finish)
   if world.collision is not void then
@@ -277,7 +319,9 @@ function trace(world, start, mins, maxs, finish)
   return traceEntities(world, start, mins, maxs, finish, best)
 end function
 
-// Return the point contents value.
+/// Performs the pointContents operation for the miniquake2 client prediction world module.
+/// @param world world value consumed by this operation.
+/// @param point point value consumed by this operation.
 function pointContents(world, point)
   contents = 0
   if world.collision is not void then
@@ -299,7 +343,11 @@ function pointContents(world, point)
   return contents
 end function
 
-// Trace prediction.
+/// Trace prediction.
+/// @param start start value consumed by this operation.
+/// @param mins mins value consumed by this operation.
+/// @param maxs maxs value consumed by this operation.
+/// @param finish finish value consumed by this operation.
 function predictionTrace(start, mins, maxs, finish)
   global activePredictionWorld
   if activePredictionWorld is void then
@@ -308,7 +356,8 @@ function predictionTrace(start, mins, maxs, finish)
   return trace(activePredictionWorld, start, mins, maxs, finish)
 end function
 
-// Return the prediction point contents value.
+/// Return the prediction point contents value.
+/// @param point point value consumed by this operation.
 function predictionPointContents(point)
   global activePredictionWorld
   if activePredictionWorld is void then
@@ -317,7 +366,14 @@ function predictionPointContents(point)
   return pointContents(activePredictionWorld, point)
 end function
 
-// Return the predict value.
+/// Return the predict value.
+/// @param playerState playerState value consumed by this operation.
+/// @param commands commands value consumed by this operation.
+/// @param collision collision value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param airAcceleration airAcceleration value consumed by this operation.
 function predict(playerState, commands, collision, configStrings, snapshot,
     localEntityNumber, airAcceleration)
   global activePredictionWorld
@@ -335,9 +391,19 @@ function predict(playerState, commands, collision, configStrings, snapshot,
   return result
 end function
 
-// Session-owned form for the render loop. Both the collision-world wrapper
-// and Pmove workspace retain identity across frames; only their live snapshot
-// references and scalar inputs are updated before synchronous replay.
+/// Session-owned form for the render loop. Both the collision-world wrapper
+/// and Pmove workspace retain identity across frames; only their live snapshot
+/// references and scalar inputs are updated before synchronous replay.
+/// @param world world value consumed by this operation.
+/// @param workspace workspace value consumed by this operation.
+/// @param playerState playerState value consumed by this operation.
+/// @param commands commands value consumed by this operation.
+/// @param commandCount Number of command to process.
+/// @param collision collision value consumed by this operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param snapshot snapshot value consumed by this operation.
+/// @param localEntityNumber localEntityNumber value consumed by this operation.
+/// @param airAcceleration airAcceleration value consumed by this operation.
 function predictInto(world, workspace, playerState, commands, commandCount,
     collision, configStrings, snapshot, localEntityNumber, airAcceleration)
   global activePredictionWorld

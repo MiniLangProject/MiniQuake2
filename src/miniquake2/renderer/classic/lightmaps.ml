@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic lightmaps facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,25 +14,33 @@ import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.surfaces as rclassicsurfaces
 import miniquake2.renderer.classic.vector as rclassicvector
 
-// Return the style rgb value.
+/// Return the style rgb value.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param styleIndex Zero-based index of style.
 function styleRgb(lightStyles, styleIndex)
   if styleIndex >= 0 and styleIndex < len(lightStyles) then return lightStyles[styleIndex].rgb end if
   return [1.0, 1.0, 1.0]
 end function
 
-// Return the style white value.
+/// Return the style white value.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param styleIndex Zero-based index of style.
 function styleWhite(lightStyles, styleIndex)
   if styleIndex >= 0 and styleIndex < len(lightStyles) then return lightStyles[styleIndex].white end if
   return 1.0
 end function
 
-// Report whether is lit surface.
+/// Report whether is lit surface.
+/// @param surface surface value consumed by this operation.
 function isLitSurface(surface)
   return (surface.texInfo.flags & (fc.SURF_SKY | fc.SURF_TRANS33 | fc.SURF_TRANS66 | fc.SURF_WARP)) == 0
 end function
 
-// Mark a counted dynamic-light prefix. Product brush movers retain capacity
-// storage and therefore must not scan stale slots past the active count.
+/// Mark a counted dynamic-light prefix. Product brush movers retain capacity
+/// storage and therefore must not scan stale slots past the active count.
+/// @param surface surface value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param dLightCount Number of d light to process.
 function markDynamicLightsPrefix(surface, dLights, dLightCount)
   bits = 0
   lightIndex = 0
@@ -45,12 +55,18 @@ function markDynamicLightsPrefix(surface, dLights, dLightCount)
   return bits
 end function
 
-// Mark dynamic lights.
+/// Mark dynamic lights.
+/// @param surface surface value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
 function markDynamicLights(surface, dLights)
   return markDynamicLightsPrefix(surface, dLights, len(dLights))
 end function
 
-// Add a counted dynamic-light prefix.
+/// Add a counted dynamic-light prefix.
+/// @param surface surface value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param dLightCount Number of d light to process.
+/// @param blockLights blockLights value consumed by this operation.
 function addDynamicLightsPrefix(surface, dLights, dLightCount, blockLights)
   // Keep add dynamic lights phases explicit: validate inputs, update owned state, then publish the result.
   lightIndex = 0
@@ -92,12 +108,17 @@ function addDynamicLightsPrefix(surface, dLights, dLightCount, blockLights)
   return blockLights
 end function
 
-// Add dynamic lights.
+/// Add dynamic lights.
+/// @param surface surface value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param blockLights blockLights value consumed by this operation.
 function addDynamicLights(surface, dLights, blockLights)
   return addDynamicLightsPrefix(surface, dLights, len(dLights), blockLights)
 end function
 
-// Return the store rgba value.
+/// Return the store rgba value.
+/// @param blockLights blockLights value consumed by this operation.
+/// @param sampleCount Number of sample to process.
 function storeRgba(blockLights, sampleCount)
   output = bytes(sampleCount * rclassicconstants.LIGHTMAP_BYTES)
   sample = 0
@@ -129,7 +150,12 @@ function storeRgba(blockLights, sampleCount)
   return output
 end function
 
-// Build a lightmap from a counted dynamic-light prefix.
+/// Build a lightmap from a counted dynamic-light prefix.
+/// @param surface surface value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param dLightCount Number of d light to process.
+/// @param modulate modulate value consumed by this operation.
 function buildLightmapPrefix(surface, lightStyles, dLights, dLightCount,
     modulate)
   if isLitSurface(surface) == false then return error(9720, "R_BuildLightMap called for non-lit surface") end if
@@ -168,13 +194,19 @@ function buildLightmapPrefix(surface, lightStyles, dLights, dLightCount,
   return storeRgba(blockLights, sampleCount)
 end function
 
-// Build lightmap.
+/// Build lightmap.
+/// @param surface surface value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param modulate modulate value consumed by this operation.
 function buildLightmap(surface, lightStyles, dLights, modulate)
   return buildLightmapPrefix(surface, lightStyles, dLights, len(dLights),
     modulate)
 end function
 
-// Set cache state.
+/// Set cache state.
+/// @param surface surface value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
 function setCacheState(surface, lightStyles)
   mapIndex = 0
   while mapIndex < rclassicconstants.MAX_LIGHTMAPS
@@ -187,8 +219,10 @@ function setCacheState(surface, lightStyles)
   return surface.cachedLight
 end function
 
-// Report whether any style used by a surface changed since its last upload.
-// The cached white value is the same dirty criterion used by ref_gl.
+/// Report whether any style used by a surface changed since its last upload.
+/// The cached white value is the same dirty criterion used by ref_gl.
+/// @param surface surface value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
 function inline lightStylesChanged(surface, lightStyles)
   mapIndex = 0
   while mapIndex < rclassicconstants.MAX_LIGHTMAPS
@@ -202,7 +236,11 @@ function inline lightStylesChanged(surface, lightStyles)
   return false
 end function
 
-// Prepare state.
+/// Prepare state.
+/// @param surface surface value consumed by this operation.
+/// @param lightStyles lightStyles value consumed by this operation.
+/// @param dLights dLights value consumed by this operation.
+/// @param modulate modulate value consumed by this operation.
 function prepare(surface, lightStyles, dLights, modulate)
   markDynamicLights(surface, dLights)
   surface.lightmap = buildLightmap(surface, lightStyles, dLights, modulate)

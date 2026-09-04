@@ -1,3 +1,5 @@
+//! Provides miniquake2 physics pmove facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -17,12 +19,17 @@ import miniquake2.physics.constants as phc
 import miniquake2.physics.types as pht
 import miniquake2.physics.vector as phv
 
-// Create state.
+/// Creates create for the miniquake2 physics pmove module.
+/// @param traceCallback traceCallback value consumed by this operation.
+/// @param pointContentsCallback pointContentsCallback value consumed by this operation.
 function create(traceCallback, pointContentsCallback)
   return gt.zeroPmove(traceCallback, pointContentsCallback)
 end function
 
-// Clip velocity.
+/// Clip velocity.
+/// @param inputVelocity inputVelocity value consumed by this operation.
+/// @param normal normal value consumed by this operation.
+/// @param overbounce overbounce value consumed by this operation.
 function clipVelocity(inputVelocity, normal, overbounce)
   backoff = phv.dot(inputVelocity, normal) * overbounce
   output = qt.Vec3(
@@ -36,7 +43,9 @@ function clipVelocity(inputVelocity, normal, overbounce)
   return output
 end function
 
-// Add touch.
+/// Add touch.
+/// @param pmove pmove value consumed by this operation.
+/// @param entity entity value consumed by this operation.
 function addTouch(pmove, entity)
   if entity is not void and pmove.numTouch < gc.MAXTOUCH then
     pmove.touchEntities[pmove.numTouch] = entity
@@ -45,7 +54,9 @@ function addTouch(pmove, entity)
   return true
 end function
 
-// Advance slide move core.
+/// Advance slide move core.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function stepSlideMoveCore(pmove, localState)
   primalVelocity = phv.copy(localState.velocity)
   // One Pmove reuses its private plane slots for every slide attempt.  The
@@ -121,7 +132,9 @@ function stepSlideMoveCore(pmove, localState)
   return true
 end function
 
-// Advance slide move.
+/// Advance slide move.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function stepSlideMove(pmove, localState)
   startOrigin = phv.copy(localState.origin)
   startVelocity = phv.copy(localState.velocity)
@@ -163,7 +176,9 @@ function stepSlideMove(pmove, localState)
   return true
 end function
 
-// Return the friction value.
+/// Return the friction value.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function friction(pmove, localState)
   speed = phv.length(localState.velocity)
   if speed < 1.0 then
@@ -193,7 +208,11 @@ function friction(pmove, localState)
   return true
 end function
 
-// Return the accelerate value.
+/// Return the accelerate value.
+/// @param localState localState value consumed by this operation.
+/// @param wishDirection wishDirection value consumed by this operation.
+/// @param wishSpeed wishSpeed value consumed by this operation.
+/// @param acceleration acceleration value consumed by this operation.
 function accelerate(localState, wishDirection, wishSpeed, acceleration)
   currentSpeed = phv.dot(localState.velocity, wishDirection)
   addSpeed = wishSpeed - currentSpeed
@@ -204,7 +223,11 @@ function accelerate(localState, wishDirection, wishSpeed, acceleration)
   return true
 end function
 
-// Return the air accelerate value.
+/// Return the air accelerate value.
+/// @param localState localState value consumed by this operation.
+/// @param wishDirection wishDirection value consumed by this operation.
+/// @param wishSpeed wishSpeed value consumed by this operation.
+/// @param acceleration acceleration value consumed by this operation.
 function airAccelerate(localState, wishDirection, wishSpeed, acceleration)
   clampedWishSpeed = wishSpeed
   if clampedWishSpeed > 30.0 then clampedWishSpeed = 30.0 end if
@@ -217,7 +240,10 @@ function airAccelerate(localState, wishDirection, wishSpeed, acceleration)
   return true
 end function
 
-// Add currents.
+/// Add currents.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
+/// @param wishVelocity wishVelocity value consumed by this operation.
 function addCurrents(pmove, localState, wishVelocity)
   // Keep add currents phases explicit: validate inputs, update owned state, then publish the result.
   if localState.ladder and (localState.velocity.z >= -200.0 and localState.velocity.z <= 200.0) then
@@ -265,7 +291,9 @@ function addCurrents(pmove, localState, wishVelocity)
   return wishVelocity
 end function
 
-// Move water.
+/// Move water.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function waterMove(pmove, localState)
   wishVelocity = qt.Vec3(
     localState.forward.x * pmove.command.forwardMove + localState.right.x * pmove.command.sideMove,
@@ -292,7 +320,10 @@ function waterMove(pmove, localState)
   return true
 end function
 
-// Move air.
+/// Move air.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
+/// @param airAcceleration airAcceleration value consumed by this operation.
 function airMove(pmove, localState, airAcceleration)
   wishVelocity = qt.Vec3(
     localState.forward.x * pmove.command.forwardMove + localState.right.x * pmove.command.sideMove,
@@ -346,7 +377,9 @@ function airMove(pmove, localState, airAcceleration)
   return true
 end function
 
-// Return the categorize position.
+/// Return the categorize position.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function categorizePosition(pmove, localState)
   // Keep categorize position phases explicit: validate inputs, update owned state, then publish the result.
   samplePoint = qt.Vec3(localState.origin.x, localState.origin.y, localState.origin.z - 0.25)
@@ -401,7 +434,9 @@ function categorizePosition(pmove, localState)
   return true
 end function
 
-// Validate jump.
+/// Validate jump.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function checkJump(pmove, localState)
   if (pmove.state.flags & gc.PMF_TIME_LAND) != 0 then return true end if
   if pmove.command.upMove < 10 then
@@ -432,7 +467,9 @@ function checkJump(pmove, localState)
   return true
 end function
 
-// Validate special movement.
+/// Validate special movement.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function checkSpecialMovement(pmove, localState)
   if pmove.state.time != 0 then return true end if
   localState.ladder = false
@@ -459,7 +496,10 @@ function checkSpecialMovement(pmove, localState)
   return true
 end function
 
-// Move fly.
+/// Move fly.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
+/// @param doClip doClip value consumed by this operation.
 function flyMove(pmove, localState, doClip)
   // Keep fly move phases explicit: validate inputs, update owned state, then publish the result.
   pmove.viewHeight = 22.0
@@ -510,7 +550,9 @@ function flyMove(pmove, localState, doClip)
   return true
 end function
 
-// Validate duck.
+/// Validate duck.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function checkDuck(pmove, localState)
   pmove.mins.x = -16.0
   pmove.mins.y = -16.0
@@ -545,7 +587,9 @@ function checkDuck(pmove, localState)
   return true
 end function
 
-// Move dead.
+/// Move dead.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function deadMove(pmove, localState)
   if pmove.groundEntity is void then return true end if
   forwardSpeed = phv.length(localState.velocity) - 20.0
@@ -558,7 +602,8 @@ function deadMove(pmove, localState)
   return true
 end function
 
-// Return the good position.
+/// Return the good position.
+/// @param pmove pmove value consumed by this operation.
 function goodPosition(pmove)
   if pmove.state.moveType == gc.PM_SPECTATOR then return true end if
   origin = qt.Vec3(pmove.state.origin[0] * 0.125, pmove.state.origin[1] * 0.125, pmove.state.origin[2] * 0.125)
@@ -566,7 +611,9 @@ function goodPosition(pmove)
   return positionTrace.allSolid == false
 end function
 
-// Return the snap position.
+/// Return the snap position.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function snapPosition(pmove, localState)
   // pmove_state_t stores signed C shorts. Preserve their wrap semantics even
   // though the managed ABI uses general MiniLang integer array elements.
@@ -607,7 +654,9 @@ function snapPosition(pmove, localState)
   return false
 end function
 
-// Return the initial snap position.
+/// Return the initial snap position.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function initialSnapPosition(pmove, localState)
   base = [signedShort(pmove.state.origin[0]), signedShort(pmove.state.origin[1]), signedShort(pmove.state.origin[2])]
   offsets = [0, -1, 1]
@@ -634,19 +683,23 @@ function initialSnapPosition(pmove, localState)
   return false
 end function
 
-// Return the signed short value.
+/// Return the signed short value.
+/// @param value Value consumed or transformed by the operation.
 function signedShort(value)
   wrapped = value & 65535
   if wrapped >= 32768 then return wrapped - 65536 end if
   return wrapped
 end function
 
-// Return the short to angle value.
+/// Performs the shortToAngle operation for the miniquake2 physics pmove module.
+/// @param value Value consumed or transformed by the operation.
 function shortToAngle(value)
   return value * (360.0 / 65536.0)
 end function
 
-// Clamp angles.
+/// Clamp angles.
+/// @param pmove pmove value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function clampAngles(pmove, localState)
   if (pmove.state.flags & gc.PMF_TIME_TELEPORT) != 0 then
     pmove.viewAngles.x = 0.0
@@ -670,8 +723,11 @@ function clampAngles(pmove, localState)
   return true
 end function
 
-// The caller-supplied private state makes high-frequency client prediction
-// allocation-stable. Server/game callers retain the owning wrapper below.
+/// The caller-supplied private state makes high-frequency client prediction
+/// allocation-stable. Server/game callers retain the owning wrapper below.
+/// @param pmove pmove value consumed by this operation.
+/// @param airAcceleration airAcceleration value consumed by this operation.
+/// @param localState localState value consumed by this operation.
 function moveWithAirAccelerationUsingLocal(pmove, airAcceleration, localState)
   // Keep move with air acceleration using local phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(localState) != "struct" or
@@ -761,13 +817,16 @@ function moveWithAirAccelerationUsingLocal(pmove, airAcceleration, localState)
   return pmove
 end function
 
-// Move with air acceleration.
+/// Move with air acceleration.
+/// @param pmove pmove value consumed by this operation.
+/// @param airAcceleration airAcceleration value consumed by this operation.
 function moveWithAirAcceleration(pmove, airAcceleration)
   return moveWithAirAccelerationUsingLocal(pmove, airAcceleration,
     pht.createLocal())
 end function
 
-// Move state.
+/// Move state.
+/// @param pmove pmove value consumed by this operation.
 function move(pmove)
   return moveWithAirAcceleration(pmove, phc.DEFAULT_AIR_ACCELERATE)
 end function

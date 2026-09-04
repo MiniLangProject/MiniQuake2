@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime save metadata facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,19 +12,27 @@ import std.string as savemetadatastring
 import miniquake2.qcommon.byteio as savemetadatabyteio
 import miniquake2.qcommon.cmd as savemetadatacmd
 
+/// Defines the metadata header constant used by the miniquake2 runtime save metadata module.
 const METADATA_HEADER = "MiniQuake2Slot 1"
 
+/// Invokes the native GetLocalTime entry point used by the miniquake2 runtime save metadata module.
+/// @param systemTime systemTime value consumed by this operation.
 extern function GetLocalTime(systemTime as bytes) from "kernel32.dll" returns void
 
-// Store save slot metadata data.
+/// Store save slot metadata data.
 struct SaveSlotMetadata
+  /// Stores the map name value associated with save slot metadata.
   mapName
+  /// Stores the frame number value associated with save slot metadata.
   frameNumber
+  /// Stores the timestamp value associated with save slot metadata.
   timestamp
+  /// Stores the screenshot value associated with save slot metadata.
   screenshot
 end struct
 
-// Return the two digits value.
+/// Return the two digits value.
+/// @param saveMetadataTwoValue saveMetadataTwoValue value consumed by this operation.
 function twoDigits(saveMetadataTwoValue)
   saveMetadataTwoText = "" + saveMetadataTwoValue
   if saveMetadataTwoValue < 10 then
@@ -31,7 +41,8 @@ function twoDigits(saveMetadataTwoValue)
   return saveMetadataTwoText
 end function
 
-// Return the four digits value.
+/// Return the four digits value.
+/// @param saveMetadataFourValue saveMetadataFourValue value consumed by this operation.
 function fourDigits(saveMetadataFourValue)
   saveMetadataFourText = "" + saveMetadataFourValue
   while len(bytes(saveMetadataFourText)) < 4
@@ -40,7 +51,7 @@ function fourDigits(saveMetadataFourValue)
   return saveMetadataFourText
 end function
 
-// Return the current timestamp value.
+/// Return the current timestamp value.
 function currentTimestamp()
   saveMetadataTimeBytes = bytes(16)
   GetLocalTime(saveMetadataTimeBytes)
@@ -57,7 +68,8 @@ function currentTimestamp()
     twoDigits(saveMetadataTimeSecond)
 end function
 
-// Return the safe token value.
+/// Return the safe token value.
+/// @param saveMetadataSafeValue saveMetadataSafeValue value consumed by this operation.
 function safeToken(saveMetadataSafeValue)
   if typeof(saveMetadataSafeValue) != "string" or
       saveMetadataSafeValue == "" or
@@ -70,7 +82,8 @@ function safeToken(saveMetadataSafeValue)
   return true
 end function
 
-// Validate state.
+/// Validates validate for the miniquake2 runtime save metadata workflow.
+/// @param saveMetadataValidateValue saveMetadataValidateValue value consumed by this operation.
 function validate(saveMetadataValidateValue)
   if typeof(saveMetadataValidateValue) != "struct" or
       not safeToken(saveMetadataValidateValue.mapName) or
@@ -84,7 +97,8 @@ function validate(saveMetadataValidateValue)
   return saveMetadataValidateValue
 end function
 
-// Encode state.
+/// Encodes encode for the miniquake2 runtime save metadata workflow.
+/// @param saveMetadataEncodeInput saveMetadataEncodeInput value consumed by this operation.
 function encode(saveMetadataEncodeInput)
   saveMetadataEncodeValue = validate(saveMetadataEncodeInput)
   saveMetadataEncodeScreenshot = "-"
@@ -97,7 +111,8 @@ function encode(saveMetadataEncodeInput)
     saveMetadataEncodeScreenshot + "\n"
 end function
 
-// Decode state.
+/// Decode state.
+/// @param saveMetadataDecodeText saveMetadataDecodeText value consumed by this operation.
 function decode(saveMetadataDecodeText)
   // Keep decode phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(saveMetadataDecodeText) != "string" or
@@ -162,7 +177,9 @@ function decode(saveMetadataDecodeText)
   return validate(saveMetadataDecodeValue)
 end function
 
-// Save state.
+/// Save state.
+/// @param saveMetadataSavePath Path associated with save metadata save.
+/// @param saveMetadataSaveValue saveMetadataSaveValue value consumed by this operation.
 function save(saveMetadataSavePath, saveMetadataSaveValue)
   if typeof(saveMetadataSavePath) != "string" or
       saveMetadataSavePath == "" then

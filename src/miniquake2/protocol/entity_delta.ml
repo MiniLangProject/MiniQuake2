@@ -1,3 +1,5 @@
+//! Provides miniquake2 protocol entity delta facilities for this project.
+
 /*
 Copyright (C) 1997-2001 Id Software, Inc.
 Copyright (c) 2026 Nils Kopal
@@ -12,7 +14,9 @@ import miniquake2.protocol.constants as pc
 import miniquake2.protocol.types as pt
 import miniquake2.protocol.checked as pchecked
 
-// Validate state.
+/// Validates state for the miniquake2 protocol entity delta workflow.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param operation operation value consumed by this operation.
 function validateState(state, operation)
   if len(state.origin) != 3 or len(state.angles) != 3 or len(state.oldOrigin) != 3 then
     return error(7030, operation + ": entity vectors must have three components")
@@ -20,9 +24,12 @@ function validateState(state, operation)
   return true
 end function
 
-// Derive the exact Protocol-34 U_* mask before any bytes are emitted. Width
-// extension flags are added by writeHeader, so callers can also use this mask
-// to decide whether an unchanged entity may be omitted.
+/// Derive the exact Protocol-34 U_* mask before any bytes are emitted. Width
+/// extension flags are added by writeHeader, so callers can also use this mask
+/// to decide whether an unchanged entity may be omitted.
+/// @param base base value consumed by this operation.
+/// @param target target value consumed by this operation.
+/// @param newEntity newEntity value consumed by this operation.
 function computeBits(base, target, newEntity)
   // Keep compute bits phases explicit: validate inputs, update owned state, then publish the result.
   validateState(base, "entity baseline")
@@ -87,7 +94,8 @@ function computeBits(base, target, newEntity)
   return bits
 end function
 
-// Add continuation bits.
+/// Add continuation bits.
+/// @param bits bits value consumed by this operation.
 function addContinuationBits(bits)
   if (bits & 0xff000000) != 0 then
     return bits | pc.U_MOREBITS3 | pc.U_MOREBITS2 | pc.U_MOREBITS1
@@ -97,7 +105,10 @@ function addContinuationBits(bits)
   return bits
 end function
 
-// Write header.
+/// Write header.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param number number value consumed by this operation.
+/// @param rawBits rawBits value consumed by this operation.
 function writeHeader(buffer, number, rawBits)
   bits = addContinuationBits(rawBits)
   qmsg.writeByte(buffer, bits & 255)
@@ -115,8 +126,13 @@ function writeHeader(buffer, number, rawBits)
   return bits
 end function
 
-// Emit fields in the original MSG_WriteDeltaEntity order; several flags share
-// bytes, making this ordering part of the wire and demo compatibility contract.
+/// Emit fields in the original MSG_WriteDeltaEntity order; several flags share
+/// bytes, making this ordering part of the wire and demo compatibility contract.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
+/// @param target target value consumed by this operation.
+/// @param force force value consumed by this operation.
+/// @param newEntity newEntity value consumed by this operation.
 function writeDelta(buffer, base, target, force, newEntity)
   // Keep write delta phases explicit: validate inputs, update owned state, then publish the result.
   rawBits = computeBits(base, target, newEntity)
@@ -171,7 +187,9 @@ function writeDelta(buffer, base, target, force, newEntity)
   return bits
 end function
 
-// Write removal.
+/// Write removal.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param number number value consumed by this operation.
 function writeRemoval(buffer, number)
   if typeof(number) != "int" or number <= 0 or number >= pc.MAX_EDICTS then return error(7032, "removed entity number outside protocol-34 range") end if
   bits = pc.U_REMOVE
@@ -179,13 +197,15 @@ function writeRemoval(buffer, number)
   return writeHeader(buffer, number, bits)
 end function
 
-// Write end marker.
+/// Write end marker.
+/// @param buffer Buffer that receives or supplies the operation data.
 function writeEndMarker(buffer)
   qmsg.writeShort(buffer, 0)
   return buffer
 end function
 
-// Read header.
+/// Read header.
+/// @param buffer Buffer that receives or supplies the operation data.
 function readHeader(buffer)
   total = pchecked.readByte(buffer, "entity delta flags")
   if (total & pc.U_MOREBITS1) != 0 then total = total | (pchecked.readByte(buffer, "entity delta flags byte 2") << 8) end if
@@ -211,8 +231,11 @@ function readHeader(buffer)
   return pt.EntityDeltaHeader(number, total, (total & pc.U_REMOVE) != 0, endMarker)
 end function
 
-// Reconstruct a complete state from its baseline without retaining references
-// to mutable baseline vectors. Checked reads keep malformed packets atomic.
+/// Reconstruct a complete state from its baseline without retaining references
+/// to mutable baseline vectors. Checked reads keep malformed packets atomic.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param base base value consumed by this operation.
+/// @param header header value consumed by this operation.
 function readDelta(buffer, base, header)
   // Keep read delta phases explicit: validate inputs, update owned state, then publish the result.
   if header.endMarker then return error(7036, "cannot decode an entity end marker as state") end if
@@ -275,7 +298,12 @@ function readDelta(buffer, base, header)
   return target
 end function
 
-// Write msg delta entity.
+/// Write msg delta entity.
+/// @param base base value consumed by this operation.
+/// @param target target value consumed by this operation.
+/// @param buffer Buffer that receives or supplies the operation data.
+/// @param force force value consumed by this operation.
+/// @param newEntity newEntity value consumed by this operation.
 function MSG_WriteDeltaEntity(base, target, buffer, force, newEntity)
   return writeDelta(buffer, base, target, force, newEntity)
 end function

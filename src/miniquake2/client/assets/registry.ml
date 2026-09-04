@@ -1,3 +1,5 @@
+//! Provides miniquake2 client assets registry facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,25 +11,35 @@ import miniquake2.qcommon.constants as carqc
 import miniquake2.qcommon.text as cartext
 import miniquake2.client.assets.types as cartypes
 
+/// Defines the max named assets constant used by the miniquake2 client assets registry module.
 const MAX_NAMED_ASSETS = 256
+/// Defines the max missing assets constant used by the miniquake2 client assets registry module.
 const MAX_MISSING_ASSETS = 512
+/// Defines the max client weapon models constant used by the miniquake2 client assets registry module.
 const MAX_CLIENT_WEAPON_MODELS = 20
 
-// The product has one active Quake client. A package-owned mutable holder is
-// used instead of nested functions capturing a factory parameter; the latter
-// loses its environment in some full-program MiniLang link graphs.
+/// The product has one active Quake client. A package-owned mutable holder is
+/// used instead of nested functions capturing a factory parameter; the latter
+/// loses its environment in some full-program MiniLang link graphs.
 struct ClientAssetBindingSlot
+  /// Stores the registry value associated with client asset binding slot.
   registry
 end struct
 
+/// Stores module-wide client asset binding slot state for the miniquake2 client assets registry module.
 clientAssetBindingSlot = ClientAssetBindingSlot(void)
 
-// Report whether ignore missing.
+/// Report whether ignore missing.
+/// @param value Value consumed or transformed by the operation.
 function ignoreMissing(value)
   return true
 end function
 
-// Return the callbacks value.
+/// Performs the callbacks operation for the miniquake2 client assets registry module.
+/// @param loadModel loadModel value consumed by this operation.
+/// @param loadSkin loadSkin value consumed by this operation.
+/// @param loadSound loadSound value consumed by this operation.
+/// @param onMissing onMissing value consumed by this operation.
 function callbacks(loadModel, loadSkin, loadSound, onMissing)
   if typeof(loadModel) != "function" or typeof(loadSkin) != "function" or
       typeof(loadSound) != "function" or
@@ -37,7 +49,8 @@ function callbacks(loadModel, loadSkin, loadSound, onMissing)
   return cartypes.LoaderCallbacks(loadModel, loadSkin, loadSound, onMissing)
 end function
 
-// Create state.
+/// Creates create for the miniquake2 client assets registry module.
+/// @param loaders loaders value consumed by this operation.
 function create(loaders)
   if loaders is void then return error(8401, "client asset loader table is missing") end if
   return cartypes.Registry(loaders, 0, "", array(carqc.MAX_MODELS, void),
@@ -45,12 +58,16 @@ function create(loaders)
     array(carqc.MAX_CLIENTS, ""), void, array(MAX_CLIENT_WEAPON_MODELS, ""), 0, [])
 end function
 
-// Create lenient.
+/// Create lenient.
+/// @param loadModel loadModel value consumed by this operation.
+/// @param loadSkin loadSkin value consumed by this operation.
+/// @param loadSound loadSound value consumed by this operation.
 function createLenient(loadModel, loadSkin, loadSound)
   return create(callbacks(loadModel, loadSkin, loadSound, ignoreMissing))
 end function
 
-// Report whether contains traversal.
+/// Report whether contains traversal.
+/// @param value Value consumed or transformed by the operation.
 function containsTraversal(value)
   source = bytes(value)
   index = 0
@@ -61,7 +78,8 @@ function containsTraversal(value)
   return false
 end function
 
-// Return the safe regular name.
+/// Return the safe regular name.
+/// @param name Name of the affected item.
 function safeRegularName(name)
   if typeof(name) != "string" or name == "" then return false end if
   source = bytes(name)
@@ -73,7 +91,8 @@ function safeRegularName(name)
   return true
 end function
 
-// Return the inline model name.
+/// Return the inline model name.
+/// @param name Name of the affected item.
 function inlineModelName(name)
   source = bytes(name)
   if len(source) < 2 or source[0] != 42 then return false end if
@@ -88,28 +107,32 @@ function inlineModelName(name)
   return value > 0
 end function
 
-// Return the safe model name.
+/// Return the safe model name.
+/// @param name Name of the affected item.
 function safeModelName(name)
   if typeof(name) != "string" or name == "" then return false end if
   if bytes(name)[0] == 42 then return inlineModelName(name) end if
   return safeRegularName(name)
 end function
 
-// Return the safe sound name.
+/// Return the safe sound name.
+/// @param name Name of the affected item.
 function safeSoundName(name)
   if typeof(name) != "string" or name == "" then return false end if
   if bytes(name)[0] == 42 then return false end if
   return safeRegularName(name)
 end function
 
-// Report whether valid model.
+/// Report whether valid model.
+/// @param value Value consumed or transformed by the operation.
 function validModel(value)
   if typeof(value) != "struct" then return false end if
   return value.kind == "model" and typeof(value.id) == "int" and value.id > 0 and
     typeof(value.name) == "string" and typeof(value.generation) == "int"
 end function
 
-// Report whether valid sound.
+/// Report whether valid sound.
+/// @param value Value consumed or transformed by the operation.
 function validSound(value)
   if typeof(value) != "struct" or typeof(value.name) != "string" or
       typeof(value.sampleRate) != "int" or value.sampleRate < 1 or
@@ -121,7 +144,8 @@ function validSound(value)
   return len(value.pcm) == value.sampleCount * value.channels * value.width
 end function
 
-// Report whether valid skin.
+/// Report whether valid skin.
+/// @param value Value consumed or transformed by the operation.
 function validSkin(value)
   if typeof(value) != "struct" then return false end if
   return (value.kind == "skin" or value.kind == "pic") and
@@ -129,7 +153,10 @@ function validSkin(value)
     typeof(value.name) == "string" and typeof(value.generation) == "int"
 end function
 
-// Append bounded.
+/// Append bounded.
+/// @param values values value consumed by this operation.
+/// @param value Value consumed or transformed by the operation.
+/// @param maximum maximum value consumed by this operation.
 function appendBounded(values, value, maximum)
   output = []
   start = 0
@@ -142,7 +169,12 @@ function appendBounded(values, value, maximum)
   return output + [value]
 end function
 
-// Report whether note missing.
+/// Report whether note missing.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param kind kind value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param name Name of the affected item.
+/// @param reason reason value consumed by this operation.
 function noteMissing(state, kind, index, name, reason)
   missing = cartypes.MissingAsset(kind, index, name, state.generation, reason)
   state.missing = appendBounded(state.missing, missing, MAX_MISSING_ASSETS)
@@ -150,7 +182,10 @@ function noteMissing(state, kind, index, name, reason)
   return cartypes.AssetEntry(kind, index, name, void, state.generation, false, reason)
 end function
 
-// Report whether cached.
+/// Report whether cached.
+/// @param values values value consumed by this operation.
+/// @param name Name of the affected item.
+/// @param generation generation value consumed by this operation.
 function cached(values, name, generation)
   key = cartext.lower(name)
   for each entry in values
@@ -159,13 +194,19 @@ function cached(values, name, generation)
   return void
 end function
 
-// Return the indexed value.
+/// Return the indexed value.
+/// @param entry entry value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param name Name of the affected item.
 function indexed(entry, index, name)
   return cartypes.AssetEntry(entry.kind, index, name, entry.value,
     entry.generation, entry.available, entry.reason)
 end function
 
-// Cache named.
+/// Cache named.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param kind kind value consumed by this operation.
+/// @param entry entry value consumed by this operation.
 function cacheNamed(state, kind, entry)
   values = state.namedModels
   if kind == "sound" then values = state.namedSounds end if
@@ -179,14 +220,22 @@ function cacheNamed(state, kind, entry)
   return true
 end function
 
-// Report whether missing named.
+/// Report whether missing named.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param kind kind value consumed by this operation.
+/// @param index Zero-based index of the affected item.
+/// @param name Name of the affected item.
+/// @param reason reason value consumed by this operation.
 function missingNamed(state, kind, index, name, reason)
   entry = noteMissing(state, kind, index, name, reason)
   ignored = cacheNamed(state, kind, indexed(entry, -1, name))
   return entry
 end function
 
-// Load model asset.
+/// Load model asset.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
+/// @param name Name of the affected item.
 function loadModelAsset(state, index, name)
   if typeof(name) != "string" or name == "" then
     return noteMissing(state, "model", index, "", "unsafe-name")
@@ -203,7 +252,10 @@ function loadModelAsset(state, index, name)
   return entry
 end function
 
-// Load sound asset.
+/// Load sound asset.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
+/// @param name Name of the affected item.
 function loadSoundAsset(state, index, name)
   if typeof(name) != "string" or name == "" then
     return noteMissing(state, "sound", index, "", "unsafe-name")
@@ -238,8 +290,10 @@ function loadSoundAsset(state, index, name)
   return entry
 end function
 
-// S_RegisterSexedSound probes a model-specific file without treating absence
-// as a missing precache asset: failure is the normal path to the male alias.
+/// S_RegisterSexedSound probes a model-specific file without treating absence
+/// as a missing precache asset: failure is the normal path to the male alias.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function loadOptionalSoundAsset(state, name)
   existing = cached(state.namedSounds, name, state.generation)
   if existing is not void then return existing end if
@@ -257,7 +311,9 @@ function loadOptionalSoundAsset(state, name)
   return entry
 end function
 
-// Load skin asset.
+/// Load skin asset.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function loadSkinAsset(state, name)
   if typeof(name) != "string" or name == "" or not safeRegularName(name) then
     return noteMissing(state, "skin", -1, name, "unsafe-name")
@@ -274,9 +330,11 @@ function loadSkinAsset(state, name)
   return entry
 end function
 
-// CL_LoadClientinfo probes an authored player skin, optionally retries that
-// skin on the male model, and finally uses male/grunt. The first two misses are
-// normal fallback control flow and must not pollute the precache-missing list.
+/// CL_LoadClientinfo probes an authored player skin, optionally retries that
+/// skin on the male model, and finally uses male/grunt. The first two misses are
+/// normal fallback control flow and must not pollute the precache-missing list.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function loadOptionalSkinAsset(state, name)
   existing = cached(state.namedSkins, name, state.generation)
   if existing is not void then return existing end if
@@ -294,13 +352,17 @@ function loadOptionalSkinAsset(state, name)
   return entry
 end function
 
-// Slice text.
+/// Performs the textSlice operation for the miniquake2 client assets registry module.
+/// @param value Value consumed or transformed by the operation.
+/// @param start start value consumed by this operation.
+/// @param count Number of items or units to process.
 function inline textSlice(value, start, count)
   if count <= 0 then return "" end if
   return decode(slice(bytes(value), start, count))
 end function
 
-// Return the client identity value.
+/// Return the client identity value.
+/// @param value Value consumed or transformed by the operation.
 function clientIdentity(value)
   name = "unnamed"; modelName = "male"; skinName = "grunt"
   if typeof(value) != "string" or value == "" then return [name, modelName, skinName] end if
@@ -331,7 +393,9 @@ function clientIdentity(value)
   return [name, modelName, skinName]
 end function
 
-// Load client info.
+/// Load client info.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param value Value consumed or transformed by the operation.
 function loadClientInfo(state, value)
   // Keep load client info phases explicit: validate inputs, update owned state, then publish the result.
   identity = clientIdentity(value)
@@ -371,7 +435,9 @@ function loadClientInfo(state, value)
   return cartypes.ClientInfo(name, value, model, skin, weapons, available)
 end function
 
-// Refresh client infos.
+/// Refresh client infos.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param configStrings configStrings value consumed by this operation.
 function refreshClientInfos(state, configStrings)
   if typeof(configStrings) != "array" or len(configStrings) < carqc.MAX_CONFIGSTRINGS then
     return error(8406, "client info configstring table is truncated")
@@ -392,10 +458,12 @@ function refreshClientInfos(state, configStrings)
   return changed
 end function
 
-// Quake II may allocate model, sound and image configstrings after sign-on.
-// Weapon projectiles are the common case: g_weapon.c calls modelindex when a
-// shot is spawned, so an active client must register the new indexed asset
-// without restarting the whole map registration generation.
+/// Quake II may allocate model, sound and image configstrings after sign-on.
+/// Weapon projectiles are the common case: g_weapon.c calls modelindex when a
+/// shot is spawned, so an active client must register the new indexed asset
+/// without restarting the whole map registration generation.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param configStrings configStrings value consumed by this operation.
 function refreshConfigStrings(state, configStrings)
   // Keep refresh config strings phases explicit: validate inputs, update owned state, then publish the result.
   if typeof(configStrings) != "array" or len(configStrings) < carqc.MAX_CONFIGSTRINGS then
@@ -494,7 +562,9 @@ function refreshConfigStrings(state, configStrings)
   return changed + refreshClientInfos(state, configStrings)
 end function
 
-// Return the client info value.
+/// Return the client info value.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
 function clientInfo(state, index)
   value = void
   if typeof(index) == "int" and index >= 0 and index < carqc.MAX_CLIENTS then
@@ -504,21 +574,28 @@ function clientInfo(state, index)
   return value
 end function
 
-// Resolve player model.
+/// Resolve player model.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
 function resolvePlayerModel(state, index)
   value = clientInfo(state, index)
   if value is void then return void end if
   return value.model
 end function
 
-// Resolve player skin.
+/// Resolve player skin.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
 function resolvePlayerSkin(state, index)
   value = clientInfo(state, index)
   if value is void then return void end if
   return value.skin
 end function
 
-// Resolve player weapon.
+/// Resolve player weapon.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
+/// @param weaponIndex Zero-based index of weapon.
 function resolvePlayerWeapon(state, index, weaponIndex)
   value = clientInfo(state, index)
   if value is void then return void end if
@@ -532,7 +609,9 @@ function resolvePlayerWeapon(state, index, weaponIndex)
   return weapon
 end function
 
-// Reset state.
+/// Performs the reset operation for the miniquake2 client assets registry module.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param mapName mapName value consumed by this operation.
 function reset(state, mapName)
   if typeof(mapName) != "string" or mapName == "" or len(bytes(mapName)) >= carqc.MAX_QPATH then
     return error(8402, "client asset map name is invalid")
@@ -553,7 +632,10 @@ function reset(state, mapName)
   return state.generation
 end function
 
-// Register config strings.
+/// Register config strings.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param configStrings configStrings value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
 function registerConfigStrings(state, configStrings, mapName)
   if typeof(configStrings) != "array" or len(configStrings) < carqc.MAX_CONFIGSTRINGS then
     return error(8403, "client asset configstring table is truncated")
@@ -612,7 +694,9 @@ function registerConfigStrings(state, configStrings, mapName)
   return state.generation
 end function
 
-// Resolve model index.
+/// Resolve model index.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
 function resolveModelIndex(state, index)
   if typeof(index) != "int" or index < 0 or index >= carqc.MAX_MODELS then return void end if
   if index == 0 then return void end if
@@ -621,7 +705,9 @@ function resolveModelIndex(state, index)
   return entry.value
 end function
 
-// Resolve sound index.
+/// Resolve sound index.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param index Zero-based index of the affected item.
 function resolveSoundIndex(state, index)
   if typeof(index) != "int" or index < 0 or index >= carqc.MAX_SOUNDS then return void end if
   if index == 0 then return void end if
@@ -630,28 +716,38 @@ function resolveSoundIndex(state, index)
   return entry.value
 end function
 
-// Resolve model name.
+/// Resolve model name.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function resolveModelName(state, name)
   entry = loadModelAsset(state, -1, name)
   if not entry.available then return void end if
   return entry.value
 end function
 
-// Resolve skin name.
+/// Resolve skin name.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function resolveSkinName(state, name)
   entry = loadSkinAsset(state, name)
   if not entry.available then return void end if
   return entry.value
 end function
 
-// Resolve sound name.
+/// Resolve sound name.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param name Name of the affected item.
 function resolveSoundName(state, name)
   entry = loadSoundAsset(state, -1, name)
   if not entry.available then return void end if
   return entry.value
 end function
 
-// Resolve sound for entity.
+/// Resolve sound for entity.
+/// @param state Mutable state inspected or updated by the operation.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param soundIndex Zero-based index of sound.
+/// @param soundName soundName value consumed by this operation.
 function resolveSoundForEntity(state, entityNumber, soundIndex, soundName)
   name = soundName
   if name == "" and typeof(soundIndex) == "int" and soundIndex > 0 and
@@ -681,70 +777,83 @@ function resolveSoundForEntity(state, entityNumber, soundIndex, soundName)
   return void
 end function
 
-// Return the client asset bound model index.
+/// Return the client asset bound model index.
+/// @param index Zero-based index of the affected item.
 function clientAssetBoundModelIndex(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolveModelIndex(state, index)
 end function
 
-// Return the client asset bound model name.
+/// Return the client asset bound model name.
+/// @param name Name of the affected item.
 function clientAssetBoundModelName(name)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolveModelName(state, name)
 end function
 
-// Return the client asset bound skin name.
+/// Return the client asset bound skin name.
+/// @param name Name of the affected item.
 function clientAssetBoundSkinName(name)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolveSkinName(state, name)
 end function
 
-// Return the client asset bound sound index.
+/// Return the client asset bound sound index.
+/// @param index Zero-based index of the affected item.
 function clientAssetBoundSoundIndex(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolveSoundIndex(state, index)
 end function
 
-// Return the client asset bound sound name.
+/// Return the client asset bound sound name.
+/// @param name Name of the affected item.
 function clientAssetBoundSoundName(name)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolveSoundName(state, name)
 end function
 
-// Return the client asset bound sound entity value.
+/// Return the client asset bound sound entity value.
+/// @param entityNumber entityNumber value consumed by this operation.
+/// @param soundIndex Zero-based index of sound.
+/// @param soundName soundName value consumed by this operation.
 function clientAssetBoundSoundEntity(entityNumber, soundIndex, soundName)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolveSoundForEntity(state, entityNumber, soundIndex, soundName)
 end function
 
-// Return the client asset bound player model value.
+/// Return the client asset bound player model value.
+/// @param index Zero-based index of the affected item.
 function clientAssetBoundPlayerModel(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolvePlayerModel(state, index)
 end function
 
-// Return the client asset bound player skin value.
+/// Return the client asset bound player skin value.
+/// @param index Zero-based index of the affected item.
 function clientAssetBoundPlayerSkin(index)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolvePlayerSkin(state, index)
 end function
 
-// Return the client asset bound player weapon value.
+/// Return the client asset bound player weapon value.
+/// @param index Zero-based index of the affected item.
+/// @param weaponIndex Zero-based index of weapon.
 function clientAssetBoundPlayerWeapon(index, weaponIndex)
   state = clientAssetBindingSlot.registry
   if state is void then return void end if
   return resolvePlayerWeapon(state, index, weaponIndex)
 end function
 
-// Return the bindings value.
+/// Return the bindings value.
+/// @param state Mutable state inspected or updated by the operation.
 function bindings(state)
   holder = clientAssetBindingSlot
   holder.registry = state
@@ -755,7 +864,7 @@ function bindings(state)
     clientAssetBoundPlayerWeapon)
 end function
 
-// Release bindings.
+/// Release bindings.
 function releaseBindings()
   // The product intentionally has one active client resolver. Explicitly
   // release its registry when a map/demo session ends so parsed BSP/MD2/WAV
@@ -765,7 +874,8 @@ function releaseBindings()
   return true
 end function
 
-// Report whether missing assets.
+/// Report whether missing assets.
+/// @param state Mutable state inspected or updated by the operation.
 function missingAssets(state)
   return state.missing
 end function

@@ -1,3 +1,5 @@
+//! Provides miniquake2 runtime visual capture facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -23,43 +25,67 @@ import miniquake2.renderer.opengl as retailcapturegl
 import miniquake2.renderer.capture as retailcaptureimage
 import miniquake2.physics.vector as retailcapturevector
 
-// Store retail capture file system slot data.
+/// Store retail capture file system slot data.
 struct RetailCaptureFileSystemSlot
+  /// Stores the filesystem value associated with retail capture file system slot.
   filesystem
 end struct
 
-// Store retail capture file imports data.
+/// Store retail capture file imports data.
 struct RetailCaptureFileImports
+  /// Stores the fs load file value associated with retail capture file imports.
   fsLoadFile
 end struct
 
-// Store retail capture result data.
+/// Store retail capture result data.
 struct RetailCaptureResult
+  /// Stores the map name value associated with retail capture result.
   mapName
+  /// Stores the map path value associated with retail capture result.
   mapPath
+  /// Stores the output path value associated with retail capture result.
   outputPath
+  /// Stores the width value associated with retail capture result.
   width
+  /// Stores the height value associated with retail capture result.
   height
+  /// Stores the rendered frames value associated with retail capture result.
   renderedFrames
+  /// Stores the render time value associated with retail capture result.
   renderTime
+  /// Stores the view origin value associated with retail capture result.
   viewOrigin
+  /// Stores the view angles value associated with retail capture result.
   viewAngles
+  /// Stores the rgba checksum value associated with retail capture result.
   rgbaChecksum
+  /// Stores the visible surfaces value associated with retail capture result.
   visibleSurfaces
+  /// Stores the culled surfaces value associated with retail capture result.
   culledSurfaces
+  /// Stores the view cluster value associated with retail capture result.
   viewCluster
+  /// Stores the warp surfaces value associated with retail capture result.
   warpSurfaces
+  /// Stores the transparent surfaces value associated with retail capture result.
   transparentSurfaces
+  /// Stores the sky surfaces value associated with retail capture result.
   skySurfaces
+  /// Stores the inline brush entities value associated with retail capture result.
   inlineBrushEntities
+  /// Stores the md2 entities value associated with retail capture result.
   md2Entities
+  /// Stores the shadow entities value associated with retail capture result.
   shadowEntities
+  /// Stores the shadow light height value associated with retail capture result.
   shadowLightHeight
 end struct
 
+/// Stores module-wide retail capture file system slot state for the miniquake2 runtime visual capture module.
 retailCaptureFileSystemSlot = RetailCaptureFileSystemSlot(void)
 
-// Capture retail load file.
+/// Capture retail load file.
+/// @param path Path of the file or directory used by the operation.
 function retailCaptureLoadFile(path)
   slot = retailCaptureFileSystemSlot
   filesystem = slot.filesystem
@@ -67,7 +93,9 @@ function retailCaptureLoadFile(path)
   return retailcapturefs.readFile(filesystem, path)
 end function
 
-// Capture retail ends with.
+/// Capture retail ends with.
+/// @param value Value consumed or transformed by the operation.
+/// @param suffix suffix value consumed by this operation.
 function retailCaptureEndsWith(value, suffix)
   left = bytes(retailcapturetext.lower(value)); right = bytes(retailcapturetext.lower(suffix))
   leftLength = len(left); rightLength = len(right)
@@ -80,7 +108,8 @@ function retailCaptureEndsWith(value, suffix)
   return true
 end function
 
-// Capture retail map path.
+/// Capture retail map path.
+/// @param name Name of the affected item.
 function retailCaptureMapPath(name)
   if typeof(name) != "string" or name == "" then return error(9941, "retail capture map name required") end if
   result = name
@@ -90,14 +119,16 @@ function retailCaptureMapPath(name)
   return result
 end function
 
-// Report whether retail capture is inline model.
+/// Report whether retail capture is inline model.
+/// @param name Name of the affected item.
 function retailCaptureIsInlineModel(name)
   if typeof(name) != "string" then return false end if
   encoded = bytes(name)
   return len(encoded) > 1 and encoded[0] == 42
 end function
 
-// Capture retail default camera.
+/// Capture retail default camera.
+/// @param materialized materialized value consumed by this operation.
 function retailCaptureDefaultCamera(materialized)
   originResult = retailcaptureqtypes.Vec3(0.0, 0.0, 32.0)
   anglesResult = retailcaptureqtypes.zeroVec3()
@@ -116,7 +147,12 @@ function retailCaptureDefaultCamera(materialized)
   return result
 end function
 
-// Capture retail inline entities.
+/// Capture retail inline entities.
+/// @param renderer renderer value consumed by this operation.
+/// @param materialized materialized value consumed by this operation.
+/// @param fileImports fileImports value consumed by this operation.
+/// @param output Output collection or buffer populated by the operation.
+/// @param count Number of items or units to process.
 function retailCaptureInlineEntities(renderer, materialized, fileImports, output, count)
   index = 0
   while index < len(materialized) and count < retailcapturerc.MAX_ENTITIES
@@ -140,7 +176,11 @@ function retailCaptureInlineEntities(renderer, materialized, fileImports, output
   return count
 end function
 
-// Capture retail md 2 entity.
+/// Capture retail md 2 entity.
+/// @param renderer renderer value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param viewOrigin viewOrigin value consumed by this operation.
+/// @param viewAngles viewAngles value consumed by this operation.
 function retailCaptureMd2Entity(renderer, modelName, viewOrigin, viewAngles)
   handle = retailcapturegl.registerMd2Model(renderer, modelName, retailCaptureLoadFile)
   axes = retailcapturevector.angleVectors(viewAngles)
@@ -163,8 +203,19 @@ function retailCaptureMd2Entity(renderer, modelName, viewOrigin, viewAngles)
   return entity
 end function
 
-// cameraOrigin/cameraAngles may be void to select the first info_player_start.
-// Capture occurs before EndFrame's swap, after the final deterministic time.
+/// cameraOrigin/cameraAngles may be void to select the first info_player_start.
+/// Capture occurs before EndFrame's swap, after the final deterministic time.
+/// @param baseDirectory baseDirectory value consumed by this operation.
+/// @param mapName mapName value consumed by this operation.
+/// @param outputPath Path associated with output.
+/// @param width Width in the coordinate or storage units used by the caller.
+/// @param height Height in the coordinate or storage units used by the caller.
+/// @param renderedFrames renderedFrames value consumed by this operation.
+/// @param modelName modelName value consumed by this operation.
+/// @param includeInlineBrushModels includeInlineBrushModels value consumed by this operation.
+/// @param cameraOrigin cameraOrigin value consumed by this operation.
+/// @param cameraAngles cameraAngles value consumed by this operation.
+/// @param shadowsEnabled shadowsEnabled value consumed by this operation.
 function captureRetailScene(baseDirectory, mapName, outputPath, width, height,
     renderedFrames, modelName, includeInlineBrushModels, cameraOrigin,
     cameraAngles, shadowsEnabled)

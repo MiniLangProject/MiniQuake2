@@ -1,3 +1,5 @@
+//! Provides miniquake2 game weapons projectiles facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,7 +16,9 @@ import miniquake2.game.weapons.constants as wbconstants
 import miniquake2.game.weapons.core as wbcore
 import miniquake2.game.weapons.vector as wbvector
 
-// Return the owner impact noise value.
+/// Return the owner impact noise value.
+/// @param projectile projectile value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function ownerImpactNoise(projectile, context)
   if projectile.owner is not void and projectile.owner.isClient then
     return context.callbacks.playerNoise(projectile.owner, projectile.origin, 2)
@@ -22,7 +26,11 @@ function ownerImpactNoise(projectile, context)
   return false
 end function
 
-// Handle blaster.
+/// Handle blaster.
+/// @param projectile projectile value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param trace trace value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function blasterTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -42,7 +50,16 @@ function blasterTouch(projectile, other, trace, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
-// Fire blaster internal.
+/// Fire blaster internal.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param effect effect value consumed by this operation.
+/// @param hyper hyper value consumed by this operation.
+/// @param targetBlaster targetBlaster value consumed by this operation.
 function fireBlasterInternal(context, owner, start, direction, damage, speed,
     effect, hyper, targetBlaster)
   normalized = wbvector.normalized(direction)[0]
@@ -75,13 +92,27 @@ function fireBlasterInternal(context, owner, start, direction, damage, speed,
   return projectile
 end function
 
-// Fire blaster.
+/// Fire blaster.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param effect effect value consumed by this operation.
+/// @param hyper hyper value consumed by this operation.
 function fireBlaster(context, owner, start, direction, damage, speed, effect, hyper)
   return fireBlasterInternal(context, owner, start, direction, damage, speed,
     effect, hyper, false)
 end function
 
-// Fire target blaster.
+/// Fire target blaster.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
 function fireTargetBlaster(context, owner, start, direction, damage, speed)
   // Stock use_target_blaster computes a spawnflag-dependent effect but the
   // shipped call passes EF_BLASTER unconditionally. Preserve that retail
@@ -90,7 +121,9 @@ function fireTargetBlaster(context, owner, start, direction, damage, speed)
     wbconstants.EF_BLASTER, false, true)
 end function
 
-// Clip bounce velocity.
+/// Clip bounce velocity.
+/// @param projectile projectile value consumed by this operation.
+/// @param normal normal value consumed by this operation.
 function clipBounceVelocity(projectile, normal)
   backoff = wbvector.dot(projectile.velocity, normal) * 1.5
   projectile.velocity.x = projectile.velocity.x - normal.x * backoff
@@ -102,9 +135,11 @@ function clipBounceVelocity(projectile, normal)
   return true
 end function
 
-// SV_Physics_Toss subset shared by launcher and hand grenades. Missiles do
-// not receive gravity; MOVETYPE_BOUNCE receives the stock 800 ups gravity and
-// 1.5 overbounce before its next server snapshot.
+/// SV_Physics_Toss subset shared by launcher and hand grenades. Missiles do
+/// not receive gravity; MOVETYPE_BOUNCE receives the stock 800 ups gravity and
+/// 1.5 overbounce before its next server snapshot.
+/// @param context Context that carries state for the operation.
+/// @param projectile projectile value consumed by this operation.
 function advanceProjectile(context, projectile)
   if projectile.inUse == false then return false end if
   if projectile.velocity.z > 0.0 then projectile.groundEntity = void end if
@@ -156,7 +191,9 @@ function advanceProjectile(context, projectile)
   return projectile.inUse
 end function
 
-// Return the grenade explode value.
+/// Return the grenade explode value.
+/// @param projectile projectile value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function grenadeExplode(projectile, context)
   ownerImpactNoise(projectile, context)
   if projectile.enemy is not void and projectile.enemy.combatant is not void and projectile.enemy.combatant.takeDamage then
@@ -185,7 +222,11 @@ function grenadeExplode(projectile, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
-// Handle grenade.
+/// Handle grenade.
+/// @param projectile projectile value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param trace trace value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function grenadeTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -201,7 +242,10 @@ function grenadeTouch(projectile, other, trace, context)
   return grenadeExplode(projectile, context)
 end function
 
-// Return the grenade velocity value.
+/// Return the grenade velocity value.
+/// @param context Context that carries state for the operation.
+/// @param direction direction value consumed by this operation.
+/// @param speed speed value consumed by this operation.
 function grenadeVelocity(context, direction, speed)
   basis = wbvector.angleVectors(wbvector.vectorToAngles(direction))
   velocity = wbvector.scale(direction, speed)
@@ -210,7 +254,17 @@ function grenadeVelocity(context, direction, speed)
   return velocity
 end function
 
-// Configure grenade.
+/// Configure grenade.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param timer timer value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
+/// @param hand hand value consumed by this operation.
+/// @param held held value consumed by this operation.
 function configureGrenade(context, owner, start, direction, damage, speed, timer, damageRadius, hand, held)
   className = "grenade"
   if hand then className = "hgrenade" end if
@@ -247,17 +301,38 @@ function configureGrenade(context, owner, start, direction, damage, speed, timer
   return projectile
 end function
 
-// Fire grenade.
+/// Fire grenade.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param timer timer value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
 function fireGrenade(context, owner, start, direction, damage, speed, timer, damageRadius)
   return configureGrenade(context, owner, start, direction, damage, speed, timer, damageRadius, false, false)
 end function
 
-// Fire grenade 2.
+/// Fire grenade 2.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param timer timer value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
+/// @param held held value consumed by this operation.
 function fireGrenade2(context, owner, start, direction, damage, speed, timer, damageRadius, held)
   return configureGrenade(context, owner, start, direction, damage, speed, timer, damageRadius, true, held)
 end function
 
-// Handle rocket.
+/// Handle rocket.
+/// @param projectile projectile value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param trace trace value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function rocketTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -273,7 +348,15 @@ function rocketTouch(projectile, other, trace, context)
   return wbcore.freeProjectile(context, projectile)
 end function
 
-// Fire rocket.
+/// Fire rocket.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
+/// @param radiusDamage radiusDamage value consumed by this operation.
 function fireRocket(context, owner, start, direction, damage, speed, damageRadius, radiusDamage)
   projectile = wbcore.spawnProjectile(context, "rocket")
   projectile.origin = wbvector.copy(start)
@@ -300,7 +383,9 @@ function fireRocket(context, owner, start, direction, damage, speed, damageRadiu
   return projectile
 end function
 
-// Run bfg.
+/// Run bfg.
+/// @param projectile projectile value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function bfgThink(projectile, context)
   candidates = context.callbacks.radiusTargets(projectile.origin, 256.0)
   for each target in candidates
@@ -337,7 +422,9 @@ function bfgThink(projectile, context)
   return true
 end function
 
-// Return the bfg explode value.
+/// Return the bfg explode value.
+/// @param projectile projectile value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function bfgExplode(projectile, context)
   if projectile.frame == 0 then
     candidates = context.callbacks.radiusTargets(projectile.origin, projectile.damageRadius)
@@ -363,7 +450,11 @@ function bfgExplode(projectile, context)
   return true
 end function
 
-// Handle bfg.
+/// Handle bfg.
+/// @param projectile projectile value consumed by this operation.
+/// @param other other value consumed by this operation.
+/// @param trace trace value consumed by this operation.
+/// @param context Context that carries state for the operation.
 function bfgTouch(projectile, other, trace, context)
   if other is not void and projectile.owner is not void and other.number == projectile.owner.number then return false end if
   if wbcore.surfaceIsSky(trace) then return wbcore.freeProjectile(context, projectile) end if
@@ -389,7 +480,14 @@ function bfgTouch(projectile, other, trace, context)
   return true
 end function
 
-// Fire bfg.
+/// Performs the fireBfg operation for the miniquake2 game weapons projectiles module.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
 function fireBfg(context, owner, start, direction, damage, speed, damageRadius)
   projectile = wbcore.spawnProjectile(context, "bfg blast")
   projectile.origin = wbvector.copy(start)
@@ -413,23 +511,63 @@ function fireBfg(context, owner, start, direction, damage, speed, damageRadius)
   return projectile
 end function
 
-// Fire blaster.
+/// Fire blaster.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param effect effect value consumed by this operation.
+/// @param hyper hyper value consumed by this operation.
 function fire_blaster(context, owner, start, direction, damage, speed, effect, hyper)
   return fireBlaster(context, owner, start, direction, damage, speed, effect, hyper)
 end function
-// Fire grenade.
+/// Fire grenade.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param timer timer value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
 function fire_grenade(context, owner, start, direction, damage, speed, timer, damageRadius)
   return fireGrenade(context, owner, start, direction, damage, speed, timer, damageRadius)
 end function
-// Fire grenade 2.
+/// Fire grenade 2.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param timer timer value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
+/// @param held held value consumed by this operation.
 function fire_grenade2(context, owner, start, direction, damage, speed, timer, damageRadius, held)
   return fireGrenade2(context, owner, start, direction, damage, speed, timer, damageRadius, held)
 end function
-// Fire rocket.
+/// Fire rocket.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
+/// @param radiusDamage radiusDamage value consumed by this operation.
 function fire_rocket(context, owner, start, direction, damage, speed, damageRadius, radiusDamage)
   return fireRocket(context, owner, start, direction, damage, speed, damageRadius, radiusDamage)
 end function
-// Fire bfg.
+/// Performs the fire_bfg operation for the miniquake2 game weapons projectiles module.
+/// @param context Context that carries state for the operation.
+/// @param owner owner value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param direction direction value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param speed speed value consumed by this operation.
+/// @param damageRadius damageRadius value consumed by this operation.
 function fire_bfg(context, owner, start, direction, damage, speed, damageRadius)
   return fireBfg(context, owner, start, direction, damage, speed, damageRadius)
 end function

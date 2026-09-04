@@ -1,3 +1,5 @@
+//! Provides miniquake2 game weapons hitscan facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -13,7 +15,8 @@ import miniquake2.game.weapons.constants as wbconstants
 import miniquake2.game.weapons.core as wbcore
 import miniquake2.game.weapons.vector as wbvector
 
-// Return the water splash style value.
+/// Return the water splash style value.
+/// @param trace trace value consumed by this operation.
 function waterSplashStyle(trace)
   if (trace.contents & qc.CONTENTS_WATER) != 0 then
     if trace.surface is not void and trace.surface.name == "*brwater" then return wbconstants.SPLASH_BROWN_WATER end if
@@ -24,7 +27,17 @@ function waterSplashStyle(trace)
   return wbconstants.SPLASH_UNKNOWN
 end function
 
-// Fire lead.
+/// Fire lead.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
+/// @param impact impact value consumed by this operation.
+/// @param horizontalSpread horizontalSpread value consumed by this operation.
+/// @param verticalSpread verticalSpread value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function fireLead(context, shooter, start, aimDirection, damage, kick, impact, horizontalSpread, verticalSpread, meansOfDeath)
   // Keep fire lead phases explicit: validate inputs, update owned state, then publish the result.
   zero = qt.zeroVec3()
@@ -99,12 +112,31 @@ function fireLead(context, shooter, start, aimDirection, damage, kick, impact, h
   return trace
 end function
 
-// Fire bullet.
+/// Fire bullet.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
+/// @param horizontalSpread horizontalSpread value consumed by this operation.
+/// @param verticalSpread verticalSpread value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function fireBullet(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, meansOfDeath)
   return fireLead(context, shooter, start, aimDirection, damage, kick, wbconstants.IMPACT_GUNSHOT, horizontalSpread, verticalSpread, meansOfDeath)
 end function
 
-// Fire shotgun.
+/// Fire shotgun.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
+/// @param horizontalSpread horizontalSpread value consumed by this operation.
+/// @param verticalSpread verticalSpread value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function fireShotgun(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, count, meansOfDeath)
   traces = []
   pellet = 0
@@ -115,7 +147,13 @@ function fireShotgun(context, shooter, start, aimDirection, damage, kick, horizo
   return traces
 end function
 
-// Fire rail.
+/// Fire rail.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
 function fireRail(context, shooter, start, aimDirection, damage, kick)
   zero = qt.zeroVec3()
   endPosition = wbvector.multiplyAdd(start, 8192.0, aimDirection)
@@ -158,15 +196,40 @@ function fireRail(context, shooter, start, aimDirection, damage, kick)
   return trace
 end function
 
-// Fire bullet.
+/// Fire bullet.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
+/// @param horizontalSpread horizontalSpread value consumed by this operation.
+/// @param verticalSpread verticalSpread value consumed by this operation.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function fire_bullet(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, meansOfDeath)
   return fireBullet(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, meansOfDeath)
 end function
-// Fire shotgun.
+/// Fire shotgun.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
+/// @param horizontalSpread horizontalSpread value consumed by this operation.
+/// @param verticalSpread verticalSpread value consumed by this operation.
+/// @param count Number of items or units to process.
+/// @param meansOfDeath meansOfDeath value consumed by this operation.
 function fire_shotgun(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, count, meansOfDeath)
   return fireShotgun(context, shooter, start, aimDirection, damage, kick, horizontalSpread, verticalSpread, count, meansOfDeath)
 end function
-// Fire rail.
+/// Fire rail.
+/// @param context Context that carries state for the operation.
+/// @param shooter shooter value consumed by this operation.
+/// @param start start value consumed by this operation.
+/// @param aimDirection aimDirection value consumed by this operation.
+/// @param damage damage value consumed by this operation.
+/// @param kick kick value consumed by this operation.
 function fire_rail(context, shooter, start, aimDirection, damage, kick)
   return fireRail(context, shooter, start, aimDirection, damage, kick)
 end function

@@ -1,3 +1,5 @@
+//! Provides miniquake2 renderer classic surfaces facilities for this project.
+
 /*
 Copyright (c) 2026 Nils Kopal
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,12 +14,17 @@ import miniquake2.renderer.classic.constants as rclassicconstants
 import miniquake2.renderer.classic.types as rclassictypes
 import miniquake2.renderer.classic.materials as rclassicmaterials
 
-// Return the projected value.
+/// Return the projected value.
+/// @param position position value consumed by this operation.
+/// @param vector vector value consumed by this operation.
 function projected(position, vector)
   return position.x * vector[0] + position.y * vector[1] + position.z * vector[2] + vector[3]
 end function
 
-// Return the face vertex position.
+/// Return the face vertex position.
+/// @param map map value consumed by this operation.
+/// @param face face value consumed by this operation.
+/// @param edgeOffset edgeOffset value consumed by this operation.
 function faceVertexPosition(map, face, edgeOffset)
   surfaceEdgeIndex = face.firstEdge + edgeOffset
   if surfaceEdgeIndex < 0 or surfaceEdgeIndex >= len(map.surfaceEdges) then return error(9710, "classic surface edge range outside table") end if
@@ -32,7 +39,10 @@ function faceVertexPosition(map, face, edgeOffset)
   return map.vertices[vertexIndex].position
 end function
 
-// Return the surface extents value.
+/// Return the surface extents value.
+/// @param map map value consumed by this operation.
+/// @param face face value consumed by this operation.
+/// @param texInfo texInfo value consumed by this operation.
 function surfaceExtents(map, face, texInfo)
   if face.numEdges <= 0 then return error(9713, "classic face has no edges") end if
   first = faceVertexPosition(map, face, 0)
@@ -64,7 +74,8 @@ function surfaceExtents(map, face, texInfo)
   return [textureMins, extents]
 end function
 
-// Map light count.
+/// Map light count.
+/// @param styles styles value consumed by this operation.
 function lightMapCount(styles)
   count = 0
   while count < rclassicconstants.MAX_LIGHTMAPS and count < len(styles) and styles[count] != 255
@@ -73,7 +84,11 @@ function lightMapCount(styles)
   return count
 end function
 
-// Build surface.
+/// Build surface.
+/// @param map map value consumed by this operation.
+/// @param faceIndex Zero-based index of face.
+/// @param images images value consumed by this operation.
+/// @param entityFrame entityFrame value consumed by this operation.
 function buildSurface(map, faceIndex, images, entityFrame)
   // Keep build surface phases explicit: validate inputs, update owned state, then publish the result.
   if faceIndex < 0 or faceIndex >= len(map.faces) then return error(9714, "classic face outside table") end if
@@ -120,7 +135,10 @@ function buildSurface(map, faceIndex, images, entityFrame)
   )
 end function
 
-// Build surfaces.
+/// Build surfaces.
+/// @param map map value consumed by this operation.
+/// @param images images value consumed by this operation.
+/// @param entityFrame entityFrame value consumed by this operation.
 function buildSurfaces(map, images, entityFrame)
   // Retail worlds contain thousands of faces.  Fill one exact table instead
   // of repeatedly copying a growing array for every BSP surface.
