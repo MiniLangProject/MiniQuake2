@@ -5,6 +5,8 @@
 [CmdletBinding()]
 param(
   [string]$Version = "0.5.0-foundation",
+  [string]$Compiler = "",
+  [string]$StdLib = "",
   [switch]$SkipBuild
 )
 
@@ -12,7 +14,10 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Workspace = Split-Path -Parent $Root
 if (-not $SkipBuild) {
-  & (Join-Path $Root "build.ps1") -Configuration Release -UpdateManifest
+  $buildArguments = @{ Configuration = 'Release'; UpdateManifest = $true }
+  if (-not [string]::IsNullOrWhiteSpace($Compiler)) { $buildArguments.Compiler = $Compiler }
+  if (-not [string]::IsNullOrWhiteSpace($StdLib)) { $buildArguments.StdLib = $StdLib }
+  & (Join-Path $Root "build.ps1") @buildArguments
   if ($LASTEXITCODE -ne 0) { throw "MiniQuake2 release build failed." }
 }
 py -3 (Join-Path $Root "tools\package_release.py") --root $Root --version $Version

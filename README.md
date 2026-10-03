@@ -13,6 +13,12 @@ providing a modern, self-contained desktop build.
 > MiniQuake2 does not include Quake II game data. You must own and supply a
 > legal installation containing `baseq2/pak0.pak`.
 
+## Download
+
+The [Windows x64 release](https://github.com/MiniLangProject/MiniQuake2/releases/latest)
+contains the engine executable and its native runtime DLLs. Game data is not
+included. The release build uses MiniLang Compiler 1.2.16.
+
 ## Screenshots
 
 | Outer Base (`base1`) | Receiving Center (`fact3`) |
@@ -115,8 +121,9 @@ Requirements:
 
 - Windows x64 and PowerShell.
 - Python 3.
-- The Python MiniLang compiler and standard library. A sibling checkout named
-  `MiniLangCompilerPy` is detected automatically.
+- MiniLang Compiler and standard library. A sibling checkout named
+  `MiniLangCompilerPy` is detected automatically; the native self-hosted
+  compiler in `MiniLangCompilerML/build/mlc_win64.exe` can be selected explicitly.
 - A legal Quake II installation is required only for retail validation and
   playing, never for the asset-free build and unit suite.
 
@@ -144,6 +151,14 @@ siblings:
 .\build.ps1 `
   -Compiler C:\path\to\MiniLangCompilerPy\mlc_win64.py `
   -StdLib C:\path\to\MiniLangCompilerPy
+```
+
+For the Windows release with the self-hosted compiler:
+
+```powershell
+.\scripts\package.ps1 `
+  -Compiler C:\path\to\MiniLangCompilerML\build\mlc_win64.exe `
+  -StdLib C:\path\to\MiniLangCompilerML
 ```
 
 The release executable is written to `build/MiniQuake2.exe`.
