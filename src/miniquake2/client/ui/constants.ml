@@ -118,6 +118,13 @@ DEFAULT_NOTIFY_LINES = 4
 /// Stores module-wide default notify msec state for the miniquake2 client ui constants module.
 DEFAULT_NOTIFY_MSEC = 3000
 
+/// Defines the minimum supported presentation frame cap in frames per second.
+MIN_MAX_FPS = 30
+/// Defines the maximum supported presentation frame cap in frames per second.
+/// This bound is shared by the menu, persisted product configuration, console
+/// commands and runtime pacing so a valid saved setting can always be shown.
+MAX_MAX_FPS = 1000
+
 /// Stores module-wide menu action state for the miniquake2 client ui constants module.
 MENU_ACTION = 0
 /// Stores module-wide menu toggle state for the miniquake2 client ui constants module.

@@ -482,8 +482,9 @@ end function
 /// @param deadline deadline value consumed by this operation.
 /// @param maxFps maxFps value consumed by this operation.
 function applicationPaceFrame(clock, deadline, maxFps)
-  if typeof(maxFps) != "int" or maxFps < 30 or maxFps > 1000 then
-    return error(9994, "cl_maxfps outside [30,1000]")
+  if typeof(maxFps) != "int" or maxFps < appuiconstants.MIN_MAX_FPS or
+      maxFps > appuiconstants.MAX_MAX_FPS then
+    return error(9994, "cl_maxfps is outside the supported range")
   end if
   interval = 1000.0 / maxFps
   now = appsystem.milliseconds(clock)

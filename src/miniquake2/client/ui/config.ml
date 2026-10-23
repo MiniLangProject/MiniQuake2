@@ -87,8 +87,10 @@ function productConfigValidate(config)
       typeof(config.fullScreen) != "bool" or
       (typeof(config.brightness) != "int" and typeof(config.brightness) != "float") or
       config.brightness < 0.5 or config.brightness > 2.0 or
-      typeof(config.maxFps) != "int" or config.maxFps < 30 or
-      config.maxFps > 1000 or typeof(config.swapInterval) != "bool" or
+      typeof(config.maxFps) != "int" or
+      config.maxFps < uiconfigconstants.MIN_MAX_FPS or
+      config.maxFps > uiconfigconstants.MAX_MAX_FPS or
+      typeof(config.swapInterval) != "bool" or
       typeof(config.crosshair) != "int" or config.crosshair < 0 or
       config.crosshair > 3 or
       typeof(config.joystick) != "bool" or
@@ -272,9 +274,10 @@ function decodeProductConfig(text)
         productConfigGamma = productConfigSetting * 1.0
       else if productConfigName == "cl_maxfps" and productConfigMaxFps is void then
         productConfigMaxFps = uiconfigbyteio.truncInt(productConfigSetting)
-        if productConfigSetting != productConfigMaxFps or productConfigMaxFps < 30 or
-            productConfigMaxFps > 1000 then
-          return error(8297, "cl_maxfps must be an integer inside [30,1000]")
+        if productConfigSetting != productConfigMaxFps or
+            productConfigMaxFps < uiconfigconstants.MIN_MAX_FPS or
+            productConfigMaxFps > uiconfigconstants.MAX_MAX_FPS then
+          return error(8297, "cl_maxfps is outside the supported range")
         end if
       else if productConfigName == "gl_swapinterval" and
           productConfigSwapInterval is void and

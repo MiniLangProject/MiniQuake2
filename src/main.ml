@@ -15,7 +15,7 @@ import miniquake2.runtime.product_startup as productStartup
 import miniquake2.runtime.crash_report as crashReport
 
 /// Defines the miniquake2 version constant used by the main module.
-const MINIQUAKE2_VERSION = "0.5.0-foundation"
+const MINIQUAKE2_VERSION = "0.5.1-foundation"
 /// Defines the quake2 reference version constant used by the main module.
 const QUAKE2_REFERENCE_VERSION = "3.19"
 /// Defines the quake2 protocol version constant used by the main module.

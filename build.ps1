@@ -17,7 +17,15 @@ param(
   [switch]$PreflightOnly,
   [switch]$UpdateManifest,
   [switch]$RebuildNative,
-  [switch]$SkipNativeRebuild
+  [switch]$SkipNativeRebuild,
+  # Opt-in release runtime profile: collect managed memory on the Windows
+  # background collector.  It trades mutator barriers for shorter collection
+  # pauses, so keep the default synchronous collector for peak throughput.
+  [switch]$ConcurrentGc,
+  # Pack the finished product executable with a user-supplied trusted UPX.
+  # Tests and native bridge DLLs stay unpacked intentionally.
+  [switch]$Pack,
+  [string]$Upx = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +44,9 @@ if ($PreflightOnly -and $SkipPreflight) {
 }
 if ($RebuildNative -and $SkipNativeRebuild) {
   throw "-RebuildNative and -SkipNativeRebuild cannot be used together."
+}
+if (-not $Pack -and -not [string]::IsNullOrWhiteSpace($Upx)) {
+  throw "-Upx requires -Pack."
 }
 # Resolve command or file.
 
@@ -225,6 +236,12 @@ if ([string]::IsNullOrWhiteSpace($Compiler)) {
 $Compiler = Resolve-CommandOrFile $Compiler "MiniLang compiler"
 $CompilerIsPython = [System.IO.Path]::GetExtension($Compiler) -ieq ".py"
 $StdImportRoot = Find-StdImportRoot $Compiler $StdLib
+if ($Pack) {
+  if ([string]::IsNullOrWhiteSpace($Upx)) {
+    throw "-Pack requires -Upx PATH (or an explicit trusted UPX executable)."
+  }
+  $Upx = Resolve-CommandOrFile $Upx "UPX executable"
+}
 $GameExe = Join-Path $Output "MiniQuake2.exe"
 $PartialExe = $GameExe + "." + $PID + ".partial.exe"
 $CompileLog = Join-Path $Output "compile-miniquake2.log"
@@ -255,12 +272,20 @@ $CompilerArguments = @(
   # allocation rate low enough for this horizon below the 2-GiB reserve.
   "--gc-limit", "1536m"
 )
+if ($ConcurrentGc) {
+  # Bound the snapshot-at-the-beginning log so the collector can make progress
+  # on a background thread without allowing an unbounded per-frame buffer.
+  $CompilerArguments += @("--gc-concurrent", "--gc-satb-limit", "8m")
+}
+if ($Pack) { $CompilerArguments += @("--pack", "--upx", $Upx) }
 if ($Configuration -ieq "Debug") { $CompilerArguments += "--trace-calls" }
 if ($Listings) { $CompilerArguments += @("--asm", "--asm-pe", "--asm-data") }
 
 Write-Host "[MiniQuake2] compiler:        $Compiler"
 Write-Host "[MiniQuake2] std import root: $StdImportRoot"
 Write-Host "[MiniQuake2] output:          $GameExe"
+Write-Host "[MiniQuake2] concurrent GC:   $ConcurrentGc"
+Write-Host "[MiniQuake2] packed product:  $Pack"
 if ($CompilerIsPython) {
   $null = Invoke-Checked -Executable $PythonCommand.Path -Arguments @($PythonCommand.Prefix + @($Compiler) + $CompilerArguments) -Label "MiniLang compilation" -LogPath $CompileLog
 } else {
@@ -331,7 +356,7 @@ if (-not $SkipTests) {
 
 if (-not $SkipTests -and -not $NoRunTests) {
   $Version = Invoke-Checked -Executable $GameExe -Arguments @("--version") -Label "version smoke" -LogPath (Join-Path $Output "smoke-version.log")
-  if ($Version.Text -notmatch "MiniQuake2 0\.5\.0-foundation" -or $Version.Text -notmatch "Protocol: 34") {
+  if ($Version.Text -notmatch "MiniQuake2 0\.5\.1-foundation" -or $Version.Text -notmatch "Protocol: 34") {
     throw "Version smoke returned an unexpected compatibility identity."
   }
   $Diagnostics = Invoke-Checked -Executable $GameExe -Arguments @("--diagnostics") -Label "diagnostics smoke" -LogPath (Join-Path $Output "smoke-diagnostics.log")

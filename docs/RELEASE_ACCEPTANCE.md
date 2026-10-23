@@ -1,12 +1,27 @@
 # MiniQuake2 Release Acceptance
 
 This document records the reproducible local acceptance gate for the current
-`0.5.0-foundation` compatibility release. Retail data remains external and is
+`0.5.1-foundation` compatibility release. Retail data remains external and is
 never copied into either archive.
 
 Entries are ordered newest first. Counts, timings and hashes in older dated
 sections describe those exact historical builds. Machine-readable verifier
 output generated for a particular checkout is authoritative for that tree.
+
+## 2026-10-23 v0.5.1 packaged runtime profile
+
+The release packaging route invokes `build.ps1` with `-ConcurrentGc -Pack` and
+an explicit trusted UPX executable. The product is built with MiniLang Compiler
+1.2.22, concurrent-GC parity and the MiniQuake2 source/documentation checks
+are green, and the resulting executable passes the diagnostics and retail
+`base1` smoke gates. The UPX product is 5.65 MiB versus 55.0 MiB unpacked.
+
+The four-repeat, 900-frame-per-map 1920x1080 VSync-off retail measurement
+records 586.0 versus 471.1 engine-work FPS on `base1`, 625.1 versus 692.1 on
+`city3`, and 744.2 versus 782.5 on `power2` (packed concurrent versus default).
+All rows completed without missing assets or audio underruns. No automatic
+collection was observed in these bounded gameplay runs; concurrent collector
+behavior is covered separately by its explicit collection/pressure matrix.
 
 ## 2026-08-28 exhaustive source-parity closure
 

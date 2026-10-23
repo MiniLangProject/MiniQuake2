@@ -460,7 +460,8 @@ function localAction(commandState, input, screen, mixer, command)
     return true
   end if
   if cuicmdName == "cl_maxfps" then
-    commandState.maxFps = integerArgument(cuicmdArguments, cuicmdName, 30, 1000)
+    commandState.maxFps = integerArgument(cuicmdArguments, cuicmdName,
+      cuicmdconstants.MIN_MAX_FPS, cuicmdconstants.MAX_MAX_FPS)
     commandState.configDirty = true
     return true
   end if

@@ -64,6 +64,22 @@ uiMenuAssertEqual(uiMenuModeItem.choices[5], "1920x1080 (Full HD)",
   "Full HD video mode label")
 uiMenuAssertEqual(uiMenuModeItem.choices[7], "3840x2160 (4K)",
   "4K video mode label")
+uiMenuMaxFpsItem = cuimenu.itemById(uiMenuState, "video", "maxfps")
+uiMenuAssertEqual(uiMenuMaxFpsItem.maximum, 1000,
+  "video menu accepts the persisted maximum frame cap")
+uiMenuAssertEqual(cuimenu.setItemValue(uiMenuState, "video", "maxfps", 1000),
+  true, "maximum persisted frame cap synchronizes into the video menu")
+uiMenuAssertEqual(uiMenuMaxFpsItem.value, 1000,
+  "video menu retains the maximum frame cap")
+uiMenuAssertEqual(cuimenu.setItemValue(uiMenuState, "video", "maxfps", 990),
+  true, "video menu accepts the preceding frame cap step")
+uiMenuState.cursor = 3
+cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
+uiMenuAssertEqual(uiMenuMaxFpsItem.value, 1000,
+  "video menu clamps its final frame cap step to the supported maximum")
+uiMenuAssertEqual(cuimenu.drainCommands(uiMenuState)[0], "cl_maxfps 1000",
+  "video menu emits the maximum supported frame cap")
+uiMenuState.cursor = 0
 cuimenu.handleKey(uiMenuState, cuic.K_DOWNARROW)
 cuimenu.handleKey(uiMenuState, cuic.K_RIGHTARROW)
 uiMenuCommands = cuimenu.drainCommands(uiMenuState)

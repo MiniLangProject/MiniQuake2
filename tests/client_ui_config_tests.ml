@@ -61,7 +61,7 @@ uiConfigState = uiconfigtestcommands.create()
 uiConfigState.videoMode = 7
 uiConfigState.fullScreen = true
 uiConfigState.brightness = 1.2
-uiConfigState.maxFps = 144
+uiConfigState.maxFps = 1000
 uiConfigState.swapInterval = false
 uiConfigState.joystickEnabled = false
 uiConfigMixer = uiconfigtestmixer.create(8000)
@@ -76,7 +76,7 @@ uiconfigtestconfig.saveProductConfig(uiConfigPath, uiConfigCaptured)
 uiConfigLoaded = uiconfigtestconfig.loadProductConfig(uiConfigPath)
 uiConfigAssert(uiConfigLoaded.videoMode == 7 and uiConfigLoaded.fullScreen and
   uiConfigLoaded.brightness == 1.2 and uiConfigLoaded.sensitivity == 6.5 and
-  uiConfigLoaded.maxFps == 144 and not uiConfigLoaded.swapInterval and
+  uiConfigLoaded.maxFps == 1000 and not uiConfigLoaded.swapInterval and
   uiConfigLoaded.alwaysRun and uiConfigLoaded.invertMouse and
   uiConfigLoaded.hand == 1 and uiConfigLoaded.crosshair == 3 and
   not uiConfigLoaded.joystick and
@@ -107,7 +107,7 @@ uiConfigAssert(uiconfigtestkeys.bindingFor(uiConfigApplyInput, 119) == "+forward
   uiconfigtestkeys.bindingFor(uiConfigApplyInput, miniquake2.client.ui.constants.K_MWHEELUP) == "weapnext" and
   uiConfigApplyInput.config.hand == 1 and uiConfigApplyInput.config.mousePitch < 0.0 and
   uiConfigApplyState.videoMode == 7 and uiConfigApplyMixer.masterVolume == 0.4 and
-  uiConfigApplyState.maxFps == 144 and not uiConfigApplyState.swapInterval and
+  uiConfigApplyState.maxFps == 1000 and not uiConfigApplyState.swapInterval and
   not uiConfigApplyState.joystickEnabled and
   uiConfigApplyScreen.crosshair == 3,
   "config applied to live product state")

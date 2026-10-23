@@ -17,7 +17,8 @@ providing a modern, self-contained desktop build.
 
 The [Windows x64 release](https://github.com/MiniLangProject/MiniQuake2/releases/latest)
 contains the engine executable and its native runtime DLLs. Game data is not
-included. The release build uses MiniLang Compiler 1.2.16.
+included. The release build uses MiniLang Compiler 1.2.22, the Windows
+background collector and UPX compression for the product executable.
 
 ## Screenshots
 
@@ -158,10 +159,13 @@ For the Windows release with the self-hosted compiler:
 ```powershell
 .\scripts\package.ps1 `
   -Compiler C:\path\to\MiniLangCompilerML\build\mlc_win64.exe `
-  -StdLib C:\path\to\MiniLangCompilerML
+  -StdLib C:\path\to\MiniLangCompilerML `
+  -Upx C:\path\to\upx.exe
 ```
 
-The release executable is written to `build/MiniQuake2.exe`.
+The release executable is written to `build/MiniQuake2.exe`. Release packaging
+enables `-ConcurrentGc` and `-Pack`; ordinary local builds can opt into the
+same profile explicitly with `-ConcurrentGc -Pack -Upx C:\path\to\upx.exe`.
 
 ## Default controls
 

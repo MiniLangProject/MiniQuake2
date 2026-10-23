@@ -109,7 +109,7 @@ def main() -> int:
     """Run this source file's command-line entry point."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
-    parser.add_argument("--version", default="0.5.0-foundation")
+    parser.add_argument("--version", default="0.5.1-foundation")
     args = parser.parse_args()
     root = args.root.resolve()
     output = root / "build"

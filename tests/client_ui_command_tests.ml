@@ -27,7 +27,7 @@ uiCommandInput.commands = ["+forward 119 10", "sensitivity 4.5", "m_invert 1",
   "cl_run 1", "hand 1", "inven", "say hello"]
 uiCommandScreen.console.commands = ["s_volume 0.5", "save 2"]
 uiCommandScreen.menu.commands = ["quit", "vid_mode 7", "vid_fullscreen 1",
-  "vid_gamma 1.3", "cl_maxfps 144", "gl_swapinterval 0", "crosshair 3",
+  "vid_gamma 1.3", "cl_maxfps 1000", "gl_swapinterval 0", "crosshair 3",
   "vid_restart"]
 uiCommandAssert(uicmdtestcommands.drain(uiCommandState, uiCommandInput,
   uiCommandScreen, uiCommandMixer) == 17, "all command sources drained")
@@ -43,7 +43,7 @@ uiCommandAssert(uiCommandState.quitRequested and uiCommandState.executed == 17 a
 uiCommandAssert(uiCommandState.videoRestartRequested and uiCommandState.videoMode == 7 and
   uiCommandState.fullScreen and uiCommandState.brightness == 1.3,
   "video menu state retained locally")
-uiCommandAssert(uiCommandState.maxFps == 144 and not uiCommandState.swapInterval,
+uiCommandAssert(uiCommandState.maxFps == 1000 and not uiCommandState.swapInterval,
   "frame pacing menu state retained locally")
 uiCommandAssert(uicmdtestcommands.takeConfigDirty(uiCommandState) and
   not uicmdtestcommands.takeConfigDirty(uiCommandState),
