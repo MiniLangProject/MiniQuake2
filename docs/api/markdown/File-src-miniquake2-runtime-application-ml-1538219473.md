@@ -115,7 +115,7 @@ Pump play audio.
 | `queuedBlocks` | `dynamic` | — | queuedBlocks value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L741)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L742)
 
 <a id="global-global-miniquake2-runtime-application-applicationautomatedchangelevel-applicationautomatedchangelevel-src-miniquake2-runtime-application-ml-1340326992"></a>
 ### applicationAutomatedChangeLevel
@@ -574,7 +574,7 @@ function applicationRegisterRemoteWorld()
 Register application remote world.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4444)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4445)
 
 <a id="function-function-miniquake2-runtime-application-applicationremotefileexists-function-applicationremotefileexists-name-src-miniquake2-runtime-application-ml-1764008889"></a>
 ### applicationRemoteFileExists
@@ -590,7 +590,7 @@ Return the application remote file exists value.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L663)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L664)
 
 <a id="function-function-miniquake2-runtime-application-applicationremoteregisterdownload-function-applicationremoteregisterdownload-kind-name-src-miniquake2-runtime-application-ml-911268141"></a>
 ### applicationRemoteRegisterDownload
@@ -607,7 +607,7 @@ Register application remote download.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L672)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L673)
 
 <a id="global-global-miniquake2-runtime-application-applicationremoteregistrationassets-applicationremoteregistrationassets-src-miniquake2-runtime-application-ml-846375792"></a>
 ### applicationRemoteRegistrationAssets
@@ -719,7 +719,7 @@ Report whether application renderer empty 1.
 | `value` | `dynamic` | — | Value consumed or transformed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L580)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L581)
 
 <a id="function-function-miniquake2-runtime-application-applicationrendererimports-function-applicationrendererimports-src-miniquake2-runtime-application-ml-1053622396"></a>
 ### applicationRendererImports
@@ -731,7 +731,7 @@ function applicationRendererImports()
 Return the application renderer imports value.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L599)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L600)
 
 <a id="function-function-miniquake2-runtime-application-applicationrenderermode-function-applicationrenderermode-mode-src-miniquake2-runtime-application-ml-1480265077"></a>
 ### applicationRendererMode
@@ -747,7 +747,7 @@ Return the application renderer mode value.
 | `mode` | `dynamic` | — | Mode selecting the requested behavior. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L594)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L595)
 
 <a id="function-function-miniquake2-runtime-application-applicationrenderernoresult0-function-applicationrenderernoresult0-src-miniquake2-runtime-application-ml-2033333176"></a>
 ### applicationRendererNoResult0
@@ -759,7 +759,7 @@ function applicationRendererNoResult0()
 Report whether application renderer no result 0.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L548)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L549)
 
 <a id="function-function-miniquake2-runtime-application-applicationrenderernoresult1-function-applicationrenderernoresult1-value-src-miniquake2-runtime-application-ml-2049179861"></a>
 ### applicationRendererNoResult1
@@ -775,7 +775,7 @@ Report whether application renderer no result 1.
 | `value` | `dynamic` | — | Value consumed or transformed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L554)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L555)
 
 <a id="function-function-miniquake2-runtime-application-applicationrenderernoresult2-function-applicationrenderernoresult2-first-second-src-miniquake2-runtime-application-ml-1327101484"></a>
 ### applicationRendererNoResult2
@@ -792,7 +792,7 @@ Report whether application renderer no result 2.
 | `second` | `dynamic` | — | second value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L561)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L562)
 
 <a id="function-function-miniquake2-runtime-application-applicationrenderernoresult3-function-applicationrenderernoresult3-first-second-third-src-miniquake2-runtime-application-ml-1773807009"></a>
 ### applicationRendererNoResult3
@@ -810,7 +810,7 @@ Report whether application renderer no result 3.
 | `third` | `dynamic` | — | third value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L569)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L570)
 
 <a id="function-function-miniquake2-runtime-application-applicationrenderervoid3-function-applicationrenderervoid3-first-second-third-src-miniquake2-runtime-application-ml-672373361"></a>
 ### applicationRendererVoid3
@@ -828,7 +828,7 @@ Return the application renderer void 3 value.
 | `third` | `dynamic` | — | third value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L588)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L589)
 
 <a id="function-function-miniquake2-runtime-application-applicationrendererzero0-function-applicationrendererzero0-src-miniquake2-runtime-application-ml-1581525676"></a>
 ### applicationRendererZero0
@@ -840,7 +840,7 @@ function applicationRendererZero0()
 Return the application renderer zero 0 value.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L574)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L575)
 
 <a id="function-function-miniquake2-runtime-application-applicationresolvepresentationframe-function-applicationresolvepresentationframe-frozen-cachedframe-newframe-src-miniquake2-runtime-application-ml-239693354"></a>
 ### applicationResolvePresentationFrame
@@ -887,7 +887,7 @@ Return the shared read-only filesystem for one retail data root.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L508)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L509)
 
 <a id="function-function-miniquake2-runtime-application-applicationsubmitdemoframe-function-applicationsubmitdemoframe-renderer-world-frame-screen-now-window-stats-configstrings-src-miniquake2-runtime-application-ml-1345302975"></a>
 ### applicationSubmitDemoFrame
@@ -910,7 +910,7 @@ Submit application demo frame.
 | `configStrings` | `dynamic` | — | configStrings value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1260)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1261)
 
 <a id="function-function-miniquake2-runtime-application-applicationsynchronizesoundcache-function-applicationsynchronizesoundcache-filesystem-src-miniquake2-runtime-application-ml-1815156249"></a>
 ### applicationSynchronizeSoundCache
@@ -926,7 +926,7 @@ Reset decoded sounds when a direct tool path selects a different data root.
 | `filesystem` | `dynamic` | — | filesystem value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L527)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L528)
 
 <a id="global-global-miniquake2-runtime-application-applicationweaponwheelcommands-applicationweaponwheelcommands-src-miniquake2-runtime-application-ml-2028803150"></a>
 ### applicationWeaponWheelCommands
@@ -991,7 +991,7 @@ Apply play handoff.
 | `handoff` | `dynamic` | — | handoff value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L793)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L794)
 
 <a id="function-function-miniquake2-runtime-application-assetsmoke-function-assetsmoke-basedirectory-mapname-src-miniquake2-runtime-application-ml-74015843"></a>
 ### assetSmoke
@@ -1008,7 +1008,7 @@ Return the asset smoke value.
 | `mapName` | `dynamic` | — | mapName value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1845)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1846)
 
 - [miniquake2.runtime.application.AssetSmokeResult](Type-miniquake2-runtime-application-assetsmokeresult-1215826281.md) — struct
 <a id="function-function-miniquake2-runtime-application-auditretailcinematic-function-auditretailcinematic-filesystem-name-src-miniquake2-runtime-application-ml-1979685612"></a>
@@ -1026,7 +1026,7 @@ Return the audit retail cinematic value.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1878)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1879)
 
 <a id="function-function-miniquake2-runtime-application-auditretaildemo-function-auditretaildemo-filesystem-name-randomseed-src-miniquake2-runtime-application-ml-252857188"></a>
 ### auditRetailDemo
@@ -1044,7 +1044,7 @@ Return the audit retail demo value.
 | `randomSeed` | `dynamic` | — | randomSeed value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1903)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1904)
 
 <a id="function-function-miniquake2-runtime-application-campaignmapnames-function-campaignmapnames-src-miniquake2-runtime-application-ml-894614984"></a>
 ### campaignMapNames
@@ -1056,7 +1056,7 @@ function campaignMapNames()
 Canonical classic baseq2 single-player BSP set.  The read-only Python gate discovers every PAK map dynamically; this stable order is the product-level repeated-session stress matrix and deliberately excludes q2dm maps.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2012)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2013)
 
 <a id="function-function-miniquake2-runtime-application-campaignsignonerror-function-campaignsignonerror-session-mapname-src-miniquake2-runtime-application-ml-861591559"></a>
 ### campaignSignonError
@@ -1073,7 +1073,7 @@ Return the campaign signon error value.
 | `mapName` | `dynamic` | — | mapName value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2048)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2049)
 
 <a id="function-function-miniquake2-runtime-application-capturelevelstart-function-capturelevelstart-basedirectory-mapname-outputpath-framelimit-src-miniquake2-runtime-application-ml-2058403337"></a>
 ### captureLevelStart
@@ -1092,7 +1092,7 @@ Render one deterministic 1920x1080 product frame at an authored campaign spawn w
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4250)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4251)
 
 <a id="function-function-miniquake2-runtime-application-cinematicpath-function-cinematicpath-name-src-miniquake2-runtime-application-ml-753007365"></a>
 ### cinematicPath
@@ -1108,7 +1108,7 @@ Return the cinematic path.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L965)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L966)
 
 <a id="function-function-miniquake2-runtime-application-closeplayaudio-function-closeplayaudio-device-mixer-src-miniquake2-runtime-application-ml-2020466271"></a>
 ### closePlayAudio
@@ -1125,7 +1125,7 @@ Close play audio.
 | `mixer` | `dynamic` | — | mixer value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L770)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L771)
 
 <a id="function-function-miniquake2-runtime-application-countavailableassets-function-countavailableassets-entries-src-miniquake2-runtime-application-ml-1082985642"></a>
 ### countAvailableAssets
@@ -1141,7 +1141,7 @@ Report whether count available assets.
 | `entries` | `dynamic` | — | entries value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L782)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L783)
 
 <a id="extern_function-extern-function-miniquake2-runtime-application-createdirectoryw-extern-function-createdirectoryw-path-as-wstr-security-as-ptr-from-kernel32-dll-returns-bool-src-miniquake2-runtime-application-ml-953778351"></a>
 ### CreateDirectoryW
@@ -1176,7 +1176,7 @@ Return the demo path.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L995)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L996)
 
 <a id="function-function-miniquake2-runtime-application-endswith-function-endswith-value-suffix-src-miniquake2-runtime-application-ml-1960761778"></a>
 ### endsWith
@@ -1193,7 +1193,7 @@ Return the ends with value.
 | `suffix` | `dynamic` | — | suffix value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L930)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L931)
 
 <a id="function-function-miniquake2-runtime-application-executededicatedcommand-function-executededicatedcommand-session-basedirectory-text-src-miniquake2-runtime-application-ml-1786122283"></a>
 ### executeDedicatedCommand
@@ -1211,7 +1211,7 @@ Performs the executeDedicatedCommand operation for the miniquake2 runtime applic
 | `text` | `dynamic` | — | Text consumed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5198)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5199)
 
 <a id="function-function-miniquake2-runtime-application-loadplaysound-function-loadplaysound-name-src-miniquake2-runtime-application-ml-592405575"></a>
 ### loadPlaySound
@@ -1227,7 +1227,7 @@ Load play sound.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L614)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L615)
 
 <a id="function-function-miniquake2-runtime-application-loadpreviewfile-function-loadpreviewfile-path-src-miniquake2-runtime-application-ml-2098173301"></a>
 ### loadPreviewFile
@@ -1243,7 +1243,7 @@ Load preview file.
 | `path` | `dynamic` | — | Path of the file or directory used by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L541)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L542)
 
 <a id="function-function-miniquake2-runtime-application-mappath-function-mappath-name-src-miniquake2-runtime-application-ml-231195787"></a>
 ### mapPath
@@ -1259,7 +1259,7 @@ Map path.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L950)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L951)
 
 <a id="function-function-miniquake2-runtime-application-missingplayassetsummary-function-missingplayassetsummary-state-src-miniquake2-runtime-application-ml-1582603017"></a>
 ### missingPlayAssetSummary
@@ -1275,7 +1275,7 @@ Report whether missing play asset summary.
 | `state` | `dynamic` | — | Mutable state inspected or updated by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L697)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L698)
 
 <a id="function-function-miniquake2-runtime-application-notemissingplayasset-function-notemissingplayasset-value-src-miniquake2-runtime-application-ml-2132792029"></a>
 ### noteMissingPlayAsset
@@ -1291,7 +1291,7 @@ Report whether note missing play asset.
 | `value` | `dynamic` | — | Value consumed or transformed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L657)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L658)
 
 <a id="function-function-miniquake2-runtime-application-picturepath-function-picturepath-name-src-miniquake2-runtime-application-ml-16700631"></a>
 ### picturePath
@@ -1307,7 +1307,7 @@ Return the picture path.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L980)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L981)
 
 <a id="global-global-miniquake2-runtime-application-playassetbindings-playassetbindings-src-miniquake2-runtime-application-ml-573925412"></a>
 ### playAssetBindings
@@ -1359,7 +1359,7 @@ Play config path.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L887)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L888)
 
 <a id="function-function-miniquake2-runtime-application-playcurrentarchivepaths-function-playcurrentarchivepaths-basedirectory-src-miniquake2-runtime-application-ml-471761824"></a>
 ### playCurrentArchivePaths
@@ -1375,7 +1375,7 @@ Private `current` archive used between maps within one Quake II unit.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2412)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2413)
 
 <a id="function-function-miniquake2-runtime-application-playdemodirectory-function-playdemodirectory-basedirectory-src-miniquake2-runtime-application-ml-2103984818"></a>
 ### playDemoDirectory
@@ -1391,7 +1391,7 @@ Play demo directory.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L921)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L922)
 
 <a id="global-global-miniquake2-runtime-application-playeffectstate-playeffectstate-src-miniquake2-runtime-application-ml-1353906600"></a>
 ### playEffectState
@@ -1419,7 +1419,7 @@ Play preferences path.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L895)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L896)
 
 <a id="function-function-miniquake2-runtime-application-playprofileuserinfo-function-playprofileuserinfo-profile-src-miniquake2-runtime-application-ml-1105819321"></a>
 ### playProfileUserInfo
@@ -1435,7 +1435,7 @@ Play profile user info.
 | `profile` | `dynamic` | — | profile value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L690)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L691)
 
 <a id="function-function-miniquake2-runtime-application-playsavemetadatapath-function-playsavemetadatapath-basedirectory-slot-src-miniquake2-runtime-application-ml-781009118"></a>
 ### playSaveMetadataPath
@@ -1452,7 +1452,7 @@ Play save metadata path.
 | `slot` | `dynamic` | — | slot value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L905)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L906)
 
 <a id="function-function-miniquake2-runtime-application-playsavepaths-function-playsavepaths-basedirectory-slot-src-miniquake2-runtime-application-ml-1735854504"></a>
 ### playSavePaths
@@ -1469,7 +1469,7 @@ Play save paths.
 | `slot` | `dynamic` | — | slot value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L819)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L820)
 
 <a id="function-function-miniquake2-runtime-application-playsaveslotlabel-function-playsaveslotlabel-slot-src-miniquake2-runtime-application-ml-449083894"></a>
 ### playSaveSlotLabel
@@ -1485,7 +1485,7 @@ Return the stock autosave/manual slot label.
 | `slot` | `dynamic` | — | slot value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2405)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2406)
 
 <a id="function-function-miniquake2-runtime-application-playscreenshotdirectory-function-playscreenshotdirectory-basedirectory-src-miniquake2-runtime-application-ml-319490880"></a>
 ### playScreenshotDirectory
@@ -1501,7 +1501,7 @@ Play screenshot directory.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L913)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L914)
 
 <a id="function-function-miniquake2-runtime-application-playuserinfo-function-playuserinfo-hand-src-miniquake2-runtime-application-ml-471963611"></a>
 ### playUserInfo
@@ -1517,7 +1517,7 @@ Play user info.
 | `hand` | `dynamic` | — | hand value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L681)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L682)
 
 <a id="global-global-miniquake2-runtime-application-previewfilesystem-previewfilesystem-src-miniquake2-runtime-application-ml-884276520"></a>
 ### previewFileSystem
@@ -1547,7 +1547,7 @@ Map preview.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2183)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2184)
 
 <a id="function-function-miniquake2-runtime-application-productaddressbook-function-productaddressbook-menu-src-miniquake2-runtime-application-ml-1761658577"></a>
 ### productAddressBook
@@ -1563,7 +1563,7 @@ Return the product address book value.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2430)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2431)
 
 - [miniquake2.runtime.application.ProductMenuSelection](Type-miniquake2-runtime-application-productmenuselection-30273731.md) — struct
 <a id="function-function-miniquake2-runtime-application-productpathinside-function-productpathinside-basedirectory-parentdirectory-src-miniquake2-runtime-application-ml-177403777"></a>
@@ -1581,7 +1581,7 @@ Report whether product path inside.
 | `parentDirectory` | `dynamic` | — | parentDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L831)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L832)
 
 <a id="function-function-miniquake2-runtime-application-productsettingsdirectory-function-productsettingsdirectory-basedirectory-src-miniquake2-runtime-application-ml-1758349690"></a>
 ### productSettingsDirectory
@@ -1597,7 +1597,7 @@ Return the product settings directory value.
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L864)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L865)
 
 <a id="function-function-miniquake2-runtime-application-productsettingsdirectoryfrom-function-productsettingsdirectoryfrom-basedirectory-localappdata-programfiles-programfilesx86-src-miniquake2-runtime-application-ml-1199593448"></a>
 ### productSettingsDirectoryFrom
@@ -1616,7 +1616,7 @@ Keep portable installs self-contained, but never try to persist settings below a
 | `programFilesX86` | `dynamic` | — | programFilesX86 value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L848)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L849)
 
 <a id="function-function-miniquake2-runtime-application-pumpplayaudio-function-pumpplayaudio-device-mixer-src-miniquake2-runtime-application-ml-1036191919"></a>
 ### pumpPlayAudio
@@ -1633,7 +1633,7 @@ Pump play audio.
 | `mixer` | `dynamic` | — | mixer value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L755)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L756)
 
 <a id="function-function-miniquake2-runtime-application-randomplayclienteffect-function-randomplayclienteffect-src-miniquake2-runtime-application-ml-1203788624"></a>
 ### randomPlayClientEffect
@@ -1645,7 +1645,7 @@ function randomPlayClientEffect()
 Play random client effect.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L723)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L724)
 
 <a id="function-function-miniquake2-runtime-application-remotemapmodelpath-function-remotemapmodelpath-session-src-miniquake2-runtime-application-ml-866391942"></a>
 ### remoteMapModelPath
@@ -1661,7 +1661,7 @@ Map remote model path.
 | `session` | `dynamic` | — | session value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4430)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4431)
 
 <a id="function-function-miniquake2-runtime-application-resolveplayeffectmodel-function-resolveplayeffectmodel-name-src-miniquake2-runtime-application-ml-1322946413"></a>
 ### resolvePlayEffectModel
@@ -1677,7 +1677,7 @@ Resolve play effect model.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L716)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L717)
 
 <a id="function-function-miniquake2-runtime-application-resolveplayentityposition-function-resolveplayentityposition-number-src-miniquake2-runtime-application-ml-1469570611"></a>
 ### resolvePlayEntityPosition
@@ -1693,7 +1693,7 @@ Resolve play entity position.
 | `number` | `dynamic` | — | number value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L731)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L732)
 
 <a id="function-function-miniquake2-runtime-application-resolveplaymodelindex-function-resolveplaymodelindex-index-src-miniquake2-runtime-application-ml-1942579940"></a>
 ### resolvePlayModelIndex
@@ -1709,7 +1709,7 @@ Resolve play model index.
 | `index` | `dynamic` | — | Zero-based index of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L708)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L709)
 
 <a id="function-function-miniquake2-runtime-application-resultlines-function-resultlines-result-src-miniquake2-runtime-application-ml-766608275"></a>
 ### resultLines
@@ -1725,7 +1725,7 @@ Return the result lines value.
 | `result` | `dynamic` | — | Result object populated or inspected by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1996)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1997)
 
 - [miniquake2.runtime.application.RetailMediaAudit](Type-miniquake2-runtime-application-retailmediaaudit-1043354161.md) — struct
 <a id="function-function-miniquake2-runtime-application-runcampaignsessionsmoke-function-runcampaignsessionsmoke-basedirectory-maximummaps-src-miniquake2-runtime-application-ml-635219631"></a>
@@ -1743,7 +1743,7 @@ Reuse one real UDP client/server session across multiple user-owned retail maps.
 | `maximumMaps` | `dynamic` | — | maximumMaps value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2115)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2116)
 
 <a id="function-function-miniquake2-runtime-application-runchangelevelsmoke-function-runchangelevelsmoke-basedirectory-mapname-nextmap-framelimit-src-miniquake2-runtime-application-ml-2112788472"></a>
 ### runChangeLevelSmoke
@@ -1762,7 +1762,7 @@ Run change level smoke.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4297)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4298)
 
 <a id="function-function-miniquake2-runtime-application-rundedicated-function-rundedicated-basedirectory-mapname-port-framelimit-src-miniquake2-runtime-application-ml-1885631870"></a>
 ### runDedicated
@@ -1781,7 +1781,7 @@ Runs dedicated for the miniquake2 runtime application workflow.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5222)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5223)
 
 <a id="function-function-miniquake2-runtime-application-runheadlessclient-function-runheadlessclient-address-port-framelimit-src-miniquake2-runtime-application-ml-1455617393"></a>
 ### runHeadlessClient
@@ -1799,7 +1799,7 @@ Run headless client.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5253)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5254)
 
 <a id="function-function-miniquake2-runtime-application-runlisten-function-runlisten-basedirectory-mapname-framelimit-src-miniquake2-runtime-application-ml-544695587"></a>
 ### runListen
@@ -1817,7 +1817,7 @@ Run listen.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5267)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5268)
 
 <a id="function-function-miniquake2-runtime-application-runplay-function-runplay-basedirectory-mapname-framelimit-src-miniquake2-runtime-application-ml-1714908569"></a>
 ### runPlay
@@ -1835,7 +1835,7 @@ Run play.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4240)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4241)
 
 <a id="function-function-miniquake2-runtime-application-runplayat-function-runplayat-basedirectory-mapname-spawnpoint-framelimit-src-miniquake2-runtime-application-ml-1710052466"></a>
 ### runPlayAt
@@ -1854,7 +1854,7 @@ Run play at.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4202)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4203)
 
 <a id="function-function-miniquake2-runtime-application-runplayatonhost-function-runplayatonhost-basedirectory-mapname-spawnpoint-framelimit-producthost-skill-src-miniquake2-runtime-application-ml-498848398"></a>
 ### runPlayAtOnHost
@@ -1875,7 +1875,7 @@ Report whether run play at on host.
 | `skill` | `dynamic` | — | skill value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4191)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4192)
 
 <a id="function-function-miniquake2-runtime-application-runplayatonhostconfigured-function-runplayatonhostconfigured-basedirectory-mapname-spawnpoint-framelimit-producthost-skill-menuatstart-serveroptions-playerprofile-src-miniquake2-runtime-application-ml-630375751"></a>
 ### runPlayAtOnHostConfigured
@@ -1899,7 +1899,7 @@ Report whether run play at on host configured.
 | `playerProfile` | `dynamic` | — | playerProfile value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4177)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4178)
 
 <a id="function-function-miniquake2-runtime-application-runplayatonhostconfiguredwithconfig-function-runplayatonhostconfiguredwithconfig-basedirectory-mapname-spawnpoint-framelimit-producthost-skill-menuatstart-serveroptions-playerprofile-initialconfig-src-miniquake2-runtime-application-ml-303787105"></a>
 ### runPlayAtOnHostConfiguredWithConfig
@@ -1924,7 +1924,7 @@ Report whether run play at on host configured with config.
 | `initialConfig` | `dynamic` | — | initialConfig value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4159)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4160)
 
 <a id="function-function-miniquake2-runtime-application-runplayatonhostconfiguredwithstate-function-runplayatonhostconfiguredwithstate-basedirectory-mapname-spawnpoint-framelimit-producthost-skill-menuatstart-serveroptions-playerprofile-initialconfig-initialgameplayhandover-src-miniquake2-runtime-application-ml-634929434"></a>
 ### runPlayAtOnHostConfiguredWithState
@@ -1950,7 +1950,7 @@ Construct and drive one authoritative local/listen session inside an existing pr
 | `initialGameplayHandover` | `dynamic` | — | initialGameplayHandover value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2865)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2866)
 
 <a id="function-function-miniquake2-runtime-application-runplayinputsmoke-function-runplayinputsmoke-basedirectory-mapname-commandsteps-src-miniquake2-runtime-application-ml-1160032319"></a>
 ### runPlayInputSmoke
@@ -1968,7 +1968,7 @@ Run play input smoke.
 | `commandSteps` | `dynamic` | — | commandSteps value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2151)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2152)
 
 <a id="function-function-miniquake2-runtime-application-runproduct-function-runproduct-basedirectory-framelimit-src-miniquake2-runtime-application-ml-1654492110"></a>
 ### runProduct
@@ -1985,7 +1985,7 @@ Run product.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5021)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5022)
 
 <a id="function-function-miniquake2-runtime-application-runproductmenuonhost-function-runproductmenuonhost-basedirectory-producthost-framelimit-initialprofile-src-miniquake2-runtime-application-ml-868951180"></a>
 ### runProductMenuOnHost
@@ -2004,7 +2004,7 @@ Own the menu-only product state until one typed transition is selected. Config, 
 | `initialProfile` | `dynamic` | — | initialProfile value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2482)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2483)
 
 <a id="function-function-miniquake2-runtime-application-runprojectilevisualsmoke-function-runprojectilevisualsmoke-basedirectory-mapname-framelimit-src-miniquake2-runtime-application-ml-1745464295"></a>
 ### runProjectileVisualSmoke
@@ -2022,7 +2022,7 @@ Run projectile visual smoke.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4380)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4381)
 
 <a id="function-function-miniquake2-runtime-application-runremoteproductonhost-function-runremoteproductonhost-basedirectory-endpoint-producthost-playerprofile-downloadpolicy-framelimit-src-miniquake2-runtime-application-ml-1170465716"></a>
 ### runRemoteProductOnHost
@@ -2043,7 +2043,7 @@ Drive a remote Protocol-34 client with independent render, UserCmd and snapshot 
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4508)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4509)
 
 <a id="function-function-miniquake2-runtime-application-runremoteproductsmoke-function-runremoteproductsmoke-basedirectory-endpoint-framelimit-src-miniquake2-runtime-application-ml-1991035987"></a>
 ### runRemoteProductSmoke
@@ -2061,7 +2061,7 @@ Run remote product smoke.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5007)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L5008)
 
 <a id="function-function-miniquake2-runtime-application-runretailcinematic-function-runretailcinematic-basedirectory-name-framelimit-looping-src-miniquake2-runtime-application-ml-1155860641"></a>
 ### runRetailCinematic
@@ -2080,7 +2080,7 @@ Run retail cinematic.
 | `looping` | `dynamic` | — | looping value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1142)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1143)
 
 <a id="function-function-miniquake2-runtime-application-runretailcinematiconhost-function-runretailcinematiconhost-basedirectory-name-framelimit-looping-producthost-attractloop-src-miniquake2-runtime-application-ml-249712677"></a>
 ### runRetailCinematicOnHost
@@ -2101,7 +2101,7 @@ Product CIN lifecycle: retail FS -> Huffman frames/palette -> OpenGL raw stretch
 | `attractLoop` | `dynamic` | — | attractLoop value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1018)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1019)
 
 <a id="function-function-miniquake2-runtime-application-runretaildemo-function-runretaildemo-basedirectory-name-framelimit-src-miniquake2-runtime-application-ml-1729135261"></a>
 ### runRetailDemo
@@ -2119,7 +2119,7 @@ Run retail demo.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1555)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1556)
 
 <a id="function-function-miniquake2-runtime-application-runretaildemoonhost-function-runretaildemoonhost-basedirectory-name-framelimit-producthost-attractloop-src-miniquake2-runtime-application-ml-546909131"></a>
 ### runRetailDemoOnHost
@@ -2139,7 +2139,7 @@ Product DM2 lifecycle. Release demos are Protocol 26 streams; DemoSession owns t
 | `attractLoop` | `dynamic` | — | attractLoop value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1278)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1279)
 
 <a id="function-function-miniquake2-runtime-application-runretailmediaaudit-function-runretailmediaaudit-basedirectory-src-miniquake2-runtime-application-ml-613081900"></a>
 ### runRetailMediaAudit
@@ -2155,7 +2155,7 @@ Deterministic, headless retail gate for the media paths that otherwise need inte
 | `baseDirectory` | `dynamic` | — | baseDirectory value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1928)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1929)
 
 <a id="function-function-miniquake2-runtime-application-runretailmediasequence-function-runretailmediasequence-basedirectory-specification-framelimit-src-miniquake2-runtime-application-ml-240757123"></a>
 ### runRetailMediaSequence
@@ -2173,7 +2173,7 @@ Run retail media sequence.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1824)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1825)
 
 <a id="function-function-miniquake2-runtime-application-runretailmediasequenceonhost-function-runretailmediasequenceonhost-basedirectory-specification-framelimit-producthost-skill-src-miniquake2-runtime-application-ml-548854689"></a>
 ### runRetailMediaSequenceOnHost
@@ -2193,7 +2193,7 @@ Report whether run retail media sequence on host.
 | `skill` | `dynamic` | — | skill value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1814)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1815)
 
 <a id="function-function-miniquake2-runtime-application-runretailmediasequenceonhostwithsettings-function-runretailmediasequenceonhostwithsettings-basedirectory-specification-framelimit-producthost-skill-initialconfig-playerprofile-src-miniquake2-runtime-application-ml-1842263813"></a>
 ### runRetailMediaSequenceOnHostWithSettings
@@ -2215,7 +2215,7 @@ Report whether run retail media sequence on host with settings.
 | `playerProfile` | `dynamic` | — | playerProfile value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1802)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1803)
 
 <a id="function-function-miniquake2-runtime-application-runretailmediasequenceonhostwithstate-function-runretailmediasequenceonhostwithstate-basedirectory-specification-framelimit-producthost-skill-initialconfig-playerprofile-initialgameplayhandover-src-miniquake2-runtime-application-ml-557661010"></a>
 ### runRetailMediaSequenceOnHostWithState
@@ -2238,7 +2238,7 @@ Execute the exact classic `map first+nextserver` media chain. A positive frame l
 | `initialGameplayHandover` | `dynamic` | — | initialGameplayHandover value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1625)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1626)
 
 <a id="function-function-miniquake2-runtime-application-runretailpicture-function-runretailpicture-basedirectory-name-framelimit-src-miniquake2-runtime-application-ml-2012812315"></a>
 ### runRetailPicture
@@ -2256,7 +2256,7 @@ Run retail picture.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1241)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1242)
 
 <a id="function-function-miniquake2-runtime-application-runretailpictureonhost-function-runretailpictureonhost-basedirectory-name-framelimit-producthost-src-miniquake2-runtime-application-ml-1608693484"></a>
 ### runRetailPictureOnHost
@@ -2275,7 +2275,7 @@ Static intermission counterpart to runCinematic. Space/Enter emits the classic n
 | `productHost` | `dynamic` | — | productHost value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1158)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1159)
 
 <a id="function-function-miniquake2-runtime-application-runretailvideorestartsmoke-function-runretailvideorestartsmoke-basedirectory-mapname-src-miniquake2-runtime-application-ml-1282344759"></a>
 ### runRetailVideoRestartSmoke
@@ -2292,7 +2292,7 @@ Run retail video restart smoke.
 | `mapName` | `dynamic` | — | mapName value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2424)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2425)
 
 <a id="function-function-miniquake2-runtime-application-runretailvideorestartsmokeformode-function-runretailvideorestartsmokeformode-basedirectory-mapname-targetvideomode-src-miniquake2-runtime-application-ml-799366716"></a>
 ### runRetailVideoRestartSmokeForMode
@@ -2310,7 +2310,7 @@ Native product acceptance for the same mode-apply path used by the live Video me
 | `targetVideoMode` | `dynamic` | — | targetVideoMode value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2264)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2265)
 
 <a id="function-function-miniquake2-runtime-application-runstockattractlooponhost-function-runstockattractlooponhost-basedirectory-producthost-src-miniquake2-runtime-application-ml-90845085"></a>
 ### runStockAttractLoopOnHost
@@ -2327,7 +2327,7 @@ Qcommon_Init executes the stock d1 alias when no explicit +command was supplied.
 | `productHost` | `dynamic` | — | productHost value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1570)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L1571)
 
 <a id="function-function-miniquake2-runtime-application-runweaponwheelsmoke-function-runweaponwheelsmoke-basedirectory-mapname-framelimit-src-miniquake2-runtime-application-ml-1470854689"></a>
 ### runWeaponWheelSmoke
@@ -2345,7 +2345,7 @@ Run weapon wheel smoke.
 | `frameLimit` | `dynamic` | — | frameLimit value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4411)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L4412)
 
 <a id="function-function-miniquake2-runtime-application-settlecampaignsession-function-settlecampaignsession-session-maximumsteps-src-miniquake2-runtime-application-ml-1690234823"></a>
 ### settleCampaignSession
@@ -2362,7 +2362,7 @@ Return the settle campaign session value.
 | `maximumSteps` | `dynamic` | — | maximumSteps value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2026)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2027)
 
 <a id="function-function-miniquake2-runtime-application-takeactiveproductselection-function-takeactiveproductselection-commandstate-playerprofile-productconfig-src-miniquake2-runtime-application-ml-1320801323"></a>
 ### takeActiveProductSelection
@@ -2380,7 +2380,7 @@ Consume a multiplayer request made from an active local game's menu. The caller 
 | `productConfig` | `dynamic` | — | productConfig value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2835)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2836)
 
 <a id="function-function-miniquake2-runtime-application-updateproductbrowsermenu-function-updateproductbrowsermenu-menu-browser-src-miniquake2-runtime-application-ml-1365135433"></a>
 ### updateProductBrowserMenu
@@ -2397,4 +2397,4 @@ Update product browser menu.
 | `browser` | `dynamic` | — | browser value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2449)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/runtime/application.ml#L2450)

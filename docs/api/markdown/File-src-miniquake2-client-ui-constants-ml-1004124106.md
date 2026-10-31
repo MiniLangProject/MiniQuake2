@@ -646,6 +646,18 @@ Stores module-wide max keys state for the miniquake2 client ui constants module.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L109)
 
+<a id="global-global-miniquake2-client-ui-constants-max-max-fps-max-max-fps-src-miniquake2-client-ui-constants-ml-772394425"></a>
+### MAX_MAX_FPS
+
+```ml
+MAX_MAX_FPS
+```
+
+Defines the maximum supported presentation frame cap in frames per second. This bound is shared by the menu, persisted product configuration, console commands and runtime pacing so a valid saved setting can always be shown.
+
+
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L126)
+
 <a id="global-global-miniquake2-client-ui-constants-menu-action-menu-action-src-miniquake2-client-ui-constants-ml-602964069"></a>
 ### MENU_ACTION
 
@@ -656,7 +668,7 @@ MENU_ACTION
 Stores module-wide menu action state for the miniquake2 client ui constants module.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L122)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L129)
 
 <a id="global-global-miniquake2-client-ui-constants-menu-choice-menu-choice-src-miniquake2-client-ui-constants-ml-571411797"></a>
 ### MENU_CHOICE
@@ -668,7 +680,7 @@ MENU_CHOICE
 Stores module-wide menu choice state for the miniquake2 client ui constants module.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L128)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L135)
 
 <a id="global-global-miniquake2-client-ui-constants-menu-field-menu-field-src-miniquake2-client-ui-constants-ml-920549581"></a>
 ### MENU_FIELD
@@ -680,7 +692,7 @@ MENU_FIELD
 Stores module-wide menu field state for the miniquake2 client ui constants module.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L130)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L137)
 
 <a id="global-global-miniquake2-client-ui-constants-menu-slider-menu-slider-src-miniquake2-client-ui-constants-ml-712573465"></a>
 ### MENU_SLIDER
@@ -692,7 +704,7 @@ MENU_SLIDER
 Stores module-wide menu slider state for the miniquake2 client ui constants module.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L126)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L133)
 
 <a id="global-global-miniquake2-client-ui-constants-menu-toggle-menu-toggle-src-miniquake2-client-ui-constants-ml-1803762257"></a>
 ### MENU_TOGGLE
@@ -704,4 +716,16 @@ MENU_TOGGLE
 Stores module-wide menu toggle state for the miniquake2 client ui constants module.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L124)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L131)
+
+<a id="global-global-miniquake2-client-ui-constants-min-max-fps-min-max-fps-src-miniquake2-client-ui-constants-ml-546653297"></a>
+### MIN_MAX_FPS
+
+```ml
+MIN_MAX_FPS
+```
+
+Defines the minimum supported presentation frame cap in frames per second.
+
+
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/constants.ml#L122)

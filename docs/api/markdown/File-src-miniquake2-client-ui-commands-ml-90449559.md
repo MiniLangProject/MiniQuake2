@@ -68,7 +68,7 @@ Return the download policy value.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L797)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L798)
 
 <a id="function-function-miniquake2-client-ui-commands-drain-function-drain-commandstate-input-screen-mixer-src-miniquake2-client-ui-commands-ml-735213810"></a>
 ### drain
@@ -87,7 +87,7 @@ Drain state.
 | `mixer` | `dynamic` | — | mixer value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L651)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L652)
 
 <a id="function-function-miniquake2-client-ui-commands-execute-function-execute-commandstate-input-screen-mixer-command-src-miniquake2-client-ui-commands-ml-1616757447"></a>
 ### execute
@@ -107,7 +107,7 @@ Execute state.
 | `command` | `dynamic` | — | command value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L635)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L636)
 
 <a id="function-function-miniquake2-client-ui-commands-integerargument-function-integerargument-arguments-name-minimum-maximum-src-miniquake2-client-ui-commands-ml-1407035306"></a>
 ### integerArgument
@@ -196,7 +196,7 @@ Return the player profile value.
 | `input` | `dynamic` | — | input value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L730)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L731)
 
 <a id="function-function-miniquake2-client-ui-commands-playerskinname-function-playerskinname-model-index-src-miniquake2-client-ui-commands-ml-18807270"></a>
 ### playerSkinName
@@ -248,7 +248,7 @@ Return the server options value.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L787)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L788)
 
 <a id="function-function-miniquake2-client-ui-commands-setdmflag-function-setdmflag-commandstate-bit-enabled-src-miniquake2-client-ui-commands-ml-757527945"></a>
 ### setDmFlag
@@ -282,7 +282,7 @@ Report whether take config dirty.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L713)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L714)
 
 <a id="function-function-miniquake2-client-ui-commands-takeconnectaddress-function-takeconnectaddress-commandstate-src-miniquake2-client-ui-commands-ml-409944115"></a>
 ### takeConnectAddress
@@ -298,7 +298,7 @@ Consume connect address.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L739)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L740)
 
 <a id="function-function-miniquake2-client-ui-commands-takedisconnect-function-takedisconnect-commandstate-src-miniquake2-client-ui-commands-ml-1636496923"></a>
 ### takeDisconnect
@@ -314,7 +314,7 @@ Consume disconnect.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L763)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L764)
 
 <a id="function-function-miniquake2-client-ui-commands-takeforwarded-inline-function-takeforwarded-commandstate-src-miniquake2-client-ui-commands-ml-1811981686"></a>
 ### takeForwarded
@@ -330,7 +330,7 @@ Consume forwarded.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L678)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L679)
 
 <a id="function-function-miniquake2-client-ui-commands-takeloadslot-function-takeloadslot-commandstate-src-miniquake2-client-ui-commands-ml-1394120679"></a>
 ### takeLoadSlot
@@ -346,7 +346,7 @@ Consume load slot.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L697)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L698)
 
 <a id="function-function-miniquake2-client-ui-commands-takenewgameskill-function-takenewgameskill-commandstate-src-miniquake2-client-ui-commands-ml-1504493351"></a>
 ### takeNewGameSkill
@@ -362,7 +362,7 @@ Consume new game skill.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L705)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L706)
 
 <a id="function-function-miniquake2-client-ui-commands-takeplayerdirty-function-takeplayerdirty-commandstate-src-miniquake2-client-ui-commands-ml-1556648263"></a>
 ### takePlayerDirty
@@ -378,7 +378,7 @@ Report whether take player dirty.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L721)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L722)
 
 <a id="function-function-miniquake2-client-ui-commands-takerconcommands-function-takerconcommands-commandstate-src-miniquake2-client-ui-commands-ml-495314571"></a>
 ### takeRconCommands
@@ -394,7 +394,7 @@ Consume pending remote-console commands.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L779)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L780)
 
 <a id="function-function-miniquake2-client-ui-commands-takereconnect-function-takereconnect-commandstate-src-miniquake2-client-ui-commands-ml-79929819"></a>
 ### takeReconnect
@@ -410,7 +410,7 @@ Consume reconnect request.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L771)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L772)
 
 <a id="function-function-miniquake2-client-ui-commands-takerecordname-function-takerecordname-commandstate-src-miniquake2-client-ui-commands-ml-1605181927"></a>
 ### takeRecordName
@@ -426,7 +426,7 @@ Consume record name.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L805)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L806)
 
 <a id="function-function-miniquake2-client-ui-commands-takerefreshservers-function-takerefreshservers-commandstate-src-miniquake2-client-ui-commands-ml-2122981967"></a>
 ### takeRefreshServers
@@ -442,7 +442,7 @@ Consume refresh servers.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L747)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L748)
 
 <a id="function-function-miniquake2-client-ui-commands-takesaveslot-function-takesaveslot-commandstate-src-miniquake2-client-ui-commands-ml-1249986087"></a>
 ### takeSaveSlot
@@ -458,7 +458,7 @@ Consume save slot.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L689)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L690)
 
 <a id="function-function-miniquake2-client-ui-commands-takescreenshot-function-takescreenshot-commandstate-src-miniquake2-client-ui-commands-ml-81851095"></a>
 ### takeScreenshot
@@ -474,7 +474,7 @@ Consume screenshot.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L821)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L822)
 
 <a id="function-function-miniquake2-client-ui-commands-takestartserver-function-takestartserver-commandstate-src-miniquake2-client-ui-commands-ml-2059779295"></a>
 ### takeStartServer
@@ -490,7 +490,7 @@ Consume start server.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L755)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L756)
 
 <a id="function-function-miniquake2-client-ui-commands-takestoprecording-function-takestoprecording-commandstate-src-miniquake2-client-ui-commands-ml-499803839"></a>
 ### takeStopRecording
@@ -506,4 +506,4 @@ Consume stop recording.
 | `commandState` | `dynamic` | — | commandState value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L813)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/commands.ml#L814)

@@ -36,7 +36,7 @@
 | [src/miniquake2/client/ui/commands.ml](File-src-miniquake2-client-ui-commands-ml-90449559.md) | `miniquake2.client.ui.commands` | yes | 75 |
 | [src/miniquake2/client/ui/config.ml](File-src-miniquake2-client-ui-config-ml-341139691.md) | `miniquake2.client.ui.config` | yes | 32 |
 | [src/miniquake2/client/ui/console.ml](File-src-miniquake2-client-ui-console-ml-367794066.md) | `miniquake2.client.ui.console` | yes | 12 |
-| [src/miniquake2/client/ui/constants.ml](File-src-miniquake2-client-ui-constants-ml-1004124106.md) | `miniquake2.client.ui.constants` | yes | 58 |
+| [src/miniquake2/client/ui/constants.ml](File-src-miniquake2-client-ui-constants-ml-1004124106.md) | `miniquake2.client.ui.constants` | yes | 60 |
 | [src/miniquake2/client/ui/controller.ml](File-src-miniquake2-client-ui-controller-ml-947969577.md) | `miniquake2.client.ui.controller` | yes | 11 |
 | [src/miniquake2/client/ui/gamepad.ml](File-src-miniquake2-client-ui-gamepad-ml-1141066020.md) | `miniquake2.client.ui.gamepad` | yes | 24 |
 | [src/miniquake2/client/ui/input.ml](File-src-miniquake2-client-ui-input-ml-1778495101.md) | `miniquake2.client.ui.input` | yes | 12 |

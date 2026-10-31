@@ -38,7 +38,7 @@ Apply product config.
 | `screen` | `dynamic` | — | screen value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L326)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L329)
 
 <a id="function-function-miniquake2-client-ui-config-captureproductconfig-function-captureproductconfig-input-commandstate-mixer-screen-src-miniquake2-client-ui-config-ml-49513714"></a>
 ### captureProductConfig
@@ -57,7 +57,7 @@ Capture product config.
 | `screen` | `dynamic` | — | screen value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L117)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L119)
 
 <a id="constant-constant-miniquake2-client-ui-config-config-header-const-config-header-miniquake2config-3-src-miniquake2-client-ui-config-ml-1792019581"></a>
 ### CONFIG_HEADER
@@ -145,7 +145,7 @@ Decode product config.
 | `text` | `dynamic` | — | Text consumed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L202)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L204)
 
 <a id="function-function-miniquake2-client-ui-config-encodeproductconfig-function-encodeproductconfig-config-src-miniquake2-client-ui-config-ml-2093990785"></a>
 ### encodeProductConfig
@@ -161,7 +161,7 @@ Encode product config.
 | `config` | `dynamic` | — | Configuration used by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L146)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L148)
 
 <a id="function-function-miniquake2-client-ui-config-loadproductconfig-function-loadproductconfig-path-src-miniquake2-client-ui-config-ml-951491048"></a>
 ### loadProductConfig
@@ -177,7 +177,7 @@ Load product config.
 | `path` | `dynamic` | — | Path of the file or directory used by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L390)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L393)
 
 - [miniquake2.client.ui.config.ProductConfig](Type-miniquake2-client-ui-config-productconfig-434436611.md) — struct
 <a id="function-function-miniquake2-client-ui-config-productconfigencodednumber-function-productconfigencodednumber-value-src-miniquake2-client-ui-config-ml-233761212"></a>
@@ -194,7 +194,7 @@ MiniLang renders an integral float as `3.`. The command tokenizer's numeric gram
 | `value` | `dynamic` | — | Value consumed or transformed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L138)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L140)
 
 <a id="function-function-miniquake2-client-ui-config-productconfignumber-function-productconfignumber-token-name-src-miniquake2-client-ui-config-ml-1471423467"></a>
 ### productConfigNumber
@@ -211,7 +211,7 @@ Return the product config number.
 | `name` | `dynamic` | — | Name of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L189)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L191)
 
 <a id="function-function-miniquake2-client-ui-config-productconfigsafecommand-function-productconfigsafecommand-command-src-miniquake2-client-ui-config-ml-660094312"></a>
 ### productConfigSafeCommand
@@ -260,7 +260,7 @@ Save product config.
 | `config` | `dynamic` | — | Configuration used by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L368)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L371)
 
 <a id="function-function-miniquake2-client-ui-config-selectproductconfig-function-selectproductconfig-path-handover-src-miniquake2-client-ui-config-ml-281725851"></a>
 ### selectProductConfig
@@ -277,4 +277,4 @@ A live map-to-map snapshot is authoritative over disk. This mirrors the original
 | `handover` | `dynamic` | — | handover value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L360)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/config.ml#L363)

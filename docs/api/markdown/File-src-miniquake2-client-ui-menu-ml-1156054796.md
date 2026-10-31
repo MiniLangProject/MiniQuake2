@@ -51,7 +51,7 @@ Performs the activate operation for the miniquake2 client ui menu module.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L452)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L453)
 
 <a id="function-function-miniquake2-client-ui-menu-adjust-function-adjust-menu-direction-src-miniquake2-client-ui-menu-ml-790647033"></a>
 ### adjust
@@ -68,7 +68,7 @@ Adjust state.
 | `direction` | `dynamic` | — | direction value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L430)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L431)
 
 <a id="function-function-miniquake2-client-ui-menu-bannername-function-bannername-pageid-src-miniquake2-client-ui-menu-ml-119158913"></a>
 ### bannerName
@@ -84,7 +84,7 @@ Return the banner name.
 | `pageId` | `dynamic` | — | Identifier of page. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L609)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L610)
 
 <a id="function-function-miniquake2-client-ui-menu-choice-function-choice-id-label-value-choices-command-src-miniquake2-client-ui-menu-ml-577111412"></a>
 ### choice
@@ -116,7 +116,7 @@ function create()
 Creates create for the miniquake2 client ui menu module.
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L238)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L239)
 
 <a id="function-function-miniquake2-client-ui-menu-defaultpages-function-defaultpages-src-miniquake2-client-ui-menu-ml-940284435"></a>
 ### defaultPages
@@ -144,7 +144,7 @@ Performs the drainCommands operation for the miniquake2 client ui menu module.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L717)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L718)
 
 <a id="function-function-miniquake2-client-ui-menu-draw-function-draw-menu-screenwidth-screenheight-now-exports-src-miniquake2-client-ui-menu-ml-1409231300"></a>
 ### draw
@@ -164,7 +164,7 @@ Draws draw through the miniquake2 client ui menu rendering path.
 | `exports` | `dynamic` | — | exports value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L674)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L675)
 
 <a id="function-function-miniquake2-client-ui-menu-drawalttext-function-drawalttext-exports-x-y-text-src-miniquake2-client-ui-menu-ml-1664818670"></a>
 ### drawAltText
@@ -183,7 +183,7 @@ Draw alt text.
 | `text` | `dynamic` | — | Text consumed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L599)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L600)
 
 <a id="function-function-miniquake2-client-ui-menu-drawmain-function-drawmain-menu-screenwidth-screenheight-now-exports-src-miniquake2-client-ui-menu-ml-457713520"></a>
 ### drawMain
@@ -203,7 +203,7 @@ Draw main.
 | `exports` | `dynamic` | — | exports value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L640)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L641)
 
 <a id="function-function-miniquake2-client-ui-menu-drawplayerpreview-function-drawplayerpreview-menu-screenwidth-screenheight-now-exports-src-miniquake2-client-ui-menu-ml-234821886"></a>
 ### drawPlayerPreview
@@ -223,7 +223,7 @@ PlayerConfig_MenuDraw renders the selected player as a full-bright alias model i
 | `exports` | `dynamic` | — | exports value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L553)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L554)
 
 <a id="function-function-miniquake2-client-ui-menu-drawtext-function-drawtext-exports-x-y-text-src-miniquake2-client-ui-menu-ml-633445594"></a>
 ### drawText
@@ -242,7 +242,7 @@ Draws text through the miniquake2 client ui menu rendering path.
 | `text` | `dynamic` | — | Text consumed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L586)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L587)
 
 <a id="function-function-miniquake2-client-ui-menu-field-function-field-id-label-value-maximumlength-command-src-miniquake2-client-ui-menu-ml-293919626"></a>
 ### field
@@ -279,7 +279,7 @@ Handle key.
 | `key` | `dynamic` | — | key value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L472)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L473)
 
 <a id="function-function-miniquake2-client-ui-menu-itembyid-function-itembyid-menu-pageid-itemid-src-miniquake2-client-ui-menu-ml-1956635592"></a>
 ### itemById
@@ -297,7 +297,7 @@ Return the item by id value.
 | `itemId` | `dynamic` | — | Identifier of item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L375)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L376)
 
 <a id="function-function-miniquake2-client-ui-menu-itemvalue-function-itemvalue-item-src-miniquake2-client-ui-menu-ml-405470216"></a>
 ### itemValue
@@ -313,7 +313,7 @@ Return the item value.
 | `item` | `dynamic` | — | item value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L509)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L510)
 
 <a id="function-function-miniquake2-client-ui-menu-label-function-label-id-text-src-miniquake2-client-ui-menu-ml-1240372361"></a>
 ### label
@@ -346,7 +346,7 @@ Return the main cursor name.
 | `now` | `dynamic` | — | now value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L622)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L623)
 
 <a id="constant-constant-miniquake2-client-ui-menu-max-menu-commands-const-max-menu-commands-16-src-miniquake2-client-ui-menu-ml-203651611"></a>
 ### MAX_MENU_COMMANDS
@@ -374,7 +374,7 @@ Return the menu cursor glyph value.
 | `now` | `dynamic` | — | now value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L629)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L630)
 
 <a id="global-global-miniquake2-client-ui-menu-menuemptycommands-menuemptycommands-src-miniquake2-client-ui-menu-ml-389256917"></a>
 ### menuEmptyCommands
@@ -415,7 +415,7 @@ Move state.
 | `direction` | `dynamic` | — | direction value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L418)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L419)
 
 <a id="function-function-miniquake2-client-ui-menu-open-function-open-menu-id-src-miniquake2-client-ui-menu-ml-2089196257"></a>
 ### open
@@ -432,7 +432,7 @@ Opens open for the miniquake2 client ui menu module.
 | `id` | `dynamic` | — | Stable identifier of the affected item. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L265)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L266)
 
 <a id="function-function-miniquake2-client-ui-menu-page-function-page-menu-src-miniquake2-client-ui-menu-ml-39688332"></a>
 ### page
@@ -448,7 +448,7 @@ Return the page value.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L255)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L256)
 
 <a id="function-function-miniquake2-client-ui-menu-playerpreviewmodelpath-function-playerpreviewmodelpath-menu-src-miniquake2-client-ui-menu-ml-1609942608"></a>
 ### playerPreviewModelPath
@@ -464,7 +464,7 @@ Return the player preview model path.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L528)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L529)
 
 <a id="function-function-miniquake2-client-ui-menu-playerpreviewpath-function-playerpreviewpath-menu-src-miniquake2-client-ui-menu-ml-1420342396"></a>
 ### playerPreviewPath
@@ -480,7 +480,7 @@ Return the player preview path.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L518)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L519)
 
 <a id="function-function-miniquake2-client-ui-menu-playerpreviewskinpath-function-playerpreviewskinpath-menu-src-miniquake2-client-ui-menu-ml-1662549330"></a>
 ### playerPreviewSkinPath
@@ -496,7 +496,7 @@ Return the player preview skin path.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L536)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L537)
 
 <a id="function-function-miniquake2-client-ui-menu-playerskinchoices-function-playerskinchoices-modelname-src-miniquake2-client-ui-menu-ml-1781545311"></a>
 ### playerSkinChoices
@@ -512,7 +512,7 @@ Return the player skin choices value.
 | `modelName` | `dynamic` | — | modelName value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L389)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L390)
 
 <a id="function-function-miniquake2-client-ui-menu-queuecommand-function-queuecommand-menu-command-src-miniquake2-client-ui-menu-ml-328379321"></a>
 ### queueCommand
@@ -529,7 +529,7 @@ Queue command.
 | `command` | `dynamic` | — | command value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L246)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L247)
 
 <a id="function-function-miniquake2-client-ui-menu-setactioncommand-function-setactioncommand-menu-pageid-itemid-text-command-enabled-src-miniquake2-client-ui-menu-ml-1806886685"></a>
 ### setActionCommand
@@ -550,7 +550,7 @@ Set action command.
 | `enabled` | `dynamic` | — | enabled value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L350)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L351)
 
 <a id="function-function-miniquake2-client-ui-menu-setitemlabel-function-setitemlabel-menu-pageid-itemid-text-src-miniquake2-client-ui-menu-ml-419343687"></a>
 ### setItemLabel
@@ -569,7 +569,7 @@ Set item label.
 | `text` | `dynamic` | — | Text consumed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L277)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L278)
 
 <a id="function-function-miniquake2-client-ui-menu-setitemtext-function-setitemtext-menu-pageid-itemid-value-src-miniquake2-client-ui-menu-ml-2147406677"></a>
 ### setItemText
@@ -588,7 +588,7 @@ Set item text.
 | `value` | `dynamic` | — | Value consumed or transformed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L325)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L326)
 
 <a id="function-function-miniquake2-client-ui-menu-setitemvalue-function-setitemvalue-menu-pageid-itemid-value-src-miniquake2-client-ui-menu-ml-645584793"></a>
 ### setItemValue
@@ -607,7 +607,7 @@ Set item value.
 | `value` | `dynamic` | — | Value consumed or transformed by the operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L295)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L296)
 
 <a id="function-function-miniquake2-client-ui-menu-slider-function-slider-id-label-value-minimum-maximum-step-command-src-miniquake2-client-ui-menu-ml-28939210"></a>
 ### slider
@@ -645,7 +645,7 @@ Synchronize player skins.
 | `menu` | `dynamic` | — | menu value consumed by this operation. |
 
 
-[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L402)
+[View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/ui/menu.ml#L403)
 
 <a id="function-function-miniquake2-client-ui-menu-toggle-function-toggle-id-label-value-command-src-miniquake2-client-ui-menu-ml-553031542"></a>
 ### toggle

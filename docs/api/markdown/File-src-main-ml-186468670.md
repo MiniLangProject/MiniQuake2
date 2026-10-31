@@ -62,11 +62,11 @@ Catch every propagated MiniLang error at the process boundary. Keeping the origi
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/main.ml#L552)
 
-<a id="constant-constant-miniquake2-version-const-miniquake2-version-0-5-0-foundation-src-main-ml-1239638117"></a>
+<a id="constant-constant-miniquake2-version-const-miniquake2-version-0-5-1-foundation-src-main-ml-418024522"></a>
 ### MINIQUAKE2_VERSION
 
 ```ml
-const MINIQUAKE2_VERSION = "0.5.0-foundation"
+const MINIQUAKE2_VERSION = "0.5.1-foundation"
 ```
 
 Defines the miniquake2 version constant used by the main module.
