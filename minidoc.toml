@@ -3,7 +3,7 @@ name = "MiniQuake2"
 description = "API and implementation reference for the MiniLang Quake II engine and baseq2 port, including client, server, renderer, audio, networking, collision, game logic, persistence, and platform integration."
 entry = "src/main.ml"
 source_roots = ["src"]
-include = ["src"]
+include = ["src", "../MiniLangCompilerML"]
 exclude = ["build", "build_debug", "docs/api", "native", "tests", "tools"]
 target = "windows-x64"
 
