@@ -30,11 +30,11 @@ Stores module-wide active prediction world state for the miniquake2 client predi
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/prediction_world.ml#L36)
 
-<a id="constant-constant-miniquake2-client-prediction-world-box-epsilon-const-box-epsilon-3-125e-002-src-miniquake2-client-prediction-world-ml-791772202"></a>
+<a id="constant-constant-miniquake2-client-prediction-world-box-epsilon-const-box-epsilon-0-03125-src-miniquake2-client-prediction-world-ml-2088268746"></a>
 ### BOX_EPSILON
 
 ```ml
-const BOX_EPSILON = 3.125e-002
+const BOX_EPSILON = 0.03125
 ```
 
 Defines the box epsilon constant used by the miniquake2 client prediction world module.

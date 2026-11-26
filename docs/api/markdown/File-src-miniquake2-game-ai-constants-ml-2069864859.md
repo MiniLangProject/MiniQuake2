@@ -478,11 +478,11 @@ Defines the insane stand ground constant used by the miniquake2 game ai constant
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/game/ai/constants.ml#L129)
 
-<a id="constant-constant-miniquake2-game-ai-constants-melee-distance-const-melee-distance-80-src-miniquake2-game-ai-constants-ml-1349270078"></a>
+<a id="constant-constant-miniquake2-game-ai-constants-melee-distance-const-melee-distance-80-src-miniquake2-game-ai-constants-ml-1728199144"></a>
 ### MELEE_DISTANCE
 
 ```ml
-const MELEE_DISTANCE = 80.
+const MELEE_DISTANCE = 80
 ```
 
 Defines the melee distance constant used by the miniquake2 game ai constants module.

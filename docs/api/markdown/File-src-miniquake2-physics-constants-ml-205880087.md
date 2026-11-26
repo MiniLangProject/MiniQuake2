@@ -10,11 +10,11 @@ Reachable from entry: **yes**
 
 ## Declarations
 
-<a id="constant-constant-miniquake2-physics-constants-accelerate-const-accelerate-10-src-miniquake2-physics-constants-ml-1459614896"></a>
+<a id="constant-constant-miniquake2-physics-constants-accelerate-const-accelerate-10-src-miniquake2-physics-constants-ml-1354863094"></a>
 ### ACCELERATE
 
 ```ml
-const ACCELERATE = 10.
+const ACCELERATE = 10
 ```
 
 Defines the accelerate constant used by the miniquake2 physics constants module.
@@ -22,11 +22,11 @@ Defines the accelerate constant used by the miniquake2 physics constants module.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L30)
 
-<a id="constant-constant-miniquake2-physics-constants-default-air-accelerate-const-default-air-accelerate-0-src-miniquake2-physics-constants-ml-246772363"></a>
+<a id="constant-constant-miniquake2-physics-constants-default-air-accelerate-const-default-air-accelerate-0-src-miniquake2-physics-constants-ml-1815119111"></a>
 ### DEFAULT_AIR_ACCELERATE
 
 ```ml
-const DEFAULT_AIR_ACCELERATE = 0.
+const DEFAULT_AIR_ACCELERATE = 0
 ```
 
 Defines the default air accelerate constant used by the miniquake2 physics constants module.
@@ -34,11 +34,11 @@ Defines the default air accelerate constant used by the miniquake2 physics const
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L32)
 
-<a id="constant-constant-miniquake2-physics-constants-duck-speed-const-duck-speed-100-src-miniquake2-physics-constants-ml-1097284644"></a>
+<a id="constant-constant-miniquake2-physics-constants-duck-speed-const-duck-speed-100-src-miniquake2-physics-constants-ml-594539226"></a>
 ### DUCK_SPEED
 
 ```ml
-const DUCK_SPEED = 100.
+const DUCK_SPEED = 100
 ```
 
 Defines the duck speed constant used by the miniquake2 physics constants module.
@@ -46,11 +46,11 @@ Defines the duck speed constant used by the miniquake2 physics constants module.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L28)
 
-<a id="constant-constant-miniquake2-physics-constants-friction-const-friction-6-src-miniquake2-physics-constants-ml-1902162913"></a>
+<a id="constant-constant-miniquake2-physics-constants-friction-const-friction-6-src-miniquake2-physics-constants-ml-1351489365"></a>
 ### FRICTION
 
 ```ml
-const FRICTION = 6.
+const FRICTION = 6
 ```
 
 Defines the friction constant used by the miniquake2 physics constants module.
@@ -82,11 +82,11 @@ Defines the max clip planes constant used by the miniquake2 physics constants mo
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L17)
 
-<a id="constant-constant-miniquake2-physics-constants-max-speed-const-max-speed-300-src-miniquake2-physics-constants-ml-111678546"></a>
+<a id="constant-constant-miniquake2-physics-constants-max-speed-const-max-speed-300-src-miniquake2-physics-constants-ml-2020205192"></a>
 ### MAX_SPEED
 
 ```ml
-const MAX_SPEED = 300.
+const MAX_SPEED = 300
 ```
 
 Defines the max speed constant used by the miniquake2 physics constants module.
@@ -106,11 +106,11 @@ Defines the min step normal constant used by the miniquake2 physics constants mo
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L15)
 
-<a id="constant-constant-miniquake2-physics-constants-step-size-const-step-size-18-src-miniquake2-physics-constants-ml-1687465664"></a>
+<a id="constant-constant-miniquake2-physics-constants-step-size-const-step-size-18-src-miniquake2-physics-constants-ml-469887334"></a>
 ### STEP_SIZE
 
 ```ml
-const STEP_SIZE = 18.
+const STEP_SIZE = 18
 ```
 
 Defines the step size constant used by the miniquake2 physics constants module.
@@ -130,11 +130,11 @@ Defines the stop epsilon constant used by the miniquake2 physics constants modul
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L21)
 
-<a id="constant-constant-miniquake2-physics-constants-stop-speed-const-stop-speed-100-src-miniquake2-physics-constants-ml-786116154"></a>
+<a id="constant-constant-miniquake2-physics-constants-stop-speed-const-stop-speed-100-src-miniquake2-physics-constants-ml-437260912"></a>
 ### STOP_SPEED
 
 ```ml
-const STOP_SPEED = 100.
+const STOP_SPEED = 100
 ```
 
 Defines the stop speed constant used by the miniquake2 physics constants module.
@@ -142,11 +142,11 @@ Defines the stop speed constant used by the miniquake2 physics constants module.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L24)
 
-<a id="constant-constant-miniquake2-physics-constants-water-accelerate-const-water-accelerate-10-src-miniquake2-physics-constants-ml-178686980"></a>
+<a id="constant-constant-miniquake2-physics-constants-water-accelerate-const-water-accelerate-10-src-miniquake2-physics-constants-ml-1269201338"></a>
 ### WATER_ACCELERATE
 
 ```ml
-const WATER_ACCELERATE = 10.
+const WATER_ACCELERATE = 10
 ```
 
 Defines the water accelerate constant used by the miniquake2 physics constants module.
@@ -154,11 +154,11 @@ Defines the water accelerate constant used by the miniquake2 physics constants m
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L34)
 
-<a id="constant-constant-miniquake2-physics-constants-water-friction-const-water-friction-1-src-miniquake2-physics-constants-ml-1078128838"></a>
+<a id="constant-constant-miniquake2-physics-constants-water-friction-const-water-friction-1-src-miniquake2-physics-constants-ml-669285724"></a>
 ### WATER_FRICTION
 
 ```ml
-const WATER_FRICTION = 1.
+const WATER_FRICTION = 1
 ```
 
 Defines the water friction constant used by the miniquake2 physics constants module.
@@ -166,11 +166,11 @@ Defines the water friction constant used by the miniquake2 physics constants mod
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/physics/constants.ml#L38)
 
-<a id="constant-constant-miniquake2-physics-constants-water-speed-const-water-speed-400-src-miniquake2-physics-constants-ml-1768473189"></a>
+<a id="constant-constant-miniquake2-physics-constants-water-speed-const-water-speed-400-src-miniquake2-physics-constants-ml-1318948505"></a>
 ### WATER_SPEED
 
 ```ml
-const WATER_SPEED = 400.
+const WATER_SPEED = 400
 ```
 
 Defines the water speed constant used by the miniquake2 physics constants module.

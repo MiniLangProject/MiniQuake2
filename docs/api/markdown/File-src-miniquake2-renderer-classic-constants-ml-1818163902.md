@@ -70,11 +70,11 @@ Defines the cull product scale constant used by the miniquake2 renderer classic 
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/constants.ml#L26)
 
-<a id="constant-constant-miniquake2-renderer-classic-constants-dlight-cutoff-const-dlight-cutoff-64-src-miniquake2-renderer-classic-constants-ml-915029166"></a>
+<a id="constant-constant-miniquake2-renderer-classic-constants-dlight-cutoff-const-dlight-cutoff-64-src-miniquake2-renderer-classic-constants-ml-1326584746"></a>
 ### DLIGHT_CUTOFF
 
 ```ml
-const DLIGHT_CUTOFF = 64.
+const DLIGHT_CUTOFF = 64
 ```
 
 Defines the dlight cutoff constant used by the miniquake2 renderer classic constants module.

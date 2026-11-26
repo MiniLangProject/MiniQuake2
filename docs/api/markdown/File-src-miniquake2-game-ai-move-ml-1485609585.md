@@ -261,11 +261,11 @@ Return the new chase direction value.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/game/ai/move.ml#L380)
 
-<a id="constant-constant-miniquake2-game-ai-move-no-direction-const-no-direction-1-src-miniquake2-game-ai-move-ml-231260980"></a>
+<a id="constant-constant-miniquake2-game-ai-move-no-direction-const-no-direction-1-src-miniquake2-game-ai-move-ml-2114512282"></a>
 ### NO_DIRECTION
 
 ```ml
-const NO_DIRECTION = -1.
+const NO_DIRECTION = -1
 ```
 
 Defines the no direction constant used by the miniquake2 game ai move module.
@@ -308,11 +308,11 @@ Set origin.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/game/ai/move.ml#L40)
 
-<a id="constant-constant-miniquake2-game-ai-move-step-size-const-step-size-18-src-miniquake2-game-ai-move-ml-1765953943"></a>
+<a id="constant-constant-miniquake2-game-ai-move-step-size-const-step-size-18-src-miniquake2-game-ai-move-ml-1972038939"></a>
 ### STEP_SIZE
 
 ```ml
-const STEP_SIZE = 18.
+const STEP_SIZE = 18
 ```
 
 Defines the step size constant used by the miniquake2 game ai move module.

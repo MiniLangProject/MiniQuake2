@@ -730,11 +730,11 @@ Defines the cvar userinfo constant used by the miniquake2 qcommon constants modu
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/qcommon/constants.ml#L267)
 
-<a id="constant-constant-miniquake2-qcommon-constants-default-sound-packet-attenuation-const-default-sound-packet-attenuation-1-src-miniquake2-qcommon-constants-ml-134950064"></a>
+<a id="constant-constant-miniquake2-qcommon-constants-default-sound-packet-attenuation-const-default-sound-packet-attenuation-1-src-miniquake2-qcommon-constants-ml-139422940"></a>
 ### DEFAULT_SOUND_PACKET_ATTENUATION
 
 ```ml
-const DEFAULT_SOUND_PACKET_ATTENUATION = 1.
+const DEFAULT_SOUND_PACKET_ATTENUATION = 1
 ```
 
 Defines the default sound packet attenuation constant used by the miniquake2 qcommon constants module.
@@ -742,11 +742,11 @@ Defines the default sound packet attenuation constant used by the miniquake2 qco
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/qcommon/constants.ml#L192)
 
-<a id="constant-constant-miniquake2-qcommon-constants-default-sound-packet-volume-const-default-sound-packet-volume-1-src-miniquake2-qcommon-constants-ml-1273239560"></a>
+<a id="constant-constant-miniquake2-qcommon-constants-default-sound-packet-volume-const-default-sound-packet-volume-1-src-miniquake2-qcommon-constants-ml-1850721844"></a>
 ### DEFAULT_SOUND_PACKET_VOLUME
 
 ```ml
-const DEFAULT_SOUND_PACKET_VOLUME = 1.
+const DEFAULT_SOUND_PACKET_VOLUME = 1
 ```
 
 Defines the default sound packet volume constant used by the miniquake2 qcommon constants module.

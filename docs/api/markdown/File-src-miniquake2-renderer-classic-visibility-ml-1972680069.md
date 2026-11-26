@@ -23,11 +23,11 @@ Reachable from entry: **yes**
 
 ## Declarations
 
-<a id="constant-constant-miniquake2-renderer-classic-visibility-backface-epsilon-const-backface-epsilon-1-e-002-src-miniquake2-renderer-classic-visibility-ml-1312437185"></a>
+<a id="constant-constant-miniquake2-renderer-classic-visibility-backface-epsilon-const-backface-epsilon-0-01-src-miniquake2-renderer-classic-visibility-ml-2002702029"></a>
 ### BACKFACE_EPSILON
 
 ```ml
-const BACKFACE_EPSILON = 1.e-002
+const BACKFACE_EPSILON = 0.01
 ```
 
 Defines the backface epsilon constant used by the miniquake2 renderer classic visibility module.
@@ -721,11 +721,11 @@ Select the world into reusable prefix storage for live OpenGL submission.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/visibility.ml#L772)
 
-<a id="constant-constant-miniquake2-renderer-classic-visibility-visibility-deg-to-rad-const-visibility-deg-to-rad-1-74532925199433e-002-src-miniquake2-renderer-classic-visibility-ml-306317087"></a>
+<a id="constant-constant-miniquake2-renderer-classic-visibility-visibility-deg-to-rad-const-visibility-deg-to-rad-0-017453-src-miniquake2-renderer-classic-visibility-ml-985378050"></a>
 ### VISIBILITY_DEG_TO_RAD
 
 ```ml
-const VISIBILITY_DEG_TO_RAD = 1.74532925199433e-002
+const VISIBILITY_DEG_TO_RAD = 0.017453
 ```
 
 Defines the visibility deg to rad constant used by the miniquake2 renderer classic visibility module.
@@ -733,11 +733,11 @@ Defines the visibility deg to rad constant used by the miniquake2 renderer class
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/visibility.ml#L25)
 
-<a id="constant-constant-miniquake2-renderer-classic-visibility-visibility-far-const-visibility-far-8192-src-miniquake2-renderer-classic-visibility-ml-356412572"></a>
+<a id="constant-constant-miniquake2-renderer-classic-visibility-visibility-far-const-visibility-far-8192-src-miniquake2-renderer-classic-visibility-ml-736100710"></a>
 ### VISIBILITY_FAR
 
 ```ml
-const VISIBILITY_FAR = 8192.
+const VISIBILITY_FAR = 8192
 ```
 
 Defines the visibility far constant used by the miniquake2 renderer classic visibility module.
@@ -745,11 +745,11 @@ Defines the visibility far constant used by the miniquake2 renderer classic visi
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/visibility.ml#L29)
 
-<a id="constant-constant-miniquake2-renderer-classic-visibility-visibility-near-const-visibility-near-4-src-miniquake2-renderer-classic-visibility-ml-1707133490"></a>
+<a id="constant-constant-miniquake2-renderer-classic-visibility-visibility-near-const-visibility-near-4-src-miniquake2-renderer-classic-visibility-ml-640102236"></a>
 ### VISIBILITY_NEAR
 
 ```ml
-const VISIBILITY_NEAR = 4.
+const VISIBILITY_NEAR = 4
 ```
 
 Defines the visibility near constant used by the miniquake2 renderer classic visibility module.

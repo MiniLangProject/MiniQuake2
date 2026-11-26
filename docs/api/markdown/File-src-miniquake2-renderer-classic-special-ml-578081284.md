@@ -463,11 +463,11 @@ Create pass arrays once for a retained world or inline brush model.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/special.ml#L369)
 
-<a id="constant-constant-miniquake2-renderer-classic-special-special-pi2-const-special-pi2-6-28318530717959-src-miniquake2-renderer-classic-special-ml-2107189512"></a>
+<a id="constant-constant-miniquake2-renderer-classic-special-special-pi2-const-special-pi2-6-283185-src-miniquake2-renderer-classic-special-ml-1246594763"></a>
 ### SPECIAL_PI2
 
 ```ml
-const SPECIAL_PI2 = 6.28318530717959
+const SPECIAL_PI2 = 6.283185
 ```
 
 Defines the special pi2 constant used by the miniquake2 renderer classic special module.
@@ -475,11 +475,11 @@ Defines the special pi2 constant used by the miniquake2 renderer classic special
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/special.ml#L24)
 
-<a id="constant-constant-miniquake2-renderer-classic-special-special-subdivide-margin-const-special-subdivide-margin-8-src-miniquake2-renderer-classic-special-ml-837939456"></a>
+<a id="constant-constant-miniquake2-renderer-classic-special-special-subdivide-margin-const-special-subdivide-margin-8-src-miniquake2-renderer-classic-special-ml-1334748484"></a>
 ### SPECIAL_SUBDIVIDE_MARGIN
 
 ```ml
-const SPECIAL_SUBDIVIDE_MARGIN = 8.
+const SPECIAL_SUBDIVIDE_MARGIN = 8
 ```
 
 Defines the special subdivide margin constant used by the miniquake2 renderer classic special module.
@@ -487,11 +487,11 @@ Defines the special subdivide margin constant used by the miniquake2 renderer cl
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/special.ml#L30)
 
-<a id="constant-constant-miniquake2-renderer-classic-special-special-subdivide-size-const-special-subdivide-size-64-src-miniquake2-renderer-classic-special-ml-1877192958"></a>
+<a id="constant-constant-miniquake2-renderer-classic-special-special-subdivide-size-const-special-subdivide-size-64-src-miniquake2-renderer-classic-special-ml-1296481946"></a>
 ### SPECIAL_SUBDIVIDE_SIZE
 
 ```ml
-const SPECIAL_SUBDIVIDE_SIZE = 64.
+const SPECIAL_SUBDIVIDE_SIZE = 64
 ```
 
 Defines the special subdivide size constant used by the miniquake2 renderer classic special module.
@@ -499,11 +499,11 @@ Defines the special subdivide size constant used by the miniquake2 renderer clas
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/classic/special.ml#L28)
 
-<a id="constant-constant-miniquake2-renderer-classic-special-special-turb-scale-const-special-turb-scale-40-7436654315252-src-miniquake2-renderer-classic-special-ml-1236128467"></a>
+<a id="constant-constant-miniquake2-renderer-classic-special-special-turb-scale-const-special-turb-scale-40-743665-src-miniquake2-renderer-classic-special-ml-2124924915"></a>
 ### SPECIAL_TURB_SCALE
 
 ```ml
-const SPECIAL_TURB_SCALE = 40.7436654315252
+const SPECIAL_TURB_SCALE = 40.743665
 ```
 
 Defines the special turb scale constant used by the miniquake2 renderer classic special module.

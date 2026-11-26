@@ -9,7 +9,7 @@
 ## Symbols
 
 - [`miniquake2.client.prediction_world.activePredictionWorld`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#global-global-miniquake2-client-prediction-world-activepredictionworld-activepredictionworld-src-miniquake2-client-prediction-world-ml-969831668) — global
-- [`miniquake2.client.prediction_world.BOX_EPSILON`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#constant-constant-miniquake2-client-prediction-world-box-epsilon-const-box-epsilon-3-125e-002-src-miniquake2-client-prediction-world-ml-791772202) — constant
+- [`miniquake2.client.prediction_world.BOX_EPSILON`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#constant-constant-miniquake2-client-prediction-world-box-epsilon-const-box-epsilon-0-03125-src-miniquake2-client-prediction-world-ml-2088268746) — constant
 - [`miniquake2.client.prediction_world.boxEntityTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-boxentitytrace-function-boxentitytrace-start-mins-maxs-finish-entity-src-miniquake2-client-prediction-world-ml-1575806984) — function
 - [`miniquake2.client.prediction_world.collisionTrace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-collisiontrace-function-collisiontrace-result-entity-src-miniquake2-client-prediction-world-ml-344773500) — function
 - [`miniquake2.client.prediction_world.createPredictionWorkspace`](File-src-miniquake2-client-prediction-world-ml-1403186180.md#function-function-miniquake2-client-prediction-world-createpredictionworkspace-function-createpredictionworkspace-src-miniquake2-client-prediction-world-ml-650425826) — function

@@ -505,11 +505,11 @@ Create one fixed-capacity sky vertex buffer.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/opengl.ml#L3052)
 
-<a id="constant-constant-miniquake2-renderer-opengl-deg-to-rad-const-deg-to-rad-1-74532925199433e-002-src-miniquake2-renderer-opengl-ml-1940022546"></a>
+<a id="constant-constant-miniquake2-renderer-opengl-deg-to-rad-const-deg-to-rad-0-017453-src-miniquake2-renderer-opengl-ml-1100972053"></a>
 ### DEG_TO_RAD
 
 ```ml
-const DEG_TO_RAD = 1.74532925199433e-002
+const DEG_TO_RAD = 0.017453
 ```
 
 Defines the deg to rad constant used by the miniquake2 renderer opengl module.

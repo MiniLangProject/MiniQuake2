@@ -466,11 +466,11 @@ Defines the ev player teleport constant used by the miniquake2 client effects co
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/effects/constants.ml#L275)
 
-<a id="constant-constant-miniquake2-client-effects-constants-instant-particle-const-instant-particle-10000-src-miniquake2-client-effects-constants-ml-2034813908"></a>
+<a id="constant-constant-miniquake2-client-effects-constants-instant-particle-const-instant-particle-10000-src-miniquake2-client-effects-constants-ml-1595918520"></a>
 ### INSTANT_PARTICLE
 
 ```ml
-const INSTANT_PARTICLE = -10000.
+const INSTANT_PARTICLE = -10000
 ```
 
 Defines the instant particle constant used by the miniquake2 client effects constants module.
@@ -910,11 +910,11 @@ Defines the mz tracker constant used by the miniquake2 client effects constants 
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/client/effects/constants.ml#L141)
 
-<a id="constant-constant-miniquake2-client-effects-constants-particle-gravity-const-particle-gravity-40-src-miniquake2-client-effects-constants-ml-1575930296"></a>
+<a id="constant-constant-miniquake2-client-effects-constants-particle-gravity-const-particle-gravity-40-src-miniquake2-client-effects-constants-ml-705107084"></a>
 ### PARTICLE_GRAVITY
 
 ```ml
-const PARTICLE_GRAVITY = 40.
+const PARTICLE_GRAVITY = 40
 ```
 
 Defines the particle gravity constant used by the miniquake2 client effects constants module.

@@ -118,11 +118,11 @@ Defines the frame time constant used by the miniquake2 game weapons constants mo
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/game/weapons/constants.ml#L72)
 
-<a id="constant-constant-miniquake2-game-weapons-constants-grenade-max-speed-const-grenade-max-speed-800-src-miniquake2-game-weapons-constants-ml-1914609458"></a>
+<a id="constant-constant-miniquake2-game-weapons-constants-grenade-max-speed-const-grenade-max-speed-800-src-miniquake2-game-weapons-constants-ml-867470166"></a>
 ### GRENADE_MAX_SPEED
 
 ```ml
-const GRENADE_MAX_SPEED = 800.
+const GRENADE_MAX_SPEED = 800
 ```
 
 Defines the grenade max speed constant used by the miniquake2 game weapons constants module.
@@ -130,11 +130,11 @@ Defines the grenade max speed constant used by the miniquake2 game weapons const
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/game/weapons/constants.ml#L70)
 
-<a id="constant-constant-miniquake2-game-weapons-constants-grenade-min-speed-const-grenade-min-speed-400-src-miniquake2-game-weapons-constants-ml-1456901430"></a>
+<a id="constant-constant-miniquake2-game-weapons-constants-grenade-min-speed-const-grenade-min-speed-400-src-miniquake2-game-weapons-constants-ml-685354314"></a>
 ### GRENADE_MIN_SPEED
 
 ```ml
-const GRENADE_MIN_SPEED = 400.
+const GRENADE_MIN_SPEED = 400
 ```
 
 Defines the grenade min speed constant used by the miniquake2 game weapons constants module.
@@ -142,11 +142,11 @@ Defines the grenade min speed constant used by the miniquake2 game weapons const
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/game/weapons/constants.ml#L68)
 
-<a id="constant-constant-miniquake2-game-weapons-constants-grenade-timer-const-grenade-timer-3-src-miniquake2-game-weapons-constants-ml-1751600159"></a>
+<a id="constant-constant-miniquake2-game-weapons-constants-grenade-timer-const-grenade-timer-3-src-miniquake2-game-weapons-constants-ml-599082701"></a>
 ### GRENADE_TIMER
 
 ```ml
-const GRENADE_TIMER = 3.
+const GRENADE_TIMER = 3
 ```
 
 Defines the grenade timer constant used by the miniquake2 game weapons constants module.

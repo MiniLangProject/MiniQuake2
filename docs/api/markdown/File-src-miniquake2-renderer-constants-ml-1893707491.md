@@ -82,11 +82,11 @@ Defines the max particles constant used by the miniquake2 renderer constants mod
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/renderer/constants.ml#L21)
 
-<a id="constant-constant-miniquake2-renderer-constants-powersuit-scale-const-powersuit-scale-4-src-miniquake2-renderer-constants-ml-776272157"></a>
+<a id="constant-constant-miniquake2-renderer-constants-powersuit-scale-const-powersuit-scale-4-src-miniquake2-renderer-constants-ml-924803185"></a>
 ### POWERSUIT_SCALE
 
 ```ml
-const POWERSUIT_SCALE = 4.
+const POWERSUIT_SCALE = 4
 ```
 
 Defines the powersuit scale constant used by the miniquake2 renderer constants module.

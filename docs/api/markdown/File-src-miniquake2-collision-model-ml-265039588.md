@@ -186,11 +186,11 @@ Creates create for the miniquake2 collision model module.
 
 [View source](https://github.com/MiniLangProject/MiniQuake2/blob/main/src/miniquake2/collision/model.ml#L139)
 
-<a id="constant-constant-miniquake2-collision-model-dist-epsilon-const-dist-epsilon-3-125e-002-src-miniquake2-collision-model-ml-39884880"></a>
+<a id="constant-constant-miniquake2-collision-model-dist-epsilon-const-dist-epsilon-0-03125-src-miniquake2-collision-model-ml-830027008"></a>
 ### DIST_EPSILON
 
 ```ml
-const DIST_EPSILON = 3.125e-002
+const DIST_EPSILON = 0.03125
 ```
 
 Defines the dist epsilon constant used by the miniquake2 collision model module.
